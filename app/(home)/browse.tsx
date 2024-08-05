@@ -11,7 +11,7 @@ interface CarListing {
 
 // Mock data for car listings
 const mockCarListings: CarListing[] = [
-  { id: '1', make: 'Toyota', model: 'Camry', year: 2022, price: 25000 },
+  { id: '1', make: 'Ryan', model: 'Camry', year: 2022, price: 25000 },
   { id: '2', make: 'Honda', model: 'Civic', year: 2021, price: 22000 },
   { id: '3', make: 'Ford', model: 'F-150', year: 2023, price: 35000 },
 ];
