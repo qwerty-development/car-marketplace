@@ -1,12 +1,35 @@
 import { useFonts } from "expo-font";
-import { Slot } from "expo-router";
+import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { ClerkLoaded, ClerkProvider } from "@clerk/clerk-expo";
+import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/cache";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+function RootLayoutNav() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const inTabsGroup = segments[0] === "(home)";
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (isSignedIn && !inTabsGroup) {
+      // Redirect to the main app if the user is signed in and not in the (tabs) group
+      router.replace("/(home)/browse");
+    } else if (!isSignedIn && !inAuthGroup) {
+      // Redirect to the sign-in page if the user is not signed in and not in the (auth) group
+      router.replace("/(auth)/sign-in");
+    }
+  }, [isLoaded, isSignedIn, segments]);
+
+  return <Slot />;
+}
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -34,7 +57,7 @@ export default function RootLayout() {
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
       <ClerkLoaded>
-        <Slot />
+        <RootLayoutNav />
       </ClerkLoaded>
     </ClerkProvider>
   );
