@@ -11,7 +11,11 @@ export default function HomeLayout() {
 	useEffect(() => {
 		if (!isLoaded || !user) return
 
-		const currentRole = user.publicMetadata.role as string
+		let currentRole = 'user'
+		if (user.publicMetadata.role) {
+			currentRole = user.publicMetadata.role as string
+		}
+
 		const inCorrectGroup = segments[1] === `(${currentRole})`
 
 		if (isSignedIn && !inCorrectGroup) {

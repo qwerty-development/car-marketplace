@@ -1,26 +1,14 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { useUser, useClerk } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
-import { supabase } from '@/utils/supabase'
 
-export default async function ProfilePage() {
+export default function ProfilePage() {
 	const { user } = useUser()
 	const clerk = useClerk()
 	const router = useRouter()
 
-	useEffect(() => {
-		fetchData()
-	}, [])
-
-	async function fetchData() {
-		const { data } = await supabase.from('cars').select('*')
-		console.log(data)
-	}
-
 	const handleManageAccount = () => {
-		// Here you would typically open a web browser to Clerk's user management page
-		// For this example, we'll just show an alert
 		Alert.alert(
 			'Manage Account',
 			'This would typically open your account management page in a web browser.'
