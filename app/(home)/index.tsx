@@ -19,7 +19,7 @@ export default function HomePage() {
     { name: "Honda" },
     { name: "Ford" },
     { name: "BMW" },
-    { name: "Mercedes" },
+    { name: "Mercedes Benz" },
     { name: "Audi" },
   ];
 
