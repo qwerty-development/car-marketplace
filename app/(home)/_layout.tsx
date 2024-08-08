@@ -1,44 +1,30 @@
-import { Tabs } from "expo-router";
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect } from 'react'
+import { Slot, useRouter, useSegments } from 'expo-router'
+import { useAuth, useUser } from '@clerk/clerk-expo'
 
 export default function HomeLayout() {
-  return (
-    <Tabs>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: "Browse Cars",
-          tabBarIcon: ({ color, size }) => <Ionicons name="car" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: "Favorites",
-          tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="dealership"
-        options={{
-          title: "Dealership",
-          tabBarIcon: ({ color, size }) => <Ionicons name="business" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
-        }}
-      />
-    </Tabs>
-  );
+	const { isLoaded, isSignedIn } = useAuth()
+	const { user } = useUser()
+	const router = useRouter()
+	const segments = useSegments()
+
+	useEffect(() => {
+		if (!isLoaded || !user) return
+
+		const currentRole = user.publicMetadata.role as string
+		const inCorrectGroup = segments[1] === `(${currentRole})`
+
+		if (isSignedIn && !inCorrectGroup) {
+			router.replace(`/(home)/(${currentRole})`)
+		} else if (!isSignedIn) {
+			router.replace('/(auth)/sign-in')
+		}
+	}, [isLoaded, isSignedIn, user, segments])
+
+	// If the user is signed out, we don't want to render the home layout at all
+	if (!isSignedIn) {
+		return null
+	}
+
+	return <Slot />
 }
