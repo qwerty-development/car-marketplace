@@ -6,16 +6,17 @@ import {
 	Text,
 	StyleSheet,
 	KeyboardAvoidingView,
-	Platform,
-	Alert
+	Platform
 } from 'react-native'
 import { useSignUp } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
+import { supabase } from '@/utils/supabase'
 
 export default function SignUpScreen() {
 	const { isLoaded, signUp, setActive } = useSignUp()
 	const router = useRouter()
 
+	const [name, setName] = React.useState('')
 	const [emailAddress, setEmailAddress] = React.useState('')
 	const [password, setPassword] = React.useState('')
 	const [pendingVerification, setPendingVerification] = React.useState(false)
@@ -46,12 +47,40 @@ export default function SignUpScreen() {
 				code
 			})
 
-			if (completeSignUp.status === 'complete') {
-				await setActive({ session: completeSignUp.createdSessionId })
-				router.replace('/')
-			} else {
+			if (completeSignUp.status !== 'complete') {
 				setError('Verification failed. Please try again.')
+				return
 			}
+
+			const { createdSessionId, createdUserId } = completeSignUp
+
+			if (!createdSessionId || !createdUserId) {
+				setError('Failed to complete sign up. Please try again.')
+				return
+			}
+
+			// Set the active session
+			await setActive({ session: createdSessionId })
+
+			// Create a new entry in the users table
+			const { data, error: supabaseError } = await supabase
+				.from('users')
+				.insert({
+					id: createdUserId,
+					name: name,
+					email: emailAddress,
+					created_at: new Date().toISOString()
+				})
+
+			if (supabaseError) {
+				console.error('Error creating user in Supabase:', supabaseError)
+				setError(
+					'An error occurred while creating your account. Please try again.'
+				)
+				return
+			}
+
+			router.replace('/')
 		} catch (err: any) {
 			console.error(JSON.stringify(err, null, 2))
 			setError('An error occurred. Please try again.')
@@ -68,6 +97,12 @@ export default function SignUpScreen() {
 				</Text>
 				{!pendingVerification ? (
 					<>
+						<TextInput
+							style={styles.input}
+							value={name}
+							placeholder='Full Name'
+							onChangeText={setName}
+						/>
 						<TextInput
 							style={styles.input}
 							autoCapitalize='none'
@@ -107,6 +142,8 @@ export default function SignUpScreen() {
 		</KeyboardAvoidingView>
 	)
 }
+
+// ... (styles remain the same)
 
 const styles = StyleSheet.create({
 	container: {
