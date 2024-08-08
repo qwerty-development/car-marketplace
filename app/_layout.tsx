@@ -1,66 +1,41 @@
-import { useFonts } from "expo-font";
-import { Slot, useRouter, useSegments } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
-import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
-import { tokenCache } from "@/cache";
-import './global.css'
+import { useEffect } from 'react'
+import { Slot, useRouter, useSegments } from 'expo-router'
+import { ClerkProvider, useAuth } from '@clerk/clerk-expo'
+import { tokenCache } from '@/cache'
+import * as SplashScreen from 'expo-splash-screen'
 
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync()
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
+	const { isLoaded, isSignedIn } = useAuth()
+	const segments = useSegments()
+	const router = useRouter()
 
-  useEffect(() => {
-    if (!isLoaded) return;
+	useEffect(() => {
+		if (!isLoaded) return
 
-    const inTabsGroup = segments[0] === "(home)";
-    const inAuthGroup = segments[0] === "(auth)";
+		const inAuthGroup = segments[0] === '(auth)'
 
-    if (isSignedIn && !inTabsGroup) {
-      // Redirect to the main app if the user is signed in and not in the (tabs) group
-      router.replace("/(home)/browse");
-    } else if (!isSignedIn && !inAuthGroup) {
-      // Redirect to the sign-in page if the user is not signed in and not in the (auth) group
-      router.replace("/(auth)/sign-in");
-    }
-  }, [isLoaded, isSignedIn, segments]);
+		if (isSignedIn && inAuthGroup) {
+			router.replace('/(home)')
+		} else if (!isSignedIn && !inAuthGroup) {
+			router.replace('/(auth)/sign-in')
+		}
+	}, [isLoaded, isSignedIn, segments])
 
-  return <Slot />;
+	return <Slot />
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-  });
+	useEffect(() => {
+		SplashScreen.hideAsync()
+	}, [])
 
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+	const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!
 
-  if (!loaded) {
-    return null;
-  }
-
-  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
-
-  if (!publishableKey) {
-    throw new Error(
-      "Missing Publishable Key. Please set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env"
-    );
-  }
-
-  return (
-    <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-      <ClerkLoaded>
-        <RootLayoutNav />
-      </ClerkLoaded>
-    </ClerkProvider>
-  );
+	return (
+		<ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
+			<RootLayoutNav />
+		</ClerkProvider>
+	)
 }
