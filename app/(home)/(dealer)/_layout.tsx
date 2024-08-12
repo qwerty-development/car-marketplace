@@ -13,7 +13,6 @@ export default function DealerLayout() {
 					)
 				}}
 			/>
-
 			<Tabs.Screen
 				name='listings'
 				options={{
@@ -29,6 +28,15 @@ export default function DealerLayout() {
 					title: 'Sales History',
 					tabBarIcon: ({ color, size }) => (
 						<Ionicons name='time' size={size} color={color} />
+					)
+				}}
+			/>{' '}
+			<Tabs.Screen
+				name='browse'
+				options={{
+					title: 'Browse Cars',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='search' size={size} color={color} />
 					)
 				}}
 			/>

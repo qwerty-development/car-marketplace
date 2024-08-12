@@ -23,6 +23,25 @@ export default function UserLayout() {
 				}}
 			/>
 			<Tabs.Screen
+				name='ContactUsPage'
+				options={{
+					title: 'Contact Us',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='mail' size={size} color={color} />
+					)
+				}}
+			/>
+			<Tabs.Screen
+				name='dealerships'
+				options={{
+					title: 'Browse Dealerships',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='business' size={size} color={color} />
+					)
+				}}
+			/>
+
+			<Tabs.Screen
 				name='profile'
 				options={{
 					title: 'Profile',
