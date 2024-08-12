@@ -14,15 +14,6 @@ export default function UserLayout() {
 				}}
 			/>
 			<Tabs.Screen
-				name='browse'
-				options={{
-					title: 'Browse Cars',
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='car' size={size} color={color} />
-					)
-				}}
-			/>
-			<Tabs.Screen
 				name='favorites'
 				options={{
 					title: 'Favorites',
