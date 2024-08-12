@@ -14,6 +14,15 @@ export default function UserLayout() {
 				}}
 			/>
 			<Tabs.Screen
+				name='dealerships'
+				options={{
+					title: 'Browse Dealerships',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='business' size={size} color={color} />
+					)
+				}}
+			/>
+			<Tabs.Screen
 				name='favorites'
 				options={{
 					title: 'Favorites',
@@ -31,15 +40,7 @@ export default function UserLayout() {
 					)
 				}}
 			/>
-			<Tabs.Screen
-				name='dealerships'
-				options={{
-					title: 'Browse Dealerships',
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='business' size={size} color={color} />
-					)
-				}}
-			/>
+
 
 			<Tabs.Screen
 				name='profile'
