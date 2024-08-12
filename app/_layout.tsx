@@ -3,7 +3,7 @@ import { Slot, useRouter, useSegments } from 'expo-router'
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo'
 import { tokenCache } from '@/cache'
 import * as SplashScreen from 'expo-splash-screen'
-
+import { FavoritesProvider } from '@/utils/useFavorites'
 SplashScreen.preventAutoHideAsync()
 
 function RootLayoutNav() {
@@ -35,7 +35,9 @@ export default function RootLayout() {
 
 	return (
 		<ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-			<RootLayoutNav />
+			<FavoritesProvider>
+				<RootLayoutNav />
+			</FavoritesProvider>
 		</ClerkProvider>
 	)
 }
