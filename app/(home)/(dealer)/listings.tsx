@@ -1,209 +1,169 @@
-import React, { useState, useEffect } from 'react'
-import {
-	View,
-	Text,
-	FlatList,
-	TextInput,
-	TouchableOpacity,
-	Modal,
-	StyleSheet,
-	Image,
-	ScrollView,
-	Alert
-} from 'react-native'
-import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, Modal, TextInput, ScrollView } from 'react-native';
+import { supabase } from '@/utils/supabase';
+import { useUser } from '@clerk/clerk-expo';
+import { styled } from 'nativewind';
+import { FontAwesome } from '@expo/vector-icons';
+
+const StyledView = styled(View)
+const StyledText = styled(Text)
+const StyledTouchableOpacity = styled(TouchableOpacity)
+const StyledTextInput = styled(TextInput)
+const StyledImage = styled(Image)
 
 interface CarListing {
-	id: number
-	make: string
-	model: string
-	year: number
-	price: number
-	description: string
-	images: string[]
-	status: string
-	views: number
-	likes: number
-	dealership_id: number
+	id: number;
+	make: string;
+	model: string;
+	year: number;
+	price: number;
+	description: string;
+	images: string[];
+	status: string;
+	views: number;
+	likes: number;
+	dealership_id: number;
 }
 
 interface Dealership {
-	id: number
-	name: string
-	user_id: string
+	id: number;
+	name: string;
+	user_id: string;
 }
 
-const ITEMS_PER_PAGE = 10
-
-const CustomDropdown = ({ options, value, onChange }: any) => {
-	const [isOpen, setIsOpen] = useState(false)
-
-	return (
-		<View style={styles.dropdownContainer}>
-			<TouchableOpacity
-				onPress={() => setIsOpen(!isOpen)}
-				style={styles.dropdownButton}>
-				<Text>{value}</Text>
-			</TouchableOpacity>
-			{isOpen && (
-				<View style={styles.dropdownList}>
-					{options.map((option: any) => (
-						<TouchableOpacity
-							onPress={() => {
-								onChange(option)
-								setIsOpen(false)
-							}}
-							style={styles.dropdownItem}>
-							<Text>{option}</Text>
-						</TouchableOpacity>
-					))}
-				</View>
-			)}
-		</View>
-	)
-}
+const ITEMS_PER_PAGE = 10;
 
 export default function DealerListings() {
-	const { user } = useUser()
-	const [dealership, setDealership] = useState<Dealership | null>(null)
-	const [listings, setListings] = useState<CarListing[]>([])
-	const [currentPage, setCurrentPage] = useState(1)
-	const [totalPages, setTotalPages] = useState(1)
-	const [sortBy, setSortBy] = useState('listed_at')
-	const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-	const [filterStatus, setFilterStatus] = useState('all')
-	const [searchQuery, setSearchQuery] = useState('')
-	const [isModalVisible, setIsModalVisible] = useState(false)
-	const [selectedListing, setSelectedListing] = useState<CarListing | null>(
-		null
-	)
-	const [newListing, setNewListing] = useState<Partial<CarListing>>({})
-	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
-	const [soldInfo, setSoldInfo] = useState({ price: '', date: '' })
+	const { user } = useUser();
+	const [dealership, setDealership] = useState<Dealership | null>(null);
+	const [listings, setListings] = useState<CarListing[]>([]);
+	const [currentPage, setCurrentPage] = useState(1);
+	const [totalPages, setTotalPages] = useState(1);
+	const [sortBy, setSortBy] = useState('listed_at');
+	const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+	const [filterStatus, setFilterStatus] = useState('all');
+	const [searchQuery, setSearchQuery] = useState('');
+	const [selectedListing, setSelectedListing] = useState<CarListing | null>(null);
+	const [newListing, setNewListing] = useState<Partial<CarListing>>({});
+	const [isListingModalVisible, setIsListingModalVisible] = useState(false);
+	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false);
+	const [soldInfo, setSoldInfo] = useState({ price: '', date: '' });
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (user) {
-			fetchDealership()
+			fetchDealership();
 		}
-	}, [user])
+	}, [user]);
 
 	useEffect(() => {
 		if (dealership) {
-			fetchListings()
+			fetchListings();
 		}
-	}, [dealership, currentPage, sortBy, sortOrder, filterStatus, searchQuery])
+	}, [dealership, currentPage, sortBy, sortOrder, filterStatus, searchQuery]);
 
 	const fetchDealership = async () => {
-		if (!user) return
+		if (!user) return;
 
 		const { data, error } = await supabase
 			.from('dealerships')
 			.select('*')
 			.eq('user_id', user.id)
-			.single()
+			.single();
 
 		if (error) {
-			console.error('Error fetching dealership:', error)
-			Alert.alert('Error', 'Failed to fetch dealership information')
+			console.error('Error fetching dealership:', error);
+			setError('Failed to fetch dealership information');
 		} else if (data) {
-			setDealership(data)
+			setDealership(data);
 		} else {
-			Alert.alert(
-				'No Dealership',
-				'You do not have a dealership associated with your account'
-			)
+			setError('You do not have a dealership associated with your account');
 		}
-	}
+	};
 
 	const fetchListings = async () => {
-		if (!dealership) return
+		if (!dealership) return;
 
 		let query = supabase
 			.from('cars')
 			.select('*', { count: 'exact' })
 			.eq('dealership_id', dealership.id)
-			.range(
-				(currentPage - 1) * ITEMS_PER_PAGE,
-				currentPage * ITEMS_PER_PAGE - 1
-			)
-			.order(sortBy, { ascending: sortOrder === 'asc' })
+			.range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1)
+			.order(sortBy, { ascending: sortOrder === 'asc' });
 
 		if (filterStatus !== 'all') {
-			query = query.eq('status', filterStatus)
+			query = query.eq('status', filterStatus);
 		}
 
 		if (searchQuery) {
-			query = query.or(
-				`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
-			)
+			query = query.or(`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`);
 		}
 
-		const { data, count, error } = await query
+		const { data, count, error } = await query;
 
 		if (error) {
-			console.error('Error fetching listings:', error)
-			Alert.alert('Error', 'Failed to fetch car listings')
+			console.error('Error fetching listings:', error);
+			setError('Failed to fetch car listings');
 		} else {
-			setListings(data || [])
-			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
+			setListings(data || []);
+			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
 		}
-	}
+	};
 
 	const handleCreateListing = async () => {
-		if (!dealership) return
+		if (!dealership) return;
 
 		const { data, error } = await supabase
 			.from('cars')
-			.insert({ ...newListing, dealership_id: dealership.id })
+			.insert({ ...newListing, dealership_id: dealership.id });
 
 		if (error) {
-			console.error('Error creating listing:', error)
-			Alert.alert('Error', 'Failed to create new listing')
+			console.error('Error creating listing:', error);
+			setError('Failed to create new listing');
 		} else {
-			fetchListings()
-			setIsModalVisible(false)
-			setNewListing({})
+			fetchListings();
+			setIsListingModalVisible(false);
+			setNewListing({});
 		}
-	}
+	};
 
 	const handleUpdateListing = async () => {
-		if (!selectedListing || !dealership) return
+		if (!selectedListing || !dealership) return;
 
 		const { error } = await supabase
 			.from('cars')
 			.update(selectedListing)
 			.eq('id', selectedListing.id)
-			.eq('dealership_id', dealership.id)
+			.eq('dealership_id', dealership.id);
 
 		if (error) {
-			console.error('Error updating listing:', error)
-			Alert.alert('Error', 'Failed to update listing')
+			console.error('Error updating listing:', error);
+			setError('Failed to update listing');
 		} else {
-			fetchListings()
-			setIsModalVisible(false)
+			fetchListings();
+			setIsListingModalVisible(false);
 		}
-	}
+	};
 
 	const handleDeleteListing = async (id: number) => {
-		if (!dealership) return
+		if (!dealership) return;
 
 		const { error } = await supabase
 			.from('cars')
 			.delete()
 			.eq('id', id)
-			.eq('dealership_id', dealership.id)
+			.eq('dealership_id', dealership.id);
 
 		if (error) {
-			console.error('Error deleting listing:', error)
-			Alert.alert('Error', 'Failed to delete listing')
+			console.error('Error deleting listing:', error);
+			setError('Failed to delete listing');
 		} else {
-			fetchListings()
+			fetchListings();
 		}
-	}
+	};
 
 	const handleMarkAsSold = async () => {
-		if (!selectedListing || !dealership) return
+		if (!selectedListing || !dealership) return;
 
 		const { error } = await supabase
 			.from('cars')
@@ -213,431 +173,278 @@ export default function DealerListings() {
 				date_sold: soldInfo.date
 			})
 			.eq('id', selectedListing.id)
-			.eq('dealership_id', dealership.id)
+			.eq('dealership_id', dealership.id);
 
 		if (error) {
-			console.error('Error marking as sold:', error)
-			Alert.alert('Error', 'Failed to mark listing as sold')
+			console.error('Error marking as sold:', error);
+			setError('Failed to mark listing as sold');
 		} else {
-			fetchListings()
-			setIsSoldModalVisible(false)
-			setSelectedListing(null)
-			setSoldInfo({ price: '', date: '' })
+			fetchListings();
+			setIsSoldModalVisible(false);
+			setSelectedListing(null);
+			setSoldInfo({ price: '', date: '' });
 		}
-	}
+	};
 
-	const renderListingItem = ({ item }: { item: CarListing }) => (
-		<View style={styles.listingItem}>
-			<TouchableOpacity
-				onPress={() => {
-					setSelectedListing(item)
-					setIsModalVisible(true)
-				}}>
-				<Image source={{ uri: item.images[0] }} style={styles.listingImage} />
-				<View style={styles.listingDetails}>
-					<Text
-						style={
-							styles.listingTitle
-						}>{`${item.year} ${item.make} ${item.model}`}</Text>
-					<Text style={styles.listingPrice}>${item.price}</Text>
-					<Text style={styles.listingStatus}>{item.status}</Text>
-					<Text
-						style={
-							styles.listingStats
-						}>{`Views: ${item.views} | Likes: ${item.likes}`}</Text>
-				</View>
-			</TouchableOpacity>
-			<View style={styles.buttonContainer}>
-				{item.status !== 'sold' && (
-					<TouchableOpacity
-						style={styles.soldButton}
+	const ListingCard = ({ item }: { item: CarListing }) => (
+		<StyledView className="bg-white rounded-lg shadow-md mb-4 overflow-hidden">
+			<StyledImage
+				source={{ uri: item.images[0] }}
+				className="w-full h-48"
+			/>
+			<StyledView className="p-4">
+				<StyledText className="text-xl font-bold mb-2">{`${item.year} ${item.make} ${item.model}`}</StyledText>
+				<StyledText className="text-xl text-red mb-2">${item.price.toLocaleString()}</StyledText>
+				<StyledView className="flex-row justify-between mt-2">
+					<StyledView className="flex-row items-center">
+						<FontAwesome name="eye" size={16} color="gray" />
+						<StyledText className="text-sm text-gray-500 ml-1">{item.views}</StyledText>
+					</StyledView>
+					<StyledView className="flex-row items-center">
+						<FontAwesome name="heart" size={16} color="gray" />
+						<StyledText className="text-sm text-gray-500 ml-1">{item.likes}</StyledText>
+					</StyledView>
+				</StyledView>
+				<StyledView className="flex-row justify-between mt-4">
+					<StyledTouchableOpacity
+						className="bg-black py-2 px-4 rounded flex-1 mr-2 items-center"
 						onPress={() => {
-							setSelectedListing(item)
-							setIsSoldModalVisible(true)
-						}}>
-						<Text style={styles.buttonText}>Mark as Sold</Text>
-					</TouchableOpacity>
-				)}
-				<TouchableOpacity
-					style={styles.deleteButton}
-					onPress={() => handleDeleteListing(item.id)}>
-					<Text style={styles.buttonText}>Delete</Text>
-				</TouchableOpacity>
-			</View>
-		</View>
-	)
+							setSelectedListing(item);
+							setIsListingModalVisible(true);
+						}}
+					>
+						<StyledText className="text-white">Edit</StyledText>
+					</StyledTouchableOpacity>
+					{item.status !== 'sold' && (
+						<StyledTouchableOpacity
+							className="bg-gray py-2 px-4 rounded flex-1 mx-2 items-center"
+							onPress={() => {
+								setSelectedListing(item);
+								setIsSoldModalVisible(true);
+							}}
+						>
+							<StyledText className="text-white">Mark Sold</StyledText>
+						</StyledTouchableOpacity>
+					)}
+					<StyledTouchableOpacity
+						className="bg-red py-2 px-4 rounded flex-1 ml-2 items-center"
+						onPress={() => handleDeleteListing(item.id)}
+					>
+						<StyledText className="text-white">Delete</StyledText>
+					</StyledTouchableOpacity>
+				</StyledView>
+			</StyledView>
+		</StyledView>
+	);
+
+	const ListingModal = () => (
+		<Modal
+			visible={isListingModalVisible}
+			animationType="slide"
+			transparent={true}
+		>
+			<StyledView className="flex-1 justify-center items-center bg-black bg-opacity-50">
+				<StyledView className="bg-white p-6 rounded-lg w-5/6">
+					<StyledText className="text-2xl font-bold mb-4">
+						{selectedListing ? 'Edit Listing' : 'Create New Listing'}
+					</StyledText>
+					<ScrollView>
+						<StyledTextInput
+							className="border border-gray-300 rounded p-2 mb-4"
+							placeholder="Make"
+							value={selectedListing?.make || newListing.make || ''}
+							onChangeText={(text) => selectedListing
+								? setSelectedListing({ ...selectedListing, make: text })
+								: setNewListing({ ...newListing, make: text })
+							}
+						/>
+						<StyledTextInput
+							className="border border-gray-300 rounded p-2 mb-4"
+							placeholder="Model"
+							value={selectedListing?.model || newListing.model || ''}
+							onChangeText={(text) => selectedListing
+								? setSelectedListing({ ...selectedListing, model: text })
+								: setNewListing({ ...newListing, model: text })
+							}
+						/>
+						<StyledTextInput
+							className="border border-gray-300 rounded p-2 mb-4"
+							placeholder="Year"
+							value={(selectedListing?.year || newListing.year || '').toString()}
+							onChangeText={(text) => {
+								const year = parseInt(text);
+								selectedListing
+									? setSelectedListing({ ...selectedListing, year })
+									: setNewListing({ ...newListing, year });
+							}}
+							keyboardType="numeric"
+						/>
+						<StyledTextInput
+							className="border border-gray-300 rounded p-2 mb-4"
+							placeholder="Price"
+							value={(selectedListing?.price || newListing.price || '').toString()}
+							onChangeText={(text) => {
+								const price = parseInt(text);
+								selectedListing
+									? setSelectedListing({ ...selectedListing, price })
+									: setNewListing({ ...newListing, price });
+							}}
+							keyboardType="numeric"
+						/>
+						<StyledTextInput
+							className="border border-gray-300 rounded p-2 mb-4"
+							placeholder="Description"
+							value={selectedListing?.description || newListing.description || ''}
+							onChangeText={(text) => selectedListing
+								? setSelectedListing({ ...selectedListing, description: text })
+								: setNewListing({ ...newListing, description: text })
+							}
+							multiline
+						/>
+					</ScrollView>
+					<StyledView className="flex-row justify-end mt-4">
+						<StyledTouchableOpacity
+							className="bg-gray-300 py-2 px-4 rounded mr-2"
+							onPress={() => setIsListingModalVisible(false)}
+						>
+							<StyledText>Cancel</StyledText>
+						</StyledTouchableOpacity>
+						<StyledTouchableOpacity
+							className="bg-red py-2 px-4 rounded"
+							onPress={selectedListing ? handleUpdateListing : handleCreateListing}
+						>
+							<StyledText className="text-white">{selectedListing ? 'Update' : 'Create'}</StyledText>
+						</StyledTouchableOpacity>
+					</StyledView>
+				</StyledView>
+			</StyledView>
+		</Modal>
+	);
 
 	const SoldModal = () => (
 		<Modal
 			visible={isSoldModalVisible}
-			animationType='slide'
-			transparent={true}>
-			<View style={styles.modalOverlay}>
-				<View style={styles.modalContent}>
-					<Text style={styles.modalTitle}>Mark as Sold</Text>
-					<TextInput
-						style={styles.input}
-						placeholder='Sold Price'
+			animationType="slide"
+			transparent={true}
+		>
+			<StyledView className="flex-1 justify-center items-center bg-black bg-opacity-50">
+				<StyledView className="bg-white p-6 rounded-lg w-5/6">
+					<StyledText className="text-2xl bg-gray font-bold mb-4">Mark as Sold</StyledText>
+					<StyledTextInput
+						className="border border-gray-300 rounded p-2 mb-4"
+						placeholder="Sold Price"
 						value={soldInfo.price}
-						onChangeText={text => setSoldInfo({ ...soldInfo, price: text })}
-						keyboardType='numeric'
+						onChangeText={(text) => setSoldInfo({ ...soldInfo, price: text })}
+						keyboardType="numeric"
 					/>
-					<TextInput
-						style={styles.input}
-						placeholder='Date Sold (YYYY-MM-DD)'
+					<StyledTextInput
+						className="border border-gray-300 rounded p-2 mb-4"
+						placeholder="Date Sold (YYYY-MM-DD)"
 						value={soldInfo.date}
-						onChangeText={text => setSoldInfo({ ...soldInfo, date: text })}
+						onChangeText={(text) => setSoldInfo({ ...soldInfo, date: text })}
 					/>
-					<TouchableOpacity style={styles.button} onPress={handleMarkAsSold}>
-						<Text style={styles.buttonText}>Confirm</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={[styles.button, styles.cancelButton]}
-						onPress={() => setIsSoldModalVisible(false)}>
-						<Text style={styles.buttonText}>Cancel</Text>
-					</TouchableOpacity>
-				</View>
-			</View>
+					<StyledView className="flex-row justify-end mt-4">
+						<StyledTouchableOpacity
+							className="bg-gray-300 py-2 px-4 rounded mr-2"
+							onPress={() => setIsSoldModalVisible(false)}
+						>
+							<StyledText>Cancel</StyledText>
+						</StyledTouchableOpacity>
+						<StyledTouchableOpacity
+							className="bg-red py-2 px-4 rounded"
+							onPress={handleMarkAsSold}
+						>
+							<StyledText className="text-white">Confirm</StyledText>
+						</StyledTouchableOpacity>
+					</StyledView>
+				</StyledView>
+			</StyledView>
 		</Modal>
-	)
-
-	const ListingModal = () => (
-		<Modal visible={isModalVisible} animationType='slide'>
-			<ScrollView contentContainerStyle={styles.modalContainer}>
-				<Text style={styles.modalTitle}>
-					{selectedListing ? 'Edit Listing' : 'Create New Listing'}
-				</Text>
-				<TextInput
-					style={styles.input}
-					placeholder='Make'
-					value={selectedListing?.make || newListing.make}
-					onChangeText={text =>
-						selectedListing
-							? setSelectedListing({ ...selectedListing, make: text })
-							: setNewListing({ ...newListing, make: text })
-					}
-				/>
-				<TextInput
-					style={styles.input}
-					placeholder='Model'
-					value={selectedListing?.model || newListing.model}
-					onChangeText={text =>
-						selectedListing
-							? setSelectedListing({ ...selectedListing, model: text })
-							: setNewListing({ ...newListing, model: text })
-					}
-				/>
-				<TextInput
-					style={styles.input}
-					placeholder='Year'
-					value={(selectedListing?.year || newListing.year || '').toString()}
-					onChangeText={text => {
-						const year = parseInt(text)
-						selectedListing
-							? setSelectedListing({ ...selectedListing, year })
-							: setNewListing({ ...newListing, year })
-					}}
-					keyboardType='numeric'
-				/>
-				<TextInput
-					style={styles.input}
-					placeholder='Price'
-					value={(selectedListing?.price || newListing.price || '').toString()}
-					onChangeText={text => {
-						const price = parseInt(text)
-						selectedListing
-							? setSelectedListing({ ...selectedListing, price })
-							: setNewListing({ ...newListing, price })
-					}}
-					keyboardType='numeric'
-				/>
-				<TextInput
-					style={styles.input}
-					placeholder='Description'
-					value={selectedListing?.description || newListing.description}
-					onChangeText={text =>
-						selectedListing
-							? setSelectedListing({ ...selectedListing, description: text })
-							: setNewListing({ ...newListing, description: text })
-					}
-					multiline
-				/>
-				<CustomDropdown
-					options={['available', 'sold', 'pending']}
-					value={selectedListing?.status || newListing.status || 'available'}
-					onChange={(value: any) =>
-						selectedListing
-							? setSelectedListing({ ...selectedListing, status: value })
-							: setNewListing({ ...newListing, status: value })
-					}
-				/>
-				<TouchableOpacity
-					style={styles.button}
-					onPress={selectedListing ? handleUpdateListing : handleCreateListing}>
-					<Text style={styles.buttonText}>
-						{selectedListing ? 'Update Listing' : 'Create Listing'}
-					</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={[styles.button, styles.cancelButton]}
-					onPress={() => setIsModalVisible(false)}>
-					<Text style={styles.buttonText}>Cancel</Text>
-				</TouchableOpacity>
-			</ScrollView>
-		</Modal>
-	)
+	);
 
 	if (!dealership) {
 		return (
-			<View style={styles.container}>
-				<Text>Loading dealership information...</Text>
-			</View>
-		)
+			<StyledView className="flex-1 justify-center items-center">
+				<StyledText className="text-xl">Loading dealership information...</StyledText>
+			</StyledView>
+		);
 	}
+
 	return (
-		<View style={styles.container}>
-			<Text style={styles.title}>{dealership.name} - Car Listings</Text>
-			<View style={styles.searchContainer}>
-				<TextInput
-					style={styles.searchInput}
-					placeholder='Search listings...'
+		<StyledView className="flex-1 bg-gray-100 p-4">
+			{error && (
+				<StyledText className="text-red-500 mb-4">{error}</StyledText>
+			)}
+
+			<StyledView className="mb-4 flex-row justify-between items-center">
+				<StyledTextInput
+					className="bg-white border border-gray-300 rounded-lg p-2 flex-1 mr-2"
+					placeholder="Search listings..."
 					value={searchQuery}
 					onChangeText={setSearchQuery}
 				/>
-				<TouchableOpacity style={styles.searchButton} onPress={fetchListings}>
-					<Text style={styles.buttonText}>Search</Text>
-				</TouchableOpacity>
-			</View>
-			<View style={styles.filterContainer}>
-				<CustomDropdown
-					options={['all', 'available', 'sold', 'pending']}
-					value={filterStatus}
-					onChange={setFilterStatus}
-				/>
-				<TouchableOpacity
-					onPress={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
-					<Text style={styles.sortButton}>
+				<StyledTouchableOpacity
+					className="bg-red py-2 px-4 rounded-lg items-center justify-center"
+					onPress={() => {
+						setSelectedListing(null);
+						setNewListing({});
+						setIsListingModalVisible(true);
+					}}
+				>
+					<FontAwesome name="plus" size={20} color="white" />
+				</StyledTouchableOpacity>
+			</StyledView>
+
+			<StyledView className="flex-row justify-between items-center mb-4">
+				<StyledTouchableOpacity
+					className="bg-gray py-2 px-4 rounded flex-1 mr-2 items-center"
+					onPress={() => {
+						setFilterStatus(filterStatus === 'all' ? 'available' : 'all');
+					}}
+				>
+					<StyledText className="text-white">
+						{filterStatus === 'all' ? 'Show Available' : 'Show All'}
+					</StyledText>
+				</StyledTouchableOpacity>
+
+				<StyledTouchableOpacity
+					className="bg-gray py-2 px-4 rounded flex-1 ml-2 items-center"
+					onPress={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+				>
+					<StyledText className="text-white">
 						Sort: {sortBy} {sortOrder === 'asc' ? '↑' : '↓'}
-					</Text>
-				</TouchableOpacity>
-			</View>
+					</StyledText>
+				</StyledTouchableOpacity>
+			</StyledView>
+
 			<FlatList
 				data={listings}
-				renderItem={renderListingItem}
-				keyExtractor={item => item.id.toString()}
+				renderItem={({ item }) => <ListingCard item={item} />}
+				keyExtractor={(item) => item.id.toString()}
+				className="mb-4"
 			/>
-			<View style={styles.paginationContainer}>
-				<TouchableOpacity
+
+			<StyledView className="flex-row justify-between items-center">
+				<StyledTouchableOpacity
+					className="bg-red py-1 px-3 rounded flex-1 mr-1 items-center"
 					onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-					disabled={currentPage === 1}>
-					<Text style={styles.paginationButton}>Previous</Text>
-				</TouchableOpacity>
-				<Text>{`Page ${currentPage} of ${totalPages}`}</Text>
-				<TouchableOpacity
+					disabled={currentPage === 1}
+				>
+					<StyledText className="text-white text-sm">Previous</StyledText>
+				</StyledTouchableOpacity>
+				<StyledText className="mx-2 text-sm">{` ${currentPage} of ${totalPages}`}</StyledText>
+				<StyledTouchableOpacity
+					className="bg-red py-1 px-3 rounded flex-1 ml-1 items-center"
 					onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-					disabled={currentPage === totalPages}>
-					<Text style={styles.paginationButton}>Next</Text>
-				</TouchableOpacity>
-			</View>
-			<TouchableOpacity
-				style={styles.createButton}
-				onPress={() => {
-					setSelectedListing(null)
-					setIsModalVisible(true)
-				}}>
-				<Text style={styles.buttonText}>Create New Listing</Text>
-			</TouchableOpacity>
-			<SoldModal />
+					disabled={currentPage === totalPages}
+				>
+					<StyledText className="text-white text-sm">Next</StyledText>
+				</StyledTouchableOpacity>
+			</StyledView>
+
+
 			<ListingModal />
-		</View>
-	)
+			<SoldModal />
+		</StyledView>
+	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		padding: 20,
-		backgroundColor: '#f5f5f5'
-	},
-	dropdownContainer: {
-		marginBottom: 10,
-		zIndex: 1000 // Ensure the dropdown is above other elements
-	},
-	dropdownButton: {
-		backgroundColor: 'white',
-		padding: 10,
-		borderRadius: 5,
-		borderWidth: 1,
-		borderColor: 'gray'
-	},
-	dropdownList: {
-		position: 'absolute',
-		top: 40,
-		left: 0,
-		right: 0,
-		backgroundColor: 'white',
-		borderWidth: 1,
-		borderColor: 'gray',
-		borderRadius: 5,
-		zIndex: 1001 // Ensure the list is above the button
-	},
-	dropdownItem: {
-		padding: 10,
-		borderBottomWidth: 1,
-		borderBottomColor: '#eee'
-	},
-	title: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		marginBottom: 20
-	},
-	searchContainer: {
-		flexDirection: 'row',
-		marginBottom: 10
-	},
-	searchInput: {
-		flex: 1,
-		height: 40,
-		borderColor: 'gray',
-		borderWidth: 1,
-		borderRadius: 5,
-		paddingHorizontal: 10,
-		marginRight: 10
-	},
-	searchButton: {
-		backgroundColor: '#007AFF',
-		padding: 10,
-		borderRadius: 5,
-		justifyContent: 'center'
-	},
-	filterContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginBottom: 10
-	},
-	filterPicker: {
-		flex: 1,
-		height: 40
-	},
-	sortButton: {
-		color: '#007AFF'
-	},
-	listingItem: {
-		flexDirection: 'row',
-		backgroundColor: 'white',
-		padding: 15,
-		borderRadius: 5,
-		marginBottom: 10
-	},
-	listingImage: {
-		width: 80,
-		height: 80,
-		borderRadius: 5,
-		marginRight: 10
-	},
-	listingDetails: {
-		flex: 1
-	},
-	listingTitle: {
-		fontSize: 18,
-		fontWeight: 'bold'
-	},
-	listingPrice: {
-		fontSize: 16,
-		color: 'green'
-	},
-	listingStatus: {
-		fontSize: 14,
-		color: 'gray'
-	},
-	listingStats: {
-		fontSize: 12,
-		color: 'gray'
-	},
-	paginationContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginTop: 20
-	},
-	paginationButton: {
-		color: '#007AFF'
-	},
-	createButton: {
-		backgroundColor: '#4CAF50',
-		padding: 15,
-		borderRadius: 5,
-		alignItems: 'center',
-		marginTop: 20
-	},
-	modalContainer: {
-		flex: 1,
-		padding: 20,
-		backgroundColor: 'white'
-	},
-	input: {
-		height: 40,
-		borderColor: 'gray',
-		borderWidth: 1,
-		borderRadius: 5,
-		paddingHorizontal: 10,
-		marginBottom: 10
-	},
-	button: {
-		backgroundColor: '#007AFF',
-		padding: 15,
-		borderRadius: 5,
-		alignItems: 'center',
-		marginTop: 10
-	},
-	cancelButton: {
-		backgroundColor: '#FF3B30'
-	},
-
-	deleteButtonText: {
-		color: 'white',
-		fontWeight: 'bold'
-	},
-	buttonContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginTop: 10
-	},
-	soldButton: {
-		backgroundColor: '#4CAF50',
-		padding: 5,
-		borderRadius: 5,
-		flex: 1,
-		marginRight: 5
-	},
-	deleteButton: {
-		backgroundColor: '#FF3B30',
-		padding: 5,
-		borderRadius: 5,
-		flex: 1,
-		marginLeft: 5
-	},
-	buttonText: {
-		color: 'white',
-		fontWeight: 'bold',
-		textAlign: 'center'
-	},
-	modalOverlay: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-		backgroundColor: 'rgba(0, 0, 0, 0.5)'
-	},
-	modalContent: {
-		backgroundColor: 'white',
-		padding: 20,
-		borderRadius: 10,
-		width: '80%'
-	},
-	modalTitle: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginBottom: 15
-	}
-})
