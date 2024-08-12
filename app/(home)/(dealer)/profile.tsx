@@ -1,76 +1,132 @@
-import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
-import { useUser, useClerk } from '@clerk/clerk-expo'
-import { useRouter } from 'expo-router'
+// app/(home)/(dealer)/profile.tsx
+import React, { useState, useEffect } from 'react'
+import {
+	View,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	Image,
+	StyleSheet,
+	ScrollView
+} from 'react-native'
+import { supabase } from '@/utils/supabase'
+import { useUser, useAuth } from '@clerk/clerk-expo'
+import * as ImagePicker from 'expo-image-picker'
+import { ImagePickerAsset } from 'expo-image-picker'
 
-export default function DealerProfilePage() {
+function convertToBlob(asset: ImagePickerAsset): Blob {
+	const data = asset.base64 ? atob(asset.base64) : ''
+	const bytes = new Uint8Array(data.length)
+	for (let i = 0; i < data.length; i++) {
+		bytes[i] = data.charCodeAt(i)
+	}
+	const blob = new Blob([bytes.buffer], { type: asset.type })
+	return blob
+}
+
+export default function DealershipProfilePage() {
 	const { user } = useUser()
-	const clerk = useClerk()
-	const router = useRouter()
+	const { signOut } = useAuth()
+	const [dealership, setDealership] = useState<any>(null)
+	const [name, setName] = useState('')
+	const [location, setLocation] = useState('')
+	const [phone, setPhone] = useState('')
 
-	const handleManageAccount = () => {
-		Alert.alert(
-			'Manage Account',
-			'This would typically open your account management page in a web browser.'
-		)
+	useEffect(() => {
+		if (user) fetchDealershipProfile()
+	}, [user])
+
+	const fetchDealershipProfile = async () => {
+		const { data, error } = await supabase
+			.from('dealerships')
+			.select('*')
+			.eq('user_id', user?.id)
+			.single()
+
+		if (data) {
+			setDealership(data)
+			setName(data.name)
+			setLocation(data.location)
+			setPhone(data.phone)
+		}
 	}
 
-	const handleManageListings = () => {
-		Alert.alert(
-			'Manage Listings',
-			'This would open the page to manage your car listings.'
-		)
+	const updateProfile = async () => {
+		const { error } = await supabase
+			.from('dealerships')
+			.update({ name, location, phone })
+			.eq('id', dealership.id)
+
+		if (!error) {
+			alert('Profile updated successfully')
+		}
 	}
 
-	const handleSignOut = async () => {
-		try {
-			await clerk.signOut()
-			router.replace('/(auth)/sign-in')
-		} catch (error) {
-			console.error('Error signing out:', error)
+	const pickImage = async () => {
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsEditing: true,
+			aspect: [4, 3],
+			quality: 1
+		})
+
+		if (!result.canceled) {
+			await user?.setProfileImage({ file: convertToBlob(result.assets[0]) })
 		}
 	}
 
 	return (
-		<View style={styles.container}>
-			<Text style={styles.header}>Dealer Profile</Text>
-
-			<View style={styles.userInfo}>
-				<Text style={styles.label}>Email:</Text>
-				<Text style={styles.value}>{user?.emailAddresses[0].emailAddress}</Text>
-			</View>
-
-			<View style={styles.userInfo}>
-				<Text style={styles.label}>Name:</Text>
-				<Text style={styles.value}>{user?.fullName}</Text>
-			</View>
-
-			<View style={styles.userInfo}>
-				<Text style={styles.label}>Dealership:</Text>
-				<Text style={styles.value}>{'Not set'}</Text>
-			</View>
-
-			<View style={styles.buttonContainer}>
-				<TouchableOpacity style={styles.button} onPress={handleManageAccount}>
-					<Text style={styles.buttonText}>Manage Account</Text>
-				</TouchableOpacity>
-
-				<TouchableOpacity style={styles.button} onPress={handleManageListings}>
-					<Text style={styles.buttonText}>Manage Listings</Text>
-				</TouchableOpacity>
-
-				<TouchableOpacity
-					style={[styles.button, styles.signOutButton]}
-					onPress={handleSignOut}>
-					<Text style={styles.buttonText}>Sign Out</Text>
+		<ScrollView style={styles.container}>
+			<View style={styles.profileImageContainer}>
+				<Image source={{ uri: user?.imageUrl }} style={styles.profileImage} />
+				<TouchableOpacity style={styles.changeImageButton} onPress={pickImage}>
+					<Text style={styles.changeImageText}>Change Image</Text>
 				</TouchableOpacity>
 			</View>
 
-			<Text style={styles.instructions}>
-				Use the buttons above to manage your account, your car listings, or sign
-				out.
+			<Text style={styles.label}>Dealership Name</Text>
+			<TextInput
+				style={styles.input}
+				value={name}
+				onChangeText={setName}
+				placeholder='Dealership Name'
+			/>
+
+			<Text style={styles.label}>Location</Text>
+			<TextInput
+				style={styles.input}
+				value={location}
+				onChangeText={setLocation}
+				placeholder='Location'
+			/>
+
+			<Text style={styles.label}>Phone</Text>
+			<TextInput
+				style={styles.input}
+				value={phone}
+				onChangeText={setPhone}
+				placeholder='Phone'
+				keyboardType='phone-pad'
+			/>
+
+			<Text style={styles.label}>Email</Text>
+			<Text style={styles.text}>{user?.emailAddresses[0].emailAddress}</Text>
+
+			<Text style={styles.label}>Subscription End Date</Text>
+			<Text style={styles.text}>
+				{dealership?.subscription_end_date
+					? new Date(dealership.subscription_end_date).toLocaleDateString()
+					: 'N/A'}
 			</Text>
-		</View>
+
+			<TouchableOpacity style={styles.updateButton} onPress={updateProfile}>
+				<Text style={styles.updateButtonText}>Update Profile</Text>
+			</TouchableOpacity>
+
+			<TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+				<Text style={styles.signOutButtonText}>Sign Out</Text>
+			</TouchableOpacity>
+		</ScrollView>
 	)
 }
 
@@ -80,44 +136,59 @@ const styles = StyleSheet.create({
 		padding: 20,
 		backgroundColor: '#f5f5f5'
 	},
-	header: {
-		fontSize: 24,
-		fontWeight: 'bold',
+	profileImageContainer: {
+		alignItems: 'center',
 		marginBottom: 20
 	},
-	userInfo: {
-		flexDirection: 'row',
-		marginBottom: 10
+	profileImage: {
+		width: 150,
+		height: 150,
+		borderRadius: 75
+	},
+	changeImageButton: {
+		marginTop: 10
+	},
+	changeImageText: {
+		color: '#007AFF',
+		fontSize: 16
 	},
 	label: {
+		fontSize: 16,
 		fontWeight: 'bold',
-		width: 80
+		marginBottom: 5
 	},
-	value: {
-		flex: 1
+	input: {
+		backgroundColor: 'white',
+		padding: 10,
+		borderRadius: 5,
+		marginBottom: 15
 	},
-	buttonContainer: {
-		marginTop: 30,
-		marginBottom: 20
+	text: {
+		fontSize: 16,
+		marginBottom: 15
 	},
-	button: {
+	updateButton: {
 		backgroundColor: '#007AFF',
 		padding: 15,
 		borderRadius: 5,
 		alignItems: 'center',
-		marginBottom: 10
+		marginTop: 20
 	},
-	signOutButton: {
-		backgroundColor: '#FF3B30'
-	},
-	buttonText: {
+	updateButtonText: {
 		color: 'white',
 		fontSize: 16,
 		fontWeight: 'bold'
 	},
-	instructions: {
-		textAlign: 'center',
-		color: '#666',
-		marginTop: 10
+	signOutButton: {
+		backgroundColor: '#FF3B30',
+		padding: 15,
+		borderRadius: 5,
+		alignItems: 'center',
+		marginTop: 20
+	},
+	signOutButtonText: {
+		color: 'white',
+		fontSize: 16,
+		fontWeight: 'bold'
 	}
 })

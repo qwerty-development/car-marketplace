@@ -13,12 +13,22 @@ export default function DealerLayout() {
 					)
 				}}
 			/>
+
 			<Tabs.Screen
-				name='dealership'
+				name='listings'
 				options={{
-					title: 'Dealership',
+					title: 'Listings',
 					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='business' size={size} color={color} />
+						<Ionicons name='list' size={size} color={color} />
+					)
+				}}
+			/>
+			<Tabs.Screen
+				name='sales-history'
+				options={{
+					title: 'Sales History',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='time' size={size} color={color} />
 					)
 				}}
 			/>

@@ -49,6 +49,15 @@ export default function AdminLayout() {
 					)
 				}}
 			/>
+			<Tabs.Screen
+				name='dealership'
+				options={{
+					title: 'Dealerships',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='business' size={size} color={color} />
+					)
+				}}
+			/>
 		</Tabs>
 	)
 }
