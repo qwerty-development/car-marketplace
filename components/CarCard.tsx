@@ -16,7 +16,7 @@ export default function CarCard({
 }: any) {
 	return (
 		<StyledTouchableOpacity
-			className="bg-white rounded-xl shadow-md mb-4 overflow-hidden"
+			className="bg-white rounded-xl h-screen shadow-md mb-4 overflow-hidden"
 			onPress={onPress}
 		>
 			<StyledImage

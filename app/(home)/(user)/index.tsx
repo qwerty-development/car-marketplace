@@ -8,6 +8,7 @@ import {
 	Alert,
 	Modal,
 	ScrollView,
+	Dimensions,
 } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import { supabase } from '@/utils/supabase';
@@ -372,8 +373,14 @@ export default function BrowseCarsPage() {
 				data={cars}
 				renderItem={renderCarItem}
 				keyExtractor={(item) => item.id.toString()}
-				className="mb-4"
+				snapToAlignment="start"
+				decelerationRate={"fast"}
+				snapToInterval={Dimensions.get('window').height}
+				showsVerticalScrollIndicator={false}
+				onEndReached={() => handlePageChange(currentPage + 1)}
+				onEndReachedThreshold={0.1}
 			/>
+
 			<View className="flex-row justify-between items-center">
 				<TouchableOpacity
 					className="bg-red py-1 px-3 rounded-lg flex-1 mr-1 items-center"
