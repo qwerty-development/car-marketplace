@@ -1,59 +1,138 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
-import { useUser, useClerk } from '@clerk/clerk-expo'
-import { useRouter } from 'expo-router'
+// app/(home)/profile.tsx
+import React, { useState, useEffect } from 'react'
+import {
+	View,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	Image,
+	StyleSheet,
+	ScrollView
+} from 'react-native'
+import { supabase } from '@/utils/supabase'
+import { useUser, useAuth } from '@clerk/clerk-expo'
+import * as ImagePicker from 'expo-image-picker'
+import { ImagePickerAsset } from 'expo-image-picker'
 
-export default function ProfilePage() {
+function convertToBlob(asset: ImagePickerAsset): Blob {
+	const data = asset.base64 ? atob(asset.base64) : ''
+	const bytes = new Uint8Array(data.length)
+	for (let i = 0; i < data.length; i++) {
+		bytes[i] = data.charCodeAt(i)
+	}
+	const blob = new Blob([bytes.buffer], { type: asset.type })
+	return blob
+}
+
+export default function UserProfilePage() {
 	const { user } = useUser()
-	const clerk = useClerk()
-	const router = useRouter()
+	const { signOut } = useAuth()
+	const [name, setName] = useState('')
+	const [email, setEmail] = useState('')
+	const [phone, setPhone] = useState('')
 
-	const handleManageAccount = () => {
-		Alert.alert(
-			'Manage Account',
-			'This would typically open your account management page in a web browser.'
-		)
+	useEffect(() => {
+		if (user) fetchUserProfile()
+	}, [user])
+
+	const fetchUserProfile = async () => {
+		const { data, error } = await supabase
+			.from('users')
+			.select('*')
+			.eq('id', user?.id)
+			.single()
+
+		if (data) {
+			setName(data.name || '')
+			setEmail(user?.emailAddresses[0].emailAddress || '')
+			setPhone(data.phone || '')
+		}
 	}
 
-	const handleSignOut = async () => {
+	const updateProfile = async () => {
+		const { error: supabaseError } = await supabase
+			.from('users')
+			.update({ name, phone })
+			.eq('id', user?.id)
+
+		if (supabaseError) {
+			alert('Error updating Supabase profile')
+			return
+		}
+
 		try {
-			await clerk.signOut()
-			router.replace('/(auth)/sign-in')
+			await user?.update({
+				firstName: name.split(' ')[0],
+				lastName: name.split(' ').slice(1).join(' ')
+			})
+			alert('Profile updated successfully')
 		} catch (error) {
-			console.error('Error signing out:', error)
+			alert('Error updating Clerk profile')
+		}
+	}
+
+	const pickImage = async () => {
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsEditing: true,
+			aspect: [4, 3],
+			quality: 1
+		})
+
+		if (!result.canceled) {
+			try {
+				await user?.setProfileImage({ file: convertToBlob(result.assets[0]) })
+				alert('Profile picture updated successfully')
+			} catch (error) {
+				alert('Error updating profile picture')
+			}
 		}
 	}
 
 	return (
-		<View style={styles.container}>
-			<Text style={styles.header}>User Profile</Text>
-
-			<View style={styles.userInfo}>
-				<Text style={styles.label}>Email:</Text>
-				<Text style={styles.value}>{user?.emailAddresses[0].emailAddress}</Text>
-			</View>
-
-			<View style={styles.userInfo}>
-				<Text style={styles.label}>Name:</Text>
-				<Text style={styles.value}>{user?.fullName}</Text>
-			</View>
-
-			<View style={styles.buttonContainer}>
-				<TouchableOpacity style={styles.button} onPress={handleManageAccount}>
-					<Text style={styles.buttonText}>Manage Account</Text>
-				</TouchableOpacity>
-
-				<TouchableOpacity
-					style={[styles.button, styles.signOutButton]}
-					onPress={handleSignOut}>
-					<Text style={styles.buttonText}>Sign Out</Text>
+		<ScrollView style={styles.container}>
+			<View style={styles.profileImageContainer}>
+				<Image source={{ uri: user?.imageUrl }} style={styles.profileImage} />
+				<TouchableOpacity style={styles.changeImageButton} onPress={pickImage}>
+					<Text style={styles.changeImageText}>Change Image</Text>
 				</TouchableOpacity>
 			</View>
 
-			<Text style={styles.instructions}>
-				Use the buttons above to manage your account or sign out.
-			</Text>
-		</View>
+			<Text style={styles.label}>Full Name</Text>
+			<TextInput
+				style={styles.input}
+				value={name}
+				onChangeText={setName}
+				placeholder='Full Name'
+			/>
+
+			<Text style={styles.label}>Email</Text>
+			<TextInput
+				style={styles.input}
+				value={email}
+				onChangeText={setEmail}
+				placeholder='Email'
+				keyboardType='email-address'
+				editable={false}
+			/>
+
+			<Text style={styles.label}>Phone</Text>
+			<TextInput
+				style={styles.input}
+				value={phone}
+				onChangeText={setPhone}
+				placeholder='Phone'
+				keyboardType='phone-pad'
+			/>
+
+			<TouchableOpacity style={styles.updateButton} onPress={updateProfile}>
+				<Text style={styles.updateButtonText}>Update Profile</Text>
+			</TouchableOpacity>
+
+			<TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+				<Text style={styles.signOutButtonText}>Sign Out</Text>
+			</TouchableOpacity>
+		</ScrollView>
 	)
 }
 
@@ -63,44 +142,55 @@ const styles = StyleSheet.create({
 		padding: 20,
 		backgroundColor: '#f5f5f5'
 	},
-	header: {
-		fontSize: 24,
-		fontWeight: 'bold',
+	profileImageContainer: {
+		alignItems: 'center',
 		marginBottom: 20
 	},
-	userInfo: {
-		flexDirection: 'row',
-		marginBottom: 10
+	profileImage: {
+		width: 150,
+		height: 150,
+		borderRadius: 75
+	},
+	changeImageButton: {
+		marginTop: 10
+	},
+	changeImageText: {
+		color: '#007AFF',
+		fontSize: 16
 	},
 	label: {
+		fontSize: 16,
 		fontWeight: 'bold',
-		width: 80
+		marginBottom: 5
 	},
-	value: {
-		flex: 1
+	input: {
+		backgroundColor: 'white',
+		padding: 10,
+		borderRadius: 5,
+		marginBottom: 15
 	},
-	buttonContainer: {
-		marginTop: 30,
-		marginBottom: 20
-	},
-	button: {
+	updateButton: {
 		backgroundColor: '#007AFF',
 		padding: 15,
 		borderRadius: 5,
 		alignItems: 'center',
-		marginBottom: 10
+		marginTop: 20
 	},
-	signOutButton: {
-		backgroundColor: '#FF3B30'
-	},
-	buttonText: {
+	updateButtonText: {
 		color: 'white',
 		fontSize: 16,
 		fontWeight: 'bold'
 	},
-	instructions: {
-		textAlign: 'center',
-		color: '#666',
-		marginTop: 10
+	signOutButton: {
+		backgroundColor: '#FF3B30',
+		padding: 15,
+		borderRadius: 5,
+		alignItems: 'center',
+		marginTop: 20
+	},
+	signOutButtonText: {
+		color: 'white',
+		fontSize: 16,
+		fontWeight: 'bold'
 	}
 })

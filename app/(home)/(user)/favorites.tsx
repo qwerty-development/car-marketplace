@@ -1,77 +1,81 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ListRenderItem } from 'react-native';
-
-interface FavoriteCar {
-  id: string;
-  make: string;
-  model: string;
-  year: number;
-  price: number;
-}
-
-// Mock data for favorite cars
-const mockFavorites: FavoriteCar[] = [
-  { id: '1', make: 'Toyota', model: 'Camry', year: 2022, price: 25000 },
-  { id: '2', make: 'Honda', model: 'Civic', year: 2021, price: 22000 },
-];
+// app/(home)/favorites.tsx
+import React, { useEffect, useState } from 'react'
+import { View, FlatList, StyleSheet } from 'react-native'
+import { supabase } from '@/utils/supabase'
+import CarCard from '@/components/CarCard'
+import CarDetailModal from '@/components/CarDetailModal'
+import { useFavorites } from '@/utils/useFavorites'
 
 export default function FavoritesPage() {
-  const renderFavoriteItem: ListRenderItem<FavoriteCar> = ({ item }) => (
-    <View style={styles.favoriteItem}>
-      <Text style={styles.carTitle}>{item.year} {item.make} {item.model}</Text>
-      <Text style={styles.carPrice}>${item.price}</Text>
-      <TouchableOpacity style={styles.removeButton}>
-        <Text style={styles.removeButtonText}>Remove from Favorites</Text>
-      </TouchableOpacity>
-    </View>
-  );
+	const { favorites, removeFavorite, isFavorite } = useFavorites()
+	const [favoriteCars, setFavoriteCars] = useState<any>([])
+	const [selectedCar, setSelectedCar] = useState<any>(null)
+	const [isModalVisible, setIsModalVisible] = useState<any>(false)
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Your Favorite Cars</Text>
-      <FlatList<FavoriteCar>
-        data={mockFavorites}
-        renderItem={renderFavoriteItem}
-        keyExtractor={(item) => item.id}
-      />
-    </View>
-  );
+	useEffect(() => {
+		fetchFavoriteCars()
+	}, [favorites])
+
+	const fetchFavoriteCars = async () => {
+		if (favorites.length === 0) {
+			setFavoriteCars([])
+			return
+		}
+
+		const { data, error } = await supabase
+			.from('cars')
+			.select('*, dealerships(name)')
+			.in('id', favorites)
+
+		if (error) {
+			console.error('Error fetching favorite cars:', error)
+		} else {
+			setFavoriteCars(data || [])
+		}
+	}
+
+	const handleFavoritePress = async (carId: number) => {
+		await removeFavorite(carId)
+	}
+
+	const handleCarPress = (car: any) => {
+		setSelectedCar(car)
+		setIsModalVisible(true)
+	}
+
+	const renderCarItem = ({ item }: any) => (
+		<CarCard
+			car={item}
+			onPress={() => handleCarPress(item)}
+			onFavoritePress={() => handleFavoritePress(item.id)}
+			isFavorite={true}
+		/>
+	)
+
+	return (
+		<View style={styles.container}>
+			<FlatList
+				data={favoriteCars}
+				renderItem={renderCarItem}
+				keyExtractor={item => item.id.toString()}
+			/>
+			<CarDetailModal
+				isVisible={isModalVisible}
+				car={selectedCar}
+				onClose={() => setIsModalVisible(false)}
+				onFavoritePress={() =>
+					selectedCar && handleFavoritePress(selectedCar.id)
+				}
+				isFavorite={true}
+			/>
+		</View>
+	)
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  favoriteItem: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  carTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  carPrice: {
-    fontSize: 16,
-    color: 'green',
-    marginBottom: 10,
-  },
-  removeButton: {
-    backgroundColor: '#FF3B30',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  removeButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-});
+	container: {
+		flex: 1,
+		padding: 20,
+		backgroundColor: '#f5f5f5'
+	}
+})
