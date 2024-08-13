@@ -1,229 +1,255 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
 	FlatList,
 	TextInput,
 	TouchableOpacity,
-	Alert,
 	Modal,
 	ScrollView,
-	Dimensions,
-} from 'react-native';
-import RNPickerSelect from 'react-native-picker-select';
-import { supabase } from '@/utils/supabase';
-import { useUser } from '@clerk/clerk-expo';
-import CarCard from '@/components/CarCard';
-import CarDetailModal from '@/components/CarDetailModal';
-import { useFavorites } from '@/utils/useFavorites';
-import { FontAwesome } from '@expo/vector-icons';
+	ActivityIndicator
+} from 'react-native'
+import RNPickerSelect from 'react-native-picker-select'
+import { Slider } from '@rneui/themed'
+import { supabase } from '@/utils/supabase'
+import { useUser } from '@clerk/clerk-expo'
+import CarCard from '@/components/CarCard'
+import CarDetailModal from '@/components/CarDetailModal'
+import { useFavorites } from '@/utils/useFavorites'
+import { FontAwesome } from '@expo/vector-icons'
+import FilterModal from '@/components/FilterModal'
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 10
 
 interface Car {
-	id: number;
-	make: string;
-	model: string;
-	year: number;
-	price: number;
-	dealership_name: string;
-	images: string[];
-	description: string;
+	id: number
+	make: string
+	model: string
+	year: number
+	price: number
+	dealership_name: string
+	images: string[]
+	description: string
+	condition: 'New' | 'Used'
+	mileage: number
+	color: string
+	transmission: 'Manual' | 'Automatic'
+	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
 }
 
 interface Dealership {
-	id: number;
-	name: string;
+	id: number
+	name: string
 }
 
 export default function BrowseCarsPage() {
-	const { user } = useUser();
-	const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
-	const [cars, setCars] = useState<Car[]>([]);
-	const [currentPage, setCurrentPage] = useState(1);
-	const [totalPages, setTotalPages] = useState(1);
-	const [searchQuery, setSearchQuery] = useState('');
-	const [sortOption, setSortOption] = useState('');
-	const [filterDealership, setFilterDealership] = useState('');
-	const [filterMake, setFilterMake] = useState('');
-	const [filterModel, setFilterModel] = useState('');
-	const [dealerships, setDealerships] = useState<Dealership[]>([]);
-	const [makes, setMakes] = useState<string[]>([]);
-	const [models, setModels] = useState<string[]>([]);
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null);
-	const [isModalVisible, setIsModalVisible] = useState(false);
-	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-	const [filtersChanged, setFiltersChanged] = useState(false);
+	const { user } = useUser()
+	const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites()
+	const [cars, setCars] = useState<Car[]>([])
+	const [currentPage, setCurrentPage] = useState(1)
+	const [totalPages, setTotalPages] = useState(1)
+	const [isLoading, setIsLoading] = useState(false)
+	const [searchQuery, setSearchQuery] = useState('')
+	const [sortOption, setSortOption] = useState('')
+	const [filters, setFilters] = useState({
+		dealership: '',
+		make: '',
+		model: '',
+		condition: '',
+		priceRange: [0, 1000000],
+		mileageRange: [0, 500000],
+		year: '',
+		color: '',
+		transmission: '',
+		drivetrain: ''
+	})
+	const [tempFilters, setTempFilters] = useState({ ...filters })
+	const [dealerships, setDealerships] = useState<Dealership[]>([])
+	const [makes, setMakes] = useState<string[]>([])
+	const [models, setModels] = useState<string[]>([])
+	const [colors, setColors] = useState<string[]>([])
+	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
+	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
 
-	useEffect(() => {
-		if (filtersChanged) {
-			setCurrentPage(1);
-			setFiltersChanged(false);
-		}
-		fetchCars();
-		fetchDealerships();
-		fetchMakes();
-	}, [
-		currentPage,
-		sortOption,
-		filterDealership,
-		filterMake,
-		filterModel,
-		searchQuery,
-		user,
-		filtersChanged,
-	]);
+	const fetchCars = useCallback(
+		async (page = 1, loadMore = false) => {
+			setIsLoading(true)
+			let query = supabase.from('cars').select(
+				`
+      *,
+      dealerships (name)
+    `,
+				{ count: 'exact' }
+			)
 
-	const fetchCars = async () => {
-		let query = supabase.from('cars').select(
-			`
-        *,
-        dealerships (name)
-      `,
-			{ count: 'exact' }
-		);
+			// Apply filters
+			if (filters.dealership)
+				query = query.eq('dealership_id', filters.dealership)
+			if (filters.make) query = query.eq('make', filters.make)
+			if (filters.model) query = query.eq('model', filters.model)
+			if (filters.condition) query = query.eq('condition', filters.condition)
+			if (filters.year) query = query.eq('year', filters.year)
+			if (filters.color) query = query.eq('color', filters.color)
+			if (filters.transmission)
+				query = query.eq('transmission', filters.transmission)
+			if (filters.drivetrain) query = query.eq('drivetrain', filters.drivetrain)
 
-		if (filterDealership) query = query.eq('dealership_id', filterDealership);
-		if (filterMake) query = query.eq('make', filterMake);
-		if (filterModel) query = query.eq('model', filterModel);
+			query = query
+				.gte('price', filters.priceRange[0])
+				.lte('price', filters.priceRange[1])
+			query = query
+				.gte('mileage', filters.mileageRange[0])
+				.lte('mileage', filters.mileageRange[1])
 
-		if (searchQuery) {
-			const numericSearch = !isNaN(Number(searchQuery));
-
-			let searchConditions = [
-				`make.ilike.%${searchQuery}%`,
-				`model.ilike.%${searchQuery}%`,
-			];
-
-			if (numericSearch) {
-				searchConditions.push(`year.eq.${searchQuery}`);
-				searchConditions.push(`price.eq.${searchQuery}`);
+			if (searchQuery) {
+				query = query.or(
+					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
+				)
 			}
 
-			query = query.or(searchConditions.join(','));
-		}
+			// Apply sorting
+			switch (sortOption) {
+				case 'price_asc':
+					query = query.order('price', { ascending: true })
+					break
+				case 'price_desc':
+					query = query.order('price', { ascending: false })
+					break
+				case 'year_asc':
+					query = query.order('year', { ascending: true })
+					break
+				case 'year_desc':
+					query = query.order('year', { ascending: false })
+					break
+				case 'mileage_asc':
+					query = query.order('mileage', { ascending: true })
+					break
+				case 'mileage_desc':
+					query = query.order('mileage', { ascending: false })
+					break
+				default:
+					query = query.order('listed_at', { ascending: false })
+			}
 
-		switch (sortOption) {
-			case 'price_asc':
-				query = query.order('price', { ascending: true });
-				break;
-			case 'price_desc':
-				query = query.order('price', { ascending: false });
-				break;
-			case 'year_asc':
-				query = query.order('year', { ascending: true });
-				break;
-			case 'year_desc':
-				query = query.order('year', { ascending: false });
-				break;
-			case 'listed_at_asc':
-				query = query.order('listed_at', { ascending: true });
-				break;
-			case 'listed_at_desc':
-				query = query.order('listed_at', { ascending: false });
-				break;
-		}
+			const { data, count, error } = await query.range(
+				(page - 1) * ITEMS_PER_PAGE,
+				page * ITEMS_PER_PAGE - 1
+			)
 
-		const { data, count, error } = await query.range(
-			(currentPage - 1) * ITEMS_PER_PAGE,
-			currentPage * ITEMS_PER_PAGE - 1
-		);
+			if (error) {
+				console.error('Error fetching cars:', error)
+			} else {
+				const newCars =
+					data?.map(item => ({
+						...item,
+						dealership_name: item.dealerships.name
+					})) || []
+				setCars(prev => (loadMore ? [...prev, ...newCars] : newCars))
+				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
+				setCurrentPage(page)
+			}
+			setIsLoading(false)
+		},
+		[filters, searchQuery, sortOption]
+	)
 
-		if (error) {
-			console.error('Error fetching listings:', error);
-			Alert.alert('Error', 'Failed to fetch car listings');
-		} else {
-			setCars(
-				data?.map((item) => ({
-					...item,
-					dealership_name: item.dealerships.name,
-				})) || []
-			);
-			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
-		}
-	};
+	useEffect(() => {
+		fetchCars()
+		fetchDealerships()
+		fetchMakes()
+		fetchColors()
+	}, [fetchCars])
 
 	const fetchDealerships = async () => {
 		const { data, error } = await supabase
 			.from('dealerships')
-			.select('id, name');
+			.select('id, name')
 		if (error) {
-			console.error('Error fetching dealerships:', error);
+			console.error('Error fetching dealerships:', error)
 		} else {
-			setDealerships(data || []);
+			setDealerships(data || [])
 		}
-	};
+	}
 
 	const fetchMakes = async () => {
 		const { data, error } = await supabase
 			.from('cars')
 			.select('make')
-			.order('make');
+			.order('make')
 		if (error) {
-			console.error('Error fetching makes:', error);
+			console.error('Error fetching makes:', error)
 		} else {
-			const uniqueMakes = [...new Set(data?.map((item) => item.make))];
-			setMakes(uniqueMakes);
+			const uniqueMakes = [...new Set(data?.map(item => item.make))]
+			setMakes(uniqueMakes)
 		}
-	};
+	}
 
 	const fetchModels = async (make: string) => {
 		const { data, error } = await supabase
 			.from('cars')
 			.select('model')
 			.eq('make', make)
-			.order('model');
-
+			.order('model')
 		if (error) {
-			console.error('Error fetching models:', error);
+			console.error('Error fetching models:', error)
 		} else {
-			const uniqueModels = [...new Set(data?.map((item) => item.model))];
-			setModels(uniqueModels);
+			const uniqueModels = [...new Set(data?.map(item => item.model))]
+			setModels(uniqueModels)
 		}
-	};
+	}
+
+	const fetchColors = async () => {
+		const { data, error } = await supabase
+			.from('cars')
+			.select('color')
+			.order('color')
+		if (error) {
+			console.error('Error fetching colors:', error)
+		} else {
+			const uniqueColors = [...new Set(data?.map(item => item.color))]
+			setColors(uniqueColors)
+		}
+	}
 
 	const handleFavoritePress = async (carId: number) => {
 		if (isFavorite(carId)) {
-			await removeFavorite(carId);
+			await removeFavorite(carId)
 		} else {
-			await addFavorite(carId);
+			await addFavorite(carId)
 		}
-	};
+	}
 
 	const handleCarPress = (car: Car) => {
-		setSelectedCar(car);
-		setIsModalVisible(true);
-	};
+		setSelectedCar(car)
+		setIsModalVisible(true)
+	}
 
-	const handleSearch = (text: string) => {
-		setSearchQuery(text);
-		setFiltersChanged(true);
-	};
+	const handleFilterChange = (key: string, value: any) => {
+		setTempFilters(prev => ({ ...prev, [key]: value }))
+	}
 
-	const handleDealershipFilter = (value: string) => {
-		setFilterDealership(value);
-		setFiltersChanged(true);
-	};
+	const applyFilters = () => {
+		setFilters(tempFilters)
+		setIsFilterModalVisible(false)
+		setCurrentPage(1)
+		fetchCars(1)
+	}
 
-	const handleMakeFilter = (value: string) => {
-		setFilterMake(value);
-		fetchModels(value);
-		setFiltersChanged(true);
-	};
-
-	const handleModelFilter = (value: string) => {
-		setFilterModel(value);
-		setFiltersChanged(true);
-	};
-
-	const handleSortChange = (value: string) => {
-		setSortOption(value);
-		setFiltersChanged(true);
-	};
-
-	const handlePageChange = (newPage: number) => {
-		setCurrentPage(newPage);
-	};
+	const resetFilters = () => {
+		setTempFilters({
+			dealership: '',
+			make: '',
+			model: '',
+			condition: '',
+			priceRange: [0, 1000000],
+			mileageRange: [0, 500000],
+			year: '',
+			color: '',
+			transmission: '',
+			drivetrain: ''
+		})
+	}
 
 	const renderCarItem = ({ item }: { item: Car }) => (
 		<CarCard
@@ -232,172 +258,89 @@ export default function BrowseCarsPage() {
 			onFavoritePress={() => handleFavoritePress(item.id)}
 			isFavorite={isFavorite(item.id)}
 		/>
-	);
+	)
 
-	const FilterModal = () => (
-		<Modal
-			visible={isFilterModalVisible}
-			animationType="slide"
-			transparent={true}
-		>
-			<View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-				<View className="bg-white p-6 rounded-lg w-5/6">
-					<Text className="text-2xl font-bold mb-4">Filter Results</Text>
-					<ScrollView>
-						<View className="mb-4 space-y-2">
-							<View className="bg-white rounded-lg overflow-hidden h-12 justify-center">
-								<RNPickerSelect
-									onValueChange={handleDealershipFilter}
-									items={dealerships.map((dealership) => ({
-										label: dealership.name,
-										value: dealership.id.toString(),
-									}))}
-									placeholder={{
-										label: 'All Dealerships',
-										value: '',
-										color: 'black',  // Placeholder text color
-									}}
-									style={{
-										inputIOS: { color: 'black', padding: 10 },  // iOS styling
-										inputAndroid: { color: 'black', padding: 10 },  // Android styling
-									}}
-								/>
-							</View>
+	const renderFooter = () => {
+		if (!isLoading) return null
+		return (
+			<View className='py-4'>
+				<ActivityIndicator size='large' color='#0000ff' />
+			</View>
+		)
+	}
 
-							<View className="bg-white rounded-lg overflow-hidden h-12 justify-center">
-								<RNPickerSelect
-									onValueChange={handleMakeFilter}
-									items={makes.map((make) => ({
-										label: make,
-										value: make,
-									}))}
-									placeholder={{
-										label: 'All Makes',
-										value: '',
-										color: 'black',  // Placeholder text color
-									}}
-									style={{
-										inputIOS: { color: 'black', padding: 10 },  // iOS styling
-										inputAndroid: { color: 'black', padding: 10 },  // Android styling
-									}}
-								/>
-							</View>
+	const closeModal = () => {
+		setTempFilters(filters)
+		setIsFilterModalVisible(false)
+	}
+	return (
+		<View className='flex-1 bg-gray-100'>
+			<View className='p-4 bg-white shadow-sm'>
+				<TextInput
+					className='bg-gray-100 text-black p-3 rounded-full mb-4'
+					placeholder='Search cars...'
+					value={searchQuery}
+					onChangeText={text => {
+						setSearchQuery(text)
+						setCurrentPage(1)
+						fetchCars(1)
+					}}
+				/>
+				<View className='flex-row justify-between space-x-2'>
+					<TouchableOpacity
+						className='bg-red-500 px-5 py-2 rounded-full items-center justify-center flex-row flex-1'
+						onPress={() => {
+							setTempFilters(filters)
+							setIsFilterModalVisible(true)
+						}}>
+						<FontAwesome
+							name='filter'
+							size={20}
+							color='white'
+							className='mr-2'
+						/>
+						<Text className='text-white text-sm'>Filter</Text>
+					</TouchableOpacity>
 
-							<View className="bg-white rounded-lg overflow-hidden h-12 justify-center">
-								<RNPickerSelect
-									onValueChange={handleModelFilter}
-									items={models.map((model) => ({
-										label: model,
-										value: model,
-									}))}
-									placeholder={{
-										label: 'All Models',
-										value: '',
-										color: 'black',  // Placeholder text color
-									}}
-									style={{
-										inputIOS: { color: 'black', padding: 10 },  // iOS styling
-										inputAndroid: { color: 'black', padding: 10 },  // Android styling
-									}}
-								/>
-							</View>
-						</View>
-					</ScrollView>
-					<View className="flex-row justify-end mt-4">
-						<TouchableOpacity
-							className="bg-gray-300 py-2 px-4 rounded mr-2"
-							onPress={() => setIsFilterModalVisible(false)}
-						>
-							<Text>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							className="bg-red py-2 px-4 rounded"
-							onPress={() => {
-								setIsFilterModalVisible(false);
-								setFiltersChanged(true);
+					<View className='bg-gray-100 px-2 rounded-full overflow-hidden justify-center flex-row items-center flex-1'>
+						<RNPickerSelect
+							onValueChange={value => {
+								setSortOption(value)
+								setCurrentPage(1)
+								fetchCars(1)
 							}}
-						>
-							<Text className="text-white">Apply</Text>
-						</TouchableOpacity>
+							items={[
+								{ label: 'Price: Low to High', value: 'price_asc' },
+								{ label: 'Price: High to Low', value: 'price_desc' },
+								{ label: 'Year: New to Old', value: 'year_desc' },
+								{ label: 'Year: Old to New', value: 'year_asc' },
+								{ label: 'Mileage: Low to High', value: 'mileage_asc' },
+								{ label: 'Mileage: High to Low', value: 'mileage_desc' }
+							]}
+							placeholder={{ label: 'Sort By', value: null }}
+							style={{
+								inputIOS: { color: 'black', padding: 10 },
+								inputAndroid: { color: 'black', padding: 10 }
+							}}
+						/>
+						<FontAwesome name='sort' size={20} color='black' className='mr-2' />
 					</View>
 				</View>
 			</View>
-		</Modal>
-	);
-
-	return (
-		<View className="flex-1 p-4 bg-gray-300">
-			<TextInput
-				className="bg-white text-black p-3 rounded-lg mb-4"
-				placeholder="Search cars..."
-				value={searchQuery}
-				onChangeText={handleSearch}
-			/>
-			<View className="mb-4 flex-row justify-between space-x-2">
-				<TouchableOpacity
-					className="bg-red px-5 rounded-xl  items-center justify-center flex-row"
-					onPress={() => setIsFilterModalVisible(true)}
-				>
-					<FontAwesome name="filter" size={20} color="white" className="mr-2" />
-					<Text className="text-white text-sm">Filter</Text>
-				</TouchableOpacity>
-
-				<View className="bg-white px-2 rounded-xl overflow-hidden justify-center flex-row items-center">
-					<RNPickerSelect
-						onValueChange={handleSortChange}
-						items={[
-							{ label: 'Price: Low to High', value: 'price_asc' },
-							{ label: 'Price: High to Low', value: 'price_desc' },
-							{ label: 'Year: Low to High', value: 'year_asc' },
-							{ label: 'Year: High to Low', value: 'year_desc' },
-							{ label: 'Date Listed: Low to High', value: 'listed_at_asc' },
-							{ label: 'Date Listed: High to Low', value: 'listed_at_desc' },
-						]}
-						placeholder={{
-							label: 'Most Relevant',
-							value: '',
-							color: 'black',  // Placeholder text color
-						}}
-						style={{
-							inputIOS: { color: 'black', padding: 10 },  // iOS styling
-							inputAndroid: { color: 'black', padding: 10 },  // Android styling
-						}}
-					/>
-					<FontAwesome name="sort" size={20} color="black" className="mr-2" />
-				</View>
-
-			</View>
-
 
 			<FlatList
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={(item) => item.id.toString()}
-				snapToAlignment="start"
-				decelerationRate={"fast"}
-				snapToInterval={Dimensions.get('window').height}
-				showsVerticalScrollIndicator={false}
-				onEndReached={() => handlePageChange(currentPage + 1)}
+				keyExtractor={item => item.id.toString()}
+				onEndReached={() => {
+					if (currentPage < totalPages && !isLoading) {
+						fetchCars(currentPage + 1, true)
+					}
+				}}
 				onEndReachedThreshold={0.1}
+				ListFooterComponent={renderFooter}
 			/>
 
-			<View className="flex-row justify-between items-center">
-				<TouchableOpacity
-					className="bg-red py-1 px-3 rounded-lg flex-1 mr-1 items-center"
-					onPress={() => handlePageChange(currentPage - 1)}
-					disabled={currentPage === 1}
-				>
-					<Text className="text-white text-sm">Previous</Text>
-				</TouchableOpacity>
-				<Text className="text-sm">{`Page ${currentPage} of ${totalPages}`}</Text>
-				<TouchableOpacity
-					className="bg-red py-1 px-3 rounded-lg flex-1 ml-1 items-center"
-					onPress={() => handlePageChange(currentPage + 1)}
-					disabled={currentPage === totalPages}
-				>
-					<Text className="text-white text-sm">Next</Text>
-				</TouchableOpacity>
-			</View>
 			<CarDetailModal
 				isVisible={isModalVisible}
 				car={selectedCar}
@@ -407,7 +350,18 @@ export default function BrowseCarsPage() {
 				}
 				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
 			/>
-			<FilterModal />
+			<FilterModal
+				isVisible={isFilterModalVisible}
+				tempFilters={tempFilters}
+				handleFilterChange={handleFilterChange}
+				applyFilters={applyFilters}
+				resetFilters={resetFilters}
+				closeModal={closeModal}
+				dealerships={dealerships}
+				makes={makes}
+				models={models}
+				colors={colors}
+			/>
 		</View>
-	);
+	)
 }
