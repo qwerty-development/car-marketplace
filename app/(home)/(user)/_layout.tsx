@@ -41,7 +41,6 @@ export default function UserLayout() {
 				}}
 			/>
 
-
 			<Tabs.Screen
 				name='profile'
 				options={{
@@ -49,6 +48,12 @@ export default function UserLayout() {
 					tabBarIcon: ({ color, size }) => (
 						<Ionicons name='person' size={size} color={color} />
 					)
+				}}
+			/>
+			<Tabs.Screen
+				name='filter'
+				options={{
+					tabBarButton: () => null
 				}}
 			/>
 		</Tabs>
