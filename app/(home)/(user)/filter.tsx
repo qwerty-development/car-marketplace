@@ -427,7 +427,7 @@ const FilterPage = () => {
 					</View>
 
 					{/* Drivetrain Filter */}
-					<View>
+					<View className='mb-12'>
 						<Text className='font-semibold mb-2'>Drivetrain</Text>
 						<RNPickerSelect
 							onValueChange={value =>
@@ -460,14 +460,14 @@ const FilterPage = () => {
 					</View>
 				</View>
 			</ScrollView>
-			<View className='flex-row justify-end p-4'>
+			<View className='flex-row bg-gray-200  justify-end p-4'>
 				<TouchableOpacity
 					className='bg-gray-300 py-2 px-4 rounded mr-2'
 					onPress={() => router.back()}>
 					<Text>Cancel</Text>
 				</TouchableOpacity>
 				<TouchableOpacity
-					className='bg-blue-500 py-2 px-4 rounded'
+					className='bg-red py-2 px-4 rounded'
 					onPress={applyFilters}>
 					<Text className='text-white'>Apply Filters</Text>
 				</TouchableOpacity>
