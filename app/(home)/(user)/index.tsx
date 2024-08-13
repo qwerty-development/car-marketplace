@@ -93,7 +93,7 @@ export default function BrowseCarsPage() {
 			let query = supabase.from('cars').select(
 				`
       *,
-      dealerships (name,logo)
+      dealerships (name,logo,phone)
       `,
 				{ count: 'exact' }
 			)
