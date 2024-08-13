@@ -1,230 +1,302 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
 	FlatList,
 	TextInput,
 	TouchableOpacity,
-	Alert,
 	Modal,
 	ScrollView,
-	Dimensions,
-} from 'react-native';
-import RNPickerSelect from 'react-native-picker-select';
-import { supabase } from '@/utils/supabase';
-import { useUser } from '@clerk/clerk-expo';
-import CarCard from '@/components/CarCard';
-import CarDetailModal from '@/components/CarDetailModal';
-import { useFavorites } from '@/utils/useFavorites';
-import { FontAwesome } from '@expo/vector-icons';
+	ActivityIndicator,
+	Dimensions
+} from 'react-native'
+import RNPickerSelect from 'react-native-picker-select'
+import Slider from '@react-native-community/slider'
+import { supabase } from '@/utils/supabase'
+import { useUser } from '@clerk/clerk-expo'
+import CarCard from '@/components/CarCard'
+import CarDetailModal from '@/components/CarDetailModal'
+import { useFavorites } from '@/utils/useFavorites'
+import { FontAwesome } from '@expo/vector-icons'
 
-const ITEMS_PER_PAGE = 10;
-const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+const ITEMS_PER_PAGE = 10
+const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
 interface Car {
-	id: number;
-	make: string;
-	model: string;
-	year: number;
-	price: number;
-	dealership_name: string;
-	images: string[];
-	description: string;
+	id: number
+	make: string
+	model: string
+	year: number
+	price: number
+	dealership_name: string
+	images: string[]
+	description: string
+	condition: 'New' | 'Used'
+	mileage: number
+	color: string
+	transmission: 'Manual' | 'Automatic'
+	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
 }
 
 interface Dealership {
-	id: number;
-	name: string;
+	id: number
+	name: string
 }
-
+const CustomRangeSlider = ({
+	minValue,
+	maxValue,
+	currentMin,
+	currentMax,
+	onValuesChange,
+	step,
+	formatLabel
+}: any) => {
+	return (
+		<View className='w-full'>
+			<View className='flex-row justify-between mb-2'>
+				<Text>{formatLabel(currentMin)}</Text>
+				<Text>{formatLabel(currentMax)}</Text>
+			</View>
+			<View className='flex-row justify-between'>
+				<Slider
+					style={{ width: SCREEN_WIDTH * 0.4 }}
+					minimumValue={minValue}
+					maximumValue={maxValue}
+					step={step}
+					value={currentMin}
+					onValueChange={value => onValuesChange([value, currentMax])}
+				/>
+				<Slider
+					style={{ width: SCREEN_WIDTH * 0.4 }}
+					minimumValue={minValue}
+					maximumValue={maxValue}
+					step={step}
+					value={currentMax}
+					onValueChange={value => onValuesChange([currentMin, value])}
+				/>
+			</View>
+		</View>
+	)
+}
 export default function BrowseCarsPage() {
-	const { user } = useUser();
-	const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
-	const [cars, setCars] = useState<Car[]>([]);
-	const [currentPage, setCurrentPage] = useState(1);
-	const [totalPages, setTotalPages] = useState(1);
-	const [searchQuery, setSearchQuery] = useState('');
-	const [sortOption, setSortOption] = useState('');
-	const [filterDealership, setFilterDealership] = useState('');
-	const [filterMake, setFilterMake] = useState('');
-	const [filterModel, setFilterModel] = useState('');
-	const [dealerships, setDealerships] = useState<Dealership[]>([]);
-	const [makes, setMakes] = useState<string[]>([]);
-	const [models, setModels] = useState<string[]>([]);
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null);
-	const [isModalVisible, setIsModalVisible] = useState(false);
-	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-	const [filtersChanged, setFiltersChanged] = useState(false);
+	const { user } = useUser()
+	const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites()
+	const [cars, setCars] = useState<Car[]>([])
+	const [currentPage, setCurrentPage] = useState(1)
+	const [totalPages, setTotalPages] = useState(1)
+	const [isLoading, setIsLoading] = useState(false)
+	const [searchQuery, setSearchQuery] = useState('')
+	const [sortOption, setSortOption] = useState('')
+	const [filters, setFilters] = useState({
+		dealership: '',
+		make: '',
+		model: '',
+		condition: '',
+		priceRange: [0, 1000000],
+		mileageRange: [0, 500000],
+		year: '',
+		color: '',
+		transmission: '',
+		drivetrain: ''
+	})
+	const [dealerships, setDealerships] = useState<Dealership[]>([])
+	const [makes, setMakes] = useState<string[]>([])
+	const [models, setModels] = useState<string[]>([])
+	const [colors, setColors] = useState<string[]>([])
+	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
+	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
+	const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000])
+	const [mileageRange, setMileageRange] = useState<[number, number]>([
+		0, 500000
+	])
 
 	useEffect(() => {
-		if (filtersChanged) {
-			setCurrentPage(1);
-			setFiltersChanged(false);
-		}
-		fetchCars();
-		fetchDealerships();
-		fetchMakes();
-	}, [
-		currentPage,
-		sortOption,
-		filterDealership,
-		filterMake,
-		filterModel,
-		searchQuery,
-		user,
-		filtersChanged,
-	]);
+		fetchCars()
+		fetchDealerships()
+		fetchMakes()
+		fetchColors()
+		fetchPriceRange()
+		fetchMileageRange()
+	}, [])
 
-	const fetchCars = async () => {
-		let query = supabase.from('cars').select(
-			`
-        *,
-        dealerships (name)
-      `,
-			{ count: 'exact' }
-		);
+	const fetchCars = useCallback(
+		async (page = 1, currentFilters = filters) => {
+			setIsLoading(true)
+			let query = supabase.from('cars').select(
+				`
+      *,
+      dealerships (name)
+    `,
+				{ count: 'exact' }
+			)
 
-		if (filterDealership) query = query.eq('dealership_id', filterDealership);
-		if (filterMake) query = query.eq('make', filterMake);
-		if (filterModel) query = query.eq('model', filterModel);
+			// Apply filters
+			if (currentFilters.dealership)
+				query = query.eq('dealership_id', currentFilters.dealership)
+			if (currentFilters.make) query = query.eq('make', currentFilters.make)
+			if (currentFilters.model) query = query.eq('model', currentFilters.model)
+			if (currentFilters.condition)
+				query = query.eq('condition', currentFilters.condition)
+			if (currentFilters.year) query = query.eq('year', currentFilters.year)
+			if (currentFilters.color) query = query.eq('color', currentFilters.color)
+			if (currentFilters.transmission)
+				query = query.eq('transmission', currentFilters.transmission)
+			if (currentFilters.drivetrain)
+				query = query.eq('drivetrain', currentFilters.drivetrain)
 
-		if (searchQuery) {
-			const numericSearch = !isNaN(Number(searchQuery));
+			query = query
+				.gte('price', currentFilters.priceRange[0])
+				.lte('price', currentFilters.priceRange[1])
+			query = query
+				.gte('mileage', currentFilters.mileageRange[0])
+				.lte('mileage', currentFilters.mileageRange[1])
 
-			let searchConditions = [
-				`make.ilike.%${searchQuery}%`,
-				`model.ilike.%${searchQuery}%`,
-			];
-
-			if (numericSearch) {
-				searchConditions.push(`year.eq.${searchQuery}`);
-				searchConditions.push(`price.eq.${searchQuery}`);
+			if (searchQuery) {
+				query = query.or(
+					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
+				)
 			}
 
-			query = query.or(searchConditions.join(','));
-		}
+			// Apply sorting
+			switch (sortOption) {
+				case 'price_asc':
+					query = query.order('price', { ascending: true })
+					break
+				case 'price_desc':
+					query = query.order('price', { ascending: false })
+					break
+				case 'year_asc':
+					query = query.order('year', { ascending: true })
+					break
+				case 'year_desc':
+					query = query.order('year', { ascending: false })
+					break
+				case 'mileage_asc':
+					query = query.order('mileage', { ascending: true })
+					break
+				case 'mileage_desc':
+					query = query.order('mileage', { ascending: false })
+					break
+				default:
+					query = query.order('listed_at', { ascending: false })
+			}
 
-		switch (sortOption) {
-			case 'price_asc':
-				query = query.order('price', { ascending: true });
-				break;
-			case 'price_desc':
-				query = query.order('price', { ascending: false });
-				break;
-			case 'year_asc':
-				query = query.order('year', { ascending: true });
-				break;
-			case 'year_desc':
-				query = query.order('year', { ascending: false });
-				break;
-			case 'listed_at_asc':
-				query = query.order('listed_at', { ascending: true });
-				break;
-			case 'listed_at_desc':
-				query = query.order('listed_at', { ascending: false });
-				break;
-		}
+			const { data, count, error } = await query.range(
+				(page - 1) * ITEMS_PER_PAGE,
+				page * ITEMS_PER_PAGE - 1
+			)
 
-		const { data, count, error } = await query.range(
-			(currentPage - 1) * ITEMS_PER_PAGE,
-			currentPage * ITEMS_PER_PAGE - 1
-		);
-
-		if (error) {
-			console.error('Error fetching listings:', error);
-			Alert.alert('Error', 'Failed to fetch car listings');
-		} else {
-			setCars(
-				data?.map((item) => ({
-					...item,
-					dealership_name: item.dealerships.name,
-				})) || []
-			);
-			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
-		}
-	};
+			if (error) {
+				console.error('Error fetching cars:', error)
+			} else {
+				const newCars =
+					data?.map(item => ({
+						...item,
+						dealership_name: item.dealerships.name
+					})) || []
+				setCars(prevCars => (page === 1 ? newCars : [...prevCars, ...newCars]))
+				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
+				setCurrentPage(page)
+			}
+			setIsLoading(false)
+		},
+		[searchQuery, sortOption]
+	)
 
 	const fetchDealerships = async () => {
 		const { data, error } = await supabase
 			.from('dealerships')
-			.select('id, name');
+			.select('id, name')
 		if (error) {
-			console.error('Error fetching dealerships:', error);
+			console.error('Error fetching dealerships:', error)
 		} else {
-			setDealerships(data || []);
+			setDealerships(data || [])
 		}
-	};
+	}
 
 	const fetchMakes = async () => {
 		const { data, error } = await supabase
 			.from('cars')
 			.select('make')
-			.order('make');
+			.order('make')
 		if (error) {
-			console.error('Error fetching makes:', error);
+			console.error('Error fetching makes:', error)
 		} else {
-			const uniqueMakes = [...new Set(data?.map((item) => item.make))];
-			setMakes(uniqueMakes);
+			const uniqueMakes = [...new Set(data?.map(item => item.make))]
+			setMakes(uniqueMakes)
 		}
-	};
+	}
 
 	const fetchModels = async (make: string) => {
 		const { data, error } = await supabase
 			.from('cars')
 			.select('model')
 			.eq('make', make)
-			.order('model');
+			.order('model')
+		if (error) {
+			console.error('Error fetching models:', error)
+		} else {
+			const uniqueModels = [...new Set(data?.map(item => item.model))]
+			setModels(uniqueModels)
+		}
+	}
+
+	const fetchColors = async () => {
+		const { data, error } = await supabase
+			.from('cars')
+			.select('color')
+			.order('color')
+		if (error) {
+			console.error('Error fetching colors:', error)
+		} else {
+			const uniqueColors = [...new Set(data?.map(item => item.color))]
+			setColors(uniqueColors)
+		}
+	}
+
+	const fetchPriceRange = async () => {
+		const { data, error } = await supabase
+			.from('cars')
+			.select('price')
+			.order('price', { ascending: false })
+			.limit(1)
 
 		if (error) {
-			console.error('Error fetching models:', error);
-		} else {
-			const uniqueModels = [...new Set(data?.map((item) => item.model))];
-			setModels(uniqueModels);
+			console.error('Error fetching price range:', error)
+		} else if (data && data.length > 0) {
+			setPriceRange([0, data[0].price])
+			setFilters(prev => ({ ...prev, priceRange: [0, data[0].price] }))
 		}
-	};
+	}
+
+	const fetchMileageRange = async () => {
+		const { data, error } = await supabase
+			.from('cars')
+			.select('mileage')
+			.order('mileage', { ascending: false })
+			.limit(1)
+
+		if (error) {
+			console.error('Error fetching mileage range:', error)
+		} else if (data && data.length > 0) {
+			setMileageRange([0, data[0].mileage])
+			setFilters(prev => ({ ...prev, mileageRange: [0, data[0].mileage] }))
+		}
+	}
 
 	const handleFavoritePress = async (carId: number) => {
 		if (isFavorite(carId)) {
-			await removeFavorite(carId);
+			await removeFavorite(carId)
 		} else {
-			await addFavorite(carId);
+			await addFavorite(carId)
 		}
-	};
+	}
 
 	const handleCarPress = (car: Car) => {
-		setSelectedCar(car);
-		setIsModalVisible(true);
-	};
-
-	const handleSearch = (text: string) => {
-		setSearchQuery(text);
-		setFiltersChanged(true);
-	};
-
-	const handleDealershipFilter = (value: string) => {
-		setFilterDealership(value);
-		setFiltersChanged(true);
-	};
-
-	const handleMakeFilter = (value: string) => {
-		setFilterMake(value);
-		fetchModels(value);
-		setFiltersChanged(true);
-	};
-
-	const handleModelFilter = (value: string) => {
-		setFilterModel(value);
-		setFiltersChanged(true);
-	};
-
-	const handleSortChange = (value: string) => {
-		setSortOption(value);
-		setFiltersChanged(true);
-	};
-
-	const handlePageChange = (newPage: number) => {
-		setCurrentPage(newPage);
-	};
+		setSelectedCar(car)
+		setIsModalVisible(true)
+	}
 
 	const renderCarItem = ({ item }: { item: Car }) => (
 		<CarCard
@@ -233,175 +305,388 @@ export default function BrowseCarsPage() {
 			onFavoritePress={() => handleFavoritePress(item.id)}
 			isFavorite={isFavorite(item.id)}
 		/>
-	);
+	)
 
-	const FilterModal = () => (
-		<Modal
-			visible={isFilterModalVisible}
-			animationType="slide"
-			transparent={true}
-		>
-			<View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-				<View className="bg-white p-6 rounded-lg w-5/6">
-					<Text className="text-2xl font-bold mb-4">Filter Results</Text>
-					<ScrollView>
-						<View className="mb-4 space-y-2">
-							<View className="bg-white rounded-lg overflow-hidden h-12 justify-center">
-								<RNPickerSelect
-									onValueChange={handleDealershipFilter}
-									items={dealerships.map((dealership) => ({
-										label: dealership.name,
-										value: dealership.id.toString(),
-									}))}
-									placeholder={{
-										label: 'All Dealerships',
-										value: '',
-										color: 'black',  // Placeholder text color
-									}}
-									style={{
-										inputIOS: { color: 'black', padding: 10 },  // iOS styling
-										inputAndroid: { color: 'black', padding: 10 },  // Android styling
-									}}
-								/>
-							</View>
+	const FilterModal = () => {
+		const [tempFilters, setTempFilters] = useState({ ...filters })
 
-							<View className="bg-white rounded-lg overflow-hidden h-12 justify-center">
-								<RNPickerSelect
-									onValueChange={handleMakeFilter}
-									items={makes.map((make) => ({
-										label: make,
-										value: make,
-									}))}
-									placeholder={{
-										label: 'All Makes',
-										value: '',
-										color: 'black',  // Placeholder text color
-									}}
-									style={{
-										inputIOS: { color: 'black', padding: 10 },  // iOS styling
-										inputAndroid: { color: 'black', padding: 10 },  // Android styling
-									}}
-								/>
-							</View>
+		useEffect(() => {
+			if (isFilterModalVisible) {
+				setTempFilters({ ...filters })
+			}
+		}, [isFilterModalVisible])
 
-							<View className="bg-white rounded-lg overflow-hidden h-12 justify-center">
-								<RNPickerSelect
-									onValueChange={handleModelFilter}
-									items={models.map((model) => ({
-										label: model,
-										value: model,
-									}))}
-									placeholder={{
-										label: 'All Models',
-										value: '',
-										color: 'black',  // Placeholder text color
-									}}
-									style={{
-										inputIOS: { color: 'black', padding: 10 },  // iOS styling
-										inputAndroid: { color: 'black', padding: 10 },  // Android styling
-									}}
-								/>
+		const applyFilters = () => {
+			setFilters({ ...tempFilters })
+			setIsFilterModalVisible(false)
+			setCurrentPage(1)
+			fetchCars(1, tempFilters) // Pass tempFilters directly to fetchCars
+		}
+
+		return (
+			<Modal
+				visible={isFilterModalVisible}
+				animationType='slide'
+				transparent={true}>
+				<View className='flex-1 justify-center items-center bg-black bg-opacity-50'>
+					<View className='bg-white p-6 rounded-lg w-11/12 h-5/6'>
+						<Text className='text-2xl font-bold mb-4'>Filter Results</Text>
+						<ScrollView className='flex-1'>
+							<View className='space-y-4'>
+								<View>
+									<Text className='font-semibold mb-2'>Dealership</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, dealership: value })
+										}
+										value={tempFilters.dealership}
+										items={dealerships.map(dealership => ({
+											label: dealership.name,
+											value: dealership.id.toString()
+										}))}
+										placeholder={{ label: 'All Dealerships', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Make</Text>
+									<RNPickerSelect
+										onValueChange={value => {
+											setTempFilters({ ...tempFilters, make: value, model: '' })
+											if (value) fetchModels(value)
+										}}
+										value={tempFilters.make}
+										items={makes.map(make => ({ label: make, value: make }))}
+										placeholder={{ label: 'All Makes', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Model</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, model: value })
+										}
+										value={tempFilters.model}
+										items={models.map(model => ({
+											label: model,
+											value: model
+										}))}
+										placeholder={{ label: 'All Models', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Condition</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, condition: value })
+										}
+										value={tempFilters.condition}
+										items={[
+											{ label: 'New', value: 'New' },
+											{ label: 'Used', value: 'Used' }
+										]}
+										placeholder={{ label: 'All Conditions', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Price Range</Text>
+									<CustomRangeSlider
+										minValue={priceRange[0]}
+										maxValue={priceRange[1]}
+										currentMin={tempFilters.priceRange[0]}
+										currentMax={tempFilters.priceRange[1]}
+										onValuesChange={(values: any) =>
+											setTempFilters({ ...tempFilters, priceRange: values })
+										}
+										step={1000}
+										formatLabel={(value: { toLocaleString: () => any }) =>
+											`$${value.toLocaleString()}`
+										}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Mileage Range</Text>
+									<CustomRangeSlider
+										minValue={mileageRange[0]}
+										maxValue={mileageRange[1]}
+										currentMin={tempFilters.mileageRange[0]}
+										currentMax={tempFilters.mileageRange[1]}
+										onValuesChange={(values: any) =>
+											setTempFilters({ ...tempFilters, mileageRange: values })
+										}
+										step={1000}
+										formatLabel={(value: { toLocaleString: () => any }) =>
+											`${value.toLocaleString()} miles`
+										}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Year</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, year: value })
+										}
+										value={tempFilters.year}
+										items={Array.from({ length: 30 }, (_, i) => 2024 - i).map(
+											year => ({
+												label: year.toString(),
+												value: year.toString()
+											})
+										)}
+										placeholder={{ label: 'All Years', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Color</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, color: value })
+										}
+										value={tempFilters.color}
+										items={colors.map(color => ({
+											label: color,
+											value: color
+										}))}
+										placeholder={{ label: 'All Colors', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Transmission</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, transmission: value })
+										}
+										value={tempFilters.transmission}
+										items={[
+											{ label: 'Manual', value: 'Manual' },
+											{ label: 'Automatic', value: 'Automatic' }
+										]}
+										placeholder={{ label: 'All Transmissions', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
+
+								<View>
+									<Text className='font-semibold mb-2'>Drivetrain</Text>
+									<RNPickerSelect
+										onValueChange={value =>
+											setTempFilters({ ...tempFilters, drivetrain: value })
+										}
+										value={tempFilters.drivetrain}
+										items={[
+											{ label: 'FWD', value: 'FWD' },
+											{ label: 'RWD', value: 'RWD' },
+											{ label: 'AWD', value: 'AWD' },
+											{ label: '4WD', value: '4WD' },
+											{ label: '4x4', value: '4x4' }
+										]}
+										placeholder={{ label: 'All Drivetrains', value: null }}
+										style={{
+											inputIOS: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											},
+											inputAndroid: {
+												color: 'black',
+												padding: 10,
+												backgroundColor: '#f0f0f0',
+												borderRadius: 5
+											}
+										}}
+									/>
+								</View>
 							</View>
+						</ScrollView>
+						<View className='flex-row justify-end mt-4'>
+							<TouchableOpacity
+								className='bg-gray-300 py-2 px-4 rounded mr-2'
+								onPress={() => setIsFilterModalVisible(false)}>
+								<Text>Cancel</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='bg-blue-500 py-2 px-4 rounded'
+								onPress={applyFilters}>
+								<Text className='text-white'>Apply Filters</Text>
+							</TouchableOpacity>
 						</View>
-					</ScrollView>
-					<View className="flex-row justify-end mt-4">
-						<TouchableOpacity
-							className="bg-gray-300 py-2 px-4 rounded mr-2"
-							onPress={() => setIsFilterModalVisible(false)}
-						>
-							<Text>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							className="bg-red py-2 px-4 rounded"
-							onPress={() => {
-								setIsFilterModalVisible(false);
-								setFiltersChanged(true);
-							}}
-						>
-							<Text className="text-white">Apply</Text>
-						</TouchableOpacity>
 					</View>
 				</View>
-			</View>
-		</Modal>
-	);
+			</Modal>
+		)
+	}
 
 	return (
-		<View className="flex-1 bg-gray-300">
-			<View className="flex-row justify-between items-center p-2 bg-white">
-				{isSearchExpanded ? (
-					<TextInput
-						className="flex-1 text-black py-1 px-2"
-						placeholder="Search cars..."
-						value={searchQuery}
-						onChangeText={handleSearch}
-						autoFocus
-					/>
-				) : (
-					<View className="flex-row items-center flex-1">
-						<TouchableOpacity
-							className="bg-red p-2 rounded-full mr-2"
-							onPress={() => setIsFilterModalVisible(true)}
-						>
-							<FontAwesome name="filter" size={16} color="white" />
-						</TouchableOpacity>
-						<View className="flex-1">
-							<RNPickerSelect
-								onValueChange={handleSortChange}
-								items={[
-									{ label: 'Price: Low to High', value: 'price_asc' },
-									{ label: 'Price: High to Low', value: 'price_desc' },
-									{ label: 'Year: Low to High', value: 'year_asc' },
-									{ label: 'Year: High to Low', value: 'year_desc' },
-									{ label: 'Date Listed: Low to High', value: 'listed_at_asc' },
-									{ label: 'Date Listed: High to Low', value: 'listed_at_desc' },
-								]}
-								placeholder={{ label: 'Sort by', value: '' }}
-								style={{
-									inputIOS: { fontSize: 14, color: 'black' },
-									inputAndroid: { fontSize: 14, color: 'black' },
-								}}
-							/>
-						</View>
-					</View>
-				)}
+		<View className='flex-1 p-4 bg-gray-100'>
+			<TextInput
+				className='bg-white text-black p-3 rounded-lg mb-4'
+				placeholder='Search cars...'
+				value={searchQuery}
+				onChangeText={text => {
+					setSearchQuery(text)
+					setCurrentPage(1)
+				}}
+				onSubmitEditing={() => fetchCars(1, filters)}
+			/>
+			<View className='mb-4 flex-row justify-between space-x-2'>
 				<TouchableOpacity
-					className="bg-red p-2 rounded-full ml-2"
-					onPress={() => setIsSearchExpanded(!isSearchExpanded)}
-				>
-					<FontAwesome name={isSearchExpanded ? "times" : "search"} size={16} color="white" />
+					className='bg-blue-500 px-5 py-2 rounded-xl items-center justify-center flex-row flex-1'
+					onPress={() => {
+						setFilters({ ...filters })
+						setIsFilterModalVisible(true)
+					}}>
+					<FontAwesome name='filter' size={20} color='white' className='mr-2' />
+					<Text className='text-white text-sm'>Filter</Text>
 				</TouchableOpacity>
+
+				<View className='bg-white px-2 rounded-xl overflow-hidden justify-center flex-row items-center flex-1'>
+					<RNPickerSelect
+						onValueChange={value => {
+							setSortOption(value)
+							setCurrentPage(1)
+							fetchCars(1, filters)
+						}}
+						items={[
+							{ label: 'Price: Low to High', value: 'price_asc' },
+							{ label: 'Price: High to Low', value: 'price_desc' },
+							{ label: 'Year: New to Old', value: 'year_desc' },
+							{ label: 'Year: Old to New', value: 'year_asc' },
+							{ label: 'Mileage: Low to High', value: 'mileage_asc' },
+							{ label: 'Mileage: High to Low', value: 'mileage_desc' }
+						]}
+						placeholder={{ label: 'Sort By', value: null }}
+						style={{
+							inputIOS: { color: 'black', padding: 10 },
+							inputAndroid: { color: 'black', padding: 10 }
+						}}
+					/>
+					<FontAwesome name='sort' size={20} color='black' className='mr-2' />
+				</View>
 			</View>
 
 			<FlatList
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={(item) => item.id.toString()}
-				snapToAlignment="start"
-				decelerationRate={"fast"}
-				snapToInterval={Dimensions.get('window').height}
-				showsVerticalScrollIndicator={false}
-				onEndReached={() => handlePageChange(currentPage + 1)}
+				keyExtractor={item => item.id.toString()}
+				onEndReached={() => {
+					if (currentPage < totalPages && !isLoading) {
+						fetchCars(currentPage + 1)
+					}
+				}}
 				onEndReachedThreshold={0.1}
+				ListFooterComponent={() =>
+					isLoading ? (
+						<View className='py-4'>
+							<ActivityIndicator size='large' color='#0000ff' />
+						</View>
+					) : null
+				}
 			/>
-
-			<View className="flex-row justify-between items-center p-2 bg-white">
-				<TouchableOpacity
-					className="bg-red py-1 px-2 rounded-lg flex-1 mr-1 items-center"
-					onPress={() => handlePageChange(currentPage - 1)}
-					disabled={currentPage === 1}
-				>
-					<Text className="text-white text-xs">Previous</Text>
-				</TouchableOpacity>
-				<Text className="text-xs mx-1">{`${currentPage}/${totalPages}`}</Text>
-				<TouchableOpacity
-					className="bg-red py-1 px-2 rounded-lg flex-1 ml-1 items-center"
-					onPress={() => handlePageChange(currentPage + 1)}
-					disabled={currentPage === totalPages}
-				>
-					<Text className="text-white text-xs">Next</Text>
-				</TouchableOpacity>
-			</View>
 
 			<CarDetailModal
 				isVisible={isModalVisible}
@@ -412,5 +697,5 @@ export default function BrowseCarsPage() {
 			/>
 			<FilterModal />
 		</View>
-	);
+	)
 }
