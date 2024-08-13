@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, Dimensions, Linking, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, Dimensions, Linking, Alert, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styled } from 'nativewind';
 
@@ -11,18 +11,15 @@ const StyledScrollView = styled(ScrollView);
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-
-
 export default function CarCard({
 	car,
 	onPress,
 	onFavoritePress,
 	isFavorite,
-	tabBarHeight, // Pass the tabBarHeight as a prop
+	tabBarHeight,
 }: any) {
-	const cardHeight = SCREEN_HEIGHT - (tabBarHeight || 50); // Calculate available height with fallback
+	const cardHeight = SCREEN_HEIGHT - (tabBarHeight || 50);
 
-	// Function to handle calling
 	const handleCall = () => {
 		if (car.dealership_phone) {
 			Linking.openURL(`tel:${car.dealership_phone}`);
@@ -31,7 +28,6 @@ export default function CarCard({
 		}
 	};
 
-	// Function to handle WhatsApp messaging
 	const handleWhatsApp = () => {
 		if (car.dealership_whatsapp) {
 			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`;
@@ -42,97 +38,94 @@ export default function CarCard({
 		}
 	};
 
-	// Placeholder for chat function
 	const handleChat = () => {
 		Alert.alert('Chat feature coming soon!');
 	};
 
+	const handleShare = async () => {
+		try {
+			const result = await Share.share({
+				message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price.toLocaleString()}!`,
+				url: car.images[0], // You might want to replace this with an actual link to the car listing
+			});
+			if (result.action === Share.sharedAction) {
+				if (result.activityType) {
+					// shared with activity type of result.activityType
+				} else {
+					// shared
+				}
+			} else if (result.action === Share.dismissedAction) {
+				// dismissed
+			}
+		} catch (error) {
+			Alert.alert(error.message);
+		}
+	};
+
 	return (
-		<StyledScrollView className="bg-white" contentContainerStyle={{ height: cardHeight || SCREEN_HEIGHT }}>
-			<StyledTouchableOpacity onPress={onPress}>
+		<StyledScrollView className="bg-gray-100" contentContainerStyle={{ height: cardHeight || SCREEN_HEIGHT }}>
+			<StyledTouchableOpacity onPress={onPress} className="m-4 bg-white rounded-3xl shadow-lg overflow-hidden">
 				<StyledView className="relative">
 					<StyledImage
 						source={{ uri: car.images[0] }}
-						className="w-full h-72"
+						className="w-full h-64 rounded-t-3xl"
 					/>
-					<StyledView className="absolute top-4 right-4 rounded-full p-2">
+					<StyledView className="absolute top-4 right-4 bg-white/50 rounded-full p-2">
 						<TouchableOpacity onPress={onFavoritePress}>
 							<Ionicons
 								name={isFavorite ? 'heart' : 'heart-outline'}
 								size={28}
-								color={isFavorite ? 'red' : 'white'}
+								color={isFavorite ? 'red' : 'black'}
 							/>
 						</TouchableOpacity>
 					</StyledView>
 				</StyledView>
 
-				<StyledView className="flex-row justify-between items-center px-6 py-2 border-b border-red">
-					<StyledView className="flex-row items-center">
-						<Ionicons name="eye-outline" size={20} color="gray" />
-						<StyledText className="ml-1 text-gray-600">{car.views}</StyledText>
+				<StyledView className="p-6">
+					<StyledView className="flex-row justify-between items-center mb-6">
+						<StyledView className="flex-row items-center">
+							<Ionicons name="eye-outline" size={20} color="gray" />
+							<StyledText className="ml-2 text-gray-600">{car.views} views</StyledText>
+						</StyledView>
+						<StyledView className="flex-row items-center">
+							<Ionicons name="heart-outline" size={20} color="gray" />
+							<StyledText className="ml-2 text-gray-600">{car.likes} likes</StyledText>
+						</StyledView>
 					</StyledView>
-					<StyledView className="flex-row items-center">
-						<Ionicons name="heart-outline" size={20} color="gray" />
-						<StyledText className="ml-1 text-gray-600">{car.likes}</StyledText>
-					</StyledView>
-				</StyledView>
-
-				<StyledView className="mx-5 border-b border-red">
-					<StyledView className="p-6">
-						<StyledView className="flex-row justify-between items-center mb-2">
+					<StyledView className="flex-row justify-between items-center mb-4">
+						<StyledView>
 							<StyledText className="text-3xl font-bold text-gray-800">
 								{car.make} {car.model}
 							</StyledText>
-							{car.dealership_logo && (
-								<StyledImage
-									source={{ uri: car.dealership_logo }}
-									className="w-20 h-12 ml-4"
-									alt={`${car.dealership_name} logo`}
-								/>
-							)}
+							<StyledText className="text-2xl font-semibold text-red mt-1">
+								${car.price.toLocaleString()}
+							</StyledText>
 						</StyledView>
-						<StyledText className="text-2xl text-red font-semibold text-red-600 mb-4">
-							${car.price.toLocaleString()}
-						</StyledText>
+						{car.dealership_logo && (
+							<StyledImage
+								source={{ uri: car.dealership_logo }}
+								className="w-16 h-16 rounded-full"
+								alt={`${car.dealership_name} logo`}
+							/>
+						)}
+					</StyledView>
 
-						<StyledView className="flex-row  mt-8 justify-between mb-6">
-							<InfoItem icon="calendar-outline" text={car.year} />
-							<InfoItem icon="speedometer-outline" text={`${car.mileage}`} />
-							<InfoItem icon="color-palette-outline" text={car.color} />
-							<InfoItem icon="car-outline" text={car.condition} />
-						</StyledView>
+					<StyledView className="flex-row justify-between mb-6">
+						<InfoItem icon="calendar-outline" text={car.year} />
+						<InfoItem icon="speedometer-outline" text={`${car.mileage} km`} />
+						<InfoItem icon="color-palette-outline" text={car.color} />
+						<InfoItem icon="car-outline" text={car.condition} />
+					</StyledView>
 
+
+
+					<StyledView className="flex-row justify-around">
+						<ActionButton icon="call-outline" color="#4CAF50" onPress={handleCall} />
+						<ActionButton icon="logo-whatsapp" color="#25D366" onPress={handleWhatsApp} />
+						<ActionButton icon="chatbubble-outline" color="#FF9800" onPress={handleChat} />
+						<ActionButton icon="share-social-outline" color="#2196F3" onPress={handleShare} />
 					</StyledView>
 				</StyledView>
-
-				{/* Action Buttons */}
-				<StyledView className="flex-row rounded-lg justify-around mt-3">
-					<StyledTouchableOpacity
-						onPress={handleCall}
-						className="w-9 h-9 rounded-lg  flex items-center justify-center shadow-lg "
-					>
-						<Ionicons name="call-outline" size={28} color="black" />
-					</StyledTouchableOpacity>
-
-					<StyledTouchableOpacity
-						onPress={handleWhatsApp}
-						className="w-9 h-9 rounded-lg flex items-center justify-center shadow-lg "
-					>
-						<Ionicons name="logo-whatsapp" size={28} color="green" />
-					</StyledTouchableOpacity>
-
-					<StyledTouchableOpacity
-						onPress={handleChat}
-						className="w-9 h-9 rounded-lg flex items-center justify-center shadow-lg "
-					>
-						<Ionicons name="chatbubble-outline" size={28} color="orange" />
-					</StyledTouchableOpacity>
-				</StyledView>
-
-
-
-
-
 			</StyledTouchableOpacity>
 		</StyledScrollView>
 	);
@@ -140,7 +133,17 @@ export default function CarCard({
 
 const InfoItem = ({ icon, text }) => (
 	<StyledView className="items-center">
-		<Ionicons name={icon} size={32} color="black" />
-		<StyledText className="text-xl text-red mt-1">{text}</StyledText>
+		<Ionicons name={icon} size={24} color="#4A5568" />
+		<StyledText className="text-sm text-gray-600 mt-1">{text}</StyledText>
 	</StyledView>
+);
+
+const ActionButton = ({ icon, color, onPress }) => (
+	<StyledTouchableOpacity
+		onPress={onPress}
+		className="w-14 h-14 rounded-full flex items-center justify-center shadow-md"
+		style={{ backgroundColor: color }}
+	>
+		<Ionicons name={icon} size={24} color="white" />
+	</StyledTouchableOpacity>
 );
