@@ -68,7 +68,7 @@ const CustomRangeSlider = ({
 				/>
 				<Slider
 					style={{ width: SCREEN_WIDTH * 0.4 }}
-					minimumValue={minValue}
+					minimumValue={currentMin}
 					maximumValue={maxValue}
 					step={step}
 					value={currentMax}
