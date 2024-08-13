@@ -50,7 +50,7 @@ const CustomRangeSlider = ({
 	onValuesChange,
 	step,
 	formatLabel
-}) => {
+}: any) => {
 	return (
 		<View className='w-full'>
 			<View className='flex-row justify-between mb-2'>
