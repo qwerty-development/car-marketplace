@@ -22,25 +22,27 @@ export default function CarCard({
 
 	const handleCall = () => {
 		if (car.dealership_phone) {
-			Linking.openURL(`tel:${car.dealership_phone}`);
+			Linking.openURL(`tel:${car.dealership_phone}`)
 		} else {
-			Alert.alert('Phone number not available');
+			Alert.alert('Phone number not available')
 		}
-	};
+	}
 
 	const handleWhatsApp = () => {
-		if (car.dealership_whatsapp) {
-			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`;
-			const url = `https://wa.me/${car.dealership_phone}?text=${encodeURIComponent(message)}`;
-			Linking.openURL(url);
+		if (car.dealership_phone) {
+			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
+			const url = `https://wa.me/${
+				car.dealership_phone
+			}?text=${encodeURIComponent(message)}`
+			Linking.openURL(url)
 		} else {
-			Alert.alert('WhatsApp number not available');
+			Alert.alert('WhatsApp number not available')
 		}
-	};
+	}
 
 	const handleChat = () => {
-		Alert.alert('Chat feature coming soon!');
-	};
+		Alert.alert('Chat feature coming soon!')
+	}
 
 	const handleShare = async () => {
 		try {
@@ -128,7 +130,7 @@ export default function CarCard({
 				</StyledView>
 			</StyledTouchableOpacity>
 		</StyledScrollView>
-	);
+	)
 }
 
 const InfoItem = ({ icon, text }) => (
