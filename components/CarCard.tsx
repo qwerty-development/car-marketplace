@@ -140,7 +140,7 @@ export default function CarCard({
 	)
 }
 
-const InfoItem = ({ icon, text }) => (
+const InfoItem = ({ icon, text }: any) => (
 	<StyledView className='items-center'>
 		<Ionicons name={icon} size={32} color='black' />
 		<StyledText className='text-xl text-red mt-1'>{text}</StyledText>
