@@ -200,7 +200,8 @@ export default function BrowseCarsPage() {
 					data?.map(item => ({
 						...item,
 						dealership_name: item.dealerships.name,
-						dealership_logo: item.dealerships.logo
+						dealership_logo: item.dealerships.logo,
+						dealership_phone: item.dealerships.phone
 					})) || []
 				setCars(prevCars => (page === 1 ? newCars : [...prevCars, ...newCars]))
 				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
