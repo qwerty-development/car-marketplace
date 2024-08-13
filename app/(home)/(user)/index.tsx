@@ -622,34 +622,24 @@ export default function BrowseCarsPage() {
 	}
 
 	return (
-		<View className='flex-1 p-4 bg-gray-100'>
-			<TextInput
-				className='bg-white text-black p-3 rounded-lg mb-4'
-				placeholder='Search cars...'
-				value={searchQuery}
-				onChangeText={text => {
-					setSearchQuery(text)
-					setCurrentPage(1)
-				}}
-				onSubmitEditing={() => fetchCars(1, filters)}
-			/>
-			<View className='mb-4 flex-row justify-between space-x-2'>
+		<View className='flex-1 bg-gray-100'>
+			<View className='flex-row items-center p-2 bg-white'>
 				<TouchableOpacity
-					className='bg-blue-500 px-5 py-2 rounded-xl items-center justify-center flex-row flex-1'
+					className='bg-red p-2 rounded-full mr-2'
 					onPress={() => {
-						setFilters({ ...filters })
-						setIsFilterModalVisible(true)
-					}}>
-					<FontAwesome name='filter' size={20} color='white' className='mr-2' />
-					<Text className='text-white text-sm'>Filter</Text>
+						setFilters({ ...filters });
+						setIsFilterModalVisible(true);
+					}}
+				>
+					<FontAwesome name='filter' size={20} color='white' />
 				</TouchableOpacity>
 
-				<View className='bg-white px-2 rounded-xl overflow-hidden justify-center flex-row items-center flex-1'>
+				<View className='bg-red rounded-3xl mr-2'>
 					<RNPickerSelect
 						onValueChange={value => {
-							setSortOption(value)
-							setCurrentPage(1)
-							fetchCars(1, filters)
+							setSortOption(value);
+							setCurrentPage(1);
+							fetchCars(1, filters);
 						}}
 						items={[
 							{ label: 'Price: Low to High', value: 'price_asc' },
@@ -659,13 +649,37 @@ export default function BrowseCarsPage() {
 							{ label: 'Mileage: Low to High', value: 'mileage_asc' },
 							{ label: 'Mileage: High to Low', value: 'mileage_desc' }
 						]}
-						placeholder={{ label: 'Sort By', value: null }}
+						placeholder={{}}
 						style={{
-							inputIOS: { color: 'black', padding: 10 },
-							inputAndroid: { color: 'black', padding: 10 }
+							inputIOS: { fontSize: 14, color: 'transparent', padding: 5 },
+							inputAndroid: { fontSize: 14, color: 'transparent', padding: 5 },
+							iconContainer: {
+								top: 4,
+								right:22,
+							}
 						}}
+						Icon={() => <FontAwesome name='sort' size={20} color='white' />}
 					/>
-					<FontAwesome name='sort' size={20} color='black' className='mr-2' />
+				</View>
+
+
+				<View className='flex-row flex-1 bg-gray-100 rounded-full items-center'>
+					<TextInput
+						className='flex-1 text-black px-3 py-1'
+						placeholder='Search cars...'
+						value={searchQuery}
+						onChangeText={text => {
+							setSearchQuery(text);
+							setCurrentPage(1);
+						}}
+						onSubmitEditing={() => fetchCars(1, filters)}
+					/>
+					<TouchableOpacity
+						className='bg-red p-2 rounded-full'
+						onPress={() => fetchCars(1, filters)}
+					>
+						<FontAwesome name='search' size={20} color='white' />
+					</TouchableOpacity>
 				</View>
 			</View>
 
@@ -675,7 +689,7 @@ export default function BrowseCarsPage() {
 				keyExtractor={item => item.id.toString()}
 				onEndReached={() => {
 					if (currentPage < totalPages && !isLoading) {
-						fetchCars(currentPage + 1)
+						fetchCars(currentPage + 1);
 					}
 				}}
 				onEndReachedThreshold={0.1}

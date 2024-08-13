@@ -54,7 +54,7 @@ export default function CarCard({
           </StyledText>
 
           <StyledView className="flex-row  justify-between mb-6">
-            <InfoItem icon="calendar-outline" text={car.year} />
+            <InfoItem icon="calendar-outline"  text={car.year} />
             <InfoItem icon="speedometer-outline" text={`${car.mileage} mi`} />
             <InfoItem icon="color-palette-outline" text={car.color} />
             <InfoItem icon="car-outline" text={car.condition} />
