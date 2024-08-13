@@ -17,6 +17,7 @@ import CarDetailModal from '@/components/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
+import SortPicker from '@/components/SortPicker'
 
 const ITEMS_PER_PAGE = 10
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window')
@@ -83,13 +84,17 @@ export default function BrowseCarsPage() {
 	}
 
 	const fetchCars = useCallback(
-		async (page = 1, currentFilters = filters) => {
+		async (
+			page = 1,
+			currentFilters = filters,
+			currentSortOption = sortOption
+		) => {
 			setIsLoading(true)
 			let query = supabase.from('cars').select(
 				`
-        *,
-        dealerships (name,logo)
-        `,
+      *,
+      dealerships (name,logo)
+      `,
 				{ count: 'exact' }
 			)
 
@@ -121,7 +126,7 @@ export default function BrowseCarsPage() {
 			}
 
 			// Apply sorting
-			switch (sortOption) {
+			switch (currentSortOption) {
 				case 'price_asc':
 					query = query.order('price', { ascending: true })
 					break
@@ -165,7 +170,7 @@ export default function BrowseCarsPage() {
 			}
 			setIsLoading(false)
 		},
-		[searchQuery, sortOption, filters]
+		[searchQuery, filters]
 	)
 
 	const handleFavoritePress = async (carId: number) => {
@@ -174,6 +179,11 @@ export default function BrowseCarsPage() {
 		} else {
 			await addFavorite(carId)
 		}
+	}
+
+	const handleSortChange = (value: any) => {
+		setSortOption(value)
+		fetchCars(1, filters, value) // Pass the new sort value directly to fetchCars
 	}
 
 	const handleCarPress = (car: Car) => {
@@ -228,41 +238,9 @@ export default function BrowseCarsPage() {
 				</View>
 
 				<View className='mt-2'>
-					<RNPickerSelect
-						onValueChange={value => {
-							setSortOption(value)
-							setCurrentPage(1)
-							fetchCars(1, filters)
-						}}
-						items={[
-							{ label: 'Price: Low to High', value: 'price_asc' },
-							{ label: 'Price: High to Low', value: 'price_desc' },
-							{ label: 'Year: New to Old', value: 'year_desc' },
-							{ label: 'Year: Old to New', value: 'year_asc' },
-							{ label: 'Mileage: Low to High', value: 'mileage_asc' },
-							{ label: 'Mileage: High to Low', value: 'mileage_desc' }
-						]}
-						placeholder={{ label: 'Sort', value: null }}
-						style={{
-							inputIOS: {
-								fontSize: 14,
-								color: 'black',
-								padding: 8,
-								backgroundColor: 'white',
-								borderRadius: 8
-							},
-							inputAndroid: {
-								fontSize: 14,
-								color: 'black',
-								padding: 8,
-								backgroundColor: 'white',
-								borderRadius: 8
-							},
-							iconContainer: {
-								top: 10,
-								right: 10
-							}
-						}}
+					<SortPicker
+						onValueChange={handleSortChange}
+						initialValue={{ label: 'Sort', value: null, icon: 'arrow-down' }}
 					/>
 				</View>
 			</View>
