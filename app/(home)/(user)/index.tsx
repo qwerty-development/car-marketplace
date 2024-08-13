@@ -19,6 +19,7 @@ import { useFavorites } from '@/utils/useFavorites';
 import { FontAwesome } from '@expo/vector-icons';
 
 const ITEMS_PER_PAGE = 10;
+const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
 interface Car {
 	id: number;
@@ -326,48 +327,51 @@ export default function BrowseCarsPage() {
 	);
 
 	return (
-		<View className="flex-1 p-4 bg-gray-300">
-			<TextInput
-				className="bg-white text-black p-3 rounded-lg mb-4"
-				placeholder="Search cars..."
-				value={searchQuery}
-				onChangeText={handleSearch}
-			/>
-			<View className="mb-4 flex-row justify-between space-x-2">
-				<TouchableOpacity
-					className="bg-red px-5 rounded-xl  items-center justify-center flex-row"
-					onPress={() => setIsFilterModalVisible(true)}
-				>
-					<FontAwesome name="filter" size={20} color="white" className="mr-2" />
-					<Text className="text-white text-sm">Filter</Text>
-				</TouchableOpacity>
-
-				<View className="bg-white px-2 rounded-xl overflow-hidden justify-center flex-row items-center">
-					<RNPickerSelect
-						onValueChange={handleSortChange}
-						items={[
-							{ label: 'Price: Low to High', value: 'price_asc' },
-							{ label: 'Price: High to Low', value: 'price_desc' },
-							{ label: 'Year: Low to High', value: 'year_asc' },
-							{ label: 'Year: High to Low', value: 'year_desc' },
-							{ label: 'Date Listed: Low to High', value: 'listed_at_asc' },
-							{ label: 'Date Listed: High to Low', value: 'listed_at_desc' },
-						]}
-						placeholder={{
-							label: 'Most Relevant',
-							value: '',
-							color: 'black',  // Placeholder text color
-						}}
-						style={{
-							inputIOS: { color: 'black', padding: 10 },  // iOS styling
-							inputAndroid: { color: 'black', padding: 10 },  // Android styling
-						}}
+		<View className="flex-1 bg-gray-300">
+			<View className="flex-row justify-between items-center p-2 bg-white">
+				{isSearchExpanded ? (
+					<TextInput
+						className="flex-1 text-black py-1 px-2"
+						placeholder="Search cars..."
+						value={searchQuery}
+						onChangeText={handleSearch}
+						autoFocus
 					/>
-					<FontAwesome name="sort" size={20} color="black" className="mr-2" />
-				</View>
-
+				) : (
+					<View className="flex-row items-center flex-1">
+						<TouchableOpacity
+							className="bg-red p-2 rounded-full mr-2"
+							onPress={() => setIsFilterModalVisible(true)}
+						>
+							<FontAwesome name="filter" size={16} color="white" />
+						</TouchableOpacity>
+						<View className="flex-1">
+							<RNPickerSelect
+								onValueChange={handleSortChange}
+								items={[
+									{ label: 'Price: Low to High', value: 'price_asc' },
+									{ label: 'Price: High to Low', value: 'price_desc' },
+									{ label: 'Year: Low to High', value: 'year_asc' },
+									{ label: 'Year: High to Low', value: 'year_desc' },
+									{ label: 'Date Listed: Low to High', value: 'listed_at_asc' },
+									{ label: 'Date Listed: High to Low', value: 'listed_at_desc' },
+								]}
+								placeholder={{ label: 'Sort by', value: '' }}
+								style={{
+									inputIOS: { fontSize: 14, color: 'black' },
+									inputAndroid: { fontSize: 14, color: 'black' },
+								}}
+							/>
+						</View>
+					</View>
+				)}
+				<TouchableOpacity
+					className="bg-red p-2 rounded-full ml-2"
+					onPress={() => setIsSearchExpanded(!isSearchExpanded)}
+				>
+					<FontAwesome name={isSearchExpanded ? "times" : "search"} size={16} color="white" />
+				</TouchableOpacity>
 			</View>
-
 
 			<FlatList
 				data={cars}
@@ -381,30 +385,29 @@ export default function BrowseCarsPage() {
 				onEndReachedThreshold={0.1}
 			/>
 
-			<View className="flex-row justify-between items-center">
+			<View className="flex-row justify-between items-center p-2 bg-white">
 				<TouchableOpacity
-					className="bg-red py-1 px-3 rounded-lg flex-1 mr-1 items-center"
+					className="bg-red py-1 px-2 rounded-lg flex-1 mr-1 items-center"
 					onPress={() => handlePageChange(currentPage - 1)}
 					disabled={currentPage === 1}
 				>
-					<Text className="text-white text-sm">Previous</Text>
+					<Text className="text-white text-xs">Previous</Text>
 				</TouchableOpacity>
-				<Text className="text-sm">{`Page ${currentPage} of ${totalPages}`}</Text>
+				<Text className="text-xs mx-1">{`${currentPage}/${totalPages}`}</Text>
 				<TouchableOpacity
-					className="bg-red py-1 px-3 rounded-lg flex-1 ml-1 items-center"
+					className="bg-red py-1 px-2 rounded-lg flex-1 ml-1 items-center"
 					onPress={() => handlePageChange(currentPage + 1)}
 					disabled={currentPage === totalPages}
 				>
-					<Text className="text-white text-sm">Next</Text>
+					<Text className="text-white text-xs">Next</Text>
 				</TouchableOpacity>
 			</View>
+
 			<CarDetailModal
 				isVisible={isModalVisible}
 				car={selectedCar}
 				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
+				onFavoritePress={() => selectedCar && handleFavoritePress(selectedCar.id)}
 				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
 			/>
 			<FilterModal />
