@@ -4,6 +4,7 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-expo'
 import { tokenCache } from '@/cache'
 import * as SplashScreen from 'expo-splash-screen'
 import { FavoritesProvider } from '@/utils/useFavorites'
+import 'react-native-gesture-handler'
 SplashScreen.preventAutoHideAsync()
 
 function RootLayoutNav() {
