@@ -1,4 +1,3 @@
-// app/(home)/(dealer)/profile.tsx
 import React, { useState, useEffect } from 'react'
 import {
 	View,
@@ -6,23 +5,14 @@ import {
 	TextInput,
 	TouchableOpacity,
 	Image,
-	StyleSheet,
-	ScrollView
+	ScrollView,
+	ActivityIndicator
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
 import * as ImagePicker from 'expo-image-picker'
-import { ImagePickerAsset } from 'expo-image-picker'
-
-function convertToBlob(asset: ImagePickerAsset): Blob {
-	const data = asset.base64 ? atob(asset.base64) : ''
-	const bytes = new Uint8Array(data.length)
-	for (let i = 0; i < data.length; i++) {
-		bytes[i] = data.charCodeAt(i)
-	}
-	const blob = new Blob([bytes.buffer], { type: asset.type })
-	return blob
-}
+import * as FileSystem from 'expo-file-system'
+import { Buffer } from 'buffer'
 
 export default function DealershipProfilePage() {
 	const { user } = useUser()
@@ -31,6 +21,8 @@ export default function DealershipProfilePage() {
 	const [name, setName] = useState('')
 	const [location, setLocation] = useState('')
 	const [phone, setPhone] = useState('')
+	const [logo, setLogo] = useState('')
+	const [isUploading, setIsUploading] = useState(false)
 
 	useEffect(() => {
 		if (user) fetchDealershipProfile()
@@ -48,13 +40,14 @@ export default function DealershipProfilePage() {
 			setName(data.name)
 			setLocation(data.location)
 			setPhone(data.phone)
+			setLogo(data.logo)
 		}
 	}
 
 	const updateProfile = async () => {
 		const { error } = await supabase
 			.from('dealerships')
-			.update({ name, location, phone })
+			.update({ name, location, phone, logo })
 			.eq('id', dealership.id)
 
 		if (!error) {
@@ -63,132 +56,137 @@ export default function DealershipProfilePage() {
 	}
 
 	const pickImage = async () => {
-		const result = await ImagePicker.launchImageLibraryAsync({
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+		if (status !== 'granted') {
+			alert('Sorry, we need camera roll permissions to make this work!')
+			return
+		}
+
+		let result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsEditing: true,
-			aspect: [4, 3],
+			aspect: [1, 1],
 			quality: 1
 		})
 
-		if (!result.canceled) {
-			await user?.setProfileImage({ file: convertToBlob(result.assets[0]) })
+		if (!result.canceled && result.assets && result.assets.length > 0) {
+			setIsUploading(true)
+			try {
+				await handleImageUpload(result.assets[0].uri)
+			} catch (error) {
+				console.error('Error uploading image:', error)
+				alert('Failed to upload image. Please try again.')
+			} finally {
+				setIsUploading(false)
+			}
+		}
+	}
+
+	const handleImageUpload = async (imageUri: string) => {
+		if (!dealership) return
+
+		try {
+			const fileName = `${Date.now()}_${Math.random()
+				.toString(36)
+				.substring(7)}.jpg`
+			const filePath = `${dealership.id}/${fileName}`
+
+			const base64 = await FileSystem.readAsStringAsync(imageUri, {
+				encoding: FileSystem.EncodingType.Base64
+			})
+
+			const { data, error } = await supabase.storage
+				.from('logos')
+				.upload(filePath, Buffer.from(base64, 'base64'), {
+					contentType: 'image/jpeg'
+				})
+
+			if (error) throw error
+
+			const { data: publicURLData } = supabase.storage
+				.from('logos')
+				.getPublicUrl(filePath)
+
+			if (!publicURLData) throw new Error('Error getting public URL')
+
+			setLogo(publicURLData.publicUrl)
+			const { error: updateError } = await supabase
+				.from('dealerships')
+				.update({ logo: publicURLData.publicUrl })
+				.eq('id', dealership.id)
+		} catch (error: any) {
+			console.error('Detailed error in handleImageUpload:', error)
+			alert(`Failed to upload image: ${error.message}`)
 		}
 	}
 
 	return (
-		<ScrollView style={styles.container}>
-			<View style={styles.profileImageContainer}>
-				<Image source={{ uri: user?.imageUrl }} style={styles.profileImage} />
-				<TouchableOpacity style={styles.changeImageButton} onPress={pickImage}>
-					<Text style={styles.changeImageText}>Change Image</Text>
+		<ScrollView className='flex-1 bg-gray-100 p-4'>
+			<View className='items-center mb-6'>
+				<Image
+					source={{ uri: logo || 'https://via.placeholder.com/150' }}
+					className='w-36 h-36 rounded-full mb-4'
+				/>
+				<TouchableOpacity
+					className='bg-blue-500 py-2 px-4 rounded-full'
+					onPress={pickImage}
+					disabled={isUploading}>
+					{isUploading ? (
+						<ActivityIndicator color='white' />
+					) : (
+						<Text className='text-white font-semibold'>Change Logo</Text>
+					)}
 				</TouchableOpacity>
 			</View>
 
-			<Text style={styles.label}>Dealership Name</Text>
+			<Text className='text-lg font-bold mb-2'>Dealership Name</Text>
 			<TextInput
-				style={styles.input}
+				className='bg-white p-3 rounded-lg mb-4'
 				value={name}
 				onChangeText={setName}
 				placeholder='Dealership Name'
 			/>
 
-			<Text style={styles.label}>Location</Text>
+			<Text className='text-lg font-bold mb-2'>Location</Text>
 			<TextInput
-				style={styles.input}
+				className='bg-white p-3 rounded-lg mb-4'
 				value={location}
 				onChangeText={setLocation}
 				placeholder='Location'
 			/>
 
-			<Text style={styles.label}>Phone</Text>
+			<Text className='text-lg font-bold mb-2'>Phone</Text>
 			<TextInput
-				style={styles.input}
+				className='bg-white p-3 rounded-lg mb-4'
 				value={phone}
 				onChangeText={setPhone}
 				placeholder='Phone'
 				keyboardType='phone-pad'
 			/>
 
-			<Text style={styles.label}>Email</Text>
-			<Text style={styles.text}>{user?.emailAddresses[0].emailAddress}</Text>
+			<Text className='text-lg font-bold mb-2'>Email</Text>
+			<Text className='bg-white p-3 rounded-lg mb-4'>
+				{user?.emailAddresses[0].emailAddress}
+			</Text>
 
-			<Text style={styles.label}>Subscription End Date</Text>
-			<Text style={styles.text}>
+			<Text className='text-lg font-bold mb-2'>Subscription End Date</Text>
+			<Text className='bg-white p-3 rounded-lg mb-6'>
 				{dealership?.subscription_end_date
 					? new Date(dealership.subscription_end_date).toLocaleDateString()
 					: 'N/A'}
 			</Text>
 
-			<TouchableOpacity style={styles.updateButton} onPress={updateProfile}>
-				<Text style={styles.updateButtonText}>Update Profile</Text>
+			<TouchableOpacity
+				className='bg-blue-500 p-4 rounded-lg items-center mb-4'
+				onPress={updateProfile}>
+				<Text className='text-white font-bold text-lg'>Update Profile</Text>
 			</TouchableOpacity>
 
-			<TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
-				<Text style={styles.signOutButtonText}>Sign Out</Text>
+			<TouchableOpacity
+				className='bg-red-500 p-4 rounded-lg items-center'
+				onPress={() => signOut()}>
+				<Text className='text-white font-bold text-lg'>Sign Out</Text>
 			</TouchableOpacity>
 		</ScrollView>
 	)
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		padding: 20,
-		backgroundColor: '#f5f5f5'
-	},
-	profileImageContainer: {
-		alignItems: 'center',
-		marginBottom: 20
-	},
-	profileImage: {
-		width: 150,
-		height: 150,
-		borderRadius: 75
-	},
-	changeImageButton: {
-		marginTop: 10
-	},
-	changeImageText: {
-		color: '#007AFF',
-		fontSize: 16
-	},
-	label: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 5
-	},
-	input: {
-		backgroundColor: 'white',
-		padding: 10,
-		borderRadius: 5,
-		marginBottom: 15
-	},
-	text: {
-		fontSize: 16,
-		marginBottom: 15
-	},
-	updateButton: {
-		backgroundColor: '#007AFF',
-		padding: 15,
-		borderRadius: 5,
-		alignItems: 'center',
-		marginTop: 20
-	},
-	updateButtonText: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: 'bold'
-	},
-	signOutButton: {
-		backgroundColor: '#FF3B30',
-		padding: 15,
-		borderRadius: 5,
-		alignItems: 'center',
-		marginTop: 20
-	},
-	signOutButtonText: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: 'bold'
-	}
-})
