@@ -1,5 +1,5 @@
 // components/CarDetailModal.tsx
-import React from 'react'
+import React, { useCallback, useEffect } from 'react'
 import {
 	View,
 	Text,
@@ -12,7 +12,9 @@ import {
 	Dimensions
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-
+import { useUser } from '@clerk/clerk-expo'
+import { supabase } from '@/utils/supabase'
+import { debounce } from '@/utils/debounce'
 const { width } = Dimensions.get('window')
 
 export default function CarDetailModal({
@@ -20,13 +22,54 @@ export default function CarDetailModal({
 	car,
 	onClose,
 	onFavoritePress,
-	isFavorite
+	isFavorite,
+	onViewUpdate
 }: any) {
 	if (!car) return null
 
 	const renderImageItem = ({ item }: any) => (
 		<Image source={{ uri: item }} style={styles.image} />
 	)
+	const { user } = useUser()
+
+	useEffect(() => {
+		if (isVisible && car && user) {
+			trackCarView(car.id, user.id)
+		}
+	}, [isVisible, car, user])
+
+	const trackCarView = useCallback(
+		async (carId: number, userId: string) => {
+			try {
+				const { data, error } = await supabase.rpc('track_car_view', {
+					car_id: carId,
+					user_id: userId
+				})
+
+				if (error) throw error
+
+				if (data && onViewUpdate) {
+					onViewUpdate(carId, data)
+				}
+			} catch (error) {
+				console.error('Error tracking car view:', error)
+			}
+		},
+		[onViewUpdate]
+	)
+
+	const debouncedTrackCarView = useCallback(
+		debounce((carId: number, userId: string) => {
+			trackCarView(carId, userId)
+		}, 1000),
+		[trackCarView]
+	)
+
+	useEffect(() => {
+		if (isVisible && car && user) {
+			debouncedTrackCarView(car.id, user.id)
+		}
+	}, [isVisible, car, user, debouncedTrackCarView])
 
 	return (
 		<Modal visible={isVisible} animationType='slide'>

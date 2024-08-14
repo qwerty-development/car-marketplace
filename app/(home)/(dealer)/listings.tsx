@@ -395,7 +395,9 @@ export default function DealerListings() {
 			const { data, error } = await supabase.from('cars').insert({
 				...newListing,
 				dealership_id: dealership.id,
-				images: newListing.images || []
+				images: newListing.images || [],
+				viewed_users: [],
+				liked_users: []
 			})
 			if (error) {
 				console.error('Error creating listing:', error)

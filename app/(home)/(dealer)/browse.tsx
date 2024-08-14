@@ -69,6 +69,13 @@ export default function BrowseCarsPage() {
 		user,
 		filtersChanged
 	])
+	const handleViewUpdate = (carId: number, newViewCount: number) => {
+		setCars(prevCars =>
+			prevCars.map(car =>
+				car.id === carId ? { ...car, views: newViewCount } : car
+			)
+		)
+	}
 
 	const fetchCars = async () => {
 		let query = supabase.from('cars').select(
@@ -318,6 +325,7 @@ export default function BrowseCarsPage() {
 				isVisible={isModalVisible}
 				car={selectedCar}
 				onClose={() => setIsModalVisible(false)}
+				onViewUpdate={handleViewUpdate}
 			/>
 		</View>
 	)

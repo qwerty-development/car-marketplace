@@ -208,6 +208,14 @@ export default function BrowseCarsPage() {
 		})
 	}
 
+	const handleViewUpdate = (carId: number, newViewCount: number) => {
+		setCars(prevCars =>
+			prevCars.map(car =>
+				car.id === carId ? { ...car, views: newViewCount } : car
+			)
+		)
+	}
+
 	return (
 		<View className='flex-1 bg-gray-100'>
 			<View className='p-2 bg-white'>
@@ -276,6 +284,7 @@ export default function BrowseCarsPage() {
 					selectedCar && handleFavoritePress(selectedCar.id)
 				}
 				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+				onViewUpdate={handleViewUpdate}
 			/>
 		</View>
 	)

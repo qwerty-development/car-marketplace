@@ -104,7 +104,7 @@ export default function CarCard({
 						<StyledView className='flex-row items-center'>
 							<Ionicons name='eye-outline' size={20} color='gray' />
 							<StyledText className='ml-2 text-gray-600'>
-								{car.views} views
+								{car.views || 0} views
 							</StyledText>
 						</StyledView>
 						<StyledView className='flex-row items-center'>
