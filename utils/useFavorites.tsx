@@ -5,8 +5,7 @@ import { useUser } from '@clerk/clerk-expo'
 
 interface FavoritesContextType {
 	favorites: number[]
-	addFavorite: (carId: number) => Promise<void>
-	removeFavorite: (carId: number) => Promise<void>
+	toggleFavorite: any
 	isFavorite: (carId: number) => boolean
 }
 
@@ -41,29 +40,39 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
 		}
 	}
 
-	const addFavorite = async (carId: number) => {
-		if (!user) return
-		const newFavorites = [...favorites, carId]
-		await updateFavorites(newFavorites)
-	}
+	const toggleFavorite = async (carId: number): Promise<number> => {
+		if (!user) return 0
+		try {
+			const { data, error } = await supabase.rpc('toggle_car_like', {
+				car_id: carId,
+				user_id: user.id
+			})
 
-	const removeFavorite = async (carId: number) => {
-		if (!user) return
-		const newFavorites = favorites.filter(id => id !== carId)
-		await updateFavorites(newFavorites)
-	}
+			if (error) {
+				console.error('Error toggling favorite:', error)
+				return 0
+			}
 
-	const updateFavorites = async (newFavorites: number[]) => {
-		if (!user) return
-		const { error } = await supabase
-			.from('users')
-			.update({ favorite: newFavorites })
-			.eq('id', user.id)
-
-		if (error) {
-			console.error('Error updating favorites:', error)
-		} else {
+			// Update local favorites
+			const newFavorites = isFavorite(carId)
+				? favorites.filter(id => id !== carId)
+				: [...favorites, carId]
 			setFavorites(newFavorites)
+
+			// Update user's favorites in the database
+			const { error: updateError } = await supabase
+				.from('users')
+				.update({ favorite: newFavorites })
+				.eq('id', user.id)
+
+			if (updateError) {
+				console.error('Error updating user favorites:', updateError)
+			}
+
+			return data as number
+		} catch (error) {
+			console.error('Unexpected error in toggleFavorite:', error)
+			return 0
 		}
 	}
 
@@ -71,7 +80,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
 
 	return (
 		<FavoritesContext.Provider
-			value={{ favorites, addFavorite, removeFavorite, isFavorite }}>
+			value={{ favorites, toggleFavorite, isFavorite }}>
 			{children}
 		</FavoritesContext.Provider>
 	)

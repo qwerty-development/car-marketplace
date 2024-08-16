@@ -42,7 +42,7 @@ interface Car {
 
 export default function BrowseCarsPage() {
 	const { user } = useUser()
-	const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites()
+	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [cars, setCars] = useState<Car[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
@@ -174,13 +174,13 @@ export default function BrowseCarsPage() {
 	)
 
 	const handleFavoritePress = async (carId: number) => {
-		if (isFavorite(carId)) {
-			await removeFavorite(carId)
-		} else {
-			await addFavorite(carId)
-		}
+		const newLikesCount = await toggleFavorite(carId)
+		setCars(prevCars =>
+			prevCars.map(car =>
+				car.id === carId ? { ...car, likes: newLikesCount } : car
+			)
+		)
 	}
-
 	const handleSortChange = (value: any) => {
 		setSortOption(value)
 		fetchCars(1, filters, value) // Pass the new sort value directly to fetchCars

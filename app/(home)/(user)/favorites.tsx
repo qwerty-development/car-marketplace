@@ -7,7 +7,7 @@ import CarDetailModal from '@/components/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 
 export default function FavoritesPage() {
-	const { favorites, removeFavorite, isFavorite } = useFavorites()
+	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [favoriteCars, setFavoriteCars] = useState<any>([])
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState<any>(false)
@@ -33,9 +33,15 @@ export default function FavoritesPage() {
 			setFavoriteCars(data || [])
 		}
 	}
-
 	const handleFavoritePress = async (carId: number) => {
-		await removeFavorite(carId)
+		const newLikesCount = await toggleFavorite(carId)
+		setFavoriteCars((prevCars: any[]) =>
+			prevCars
+				.map((car: { id: number }) =>
+					car.id === carId ? { ...car, likes: newLikesCount } : car
+				)
+				.filter((car: { id: number }) => isFavorite(car.id))
+		)
 	}
 
 	const handleCarPress = (car: any) => {

@@ -108,9 +108,9 @@ export default function CarCard({
 							</StyledText>
 						</StyledView>
 						<StyledView className='flex-row items-center'>
-							<Ionicons name='heart-outline' size={20} color='gray' />
+							<Ionicons name='heart' size={20} color='red' />
 							<StyledText className='ml-2 text-gray-600'>
-								{car.likes} likes
+								{car.likes || 0} likes
 							</StyledText>
 						</StyledView>
 					</StyledView>
