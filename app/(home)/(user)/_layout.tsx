@@ -31,15 +31,6 @@ export default function UserLayout() {
 					)
 				}}
 			/>
-			<Tabs.Screen
-				name='ContactUsPage'
-				options={{
-					title: 'Contact Us',
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='mail' size={size} color={color} />
-					)
-				}}
-			/>
 
 			<Tabs.Screen
 				name='profile'
