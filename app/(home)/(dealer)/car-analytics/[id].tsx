@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image, TouchableOpacity } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
-import { LineChart } from 'react-native-chart-kit'
+import { LineChart, BarChart } from 'react-native-chart-kit'
 import { Dimensions } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
@@ -33,7 +33,7 @@ export default function IndividualCarAnalyticsPage() {
 
 	const fetchCarAnalytics = async () => {
 		const { data, error } = await supabase.rpc('get_car_analytics', {
-			p_car_id: id.toString(), // Convert to string if it's not already
+			p_car_id: id.toString(),
 			p_time_range: timeRange
 		})
 
@@ -42,6 +42,9 @@ export default function IndividualCarAnalyticsPage() {
 	}
 
 	if (!carData || !analytics) return <Text className='p-4'>Loading...</Text>
+
+	const viewsData = analytics.view_data.map((d: any) => d.views)
+	const maxViews = Math.max(...viewsData)
 
 	return (
 		<ScrollView className='flex-1 bg-gray-100'>
@@ -61,7 +64,6 @@ export default function IndividualCarAnalyticsPage() {
 				</Text>
 			</View>
 
-			{/* Time Range Selector */}
 			<View className='bg-white p-4 mb-4'>
 				<Text className='text-xl font-bold mb-4'>Analytics Overview</Text>
 				<View className='flex-row justify-around mb-4'>
@@ -83,33 +85,39 @@ export default function IndividualCarAnalyticsPage() {
 				</View>
 			</View>
 
-			{/* Key Metrics */}
 			<View className='bg-white p-4 mb-4'>
 				<Text className='text-xl font-bold mb-4'>Key Metrics</Text>
 				<View className='flex-row justify-between'>
-					{[
-						{ label: 'Views', value: analytics.total_views, color: 'blue' },
-						{ label: 'Likes', value: analytics.total_likes, color: 'red' }
-					].map(metric => (
-						<View key={metric.label} className='items-center'>
-							<Text className={`text-3xl font-bold text-${metric.color}-500`}>
-								{metric.value}
-							</Text>
-							<Text className='text-sm text-gray-600'>{metric.label}</Text>
-						</View>
-					))}
+					<View className='items-center'>
+						<Text className='text-3xl font-bold text-blue-500'>
+							{analytics.total_views}
+						</Text>
+						<Text className='text-sm text-gray-600'>Total Views</Text>
+					</View>
+					<View className='items-center'>
+						<Text className='text-3xl font-bold text-red-500'>
+							{analytics.total_likes}
+						</Text>
+						<Text className='text-sm text-gray-600'>Total Likes</Text>
+					</View>
+					<View className='items-center'>
+						<Text className='text-3xl font-bold text-green-500'>
+							{((analytics.total_likes / analytics.total_views) * 100).toFixed(
+								2
+							)}
+							%
+						</Text>
+						<Text className='text-sm text-gray-600'>Like Rate</Text>
+					</View>
 				</View>
 			</View>
 
-			{/* Views Over Time */}
 			<View className='bg-white p-4 mb-4'>
 				<Text className='text-xl font-bold mb-4'>Views Over Time</Text>
 				<LineChart
 					data={{
-						labels: analytics.view_data.map((d: { date: any }) => d.date),
-						datasets: [
-							{ data: analytics.view_data.map((d: { views: any }) => d.views) }
-						]
+						labels: analytics.view_data.map((d: any) => d.date.slice(5)),
+						datasets: [{ data: viewsData }]
 					}}
 					width={SCREEN_WIDTH - 32}
 					height={220}
@@ -126,21 +134,120 @@ export default function IndividualCarAnalyticsPage() {
 				/>
 			</View>
 
-			{/* Comparison to Average */}
 			<View className='bg-white p-4 mb-4'>
-				<Text className='text-xl font-bold mb-4'>Comparison to Average</Text>
-				<View className='flex-row justify-between'>
-					<View>
-						<Text className='text-gray-600'>Views Difference:</Text>
-						<Text className='font-bold'>
+				<Text className='text-xl font-bold mb-4'>
+					Views and Likes Comparison
+				</Text>
+				<BarChart
+					data={{
+						labels: ['This Car', 'Dealership Avg'],
+						datasets: [
+							{
+								data: [
+									analytics.total_views,
+									analytics.total_views -
+										analytics.comparison_to_average.views_diff
+								]
+							}
+						]
+					}}
+					width={SCREEN_WIDTH - 32}
+					height={220}
+					yAxisLabel=''
+					yAxisSuffix=''
+					chartConfig={{
+						backgroundColor: '#ffffff',
+						backgroundGradientFrom: '#ffffff',
+						backgroundGradientTo: '#ffffff',
+						decimalPlaces: 0,
+						color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+						barPercentage: 0.5,
+						style: { borderRadius: 16 }
+					}}
+					style={{ marginVertical: 8, borderRadius: 16 }}
+				/>
+			</View>
+
+			<View className='bg-white p-4 mb-4'>
+				<Text className='text-xl font-bold mb-4'>
+					Comparison to Dealership Average
+				</Text>
+				<View className='mb-4'>
+					<Text className='text-gray-600 mb-2'>Views Difference:</Text>
+					<View className='flex-row items-center'>
+						<View
+							className={`h-4 ${
+								analytics.comparison_to_average.views_diff >= 0
+									? 'bg-green-500'
+									: 'bg-red-500'
+							}`}
+							style={{
+								width: `${
+									(Math.abs(analytics.comparison_to_average.views_diff) /
+										maxViews) *
+									100
+								}%`
+							}}
+						/>
+						<Text className='ml-2 font-bold'>
+							{analytics.comparison_to_average.views_diff >= 0 ? '+' : ''}
 							{analytics.comparison_to_average.views_diff}
 						</Text>
 					</View>
-					<View>
-						<Text className='text-gray-600'>Likes Difference:</Text>
-						<Text className='font-bold'>
+				</View>
+				<View>
+					<Text className='text-gray-600 mb-2'>Likes Difference:</Text>
+					<View className='flex-row items-center'>
+						<View
+							className={`h-4 ${
+								analytics.comparison_to_average.likes_diff >= 0
+									? 'bg-green-500'
+									: 'bg-red-500'
+							}`}
+							style={{
+								width: `${
+									(Math.abs(analytics.comparison_to_average.likes_diff) /
+										maxViews) *
+									100
+								}%`
+							}}
+						/>
+						<Text className='ml-2 font-bold'>
+							{analytics.comparison_to_average.likes_diff >= 0 ? '+' : ''}
 							{analytics.comparison_to_average.likes_diff}
 						</Text>
+					</View>
+				</View>
+			</View>
+
+			<View className='bg-white p-4 mb-4'>
+				<Text className='text-xl font-bold mb-4'>Car Details</Text>
+				<View className='flex-row flex-wrap justify-between'>
+					<View className='w-1/2 mb-2'>
+						<Text className='text-gray-600'>Condition:</Text>
+						<Text className='font-bold'>{carData.condition}</Text>
+					</View>
+					<View className='w-1/2 mb-2'>
+						<Text className='text-gray-600'>Transmission:</Text>
+						<Text className='font-bold'>{carData.transmission}</Text>
+					</View>
+					<View className='w-1/2 mb-2'>
+						<Text className='text-gray-600'>Color:</Text>
+						<Text className='font-bold'>{carData.color}</Text>
+					</View>
+					<View className='w-1/2 mb-2'>
+						<Text className='text-gray-600'>Mileage:</Text>
+						<Text className='font-bold'>
+							{carData.mileage.toLocaleString()} miles
+						</Text>
+					</View>
+					<View className='w-1/2 mb-2'>
+						<Text className='text-gray-600'>Drivetrain:</Text>
+						<Text className='font-bold'>{carData.drivetrain}</Text>
+					</View>
+					<View className='w-1/2 mb-2'>
+						<Text className='text-gray-600'>Status:</Text>
+						<Text className='font-bold'>{carData.status}</Text>
 					</View>
 				</View>
 			</View>

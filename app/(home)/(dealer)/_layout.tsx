@@ -58,6 +58,12 @@ export default function DealerLayout() {
 					)
 				}}
 			/>
+			<Tabs.Screen
+				name='car-analytics/[id]'
+				options={{
+					tabBarButton: () => null
+				}}
+			/>
 		</Tabs>
 	)
 }
