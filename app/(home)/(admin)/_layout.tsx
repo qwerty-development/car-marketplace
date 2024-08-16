@@ -58,6 +58,15 @@ export default function AdminLayout() {
 					)
 				}}
 			/>
+			<Tabs.Screen
+				name='admin-analytics'
+				options={{
+					title: 'Analytics',
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='stats-chart' size={size} color={color} />
+					)
+				}}
+			/>
 		</Tabs>
 	)
 }
