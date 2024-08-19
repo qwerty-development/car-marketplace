@@ -8,10 +8,11 @@ import {
   Dimensions,
   Linking,
   Alert,
-  Share
+  Share,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
+import { Divider } from '@rneui/themed';
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -115,7 +116,7 @@ export default function CarCard({
           <StyledView className="flex-row justify-between items-center mb-4">
             <StyledView>
               <StyledText className="text-2xl font-semibold text-white">
-			  {car.year} {car.make} {car.model} 
+                {car.year} {car.make} {car.model}
               </StyledText>
               <StyledText className="text-xl text-red font-medium text-red-500 mt-1">
                 ${car.price.toLocaleString()}
@@ -130,14 +131,22 @@ export default function CarCard({
             )}
           </StyledView>
 
-          <StyledView className="flex-row justify-between mb-6">
+          <StyledView className="flex-row justify-between items-center mb-6">
             <InfoItem icon="speedometer-outline" text={`${car.mileage} km`} />
+            <View className="h-full w-px bg-white mx-3"/>
             <InfoItem icon="color-palette-outline" text={car.color} />
+            <View className="h-full w-px bg-white mx-3"/>
             <InfoItem icon="car-outline" text={car.condition} />
           </StyledView>
 
-          <StyledView className="bg-gray-800 rounded-lg p-4">
-            <StyledView className="flex-row justify-between">
+
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
+            <View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
+          </View>
+
+          <StyledView className="rounded-lg p-4">
+            <StyledView className="flex-row border  justify-between">
               <ActionButton
                 icon="call-outline"
                 text="Call"

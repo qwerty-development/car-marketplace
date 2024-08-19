@@ -45,11 +45,8 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 	return (
 		<View>
 			<TouchableOpacity
-				style={styles.picker}
 				onPress={() => setModalVisible(true)}>
-				<Ionicons name={selectedOption.icon} size={24} color='#333' />
-				<Text style={styles.pickerText}>{selectedOption.label}</Text>
-				<Ionicons name='chevron-down' size={24} color='#333' />
+				<Ionicons name='chevron-down' size={20} color='#FFFFFF' />
 			</TouchableOpacity>
 			<Modal
 				animationType='slide'

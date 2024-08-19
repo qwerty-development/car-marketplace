@@ -218,40 +218,52 @@ export default function BrowseCarsPage() {
 
 	return (
 		<View className='flex-1 bg-black'>
-			<View className='p-2 bg-black'>
-				<View className='flex-row items-center'>
+			<View className='p-4 bg-black'>
+				<View className='flex-row items-center justify-between'>
 					<TouchableOpacity
-						className='bg-red p-2 rounded-full mr-2'
+						className='bg-red p-3 rounded-full'
 						onPress={openFilterPage}>
-						<FontAwesome name='filter' size={19} color='white' />
+						<FontAwesome name='filter' size={20} color='white' />
 					</TouchableOpacity>
+					<View className='flex-grow mx-2 border border-red rounded-full flex-row items-center'>
 
-					<View className='flex-row flex-1 bg-gray-100 rounded-full items-center'>
+						<TouchableOpacity
+							className='bg-red p-3 rounded-full'
+							onPress={() => fetchCars(1, filters)}>
+							<FontAwesome name='search' size={20} color='white' />
+						</TouchableOpacity> 
+
+						<FontAwesome size={20} color='black' className='mx-3' />
 						<TextInput
-							className='flex-1 text-black px-3 py-1'
+							className='py-2 text-white ml-4 justify-center'
 							placeholder='Search cars...'
+							placeholderTextColor='white'  // Setting the placeholder text color to white
 							value={searchQuery}
 							onChangeText={text => {
-								setSearchQuery(text)
-								setCurrentPage(1)
+								setSearchQuery(text);
+								setCurrentPage(1);
 							}}
 							onSubmitEditing={() => fetchCars(1, filters)}
 						/>
-						<TouchableOpacity
-							className='bg-red p-2 rounded-full mr-2'
-							onPress={() => fetchCars(1, filters)}>
-							<FontAwesome name='search' size={20} color='white' />
-						</TouchableOpacity>
+
 					</View>
+
+					<SortPicker
+						className="sort-picker"
+						onValueChange={handleSortChange}
+						initialValue={{ label: 'Sort', value: null }}
+					/>
+
+
+
+
+
+
 				</View>
 
-				<View className='mt-2'>
-					<SortPicker
-						onValueChange={handleSortChange}
-						initialValue={{ label: 'Sort', value: null, icon: 'arrow-down' }}
-					/>
-				</View>
+
 			</View>
+
 
 			<FlatList
 				data={cars}

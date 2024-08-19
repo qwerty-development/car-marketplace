@@ -11,9 +11,9 @@ export default function UserLayout() {
 				tabBarActiveTintColor: '#D55004',
 				tabBarInactiveTintColor: 'white',
 				headerStyle: {
-					backgroundColor: 'black',
+					backgroundColor: '#D55004',
 				},
-				headerTintColor: '#D55004',
+				headerTintColor: 'white',
 			}}
 		>
 			<Tabs.Screen
