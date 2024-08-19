@@ -14,6 +14,7 @@ import { Picker } from '@react-native-picker/picker'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/components/CarDetailModal'
+import RNPickerSelect from 'react-native-picker-select'
 
 const ITEMS_PER_PAGE = 10
 
@@ -212,7 +213,8 @@ export default function DealershipListPage() {
 	const renderDealershipItem = ({ item }: { item: Dealership }) => (
 		<TouchableOpacity
 			style={styles.dealershipItem}
-			onPress={() => handleDealershipPress(item)}>
+			onPress={() => handleDealershipPress(item)}
+		>
 			<Image source={{ uri: item.logo }} style={styles.dealershipLogo} />
 			<Text style={styles.dealershipName}>{item.name}</Text>
 		</TouchableOpacity>
@@ -230,48 +232,38 @@ export default function DealershipListPage() {
 					renderItem={renderDealershipItem}
 					keyExtractor={item => item.id.toString()}
 					numColumns={2}
+					contentContainerStyle={styles.dealershipList}
 				/>
 			) : (
 				<View style={styles.carListContainer}>
 					<TouchableOpacity
 						style={styles.backButton}
-						onPress={() => setSelectedDealership(null)}>
+						onPress={() => setSelectedDealership(null)}
+					>
 						<Text style={styles.backButtonText}>← Back to Dealerships</Text>
 					</TouchableOpacity>
 					<Text style={styles.dealershipTitle}>{selectedDealership.name}</Text>
 					<TextInput
 						style={styles.searchInput}
-						placeholder='Search cars...'
+						placeholder="Search cars..."
 						value={searchQuery}
 						onChangeText={handleSearch}
 					/>
 					<View style={styles.filtersContainer}>
-						<Picker
-							selectedValue={filterMake}
-							onValueChange={handleMakeFilter}
-							style={styles.picker}>
-							<Picker.Item label='All Makes' value='' />
-							{makes.map((make, index) => (
-								<Picker.Item
-									key={`${make}-${index}`}
-									label={make}
-									value={make}
-								/>
-							))}
-						</Picker>
-						<Picker
-							selectedValue={filterModel}
-							onValueChange={handleModelFilter}
-							style={styles.picker}>
-							<Picker.Item label='All Models' value='' />
-							{models.map((model, index) => (
-								<Picker.Item
-									key={`${model}-${index}`}
-									label={model}
-									value={model}
-								/>
-							))}
-						</Picker>
+						<RNPickerSelect
+							onValueChange={(value: string) => handleMakeFilter(value)}
+							items={makes.map(make => ({ label: make, value: make }))}
+							placeholder={{ label: 'All Makes', value: '' }}
+							style={pickerSelectStyles}
+							value={filterMake}
+						/>
+						<RNPickerSelect
+							onValueChange={(value: string) => handleModelFilter(value)}
+							items={models.map(model => ({ label: model, value: model }))}
+							placeholder={{ label: 'All Models', value: '' }}
+							style={pickerSelectStyles}
+							value={filterModel}
+						/>
 					</View>
 					<View style={styles.sortContainer}>
 						<TouchableOpacity onPress={() => handleSort('price')}>
@@ -286,8 +278,7 @@ export default function DealershipListPage() {
 						</TouchableOpacity>
 						<TouchableOpacity onPress={() => handleSort('listed_at')}>
 							<Text style={styles.sortButton}>
-								Date Listed{' '}
-								{sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
+								Date Listed {sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
 							</Text>
 						</TouchableOpacity>
 					</View>
@@ -295,16 +286,14 @@ export default function DealershipListPage() {
 						data={cars}
 						renderItem={renderCarItem}
 						keyExtractor={item => item.id.toString()}
+						style={styles.carList}
 					/>
 					<View style={styles.paginationContainer}>
 						<TouchableOpacity
 							onPress={() => handlePageChange(currentPage - 1)}
-							disabled={currentPage === 1}>
-							<Text
-								style={[
-									styles.paginationButton,
-									currentPage === 1 && styles.disabledButton
-								]}>
+							disabled={currentPage === 1}
+						>
+							<Text style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}>
 								Previous
 							</Text>
 						</TouchableOpacity>
@@ -313,12 +302,9 @@ export default function DealershipListPage() {
 						</Text>
 						<TouchableOpacity
 							onPress={() => handlePageChange(currentPage + 1)}
-							disabled={currentPage === totalPages}>
-							<Text
-								style={[
-									styles.paginationButton,
-									currentPage === totalPages && styles.disabledButton
-								]}>
+							disabled={currentPage === totalPages}
+						>
+							<Text style={[styles.paginationButton, currentPage === totalPages && styles.disabledButton]}>
 								Next
 							</Text>
 						</TouchableOpacity>
@@ -337,83 +323,113 @@ export default function DealershipListPage() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		padding: 20,
-		backgroundColor: '#f5f5f5'
+		backgroundColor: '#f5f5f5',
+	},
+	dealershipList: {
+		padding: 8,
 	},
 	dealershipItem: {
 		flex: 1,
 		alignItems: 'center',
-		margin: 10,
-		padding: 10,
+		margin: 8,
+		padding: 16,
 		backgroundColor: 'white',
-		borderRadius: 10,
+		borderRadius: 8,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 2 },
 		shadowOpacity: 0.1,
 		shadowRadius: 4,
-		elevation: 3
+		elevation: 3,
 	},
 	dealershipLogo: {
-		width: 100,
-		height: 100,
-		resizeMode: 'contain'
+		width: 96,
+		height: 96,
+		resizeMode: 'contain',
 	},
 	dealershipName: {
-		marginTop: 10,
-		fontSize: 16,
+		marginTop: 8,
+		fontSize: 14,
 		fontWeight: 'bold',
-		textAlign: 'center'
+		textAlign: 'center',
 	},
 	carListContainer: {
-		flex: 1
+		flex: 1,
+		padding: 16,
 	},
 	backButton: {
-		marginBottom: 10
+		marginBottom: 16,
 	},
 	backButtonText: {
 		fontSize: 16,
-		color: '#007AFF'
+		color: '#007AFF',
 	},
 	dealershipTitle: {
 		fontSize: 24,
 		fontWeight: 'bold',
-		marginBottom: 10
+		marginBottom: 16,
 	},
 	searchInput: {
 		backgroundColor: 'white',
-		padding: 10,
-		borderRadius: 5,
-		marginBottom: 10
+		padding: 12,
+		borderRadius: 8,
+		marginBottom: 16,
 	},
 	filtersContainer: {
-		marginBottom: 10
-	},
-	picker: {
-		backgroundColor: 'white',
-		marginBottom: 5
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginBottom: 16,
 	},
 	sortContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		marginBottom: 10
+		marginBottom: 16,
 	},
 	sortButton: {
-		color: '#007AFF'
+		color: '#007AFF',
+		fontSize: 14,
+	},
+	carList: {
+		flex: 1,
 	},
 	paginationContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginTop: 10
+		marginTop: 16,
 	},
 	paginationButton: {
 		color: '#007AFF',
-		fontSize: 16
+		fontSize: 14,
 	},
 	disabledButton: {
-		color: '#999'
+		opacity: 0.5,
 	},
 	pageInfo: {
-		fontSize: 16
-	}
+		fontSize: 14,
+	},
+})
+
+const pickerSelectStyles = StyleSheet.create({
+	inputIOS: {
+		fontSize: 14,
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		borderWidth: 1,
+		borderColor: 'gray',
+		borderRadius: 8,
+		color: 'black',
+		paddingRight: 30, // to ensure the text is never behind the icon
+		backgroundColor: 'white',
+	},
+	inputAndroid: {
+		fontSize: 14,
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+		borderWidth: 1,
+		borderColor: 'gray',
+		borderRadius: 8,
+		color: 'black',
+		paddingRight: 30, // to ensure the text is never behind the icon
+		backgroundColor: 'white',
+	},
 })

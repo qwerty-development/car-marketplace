@@ -41,9 +41,8 @@ export default function CarCard({
 	const handleWhatsApp = () => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-			const url = `https://wa.me/${
-				car.dealership_phone
-			}?text=${encodeURIComponent(message)}`
+			const url = `https://wa.me/${car.dealership_phone
+				}?text=${encodeURIComponent(message)}`
 			Linking.openURL(url)
 		} else {
 			Alert.alert('WhatsApp number not available')
@@ -57,9 +56,8 @@ export default function CarCard({
 	const handleShare = async () => {
 		try {
 			const result = await Share.share({
-				message: `Check out this ${car.year} ${car.make} ${
-					car.model
-				} for $${car.price.toLocaleString()}!`,
+				message: `Check out this ${car.year} ${car.make} ${car.model
+					} for $${car.price.toLocaleString()}!`,
 				url: car.images[0] // You might want to replace this with an actual link to the car listing
 			})
 			if (result.action === Share.sharedAction) {
@@ -78,37 +76,37 @@ export default function CarCard({
 
 	return (
 		<StyledScrollView
-			className='bg-gray-100'
+			className='bg-gray-50'
 			contentContainerStyle={{ height: cardHeight || SCREEN_HEIGHT }}>
 			<StyledTouchableOpacity
 				onPress={onPress}
-				className='m-4 bg-white rounded-3xl shadow-lg overflow-hidden'>
+				className='m-4 bg-white rounded-lg shadow-md overflow-hidden'>
 				<StyledView className='relative'>
 					<StyledImage
 						source={{ uri: car.images[0] }}
-						className='w-full h-64 rounded-t-3xl'
+						className='w-full h-64 rounded-t-lg'
 					/>
-					<StyledView className='absolute top-4 right-4 bg-white/50 rounded-full p-2'>
+					<StyledView className='absolute top-4 right-4 bg-white/60 rounded-full p-2'>
 						<TouchableOpacity onPress={onFavoritePress}>
 							<Ionicons
 								name={isFavorite ? 'heart' : 'heart-outline'}
 								size={28}
-								color={isFavorite ? 'red' : 'black'}
+								color={isFavorite ? '#E63946' : '#333'}
 							/>
 						</TouchableOpacity>
 					</StyledView>
 				</StyledView>
 
 				<StyledView className='p-6'>
-					<StyledView className='flex-row justify-between items-center mb-6'>
+					<StyledView className='flex-row justify-between items-center mb-4'>
 						<StyledView className='flex-row items-center'>
-							<Ionicons name='eye-outline' size={20} color='gray' />
+							<Ionicons name='eye-outline' size={18} color='#6B7280' />
 							<StyledText className='ml-2 text-gray-600'>
 								{car.views || 0} views
 							</StyledText>
 						</StyledView>
 						<StyledView className='flex-row items-center'>
-							<Ionicons name='heart' size={20} color='red' />
+							<Ionicons name='heart' size={18} color='#E63946' />
 							<StyledText className='ml-2 text-gray-600'>
 								{car.likes || 0} likes
 							</StyledText>
@@ -116,17 +114,17 @@ export default function CarCard({
 					</StyledView>
 					<StyledView className='flex-row justify-between items-center mb-4'>
 						<StyledView>
-							<StyledText className='text-3xl font-bold text-gray-800'>
+							<StyledText className='text-2xl font-semibold text-gray-800'>
 								{car.make} {car.model}
 							</StyledText>
-							<StyledText className='text-2xl font-semibold text-red mt-1'>
+							<StyledText className='text-xl font-medium text-red-600 mt-1'>
 								${car.price.toLocaleString()}
 							</StyledText>
 						</StyledView>
 						{car.dealership_logo && (
 							<StyledImage
 								source={{ uri: car.dealership_logo }}
-								className='w-16 h-16 rounded-full'
+								className='w-12 h-12 rounded-full'
 								alt={`${car.dealership_name} logo`}
 							/>
 						)}
@@ -169,7 +167,7 @@ export default function CarCard({
 
 const InfoItem = ({ icon, text }: any) => (
 	<StyledView className='items-center'>
-		<Ionicons name={icon} size={24} color='#4A5568' />
+		<Ionicons name={icon} size={20} color='#4A5568' />
 		<StyledText className='text-sm text-gray-600 mt-1'>{text}</StyledText>
 	</StyledView>
 )
@@ -177,8 +175,8 @@ const InfoItem = ({ icon, text }: any) => (
 const ActionButton = ({ icon, color, onPress }: any) => (
 	<StyledTouchableOpacity
 		onPress={onPress}
-		className='w-14 h-14 rounded-full flex items-center justify-center shadow-md'
+		className='w-12 h-12 rounded-full flex items-center justify-center shadow-sm'
 		style={{ backgroundColor: color }}>
-		<Ionicons name={icon} size={24} color='white' />
+		<Ionicons name={icon} size={20} color='white' />
 	</StyledTouchableOpacity>
 )
