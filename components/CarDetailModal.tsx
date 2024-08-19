@@ -118,6 +118,7 @@ export default function CarDetailModal({
 						</Text>
 					</TouchableOpacity>
 					<View style={styles.dealerInfo}>
+						
 						<Text style={styles.dealerTitle}>Dealer Information</Text>
 						<Text style={styles.dealerName}>{car.dealership_name}</Text>
 						{car.dealership_phone && (
@@ -131,6 +132,10 @@ export default function CarDetailModal({
 							</TouchableOpacity>
 						)}
 					</View>
+
+					
+
+					
 				</View>
 			</ScrollView>
 		</Modal>

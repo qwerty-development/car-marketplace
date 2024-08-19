@@ -92,7 +92,7 @@ export default function UserProfileAndSupportPage() {
 
 	return (
 		<ScrollView className='flex-1 bg-gray-100'>
-			<View className='items-center bg-blue-500 pt-12 pb-6 rounded-b-3xl shadow-lg'>
+			<View className='items-center bg-red pt-12 pb-6 rounded-b-3xl shadow-lg'>
 				<Image
 					source={{ uri: user?.imageUrl }}
 					className='w-32 h-32 rounded-full border-4 border-white mb-4'
@@ -100,7 +100,7 @@ export default function UserProfileAndSupportPage() {
 				<TouchableOpacity
 					className='bg-white px-4 py-2 rounded-full shadow-md'
 					onPress={onPickImage}>
-					<Text className='text-blue-500 font-semibold'>Change Picture</Text>
+					<Text className='text-red font-semibold'>Change Picture</Text>
 				</TouchableOpacity>
 			</View>
 
@@ -138,7 +138,7 @@ export default function UserProfileAndSupportPage() {
 						editable={false}
 					/>
 					<TouchableOpacity
-						className='bg-blue-500 p-4 rounded-lg items-center mt-2'
+						className='bg-red p-4 rounded-lg items-center mt-2'
 						onPress={updateProfile}>
 						<Text className='text-white font-bold text-lg'>Update Profile</Text>
 					</TouchableOpacity>

@@ -3,7 +3,19 @@ import { Ionicons } from '@expo/vector-icons'
 
 export default function UserLayout() {
 	return (
-		<Tabs>
+		<Tabs
+			screenOptions={{
+				tabBarStyle: { 
+					backgroundColor: 'black',
+				},
+				tabBarActiveTintColor: '#D55004',
+				tabBarInactiveTintColor: 'white',
+				headerStyle: {
+					backgroundColor: 'black',
+				},
+				headerTintColor: '#D55004',
+			}}
+		>
 			<Tabs.Screen
 				name='index'
 				options={{
@@ -31,7 +43,6 @@ export default function UserLayout() {
 					)
 				}}
 			/>
-
 			<Tabs.Screen
 				name='profile'
 				options={{

@@ -217,8 +217,8 @@ export default function BrowseCarsPage() {
 	}
 
 	return (
-		<View className='flex-1 bg-gray-100'>
-			<View className='p-2 bg-white'>
+		<View className='flex-1 bg-black'>
+			<View className='p-2 bg-black'>
 				<View className='flex-row items-center'>
 					<TouchableOpacity
 						className='bg-red p-2 rounded-full mr-2'
