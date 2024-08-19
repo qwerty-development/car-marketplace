@@ -13,6 +13,7 @@ import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/components/CarDetailModal'
+import RNPickerSelect, { Item as PickerItem } from 'react-native-picker-select'
 
 const ITEMS_PER_PAGE = 10
 
@@ -226,6 +227,24 @@ export default function BrowseCarsPage() {
 		<CarCard car={item} onPress={() => handleCarPress(item)} />
 	)
 
+	const dealershipItems: PickerItem[] = [
+		{ label: 'All Dealerships', value: '' },
+		...dealerships.map(dealership => ({
+		  label: dealership.name,
+		  value: dealership.id.toString()
+		}))
+	  ]
+	
+	  const makeItems: PickerItem[] = [
+		{ label: 'All Makes', value: '' },
+		...makes.map(make => ({ label: make, value: make }))
+	  ]
+	
+	  const modelItems: PickerItem[] = [
+		{ label: 'All Models', value: '' },
+		...models.map(model => ({ label: model, value: model }))
+	  ]
+
 	return (
 		<View style={styles.container}>
 			<TextInput
@@ -235,41 +254,27 @@ export default function BrowseCarsPage() {
 				onChangeText={handleSearch}
 			/>
 			<View style={styles.filtersContainer}>
-				<Picker
-					selectedValue={filterDealership}
+				<RNPickerSelect
 					onValueChange={handleDealershipFilter}
-					style={styles.picker}>
-					<Picker.Item label='All Dealerships' value='' />
-					{dealerships.map(dealership => (
-						<Picker.Item
-							key={dealership.id}
-							label={dealership.name}
-							value={dealership.id.toString()}
-						/>
-					))}
-				</Picker>
-				<Picker
-					selectedValue={filterMake}
+					items={dealershipItems}
+					style={pickerSelectStyles}
+					value={filterDealership}
+					placeholder={{ label: 'All Dealerships', value: '' }}
+				/>
+				<RNPickerSelect
 					onValueChange={handleMakeFilter}
-					style={styles.picker}>
-					<Picker.Item label='All Makes' value='' />
-					{makes.map((make, index) => (
-						<Picker.Item key={`${make}-${index}`} label={make} value={make} />
-					))}
-				</Picker>
-				<Picker
-					selectedValue={filterModel}
+					items={makeItems}
+					style={pickerSelectStyles}
+					value={filterMake}
+					placeholder={{ label: 'All Makes', value: '' }}
+				/>
+				<RNPickerSelect
 					onValueChange={handleModelFilter}
-					style={styles.picker}>
-					<Picker.Item label='All Models' value='' />
-					{models.map((model, index) => (
-						<Picker.Item
-							key={`${model}-${index}`}
-							label={model}
-							value={model}
-						/>
-					))}
-				</Picker>
+					items={modelItems}
+					style={pickerSelectStyles}
+					value={filterModel}
+					placeholder={{ label: 'All Models', value: '' }}
+				/>
 			</View>
 			<View style={styles.sortContainer}>
 				<TouchableOpacity onPress={() => handleSort('price')}>
@@ -284,8 +289,7 @@ export default function BrowseCarsPage() {
 				</TouchableOpacity>
 				<TouchableOpacity onPress={() => handleSort('listed_at')}>
 					<Text style={styles.sortButton}>
-						Date Listed{' '}
-						{sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
+						Date Listed {sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
 					</Text>
 				</TouchableOpacity>
 			</View>
@@ -346,10 +350,6 @@ const styles = StyleSheet.create({
 	filtersContainer: {
 		marginBottom: 10
 	},
-	picker: {
-		backgroundColor: 'white',
-		marginBottom: 5
-	},
 	sortContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
@@ -373,5 +373,32 @@ const styles = StyleSheet.create({
 	},
 	pageInfo: {
 		fontSize: 16
+	}
+})
+
+const pickerSelectStyles = StyleSheet.create({
+	inputIOS: {
+		fontSize: 16,
+		paddingVertical: 12,
+		paddingHorizontal: 10,
+		borderWidth: 1,
+		borderColor: 'gray',
+		borderRadius: 4,
+		color: 'black',
+		paddingRight: 30,
+		backgroundColor: 'white',
+		marginBottom: 5
+	},
+	inputAndroid: {
+		fontSize: 16,
+		paddingHorizontal: 10,
+		paddingVertical: 8,
+		borderWidth: 0.5,
+		borderColor: 'gray',
+		borderRadius: 8,
+		color: 'black',
+		paddingRight: 30,
+		backgroundColor: 'white',
+		marginBottom: 5
 	}
 })

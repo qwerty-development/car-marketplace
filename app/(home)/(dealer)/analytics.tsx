@@ -82,17 +82,15 @@ export default function DealerAnalyticsPage() {
 	)
 
 	return (
-		<ScrollView className='flex-1 bg-gray-100'>
-			<View className='p-4 bg-white rounded-lg shadow-md m-4'>
-				<Text className='text-2xl font-bold mb-4'>Dealership Analytics</Text>
+		<View className='flex-1 bg-gray-100'>
+			<View className='p-4 rounded-lg shadow-md'>
 				<View className='flex-row justify-around mb-4'>
 					{['week', 'month', 'year'].map(range => (
 						<TouchableOpacity
 							key={range}
 							onPress={() => setTimeRange(range)}
-							className={`px-4 py-2 rounded-full ${
-								timeRange === range ? 'bg-blue-500' : 'bg-gray-200'
-							}`}>
+							className={`px-4 py-2 rounded-full ${timeRange === range ? 'bg-red' : 'bg-gray-200'
+								}`}>
 							<Text
 								className={
 									timeRange === range ? 'text-white' : 'text-gray-800'
@@ -104,185 +102,187 @@ export default function DealerAnalyticsPage() {
 				</View>
 			</View>
 
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>Overview</Text>
-				<View className='flex-row justify-between'>
-					<View className='items-center'>
-						<Text className='text-3xl font-bold text-blue-500'>
-							{analytics.total_listings}
-						</Text>
-						<Text className='text-sm text-gray-600'>Total Listings</Text>
-					</View>
-					<View className='items-center'>
-						<Text className='text-3xl font-bold text-green-500'>
-							{analytics.total_views}
-						</Text>
-						<Text className='text-sm text-gray-600'>Total Views</Text>
-					</View>
-					<View className='items-center'>
-						<Text className='text-3xl font-bold text-red-500'>
-							{analytics.total_likes}
-						</Text>
-						<Text className='text-sm text-gray-600'>Total Likes</Text>
+			<ScrollView>
+				<View className='bg-white rounded-lg shadow-md m-4 p-4'>
+					<Text className='text-xl font-semibold mb-2'>Overview</Text>
+					<View className='flex-row justify-between'>
+						<View className='items-center'>
+							<Text className='text-3xl font-bold text-blue-500'>
+								{analytics.total_listings}
+							</Text>
+							<Text className='text-sm text-gray-600'>Total Listings</Text>
+						</View>
+						<View className='items-center'>
+							<Text className='text-3xl font-bold text-green-500'>
+								{analytics.total_views}
+							</Text>
+							<Text className='text-sm text-gray-600'>Total Views</Text>
+						</View>
+						<View className='items-center'>
+							<Text className='text-3xl font-bold text-red-500'>
+								{analytics.total_likes}
+							</Text>
+							<Text className='text-sm text-gray-600'>Total Likes</Text>
+						</View>
 					</View>
 				</View>
-			</View>
 
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>
-					Views and Likes Over Time
-				</Text>
-				<LineChart
-					data={{
-						labels: analytics.time_series_data.map((d: any) => d.date),
-						datasets: [
+				<View className='bg-white rounded-lg shadow-md p-4'>
+					<Text className='text-xl font-semibold mb-2'>
+						Views and Likes Over Time
+					</Text>
+					<LineChart
+						data={{
+							labels: analytics.time_series_data.map((d: any) => d.date),
+							datasets: [
+								{
+									data: analytics.time_series_data.map((d: any) => d.views),
+									color: () => 'rgba(0, 255, 0, 0.5)'
+								},
+								{
+									data: analytics.time_series_data.map((d: any) => d.likes),
+									color: () => 'rgba(255, 0, 0, 0.5)'
+								}
+							],
+							legend: ['Views', 'Likes']
+						}}
+						width={SCREEN_WIDTH - 40}
+						height={220}
+						chartConfig={{
+							backgroundColor: '#ffffff',
+							backgroundGradientFrom: '#ffffff',
+							backgroundGradientTo: '#ffffff',
+							decimalPlaces: 0,
+							color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+							style: { borderRadius: 16 }
+						}}
+						bezier
+						style={{ marginVertical: 8, borderRadius: 16 }}
+					/>
+				</View>
+
+				<View className='bg-white rounded-lg shadow-md p-4'>
+					<Text className='text-xl font-semibold mb-2'>
+						Top 5 Most Viewed Cars
+					</Text>
+					<BarChart
+						data={{
+							labels: analytics.top_viewed_cars.map(
+								(c: any) => `${c.make} ${c.model}`
+							),
+							datasets: [
+								{ data: analytics.top_viewed_cars.map((c: any) => c.views) }
+							]
+						}}
+						width={SCREEN_WIDTH - 40}
+						height={220}
+						yAxisLabel=''
+						yAxisSuffix=''
+						chartConfig={{
+							backgroundColor: '#ffffff',
+							backgroundGradientFrom: '#ffffff',
+							backgroundGradientTo: '#ffffff',
+							decimalPlaces: 0,
+							color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`,
+							style: { borderRadius: 16 }
+						}}
+						style={{ marginVertical: 8, borderRadius: 16 }}
+					/>
+				</View>
+
+				<View className='bg-white rounded-lg shadow-md p-4'>
+					<Text className='text-xl font-semibold mb-2'>
+						Top 5 Most Liked Cars
+					</Text>
+					<BarChart
+						data={{
+							labels: analytics.top_liked_cars.map(
+								(c: any) => `${c.make} ${c.model}`
+							),
+							datasets: [
+								{ data: analytics.top_liked_cars.map((c: any) => c.likes) }
+							]
+						}}
+						width={SCREEN_WIDTH - 40}
+						height={220}
+						yAxisLabel=''
+						yAxisSuffix=''
+						chartConfig={{
+							backgroundColor: '#ffffff',
+							backgroundGradientFrom: '#ffffff',
+							backgroundGradientTo: '#ffffff',
+							decimalPlaces: 0,
+							color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`,
+							style: { borderRadius: 16 }
+						}}
+						style={{ marginVertical: 8, borderRadius: 16 }}
+					/>
+				</View>
+
+				<View className='bg-white rounded-lg shadow-md m-4 p-4'>
+					<Text className='text-xl font-semibold mb-2'>Inventory Summary</Text>
+					<PieChart
+						data={[
 							{
-								data: analytics.time_series_data.map((d: any) => d.views),
-								color: () => 'rgba(0, 255, 0, 0.5)'
+								name: 'New',
+								population: analytics.inventory_summary.new_cars,
+								color: '#FF9800',
+								legendFontColor: '#7F7F7F',
+								legendFontSize: 12
 							},
 							{
-								data: analytics.time_series_data.map((d: any) => d.likes),
-								color: () => 'rgba(255, 0, 0, 0.5)'
+								name: 'Used',
+								population: analytics.inventory_summary.used_cars,
+								color: '#2196F3',
+								legendFontColor: '#7F7F7F',
+								legendFontSize: 12
 							}
-						],
-						legend: ['Views', 'Likes']
-					}}
-					width={SCREEN_WIDTH - 40}
-					height={220}
-					chartConfig={{
-						backgroundColor: '#ffffff',
-						backgroundGradientFrom: '#ffffff',
-						backgroundGradientTo: '#ffffff',
-						decimalPlaces: 0,
-						color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-						style: { borderRadius: 16 }
-					}}
-					bezier
-					style={{ marginVertical: 8, borderRadius: 16 }}
-				/>
-			</View>
-
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>
-					Top 5 Most Viewed Cars
-				</Text>
-				<BarChart
-					data={{
-						labels: analytics.top_viewed_cars.map(
-							(c: any) => `${c.make} ${c.model}`
-						),
-						datasets: [
-							{ data: analytics.top_viewed_cars.map((c: any) => c.views) }
-						]
-					}}
-					width={SCREEN_WIDTH - 40}
-					height={220}
-					yAxisLabel=''
-					yAxisSuffix=''
-					chartConfig={{
-						backgroundColor: '#ffffff',
-						backgroundGradientFrom: '#ffffff',
-						backgroundGradientTo: '#ffffff',
-						decimalPlaces: 0,
-						color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`,
-						style: { borderRadius: 16 }
-					}}
-					style={{ marginVertical: 8, borderRadius: 16 }}
-				/>
-			</View>
-
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>
-					Top 5 Most Liked Cars
-				</Text>
-				<BarChart
-					data={{
-						labels: analytics.top_liked_cars.map(
-							(c: any) => `${c.make} ${c.model}`
-						),
-						datasets: [
-							{ data: analytics.top_liked_cars.map((c: any) => c.likes) }
-						]
-					}}
-					width={SCREEN_WIDTH - 40}
-					height={220}
-					yAxisLabel=''
-					yAxisSuffix=''
-					chartConfig={{
-						backgroundColor: '#ffffff',
-						backgroundGradientFrom: '#ffffff',
-						backgroundGradientTo: '#ffffff',
-						decimalPlaces: 0,
-						color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`,
-						style: { borderRadius: 16 }
-					}}
-					style={{ marginVertical: 8, borderRadius: 16 }}
-				/>
-			</View>
-
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>Inventory Summary</Text>
-				<PieChart
-					data={[
-						{
-							name: 'New',
-							population: analytics.inventory_summary.new_cars,
-							color: '#FF9800',
-							legendFontColor: '#7F7F7F',
-							legendFontSize: 12
-						},
-						{
-							name: 'Used',
-							population: analytics.inventory_summary.used_cars,
-							color: '#2196F3',
-							legendFontColor: '#7F7F7F',
-							legendFontSize: 12
-						}
-					]}
-					width={SCREEN_WIDTH - 40}
-					height={220}
-					chartConfig={{
-						color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`
-					}}
-					accessor='population'
-					backgroundColor='transparent'
-					paddingLeft='15'
-				/>
-			</View>
-
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>Performance Metrics</Text>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className='text-gray-600'>Avg. Time to Sell:</Text>
-					<Text className='font-bold'>
-						{analytics.performance_metrics.avg_time_to_sell} days
-					</Text>
+						]}
+						width={SCREEN_WIDTH - 40}
+						height={220}
+						chartConfig={{
+							color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`
+						}}
+						accessor='population'
+						backgroundColor='transparent'
+						paddingLeft='15'
+					/>
 				</View>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className='text-gray-600'>Conversion Rate:</Text>
-					<Text className='font-bold'>
-						{(analytics.performance_metrics.conversion_rate * 100).toFixed(2)}%
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center'>
-					<Text className='text-gray-600'>Avg. Listing Price:</Text>
-					<Text className='font-bold'>
-						${analytics.performance_metrics.avg_listing_price.toFixed(2)}
-					</Text>
-				</View>
-			</View>
 
-			<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-				<Text className='text-xl font-semibold mb-2'>
-					Individual Car Analytics
-				</Text>
-				<FlatList
-					data={cars}
-					renderItem={renderCarItem}
-					keyExtractor={item => item.id.toString()}
-					scrollEnabled={false}
-				/>
-			</View>
-		</ScrollView>
+				<View className='bg-white rounded-lg shadow-md m-2 p-4'>
+					<Text className='text-xl font-semibold mb-2'>Performance Metrics</Text>
+					<View className='flex-row justify-between items-center mb-2'>
+						<Text className='text-gray-600'>Avg. Time to Sell:</Text>
+						<Text className='font-bold'>
+							{analytics.performance_metrics.avg_time_to_sell} days
+						</Text>
+					</View>
+					<View className='flex-row justify-between items-center mb-2'>
+						<Text className='text-gray-600'>Conversion Rate:</Text>
+						<Text className='font-bold'>
+							{(analytics.performance_metrics.conversion_rate * 100).toFixed(2)}%
+						</Text>
+					</View>
+					<View className='flex-row justify-between items-center'>
+						<Text className='text-gray-600'>Avg. Listing Price:</Text>
+						<Text className='font-bold'>
+							${analytics.performance_metrics.avg_listing_price.toFixed(2)}
+						</Text>
+					</View>
+				</View>
+
+				<View className='bg-white rounded-lg shadow-md m-4 p-4'>
+					<Text className='text-xl font-semibold mb-2'>
+						Individual Car Analytics
+					</Text>
+					<FlatList
+						data={cars}
+						renderItem={renderCarItem}
+						keyExtractor={item => item.id.toString()}
+						scrollEnabled={false}
+					/>
+				</View>
+			</ScrollView>
+		</View>
 	)
 }

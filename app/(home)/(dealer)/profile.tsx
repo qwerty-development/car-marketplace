@@ -128,7 +128,7 @@ export default function DealershipProfilePage() {
 					className='w-36 h-36 rounded-full mb-4'
 				/>
 				<TouchableOpacity
-					className='bg-blue-500 py-2 px-4 rounded-full'
+					className='bg-red py-2 px-4 rounded-full'
 					onPress={pickImage}
 					disabled={isUploading}>
 					{isUploading ? (
@@ -177,13 +177,13 @@ export default function DealershipProfilePage() {
 			</Text>
 
 			<TouchableOpacity
-				className='bg-blue-500 p-4 rounded-lg items-center mb-4'
+				className='bg-red p-4 rounded-lg items-center mb-4'
 				onPress={updateProfile}>
 				<Text className='text-white font-bold text-lg'>Update Profile</Text>
 			</TouchableOpacity>
 
 			<TouchableOpacity
-				className='bg-red-500 p-4 rounded-lg items-center'
+				className='bg-red-500 p-4 mb-12 rounded-lg items-center'
 				onPress={() => signOut()}>
 				<Text className='text-white font-bold text-lg'>Sign Out</Text>
 			</TouchableOpacity>

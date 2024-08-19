@@ -32,3 +32,5 @@ export default function HomeLayout() {
 
 	return <Slot />
 }
+
+
