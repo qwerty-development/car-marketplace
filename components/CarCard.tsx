@@ -76,11 +76,10 @@ export default function CarCard({
   return (
     <StyledScrollView
       className="bg-black"
-      contentContainerStyle={{ height: cardHeight || SCREEN_HEIGHT }}
     >
       <StyledTouchableOpacity
         onPress={onPress}
-        className="m-4 bg-black rounded-lg shadow-lg overflow-hidden border border-gray-800"
+        className="m-4 bg-black border shadow-xl shadow-white  border-gray rounded-lg  overflow-hidden "
       >
         <StyledView className="relative">
           <StyledImage
@@ -133,9 +132,9 @@ export default function CarCard({
 
           <StyledView className="flex-row justify-between items-center mb-6">
             <InfoItem icon="speedometer-outline" text={`${car.mileage} km`} />
-            <View className="h-full w-px bg-white mx-3"/>
+            <View className="h-full w-px bg-white mx-3" />
             <InfoItem icon="color-palette-outline" text={car.color} />
-            <View className="h-full w-px bg-white mx-3"/>
+            <View className="h-full w-px bg-white mx-3" />
             <InfoItem icon="car-outline" text={car.condition} />
           </StyledView>
 

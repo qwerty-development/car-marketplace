@@ -5,7 +5,7 @@ export default function UserLayout() {
 	return (
 		<Tabs
 			screenOptions={{
-				tabBarStyle: { 
+				tabBarStyle: {
 					backgroundColor: 'black',
 				},
 				tabBarActiveTintColor: '#D55004',
@@ -55,7 +55,19 @@ export default function UserLayout() {
 			<Tabs.Screen
 				name='filter'
 				options={{
-					tabBarButton: () => null
+					tabBarButton: () => null // Hides the filter tab
+				}}
+			/>
+			<Tabs.Screen
+				name='CarsByBrand'
+				options={{
+					tabBarButton: () => null // Hides the filter tab
+				}}
+			/>
+						<Tabs.Screen
+				name='AllBrandsPage'
+				options={{
+					tabBarButton: () => null // Hides the filter tab
 				}}
 			/>
 		</Tabs>

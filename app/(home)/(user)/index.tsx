@@ -1,4 +1,3 @@
-// (home)/(user)/index.tsx
 import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
@@ -9,7 +8,6 @@ import {
 	ActivityIndicator,
 	Dimensions
 } from 'react-native'
-import RNPickerSelect from 'react-native-picker-select'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
 import CarCard from '@/components/CarCard'
@@ -18,11 +16,9 @@ import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import SortPicker from '@/components/SortPicker'
+import ByBrands from '@/components/ByBrands'
 
 const ITEMS_PER_PAGE = 10
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window')
-const TAB_BAR_HEIGHT = 50 // Adjust this based on your actual tab bar height
-const CAR_CARD_HEIGHT = SCREEN_HEIGHT - TAB_BAR_HEIGHT
 
 interface Car {
 	id: number
@@ -67,6 +63,13 @@ export default function BrowseCarsPage() {
 	const router = useRouter()
 	const params = useLocalSearchParams()
 
+	const renderHeader = () => (
+		<View>
+			<ByBrands />
+			<Text className="text-white font-bold text-xl mt-4 mb-2 px-4">All Cars</Text>
+		</View>
+	);
+
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
@@ -92,9 +95,9 @@ export default function BrowseCarsPage() {
 			setIsLoading(true)
 			let query = supabase.from('cars').select(
 				`
-      *,
-      dealerships (name,logo,phone)
-      `,
+        *,
+        dealerships (name,logo,phone,location)
+        `,
 				{ count: 'exact' }
 			)
 
@@ -162,7 +165,8 @@ export default function BrowseCarsPage() {
 						...item,
 						dealership_name: item.dealerships.name,
 						dealership_logo: item.dealerships.logo,
-						dealership_phone: item.dealerships.phone
+						dealership_phone: item.dealerships.phone,
+						dealership_location: item.dealerships.location
 					})) || []
 				setCars(prevCars => (page === 1 ? newCars : [...prevCars, ...newCars]))
 				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
@@ -181,9 +185,10 @@ export default function BrowseCarsPage() {
 			)
 		)
 	}
+
 	const handleSortChange = (value: any) => {
 		setSortOption(value)
-		fetchCars(1, filters, value) // Pass the new sort value directly to fetchCars
+		fetchCars(1, filters, value)
 	}
 
 	const handleCarPress = (car: Car) => {
@@ -197,7 +202,6 @@ export default function BrowseCarsPage() {
 			onPress={() => handleCarPress(item)}
 			onFavoritePress={() => handleFavoritePress(item.id)}
 			isFavorite={isFavorite(item.id)}
-			cardHeight={CAR_CARD_HEIGHT}
 		/>
 	)
 
@@ -226,18 +230,16 @@ export default function BrowseCarsPage() {
 						<FontAwesome name='filter' size={20} color='white' />
 					</TouchableOpacity>
 					<View className='flex-grow mx-2 border border-red rounded-full flex-row items-center'>
-
 						<TouchableOpacity
 							className='bg-red p-3 rounded-full'
 							onPress={() => fetchCars(1, filters)}>
 							<FontAwesome name='search' size={20} color='white' />
-						</TouchableOpacity> 
-
+						</TouchableOpacity>
 						<FontAwesome size={20} color='black' className='mx-3' />
 						<TextInput
 							className='py-2 text-white ml-4 justify-center'
 							placeholder='Search cars...'
-							placeholderTextColor='white'  // Setting the placeholder text color to white
+							placeholderTextColor='white'
 							value={searchQuery}
 							onChangeText={text => {
 								setSearchQuery(text);
@@ -245,33 +247,21 @@ export default function BrowseCarsPage() {
 							}}
 							onSubmitEditing={() => fetchCars(1, filters)}
 						/>
-
 					</View>
-
 					<SortPicker
 						className="sort-picker"
 						onValueChange={handleSortChange}
 						initialValue={{ label: 'Sort', value: null }}
 					/>
-
-
-
-
-
-
 				</View>
-
 
 			</View>
 
-
 			<FlatList
+				ListHeaderComponent={renderHeader}
 				data={cars}
 				renderItem={renderCarItem}
 				keyExtractor={item => item.id.toString()}
-				snapToAlignment='start'
-				decelerationRate='fast'
-				snapToInterval={CAR_CARD_HEIGHT}
 				showsVerticalScrollIndicator={false}
 				onEndReached={() => {
 					if (currentPage < totalPages && !isLoading) {
@@ -282,7 +272,7 @@ export default function BrowseCarsPage() {
 				ListFooterComponent={() =>
 					isLoading ? (
 						<View className='py-4'>
-							<ActivityIndicator size='large' color='#0000ff' />
+							<ActivityIndicator size='large' color='#D55004' />
 						</View>
 					) : null
 				}

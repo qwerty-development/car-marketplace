@@ -26,8 +26,8 @@ const CustomRangeSlider = ({
 }: any) => (
 	<View className='w-full'>
 		<View className='flex-row justify-between mb-2'>
-			<Text>{formatLabel(currentMin)}</Text>
-			<Text>{formatLabel(currentMax)}</Text>
+			<Text className='text-white'>{formatLabel(currentMin)}</Text>
+			<Text className='text-white'>{formatLabel(currentMax)}</Text>
 		</View>
 		<View className='flex-row justify-between'>
 			<Slider
@@ -37,6 +37,9 @@ const CustomRangeSlider = ({
 				step={step}
 				value={currentMin}
 				onValueChange={value => onValuesChange([value, currentMax])}
+				minimumTrackTintColor="#D55004"
+				maximumTrackTintColor="#FFFFFF"
+				thumbTintColor="#D55004"
 			/>
 			<Slider
 				style={{ width: SCREEN_WIDTH * 0.4 }}
@@ -45,6 +48,9 @@ const CustomRangeSlider = ({
 				step={step}
 				value={currentMax}
 				onValueChange={value => onValuesChange([currentMin, value])}
+				minimumTrackTintColor="#D55004"
+				maximumTrackTintColor="#FFFFFF"
+				thumbTintColor="#D55004"
 			/>
 		</View>
 	</View>
@@ -167,7 +173,7 @@ const FilterPage = () => {
 	}
 
 	return (
-		<View className='flex-1 bg-white'>
+		<View className='flex-1 bg-black'>
 			<Stack.Screen
 				options={{
 					presentation: 'modal',
@@ -183,7 +189,7 @@ const FilterPage = () => {
 				<View className='space-y-4'>
 					{/* Dealership Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Dealership</Text>
+						<Text className='font-semibold text-red mb-2'>Dealership</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, dealership: value })
@@ -215,7 +221,7 @@ const FilterPage = () => {
 
 					{/* Make Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Make</Text>
+						<Text className='font-semibold text-red mb-2'>Make</Text>
 						<RNPickerSelect
 							onValueChange={value => {
 								setFilters({ ...filters, make: value, model: '' })
@@ -246,7 +252,7 @@ const FilterPage = () => {
 
 					{/* Model Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Model</Text>
+						<Text className='font-semibold text-red mb-2'>Model</Text>
 						<RNPickerSelect
 							onValueChange={value => setFilters({ ...filters, model: value })}
 							value={filters.model}
@@ -274,7 +280,7 @@ const FilterPage = () => {
 
 					{/* Condition Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Condition</Text>
+						<Text className='font-semibold text-red mb-2'>Condition</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, condition: value })
@@ -304,7 +310,7 @@ const FilterPage = () => {
 
 					{/* Price Range Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Price Range</Text>
+						<Text className="font-semibold text-red mb-2">Price Range</Text>
 						<CustomRangeSlider
 							minValue={priceRange[0]}
 							maxValue={priceRange[1]}
@@ -322,7 +328,7 @@ const FilterPage = () => {
 
 					{/* Mileage Range Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Mileage Range</Text>
+						<Text className='font-semibold text-red mb-2'>Mileage Range</Text>
 						<CustomRangeSlider
 							minValue={mileageRange[0]}
 							maxValue={mileageRange[1]}
@@ -340,7 +346,7 @@ const FilterPage = () => {
 
 					{/* Year Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Year</Text>
+						<Text className='font-semibold text-red mb-2'>Year</Text>
 						<RNPickerSelect
 							onValueChange={value => setFilters({ ...filters, year: value })}
 							value={filters.year}
@@ -370,7 +376,7 @@ const FilterPage = () => {
 
 					{/* Color Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Color</Text>
+						<Text className='font-semibold text-red mb-2'>Color</Text>
 						<RNPickerSelect
 							onValueChange={value => setFilters({ ...filters, color: value })}
 							value={filters.color}
@@ -398,7 +404,7 @@ const FilterPage = () => {
 
 					{/* Transmission Filter */}
 					<View>
-						<Text className='font-semibold mb-2'>Transmission</Text>
+						<Text className='font-semibold  text-red mb-2'>Transmission</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, transmission: value })
@@ -428,7 +434,7 @@ const FilterPage = () => {
 
 					{/* Drivetrain Filter */}
 					<View className='mb-12'>
-						<Text className='font-semibold mb-2'>Drivetrain</Text>
+						<Text className='font-semibold text-red mb-2'>Drivetrain</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, drivetrain: value })
@@ -460,7 +466,7 @@ const FilterPage = () => {
 					</View>
 				</View>
 			</ScrollView>
-			<View className='flex-row bg-gray-200  justify-end p-4'>
+			<View className='flex-row bg-gray  justify-end p-4'>
 				<TouchableOpacity
 					className='bg-gray-300 py-2 px-4 rounded mr-2'
 					onPress={() => router.back()}>
@@ -469,7 +475,7 @@ const FilterPage = () => {
 				<TouchableOpacity
 					className='bg-red py-2 px-4 rounded'
 					onPress={applyFilters}>
-					<Text className='text-white'>Apply Filters</Text>
+					<Text className='text-black'>Apply Filters</Text>
 				</TouchableOpacity>
 			</View>
 		</View>
