@@ -45,6 +45,7 @@ export default function BrowseCarsPage() {
 	const [isLoading, setIsLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState('')
+
 	const [filters, setFilters] = useState({
 		dealership: '',
 		make: '',
@@ -199,13 +200,16 @@ export default function BrowseCarsPage() {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}
-	const renderCarItem = ({ item, index }: any) => (
-		<CarCard
-			car={item}
-			onPress={() => handleCarPress(item)}
-			onFavoritePress={() => handleFavoritePress(item.id)}
-			isFavorite={isFavorite(item.id)}
-		/>
+	const renderCarItem = useCallback(
+		({ item, index }: any) => (
+			<CarCard
+				car={item}
+				onPress={() => handleCarPress(item)}
+				onFavoritePress={() => handleFavoritePress(item.id)}
+				isFavorite={isFavorite(item.id)}
+			/>
+		),
+		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
 	const openFilterPage = () => {
@@ -263,6 +267,7 @@ export default function BrowseCarsPage() {
 				ListHeaderComponent={renderHeader}
 				data={cars}
 				renderItem={renderCarItem}
+				extraData={cars}
 				keyExtractor={(item, index) => `${item.id}_${index}`}
 				showsVerticalScrollIndicator={false}
 				onEndReached={() => {
@@ -270,6 +275,7 @@ export default function BrowseCarsPage() {
 						fetchCars(currentPage + 1)
 					}
 				}}
+				scrollEnabled={!isModalVisible}
 				onEndReachedThreshold={0.1}
 				ListFooterComponent={() =>
 					isLoading ? (
