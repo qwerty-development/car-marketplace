@@ -76,7 +76,7 @@ export default function CarCard({
 		<StyledScrollView className='bg-black'>
 			<StyledTouchableOpacity
 				onPress={onPress}
-				className='m-4 bg-black border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-stone-200 '>
+				className='m-4 bg-black border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-stone-200'>
 				<StyledView className='relative'>
 					<StyledImage
 						source={{ uri: car.images[0] }}
@@ -97,21 +97,23 @@ export default function CarCard({
 						</StyledText>
 					</StyledView>
 				</StyledView>
-				<StyledView className='flex-row justify-between items-center mx-3 mt-6'>
-					<StyledView className='flex-row items-center'>
-						<Ionicons name='eye-outline' size={18} color='#6B7280' />
-						<StyledText className='ml-2 text-white'>
-							{car.views || 0} views
-						</StyledText>
-					</StyledView>
-					<StyledView className='flex-row items-center'>
-						<Ionicons name='heart' size={18} color='#EF4444' />
-						<StyledText className='ml-2 text-white'>
-							{car.likes || 0} likes
-						</StyledText>
-					</StyledView>
-				</StyledView>
+
 				<StyledView className='p-3'>
+					<StyledView className='flex-row justify-between items-center my-2 '>
+						<StyledView className='flex-row items-center'>
+							<Ionicons name='eye-outline' size={18} color='#6B7280' />
+							<StyledText className='ml-2 text-white'>
+								{car.views || 0} views
+							</StyledText>
+						</StyledView>
+						<StyledView className='flex-row items-center'>
+							<Ionicons name='heart' size={18} color='#EF4444' />
+							<StyledText className='ml-2 text-white'>
+								{car.likes || 0} likes
+							</StyledText>
+						</StyledView>
+					</StyledView>
+
 					<StyledView className='flex-row justify-between items-center mb-4 mt-2'>
 						<StyledView>
 							<StyledText className='text-2xl font-semibold text-white'>
@@ -135,12 +137,11 @@ export default function CarCard({
 							icon='speedometer-outline'
 							text={`${car.mileage.toLocaleString()} km`}
 						/>
-						<InfoItem icon='color-palette-outline' text={car.color} />
 						<InfoItem icon='cog-outline' text={car.transmission} />
 						<InfoItem icon='car-sport-outline' text={car.condition} />
 					</StyledView>
 
-					<StyledView className='flex-row justify-between mt-2'>
+					<StyledView className='flex-row justify-between items-center mt-2'>
 						<ActionButton
 							icon='call-outline'
 							text='Call'
