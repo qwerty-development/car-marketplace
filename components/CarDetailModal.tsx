@@ -326,12 +326,10 @@ export default function CarDetailModal({
 const styles = StyleSheet.create({
 	header: {
 		backgroundColor: '#D55004',
-		paddingVertical: 30,
+		paddingVertical: 25,
 		paddingHorizontal: 20,
 		alignItems: 'center',
-		justifyContent: 'center',
-		borderTopLeftRadius: 10,
-		borderTopRightRadius: 10
+		justifyContent: 'center'
 	},
 	headerText: {
 		color: 'white',

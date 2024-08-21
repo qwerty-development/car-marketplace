@@ -72,7 +72,7 @@ export default function BrowseCarsPage() {
 	])
 	const handleViewUpdate = (carId: number, newViewCount: number) => {
 		setCars(prevCars =>
-			prevCars.map(car =>
+			prevCars?.map(car =>
 				car.id === carId ? { ...car, views: newViewCount } : car
 			)
 		)
@@ -229,21 +229,21 @@ export default function BrowseCarsPage() {
 
 	const dealershipItems: PickerItem[] = [
 		{ label: 'All Dealerships', value: '' },
-		...dealerships.map(dealership => ({
-		  label: dealership.name,
-		  value: dealership.id.toString()
+		...dealerships?.map(dealership => ({
+			label: dealership.name,
+			value: dealership.id.toString()
 		}))
-	  ]
-	
-	  const makeItems: PickerItem[] = [
+	]
+
+	const makeItems: PickerItem[] = [
 		{ label: 'All Makes', value: '' },
-		...makes.map(make => ({ label: make, value: make }))
-	  ]
-	
-	  const modelItems: PickerItem[] = [
+		...makes?.map(make => ({ label: make, value: make }))
+	]
+
+	const modelItems: PickerItem[] = [
 		{ label: 'All Models', value: '' },
-		...models.map(model => ({ label: model, value: model }))
-	  ]
+		...models?.map(model => ({ label: model, value: model }))
+	]
 
 	return (
 		<View style={styles.container}>
@@ -289,7 +289,8 @@ export default function BrowseCarsPage() {
 				</TouchableOpacity>
 				<TouchableOpacity onPress={() => handleSort('listed_at')}>
 					<Text style={styles.sortButton}>
-						Date Listed {sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
+						Date Listed{' '}
+						{sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
 					</Text>
 				</TouchableOpacity>
 			</View>

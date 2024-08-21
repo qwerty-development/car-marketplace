@@ -85,12 +85,13 @@ export default function DealerAnalyticsPage() {
 		<View className='flex-1 bg-gray-100'>
 			<View className='p-4 rounded-lg shadow-md'>
 				<View className='flex-row justify-around mb-4'>
-					{['week', 'month', 'year'].map(range => (
+					{['week', 'month', 'year']?.map(range => (
 						<TouchableOpacity
 							key={range}
 							onPress={() => setTimeRange(range)}
-							className={`px-4 py-2 rounded-full ${timeRange === range ? 'bg-red' : 'bg-gray-200'
-								}`}>
+							className={`px-4 py-2 rounded-full ${
+								timeRange === range ? 'bg-red' : 'bg-gray-200'
+							}`}>
 							<Text
 								className={
 									timeRange === range ? 'text-white' : 'text-gray-800'
@@ -133,14 +134,14 @@ export default function DealerAnalyticsPage() {
 					</Text>
 					<LineChart
 						data={{
-							labels: analytics.time_series_data.map((d: any) => d.date),
+							labels: analytics.time_series_data?.map((d: any) => d.date),
 							datasets: [
 								{
-									data: analytics.time_series_data.map((d: any) => d.views),
+									data: analytics.time_series_data?.map((d: any) => d.views),
 									color: () => 'rgba(0, 255, 0, 0.5)'
 								},
 								{
-									data: analytics.time_series_data.map((d: any) => d.likes),
+									data: analytics.time_series_data?.map((d: any) => d.likes),
 									color: () => 'rgba(255, 0, 0, 0.5)'
 								}
 							],
@@ -167,11 +168,11 @@ export default function DealerAnalyticsPage() {
 					</Text>
 					<BarChart
 						data={{
-							labels: analytics.top_viewed_cars.map(
+							labels: analytics.top_viewed_cars?.map(
 								(c: any) => `${c.make} ${c.model}`
 							),
 							datasets: [
-								{ data: analytics.top_viewed_cars.map((c: any) => c.views) }
+								{ data: analytics.top_viewed_cars?.map((c: any) => c.views) }
 							]
 						}}
 						width={SCREEN_WIDTH - 40}
@@ -196,11 +197,11 @@ export default function DealerAnalyticsPage() {
 					</Text>
 					<BarChart
 						data={{
-							labels: analytics.top_liked_cars.map(
+							labels: analytics.top_liked_cars?.map(
 								(c: any) => `${c.make} ${c.model}`
 							),
 							datasets: [
-								{ data: analytics.top_liked_cars.map((c: any) => c.likes) }
+								{ data: analytics.top_liked_cars?.map((c: any) => c.likes) }
 							]
 						}}
 						width={SCREEN_WIDTH - 40}
@@ -250,7 +251,9 @@ export default function DealerAnalyticsPage() {
 				</View>
 
 				<View className='bg-white rounded-lg shadow-md m-2 p-4'>
-					<Text className='text-xl font-semibold mb-2'>Performance Metrics</Text>
+					<Text className='text-xl font-semibold mb-2'>
+						Performance Metrics
+					</Text>
 					<View className='flex-row justify-between items-center mb-2'>
 						<Text className='text-gray-600'>Avg. Time to Sell:</Text>
 						<Text className='font-bold'>
@@ -260,13 +263,16 @@ export default function DealerAnalyticsPage() {
 					<View className='flex-row justify-between items-center mb-2'>
 						<Text className='text-gray-600'>Conversion Rate:</Text>
 						<Text className='font-bold'>
-							{(analytics.performance_metrics.conversion_rate * 100).toFixed(2)}%
+							{(analytics.performance_metrics.conversion_rate * 100)?.toFixed(
+								2
+							)}
+							%
 						</Text>
 					</View>
 					<View className='flex-row justify-between items-center'>
 						<Text className='text-gray-600'>Avg. Listing Price:</Text>
 						<Text className='font-bold'>
-							${analytics.performance_metrics.avg_listing_price.toFixed(2)}
+							${analytics.performance_metrics.avg_listing_price?.toFixed(2)}
 						</Text>
 					</View>
 				</View>

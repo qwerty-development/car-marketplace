@@ -8,7 +8,7 @@ import {
 	SectionList,
 	FlatList,
 	Alert,
-	SectionListData,
+	SectionListData
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useNavigation } from '@react-navigation/native'
@@ -39,7 +39,8 @@ interface Car {
 export default function DealershipListPage() {
 	const [dealerships, setDealerships] = useState<Dealership[]>([])
 	const [searchQuery, setSearchQuery] = useState('')
-	const [selectedDealership, setSelectedDealership] = useState<Dealership | null>(null)
+	const [selectedDealership, setSelectedDealership] =
+		useState<Dealership | null>(null)
 	const [cars, setCars] = useState<Car[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
@@ -64,22 +65,30 @@ export default function DealershipListPage() {
 			fetchCars()
 			fetchMakes()
 		}
-	}, [selectedDealership, currentPage, sortBy, sortOrder, filterMake, filterModel, carSearchQuery])
+	}, [
+		selectedDealership,
+		currentPage,
+		sortBy,
+		sortOrder,
+		filterMake,
+		filterModel,
+		carSearchQuery
+	])
 
 	useEffect(() => {
 		if (selectedDealership) {
 			navigation.setOptions({
 				headerLeft: () => (
 					<TouchableOpacity onPress={() => setSelectedDealership(null)}>
-						<Text className="text-white text-2xl ml-4">←</Text>
+						<Text className='text-white text-2xl ml-4'>←</Text>
 					</TouchableOpacity>
 				),
-				headerTitle: selectedDealership.name,
+				headerTitle: selectedDealership.name
 			})
 		} else {
 			navigation.setOptions({
 				headerLeft: () => null,
-				headerTitle: 'Dealerships',
+				headerTitle: 'Dealerships'
 			})
 		}
 	}, [selectedDealership, navigation])
@@ -188,8 +197,8 @@ export default function DealershipListPage() {
 		const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
 		alphabet.forEach(letter => {
-			const dealershipsForLetter = filteredDealerships.filter(
-				dealership => dealership.name.toUpperCase().startsWith(letter)
+			const dealershipsForLetter = filteredDealerships.filter(dealership =>
+				dealership.name.toUpperCase().startsWith(letter)
 			)
 			if (dealershipsForLetter.length > 0) {
 				groups.push({ title: letter, data: dealershipsForLetter })
@@ -198,7 +207,6 @@ export default function DealershipListPage() {
 
 		return groups
 	}, [filteredDealerships])
-
 
 	const handleDealershipPress = (dealership: Dealership) => {
 		setSelectedDealership(dealership)
@@ -251,23 +259,26 @@ export default function DealershipListPage() {
 			sectionIndex,
 			itemIndex: 0,
 			animated: true,
-			viewPosition: 0,
+			viewPosition: 0
 		})
 	}
 
 	const renderDealershipItem = ({ item }: { item: Dealership }) => (
 		<TouchableOpacity
-			className="flex-row items-center py-4 border-b border-gray-700"
-			onPress={() => handleDealershipPress(item)}
-		>
-			<Image source={{ uri: item.logo }} className="w-12 h-12 rounded-full" />
-			<Text className="ml-4 text-lg text-white">{item.name}</Text>
+			className='flex-row items-center py-4 border-b border-gray-700'
+			onPress={() => handleDealershipPress(item)}>
+			<Image source={{ uri: item.logo }} className='w-12 h-12 rounded-full' />
+			<Text className='ml-4 text-lg text-white'>{item.name}</Text>
 		</TouchableOpacity>
 	)
 
-	const renderSectionHeader = ({ section }: { section: SectionListData<Dealership> }) => (
-		<View className="bg-black py-2">
-			<Text className="text-white  font-bold">{section.title}</Text>
+	const renderSectionHeader = ({
+		section
+	}: {
+		section: SectionListData<Dealership>
+	}) => (
+		<View className='bg-black py-2'>
+			<Text className='text-white  font-bold'>{section.title}</Text>
 		</View>
 	)
 
@@ -276,16 +287,15 @@ export default function DealershipListPage() {
 	)
 
 	const AlphabetIndex = () => (
-		<View className="absolute right-0 top-0 bottom-0 justify-center bg-black bg-opacity-50 px-1">
+		<View className='absolute right-2 top-0 bottom-0 justify-center bg-black bg-opacity-50'>
 			{groupedDealerships.map((group, index) => (
 				<TouchableOpacity
 					key={group.title}
-					onPress={() => scrollToSection(index)}
-				>
+					onPress={() => scrollToSection(index)}>
 					<Text
-						className={`text-white text-xs py-1 ${group.data.length > 0 ? 'font-bold' : 'opacity-50'
-							}`}
-					>
+						className={`text-white text-xs py-1 ${
+							group.data.length > 0 ? 'font-bold' : 'opacity-50'
+						}`}>
 						{group.title}
 					</Text>
 				</TouchableOpacity>
@@ -294,15 +304,15 @@ export default function DealershipListPage() {
 	)
 
 	return (
-		<View className="flex-1 bg-black">
+		<View className='flex-1 bg-black'>
 			{!selectedDealership ? (
 				<>
 					<View className=' border mt-4 z-50 border-red rounded-full flex-row  items-center'>
 						<FontAwesome size={20} color='black' className='mx-3' />
 						<TextInput
-							className="p-2 text-white justify-center"
-							placeholder="Search dealerships..."
-							placeholderTextColor="gray"
+							className='p-2 text-white justify-center'
+							placeholder='Search dealerships...'
+							placeholderTextColor='gray'
 							value={searchQuery}
 							onChangeText={setSearchQuery}
 						/>
@@ -314,52 +324,54 @@ export default function DealershipListPage() {
 						renderSectionHeader={renderSectionHeader}
 						keyExtractor={item => item.id.toString()}
 						stickySectionHeadersEnabled={true}
+						className='px-2'
 					/>
 					<AlphabetIndex />
 				</>
 			) : (
-				<View className="flex-1">
+				<View className='flex-1'>
 					<TextInput
-						className="bg-gray-800 text-white p-3 mb-2"
-						placeholder="Search cars..."
-						placeholderTextColor="gray"
+						className='bg-gray-800 text-white p-3 mb-2'
+						placeholder='Search cars...'
+						placeholderTextColor='gray'
 						value={carSearchQuery}
 						onChangeText={handleCarSearch}
 					/>
-					<View className="flex-row justify-between mb-2">
-						<View className="flex-1 mr-2">
+					<View className='flex-row justify-between mb-2'>
+						<View className='flex-1 mr-2'>
 							<RNPickerSelect
 								onValueChange={handleMakeFilter}
 								items={makes.map(make => ({ label: make, value: make }))}
-								placeholder={{ label: "All Makes", value: null }}
+								placeholder={{ label: 'All Makes', value: null }}
 								value={filterMake}
 								style={pickerSelectStyles}
 							/>
 						</View>
-						<View className="flex-1 ml-2">
+						<View className='flex-1 ml-2'>
 							<RNPickerSelect
 								onValueChange={handleModelFilter}
 								items={models.map(model => ({ label: model, value: model }))}
-								placeholder={{ label: "All Models", value: null }}
+								placeholder={{ label: 'All Models', value: null }}
 								value={filterModel}
 								style={pickerSelectStyles}
 							/>
 						</View>
 					</View>
-					<View className="flex-row justify-between mb-2">
+					<View className='flex-row justify-between mb-2'>
 						<TouchableOpacity onPress={() => handleSort('price')}>
-							<Text className="text-red-500 text-sm">
+							<Text className='text-red-500 text-sm'>
 								Price {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
 							</Text>
 						</TouchableOpacity>
 						<TouchableOpacity onPress={() => handleSort('year')}>
-							<Text className="text-red-500 text-sm">
+							<Text className='text-red-500 text-sm'>
 								Year {sortBy === 'year' && (sortOrder === 'asc' ? '↑' : '↓')}
 							</Text>
 						</TouchableOpacity>
 						<TouchableOpacity onPress={() => handleSort('listed_at')}>
-							<Text className="text-red-500 text-sm">
-								Date Listed {sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
+							<Text className='text-red-500 text-sm'>
+								Date Listed{' '}
+								{sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
 							</Text>
 						</TouchableOpacity>
 					</View>
@@ -367,25 +379,29 @@ export default function DealershipListPage() {
 						data={cars}
 						renderItem={renderCarItem}
 						keyExtractor={item => item.id.toString()}
-						className="flex-1"
+						className='flex-1'
 					/>
-					<View className="flex-row justify-between items-center mt-2">
+					<View className='flex-row justify-between items-center mt-2'>
 						<TouchableOpacity
 							onPress={() => handlePageChange(currentPage - 1)}
-							disabled={currentPage === 1}
-						>
-							<Text className={`text-red-500 text-sm ${currentPage === 1 ? 'opacity-50' : ''}`}>
+							disabled={currentPage === 1}>
+							<Text
+								className={`text-red-500 text-sm ${
+									currentPage === 1 ? 'opacity-50' : ''
+								}`}>
 								Previous
 							</Text>
 						</TouchableOpacity>
-						<Text className="text-sm text-white">
+						<Text className='text-sm text-white'>
 							Page {currentPage} of {totalPages}
 						</Text>
 						<TouchableOpacity
 							onPress={() => handlePageChange(currentPage + 1)}
-							disabled={currentPage === totalPages}
-						>
-							<Text className={`text-red-500 text-sm ${currentPage === totalPages ? 'opacity-50' : ''}`}>
+							disabled={currentPage === totalPages}>
+							<Text
+								className={`text-red-500 text-sm ${
+									currentPage === totalPages ? 'opacity-50' : ''
+								}`}>
 								Next
 							</Text>
 						</TouchableOpacity>
@@ -409,7 +425,7 @@ const pickerSelectStyles = {
 		borderRadius: 8,
 		color: 'white',
 		paddingHorizontal: 10,
-		paddingVertical: 12,
+		paddingVertical: 12
 	},
 	inputAndroid: {
 		backgroundColor: 'black',
@@ -418,9 +434,9 @@ const pickerSelectStyles = {
 		borderRadius: 8,
 		color: 'white',
 		paddingHorizontal: 10,
-		paddingVertical: 8,
+		paddingVertical: 8
 	},
 	placeholder: {
-		color: 'white',
-	},
+		color: 'white'
+	}
 }
