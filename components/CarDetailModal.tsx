@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import {
 	StyleSheet,
 	View,
@@ -14,9 +14,7 @@ import {
 	Share,
 	PanResponder
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { FontAwesome } from '@expo/vector-icons' // For WhatsApp icon
-import { MaterialIcons } from '@expo/vector-icons' // For Share icon
+import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
@@ -31,22 +29,91 @@ export default function CarDetailModal({
 	car,
 	onClose,
 	onFavoritePress,
-	onViewUpdate
+	onViewUpdate,
+	setSelectedCar,
+	setIsModalVisible
 }: any) {
 	if (!car) return null
 
 	const { user } = useUser()
 	const { isFavorite } = useFavorites()
-
-	const renderImageItem = ({ item }: any) => (
-		<Image source={{ uri: item }} style={styles.image} />
-	)
-
+	const [similarCars, setSimilarCars] = useState<any>([])
+	const [dealerCars, setDealerCars] = useState<any>([])
+	const scrollViewRef = useRef<ScrollView>(null)
 	useEffect(() => {
 		if (isVisible && car && user) {
 			trackCarView(car.id, user.id)
+			fetchSimilarCars()
+			fetchDealerCars()
+
+			// Scroll to the top of the ScrollView
+			if (scrollViewRef.current) {
+				scrollViewRef.current.scrollTo({ y: 0, animated: true })
+			}
 		}
 	}, [isVisible, car, user])
+
+	const fetchSimilarCars = async () => {
+		console.log(car.price)
+		const { data, error } = await supabase
+			.from('cars')
+			.select(
+				`
+        *,
+        dealerships (name,logo,phone,location,latitude,longitude)
+        `
+			)
+			.neq('id', car.id)
+			.gte('price', Math.floor(car.price * 0.8))
+			.lte('price', Math.floor(car.price * 1.2))
+			.limit(5)
+
+		if (data) {
+			const newCars =
+				data?.map(item => ({
+					...item,
+					dealership_name: item.dealerships.name,
+					dealership_logo: item.dealerships.logo,
+					dealership_phone: item.dealerships.phone,
+					dealership_location: item.dealerships.location,
+					dealership_latitude: item.dealerships.latitude,
+					dealership_longitude: item.dealerships.longitude,
+					listed_at: item.listed_at
+				})) || []
+			setSimilarCars(newCars)
+		}
+		if (error) console.error('Error fetching similar cars:', error)
+	}
+
+	const fetchDealerCars = async () => {
+		const { data, error } = await supabase
+			.from('cars')
+			.select(
+				`
+        *,
+        dealerships (name,logo,phone,location,latitude,longitude)
+        `
+			)
+			.eq('dealership_id', car.dealership_id)
+			.neq('id', car.id)
+			.limit(5)
+
+		if (data) {
+			const newCars =
+				data?.map(item => ({
+					...item,
+					dealership_name: item.dealerships.name,
+					dealership_logo: item.dealerships.logo,
+					dealership_phone: item.dealerships.phone,
+					dealership_location: item.dealerships.location,
+					dealership_latitude: item.dealerships.latitude,
+					dealership_longitude: item.dealerships.longitude,
+					listed_at: item.listed_at
+				})) || []
+			setDealerCars(newCars)
+		}
+		if (error) console.error('Error fetching dealer cars:', error)
+	}
 
 	const trackCarView = useCallback(
 		async (carId: number, userId: string) => {
@@ -81,7 +148,6 @@ export default function CarDetailModal({
 		}
 	}, [isVisible, car, user, debouncedTrackCarView])
 
-	// Use random latitude and longitude instead of fetching from database
 	const randomLatitude = 37.7749
 	const randomLongitude = -122.4194
 
@@ -92,21 +158,17 @@ export default function CarDetailModal({
 		longitudeDelta: 0.01
 	}
 
-	// PanResponder to handle the swipe-to-go-back gesture
 	const panResponder = PanResponder.create({
 		onMoveShouldSetPanResponder: (_, gestureState) => {
-			// Detect left swipe (negative dx) with a significant movement
 			return gestureState.dx < -30
 		},
 		onPanResponderRelease: (_, gestureState) => {
-			// If the gesture was a significant left swipe, trigger the onClose
 			if (gestureState.dx < -50) {
 				onClose()
 			}
 		}
 	})
 
-	// Function to share the car details
 	const handleCall = () => {
 		if (car.dealership_phone) {
 			Linking.openURL(`tel:${car.dealership_phone}`)
@@ -153,11 +215,32 @@ export default function CarDetailModal({
 		}
 	}
 
+	const renderCarItem = ({ item }: any) => (
+		<TouchableOpacity
+			className='bg-gray-800 rounded-lg p-2 mr-4 w-48'
+			onPress={() => {
+				setIsModalVisible(false)
+				onClose()
+				setSelectedCar(item)
+				setIsModalVisible(true)
+			}}>
+			<Image
+				source={{ uri: item.images[0] }}
+				className='w-full h-32 rounded-lg mb-2'
+			/>
+			<Text className='text-white font-bold'>
+				{item.year} {item.make} {item.model}
+			</Text>
+
+			<Text className='text-red'>${item.price.toLocaleString()}</Text>
+		</TouchableOpacity>
+	)
+
 	return (
 		<SafeAreaView>
 			<Modal visible={isVisible} animationType='slide'>
 				<View style={styles.header} {...panResponder.panHandlers}></View>
-				<ScrollView className='flex-1 bg-black'>
+				<ScrollView className='flex-1 bg-black' ref={scrollViewRef}>
 					<TouchableOpacity
 						className='absolute top-0 right-0 z-10 p-2 bg-red-600 rounded-full'
 						onPress={onClose}>
@@ -165,7 +248,9 @@ export default function CarDetailModal({
 					</TouchableOpacity>
 					<FlatList
 						data={car.images}
-						renderItem={renderImageItem}
+						renderItem={({ item }) => (
+							<Image source={{ uri: item }} style={styles.image} />
+						)}
 						keyExtractor={(item, index) => index.toString()}
 						horizontal
 						pagingEnabled
@@ -192,7 +277,6 @@ export default function CarDetailModal({
 						</Text>
 
 						<View className='mb-6 border'>
-							{/* Car Details in a Table */}
 							<View className='flex-row p-2 bg-gray justify-between py-2'>
 								<Text className='text-xl text-gray-400'>Mileage</Text>
 								<Text className='text-xl' style={{ color: '#D55004' }}>
@@ -243,7 +327,6 @@ export default function CarDetailModal({
 							<View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
 						</View>
 
-						{/* Dealer Information */}
 						<Text className='text-lg font-bold text-white mt-2  mb-2'>
 							Dealer Information
 						</Text>
@@ -261,11 +344,8 @@ export default function CarDetailModal({
 								</Text>
 							</View>
 
-							{/* Dealer Phone */}
-
-							{/* Embedded Google Map */}
 							<MapView
-								style={{ height: 200, borderRadius: 10 }}
+								style={{ height: 200, borderRadius: 10, marginVertical: 10 }}
 								region={mapRegion}>
 								<Marker
 									coordinate={{
@@ -286,16 +366,12 @@ export default function CarDetailModal({
 										<Ionicons name='call-outline' size={24} color='#D55004' />
 									</TouchableOpacity>
 								)}
-
-								{/* WhatsApp Button */}
 								<TouchableOpacity
 									className='rounded-lg items-center justify-center'
 									style={{ width: 50, height: 50 }}
 									onPress={handleWhatsApp}>
 									<FontAwesome name='whatsapp' size={24} color='#D55004' />
 								</TouchableOpacity>
-
-								{/* Chat Button (Coming Soon) */}
 								<TouchableOpacity
 									className='rounded-lg items-center justify-center'
 									style={{ width: 50, height: 50 }}
@@ -306,8 +382,6 @@ export default function CarDetailModal({
 										color='#D55004'
 									/>
 								</TouchableOpacity>
-
-								{/* Share Button */}
 								<TouchableOpacity
 									className='rounded-lg items-center justify-center'
 									style={{ width: 50, height: 50 }}
@@ -316,6 +390,30 @@ export default function CarDetailModal({
 								</TouchableOpacity>
 							</View>
 						</View>
+
+						{/* Similar Cars Section */}
+						<Text className='text-xl font-bold text-white mt-8 mb-4'>
+							Similarly Priced Cars
+						</Text>
+						<FlatList
+							data={similarCars}
+							renderItem={renderCarItem}
+							keyExtractor={(item: any) => item.id.toString()}
+							horizontal
+							showsHorizontalScrollIndicator={false}
+						/>
+
+						{/* Other Cars from Same Dealer Section */}
+						<Text className='text-xl font-bold text-white mt-8 mb-4'>
+							More from {car.dealership_name}
+						</Text>
+						<FlatList
+							data={dealerCars}
+							renderItem={renderCarItem}
+							keyExtractor={(item: any) => item.id.toString()}
+							horizontal
+							showsHorizontalScrollIndicator={false}
+						/>
 					</View>
 				</ScrollView>
 			</Modal>
@@ -330,11 +428,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		alignItems: 'center',
 		justifyContent: 'center'
-	},
-	headerText: {
-		color: 'white',
-		fontSize: 18,
-		fontWeight: 'bold'
 	},
 	image: {
 		width: width,

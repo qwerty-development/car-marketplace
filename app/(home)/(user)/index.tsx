@@ -291,6 +291,8 @@ export default function BrowseCarsPage() {
 				}
 				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
 				onViewUpdate={handleViewUpdate}
+				setSelectedCar={setSelectedCar}
+				setIsModalVisible={setIsModalVisible}
 			/>
 		</View>
 	)
