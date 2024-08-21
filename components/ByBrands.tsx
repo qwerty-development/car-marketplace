@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -10,11 +10,15 @@ import {
 import { useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import { FontAwesome } from '@expo/vector-icons'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 interface Brand {
 	name: string
 	logoUrl: string
 }
+
+const BRANDS_CACHE_KEY = 'cachedBrands'
+const CACHE_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
 const getLogoUrl = (make: string) => {
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
@@ -33,39 +37,57 @@ const getLogoUrl = (make: string) => {
 	}
 }
 
-export default function ByBrands() {
+const ByBrands = React.memo(() => {
 	const [brands, setBrands] = useState<Brand[]>([])
 	const [isLoading, setIsLoading] = useState(false)
 	const router = useRouter()
 
+	const fetchBrands = useMemo(
+		() => async () => {
+			setIsLoading(true)
+			try {
+				const cachedData = await AsyncStorage.getItem(BRANDS_CACHE_KEY)
+				if (cachedData) {
+					const { brands: cachedBrands, timestamp } = JSON.parse(cachedData)
+					if (Date.now() - timestamp < CACHE_EXPIRY) {
+						setBrands(cachedBrands)
+						setIsLoading(false)
+						return
+					}
+				}
+
+				const { data, error } = await supabase
+					.from('cars')
+					.select('make')
+					.order('make')
+
+				if (error) throw error
+
+				const uniqueBrands = Array.from(
+					new Set(data.map((item: { make: string }) => item.make))
+				)
+				const brandsData = uniqueBrands.map((make: string) => ({
+					name: make,
+					logoUrl: getLogoUrl(make)
+				}))
+
+				setBrands(brandsData)
+
+				await AsyncStorage.setItem(
+					BRANDS_CACHE_KEY,
+					JSON.stringify({ brands: brandsData, timestamp: Date.now() })
+				)
+			} catch (error) {
+				console.error('Error fetching brands:', error)
+			}
+			setIsLoading(false)
+		},
+		[]
+	)
+
 	useEffect(() => {
 		fetchBrands()
 	}, [])
-
-	const fetchBrands = async () => {
-		setIsLoading(true)
-		try {
-			const { data, error } = await supabase
-				.from('cars')
-				.select('make')
-				.order('make')
-
-			if (error) throw error
-
-			const uniqueBrands = Array.from(
-				new Set(data.map((item: { make: string }) => item.make))
-			)
-			const brandsData = uniqueBrands.map((make: string) => ({
-				name: make,
-				logoUrl: getLogoUrl(make)
-			}))
-
-			setBrands(brandsData)
-		} catch (error) {
-			console.error('Error fetching brands:', error)
-		}
-		setIsLoading(false)
-	}
 
 	const handleBrandPress = (brand: string) => {
 		router.push({
@@ -76,6 +98,10 @@ export default function ByBrands() {
 
 	const handleSeeAllBrands = () => {
 		router.push('/(home)/(user)/AllBrandsPage')
+	}
+
+	if (isLoading) {
+		return <ActivityIndicator size='large' color='#D55004' />
 	}
 
 	return (
@@ -91,28 +117,26 @@ export default function ByBrands() {
 					<FontAwesome name='chevron-right' size={14} color='#FFFFFF' />
 				</TouchableOpacity>
 			</View>
-			{isLoading ? (
-				<ActivityIndicator size='large' color='#D55004' />
-			) : (
-				<ScrollView
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					className=' rounded-lg'>
-					{brands.map((brand, index) => (
-						<TouchableOpacity
-							key={index}
-							onPress={() => handleBrandPress(brand.name)}
-							className='items-center mb-1 mt-1 mr-4'>
-							<Image
-								source={{ uri: brand.logoUrl }}
-								style={{ width: 80, height: 80 }}
-								resizeMode='contain'
-							/>
-							<Text className='text-white text-center mt-2'>{brand.name}</Text>
-						</TouchableOpacity>
-					))}
-				</ScrollView>
-			)}
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				className='rounded-lg'>
+				{brands.map((brand, index) => (
+					<TouchableOpacity
+						key={index}
+						onPress={() => handleBrandPress(brand.name)}
+						className='items-center mb-1 mt-1 mr-4'>
+						<Image
+							source={{ uri: brand.logoUrl }}
+							style={{ width: 80, height: 80 }}
+							resizeMode='contain'
+						/>
+						<Text className='text-white text-center mt-2'>{brand.name}</Text>
+					</TouchableOpacity>
+				))}
+			</ScrollView>
 		</View>
 	)
-}
+})
+
+export default ByBrands

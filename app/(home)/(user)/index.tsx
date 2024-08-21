@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -45,6 +45,7 @@ export default function BrowseCarsPage() {
 	const [isLoading, setIsLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState('')
+
 	const [filters, setFilters] = useState({
 		dealership: '',
 		make: '',
@@ -63,14 +64,16 @@ export default function BrowseCarsPage() {
 	const router = useRouter()
 	const params = useLocalSearchParams()
 
-	const renderHeader = () => (
-		<View>
-			<ByBrands />
-			<Text className='text-white font-bold text-xl mt-4 mb-2 px-4'>
-				All Cars
-			</Text>
-		</View>
-	)
+	const renderHeader = useMemo(() => {
+		return (
+			<View>
+				<ByBrands />
+				<Text className='text-white font-bold text-xl mt-4 mb-2 px-4'>
+					All Cars
+				</Text>
+			</View>
+		)
+	}, [])
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
@@ -199,13 +202,16 @@ export default function BrowseCarsPage() {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}
-	const renderCarItem = ({ item, index }: any) => (
-		<CarCard
-			car={item}
-			onPress={() => handleCarPress(item)}
-			onFavoritePress={() => handleFavoritePress(item.id)}
-			isFavorite={isFavorite(item.id)}
-		/>
+	const renderCarItem = useCallback(
+		({ item, index }: any) => (
+			<CarCard
+				car={item}
+				onPress={() => handleCarPress(item)}
+				onFavoritePress={() => handleFavoritePress(item.id)}
+				isFavorite={isFavorite(item.id)}
+			/>
+		),
+		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
 	const openFilterPage = () => {
@@ -263,6 +269,7 @@ export default function BrowseCarsPage() {
 				ListHeaderComponent={renderHeader}
 				data={cars}
 				renderItem={renderCarItem}
+				extraData={cars}
 				keyExtractor={(item, index) => `${item.id}_${index}`}
 				showsVerticalScrollIndicator={false}
 				onEndReached={() => {
@@ -270,6 +277,7 @@ export default function BrowseCarsPage() {
 						fetchCars(currentPage + 1)
 					}
 				}}
+				scrollEnabled={!isModalVisible}
 				onEndReachedThreshold={0.1}
 				ListFooterComponent={() =>
 					isLoading ? (
