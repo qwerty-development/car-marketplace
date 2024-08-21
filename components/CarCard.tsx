@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
-import { Divider } from '@rneui/themed'
+import { formatDistanceToNow } from 'date-fns'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -31,6 +31,10 @@ export default function CarCard({
 }: any) {
 	const cardHeight = SCREEN_HEIGHT - (tabBarHeight || 50)
 
+	const formattedListingDate = useMemo(() => {
+		return formatDistanceToNow(new Date(car.listed_at), { addSuffix: true })
+	}, [car.listed_at])
+
 	const handleCall = () => {
 		if (car.dealership_phone) {
 			Linking.openURL(`tel:${car.dealership_phone}`)
@@ -41,7 +45,7 @@ export default function CarCard({
 
 	const handleWhatsApp = () => {
 		if (car.dealership_phone) {
-			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
+			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model}.`
 			const url = `https://wa.me/${
 				car.dealership_phone
 			}?text=${encodeURIComponent(message)}`
@@ -57,23 +61,14 @@ export default function CarCard({
 
 	const handleShare = async () => {
 		try {
-			const result = await Share.share({
+			await Share.share({
 				message: `Check out this ${car.year} ${car.make} ${
 					car.model
 				} for $${car.price.toLocaleString()}!`,
 				url: car.images[0]
 			})
-			if (result.action === Share.sharedAction) {
-				if (result.activityType) {
-					// shared with activity type of result.activityType
-				} else {
-					// shared
-				}
-			} else if (result.action === Share.dismissedAction) {
-				// dismissed
-			}
 		} catch (error: any) {
-			Alert.alert(error.message)
+			Alert.alert('Error sharing', error.message)
 		}
 	}
 
@@ -81,13 +76,13 @@ export default function CarCard({
 		<StyledScrollView className='bg-black'>
 			<StyledTouchableOpacity
 				onPress={onPress}
-				className='m-4 bg-black border shadow-xl shadow-white  border-gray rounded-lg  overflow-hidden '>
+				className='m-4 bg-black border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-stone-200 '>
 				<StyledView className='relative'>
 					<StyledImage
 						source={{ uri: car.images[0] }}
-						className='w-full h-64 rounded-t-lg'
+						className='w-full h-64 rounded-t-3xl'
 					/>
-					<StyledView className='absolute top-4 right-4 bg-black/60 rounded-full p-2'>
+					<StyledView className='absolute top-4 right-4 bg-black/60 rounded-full p-1'>
 						<TouchableOpacity onPress={onFavoritePress}>
 							<Ionicons
 								name={isFavorite ? 'heart' : 'heart-outline'}
@@ -96,29 +91,33 @@ export default function CarCard({
 							/>
 						</TouchableOpacity>
 					</StyledView>
-				</StyledView>
-
-				<StyledView className='p-6'>
-					<StyledView className='flex-row justify-between items-center mb-4'>
-						<StyledView className='flex-row items-center'>
-							<Ionicons name='eye-outline' size={18} color='#6B7280' />
-							<StyledText className='ml-2 text-gray-400'>
-								{car.views || 0} views
-							</StyledText>
-						</StyledView>
-						<StyledView className='flex-row items-center'>
-							<Ionicons name='heart' size={18} color='#EF4444' />
-							<StyledText className='ml-2 text-gray-400'>
-								{car.likes || 0} likes
-							</StyledText>
-						</StyledView>
+					<StyledView className='absolute bottom-4 left-4 bg-black/60 rounded-full px-3 py-1'>
+						<StyledText className='text-white text-sm'>
+							{formattedListingDate}
+						</StyledText>
 					</StyledView>
-					<StyledView className='flex-row justify-between items-center mb-4'>
+				</StyledView>
+				<StyledView className='flex-row justify-between items-center mx-3 mt-6'>
+					<StyledView className='flex-row items-center'>
+						<Ionicons name='eye-outline' size={18} color='#6B7280' />
+						<StyledText className='ml-2 text-white'>
+							{car.views || 0} views
+						</StyledText>
+					</StyledView>
+					<StyledView className='flex-row items-center'>
+						<Ionicons name='heart' size={18} color='#EF4444' />
+						<StyledText className='ml-2 text-white'>
+							{car.likes || 0} likes
+						</StyledText>
+					</StyledView>
+				</StyledView>
+				<StyledView className='p-3'>
+					<StyledView className='flex-row justify-between items-center mb-4 mt-2'>
 						<StyledView>
 							<StyledText className='text-2xl font-semibold text-white'>
 								{car.year} {car.make} {car.model}
 							</StyledText>
-							<StyledText className='text-xl text-red font-medium text-red-500 mt-1'>
+							<StyledText className='text-xl font-medium text-red mt-2'>
 								${car.price.toLocaleString()}
 							</StyledText>
 						</StyledView>
@@ -131,42 +130,37 @@ export default function CarCard({
 						)}
 					</StyledView>
 
-					<StyledView className='flex-row justify-between items-center mb-6'>
-						<InfoItem icon='speedometer-outline' text={`${car.mileage} km`} />
-						<View className='h-full w-px bg-white mx-3' />
+					<StyledView className='flex-row justify-between items-center mb-4'>
+						<InfoItem
+							icon='speedometer-outline'
+							text={`${car.mileage.toLocaleString()} km`}
+						/>
 						<InfoItem icon='color-palette-outline' text={car.color} />
-						<View className='h-full w-px bg-white mx-3' />
-						<InfoItem icon='car-outline' text={car.condition} />
+						<InfoItem icon='cog-outline' text={car.transmission} />
+						<InfoItem icon='car-sport-outline' text={car.condition} />
 					</StyledView>
 
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						<View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
-						<View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
-					</View>
-
-					<StyledView className='rounded-lg p-4'>
-						<StyledView className='flex-row border  justify-between'>
-							<ActionButton
-								icon='call-outline'
-								text='Call'
-								onPress={handleCall}
-							/>
-							<ActionButton
-								icon='logo-whatsapp'
-								text='WhatsApp'
-								onPress={handleWhatsApp}
-							/>
-							<ActionButton
-								icon='chatbubble-outline'
-								text='Chat'
-								onPress={handleChat}
-							/>
-							<ActionButton
-								icon='share-social-outline'
-								text='Share'
-								onPress={handleShare}
-							/>
-						</StyledView>
+					<StyledView className='flex-row justify-between mt-2'>
+						<ActionButton
+							icon='call-outline'
+							text='Call'
+							onPress={handleCall}
+						/>
+						<ActionButton
+							icon='logo-whatsapp'
+							text='WhatsApp'
+							onPress={handleWhatsApp}
+						/>
+						<ActionButton
+							icon='chatbubble-outline'
+							text='Chat'
+							onPress={handleChat}
+						/>
+						<ActionButton
+							icon='share-social-outline'
+							text='Share'
+							onPress={handleShare}
+						/>
 					</StyledView>
 				</StyledView>
 			</StyledTouchableOpacity>
@@ -177,7 +171,7 @@ export default function CarCard({
 const InfoItem = ({ icon, text }: any) => (
 	<StyledView className='items-center'>
 		<Ionicons name={icon} size={20} color='#FFFFFF' />
-		<StyledText className='text-sm text-gray-400 mt-1'>{text}</StyledText>
+		<StyledText className='text-xs text-white mt-1'>{text}</StyledText>
 	</StyledView>
 )
 

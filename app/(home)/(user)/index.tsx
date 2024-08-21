@@ -66,9 +66,11 @@ export default function BrowseCarsPage() {
 	const renderHeader = () => (
 		<View>
 			<ByBrands />
-			<Text className="text-white font-bold text-xl mt-4 mb-2 px-4">All Cars</Text>
+			<Text className='text-white font-bold text-xl mt-4 mb-2 px-4'>
+				All Cars
+			</Text>
 		</View>
-	);
+	)
 
 	useEffect(() => {
 		fetchInitialData()
@@ -167,8 +169,9 @@ export default function BrowseCarsPage() {
 						dealership_logo: item.dealerships.logo,
 						dealership_phone: item.dealerships.phone,
 						dealership_location: item.dealerships.location,
-            dealership_latitude: item.dealerships.latitude,
-            dealership_longitude: item.dealerships.longitude
+						dealership_latitude: item.dealerships.latitude,
+						dealership_longitude: item.dealerships.longitude,
+						listed_at: item.listed_at
 					})) || []
 				setCars(prevCars => (page === 1 ? newCars : [...prevCars, ...newCars]))
 				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
@@ -244,19 +247,18 @@ export default function BrowseCarsPage() {
 							placeholderTextColor='white'
 							value={searchQuery}
 							onChangeText={text => {
-								setSearchQuery(text);
-								setCurrentPage(1);
+								setSearchQuery(text)
+								setCurrentPage(1)
 							}}
 							onSubmitEditing={() => fetchCars(1, filters)}
 						/>
 					</View>
 					<SortPicker
-						className="sort-picker"
+						className='sort-picker'
 						onValueChange={handleSortChange}
 						initialValue={{ label: 'Sort', value: null }}
 					/>
 				</View>
-
 			</View>
 
 			<FlatList
