@@ -22,6 +22,8 @@ export default function DealershipProfilePage() {
 	const [location, setLocation] = useState('')
 	const [phone, setPhone] = useState('')
 	const [logo, setLogo] = useState('')
+	const [latitude, setLatitude] = useState('')
+	const [longitude, setLongitude] = useState('')
 	const [isUploading, setIsUploading] = useState(false)
 
 	useEffect(() => {
@@ -41,17 +43,29 @@ export default function DealershipProfilePage() {
 			setLocation(data.location)
 			setPhone(data.phone)
 			setLogo(data.logo)
+			setLatitude(data.latitude ? data.latitude.toString() : '')
+			setLongitude(data.longitude ? data.longitude.toString() : '')
 		}
 	}
 
 	const updateProfile = async () => {
 		const { error } = await supabase
 			.from('dealerships')
-			.update({ name, location, phone, logo })
+			.update({
+				name,
+				location,
+				phone,
+				logo,
+				latitude: parseFloat(latitude) || null,
+				longitude: parseFloat(longitude) || null
+			})
 			.eq('id', dealership.id)
 
 		if (!error) {
 			alert('Profile updated successfully')
+		} else {
+			console.error('Error updating profile:', error)
+			alert('Failed to update profile. Please try again.')
 		}
 	}
 
@@ -162,6 +176,24 @@ export default function DealershipProfilePage() {
 				onChangeText={setPhone}
 				placeholder='Phone'
 				keyboardType='phone-pad'
+			/>
+
+			<Text className='text-lg font-bold mb-2'>Latitude</Text>
+			<TextInput
+				className='bg-white p-3 rounded-lg mb-4'
+				value={latitude}
+				onChangeText={setLatitude}
+				placeholder='Latitude'
+				keyboardType='numeric'
+			/>
+
+			<Text className='text-lg font-bold mb-2'>Longitude</Text>
+			<TextInput
+				className='bg-white p-3 rounded-lg mb-4'
+				value={longitude}
+				onChangeText={setLongitude}
+				placeholder='Longitude'
+				keyboardType='numeric'
 			/>
 
 			<Text className='text-lg font-bold mb-2'>Email</Text>

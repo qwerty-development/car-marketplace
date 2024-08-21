@@ -96,7 +96,7 @@ export default function BrowseCarsPage() {
 			let query = supabase.from('cars').select(
 				`
         *,
-        dealerships (name,logo,phone,location)
+        dealerships (name,logo,phone,location,latitude,longitude)
         `,
 				{ count: 'exact' }
 			)
@@ -166,7 +166,9 @@ export default function BrowseCarsPage() {
 						dealership_name: item.dealerships.name,
 						dealership_logo: item.dealerships.logo,
 						dealership_phone: item.dealerships.phone,
-						dealership_location: item.dealerships.location
+						dealership_location: item.dealerships.location,
+            dealership_latitude: item.dealerships.latitude,
+            dealership_longitude: item.dealerships.longitude
 					})) || []
 				setCars(prevCars => (page === 1 ? newCars : [...prevCars, ...newCars]))
 				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))

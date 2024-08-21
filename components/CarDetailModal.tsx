@@ -12,7 +12,7 @@ import {
 	Linking,
 	Alert,
 	Share,
-	PanResponder,
+	PanResponder
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { FontAwesome } from '@expo/vector-icons' // For WhatsApp icon
@@ -86,11 +86,11 @@ export default function CarDetailModal({
 	const randomLongitude = -122.4194
 
 	const mapRegion = {
-		latitude: randomLatitude,
-		longitude: randomLongitude,
+		latitude: car.dealership_latitude || randomLatitude,
+		longitude: car.dealership_longitude || randomLongitude,
 		latitudeDelta: 0.01,
-		longitudeDelta: 0.01,
-	};
+		longitudeDelta: 0.01
+	}
 
 	// PanResponder to handle the swipe-to-go-back gesture
 	const panResponder = PanResponder.create({
@@ -103,7 +103,7 @@ export default function CarDetailModal({
 			if (gestureState.dx < -50) {
 				onClose()
 			}
-		},
+		}
 	})
 
 	// Function to share the car details
@@ -118,7 +118,9 @@ export default function CarDetailModal({
 	const handleWhatsApp = () => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-			const url = `https://wa.me/${car.dealership_phone}?text=${encodeURIComponent(message)}`
+			const url = `https://wa.me/${
+				car.dealership_phone
+			}?text=${encodeURIComponent(message)}`
 			Linking.openURL(url)
 		} else {
 			Alert.alert('WhatsApp number not available')
@@ -132,7 +134,9 @@ export default function CarDetailModal({
 	const handleShare = async () => {
 		try {
 			const result = await Share.share({
-				message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price.toLocaleString()}!`,
+				message: `Check out this ${car.year} ${car.make} ${
+					car.model
+				} for $${car.price.toLocaleString()}!`,
 				url: car.images[0]
 			})
 			if (result.action === Share.sharedAction) {
@@ -151,14 +155,13 @@ export default function CarDetailModal({
 
 	return (
 		<SafeAreaView>
-			<Modal visible={isVisible} animationType="slide">
-				<View style={styles.header} {...panResponder.panHandlers}>
-				</View>
-				<ScrollView className="flex-1 bg-black">
+			<Modal visible={isVisible} animationType='slide'>
+				<View style={styles.header} {...panResponder.panHandlers}></View>
+				<ScrollView className='flex-1 bg-black'>
 					<TouchableOpacity
-						className="absolute top-0 right-0 z-10 p-2 bg-red-600 rounded-full"
+						className='absolute top-0 right-0 z-10 p-2 bg-red-600 rounded-full'
 						onPress={onClose}>
-						<Ionicons name="close" size={30} color="#D55004" />
+						<Ionicons name='close' size={30} color='#D55004' />
 					</TouchableOpacity>
 					<FlatList
 						data={car.images}
@@ -168,67 +171,69 @@ export default function CarDetailModal({
 						pagingEnabled
 						showsHorizontalScrollIndicator={false}
 					/>
-					<View className="p-4">
-						<Text className="text-2xl font-bold text-white">
+					<View className='p-4'>
+						<Text className='text-2xl font-bold text-white'>
 							{car.year} {car.make} {car.model}
 						</Text>
-						<Text className="text-xl font-bold text-red mt-2">
+						<Text className='text-xl font-bold text-red mt-2'>
 							${car.price.toLocaleString()}
 						</Text>
-						<View className="flex-row justify-between mt-4 mb-4">
-							<Text className="text-l text-white">Views: {car.views || 0}</Text>
-							<Text className="text-l text-white">Likes: {car.likes || 0}</Text>
+						<View className='flex-row justify-between mt-4 mb-4'>
+							<Text className='text-l text-white'>Views: {car.views || 0}</Text>
+							<Text className='text-l text-white'>Likes: {car.likes || 0}</Text>
 						</View>
 
 						<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 							<View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
 							<View style={{ flex: 1, height: 1, backgroundColor: 'white' }} />
 						</View>
-						<Text className="text-xl mt-6 text-white font-semibold text-l mb-4">{car.description}</Text>
+						<Text className='text-xl mt-6 text-white font-semibold text-l mb-4'>
+							{car.description}
+						</Text>
 
-						<View className="mb-6 border">
+						<View className='mb-6 border'>
 							{/* Car Details in a Table */}
-							<View className="flex-row p-2 bg-gray justify-between py-2">
-								<Text className="text-xl text-gray-400">Mileage</Text>
-								<Text className="text-xl" style={{ color: '#D55004' }}>
+							<View className='flex-row p-2 bg-gray justify-between py-2'>
+								<Text className='text-xl text-gray-400'>Mileage</Text>
+								<Text className='text-xl' style={{ color: '#D55004' }}>
 									{`${car.mileage.toLocaleString()} km`}
 								</Text>
 							</View>
-							<View className="flex-row p-2 justify-between py-2">
-								<Text className="text-xl text-gray-400">Color</Text>
-								<Text className="text-xl" style={{ color: '#D55004' }}>
+							<View className='flex-row p-2 justify-between py-2'>
+								<Text className='text-xl text-gray-400'>Color</Text>
+								<Text className='text-xl' style={{ color: '#D55004' }}>
 									{car.color}
 								</Text>
 							</View>
-							<View className="flex-row p-2  bg-gray justify-between py-2">
-								<Text className="text-xl text-gray-400">Transmission</Text>
-								<Text className="text-xl" style={{ color: '#D55004' }}>
+							<View className='flex-row p-2  bg-gray justify-between py-2'>
+								<Text className='text-xl text-gray-400'>Transmission</Text>
+								<Text className='text-xl' style={{ color: '#D55004' }}>
 									{car.transmission}
 								</Text>
 							</View>
-							<View className="flex-row p-2 justify-between py-2">
-								<Text className="text-xl text-gray-400">Drivetrain</Text>
-								<Text className="text-xl" style={{ color: '#D55004' }}>
+							<View className='flex-row p-2 justify-between py-2'>
+								<Text className='text-xl text-gray-400'>Drivetrain</Text>
+								<Text className='text-xl' style={{ color: '#D55004' }}>
 									{car.drivetrain}
 								</Text>
 							</View>
-							<View className="flex-row p-2 bg-gray justify-between py-2">
-								<Text className="text-xl text-gray-400">Condition</Text>
-								<Text className="text-xl" style={{ color: '#D55004' }}>
+							<View className='flex-row p-2 bg-gray justify-between py-2'>
+								<Text className='text-xl text-gray-400'>Condition</Text>
+								<Text className='text-xl' style={{ color: '#D55004' }}>
 									{car.condition}
 								</Text>
 							</View>
 						</View>
 
 						<TouchableOpacity
-							className="flex-row items-center justify-center bg-gray-800 p-3 rounded-lg mb-6"
+							className='flex-row items-center justify-center bg-gray-800 p-3 rounded-lg mb-6'
 							onPress={() => onFavoritePress(car.id)}>
 							<Ionicons
 								name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
 								size={24}
 								color={isFavorite(car.id) ? 'red' : 'white'}
 							/>
-							<Text className="text-lg font-bold text-white ml-3">
+							<Text className='text-lg font-bold text-white ml-3'>
 								{isFavorite(car.id) ? 'Unlike' : 'Like'}
 							</Text>
 						</TouchableOpacity>
@@ -239,27 +244,29 @@ export default function CarDetailModal({
 						</View>
 
 						{/* Dealer Information */}
-						<Text className="text-lg font-bold text-white mt-2  mb-2">Dealer Information</Text>
-						<View className="border-t border-gray-600 pt-4">
-							<View className="items-center">
+						<Text className='text-lg font-bold text-white mt-2  mb-2'>
+							Dealer Information
+						</Text>
+						<View className='border-t border-gray-600 pt-4'>
+							<View className='items-center'>
 								{car.dealership_logo && (
 									<Image
 										source={{ uri: car.dealership_logo }}
-										className="w-32 rounded-full h-32 mb-4"
-										resizeMode="contain"
+										className='w-32 rounded-full h-32 mb-4'
+										resizeMode='contain'
 									/>
 								)}
-								<Text className="text-xl font-bold text-white mb-2">{car.dealership_name}</Text>
+								<Text className='text-xl font-bold text-white mb-2'>
+									{car.dealership_name}
+								</Text>
 							</View>
 
 							{/* Dealer Phone */}
 
-
 							{/* Embedded Google Map */}
 							<MapView
 								style={{ height: 200, borderRadius: 10 }}
-								region={mapRegion}
-							>
+								region={mapRegion}>
 								<Marker
 									coordinate={{
 										latitude: randomLatitude,
@@ -270,50 +277,50 @@ export default function CarDetailModal({
 								/>
 							</MapView>
 
-							<View className="flex-row border mt-12 mb-12  justify-around">
+							<View className='flex-row border mt-12 mb-12  justify-around'>
 								{car.dealership_phone && (
 									<TouchableOpacity
-										className="rounded-lg items-center justify-center"
+										className='rounded-lg items-center justify-center'
 										style={{ width: 50, height: 50 }}
 										onPress={handleCall}>
-										<Ionicons name="call-outline" size={24} color="#D55004" />
+										<Ionicons name='call-outline' size={24} color='#D55004' />
 									</TouchableOpacity>
 								)}
 
 								{/* WhatsApp Button */}
 								<TouchableOpacity
-									className="rounded-lg items-center justify-center"
+									className='rounded-lg items-center justify-center'
 									style={{ width: 50, height: 50 }}
 									onPress={handleWhatsApp}>
-									<FontAwesome name="whatsapp" size={24} color="#D55004" />
+									<FontAwesome name='whatsapp' size={24} color='#D55004' />
 								</TouchableOpacity>
 
 								{/* Chat Button (Coming Soon) */}
 								<TouchableOpacity
-									className="rounded-lg items-center justify-center"
+									className='rounded-lg items-center justify-center'
 									style={{ width: 50, height: 50 }}
 									onPress={handleChat}>
-									<Ionicons name="chatbubbles-outline" size={24} color="#D55004" />
+									<Ionicons
+										name='chatbubbles-outline'
+										size={24}
+										color='#D55004'
+									/>
 								</TouchableOpacity>
 
 								{/* Share Button */}
 								<TouchableOpacity
-									className="rounded-lg items-center justify-center"
+									className='rounded-lg items-center justify-center'
 									style={{ width: 50, height: 50 }}
 									onPress={handleShare}>
-									<MaterialIcons name="share" size={24} color="#D55004" />
+									<MaterialIcons name='share' size={24} color='#D55004' />
 								</TouchableOpacity>
 							</View>
 						</View>
-
 					</View>
 				</ScrollView>
 			</Modal>
 		</SafeAreaView>
 	)
-
-
-
 }
 
 const styles = StyleSheet.create({
@@ -324,12 +331,12 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		borderTopLeftRadius: 10,
-		borderTopRightRadius: 10,
+		borderTopRightRadius: 10
 	},
 	headerText: {
 		color: 'white',
 		fontSize: 18,
-		fontWeight: 'bold',
+		fontWeight: 'bold'
 	},
 	image: {
 		width: width,
