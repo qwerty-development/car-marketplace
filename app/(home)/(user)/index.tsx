@@ -18,7 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router'
 import SortPicker from '@/components/SortPicker'
 import ByBrands from '@/components/ByBrands'
 
-const ITEMS_PER_PAGE = 10
+const ITEMS_PER_PAGE = 7
 
 interface Car {
 	id: number
@@ -71,7 +71,6 @@ export default function BrowseCarsPage() {
 			</Text>
 		</View>
 	)
-
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
@@ -179,7 +178,7 @@ export default function BrowseCarsPage() {
 			}
 			setIsLoading(false)
 		},
-		[searchQuery, filters]
+		[searchQuery, filters, sortOption]
 	)
 
 	const handleFavoritePress = async (carId: number) => {
@@ -200,8 +199,7 @@ export default function BrowseCarsPage() {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}
-
-	const renderCarItem = ({ item }: { item: Car }) => (
+	const renderCarItem = ({ item, index }: any) => (
 		<CarCard
 			car={item}
 			onPress={() => handleCarPress(item)}
@@ -265,7 +263,7 @@ export default function BrowseCarsPage() {
 				ListHeaderComponent={renderHeader}
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={item => item.id.toString()}
+				keyExtractor={(item, index) => `${item.id}_${index}`}
 				showsVerticalScrollIndicator={false}
 				onEndReached={() => {
 					if (currentPage < totalPages && !isLoading) {
