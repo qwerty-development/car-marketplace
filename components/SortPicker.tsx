@@ -1,4 +1,3 @@
-// components/SortPicker.js
 import React, { useState } from 'react'
 import {
 	View,
@@ -6,11 +5,13 @@ import {
 	TouchableOpacity,
 	Modal,
 	FlatList,
-	StyleSheet
+	StyleSheet,
+	TouchableWithoutFeedback
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
 const sortOptions = [
+	{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
 	{ label: 'Price: Low to High', value: 'price_asc', icon: 'trending-up' },
 	{ label: 'Price: High to Low', value: 'price_desc', icon: 'trending-down' },
 	{ label: 'Year: New to Old', value: 'year_desc', icon: 'calendar' },
@@ -26,7 +27,10 @@ const sortOptions = [
 const SortPicker = ({ onValueChange, initialValue }: any) => {
 	const [modalVisible, setModalVisible] = useState(false)
 	const [selectedOption, setSelectedOption] = useState(
-		initialValue || { label: 'Sort', value: null, icon: 'arrow-down' }
+		initialValue &&
+			sortOptions.find(option => option.value === initialValue.value)
+			? initialValue
+			: sortOptions[0]
 	)
 
 	const handleSelect = (option: { value: any }) => {
@@ -36,16 +40,30 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 	}
 
 	const renderOption = ({ item }: any) => (
-		<TouchableOpacity style={styles.option} onPress={() => handleSelect(item)}>
-			<Ionicons name={item.icon} size={24} color='#333' />
-			<Text style={styles.optionText}>{item.label}</Text>
+		<TouchableOpacity
+			style={[
+				styles.option,
+				selectedOption.value === item.value && styles.selectedOption
+			]}
+			onPress={() => handleSelect(item)}>
+			<Ionicons
+				name={item.icon}
+				size={24}
+				color={selectedOption.value === item.value ? '#D55004' : '#333'}
+			/>
+			<Text
+				style={[
+					styles.optionText,
+					selectedOption.value === item.value && styles.selectedOptionText
+				]}>
+				{item.label}
+			</Text>
 		</TouchableOpacity>
 	)
 
 	return (
 		<View>
-			<TouchableOpacity
-				onPress={() => setModalVisible(true)}>
+			<TouchableOpacity onPress={() => setModalVisible(true)}>
 				<Ionicons name='chevron-down' size={20} color='#FFFFFF' />
 			</TouchableOpacity>
 			<Modal
@@ -53,22 +71,24 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 				transparent={true}
 				visible={modalVisible}
 				onRequestClose={() => setModalVisible(false)}>
-				<View style={styles.modalContainer}>
-					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>Sort By</Text>
-						<FlatList
-							data={sortOptions}
-							renderItem={renderOption}
-							keyExtractor={item => item.value}
-						/>
+				<TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+					<View style={styles.modalContainer}>
+						<TouchableWithoutFeedback>
+							<View style={styles.modalContent}>
+								<Text style={styles.modalTitle}>Sort By</Text>
+								<FlatList
+									data={sortOptions}
+									renderItem={renderOption}
+									keyExtractor={item => item.value}
+								/>
+							</View>
+						</TouchableWithoutFeedback>
 					</View>
-				</View>
+				</TouchableWithoutFeedback>
 			</Modal>
 		</View>
 	)
 }
-
-// ... styles remain the same
 
 const styles = StyleSheet.create({
 	picker: {
@@ -115,6 +135,13 @@ const styles = StyleSheet.create({
 		marginLeft: 10,
 		fontSize: 16,
 		color: '#333'
+	},
+	selectedOption: {
+		backgroundColor: '#F0F0F0'
+	},
+	selectedOptionText: {
+		color: '#D55004',
+		fontWeight: 'bold'
 	}
 })
 

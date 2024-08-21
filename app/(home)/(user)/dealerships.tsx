@@ -307,7 +307,7 @@ export default function DealershipListPage() {
 		<View className='flex-1 bg-black'>
 			{!selectedDealership ? (
 				<>
-					<View className=' border mt-4 z-50 border-red rounded-full flex-row  items-center'>
+					<View className=' border mt-4 mx-3 z-50 border-red rounded-full flex-row  items-center'>
 						<FontAwesome size={20} color='black' className='mx-3' />
 						<TextInput
 							className='p-2 text-white justify-center'
@@ -326,7 +326,6 @@ export default function DealershipListPage() {
 						stickySectionHeadersEnabled={true}
 						className='px-2'
 					/>
-					<AlphabetIndex />
 				</>
 			) : (
 				<View className='flex-1'>
