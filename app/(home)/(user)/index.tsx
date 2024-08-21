@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -64,14 +64,16 @@ export default function BrowseCarsPage() {
 	const router = useRouter()
 	const params = useLocalSearchParams()
 
-	const renderHeader = () => (
-		<View>
-			<ByBrands />
-			<Text className='text-white font-bold text-xl mt-4 mb-2 px-4'>
-				All Cars
-			</Text>
-		</View>
-	)
+	const renderHeader = useMemo(() => {
+		return (
+			<View>
+				<ByBrands />
+				<Text className='text-white font-bold text-xl mt-4 mb-2 px-4'>
+					All Cars
+				</Text>
+			</View>
+		)
+	}, [])
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
