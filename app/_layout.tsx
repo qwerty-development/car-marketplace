@@ -14,14 +14,16 @@ function RootLayoutNav() {
 	const segments = useSegments()
 	const router = useRouter()
 	const [showSplash, setShowSplash] = useState(true)
-	const [mounted, setMounted] = useState(false)
+	const [isReady, setIsReady] = useState(false)
 
 	useEffect(() => {
-		setMounted(true)
-	}, [])
+		if (isLoaded && !showSplash) {
+			setIsReady(true)
+		}
+	}, [isLoaded, showSplash])
 
 	useEffect(() => {
-		if (!isLoaded || !mounted || showSplash) return
+		if (!isReady) return
 
 		const inAuthGroup = segments[0] === '(auth)'
 
@@ -30,9 +32,9 @@ function RootLayoutNav() {
 		} else if (!isSignedIn && !inAuthGroup) {
 			router.replace('/(auth)/sign-in')
 		}
-	}, [isLoaded, isSignedIn, segments, showSplash, mounted])
+	}, [isReady, isSignedIn, segments])
 
-	if (!mounted || showSplash) {
+	if (!isReady) {
 		return (
 			<CustomSplashScreen onAnimationComplete={() => setShowSplash(false)} />
 		)
