@@ -46,9 +46,8 @@ export default function CarCard({
 	const handleWhatsApp = () => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model}.`
-			const url = `https://wa.me/${
-				car.dealership_phone
-			}?text=${encodeURIComponent(message)}`
+			const url = `https://wa.me/${car.dealership_phone
+				}?text=${encodeURIComponent(message)}`
 			Linking.openURL(url)
 		} else {
 			Alert.alert('WhatsApp number not available')
@@ -62,9 +61,8 @@ export default function CarCard({
 	const handleShare = async () => {
 		try {
 			await Share.share({
-				message: `Check out this ${car.year} ${car.make} ${
-					car.model
-				} for $${car.price.toLocaleString()}!`,
+				message: `Check out this ${car.year} ${car.make} ${car.model
+					} for $${car.price.toLocaleString()}!`,
 				url: car.images[0]
 			})
 		} catch (error: any) {
@@ -76,13 +74,13 @@ export default function CarCard({
 		<StyledScrollView className='bg-black'>
 			<StyledTouchableOpacity
 				onPress={onPress}
-				className='m-4 bg-black border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-stone-200'>
+				className='m-4 bg-black border-red border rounded-3xl overflow-hidden shadow-xl shadow-stone-200'>
 				<StyledView className='relative'>
 					<StyledImage
 						source={{ uri: car.images[0] }}
 						className='w-full h-64 rounded-t-3xl'
 					/>
-					<StyledView className='absolute top-4 right-4 bg-black/60 rounded-full p-1'>
+					<StyledView className='absolute top-4 right-4 rounded-full p-1'>
 						<TouchableOpacity onPress={onFavoritePress}>
 							<Ionicons
 								name={isFavorite ? 'heart' : 'heart-outline'}
@@ -91,14 +89,14 @@ export default function CarCard({
 							/>
 						</TouchableOpacity>
 					</StyledView>
-					<StyledView className='absolute bottom-4 left-4 bg-black/60 rounded-full px-3 py-1'>
+					<StyledView className='absolute bottom-4 left-4 bg-red/60 rounded-full px-3 py-1'>
 						<StyledText className='text-white text-sm'>
 							{formattedListingDate}
 						</StyledText>
 					</StyledView>
 				</StyledView>
 
-				<StyledView className='p-3'>
+				<StyledView className='p-3 border'>
 					<StyledView className='flex-row justify-between items-center my-2 '>
 						<StyledView className='flex-row items-center'>
 							<Ionicons name='eye-outline' size={18} color='#6B7280' />
@@ -122,6 +120,9 @@ export default function CarCard({
 							<StyledText className='text-xl font-medium text-red mt-2'>
 								${car.price.toLocaleString()}
 							</StyledText>
+							<StyledText className='text-s font-medium text-white mt-2'>
+								{car.dealership_location}
+							</StyledText>
 						</StyledView>
 						{car.dealership_logo && (
 							<StyledImage
@@ -132,16 +133,48 @@ export default function CarCard({
 						)}
 					</StyledView>
 
-					<StyledView className='flex-row justify-between items-center mb-4'>
+
+
+					<StyledView className="flex-row justify-between items-center  p-4 rounded-lg shadow-lg">
 						<InfoItem
-							icon='speedometer-outline'
-							text={`${car.mileage.toLocaleString()} km`}
+							icon="speedometer-outline"
+							text={
+								<Text className="font-semibold text-red">
+									{car.mileage.toLocaleString()} <Text className="text-xs text-gray-500">km</Text>
+								</Text>
+							}
 						/>
-						<InfoItem icon='cog-outline' text={car.transmission} />
-						<InfoItem icon='car-sport-outline' text={car.condition} />
+						<View className="w-0.5 bg-gray-300 h-full mx-2" />
+						<InfoItem
+							icon="cog-outline"
+							text={
+								<Text className="font-semibold text-red">
+									{car.transmission}
+								</Text>
+							}
+						/>
+						<View className="w-0.5 bg-gray-300 h-full mx-2" />
+						<InfoItem
+							icon="car-sport-outline"
+							text={
+								<Text className="font-semibold text-red">
+									{car.condition}
+								</Text>
+							}
+						/>
 					</StyledView>
 
-					<StyledView className='flex-row justify-between items-center mt-2'>
+
+					<View className='mt-1 mb-1' style={{ flexDirection: 'row', alignItems: 'center' }}>
+						<View
+							style={{ flex: 1, height: 1, backgroundColor: '#701E1E' }}
+						/>
+						<View
+							style={{ flex: 1, height: 1, backgroundColor: '#701E1E' }}
+						/>
+					</View>
+
+					<StyledView className='flex-row mx-12 justify-between items-center mt-2'>
 						<ActionButton
 							icon='call-outline'
 							text='Call'
@@ -157,11 +190,6 @@ export default function CarCard({
 							text='Chat'
 							onPress={handleChat}
 						/>
-						<ActionButton
-							icon='share-social-outline'
-							text='Share'
-							onPress={handleShare}
-						/>
 					</StyledView>
 				</StyledView>
 			</StyledTouchableOpacity>
@@ -171,7 +199,7 @@ export default function CarCard({
 
 const InfoItem = ({ icon, text }: any) => (
 	<StyledView className='items-center'>
-		<Ionicons name={icon} size={20} color='#FFFFFF' />
+		<Ionicons name={icon} size={33 } color='#FFFFFF' />
 		<StyledText className='text-xs text-white mt-1'>{text}</StyledText>
 	</StyledView>
 )
@@ -180,7 +208,6 @@ const ActionButton = ({ icon, text, onPress }: any) => (
 	<StyledTouchableOpacity
 		onPress={onPress}
 		className='items-center justify-center'>
-		<Ionicons name={icon} size={24} color='#D55004' />
-		<StyledText className='text-white text-xs mt-1'>{text}</StyledText>
+		<Ionicons name={icon} size={25} color='white' />
 	</StyledTouchableOpacity>
 )

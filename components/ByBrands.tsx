@@ -120,7 +120,7 @@ const ByBrands = React.memo(() => {
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				className='rounded-lg'>
+				className='rounded-lg '>
 				{brands.map((brand, index) => (
 					<TouchableOpacity
 						key={index}

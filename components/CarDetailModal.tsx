@@ -22,6 +22,8 @@ import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
 import MapView, { Marker } from 'react-native-maps'
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 const { width } = Dimensions.get('window')
 
@@ -189,9 +191,8 @@ const CarDetailModal = React.memo(
 		const handleWhatsApp = () => {
 			if (car.dealership_phone) {
 				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/${
-					car.dealership_phone
-				}?text=${encodeURIComponent(message)}`
+				const url = `https://wa.me/${car.dealership_phone
+					}?text=${encodeURIComponent(message)}`
 				Linking.openURL(url)
 			} else {
 				Alert.alert('WhatsApp number not available')
@@ -209,9 +210,8 @@ const CarDetailModal = React.memo(
 		const handleShare = async () => {
 			try {
 				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${
-						car.model
-					} for $${car.price.toLocaleString()}!`,
+					message: `Check out this ${car.year} ${car.make} ${car.model
+						} for $${car.price.toLocaleString()}!`,
 					url: car.images[0]
 				})
 				if (result.action === Share.sharedAction) {
@@ -264,195 +264,207 @@ const CarDetailModal = React.memo(
 							]
 						}
 					]}>
-					<View style={styles.header} {...panResponder.panHandlers}></View>
-					<ScrollView className='flex-1 bg-black' ref={scrollViewRef}>
-						<TouchableOpacity
-							className='absolute top-0 right-0 z-10 p-2 bg-red-600 rounded-full'
-							onPress={handleCloseModal}>
-							<Ionicons name='close' size={30} color='#D55004' />
-						</TouchableOpacity>
-						<FlatList
-							data={car.images}
-							renderItem={({ item }) => (
-								<Image source={{ uri: item }} style={styles.image} />
-							)}
-							keyExtractor={(item, index) => index.toString()}
-							horizontal
-							pagingEnabled
-							showsHorizontalScrollIndicator={false}
-						/>
-						<View className='p-4'>
-							<Text className='text-2xl font-bold text-white'>
-								{car.year} {car.make} {car.model}
-							</Text>
-							<Text className='text-xl font-bold text-red mt-2'>
-								${car.price.toLocaleString()}
-							</Text>
-							<View className='flex-row justify-between mt-4 mb-4'>
-								<Text className='text-l text-white'>
-									Views: {car.views || 0}
-								</Text>
-								<Text className='text-l text-white'>
-									Likes: {car.likes || 0}
-								</Text>
-							</View>
 
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<View
-									style={{ flex: 1, height: 1, backgroundColor: 'white' }}
-								/>
-								<View
-									style={{ flex: 1, height: 1, backgroundColor: 'white' }}
-								/>
-							</View>
-							<Text className='text-xl mt-6 text-white font-semibold text-l mb-4'>
-								{car.description}
-							</Text>
-
-							<View className='mb-6 border'>
-								<View className='flex-row p-2 bg-gray justify-between py-2'>
-									<Text className='text-xl text-gray-400'>Mileage</Text>
-									<Text className='text-xl' style={{ color: '#D55004' }}>
-										{`${car.mileage.toLocaleString()} km`}
-									</Text>
-								</View>
-								<View className='flex-row p-2 justify-between py-2'>
-									<Text className='text-xl text-gray-400'>Color</Text>
-									<Text className='text-xl' style={{ color: '#D55004' }}>
-										{car.color}
-									</Text>
-								</View>
-								<View className='flex-row p-2  bg-gray justify-between py-2'>
-									<Text className='text-xl text-gray-400'>Transmission</Text>
-									<Text className='text-xl' style={{ color: '#D55004' }}>
-										{car.transmission}
-									</Text>
-								</View>
-								<View className='flex-row p-2 justify-between py-2'>
-									<Text className='text-xl text-gray-400'>Drivetrain</Text>
-									<Text className='text-xl' style={{ color: '#D55004' }}>
-										{car.drivetrain}
-									</Text>
-								</View>
-								<View className='flex-row p-2 bg-gray justify-between py-2'>
-									<Text className='text-xl text-gray-400'>Condition</Text>
-									<Text className='text-xl' style={{ color: '#D55004' }}>
-										{car.condition}
-									</Text>
-								</View>
-							</View>
-
+					<View  style={styles.header} {...panResponder.panHandlers}></View>
+					<LinearGradient
+						colors={['black', 'black', 'black', 'black', 'black', 'black', 'black', 'black']}
+						style={{ flex: 1 }}
+					>
+						<ScrollView className='flex-1' ref={scrollViewRef}>
 							<TouchableOpacity
-								className='flex-row items-center justify-center bg-gray-800 p-3 rounded-lg mb-6'
-								onPress={() => onFavoritePress(car.id)}>
-								<Ionicons
-									name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
-									size={24}
-									color={isFavorite(car.id) ? 'red' : 'white'}
-								/>
-								<Text className='text-lg font-bold text-white ml-3'>
-									{isFavorite(car.id) ? 'Unlike' : 'Like'}
-								</Text>
+								className='absolute top-0 right-0 z-10 p-2 bg-red-600 rounded-full'
+								onPress={handleCloseModal}>
+								<Ionicons name='close' size={30} color='#D55004' />
 							</TouchableOpacity>
-
-							<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-								<View
-									style={{ flex: 1, height: 1, backgroundColor: 'white' }}
-								/>
-								<View
-									style={{ flex: 1, height: 1, backgroundColor: 'white' }}
-								/>
-							</View>
-
-							<Text className='text-lg font-bold text-white mt-2  mb-2'>
-								Dealer Information
-							</Text>
-							<View className='border-t border-gray-600 pt-4'>
-								<View className='items-center'>
-									{car.dealership_logo && (
-										<Image
-											source={{ uri: car.dealership_logo }}
-											className='w-32 rounded-full h-32 mb-4'
-											resizeMode='contain'
-										/>
-									)}
-									<Text className='text-xl font-bold text-white mb-2'>
-										{car.dealership_name}
+							<FlatList
+								data={car.images}
+								renderItem={({ item }) => (
+									<Image source={{ uri: item }} style={styles.image} />
+								)}
+								keyExtractor={(item, index) => index.toString()}
+								horizontal
+								pagingEnabled
+								showsHorizontalScrollIndicator={false}
+							/>
+							<View className='p-4 mb-24'>
+								<Text className='text-2xl  text-white'>
+									{car.year} {car.make} {car.model}
+								</Text>
+								<Text className='text-xl font-extrabold text-red mt-2'>
+									${car.price.toLocaleString()}
+								</Text>
+								<View className='flex-row justify-between mt-4 mb-4'>
+									<Text className='text-l text-white'>
+										Views: {car.views || 0}
+									</Text>
+									<Text className='text-l text-white'>
+										Likes: {car.likes || 0}
 									</Text>
 								</View>
 
-								<MapView
-									style={{ height: 200, borderRadius: 10, marginVertical: 10 }}
-									region={mapRegion}>
-									<Marker
-										coordinate={{
-											latitude: randomLatitude,
-											longitude: randomLongitude
-										}}
-										title={car.dealership_name}
-										description={car.dealership_location}
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<View
+										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
 									/>
-								</MapView>
-
-								<View className='flex-row border mt-12 mb-12  justify-around'>
-									{car.dealership_phone && (
-										<TouchableOpacity
-											className='rounded-lg items-center justify-center'
-											style={{ width: 50, height: 50 }}
-											onPress={handleCall}>
-											<Ionicons name='call-outline' size={24} color='#D55004' />
-										</TouchableOpacity>
-									)}
-									<TouchableOpacity
-										className='rounded-lg items-center justify-center'
-										style={{ width: 50, height: 50 }}
-										onPress={handleWhatsApp}>
-										<FontAwesome name='whatsapp' size={24} color='#D55004' />
-									</TouchableOpacity>
-									<TouchableOpacity
-										className='rounded-lg items-center justify-center'
-										style={{ width: 50, height: 50 }}
-										onPress={handleChat}>
-										<Ionicons
-											name='chatbubbles-outline'
-											size={24}
-											color='#D55004'
-										/>
-									</TouchableOpacity>
-									<TouchableOpacity
-										className='rounded-lg items-center justify-center'
-										style={{ width: 50, height: 50 }}
-										onPress={handleShare}>
-										<MaterialIcons name='share' size={24} color='#D55004' />
-									</TouchableOpacity>
+									<View
+										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+									/>
 								</View>
+								<Text className='text-s mt-4 text-white font-bold text-l mb-3'>Description</Text>
+								<Text className='text-s mb-4 font-light text-white'>
+									{car.description}
+								</Text>
+
+
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<View
+										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+									/>
+									<View
+										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+									/>
+								</View>
+
+								<Text className='text-l mt-4 text-white mb-3 font-bold'>Technical Data</Text>
+								<View className='mb-6 mt-3 border border-white rounded-lg'>
+									<View className='flex-row p-2 border-b border-white justify-between py-2'>
+										<Text className='text-l text-white font-bold'>Mileage</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{`${car.mileage.toLocaleString()} km`}
+										</Text>
+									</View>
+									<View className='flex-row p-2 border-b border-white justify-between py-2'>
+										<Text className='text-l text-white font-bold'>Color</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.color}
+										</Text>
+									</View>
+									<View className='flex-row p-2 border-b border-white justify-between py-2'>
+										<Text className='text-l text-white font-bold'>Transmission</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.transmission}
+										</Text>
+									</View>
+									<View className='flex-row p-2 justify-between py-2'>
+										<Text className='text-l text-white font-bold'>Drivetrain</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.drivetrain}
+										</Text>
+									</View>
+									<View className='flex-row p-2 border-t border-white justify-between py-2'>
+										<Text className='text-l text-white font-bold'>Condition</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.condition}
+										</Text>
+									</View>
+								</View>
+
+								<TouchableOpacity
+									className='flex-row items-center justify-center bg-gray-800 p-3 rounded-lg mb-6'
+									onPress={() => onFavoritePress(car.id)}>
+									<Ionicons
+										name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
+										size={24}
+										color={isFavorite(car.id) ? 'red' : 'white'}
+									/>
+									<Text className='text-lg font-bold text-white ml-3'>
+										{isFavorite(car.id) ? 'Unlike' : 'Like'}
+									</Text>
+								</TouchableOpacity>
+
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<View
+										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+									/>
+									<View
+										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+									/>
+								</View>
+
+								<Text className='text-lg font-bold text-white mt-2  mb-2'>
+									Dealer Information
+								</Text>
+								<View className='border-t border-gray-600 pt-4'>
+									<View className='items-center'>
+										{car.dealership_logo && (
+											<Image
+												source={{ uri: car.dealership_logo }}
+												className='w-32 rounded-full h-32 mb-4'
+												resizeMode='contain'
+											/>
+										)}
+										<Text className='text-xl font-bold text-white mb-2'>
+											{car.dealership_name}
+										</Text>
+									</View>
+
+									<MapView
+										style={{ height: 200, borderRadius: 10, marginVertical: 10 }}
+										region={mapRegion}>
+										<Marker
+											coordinate={{
+												latitude: randomLatitude,
+												longitude: randomLongitude
+											}}
+											title={car.dealership_name}
+											description={car.dealership_location}
+										/>
+									</MapView>
+								</View>
+
+
+
+								{/* Similar Cars Section */}
+								<Text className='text-xl font-bold text-white mt-8 mb-4'>
+									Similarly Priced Cars
+								</Text>
+								<FlatList
+									data={similarCars}
+									renderItem={renderCarItem}
+									keyExtractor={(item: any) => item.id.toString()}
+									horizontal
+									showsHorizontalScrollIndicator={false}
+								/>
+
+								{/* Other Cars from Same Dealer Section */}
+								<Text className='text-xl font-bold text-white mt-8 '>
+									More from {car.dealership_name}
+								</Text>
+								<FlatList
+									data={dealerCars}
+									renderItem={renderCarItem}
+									keyExtractor={(item: any) => item.id.toString()}
+									horizontal
+									showsHorizontalScrollIndicator={false}
+								/>
 							</View>
 
-							{/* Similar Cars Section */}
-							<Text className='text-xl font-bold text-white mt-8 mb-4'>
-								Similarly Priced Cars
-							</Text>
-							<FlatList
-								data={similarCars}
-								renderItem={renderCarItem}
-								keyExtractor={(item: any) => item.id.toString()}
-								horizontal
-								showsHorizontalScrollIndicator={false}
-							/>
-
-							{/* Other Cars from Same Dealer Section */}
-							<Text className='text-xl font-bold text-white mt-8 mb-4'>
-								More from {car.dealership_name}
-							</Text>
-							<FlatList
-								data={dealerCars}
-								renderItem={renderCarItem}
-								keyExtractor={(item: any) => item.id.toString()}
-								horizontal
-								showsHorizontalScrollIndicator={false}
-							/>
+						</ScrollView>
+						<View style={styles.callToActionContainer}>
+							{car.dealership_phone && (
+								<TouchableOpacity
+									style={styles.callToActionButton}
+									onPress={handleCall}>
+									<Ionicons name='call-outline' size={24} color='#D55004' />
+								</TouchableOpacity>
+							)}
+							<TouchableOpacity
+								style={styles.callToActionButton}
+								onPress={handleWhatsApp}>
+								<FontAwesome name='whatsapp' size={24} color='#D55004' />
+							</TouchableOpacity>
+							<TouchableOpacity
+								style={styles.callToActionButton}
+								onPress={handleChat}>
+								<Ionicons name='chatbubbles-outline' size={24} color='#D55004' />
+							</TouchableOpacity>
+							<TouchableOpacity
+								style={styles.callToActionButton}
+								onPress={handleShare}>
+								<MaterialIcons name='share' size={24} color='#D55004' />
+							</TouchableOpacity>
 						</View>
-					</ScrollView>
+					</LinearGradient>
 				</Animated.View>
 			</Modal>
 		)
@@ -475,8 +487,25 @@ const styles = StyleSheet.create({
 	modalContent: {
 		flex: 1,
 		backgroundColor: 'black',
-		paddingTop: Platform.OS === 'ios' ? 40 : 0
-	}
-})
+		paddingTop: Platform.OS === 'ios' ? 0 : 0,
+	},
+	callToActionContainer: {
+		position: 'absolute',
+		bottom: 0,
+		width: '100%',
+		flexDirection: 'row',
+		justifyContent: 'space-around',
+		backgroundColor: 'black',
+		paddingVertical: 10,
+		borderTopWidth: 1,
+	},
+	callToActionButton: {
+		alignItems: 'center',
+		justifyContent: 'center',
+		width: 50,
+		height: 50,
+	},
+});
+
 
 export default CarDetailModal
