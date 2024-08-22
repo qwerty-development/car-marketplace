@@ -6,16 +6,15 @@ export default function UserLayout() {
 		<Tabs
 			screenOptions={{
 				tabBarStyle: {
-					backgroundColor: 'black',
+					backgroundColor: 'black'
 				},
 				tabBarActiveTintColor: '#D55004',
 				tabBarInactiveTintColor: 'white',
 				headerStyle: {
-					backgroundColor: '#D55004',
+					backgroundColor: '#D55004'
 				},
-				headerTintColor: 'white',
-			}}
-		>
+				headerTintColor: 'white'
+			}}>
 			<Tabs.Screen
 				name='index'
 				options={{
@@ -64,8 +63,14 @@ export default function UserLayout() {
 					tabBarButton: () => null // Hides the filter tab
 				}}
 			/>
-						<Tabs.Screen
+			<Tabs.Screen
 				name='AllBrandsPage'
+				options={{
+					tabBarButton: () => null // Hides the filter tab
+				}}
+			/>
+			<Tabs.Screen
+				name='DealershipDetails'
 				options={{
 					tabBarButton: () => null // Hides the filter tab
 				}}

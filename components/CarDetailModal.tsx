@@ -22,8 +22,8 @@ import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
 import MapView, { Marker } from 'react-native-maps'
-import { LinearGradient } from 'expo-linear-gradient';
-
+import { LinearGradient } from 'expo-linear-gradient'
+import { useRouter } from 'expo-router'
 
 const { width } = Dimensions.get('window')
 
@@ -38,12 +38,20 @@ const CarDetailModal = React.memo(
 		setIsModalVisible
 	}: any) => {
 		if (!car) return null
+		const router = useRouter()
 		const slideAnimation = useRef(new Animated.Value(0)).current
 		const { user } = useUser()
 		const { isFavorite } = useFavorites()
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])
 		const scrollViewRef = useRef<ScrollView>(null)
+		const handleDealershipPress = () => {
+			onClose()
+			router.push({
+				pathname: '/(home)/(user)/DealershipDetails',
+				params: { dealershipId: car.dealership_id }
+			})
+		}
 		useEffect(() => {
 			Animated.timing(slideAnimation, {
 				toValue: isVisible ? 1 : 0,
@@ -191,8 +199,9 @@ const CarDetailModal = React.memo(
 		const handleWhatsApp = () => {
 			if (car.dealership_phone) {
 				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/${car.dealership_phone
-					}?text=${encodeURIComponent(message)}`
+				const url = `https://wa.me/${
+					car.dealership_phone
+				}?text=${encodeURIComponent(message)}`
 				Linking.openURL(url)
 			} else {
 				Alert.alert('WhatsApp number not available')
@@ -210,8 +219,9 @@ const CarDetailModal = React.memo(
 		const handleShare = async () => {
 			try {
 				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${car.model
-						} for $${car.price.toLocaleString()}!`,
+					message: `Check out this ${car.year} ${car.make} ${
+						car.model
+					} for $${car.price.toLocaleString()}!`,
 					url: car.images[0]
 				})
 				if (result.action === Share.sharedAction) {
@@ -264,12 +274,19 @@ const CarDetailModal = React.memo(
 							]
 						}
 					]}>
-
-					<View  style={styles.header} {...panResponder.panHandlers}></View>
+					<View style={styles.header} {...panResponder.panHandlers}></View>
 					<LinearGradient
-						colors={['black', 'black', 'black', 'black', 'black', 'black', 'black', 'black']}
-						style={{ flex: 1 }}
-					>
+						colors={[
+							'black',
+							'black',
+							'black',
+							'black',
+							'black',
+							'black',
+							'black',
+							'black'
+						]}
+						style={{ flex: 1 }}>
 						<ScrollView className='flex-1' ref={scrollViewRef}>
 							<TouchableOpacity
 								className='absolute top-0 right-0 z-10 p-2 bg-red-600 rounded-full'
@@ -310,11 +327,12 @@ const CarDetailModal = React.memo(
 										style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
 									/>
 								</View>
-								<Text className='text-s mt-4 text-white font-bold text-l mb-3'>Description</Text>
+								<Text className='text-s mt-4 text-white font-bold text-l mb-3'>
+									Description
+								</Text>
 								<Text className='text-s mb-4 font-light text-white'>
 									{car.description}
 								</Text>
-
 
 								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
 									<View
@@ -325,7 +343,9 @@ const CarDetailModal = React.memo(
 									/>
 								</View>
 
-								<Text className='text-l mt-4 text-white mb-3 font-bold'>Technical Data</Text>
+								<Text className='text-l mt-4 text-white mb-3 font-bold'>
+									Technical Data
+								</Text>
 								<View className='mb-6 mt-3 border border-white rounded-lg'>
 									<View className='flex-row p-2 border-b border-white justify-between py-2'>
 										<Text className='text-l text-white font-bold'>Mileage</Text>
@@ -340,19 +360,25 @@ const CarDetailModal = React.memo(
 										</Text>
 									</View>
 									<View className='flex-row p-2 border-b border-white justify-between py-2'>
-										<Text className='text-l text-white font-bold'>Transmission</Text>
+										<Text className='text-l text-white font-bold'>
+											Transmission
+										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
 											{car.transmission}
 										</Text>
 									</View>
 									<View className='flex-row p-2 justify-between py-2'>
-										<Text className='text-l text-white font-bold'>Drivetrain</Text>
+										<Text className='text-l text-white font-bold'>
+											Drivetrain
+										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
 											{car.drivetrain}
 										</Text>
 									</View>
 									<View className='flex-row p-2 border-t border-white justify-between py-2'>
-										<Text className='text-l text-white font-bold'>Condition</Text>
+										<Text className='text-l text-white font-bold'>
+											Condition
+										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
 											{car.condition}
 										</Text>
@@ -387,11 +413,13 @@ const CarDetailModal = React.memo(
 								<View className='border-t border-gray-600 pt-4'>
 									<View className='items-center'>
 										{car.dealership_logo && (
-											<Image
-												source={{ uri: car.dealership_logo }}
-												className='w-32 rounded-full h-32 mb-4'
-												resizeMode='contain'
-											/>
+											<TouchableOpacity onPress={handleDealershipPress}>
+												<Image
+													source={{ uri: car.dealership_logo }}
+													className='w-32 rounded-full h-32 mb-4'
+													resizeMode='contain'
+												/>
+											</TouchableOpacity>
 										)}
 										<Text className='text-xl font-bold text-white mb-2'>
 											{car.dealership_name}
@@ -399,7 +427,11 @@ const CarDetailModal = React.memo(
 									</View>
 
 									<MapView
-										style={{ height: 200, borderRadius: 10, marginVertical: 10 }}
+										style={{
+											height: 200,
+											borderRadius: 10,
+											marginVertical: 10
+										}}
 										region={mapRegion}>
 										<Marker
 											coordinate={{
@@ -412,9 +444,8 @@ const CarDetailModal = React.memo(
 									</MapView>
 								</View>
 
-
-
 								{/* Similar Cars Section */}
+
 								<Text className='text-xl font-bold text-white mt-8 mb-4'>
 									Similarly Priced Cars
 								</Text>
@@ -427,6 +458,7 @@ const CarDetailModal = React.memo(
 								/>
 
 								{/* Other Cars from Same Dealer Section */}
+
 								<Text className='text-xl font-bold text-white mt-8 '>
 									More from {car.dealership_name}
 								</Text>
@@ -438,7 +470,6 @@ const CarDetailModal = React.memo(
 									showsHorizontalScrollIndicator={false}
 								/>
 							</View>
-
 						</ScrollView>
 						<View style={styles.callToActionContainer}>
 							{car.dealership_phone && (
@@ -456,7 +487,11 @@ const CarDetailModal = React.memo(
 							<TouchableOpacity
 								style={styles.callToActionButton}
 								onPress={handleChat}>
-								<Ionicons name='chatbubbles-outline' size={24} color='#D55004' />
+								<Ionicons
+									name='chatbubbles-outline'
+									size={24}
+									color='#D55004'
+								/>
 							</TouchableOpacity>
 							<TouchableOpacity
 								style={styles.callToActionButton}
@@ -487,7 +522,7 @@ const styles = StyleSheet.create({
 	modalContent: {
 		flex: 1,
 		backgroundColor: 'black',
-		paddingTop: Platform.OS === 'ios' ? 0 : 0,
+		paddingTop: Platform.OS === 'ios' ? 0 : 0
 	},
 	callToActionContainer: {
 		position: 'absolute',
@@ -497,15 +532,14 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-around',
 		backgroundColor: 'black',
 		paddingVertical: 10,
-		borderTopWidth: 1,
+		borderTopWidth: 1
 	},
 	callToActionButton: {
 		alignItems: 'center',
 		justifyContent: 'center',
 		width: 50,
-		height: 50,
-	},
-});
-
+		height: 50
+	}
+})
 
 export default CarDetailModal
