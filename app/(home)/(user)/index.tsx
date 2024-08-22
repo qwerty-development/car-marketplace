@@ -17,6 +17,8 @@ import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import SortPicker from '@/components/SortPicker'
 import ByBrands from '@/components/ByBrands'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 
 const ITEMS_PER_PAGE = 7
 
@@ -230,76 +232,91 @@ export default function BrowseCarsPage() {
 	}
 
 	return (
-		<View className='flex-1 bg-black'>
-			<View className='p-4 bg-black'>
-				<View className='flex-row items-center justify-between'>
-					<TouchableOpacity
-						className='bg-red p-3 rounded-full'
-						onPress={openFilterPage}>
-						<FontAwesome name='filter' size={20} color='white' />
-					</TouchableOpacity>
-					<View className='flex-grow mx-2 border border-red rounded-full flex-row items-center'>
+		<LinearGradient
+			colors={[
+				'#000000',   // Deep Black
+				'#D55004',   // Classy Orange
+			]}
+			style={{ flex: 1 }}
+			start={{ x: 1, y: 0.3 }}
+			end={{ x: 2, y: 1 }}
+		>
+
+			<SafeAreaView className='flex-1  '>
+				<View className='p-4 rounded-full'>
+					<View className='flex-row items-center justify-between'>
 						<TouchableOpacity
 							className='bg-red p-3 rounded-full'
-							onPress={() => fetchCars(1, filters)}>
-							<FontAwesome name='search' size={20} color='white' />
+							onPress={openFilterPage}>
+							<FontAwesome name='filter' size={20} color='white' />
 						</TouchableOpacity>
-						<FontAwesome size={20} color='black' className='mx-3' />
-						<TextInput
-							className='py-2 text-white ml-4 justify-center'
-							placeholder='Search cars...'
-							placeholderTextColor='white'
-							value={searchQuery}
-							onChangeText={text => {
-								setSearchQuery(text)
-								setCurrentPage(1)
-							}}
-							onSubmitEditing={() => fetchCars(1, filters)}
+						<View className='flex-grow mx-2 border border-red rounded-full flex-row items-center'>
+							<TouchableOpacity
+								className='bg-red p-3 rounded-full'
+								onPress={() => fetchCars(1, filters)}>
+								<FontAwesome name='search' size={20} color='white' />
+							</TouchableOpacity>
+							<FontAwesome size={20} color='black' className='mx-3' />
+							<TextInput
+								className='py-2 text-white ml-4 justify-center'
+								placeholder='Search cars...'
+								placeholderTextColor='white'
+								value={searchQuery}
+								onChangeText={text => {
+									setSearchQuery(text)
+									setCurrentPage(1)
+								}}
+								onSubmitEditing={() => fetchCars(1, filters)}
+							/>
+						</View>
+						<SortPicker
+							className='sort-picker'
+							onValueChange={handleSortChange}
+							initialValue={{ label: 'Sort', value: null }}
 						/>
 					</View>
-					<SortPicker
-						className='sort-picker'
-						onValueChange={handleSortChange}
-						initialValue={{ label: 'Sort', value: null }}
-					/>
 				</View>
-			</View>
 
-			<FlatList
-				ListHeaderComponent={renderHeader}
-				data={cars}
-				renderItem={renderCarItem}
-				extraData={cars}
-				keyExtractor={(item, index) => `${item.id}_${index}`}
-				showsVerticalScrollIndicator={false}
-				onEndReached={() => {
-					if (currentPage < totalPages && !isLoading) {
-						fetchCars(currentPage + 1)
+
+
+				<FlatList
+					ListHeaderComponent={renderHeader}
+					data={cars}
+					renderItem={renderCarItem}
+					extraData={cars}
+					keyExtractor={(item, index) => `${item.id}_${index}`}
+					showsVerticalScrollIndicator={false}
+					onEndReached={() => {
+						if (currentPage < totalPages && !isLoading) {
+							fetchCars(currentPage + 1)
+						}
+					}}
+					scrollEnabled={!isModalVisible}
+					onEndReachedThreshold={0.1}
+					ListFooterComponent={() =>
+						isLoading ? (
+							<View className='py-4'>
+								<ActivityIndicator size='large' color='#D55004' />
+							</View>
+						) : null
 					}
-				}}
-				scrollEnabled={!isModalVisible}
-				onEndReachedThreshold={0.1}
-				ListFooterComponent={() =>
-					isLoading ? (
-						<View className='py-4'>
-							<ActivityIndicator size='large' color='#D55004' />
-						</View>
-					) : null
-				}
-			/>
+				/>
 
-			<CarDetailModal
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
-				onViewUpdate={handleViewUpdate}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-			/>
-		</View>
+				<CarDetailModal
+					isVisible={isModalVisible}
+					car={selectedCar}
+					onClose={() => setIsModalVisible(false)}
+					onFavoritePress={() =>
+						selectedCar && handleFavoritePress(selectedCar.id)
+					}
+					isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+					onViewUpdate={handleViewUpdate}
+					setSelectedCar={setSelectedCar}
+					setIsModalVisible={setIsModalVisible}
+				/>
+			</SafeAreaView>
+		</LinearGradient>
+
+
 	)
 }

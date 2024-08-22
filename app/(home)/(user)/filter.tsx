@@ -173,7 +173,7 @@ const FilterPage = () => {
 	}
 
 	return (
-		<View className='flex-1 bg-black'>
+		<View className='flex-1 pt-16 bg-black'>
 			<Stack.Screen
 				options={{
 					presentation: 'modal',

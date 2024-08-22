@@ -71,7 +71,7 @@ export default function CarCard({
 	}
 
 	return (
-		<StyledScrollView className='bg-black'>
+		<StyledScrollView >
 			<StyledTouchableOpacity
 				onPress={onPress}
 				className='m-4 bg-black border-red border rounded-3xl overflow-hidden shadow-xl shadow-stone-200'>
@@ -199,7 +199,7 @@ export default function CarCard({
 
 const InfoItem = ({ icon, text }: any) => (
 	<StyledView className='items-center'>
-		<Ionicons name={icon} size={33 } color='#FFFFFF' />
+		<Ionicons name={icon} size={33} color='#FFFFFF' />
 		<StyledText className='text-xs text-white mt-1'>{text}</StyledText>
 	</StyledView>
 )

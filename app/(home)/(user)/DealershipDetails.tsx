@@ -134,7 +134,7 @@ export default function DealershipDetails() {
 	}
 
 	return (
-		<LinearGradient colors={['#000000', '#1c1c1c']} className='flex-1'>
+		<LinearGradient colors={['#000000', '#1c1c1c']} className='flex-1 pt-16'>
 			<ScrollView className='flex-1'>
 				<View className='p-4'>
 					<TouchableOpacity

@@ -125,7 +125,7 @@ export default function CarsByBrand() {
 	)
 
 	return (
-		<View className='flex-1 bg-black'>
+		<View className='flex-1  bg-black'>
 			{memoizedHeader}
 			{isLoading ? (
 				<ActivityIndicator

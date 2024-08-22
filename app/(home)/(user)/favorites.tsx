@@ -102,7 +102,7 @@ export default function FavoritesPage() {
 	)
 
 	return (
-		<View className='flex-1 bg-black'>
+		<View className='flex-1  bg-black'>
 			{favoriteCars.length > 0 ? (
 				<FlatList
 					data={favoriteCars}
