@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -16,6 +16,7 @@ import RNPickerSelect from 'react-native-picker-select'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/components/CarDetailModal'
 import { FontAwesome } from '@expo/vector-icons'
+import { useFavorites } from '@/utils/useFavorites'
 
 const ITEMS_PER_PAGE = 10
 
@@ -34,8 +35,12 @@ interface Car {
 	dealership_name: string
 	images: string[]
 	description: string
+	dealership_logo: string
+	dealership_phone: string
+	dealership_location: string
+	dealership_latitude: number
+	dealership_longitude: number
 }
-
 export default function DealershipListPage() {
 	const [dealerships, setDealerships] = useState<Dealership[]>([])
 	const [searchQuery, setSearchQuery] = useState('')
@@ -55,6 +60,7 @@ export default function DealershipListPage() {
 	const [isCarModalVisible, setIsCarModalVisible] = useState(false)
 	const navigation = useNavigation()
 	const sectionListRef = useRef<SectionList>(null)
+	const { isFavorite, toggleFavorite } = useFavorites()
 
 	useEffect(() => {
 		fetchDealerships()
@@ -112,7 +118,13 @@ export default function DealershipListPage() {
 
 		let query = supabase
 			.from('cars')
-			.select('*', { count: 'exact' })
+			.select(
+				`
+        *,
+        dealerships (name, logo, phone, location, latitude, longitude)
+      `,
+				{ count: 'exact' }
+			)
 			.eq('dealership_id', selectedDealership.id)
 
 		if (filterMake) query = query.eq('make', filterMake)
@@ -146,7 +158,17 @@ export default function DealershipListPage() {
 			console.error('Error fetching cars:', error)
 			Alert.alert('Error', 'Failed to fetch cars')
 		} else {
-			setCars(data || [])
+			const carsData =
+				data?.map(item => ({
+					...item,
+					dealership_name: item.dealerships.name,
+					dealership_logo: item.dealerships.logo,
+					dealership_phone: item.dealerships.phone,
+					dealership_location: item.dealerships.location,
+					dealership_latitude: item.dealerships.latitude,
+					dealership_longitude: item.dealerships.longitude
+				})) || []
+			setCars(carsData)
 			setTotalPages(totalPages)
 		}
 	}
@@ -218,11 +240,6 @@ export default function DealershipListPage() {
 		setSortOrder('desc')
 	}
 
-	const handleCarPress = (car: Car) => {
-		setSelectedCar(car)
-		setIsCarModalVisible(true)
-	}
-
 	const handleCarSearch = (text: string) => {
 		setCarSearchQuery(text)
 		setCurrentPage(1)
@@ -262,7 +279,33 @@ export default function DealershipListPage() {
 			viewPosition: 0
 		})
 	}
+	const handleFavoritePress = useCallback(
+		async (carId: number) => {
+			const newLikesCount = await toggleFavorite(carId)
+			setCars(prevCars =>
+				prevCars.map(car =>
+					car.id === carId ? { ...car, likes: newLikesCount } : car
+				)
+			)
+		},
+		[toggleFavorite]
+	)
 
+	const handleCarPress = useCallback((car: Car) => {
+		setSelectedCar(car)
+		setIsCarModalVisible(true)
+	}, [])
+
+	const handleViewUpdate = useCallback(
+		(carId: number, newViewCount: number) => {
+			setCars(prevCars =>
+				prevCars.map(car =>
+					car.id === carId ? { ...car, views: newViewCount } : car
+				)
+			)
+		},
+		[]
+	)
 	const renderDealershipItem = ({ item }: { item: Dealership }) => (
 		<TouchableOpacity
 			className='flex-row items-center py-4 border-b border-gray-700'
@@ -282,8 +325,16 @@ export default function DealershipListPage() {
 		</View>
 	)
 
-	const renderCarItem = ({ item }: { item: Car }) => (
-		<CarCard car={item} onPress={() => handleCarPress(item)} />
+	const renderCarItem = useCallback(
+		({ item }: { item: Car }) => (
+			<CarCard
+				car={item}
+				onPress={() => handleCarPress(item)}
+				onFavoritePress={() => handleFavoritePress(item.id)}
+				isFavorite={isFavorite(item.id)}
+			/>
+		),
+		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
 	const AlphabetIndex = () => (
@@ -411,6 +462,13 @@ export default function DealershipListPage() {
 				isVisible={isCarModalVisible}
 				car={selectedCar}
 				onClose={() => setIsCarModalVisible(false)}
+				onFavoritePress={() =>
+					selectedCar && handleFavoritePress(selectedCar.id)
+				}
+				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+				onViewUpdate={handleViewUpdate}
+				setSelectedCar={setSelectedCar}
+				setIsModalVisible={setIsCarModalVisible}
 			/>
 		</View>
 	)
