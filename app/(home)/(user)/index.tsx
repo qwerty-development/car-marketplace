@@ -19,6 +19,7 @@ import SortPicker from '@/components/SortPicker'
 import ByBrands from '@/components/ByBrands'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useTheme } from '@/utils/ThemeContext'
 
 const ITEMS_PER_PAGE = 7
 
@@ -39,6 +40,7 @@ interface Car {
 }
 
 export default function BrowseCarsPage() {
+	const { isDarkMode } = useTheme()
 	const { user } = useUser()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [cars, setCars] = useState<Car[]>([])
@@ -233,34 +235,51 @@ export default function BrowseCarsPage() {
 
 	return (
 		<LinearGradient
-			colors={[
-				'#000000',   // Deep Black
-				'#D55004',   // Classy Orange
-			]}
+			colors={isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#D55004']}
 			style={{ flex: 1 }}
 			start={{ x: 1, y: 0.3 }}
-			end={{ x: 2, y: 1 }}
-		>
-
-			<SafeAreaView className='flex-1  '>
+			end={{ x: 2, y: 1 }}>
+			<SafeAreaView
+				className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-light-background'}`}>
 				<View className='p-4 rounded-full'>
 					<View className='flex-row items-center justify-between'>
 						<TouchableOpacity
-							className='bg-red p-3 rounded-full'
+							className={`${
+								isDarkMode ? 'bg-red' : 'bg-light-accent'
+							} p-3 rounded-full`}
 							onPress={openFilterPage}>
-							<FontAwesome name='filter' size={20} color='white' />
+							<FontAwesome
+								name='filter'
+								size={20}
+								color={isDarkMode ? 'white' : 'black'}
+							/>
 						</TouchableOpacity>
-						<View className='flex-grow mx-2 border border-red rounded-full flex-row items-center'>
+						<View
+							className={`flex-grow mx-2 border ${
+								isDarkMode ? 'border-red' : 'border-light-accent'
+							} rounded-full flex-row items-center`}>
 							<TouchableOpacity
-								className='bg-red p-3 rounded-full'
+								className={`${
+									isDarkMode ? 'bg-red' : 'bg-light-accent'
+								} p-3 rounded-full`}
 								onPress={() => fetchCars(1, filters)}>
-								<FontAwesome name='search' size={20} color='white' />
+								<FontAwesome
+									name='search'
+									size={20}
+									color={isDarkMode ? 'white' : 'black'}
+								/>
 							</TouchableOpacity>
-							<FontAwesome size={20} color='black' className='mx-3' />
+							<FontAwesome
+								size={20}
+								color={isDarkMode ? 'white' : 'black'}
+								className='mx-3'
+							/>
 							<TextInput
-								className='py-2 text-white ml-4 justify-center'
+								className={`py-2 ${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								} ml-4 justify-center`}
 								placeholder='Search cars...'
-								placeholderTextColor='white'
+								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
 								value={searchQuery}
 								onChangeText={text => {
 									setSearchQuery(text)
@@ -276,8 +295,6 @@ export default function BrowseCarsPage() {
 						/>
 					</View>
 				</View>
-
-
 
 				<FlatList
 					ListHeaderComponent={renderHeader}
@@ -316,7 +333,5 @@ export default function BrowseCarsPage() {
 				/>
 			</SafeAreaView>
 		</LinearGradient>
-
-
 	)
 }

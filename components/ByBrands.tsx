@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import { FontAwesome } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useTheme } from '@/utils/ThemeContext'
 
 interface Brand {
 	name: string
@@ -41,6 +42,7 @@ const ByBrands = React.memo(() => {
 	const [brands, setBrands] = useState<Brand[]>([])
 	const [isLoading, setIsLoading] = useState(false)
 	const router = useRouter()
+	const { isDarkMode } = useTheme()
 
 	const fetchBrands = useMemo(
 		() => async () => {
@@ -105,22 +107,29 @@ const ByBrands = React.memo(() => {
 	}
 
 	return (
-		<View className='mt-4 mx-5 mb-4'>
+		<View className={`mt-4 px-3  mb-4 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<View className='flex-row justify-between items-center mb-4'>
-				<Text className='text-xl font-bold text-white mt-2'>
+				<Text
+					className={`text-xl font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					} mt-2`}>
 					Explore by Brands
 				</Text>
 				<TouchableOpacity
 					onPress={handleSeeAllBrands}
 					className='flex-row items-center'>
 					<Text className='text-red-500 mr-2'>See all brands</Text>
-					<FontAwesome name='chevron-right' size={14} color='#FFFFFF' />
+					<FontAwesome
+						name='chevron-right'
+						size={14}
+						color={isDarkMode ? '#FFFFFF' : '#000000'}
+					/>
 				</TouchableOpacity>
 			</View>
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				className='rounded-lg '>
+				className='rounded-lg'>
 				{brands.map((brand, index) => (
 					<TouchableOpacity
 						key={index}
@@ -131,7 +140,12 @@ const ByBrands = React.memo(() => {
 							style={{ width: 80, height: 80 }}
 							resizeMode='contain'
 						/>
-						<Text className='text-white text-center mt-2'>{brand.name}</Text>
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-black'
+							} text-center mt-2`}>
+							{brand.name}
+						</Text>
 					</TouchableOpacity>
 				))}
 			</ScrollView>

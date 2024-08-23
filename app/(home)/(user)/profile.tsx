@@ -7,18 +7,21 @@ import {
 	Image,
 	ScrollView,
 	Alert,
-	Linking
+	Linking,
+	Switch
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
 import * as ImagePicker from 'expo-image-picker'
 import { Feather } from '@expo/vector-icons'
+import { useTheme } from '@/utils/ThemeContext'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
 const EMAIL_SUBJECT = 'Support Request'
 
 export default function UserProfileAndSupportPage() {
+	const { isDarkMode, toggleTheme } = useTheme()
 	const { user } = useUser()
 	const { signOut } = useAuth()
 	const [firstName, setFirstName] = useState('')
@@ -91,8 +94,11 @@ export default function UserProfileAndSupportPage() {
 	}
 
 	return (
-		<ScrollView className='flex-1 bg-black'>
-			<View className='items-center bg-red pt-16 pb-8 rounded-b-3xl shadow-lg'>
+		<ScrollView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+			<View
+				className={`items-center ${
+					isDarkMode ? 'bg-red' : 'bg-orange-400'
+				} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
 				<Image
 					source={{ uri: user?.imageUrl }}
 					className='w-36 h-36 rounded-full border-4 border-white mb-6'
@@ -100,20 +106,38 @@ export default function UserProfileAndSupportPage() {
 				<TouchableOpacity
 					className='bg-white px-6 py-3 rounded-full shadow-md'
 					onPress={onPickImage}>
-					<Text className='text-red-600 font-semibold text-lg'>Change Picture</Text>
+					<Text className='text-red-600 font-semibold text-lg'>
+						Change Picture
+					</Text>
 				</TouchableOpacity>
 			</View>
 
 			<View className='px-6 mt-8'>
-				<Text className='text-3xl font-bold text-white mb-6'>
-					Profile Information
-				</Text>
-				<View className='bg-gray-900 rounded-2xl shadow-md p-6 mb-8'>
+				<View className='flex-row justify-between items-center mb-6'>
+					<Text
+						className={`text-3xl font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Profile Information
+					</Text>
+					<Switch
+						value={isDarkMode}
+						onValueChange={toggleTheme}
+						trackColor={{ false: '#767577', true: '#D55004' }}
+						thumbColor={isDarkMode ? '#f4f3f4' : '#f4f3f4'}
+					/>
+				</View>
+				<View
+					className={`${
+						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
+					} rounded-2xl shadow-md p-6 mb-8`}>
 					<Text className='text-sm font-semibold text-gray-400 mb-2'>
 						First Name
 					</Text>
 					<TextInput
-						className='bg-gray p-4 rounded-xl mb-4 text-white'
+						className={`${
+							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={firstName}
 						onChangeText={setFirstName}
 						placeholder='First Name'
@@ -123,17 +147,21 @@ export default function UserProfileAndSupportPage() {
 						Last Name
 					</Text>
 					<TextInput
-						className='bg-gray p-4 rounded-xl mb-4 text-white'
+						className={`${
+							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={lastName}
 						onChangeText={setLastName}
 						placeholder='Last Name'
-						placeholderTextColor='red'
+						placeholderTextColor='gray'
 					/>
 					<Text className='text-sm font-semibold text-gray-400 mb-2'>
 						Email
 					</Text>
 					<TextInput
-						className='bg-gray p-4 rounded-xl mb-4 text-white'
+						className={`${
+							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={email}
 						placeholder='Email'
 						keyboardType='email-address'
@@ -147,10 +175,16 @@ export default function UserProfileAndSupportPage() {
 					</TouchableOpacity>
 				</View>
 
-				<Text className='text-3xl font-bold text-white mb-6'>
+				<Text
+					className={`text-3xl font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					} mb-6`}>
 					Contact Support
 				</Text>
-				<View className='bg-gray-900 rounded-2xl shadow-md p-6 mb-8'>
+				<View
+					className={`${
+						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
+					} rounded-2xl shadow-md p-6 mb-8`}>
 					<TouchableOpacity
 						className='flex-row items-center mb-6'
 						onPress={openWhatsApp}>
@@ -158,7 +192,12 @@ export default function UserProfileAndSupportPage() {
 							<Feather name='message-circle' size={28} color='white' />
 						</View>
 						<View>
-							<Text className='text-xl font-semibold text-white'>Chat on WhatsApp</Text>
+							<Text
+								className={`text-xl font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Chat on WhatsApp
+							</Text>
 							<Text className='text-gray-400'>
 								Quick responses, 24/7 support
 							</Text>
@@ -171,7 +210,12 @@ export default function UserProfileAndSupportPage() {
 							<Feather name='mail' size={28} color='white' />
 						</View>
 						<View>
-							<Text className='text-xl font-semibold text-white'>Send an Email</Text>
+							<Text
+								className={`text-xl font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Send an Email
+							</Text>
 							<Text className='text-gray-400'>
 								Detailed inquiries and feedback
 							</Text>
@@ -179,8 +223,16 @@ export default function UserProfileAndSupportPage() {
 					</TouchableOpacity>
 				</View>
 
-				<View className='border border-red rounded-2xl shadow-md p-6 mb-8'>
-					<Text className='text-xl font-semibold text-white mb-4'>Support Hours</Text>
+				<View
+					className={`border border-red rounded-2xl shadow-md p-6 mb-8 ${
+						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
+					}`}>
+					<Text
+						className={`text-xl font-semibold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						} mb-4`}>
+						Support Hours
+					</Text>
 					<Text className='text-gray-400'>Monday - Friday: 9AM - 6PM</Text>
 					<Text className='text-gray-400'>Saturday: 10AM - 4PM</Text>
 					<Text className='text-gray-400'>Sunday: Closed</Text>

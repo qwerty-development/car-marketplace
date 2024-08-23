@@ -1,40 +1,41 @@
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { View } from 'react-native'
+import { useTheme } from '@/utils/ThemeContext'
 
 export default function UserLayout() {
+	const { isDarkMode } = useTheme()
 	return (
-		<View style={{ flex: 1, backgroundColor: 'black' }}>
+		<View style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
 			<Tabs
 				screenOptions={{
 					tabBarStyle: {
 						position: 'absolute',
-						backgroundColor: 'black',
-						height: 50, // Reduced height to make it less thick
+						backgroundColor: isDarkMode ? 'black' : 'white',
+						height: 50,
 						paddingBottom: 5,
 						borderWidth: 0,
 						borderColor: '#D55004',
-						shadowColor: '#000', // Add a subtle shadow for the floating effect
+						shadowColor: '#000',
 						shadowOffset: { width: 0, height: 5 },
 						shadowOpacity: 0.3,
 						shadowRadius: 5,
 						borderTopWidth: 0,
-						borderTopColor:'#D55004'
+						borderTopColor: '#D55004'
 					},
-					tabBarShowLabel: false, // Hide the tab labels
+					tabBarShowLabel: false,
 					tabBarActiveTintColor: '#D55004',
-					tabBarInactiveTintColor: 'white',
+					tabBarInactiveTintColor: isDarkMode ? 'white' : 'black',
 					tabBarItemStyle: {
-						paddingTop: 5,
+						paddingTop: 5
 					},
 					headerStyle: {
-						backgroundColor: 'black', // Set the header background color to black
-						borderBottomWidth: 0, // Remove the border from the header
-						borderTopWidth: 0, // Remove the border from the header
-						borderWidth: 0, // Remove the border from the header
-
+						backgroundColor: isDarkMode ? 'black' : 'white',
+						borderBottomWidth: 0,
+						borderTopWidth: 0,
+						borderWidth: 0
 					},
-					headerTintColor: '#D55004', // Set the header text color to orange
+					headerTintColor: '#D55004'
 				}}>
 				<Tabs.Screen
 					name='index'
@@ -52,7 +53,7 @@ export default function UserLayout() {
 						tabBarIcon: ({ color, size }) => (
 							<Ionicons name='business-outline' size={size} color={color} />
 						),
-						headerTitle: 'Dealerships', // Set the header title for this screen
+						headerTitle: 'Dealerships' // Set the header title for this screen
 					}}
 				/>
 				<Tabs.Screen
@@ -61,8 +62,7 @@ export default function UserLayout() {
 						tabBarIcon: ({ color, size }) => (
 							<Ionicons name='heart-outline' size={size} color={color} />
 						),
-						headerTitle: 'Favorites', // Set the header title for this screen
-						
+						headerTitle: 'Favorites' // Set the header title for this screen
 					}}
 				/>
 				<Tabs.Screen

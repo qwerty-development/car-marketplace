@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { FavoritesProvider } from '@/utils/useFavorites'
 import 'react-native-gesture-handler'
 import CustomSplashScreen from './CustomSplashScreen'
-
+import { ThemeProvider } from '@/utils/ThemeContext'
 SplashScreen.preventAutoHideAsync()
 
 function RootLayoutNav() {
@@ -52,9 +52,11 @@ export default function RootLayout() {
 
 	return (
 		<ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-			<FavoritesProvider>
-				<RootLayoutNav />
-			</FavoritesProvider>
+			<ThemeProvider>
+				<FavoritesProvider>
+					<RootLayoutNav />
+				</FavoritesProvider>
+			</ThemeProvider>
 		</ClerkProvider>
 	)
 }
