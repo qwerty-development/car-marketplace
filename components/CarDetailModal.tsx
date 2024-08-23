@@ -5,7 +5,6 @@ import {
 	Text,
 	Image,
 	TouchableOpacity,
-	Modal,
 	ScrollView,
 	FlatList,
 	Dimensions,
@@ -25,8 +24,9 @@ import MapView, { Marker } from 'react-native-maps'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
-
+import Modal from 'react-native-modal'
 const { width } = Dimensions.get('window')
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
 const CarDetailModal = React.memo(
 	({
@@ -73,6 +73,36 @@ const CarDetailModal = React.memo(
 				}
 			}
 		}, [isVisible, car, user])
+
+		useEffect(() => {
+			if (isVisible) {
+				Animated.spring(slideAnimation, {
+					toValue: 1,
+					useNativeDriver: true,
+					friction: 8,
+					tension: 40
+				}).start()
+			}
+		}, [isVisible])
+
+		const handleSwipeComplete = () => {
+			Animated.timing(slideAnimation, {
+				toValue: 0,
+				duration: 250,
+				useNativeDriver: true
+			}).start(() => onClose())
+		}
+
+		const animatedStyle = {
+			transform: [
+				{
+					translateY: slideAnimation.interpolate({
+						inputRange: [0, 1],
+						outputRange: [SCREEN_HEIGHT, 0]
+					})
+				}
+			]
+		}
 
 		const fetchSimilarCars = async () => {
 			console.log(car.price)
@@ -264,22 +294,21 @@ const CarDetailModal = React.memo(
 		)
 
 		return (
-			<Modal visible={isVisible} animationType='slide'>
-				<Animated.View
-					style={[
-						styles.modalContent,
-						{
-							transform: [
-								{
-									translateY: slideAnimation.interpolate({
-										inputRange: [0, 1],
-										outputRange: [300, 0]
-									})
-								}
-							]
-						}
-					]}>
-					<View style={styles.header} {...panResponder.panHandlers}></View>
+			<Modal
+				isVisible={isVisible}
+				style={styles.modal}
+				backdropOpacity={0.5}
+				onSwipeComplete={handleSwipeComplete}
+				swipeDirection={['down']}
+				swipeThreshold={50}
+				propagateSwipe={true}
+				useNativeDriver={true}
+				useNativeDriverForBackdrop={true}
+				statusBarTranslucent
+				deviceHeight={SCREEN_HEIGHT}
+				deviceWidth={SCREEN_WIDTH}>
+				<Animated.View style={[styles.modalContent, animatedStyle]}>
+					<View style={styles.swipeIndicator} />
 					<LinearGradient
 						colors={
 							isDarkMode
@@ -296,7 +325,12 @@ const CarDetailModal = React.memo(
 								  ]
 						}
 						style={{ flex: 1 }}>
-						<ScrollView className='flex-1' ref={scrollViewRef}>
+						<ScrollView
+							className='flex-1'
+							ref={scrollViewRef}
+							showsVerticalScrollIndicator={false}
+							bounces={false}
+							scrollEventThrottle={16}>
 							<TouchableOpacity
 								className={`absolute top-0 right-0 z-10 p-2 ${
 									isDarkMode ? 'bg-red-600' : 'bg-red-400'
@@ -609,9 +643,10 @@ const styles = StyleSheet.create({
 		resizeMode: 'cover'
 	},
 	modalContent: {
-		flex: 1,
-		backgroundColor: 'black',
-		paddingTop: Platform.OS === 'ios' ? 0 : 0
+		backgroundColor: 'transparent',
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		height: SCREEN_HEIGHT * 0.9
 	},
 	callToActionContainer: {
 		position: 'absolute',
@@ -627,6 +662,18 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		width: 50,
 		height: 50
+	},
+	modal: {
+		margin: 0,
+		justifyContent: 'flex-end'
+	},
+	swipeIndicator: {
+		width: 40,
+		height: 5,
+		backgroundColor: '#ccc',
+		borderRadius: 3,
+		alignSelf: 'center',
+		marginBottom: 10
 	}
 })
 
