@@ -283,16 +283,7 @@ const CarDetailModal = React.memo(
 					<LinearGradient
 						colors={
 							isDarkMode
-								? [
-										'#000000',
-										'#1A1A1A',
-										'#2A2A2A',
-										'#3A3A3A',
-										'#4A4A4A',
-										'#5A5A5A',
-										'#6A6A6A',
-										'#7A7A7A'
-								  ]
+								? ['#000000', '#1c1c1c']
 								: [
 										'#FFFFFF',
 										'#F5F5F5',
@@ -402,7 +393,62 @@ const CarDetailModal = React.memo(
 											{`${car.mileage.toLocaleString()} km`}
 										</Text>
 									</View>
-									{/* ... (continue with other technical data fields) */}
+									<View
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
+										<Text
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
+											Transmission
+										</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.transmission}
+										</Text>
+									</View>
+									<View
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
+										<Text
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
+											Condition
+										</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.condition}
+										</Text>
+									</View>
+									<View
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
+										<Text
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
+											Color
+										</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.color}
+										</Text>
+									</View>
+									<View
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
+										<Text
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
+											Drive Train
+										</Text>
+										<Text className='text-l' style={{ color: '#D55004' }}>
+											{car.drivetrain}
+										</Text>
+									</View>
 								</View>
 
 								<TouchableOpacity

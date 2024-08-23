@@ -15,7 +15,6 @@ import CarDetailModal from '@/components/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useTheme } from '@/utils/ThemeContext'
 
 const ITEMS_PER_PAGE = 10
 
@@ -43,7 +42,6 @@ interface Car {
 }
 
 export default function DealershipDetails() {
-	const { isDarkMode } = useTheme()
 	const { dealershipId } = useLocalSearchParams()
 	const router = useRouter()
 	const [dealership, setDealership] = useState<Dealership | null>(null)
@@ -73,12 +71,6 @@ export default function DealershipDetails() {
 			setDealership(data)
 		}
 	}
-
-	const bgGradient = isDarkMode
-		? ['#000000', '#1c1c1c']
-		: ['#FFFFFF', '#F0F0F0']
-	const textColor = isDarkMode ? 'text-white' : 'text-black'
-	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	const fetchDealershipCars = async (page = 1) => {
 		setIsLoading(true)
@@ -135,27 +127,20 @@ export default function DealershipDetails() {
 
 	if (isLoading && cars.length === 0) {
 		return (
-			<View
-				className={`flex-1 justify-center items-center ${
-					isDarkMode ? 'bg-night' : 'bg-white'
-				}`}>
+			<View className='flex-1 justify-center items-center bg-black'>
 				<ActivityIndicator size='large' color='#D55004' />
 			</View>
 		)
 	}
 
 	return (
-		<LinearGradient colors={bgGradient} className='flex-1 pt-16'>
+		<LinearGradient colors={['#000000', '#1c1c1c']} className='flex-1'>
 			<ScrollView className='flex-1'>
 				<View className='p-4'>
 					<TouchableOpacity
 						className='absolute top-4 left-4 z-10 bg-red p-2 rounded-full'
 						onPress={() => router.back()}>
-						<Ionicons
-							name='arrow-back'
-							size={24}
-							color={isDarkMode ? 'white' : 'black'}
-						/>
+						<Ionicons name='arrow-back' size={24} color='white' />
 					</TouchableOpacity>
 
 					{dealership && (
@@ -164,24 +149,22 @@ export default function DealershipDetails() {
 								source={{ uri: dealership.logo }}
 								className='w-32 h-32 rounded-full mb-4'
 							/>
-							<Text className={`text-3xl font-bold ${textColor} mb-2`}>
+							<Text className='text-3xl font-bold text-white mb-2'>
 								{dealership.name}
 							</Text>
 							<View className='flex-row items-center mb-2'>
-								<Ionicons name='call-outline' size={20} color={iconColor} />
-								<Text className={`${textColor} ml-2`}>{dealership.phone}</Text>
+								<Ionicons name='call-outline' size={20} color='#D55004' />
+								<Text className='text-white ml-2'>{dealership.phone}</Text>
 							</View>
 							<View className='flex-row items-center'>
-								<Ionicons name='location-outline' size={20} color={iconColor} />
-								<Text className={`${textColor} ml-2`}>
-									{dealership.location}
-								</Text>
+								<Ionicons name='location-outline' size={20} color='#D55004' />
+								<Text className='text-white ml-2'>{dealership.location}</Text>
 							</View>
 						</View>
 					)}
 
 					<View className='mb-4'>
-						<Text className={`text-2xl font-bold ${textColor} mb-4`}>
+						<Text className='text-2xl font-bold text-white mb-4'>
 							Available Cars
 						</Text>
 						<FlatList
