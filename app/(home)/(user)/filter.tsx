@@ -12,51 +12,11 @@ import RNPickerSelect from 'react-native-picker-select'
 import Slider from '@react-native-community/slider'
 import { supabase } from '@/utils/supabase'
 import { Ionicons } from '@expo/vector-icons'
-
+import { useTheme } from '@/utils/ThemeContext'
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
-const CustomRangeSlider = ({
-	minValue,
-	maxValue,
-	currentMin,
-	currentMax,
-	onValuesChange,
-	step,
-	formatLabel
-}: any) => (
-	<View className='w-full'>
-		<View className='flex-row justify-between mb-2'>
-			<Text className='text-white'>{formatLabel(currentMin)}</Text>
-			<Text className='text-white'>{formatLabel(currentMax)}</Text>
-		</View>
-		<View className='flex-row justify-between'>
-			<Slider
-				style={{ width: SCREEN_WIDTH * 0.4 }}
-				minimumValue={minValue}
-				maximumValue={maxValue}
-				step={step}
-				value={currentMin}
-				onValueChange={value => onValuesChange([value, currentMax])}
-				minimumTrackTintColor="#D55004"
-				maximumTrackTintColor="#FFFFFF"
-				thumbTintColor="#D55004"
-			/>
-			<Slider
-				style={{ width: SCREEN_WIDTH * 0.4 }}
-				minimumValue={currentMin}
-				maximumValue={maxValue}
-				step={step}
-				value={currentMax}
-				onValueChange={value => onValuesChange([currentMin, value])}
-				minimumTrackTintColor="#D55004"
-				maximumTrackTintColor="#FFFFFF"
-				thumbTintColor="#D55004"
-			/>
-		</View>
-	</View>
-)
-
 const FilterPage = () => {
+	const { isDarkMode } = useTheme()
 	const router = useRouter()
 	const params = useLocalSearchParams()
 	const [filters, setFilters] = useState<any>(
@@ -69,6 +29,52 @@ const FilterPage = () => {
 	const [priceRange, setPriceRange] = useState<any>([0, 1000000])
 	const [mileageRange, setMileageRange] = useState<any>([0, 500000])
 
+	const textColor = isDarkMode ? 'text-white' : 'text-black'
+	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+	const inputBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+	const buttonBgColor = isDarkMode ? 'bg-red' : 'bg-light-accent'
+	const cancelBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+
+	const CustomRangeSlider = ({
+		minValue,
+		maxValue,
+		currentMin,
+		currentMax,
+		onValuesChange,
+		step,
+		formatLabel
+	}: any) => (
+		<View className='w-full'>
+			<View className='flex-row justify-between mb-2'>
+				<Text className={textColor}>{formatLabel(currentMin)}</Text>
+				<Text className={textColor}>{formatLabel(currentMax)}</Text>
+			</View>
+			<View className='flex-row justify-between'>
+				<Slider
+					style={{ width: SCREEN_WIDTH * 0.4 }}
+					minimumValue={minValue}
+					maximumValue={maxValue}
+					step={step}
+					value={currentMin}
+					onValueChange={value => onValuesChange([value, currentMax])}
+					minimumTrackTintColor='#D55004'
+					maximumTrackTintColor={`${isDarkMode ? '#FFFFFF' : '#000000'}`}
+					thumbTintColor='#D55004'
+				/>
+				<Slider
+					style={{ width: SCREEN_WIDTH * 0.4 }}
+					minimumValue={currentMin}
+					maximumValue={maxValue}
+					step={step}
+					value={currentMax}
+					onValueChange={value => onValuesChange([currentMin, value])}
+					minimumTrackTintColor='#D55004'
+					maximumTrackTintColor={`${isDarkMode ? '#FFFFFF' : '#000000'}`}
+					thumbTintColor='#D55004'
+				/>
+			</View>
+		</View>
+	)
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
@@ -173,23 +179,33 @@ const FilterPage = () => {
 	}
 
 	return (
-		<View className='flex-1 pt-16 bg-black'>
+		<View className={`flex-1 pt-16 ${bgColor}`}>
 			<Stack.Screen
 				options={{
 					presentation: 'modal',
 					headerLeft: () => (
 						<TouchableOpacity onPress={() => router.back()}>
-							<Ionicons name='arrow-back' size={24} color='black' />
+							<Ionicons
+								name='arrow-back'
+								size={24}
+								color={isDarkMode ? 'white' : 'black'}
+							/>
 						</TouchableOpacity>
 					),
-					title: 'Filters'
+					title: 'Filters',
+					headerStyle: {
+						backgroundColor: isDarkMode ? '#0D0D0D' : '#FFFFFF'
+					},
+					headerTintColor: isDarkMode ? '#FFFFFF' : '#333333'
 				}}
 			/>
 			<ScrollView className='flex-1 p-4'>
 				<View className='space-y-4'>
 					{/* Dealership Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Dealership</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>
+							Dealership
+						</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, dealership: value })
@@ -204,15 +220,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Dealerships', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -221,7 +237,7 @@ const FilterPage = () => {
 
 					{/* Make Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Make</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>Make</Text>
 						<RNPickerSelect
 							onValueChange={value => {
 								setFilters({ ...filters, make: value, model: '' })
@@ -235,15 +251,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Makes', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -252,7 +268,7 @@ const FilterPage = () => {
 
 					{/* Model Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Model</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>Model</Text>
 						<RNPickerSelect
 							onValueChange={value => setFilters({ ...filters, model: value })}
 							value={filters.model}
@@ -263,15 +279,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Models', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -280,7 +296,7 @@ const FilterPage = () => {
 
 					{/* Condition Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Condition</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>Condition</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, condition: value })
@@ -293,15 +309,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Conditions', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -310,7 +326,9 @@ const FilterPage = () => {
 
 					{/* Price Range Filter */}
 					<View>
-						<Text className="font-semibold text-red mb-2">Price Range</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>
+							Price Range
+						</Text>
 						<CustomRangeSlider
 							minValue={priceRange[0]}
 							maxValue={priceRange[1]}
@@ -323,12 +341,15 @@ const FilterPage = () => {
 							formatLabel={(value: { toLocaleString: () => any }) =>
 								`$${value.toLocaleString()}`
 							}
+							isDarkMode={isDarkMode}
 						/>
 					</View>
 
 					{/* Mileage Range Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Mileage Range</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>
+							Mileage Range
+						</Text>
 						<CustomRangeSlider
 							minValue={mileageRange[0]}
 							maxValue={mileageRange[1]}
@@ -341,12 +362,13 @@ const FilterPage = () => {
 							formatLabel={(value: { toLocaleString: () => any }) =>
 								`${value.toLocaleString()} miles`
 							}
+							isDarkMode={isDarkMode}
 						/>
 					</View>
 
 					{/* Year Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Year</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>Year</Text>
 						<RNPickerSelect
 							onValueChange={value => setFilters({ ...filters, year: value })}
 							value={filters.year}
@@ -359,15 +381,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Years', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -376,7 +398,7 @@ const FilterPage = () => {
 
 					{/* Color Filter */}
 					<View>
-						<Text className='font-semibold text-red mb-2'>Color</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>Color</Text>
 						<RNPickerSelect
 							onValueChange={value => setFilters({ ...filters, color: value })}
 							value={filters.color}
@@ -387,15 +409,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Colors', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -404,7 +426,9 @@ const FilterPage = () => {
 
 					{/* Transmission Filter */}
 					<View>
-						<Text className='font-semibold  text-red mb-2'>Transmission</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>
+							Transmission
+						</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, transmission: value })
@@ -417,15 +441,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Transmissions', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -434,7 +458,9 @@ const FilterPage = () => {
 
 					{/* Drivetrain Filter */}
 					<View className='mb-12'>
-						<Text className='font-semibold text-red mb-2'>Drivetrain</Text>
+						<Text className={`font-semibold ${textColor} mb-2`}>
+							Drivetrain
+						</Text>
 						<RNPickerSelect
 							onValueChange={value =>
 								setFilters({ ...filters, drivetrain: value })
@@ -450,15 +476,15 @@ const FilterPage = () => {
 							placeholder={{ label: 'All Drivetrains', value: null }}
 							style={{
 								inputIOS: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								},
 								inputAndroid: {
-									color: 'black',
+									color: isDarkMode ? 'white' : 'black',
 									padding: 10,
-									backgroundColor: '#f0f0f0',
+									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 									borderRadius: 5
 								}
 							}}
@@ -466,16 +492,16 @@ const FilterPage = () => {
 					</View>
 				</View>
 			</ScrollView>
-			<View className='flex-row bg-gray  justify-end p-4'>
+			<View className={`flex-row ${inputBgColor} justify-end p-4 mb-10`}>
 				<TouchableOpacity
-					className='bg-gray-300 py-2 px-4 rounded mr-2'
+					className={`${cancelBgColor} py-2 px-4 rounded mr-2`}
 					onPress={() => router.back()}>
-					<Text>Cancel</Text>
+					<Text className={textColor}>Cancel</Text>
 				</TouchableOpacity>
 				<TouchableOpacity
-					className='bg-red py-2 px-4 rounded'
+					className={`${buttonBgColor} py-2 px-4 rounded`}
 					onPress={applyFilters}>
-					<Text className='text-black'>Apply Filters</Text>
+					<Text className={textColor}>Apply Filters</Text>
 				</TouchableOpacity>
 			</View>
 		</View>

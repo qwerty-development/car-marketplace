@@ -17,6 +17,7 @@ import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/components/CarDetailModal'
 import { FontAwesome } from '@expo/vector-icons'
 import { useFavorites } from '@/utils/useFavorites'
+import { useTheme } from '@/utils/ThemeContext'
 
 const ITEMS_PER_PAGE = 10
 
@@ -42,6 +43,7 @@ interface Car {
 	dealership_longitude: number
 }
 export default function DealershipListPage() {
+	const { isDarkMode } = useTheme()
 	const [dealerships, setDealerships] = useState<Dealership[]>([])
 	const [searchQuery, setSearchQuery] = useState('')
 	const [selectedDealership, setSelectedDealership] =
@@ -61,6 +63,11 @@ export default function DealershipListPage() {
 	const navigation = useNavigation()
 	const sectionListRef = useRef<SectionList>(null)
 	const { isFavorite, toggleFavorite } = useFavorites()
+
+	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+	const textColor = isDarkMode ? 'text-white' : 'text-black'
+	const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-300'
+	const inputBgColor = isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
 
 	useEffect(() => {
 		fetchDealerships()
@@ -271,14 +278,6 @@ export default function DealershipListPage() {
 		setCurrentPage(newPage)
 	}
 
-	const scrollToSection = (sectionIndex: number) => {
-		sectionListRef.current?.scrollToLocation({
-			sectionIndex,
-			itemIndex: 0,
-			animated: true,
-			viewPosition: 0
-		})
-	}
 	const handleFavoritePress = useCallback(
 		async (carId: number) => {
 			const newLikesCount = await toggleFavorite(carId)
@@ -308,10 +307,10 @@ export default function DealershipListPage() {
 	)
 	const renderDealershipItem = ({ item }: { item: Dealership }) => (
 		<TouchableOpacity
-			className='flex-row items-center py-4 border-b border-gray-700'
+			className={`flex-row items-center py-4 border-b ${borderColor}`}
 			onPress={() => handleDealershipPress(item)}>
 			<Image source={{ uri: item.logo }} className='w-12 h-12 rounded-full' />
-			<Text className='ml-4 text-lg text-white'>{item.name}</Text>
+			<Text className={`ml-4 text-lg ${textColor}`}>{item.name}</Text>
 		</TouchableOpacity>
 	)
 
@@ -320,8 +319,8 @@ export default function DealershipListPage() {
 	}: {
 		section: SectionListData<Dealership>
 	}) => (
-		<View className='bg-black py-2'>
-			<Text className='text-white  font-bold'>{section.title}</Text>
+		<View className={`${bgColor} py-2`}>
+			<Text className={`${textColor} font-bold`}>{section.title}</Text>
 		</View>
 	)
 
@@ -337,33 +336,45 @@ export default function DealershipListPage() {
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
-	const AlphabetIndex = () => (
-		<View className='absolute right-2 top-0 bottom-0 justify-center bg-black bg-opacity-50'>
-			{groupedDealerships.map((group, index) => (
-				<TouchableOpacity
-					key={group.title}
-					onPress={() => scrollToSection(index)}>
-					<Text
-						className={`text-white text-xs py-1 ${
-							group.data.length > 0 ? 'font-bold' : 'opacity-50'
-						}`}>
-						{group.title}
-					</Text>
-				</TouchableOpacity>
-			))}
-		</View>
-	)
+	const pickerSelectStyles = {
+		inputIOS: {
+			backgroundColor: isDarkMode ? 'black' : 'white',
+			borderWidth: 1,
+			borderColor: '#D55004',
+			borderRadius: 8,
+			color: isDarkMode ? 'white' : 'black',
+			paddingHorizontal: 10,
+			paddingVertical: 12
+		},
+		inputAndroid: {
+			backgroundColor: isDarkMode ? 'black' : 'white',
+			borderWidth: 1,
+			borderColor: isDarkMode ? 'white' : 'black',
+			borderRadius: 8,
+			color: isDarkMode ? 'white' : 'black',
+			paddingHorizontal: 10,
+			paddingVertical: 8
+		},
+		placeholder: {
+			color: isDarkMode ? 'white' : 'black'
+		}
+	}
 
 	return (
-		<View className='flex-1 bg-black'>
+		<View className={`flex-1 ${bgColor}`}>
 			{!selectedDealership ? (
 				<>
-					<View className=' border mt-4 mx-3 z-50 border-red rounded-full flex-row  items-center'>
-						<FontAwesome size={20} color='black' className='mx-3' />
+					<View
+						className={`border mt-4 mx-3 z-50 border-red rounded-full flex-row items-center ${inputBgColor}`}>
+						<FontAwesome
+							size={20}
+							color={isDarkMode ? 'white' : 'black'}
+							className='mx-3'
+						/>
 						<TextInput
-							className='p-2 text-white justify-center'
+							className={`p-2 ${textColor} justify-center`}
 							placeholder='Search dealerships...'
-							placeholderTextColor='gray'
+							placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
 							value={searchQuery}
 							onChangeText={setSearchQuery}
 						/>
@@ -381,9 +392,9 @@ export default function DealershipListPage() {
 			) : (
 				<View className='flex-1'>
 					<TextInput
-						className='bg-gray-800 text-white p-3 mb-2'
+						className={`${inputBgColor} ${textColor} p-3 mb-2`}
 						placeholder='Search cars...'
-						placeholderTextColor='gray'
+						placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
 						value={carSearchQuery}
 						onChangeText={handleCarSearch}
 					/>
@@ -442,7 +453,7 @@ export default function DealershipListPage() {
 								Previous
 							</Text>
 						</TouchableOpacity>
-						<Text className='text-sm text-white'>
+						<Text className={`text-sm ${textColor}`}>
 							Page {currentPage} of {totalPages}
 						</Text>
 						<TouchableOpacity
@@ -472,28 +483,4 @@ export default function DealershipListPage() {
 			/>
 		</View>
 	)
-}
-
-const pickerSelectStyles = {
-	inputIOS: {
-		backgroundColor: 'black',
-		borderWidth: 1,
-		borderColor: '#D55004',
-		borderRadius: 8,
-		color: 'white',
-		paddingHorizontal: 10,
-		paddingVertical: 12
-	},
-	inputAndroid: {
-		backgroundColor: 'black',
-		borderWidth: 1,
-		borderColor: 'white',
-		borderRadius: 8,
-		color: 'white',
-		paddingHorizontal: 10,
-		paddingVertical: 8
-	},
-	placeholder: {
-		color: 'white'
-	}
 }

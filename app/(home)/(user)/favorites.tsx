@@ -4,23 +4,29 @@ import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/components/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
-
-const EmptyFavorites = () => (
-	<View className='flex-1 justify-center items-center'>
-		<Text className='text-xl font-bold text-white mb-2'>
-			No cars added as favorite
-		</Text>
-		<Text className='text-base text-gray-400'>
-			Your favorite cars will appear here
-		</Text>
-	</View>
-)
+import { useTheme } from '@/utils/ThemeContext'
 
 export default function FavoritesPage() {
+	const { isDarkMode } = useTheme()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [favoriteCars, setFavoriteCars] = useState<any>([])
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState<boolean>(false)
+	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+
+	const EmptyFavorites = () => (
+		<View className='flex-1 justify-center items-center'>
+			<Text
+				className={`text-xl font-bold ${
+					isDarkMode ? 'text-white' : 'text-light-text'
+				} mb-2`}>
+				No cars added as favorite
+			</Text>
+			<Text className='text-base text-gray-400'>
+				Your favorite cars will appear here
+			</Text>
+		</View>
+	)
 
 	useEffect(() => {
 		fetchFavoriteCars()
@@ -102,7 +108,7 @@ export default function FavoritesPage() {
 	)
 
 	return (
-		<View className='flex-1  bg-black'>
+		<View className={`flex-1 ${bgColor}`}>
 			{favoriteCars.length > 0 ? (
 				<FlatList
 					data={favoriteCars}

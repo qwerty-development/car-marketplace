@@ -13,12 +13,14 @@ import CarDetailModal from '@/components/CarDetailModal'
 import { supabase } from '@/utils/supabase'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '@/utils/ThemeContext'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 const TAB_BAR_HEIGHT = 50
 const CAR_CARD_HEIGHT = SCREEN_HEIGHT - TAB_BAR_HEIGHT
 
 export default function CarsByBrand() {
+	const { isDarkMode } = useTheme()
 	const router = useRouter()
 	const params = useLocalSearchParams()
 	const { brand } = params
@@ -27,6 +29,8 @@ export default function CarsByBrand() {
 	const { isFavorite, toggleFavorite } = useFavorites()
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
+	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+	const textColor = isDarkMode ? 'text-white' : 'text-black'
 
 	const fetchCarsByBrand = useCallback(async (brand: string) => {
 		setIsLoading(true)
@@ -112,20 +116,24 @@ export default function CarsByBrand() {
 					presentation: 'modal',
 					headerLeft: () => (
 						<TouchableOpacity className='ml-3' onPress={() => router.back()}>
-							<Ionicons name='arrow-back' size={30} color='white' />
+							<Ionicons
+								name='arrow-back'
+								size={30}
+								color={isDarkMode ? 'white' : 'black'}
+							/>
 						</TouchableOpacity>
 					),
 					title: brand ? `${brand} Cars` : 'Cars by Brand',
-					headerStyle: { backgroundColor: '#D55004' },
-					headerTintColor: '#fff'
+					headerStyle: { backgroundColor: isDarkMode ? '#0D0D0D' : '#FFFFFF' },
+					headerTintColor: isDarkMode ? '#FFFFFF' : '#333333'
 				}}
 			/>
 		),
-		[brand, router]
+		[brand, router, isDarkMode]
 	)
 
 	return (
-		<View className='flex-1  bg-black'>
+		<View className={`flex-1 ${bgColor}`}>
 			{memoizedHeader}
 			{isLoading ? (
 				<ActivityIndicator
@@ -146,7 +154,7 @@ export default function CarsByBrand() {
 				/>
 			) : (
 				<View className='flex-1 justify-center items-center'>
-					<Text className='text-white text-lg'>
+					<Text className={`${textColor} text-lg`}>
 						No cars found for this brand.
 					</Text>
 				</View>

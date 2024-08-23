@@ -13,6 +13,7 @@ import { supabase } from '@/utils/supabase'
 import { useNavigation } from '@react-navigation/native'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
+import { useTheme } from '@/utils/ThemeContext'
 
 interface Brand {
 	name: string
@@ -44,6 +45,12 @@ export default function AllBrandsPage() {
 	const navigation = useNavigation()
 	const router = useRouter()
 	const sectionListRef = useRef<SectionList>(null)
+	const { isDarkMode } = useTheme()
+
+	const textColor = isDarkMode ? 'text-white' : 'text-black'
+	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+	const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-300'
+	const sectionHeaderBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 
 	useEffect(() => {
 		fetchBrands()
@@ -120,14 +127,14 @@ export default function AllBrandsPage() {
 
 	const renderBrandItem = ({ item }: { item: Brand }) => (
 		<TouchableOpacity
-			className='flex-row items-center py-4 border-b border-gray-700'
+			className={`flex-row items-center py-4 border-b ${borderColor}`}
 			onPress={() => handleBrandPress(item.name)}>
 			<Image
 				source={{ uri: item.logoUrl }}
 				style={{ width: 50, height: 50 }}
 				resizeMode='contain'
 			/>
-			<Text className='ml-4 text-lg text-white'>{item.name}</Text>
+			<Text className={`ml-4 text-lg ${textColor}`}>{item.name}</Text>
 		</TouchableOpacity>
 	)
 
@@ -136,29 +143,40 @@ export default function AllBrandsPage() {
 	}: {
 		section: SectionListData<Brand>
 	}) => (
-		<View className='bg-black py-2'>
-			<Text className='text-white font-bold'>{section.title}</Text>
+		<View className={`${sectionHeaderBgColor} py-2`}>
+			<Text className={`${textColor} font-bold`}>{section.title}</Text>
 		</View>
 	)
 
 	const AlphabetIndex = () => (
-		<View className='absolute right-0 top-0 bottom-0 justify-center bg-black bg-opacity-50 px-1'>
+		<View
+			className={`absolute right-0 top-0 bottom-0 justify-center ${bgColor} bg-opacity-50 px-1`}>
 			{groupedBrands.map((group, index) => (
 				<TouchableOpacity
 					key={group.title}
-					onPress={() => scrollToSection(index)}></TouchableOpacity>
+					onPress={() => scrollToSection(index)}>
+					<Text className={textColor}>{group.title}</Text>
+				</TouchableOpacity>
 			))}
 		</View>
 	)
 
 	return (
-		<View className='flex-1 bg-black px-2'>
-			<View className='border mt-4 mx-4 pl-2 border-red rounded-full z-50 flex-row items-center'>
-				<FontAwesome name='search' size={20} color='gray' className='mx-3' />
+		<View className={`flex-1 ${bgColor} px-2`}>
+			<View
+				className={`border mt-4 mx-4 pl-2 border-red rounded-full z-50 flex-row items-center ${
+					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+				}`}>
+				<FontAwesome
+					name='search'
+					size={20}
+					color={isDarkMode ? 'white' : 'gray'}
+					className='mx-3'
+				/>
 				<TextInput
-					className='p-2 text-white flex-1'
+					className={`p-2 ${textColor} flex-1`}
 					placeholder='Search brands...'
-					placeholderTextColor='gray'
+					placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
 					value={searchQuery}
 					onChangeText={setSearchQuery}
 				/>
