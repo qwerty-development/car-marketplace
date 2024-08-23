@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -77,7 +77,6 @@ export default function DealerListings() {
 	const [newListing, setNewListing] = useState<Partial<CarListing>>({})
 	const [isListingModalVisible, setIsListingModalVisible] = useState(false)
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
-	const [soldInfo, setSoldInfo] = useState({ price: '', date: '' })
 	const [error, setError] = useState<string | null>(null)
 
 	useEffect(() => {
@@ -237,29 +236,34 @@ export default function DealerListings() {
 		}
 	}
 
-	const handleMarkAsSold = async () => {
-		if (!selectedListing || !dealership) return
+	const handleMarkAsSold = useCallback(
+		async (soldInfo: { price: string; date: string }) => {
+			if (!selectedListing || !dealership) return
 
-		const { error } = await supabase
-			.from('cars')
-			.update({
-				status: 'sold',
-				sold_price: parseInt(soldInfo.price),
-				date_sold: soldInfo.date
-			})
-			.eq('id', selectedListing.id)
-			.eq('dealership_id', dealership.id)
+			try {
+				const { error } = await supabase
+					.from('cars')
+					.update({
+						status: 'sold',
+						sold_price: parseInt(soldInfo.price),
+						date_sold: soldInfo.date
+					})
+					.eq('id', selectedListing.id)
+					.eq('dealership_id', dealership.id)
 
-		if (error) {
-			console.error('Error marking as sold:', error)
-			setError('Failed to mark listing as sold')
-		} else {
-			fetchListings()
-			setIsSoldModalVisible(false)
-			setSelectedListing(null)
-			setSoldInfo({ price: '', date: '' })
-		}
-	}
+				if (error) throw error
+
+				fetchListings()
+				setIsSoldModalVisible(false)
+				setSelectedListing(null)
+				Alert.alert('Success', 'Listing marked as sold successfully')
+			} catch (error) {
+				console.error('Error marking as sold:', error)
+				Alert.alert('Error', 'Failed to mark listing as sold')
+			}
+		},
+		[selectedListing, dealership]
+	)
 
 	const ListingCard = ({ item }: { item: CarListing }) => (
 		<StyledView className='bg-white rounded-lg shadow-md mb-4 overflow-hidden'>
@@ -333,45 +337,57 @@ export default function DealerListings() {
 		</StyledView>
 	)
 
-	const SoldModal = () => (
-		<Modal
-			visible={isSoldModalVisible}
-			animationType='slide'
-			transparent={true}>
-			<StyledView className='flex-1 justify-center items-center bg-black bg-opacity-50'>
-				<StyledView className='bg-white p-6 rounded-lg w-5/6'>
-					<StyledText className='text-2xl bg-gray font-bold mb-4'>
-						Mark as Sold
-					</StyledText>
-					<StyledTextInput
-						className='border border-gray-300 rounded p-2 mb-4'
-						placeholder='Sold Price'
-						value={soldInfo.price}
-						onChangeText={text => setSoldInfo({ ...soldInfo, price: text })}
-						keyboardType='numeric'
-					/>
-					<StyledTextInput
-						className='border border-gray-300 rounded p-2 mb-4'
-						placeholder='Date Sold (YYYY-MM-DD)'
-						value={soldInfo.date}
-						onChangeText={text => setSoldInfo({ ...soldInfo, date: text })}
-					/>
-					<StyledView className='flex-row justify-end mt-4'>
-						<StyledTouchableOpacity
-							className='bg-gray-300 py-2 px-4 rounded mr-2'
-							onPress={() => setIsSoldModalVisible(false)}>
-							<StyledText>Cancel</StyledText>
-						</StyledTouchableOpacity>
-						<StyledTouchableOpacity
-							className='bg-red py-2 px-4 rounded'
-							onPress={handleMarkAsSold}>
-							<StyledText className='text-white'>Confirm</StyledText>
-						</StyledTouchableOpacity>
+	const SoldModal = useCallback(() => {
+		const [localSoldInfo, setLocalSoldInfo] = useState({ price: '', date: '' })
+
+		const handleConfirm = () => {
+			handleMarkAsSold(localSoldInfo)
+		}
+
+		return (
+			<Modal
+				visible={isSoldModalVisible}
+				animationType='slide'
+				transparent={true}>
+				<StyledView className='flex-1 justify-center items-center bg-black bg-opacity-50'>
+					<StyledView className='bg-white p-6 rounded-lg w-5/6'>
+						<StyledText className='text-2xl bg-gray font-bold mb-4'>
+							Mark as Sold
+						</StyledText>
+						<StyledTextInput
+							className='border border-gray-300 rounded p-2 mb-4'
+							placeholder='Sold Price'
+							value={localSoldInfo.price}
+							onChangeText={text =>
+								setLocalSoldInfo(prev => ({ ...prev, price: text }))
+							}
+							keyboardType='numeric'
+						/>
+						<StyledTextInput
+							className='border border-gray-300 rounded p-2 mb-4'
+							placeholder='Date Sold (YYYY-MM-DD)'
+							value={localSoldInfo.date}
+							onChangeText={text =>
+								setLocalSoldInfo(prev => ({ ...prev, date: text }))
+							}
+						/>
+						<StyledView className='flex-row justify-end mt-4'>
+							<StyledTouchableOpacity
+								className='bg-gray-300 py-2 px-4 rounded mr-2'
+								onPress={() => setIsSoldModalVisible(false)}>
+								<StyledText>Cancel</StyledText>
+							</StyledTouchableOpacity>
+							<StyledTouchableOpacity
+								className='bg-red py-2 px-4 rounded'
+								onPress={handleConfirm}>
+								<StyledText className='text-white'>Confirm</StyledText>
+							</StyledTouchableOpacity>
+						</StyledView>
 					</StyledView>
 				</StyledView>
-			</StyledView>
-		</Modal>
-	)
+			</Modal>
+		)
+	}, [isSoldModalVisible, handleMarkAsSold])
 
 	if (!dealership) {
 		return (
