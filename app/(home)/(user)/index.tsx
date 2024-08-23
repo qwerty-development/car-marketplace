@@ -131,8 +131,15 @@ export default function BrowseCarsPage() {
 				.lte('mileage', currentFilters.mileageRange[1])
 
 			if (searchQuery) {
+				const { data: dealershipIds } = await supabase
+					.from('dealerships')
+					.select('id')
+					.ilike('name', `%${searchQuery}%`)
+
 				query = query.or(
-					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
+					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,color.ilike.%${searchQuery}%,dealership_id.in.(${dealershipIds!
+						.map(d => d.id)
+						.join(',')})`
 				)
 			}
 
