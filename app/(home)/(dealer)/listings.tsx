@@ -7,7 +7,8 @@ import {
 	TouchableOpacity,
 	Modal,
 	TextInput,
-	ScrollView
+	ScrollView,
+	Alert
 } from 'react-native'
 import { Picker } from '@react-native-picker/picker'
 import { supabase } from '@/utils/supabase'
@@ -20,6 +21,7 @@ import * as FileSystem from 'expo-file-system'
 import { decode } from 'base-64'
 import { Buffer } from 'buffer'
 import DraggableFlatList from 'react-native-draggable-flatlist'
+import ListingModal from '@/components/ListingModal'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 if (!global.atob) {
 	global.atob = decode
@@ -77,8 +79,6 @@ export default function DealerListings() {
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
 	const [soldInfo, setSoldInfo] = useState({ price: '', date: '' })
 	const [error, setError] = useState<string | null>(null)
-	const [uploadedImages, setUploadedImages] = useState<string[]>([])
-	const [isUploading, setIsUploading] = useState(false)
 
 	useEffect(() => {
 		if (user) {
@@ -199,6 +199,44 @@ export default function DealerListings() {
 		}
 	}
 
+	const handleSubmitListing = async (formData: Partial<CarListing>) => {
+		if (!dealership) return
+
+		try {
+			if (selectedListing) {
+				// Update existing listing
+				const { error } = await supabase
+					.from('cars')
+					.update(formData)
+					.eq('id', selectedListing.id)
+					.eq('dealership_id', dealership.id)
+
+				if (error) throw error
+
+				Alert.alert('Success', 'Listing updated successfully')
+			} else {
+				// Create new listing
+				const { error } = await supabase.from('cars').insert({
+					...formData,
+					dealership_id: dealership.id,
+					viewed_users: [],
+					liked_users: []
+				})
+
+				if (error) throw error
+
+				Alert.alert('Success', 'New listing created successfully')
+			}
+
+			fetchListings()
+			setIsListingModalVisible(false)
+			setSelectedListing(null)
+		} catch (error) {
+			console.error('Error submitting listing:', error)
+			Alert.alert('Error', 'Failed to submit listing. Please try again.')
+		}
+	}
+
 	const handleMarkAsSold = async () => {
 		if (!selectedListing || !dealership) return
 
@@ -294,475 +332,6 @@ export default function DealerListings() {
 			</StyledView>
 		</StyledView>
 	)
-
-	const ListingModal = () => {
-		const pickImage = async () => {
-			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-			if (status !== 'granted') {
-				alert('Sorry, we need camera roll permissions to make this work!')
-				return
-			}
-
-			let result = await ImagePicker.launchImageLibraryAsync({
-				mediaTypes: ImagePicker.MediaTypeOptions.Images,
-				allowsEditing: true,
-				aspect: [4, 3],
-				quality: 1
-			})
-
-			if (!result.canceled && result.assets && result.assets.length > 0) {
-				setIsUploading(true)
-				try {
-					await handleImageUpload(result.assets[0].uri)
-				} catch (error) {
-					console.error('Error uploading image:', error)
-					alert('Failed to upload image. Please try again.')
-				} finally {
-					setIsUploading(false)
-				}
-			}
-		}
-
-		const handleImageUpload = async (imageUri: string) => {
-			if (!dealership) return
-
-			try {
-				console.log('Starting image upload. URI:', imageUri)
-
-				const fileName = `${Date.now()}_${Math.random()
-					.toString(36)
-					.substring(7)}.jpg`
-				const filePath = `${dealership.id}/${fileName}`
-
-				console.log('Reading file as base64...')
-				const base64 = await FileSystem.readAsStringAsync(imageUri, {
-					encoding: FileSystem.EncodingType.Base64
-				})
-				console.log('File read successfully. Base64 length:', base64.length)
-
-				console.log('Uploading to Supabase...')
-				const { data, error } = await supabase.storage
-					.from('cars')
-					.upload(filePath, Buffer.from(base64, 'base64'), {
-						contentType: 'image/jpeg'
-					})
-
-				if (error) {
-					console.error('Supabase upload error:', error)
-					throw error
-				}
-
-				console.log('Upload successful. Getting public URL...')
-				const { data: publicURLData } = supabase.storage
-					.from('cars')
-					.getPublicUrl(filePath)
-
-				if (!publicURLData) {
-					console.error('No public URL data received')
-					throw new Error('Error getting public URL')
-				}
-
-				console.log('Public URL received:', publicURLData.publicUrl)
-
-				// Update the images array, adding the new image URL at the beginning
-				if (selectedListing) {
-					setSelectedListing(prev => ({
-						...prev!,
-						images: [publicURLData.publicUrl, ...(prev?.images || [])]
-					}))
-				} else {
-					setNewListing(prev => ({
-						...prev,
-						images: [publicURLData.publicUrl, ...(prev.images || [])]
-					}))
-				}
-
-				// Also update modalImages for immediate UI update
-				setModalImages(prev => [publicURLData.publicUrl, ...prev])
-
-				console.log('Image upload process completed successfully')
-			} catch (error: any) {
-				console.error('Detailed error in handleImageUpload:', error)
-				setError(`Failed to upload image: ${error.message}`)
-			} finally {
-				setIsUploading(false)
-			}
-		}
-
-		const handleCreateListing = async () => {
-			if (!dealership) return
-
-			const { data, error } = await supabase.from('cars').insert({
-				...newListing,
-				dealership_id: dealership.id,
-				images: newListing.images || [],
-				viewed_users: [],
-				liked_users: []
-			})
-			if (error) {
-				console.error('Error creating listing:', error)
-				setError('Failed to create new listing')
-			} else {
-				fetchListings()
-				setIsListingModalVisible(false)
-				setNewListing({})
-				setModalImages([])
-			}
-		}
-		const closeModal = () => {
-			setIsListingModalVisible(false)
-			setModalImages([])
-			setSelectedListing(null)
-			setNewListing({})
-		}
-
-		const handleUpdateListing = async () => {
-			if (!selectedListing || !dealership) return
-
-			const { error } = await supabase
-				.from('cars')
-				.update({ ...selectedListing, images: selectedListing.images })
-				.eq('id', selectedListing.id)
-				.eq('dealership_id', dealership.id)
-
-			if (error) {
-				console.error('Error updating listing:', error)
-				setError('Failed to update listing')
-			} else {
-				fetchListings()
-				setIsListingModalVisible(false)
-				setModalImages([])
-			}
-		}
-		const handleRemoveImage = async (imageUrl: string) => {
-			try {
-				// Extract the correct file path from the URL
-				console.log(imageUrl)
-				const urlParts = imageUrl.split('/')
-				const filePath = urlParts.slice(urlParts.indexOf('cars') + 1).join('/')
-
-				console.log('Attempting to remove file:', filePath)
-
-				const { error } = await supabase.storage.from('cars').remove([filePath])
-
-				if (error) {
-					console.error('Supabase remove error:', error)
-					throw error
-				}
-
-				console.log('File removed successfully from storage')
-
-				// Update the UI state
-				setModalImages(prevImages => prevImages.filter(url => url !== imageUrl))
-
-				// Update the listing state (either selectedListing or newListing)
-				if (selectedListing && selectedListing.id) {
-					setSelectedListing(prev => ({
-						...prev!,
-						images: prev!.images.filter(url => url !== imageUrl)
-					}))
-				} else {
-					setNewListing(prev => ({
-						...prev,
-						images: prev.images?.filter(url => url !== imageUrl) || []
-					}))
-				}
-
-				// Update the car images array in the database
-				const carToUpdate = selectedListing || newListing
-				if (carToUpdate && carToUpdate.id) {
-					const updatedImages = carToUpdate?.images?.filter(
-						url => url !== imageUrl
-					)
-					const { error: updateError } = await supabase
-						.from('cars')
-						.update({ images: updatedImages })
-						.eq('id', carToUpdate.id)
-
-					if (updateError) {
-						console.error('Error updating car images in database:', updateError)
-						throw updateError
-					}
-					console.log('Car images updated in database')
-				}
-
-				console.log('Image removed from listing successfully')
-			} catch (error) {
-				console.error('Error removing image:', error)
-				setError('Failed to remove image: ' + (error as Error).message)
-			}
-		}
-		const [modalImages, setModalImages] = useState<string[]>([])
-		const renderDraggableItem = ({ item, drag, isActive }: any) => (
-			<TouchableOpacity
-				onLongPress={drag}
-				disabled={isActive}
-				style={{
-					opacity: isActive ? 0.5 : 1,
-					flexDirection: 'row',
-					alignItems: 'center',
-					marginBottom: 10
-				}}>
-				<StyledImage
-					source={{ uri: item }}
-					style={{ width: 80, height: 80, marginRight: 10 }}
-				/>
-				<FontAwesome name='bars' size={20} color='gray' />
-				<StyledTouchableOpacity
-					onPress={() => handleRemoveImage(item)}
-					style={{ marginLeft: 10 }}>
-					<FontAwesome name='trash' size={20} color='red' />
-				</StyledTouchableOpacity>
-			</TouchableOpacity>
-		)
-
-		useEffect(() => {
-			if (selectedListing) {
-				setModalImages(selectedListing.images || [])
-			} else {
-				setModalImages(newListing.images || [])
-			}
-		}, [selectedListing, newListing, isListingModalVisible])
-		return (
-			<Modal
-				visible={isListingModalVisible}
-				animationType='slide'
-				transparent={true}>
-				<GestureHandlerRootView style={{ flex: 1 }}>
-					<StyledView className='flex-1 justify-center items-center bg-black bg-opacity-50'>
-						<StyledView className='bg-white p-6 rounded-lg w-5/6'>
-							<StyledText className='text-2xl font-bold mb-4'>
-								{selectedListing ? 'Edit Listing' : 'Create New Listing'}
-							</StyledText>
-							<ScrollView>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Make'
-									value={selectedListing?.make || newListing.make || ''}
-									onChangeText={text =>
-										selectedListing
-											? setSelectedListing({ ...selectedListing, make: text })
-											: setNewListing({ ...newListing, make: text })
-									}
-								/>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Model'
-									value={selectedListing?.model || newListing.model || ''}
-									onChangeText={text =>
-										selectedListing
-											? setSelectedListing({ ...selectedListing, model: text })
-											: setNewListing({ ...newListing, model: text })
-									}
-								/>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Year'
-									value={(
-										selectedListing?.year ||
-										newListing.year ||
-										''
-									).toString()}
-									onChangeText={text => {
-										const year = parseInt(text)
-										selectedListing
-											? setSelectedListing({ ...selectedListing, year })
-											: setNewListing({ ...newListing, year })
-									}}
-									keyboardType='numeric'
-								/>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Price'
-									value={(
-										selectedListing?.price ||
-										newListing.price ||
-										''
-									).toString()}
-									onChangeText={text => {
-										const price = parseInt(text)
-										selectedListing
-											? setSelectedListing({ ...selectedListing, price })
-											: setNewListing({ ...newListing, price })
-									}}
-									keyboardType='numeric'
-								/>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Description'
-									value={
-										selectedListing?.description || newListing.description || ''
-									}
-									onChangeText={text =>
-										selectedListing
-											? setSelectedListing({
-													...selectedListing,
-													description: text
-											  })
-											: setNewListing({ ...newListing, description: text })
-									}
-									multiline
-								/>
-								<StyledPicker
-									selectedValue={
-										selectedListing?.status || newListing.status || 'Available'
-									}
-									onValueChange={(itemValue: any) =>
-										selectedListing
-											? setSelectedListing({
-													...selectedListing,
-													status: itemValue
-											  })
-											: setNewListing({ ...newListing, status: itemValue })
-									}
-									style={{ height: 50, width: '100%', marginBottom: 16 }}>
-									<Picker.Item label='Available' value='available' />
-									<Picker.Item label='Pending' value='pending' />
-									<Picker.Item label='Sold' value='sold' />
-								</StyledPicker>
-								<StyledPicker
-									selectedValue={
-										selectedListing?.condition || newListing.condition || 'Used'
-									}
-									onValueChange={(itemValue: any) =>
-										selectedListing
-											? setSelectedListing({
-													...selectedListing,
-													condition: itemValue
-											  })
-											: setNewListing({ ...newListing, condition: itemValue })
-									}
-									style={{ height: 50, width: '100%' }}>
-									<Picker.Item label='New' value='New' />
-									<Picker.Item label='Used' value='Used' />
-								</StyledPicker>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Color'
-									value={selectedListing?.color || newListing.color || ''}
-									onChangeText={text =>
-										selectedListing
-											? setSelectedListing({ ...selectedListing, color: text })
-											: setNewListing({ ...newListing, color: text })
-									}
-								/>
-								<StyledPicker
-									selectedValue={
-										selectedListing?.transmission ||
-										newListing.transmission ||
-										'Automatic'
-									}
-									onValueChange={(itemValue: any) =>
-										selectedListing
-											? setSelectedListing({
-													...selectedListing,
-													transmission: itemValue
-											  })
-											: setNewListing({
-													...newListing,
-													transmission: itemValue
-											  })
-									}
-									style={{ height: 50, width: '100%' }}>
-									<Picker.Item label='Automatic' value='Automatic' />
-									<Picker.Item label='Manual' value='Manual' />
-								</StyledPicker>
-								<StyledPicker
-									selectedValue={
-										selectedListing?.drivetrain ||
-										newListing.drivetrain ||
-										'FWD'
-									}
-									onValueChange={(itemValue: any) =>
-										selectedListing
-											? setSelectedListing({
-													...selectedListing,
-													drivetrain: itemValue
-											  })
-											: setNewListing({ ...newListing, drivetrain: itemValue })
-									}
-									style={{ height: 50, width: '100%' }}>
-									<Picker.Item label='FWD' value='FWD' />
-									<Picker.Item label='RWD' value='RWD' />
-									<Picker.Item label='AWD' value='AWD' />
-									<Picker.Item label='4WD' value='4WD' />
-									<Picker.Item label='4x4' value='4x4' />
-								</StyledPicker>
-								<StyledTextInput
-									className='border border-gray-300 rounded p-2 mb-4'
-									placeholder='Mileage'
-									value={(
-										selectedListing?.mileage ||
-										newListing.mileage ||
-										''
-									).toString()}
-									onChangeText={text => {
-										const mileage = parseInt(text)
-										selectedListing
-											? setSelectedListing({ ...selectedListing, mileage })
-											: setNewListing({ ...newListing, mileage })
-									}}
-									keyboardType='numeric'
-								/>
-								<StyledText className='font-bold mb-2 mt-4'>Images:</StyledText>
-								{modalImages.length > 0 ? (
-									<DraggableFlatList
-										data={modalImages}
-										renderItem={renderDraggableItem}
-										keyExtractor={(item, index) => `draggable-item-${index}`}
-										onDragEnd={({ data }) => {
-											setModalImages(data)
-											if (selectedListing) {
-												setSelectedListing(prev => ({ ...prev!, images: data }))
-											} else {
-												setNewListing(prev => ({ ...prev, images: data }))
-											}
-										}}
-										horizontal={false}
-									/>
-								) : (
-									<StyledText className='text-gray-500 mb-2'>
-										No images uploaded yet
-									</StyledText>
-								)}
-								<StyledView className='flex-row justify-between mt-2'>
-									<StyledTouchableOpacity
-										className='bg-blue-500 py-2 px-4 rounded flex-1 mr-2 items-center'
-										onPress={pickImage}
-										disabled={isUploading}>
-										{isUploading ? (
-											<ActivityIndicator color='white' />
-										) : (
-											<StyledText className='text-white'>Add Image</StyledText>
-										)}
-									</StyledTouchableOpacity>
-								</StyledView>
-
-								<StyledView className='flex-row justify-end mt-4'>
-									<StyledTouchableOpacity
-										className='bg-gray-300 py-2 px-4 rounded mr-2'
-										onPress={closeModal}>
-										<StyledText>Cancel</StyledText>
-									</StyledTouchableOpacity>
-									<StyledTouchableOpacity
-										className='bg-red py-2 px-4 rounded'
-										onPress={
-											selectedListing
-												? handleUpdateListing
-												: handleCreateListing
-										}>
-										<StyledText className='text-white'>
-											{selectedListing ? 'Update' : 'Create'}
-										</StyledText>
-									</StyledTouchableOpacity>
-								</StyledView>
-							</ScrollView>
-						</StyledView>
-					</StyledView>
-				</GestureHandlerRootView>
-			</Modal>
-		)
-	}
 
 	const SoldModal = () => (
 		<Modal
@@ -884,7 +453,16 @@ export default function DealerListings() {
 					</StyledTouchableOpacity>
 				</StyledView>
 
-				<ListingModal />
+				<ListingModal
+					isVisible={isListingModalVisible}
+					onClose={() => {
+						setIsListingModalVisible(false)
+						setSelectedListing(null)
+					}}
+					onSubmit={handleSubmitListing}
+					initialData={selectedListing}
+					dealership={dealership}
+				/>
 				<SoldModal />
 			</StyledView>
 		</GestureHandlerRootView>
