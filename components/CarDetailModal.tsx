@@ -11,7 +11,6 @@ import {
 	Linking,
 	Alert,
 	Share,
-	PanResponder,
 	Platform
 } from 'react-native'
 import { Animated } from 'react-native'
@@ -25,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import Modal from 'react-native-modal'
+
 const { width } = Dimensions.get('window')
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
@@ -47,6 +47,7 @@ const CarDetailModal = React.memo(
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])
 		const scrollViewRef = useRef<ScrollView>(null)
+
 		const handleDealershipPress = () => {
 			onClose()
 			router.push({
@@ -54,20 +55,13 @@ const CarDetailModal = React.memo(
 				params: { dealershipId: car.dealership_id }
 			})
 		}
-		useEffect(() => {
-			Animated.timing(slideAnimation, {
-				toValue: isVisible ? 1 : 0,
-				duration: 300,
-				useNativeDriver: true
-			}).start()
-		}, [isVisible])
+
 		useEffect(() => {
 			if (isVisible && car && user) {
 				trackCarView(car.id, user.id)
 				fetchSimilarCars()
 				fetchDealerCars()
 
-				// Scroll to the top of the ScrollView
 				if (scrollViewRef.current) {
 					scrollViewRef.current.scrollTo({ y: 0, animated: true })
 				}
@@ -85,27 +79,7 @@ const CarDetailModal = React.memo(
 			}
 		}, [isVisible])
 
-		const handleSwipeComplete = () => {
-			Animated.timing(slideAnimation, {
-				toValue: 0,
-				duration: 250,
-				useNativeDriver: true
-			}).start(() => onClose())
-		}
-
-		const animatedStyle = {
-			transform: [
-				{
-					translateY: slideAnimation.interpolate({
-						inputRange: [0, 1],
-						outputRange: [SCREEN_HEIGHT, 0]
-					})
-				}
-			]
-		}
-
 		const fetchSimilarCars = async () => {
-			console.log(car.price)
 			const { data, error } = await supabase
 				.from('cars')
 				.select(
@@ -209,17 +183,6 @@ const CarDetailModal = React.memo(
 			longitudeDelta: 0.01
 		}
 
-		const panResponder = PanResponder.create({
-			onMoveShouldSetPanResponder: (_, gestureState) => {
-				return gestureState.dx < -30
-			},
-			onPanResponderRelease: (_, gestureState) => {
-				if (gestureState.dx < -50) {
-					handleCloseModal()
-				}
-			}
-		})
-
 		const handleCall = () => {
 			if (car.dealership_phone) {
 				Linking.openURL(`tel:${car.dealership_phone}`)
@@ -231,9 +194,8 @@ const CarDetailModal = React.memo(
 		const handleWhatsApp = () => {
 			if (car.dealership_phone) {
 				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/${
-					car.dealership_phone
-				}?text=${encodeURIComponent(message)}`
+				const url = `https://wa.me/${car.dealership_phone
+					}?text=${encodeURIComponent(message)}`
 				Linking.openURL(url)
 			} else {
 				Alert.alert('WhatsApp number not available')
@@ -244,16 +206,11 @@ const CarDetailModal = React.memo(
 			Alert.alert('Chat feature coming soon!')
 		}
 
-		const handleCloseModal = () => {
-			onClose()
-		}
-
 		const handleShare = async () => {
 			try {
 				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${
-						car.model
-					} for $${car.price.toLocaleString()}!`,
+					message: `Check out this ${car.year} ${car.make} ${car.model
+						} for $${car.price.toLocaleString()}!`,
 					url: car.images[0]
 				})
 				if (result.action === Share.sharedAction) {
@@ -272,9 +229,8 @@ const CarDetailModal = React.memo(
 
 		const renderCarItem = ({ item }: any) => (
 			<TouchableOpacity
-				className={`${
-					isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-				} rounded-lg p-2 mr-4 w-48`}
+				className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+					} rounded-lg p-2 mr-4 w-48`}
 				onPress={() => {
 					onClose()
 					setSelectedCar(item)
@@ -288,19 +244,29 @@ const CarDetailModal = React.memo(
 					className={`${isDarkMode ? 'text-white' : 'text-black'} font-bold`}>
 					{item.year} {item.make} {item.model}
 				</Text>
-
 				<Text className='text-red'>${item.price.toLocaleString()}</Text>
 			</TouchableOpacity>
 		)
+
+		const animatedStyle = {
+			transform: [
+				{
+					translateY: slideAnimation.interpolate({
+						inputRange: [0, 1],
+						outputRange: [SCREEN_HEIGHT, 0]
+					})
+				}
+			]
+		}
 
 		return (
 			<Modal
 				isVisible={isVisible}
 				style={styles.modal}
 				backdropOpacity={0.5}
-				onSwipeComplete={handleSwipeComplete}
+				onBackdropPress={onClose}
+				onSwipeComplete={onClose}
 				swipeDirection={['down']}
-				swipeThreshold={50}
 				propagateSwipe={true}
 				useNativeDriver={true}
 				useNativeDriverForBackdrop={true}
@@ -314,15 +280,15 @@ const CarDetailModal = React.memo(
 							isDarkMode
 								? ['#000000', '#1c1c1c']
 								: [
-										'#FFFFFF',
-										'#F5F5F5',
-										'#EBEBEB',
-										'#E0E0E0',
-										'#D6D6D6',
-										'#CCCCCC',
-										'#C2C2C2',
-										'#B8B8B8'
-								  ]
+									'#FFFFFF',
+									'#F5F5F5',
+									'#EBEBEB',
+									'#E0E0E0',
+									'#D6D6D6',
+									'#CCCCCC',
+									'#C2C2C2',
+									'#B8B8B8'
+								]
 						}
 						style={{ flex: 1 }}>
 						<ScrollView
@@ -332,10 +298,9 @@ const CarDetailModal = React.memo(
 							bounces={false}
 							scrollEventThrottle={16}>
 							<TouchableOpacity
-								className={`absolute top-0 right-0 z-10 p-2 ${
-									isDarkMode ? 'bg-red-600' : 'bg-red-400'
-								} rounded-full`}
-								onPress={handleCloseModal}>
+								className={`absolute top-0 right-0 z-10 p-2 ${isDarkMode ? 'bg-red-600' : 'bg-red-400'
+									} rounded-full`}
+								onPress={onClose}>
 								<Ionicons name='close' size={30} color='#D55004' />
 							</TouchableOpacity>
 							<FlatList
@@ -350,9 +315,8 @@ const CarDetailModal = React.memo(
 							/>
 							<View className='p-4 mb-24'>
 								<Text
-									className={`text-2xl ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
+									className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'
+										}`}>
 									{car.year} {car.make} {car.model}
 								</Text>
 								<Text className='text-xl font-extrabold text-red mt-2'>
@@ -360,15 +324,13 @@ const CarDetailModal = React.memo(
 								</Text>
 								<View className='flex-row justify-between mt-4 mb-4'>
 									<Text
-										className={`text-l ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
+										className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+											}`}>
 										Views: {car.views || 0}
 									</Text>
 									<Text
-										className={`text-l ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
+										className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+											}`}>
 										Likes: {car.likes || 0}
 									</Text>
 								</View>
@@ -382,15 +344,13 @@ const CarDetailModal = React.memo(
 									/>
 								</View>
 								<Text
-									className={`text-s mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} font-bold text-l mb-3`}>
+									className={`text-s mt-4 ${isDarkMode ? 'text-white' : 'text-black'
+										} font-bold text-l mb-3`}>
 									Description
 								</Text>
 								<Text
-									className={`text-s mb-4 font-light ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
+									className={`text-s mb-4 font-light ${isDarkMode ? 'text-white' : 'text-black'
+										}`}>
 									{car.description}
 								</Text>
 
@@ -404,23 +364,19 @@ const CarDetailModal = React.memo(
 								</View>
 
 								<Text
-									className={`text-l mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mb-3 font-bold`}>
+									className={`text-l mt-4 ${isDarkMode ? 'text-white' : 'text-black'
+										} mb-3 font-bold`}>
 									Technical Data
 								</Text>
 								<View
-									className={`mb-6 mt-3 border ${
-										isDarkMode ? 'border-white' : 'border-black'
-									} rounded-lg`}>
+									className={`mb-6 mt-3 border ${isDarkMode ? 'border-white' : 'border-black'
+										} rounded-lg`}>
 									<View
-										className={`flex-row p-2 border-b ${
-											isDarkMode ? 'border-white' : 'border-black'
-										} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
+											} justify-between py-2`}>
 										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} font-bold`}>
+											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+												} font-bold`}>
 											Mileage
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -428,13 +384,11 @@ const CarDetailModal = React.memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${
-											isDarkMode ? 'border-white' : 'border-black'
-										} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
+											} justify-between py-2`}>
 										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} font-bold`}>
+											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+												} font-bold`}>
 											Transmission
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -442,13 +396,11 @@ const CarDetailModal = React.memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${
-											isDarkMode ? 'border-white' : 'border-black'
-										} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
+											} justify-between py-2`}>
 										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} font-bold`}>
+											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+												} font-bold`}>
 											Condition
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -456,13 +408,11 @@ const CarDetailModal = React.memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${
-											isDarkMode ? 'border-white' : 'border-black'
-										} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
+											} justify-between py-2`}>
 										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} font-bold`}>
+											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+												} font-bold`}>
 											Color
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -470,13 +420,11 @@ const CarDetailModal = React.memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${
-											isDarkMode ? 'border-white' : 'border-black'
-										} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
+											} justify-between py-2`}>
 										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} font-bold`}>
+											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+												} font-bold`}>
 											Drive Train
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -486,9 +434,8 @@ const CarDetailModal = React.memo(
 								</View>
 
 								<TouchableOpacity
-									className={`flex-row items-center justify-center ${
-										isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-									} p-3 rounded-lg mb-6`}
+									className={`flex-row items-center justify-center ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+										} p-3 rounded-lg mb-6`}
 									onPress={() => onFavoritePress(car.id)}>
 									<Ionicons
 										name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
@@ -497,14 +444,13 @@ const CarDetailModal = React.memo(
 											isFavorite(car.id)
 												? 'red'
 												: isDarkMode
-												? 'white'
-												: 'black'
+													? 'white'
+													: 'black'
 										}
 									/>
 									<Text
-										className={`text-lg font-bold ${
-											isDarkMode ? 'text-white' : 'text-black'
-										} ml-3`}>
+										className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'
+											} ml-3`}>
 										{isFavorite(car.id) ? 'Unlike' : 'Like'}
 									</Text>
 								</TouchableOpacity>
@@ -519,9 +465,8 @@ const CarDetailModal = React.memo(
 								</View>
 
 								<Text
-									className={`text-lg font-bold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mt-2 mb-2`}>
+									className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'
+										} mt-2 mb-2`}>
 									Dealer Information
 								</Text>
 								<View className='border-t border-gray-600 pt-4'>
@@ -536,9 +481,8 @@ const CarDetailModal = React.memo(
 											</TouchableOpacity>
 										)}
 										<Text
-											className={`text-xl font-bold ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} mb-2`}>
+											className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
+												} mb-2`}>
 											{car.dealership_name}
 										</Text>
 									</View>
@@ -552,8 +496,8 @@ const CarDetailModal = React.memo(
 										region={mapRegion}>
 										<Marker
 											coordinate={{
-												latitude: randomLatitude,
-												longitude: randomLongitude
+												latitude: car.dealership_latitude || randomLatitude,
+												longitude: car.dealership_longitude || randomLongitude
 											}}
 											title={car.dealership_name}
 											description={car.dealership_location}
@@ -563,9 +507,8 @@ const CarDetailModal = React.memo(
 
 								{/* Similar Cars Section */}
 								<Text
-									className={`text-xl font-bold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mt-8 mb-4`}>
+									className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
+										} mt-8 mb-4`}>
 									Similarly Priced Cars
 								</Text>
 								<FlatList
@@ -578,9 +521,8 @@ const CarDetailModal = React.memo(
 
 								{/* Other Cars from Same Dealer Section */}
 								<Text
-									className={`text-xl font-bold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mt-8`}>
+									className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
+										} mt-8`}>
 									More from {car.dealership_name}
 								</Text>
 								<FlatList
