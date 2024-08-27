@@ -370,7 +370,7 @@ export default function BrowseCarsPage() {
 					onEndReachedThreshold={0.1}
 					ListFooterComponent={() =>
 						isLoading ? (
-							<View className='my-8'>
+							<View className='mb-16 mt-4'>
 								<ActivityIndicator size='large' color='#D55004' />
 							</View>
 						) : null
