@@ -593,10 +593,7 @@ const styles = StyleSheet.create({
 		backgroundColor: 'rgba(0, 0, 0, 0.5)'
 	},
 	modalContent: {
-		backgroundColor: 'white',
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
-		height: '90%',
+		height: '99%',
 		paddingTop: Platform.OS === 'ios' ? 40 : 20
 	},
 	gradientContainer: {

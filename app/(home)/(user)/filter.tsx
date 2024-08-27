@@ -32,7 +32,7 @@ const FilterPage = () => {
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const inputBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-	const buttonBgColor = isDarkMode ? 'bg-red' : 'bg-light-accent'
+	const buttonBgColor = isDarkMode ? 'bg-red' : 'bg-red'
 	const cancelBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 
 	const CustomRangeSlider = ({
@@ -199,7 +199,7 @@ const FilterPage = () => {
 	}
 
 	return (
-		<View className={`flex-1 pt-16 ${bgColor}`}>
+		<View className={`flex-1 pt-8 ${bgColor}`}>
 			<Stack.Screen
 				options={{
 					presentation: 'modal',

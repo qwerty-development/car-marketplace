@@ -5,7 +5,8 @@ import {
 	ActivityIndicator,
 	TouchableOpacity,
 	Dimensions,
-	Text
+	Text,
+	StatusBar
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
@@ -14,10 +15,38 @@ import { supabase } from '@/utils/supabase'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 const TAB_BAR_HEIGHT = 50
 const CAR_CARD_HEIGHT = SCREEN_HEIGHT - TAB_BAR_HEIGHT
+
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 14, paddingHorizontal:16 }}>
+				<TouchableOpacity onPress={onBack}>
+					<Ionicons name='arrow-back' size={24} color={iconColor} />
+				</TouchableOpacity>
+				<Text
+					style={{
+						marginLeft: 16,
+						fontSize: 18,
+						fontWeight: 'bold',
+						color: isDarkMode ? '#FFFFFF' : '#000000'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+}
 
 export default function CarsByBrand() {
 	const { isDarkMode } = useTheme()
@@ -61,6 +90,8 @@ export default function CarsByBrand() {
 		}
 		setIsLoading(false)
 	}, [])
+
+	
 
 	useEffect(() => {
 		if (brand) {
@@ -129,7 +160,9 @@ export default function CarsByBrand() {
 	)
 
 	return (
+		
 		<View className={`flex-1 ${bgColor}`}>
+			<CustomHeader title={brand} onBack={()=>router.back()}/>
 			{memoizedHeader}
 			{isLoading ? (
 				<ActivityIndicator

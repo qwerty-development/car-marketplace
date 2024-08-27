@@ -97,7 +97,7 @@ export default function UserProfileAndSupportPage() {
 		<ScrollView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<View
 				className={`items-center ${
-					isDarkMode ? 'bg-red' : 'bg-orange-400'
+					isDarkMode ? 'bg-red' : 'bg-red'
 				} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
 				<Image
 					source={{ uri: user?.imageUrl }}
@@ -239,7 +239,7 @@ export default function UserProfileAndSupportPage() {
 				</View>
 
 				<TouchableOpacity
-					className='bg-[#FF000024] p-5 rounded-xl items-center mb-12'
+					className='bg-[#FF000024]  p-5 mb-24 rounded-xl items-center '
 					onPress={() => signOut()}>
 					<Text className='text-white font-bold text-xl'>Sign Out</Text>
 				</TouchableOpacity>

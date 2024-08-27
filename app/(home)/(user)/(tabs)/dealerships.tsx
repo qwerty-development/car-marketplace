@@ -132,7 +132,7 @@ export default function DealershipListPage() {
 				renderSectionHeader={renderSectionHeader}
 				keyExtractor={item => item.id.toString()}
 				stickySectionHeadersEnabled={true}
-				className='px-2'
+				className='px-2 mb-24'
 			/>
 		</View>
 	)

@@ -8,7 +8,8 @@ import {
 	SectionList,
 	SectionListData,
 	ActivityIndicator,
-	Animated
+	Animated,
+	StatusBar
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useNavigation } from '@react-navigation/native'
@@ -16,28 +17,63 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { Stack, useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import dealership from '../(admin)/dealership'
+import { SafeAreaView } from 'react-native-safe-area-context'
+
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 14, paddingHorizontal:16 }}>
+				<TouchableOpacity onPress={onBack}>
+					<Ionicons name='arrow-back' size={24} color={iconColor} />
+				</TouchableOpacity>
+				<Text
+					style={{
+						marginLeft: 16,
+						fontSize: 18,
+						fontWeight: 'bold',
+						color: isDarkMode ? '#FFFFFF' : '#000000'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+}
 
 interface Brand {
 	name: string
 	logoUrl: string
 }
 
-const getLogoUrl = (make: string) => {
-	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
-	console.log(formattedMake)
-	// Handle special cases
-	switch (formattedMake) {
-		case 'range-rover':
-			return 'https://www.carlogos.org/car-logos/land-rover-logo.png'
-		case 'infiniti':
-			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
-		case 'audi':
-			return 'https://cdn.freebiesupply.com/logos/large/2x/audi-1-logo-black-and-white.png'
-		case 'nissan':
-			return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
-		default:
-			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
-	}
+const getLogoUrl = (make: string, isLightMode: boolean) => {
+    const formattedMake = make.toLowerCase().replace(/\s+/g, '-');
+    console.log(formattedMake);
+
+    // Handle special cases
+    switch (formattedMake) {
+        case 'range-rover':
+            return isLightMode
+                ? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
+                : 'https://www.carlogos.org/car-logos/land-rover-logo.png';
+        case 'infiniti':
+            return 'https://www.carlogos.org/car-logos/infiniti-logo.png';
+        case 'audi':
+            return isLightMode
+                ? 'https://upload.wikimedia.org/wikipedia/commons/9/92/Audi-Logo_2016.svg'
+                : 'https://cdn.freebiesupply.com/logos/large/2x/audi-1-logo-black-and-white.png';
+        case 'nissan':
+            return isLightMode
+                ? 'https://www.carlogos.org/logo/Nissan-logo-2020-black.png'
+                : 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png';
+        default:
+                return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
+    }
 }
 
 export default function AllBrandsPage() {
@@ -79,7 +115,7 @@ export default function AllBrandsPage() {
 			)
 			const brandsData = uniqueBrands.map((make: string) => ({
 				name: make,
-				logoUrl: getLogoUrl(make)
+				logoUrl: getLogoUrl(make, !isDarkMode)
 			}))
 
 			setBrands(brandsData)
@@ -167,32 +203,9 @@ export default function AllBrandsPage() {
 
 	return (
 		<View className={`flex-1 ${bgColor} px-2`}>
-			<Stack.Screen
-				options={{
-					headerTitle: ' All Brands Page',
-					headerTintColor: isDarkMode ? '#D55004' : '#333333',
-
-					headerBackground: () => (
-						<Animated.View
-							style={{
-								backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-								height: '100%',
-								width: '100%'
-							}}
-						/>
-					),
-					headerLeft: () => (
-						<TouchableOpacity
-							onPress={() => {
-								router.back()
-							}}>
-							<Ionicons name='arrow-back' size={24} color={iconColor} />
-						</TouchableOpacity>
-					)
-				}}
-			/>
+			<CustomHeader title='All Brands' onBack = {() => {router.back()}}/>
 			<View
-				className={`border  mx-4 pl-2 mt-10 border-red rounded-full z-50 flex-row items-center ${
+				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
 					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 				}`}>
 				<FontAwesome
