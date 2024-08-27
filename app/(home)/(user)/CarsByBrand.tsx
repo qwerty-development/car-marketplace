@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
+import CarDetailModal from './CarDetailModal'
 import { supabase } from '@/utils/supabase'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
@@ -116,11 +116,7 @@ export default function CarsByBrand() {
 					presentation: 'modal',
 					headerLeft: () => (
 						<TouchableOpacity className='ml-3' onPress={() => router.back()}>
-							<Ionicons
-								name='arrow-back'
-								size={30}
-								color={isDarkMode ? 'white' : 'black'}
-							/>
+							<Ionicons name='arrow-back' size={30} color='#D55004' />
 						</TouchableOpacity>
 					),
 					title: brand ? `${brand} Cars` : 'Cars by Brand',

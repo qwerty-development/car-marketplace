@@ -138,6 +138,26 @@ const FilterPage = () => {
 		}
 	}
 
+	const clearFilters = () => {
+		const clearedFilters = {
+			dealership: '',
+			make: '',
+			model: '',
+			condition: '',
+			priceRange: [priceRange[0], priceRange[1]],
+			mileageRange: [mileageRange[0], mileageRange[1]],
+			year: '',
+			color: '',
+			transmission: '',
+			drivetrain: ''
+		}
+		setFilters(clearedFilters)
+		// Apply the cleared filters immediately
+		router.push({
+			pathname: '/(home)/(user)',
+			params: { filters: JSON.stringify(clearedFilters) }
+		})
+	}
 	const fetchPriceRange = async () => {
 		const { data, error } = await supabase
 			.from('cars')
@@ -492,17 +512,24 @@ const FilterPage = () => {
 					</View>
 				</View>
 			</ScrollView>
-			<View className={`flex-row ${inputBgColor} justify-end p-4 mb-10`}>
+			<View className={`flex-row ${inputBgColor} justify-between p-4 mb-10`}>
 				<TouchableOpacity
-					className={`${cancelBgColor} py-2 px-4 rounded mr-2`}
-					onPress={() => router.back()}>
-					<Text className={textColor}>Cancel</Text>
+					className={`${cancelBgColor} py-2 px-4 rounded`}
+					onPress={clearFilters}>
+					<Text className={textColor}>Clear Filters</Text>
 				</TouchableOpacity>
-				<TouchableOpacity
-					className={`${buttonBgColor} py-2 px-4 rounded`}
-					onPress={applyFilters}>
-					<Text className={textColor}>Apply Filters</Text>
-				</TouchableOpacity>
+				<View className='flex-row'>
+					<TouchableOpacity
+						className={`${cancelBgColor} py-2 px-4 rounded mr-2`}
+						onPress={() => router.back()}>
+						<Text className={textColor}>Cancel</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						className={`${buttonBgColor} py-2 px-4 rounded`}
+						onPress={applyFilters}>
+						<Text className={textColor}>Apply Filters</Text>
+					</TouchableOpacity>
+				</View>
 			</View>
 		</View>
 	)

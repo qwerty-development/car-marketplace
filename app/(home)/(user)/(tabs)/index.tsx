@@ -101,46 +101,57 @@ export default function BrowseCarsPage() {
 		async (
 			page = 1,
 			currentFilters = filters,
-			currentSortOption = sortOption
+			currentSortOption = sortOption,
+			query = searchQuery
 		) => {
 			setIsLoading(true)
-			let query = supabase.from('cars').select(
+			let queryBuilder = supabase.from('cars').select(
 				`
-        *,
-        dealerships (name,logo,phone,location,latitude,longitude)
-        `,
+      *,
+      dealerships (name,logo,phone,location,latitude,longitude)
+      `,
 				{ count: 'exact' }
 			)
 
 			// Apply filters
 			if (currentFilters.dealership)
-				query = query.eq('dealership_id', currentFilters.dealership)
-			if (currentFilters.make) query = query.eq('make', currentFilters.make)
-			if (currentFilters.model) query = query.eq('model', currentFilters.model)
+				queryBuilder = queryBuilder.eq(
+					'dealership_id',
+					currentFilters.dealership
+				)
+			if (currentFilters.make)
+				queryBuilder = queryBuilder.eq('make', currentFilters.make)
+			if (currentFilters.model)
+				queryBuilder = queryBuilder.eq('model', currentFilters.model)
 			if (currentFilters.condition)
-				query = query.eq('condition', currentFilters.condition)
-			if (currentFilters.year) query = query.eq('year', currentFilters.year)
-			if (currentFilters.color) query = query.eq('color', currentFilters.color)
+				queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
+			if (currentFilters.year)
+				queryBuilder = queryBuilder.eq('year', currentFilters.year)
+			if (currentFilters.color)
+				queryBuilder = queryBuilder.eq('color', currentFilters.color)
 			if (currentFilters.transmission)
-				query = query.eq('transmission', currentFilters.transmission)
+				queryBuilder = queryBuilder.eq(
+					'transmission',
+					currentFilters.transmission
+				)
 			if (currentFilters.drivetrain)
-				query = query.eq('drivetrain', currentFilters.drivetrain)
+				queryBuilder = queryBuilder.eq('drivetrain', currentFilters.drivetrain)
 
-			query = query
+			queryBuilder = queryBuilder
 				.gte('price', currentFilters.priceRange[0])
 				.lte('price', currentFilters.priceRange[1])
-			query = query
+			queryBuilder = queryBuilder
 				.gte('mileage', currentFilters.mileageRange[0])
 				.lte('mileage', currentFilters.mileageRange[1])
 
-			if (searchQuery) {
+			if (query) {
 				const { data: dealershipIds } = await supabase
 					.from('dealerships')
 					.select('id')
-					.ilike('name', `%${searchQuery}%`)
+					.ilike('name', `%${query}%`)
 
-				query = query.or(
-					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,color.ilike.%${searchQuery}%,dealership_id.in.(${dealershipIds!
+				queryBuilder = queryBuilder.or(
+					`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%,dealership_id.in.(${dealershipIds!
 						.map(d => d.id)
 						.join(',')})`
 				)
@@ -149,31 +160,48 @@ export default function BrowseCarsPage() {
 			// Apply sorting
 			switch (currentSortOption) {
 				case 'price_asc':
-					query = query.order('price', { ascending: true })
+					queryBuilder = queryBuilder.order('price', { ascending: true })
 					break
 				case 'price_desc':
-					query = query.order('price', { ascending: false })
+					queryBuilder = queryBuilder.order('price', { ascending: false })
 					break
 				case 'year_asc':
-					query = query.order('year', { ascending: true })
+					queryBuilder = queryBuilder.order('year', { ascending: true })
 					break
 				case 'year_desc':
-					query = query.order('year', { ascending: false })
+					queryBuilder = queryBuilder.order('year', { ascending: false })
 					break
 				case 'mileage_asc':
-					query = query.order('mileage', { ascending: true })
+					queryBuilder = queryBuilder.order('mileage', { ascending: true })
 					break
 				case 'mileage_desc':
-					query = query.order('mileage', { ascending: false })
+					queryBuilder = queryBuilder.order('mileage', { ascending: false })
 					break
 				default:
-					query = query.order('listed_at', { ascending: false })
+					queryBuilder = queryBuilder.order('listed_at', { ascending: false })
 			}
 
-			const { data, count, error } = await query.range(
-				(page - 1) * ITEMS_PER_PAGE,
-				page * ITEMS_PER_PAGE - 1
+			// First, get the total count
+			const { count, error: countError } = await queryBuilder
+
+			if (countError) {
+				console.error('Error fetching car count:', countError)
+				setIsLoading(false)
+				return
+			}
+
+			// Calculate the correct page and range
+			const totalItems = count || 0
+			const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+			const safePageNumber = Math.min(page, totalPages)
+			const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
+			const endRange = Math.min(
+				safePageNumber * ITEMS_PER_PAGE - 1,
+				totalItems - 1
 			)
+
+			// Fetch the actual data
+			const { data, error } = await queryBuilder.range(startRange, endRange)
 
 			if (error) {
 				console.error('Error fetching cars:', error)
@@ -189,13 +217,15 @@ export default function BrowseCarsPage() {
 						dealership_longitude: item.dealerships.longitude,
 						listed_at: item.listed_at
 					})) || []
-				setCars(prevCars => (page === 1 ? newCars : [...prevCars, ...newCars]))
-				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
-				setCurrentPage(page)
+				setCars(prevCars =>
+					safePageNumber === 1 ? newCars : [...prevCars, ...newCars]
+				)
+				setTotalPages(totalPages)
+				setCurrentPage(safePageNumber)
 			}
 			setIsLoading(false)
 		},
-		[searchQuery, filters, sortOption]
+		[filters, sortOption]
 	)
 
 	const handleFavoritePress = async (carId: number) => {
@@ -279,18 +309,13 @@ export default function BrowseCarsPage() {
 								className={`${
 									isDarkMode ? 'bg-red' : 'bg-light-accent'
 								} p-3 rounded-full`}
-								onPress={() => fetchCars(1, filters)}>
+								onPress={() => fetchCars(1, filters, sortOption, searchQuery)}>
 								<FontAwesome
 									name='search'
 									size={20}
 									color={isDarkMode ? 'white' : 'black'}
 								/>
 							</TouchableOpacity>
-							<FontAwesome
-								size={20}
-								color={isDarkMode ? 'white' : 'black'}
-								className='mx-3'
-							/>
 							<TextInput
 								className={`py-2 ${
 									isDarkMode ? 'text-white' : 'text-light-text'
@@ -302,8 +327,24 @@ export default function BrowseCarsPage() {
 									setSearchQuery(text)
 									setCurrentPage(1)
 								}}
-								onSubmitEditing={() => fetchCars(1, filters)}
+								onSubmitEditing={() =>
+									fetchCars(1, filters, sortOption, searchQuery)
+								}
 							/>
+							{searchQuery.length > 0 && (
+								<TouchableOpacity
+									className='p-2'
+									onPress={() => {
+										setSearchQuery('')
+										fetchCars(1, filters, sortOption, '') // Pass empty string as query
+									}}>
+									<FontAwesome
+										name='times-circle'
+										size={20}
+										color={isDarkMode ? 'white' : 'black'}
+									/>
+								</TouchableOpacity>
+							)}
 						</View>
 						<SortPicker
 							className='sort-picker'
