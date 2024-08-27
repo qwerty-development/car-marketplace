@@ -24,6 +24,7 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3
 const tabRoutes = ['', 'dealerships', 'favorites', 'profile']
 
 const SwipeableStack = ({ children }: any) => {
+	const { isDarkMode } = useTheme()
 	const router = useRouter()
 	const translateX = useSharedValue(0)
 	const currentIndex = useSharedValue(0)
@@ -70,7 +71,8 @@ const SwipeableStack = ({ children }: any) => {
 		}
 	})
 	return (
-		<View style={{ flex: 1, backgroundColor: 'black' }}>
+		<View
+			style={{ flex: 1, backgroundColor: `${isDarkMode ? 'black' : 'white'}` }}>
 			<PanGestureHandler
 				onGestureEvent={gestureHandler}
 				activeOffsetX={[-10, 10]}>

@@ -72,7 +72,10 @@ export default function BrowseCarsPage() {
 		return (
 			<View>
 				<ByBrands />
-				<Text className='text-white font-bold text-xl mt-4 mb-2 px-4'>
+				<Text
+					className={`${
+						isDarkMode ? 'text-white' : 'text-light-text'
+					} font-bold text-xl mt-4 mb-2 px-4`}>
 					All Cars
 				</Text>
 			</View>
