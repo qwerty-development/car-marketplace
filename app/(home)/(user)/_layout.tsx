@@ -11,7 +11,13 @@ export default function RootLayout() {
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<View
 				style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
-				<Stack>
+				<Stack
+					screenOptions={{
+						headerShown: false,
+						contentStyle: {
+							backgroundColor: isDarkMode ? '#000000' : '#FFFFFF'
+						}
+					}}>
 					<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
 					<Stack.Screen
 						name='filter'

@@ -10,7 +10,8 @@ import {
 	RefreshControl,
 	Animated,
 	Dimensions,
-	PanResponder
+	PanResponder,
+	StatusBar
 } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -50,6 +51,33 @@ interface Car {
 	color: string
 	transmission: 'Manual' | 'Automatic'
 	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
+}
+
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+				<TouchableOpacity onPress={onBack}>
+					<Ionicons name='arrow-back' size={24} color={iconColor} />
+				</TouchableOpacity>
+				<Text
+					style={{
+						marginLeft: 16,
+						fontSize: 18,
+						fontWeight: 'bold',
+						color: isDarkMode ? '#FFFFFF' : '#000000'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
 }
 
 export default function DealershipDetails() {
@@ -287,30 +315,9 @@ export default function DealershipDetails() {
 
 	return (
 		<LinearGradient colors={bgGradient} className='flex-1'>
-			<Stack.Screen
-				options={{
-					headerTitle: dealership?.name || 'Dealership',
-					headerTintColor: isDarkMode ? '#D55004' : '#333333',
-					headerTransparent: true,
-					headerBackground: () => (
-						<Animated.View
-							style={{
-								opacity: headerOpacity,
-								backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-								height: '100%',
-								width: '100%'
-							}}
-						/>
-					),
-					headerLeft: () => (
-						<TouchableOpacity
-							onPress={() => {
-								router.back()
-							}}>
-							<Ionicons name='arrow-back' size={24} color={iconColor} />
-						</TouchableOpacity>
-					)
-				}}
+			<CustomHeader
+				title={dealership?.name || 'Dealership'}
+				onBack={() => router.back()}
 			/>
 			<Animated.FlatList
 				data={cars}
@@ -326,7 +333,7 @@ export default function DealershipDetails() {
 					<>
 						{dealership && (
 							<View
-								className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4 pt-32`}>
+								className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4 pt-10`}>
 								<Image
 									source={{ uri: dealership.logo }}
 									className='w-24 h-24 rounded-full self-center mb-4'
