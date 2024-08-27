@@ -171,6 +171,7 @@ export default function AllBrandsPage() {
 				options={{
 					headerTitle: ' All Brands Page',
 					headerTintColor: isDarkMode ? '#D55004' : '#333333',
+
 					headerBackground: () => (
 						<Animated.View
 							style={{
