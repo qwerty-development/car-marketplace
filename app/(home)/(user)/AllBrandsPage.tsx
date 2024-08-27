@@ -192,7 +192,7 @@ export default function AllBrandsPage() {
 				}}
 			/>
 			<View
-				className={`border  mx-4 pl-2 mt-24 border-red rounded-full z-50 flex-row items-center ${
+				className={`border  mx-4 pl-2 mt-10 border-red rounded-full z-50 flex-row items-center ${
 					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 				}`}>
 				<FontAwesome
@@ -222,7 +222,6 @@ export default function AllBrandsPage() {
 						stickySectionHeadersEnabled={true}
 						className='mt-4'
 					/>
-					<AlphabetIndex />
 				</>
 			)}
 		</View>
