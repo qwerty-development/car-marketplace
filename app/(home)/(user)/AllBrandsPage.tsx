@@ -7,13 +7,15 @@ import {
 	TextInput,
 	SectionList,
 	SectionListData,
-	ActivityIndicator
+	ActivityIndicator,
+	Animated
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useNavigation } from '@react-navigation/native'
-import { FontAwesome } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
+import { Stack, useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
+import dealership from '../(admin)/dealership'
 
 interface Brand {
 	name: string
@@ -161,10 +163,35 @@ export default function AllBrandsPage() {
 		</View>
 	)
 
+	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
 	return (
 		<View className={`flex-1 ${bgColor} px-2`}>
+			<Stack.Screen
+				options={{
+					headerTitle: ' All Brands Page',
+					headerTintColor: isDarkMode ? '#D55004' : '#333333',
+					headerBackground: () => (
+						<Animated.View
+							style={{
+								backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+								height: '100%',
+								width: '100%'
+							}}
+						/>
+					),
+					headerLeft: () => (
+						<TouchableOpacity
+							onPress={() => {
+								router.back()
+							}}>
+							<Ionicons name='arrow-back' size={24} color={iconColor} />
+						</TouchableOpacity>
+					)
+				}}
+			/>
 			<View
-				className={`border mt-4 mx-4 pl-2 border-red rounded-full z-50 flex-row items-center ${
+				className={`border  mx-4 pl-2 mt-24 border-red rounded-full z-50 flex-row items-center ${
 					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 				}`}>
 				<FontAwesome
