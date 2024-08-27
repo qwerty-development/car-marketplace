@@ -9,6 +9,7 @@ import {
 	TouchableWithoutFeedback
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '@/utils/ThemeContext'
 
 const sortOptions = [
 	{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
@@ -25,6 +26,7 @@ const sortOptions = [
 ]
 
 const SortPicker = ({ onValueChange, initialValue }: any) => {
+	const { isDarkMode } = useTheme()
 	const [modalVisible, setModalVisible] = useState(false)
 	const [selectedOption, setSelectedOption] = useState(
 		initialValue &&
@@ -64,7 +66,11 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 	return (
 		<View>
 			<TouchableOpacity onPress={() => setModalVisible(true)}>
-				<Ionicons name='chevron-down' size={20} color='#FFFFFF' />
+				<Ionicons
+					name='chevron-down'
+					size={20}
+					color={`${isDarkMode ? '#FFFFFF' : '#D55004'}`}
+				/>
 			</TouchableOpacity>
 			<Modal
 				animationType='slide'

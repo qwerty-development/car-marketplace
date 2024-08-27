@@ -107,7 +107,7 @@ const ByBrands = React.memo(() => {
 	}
 
 	return (
-		<View className={`mt-4 px-3  mb-4 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+		<View className={`mt-4 px-3  mb-4 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<View className='flex-row justify-between items-center mb-4'>
 				<Text
 					className={`text-xl font-bold ${
@@ -118,7 +118,7 @@ const ByBrands = React.memo(() => {
 				<TouchableOpacity
 					onPress={handleSeeAllBrands}
 					className='flex-row items-center'>
-					<Text className='text-red-500 mr-2'>See all brands</Text>
+					<Text className='text-red mr-2'>See all brands</Text>
 					<FontAwesome
 						name='chevron-right'
 						size={14}

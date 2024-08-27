@@ -2,7 +2,6 @@ import React, { useMemo } from 'react'
 import {
 	View,
 	Text,
-	Image,
 	TouchableOpacity,
 	ScrollView,
 	Dimensions,
@@ -13,12 +12,12 @@ import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
 import { formatDistanceToNow } from 'date-fns'
 import { useTheme } from '@/utils/ThemeContext'
+import { Image } from 'expo-image'
 const StyledView = styled(View)
 const StyledText = styled(Text)
 const StyledImage = styled(Image)
 const StyledTouchableOpacity = styled(TouchableOpacity)
 const StyledScrollView = styled(ScrollView)
-
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 
 export default function CarCard({
@@ -91,9 +90,10 @@ export default function CarCard({
 						: 'bg-light-secondary border-light-accent'
 				} border rounded-3xl overflow-hidden shadow-xl shadow-stone-200`}>
 				<StyledView className='relative'>
-					<StyledImage
+					<Image
 						source={{ uri: car.images[0] }}
 						className='w-full h-64 rounded-t-3xl'
+						contentFit='cover'
 					/>
 					<StyledView className='absolute top-4 right-4 rounded-full p-1'>
 						<TouchableOpacity onPress={onFavoritePress}>

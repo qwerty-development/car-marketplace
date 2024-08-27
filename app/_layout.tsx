@@ -7,6 +7,7 @@ import { FavoritesProvider } from '@/utils/useFavorites'
 import 'react-native-gesture-handler'
 import CustomSplashScreen from './CustomSplashScreen'
 import { ThemeProvider } from '@/utils/ThemeContext'
+import { QueryClient, QueryClientProvider } from 'react-query'
 SplashScreen.preventAutoHideAsync()
 
 function RootLayoutNav() {
@@ -47,16 +48,26 @@ export default function RootLayout() {
 	useEffect(() => {
 		SplashScreen.hideAsync()
 	}, [])
+	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: {
+				retry: 2,
+				staleTime: 5 * 60 * 1000 // 5 minutes
+			}
+		}
+	})
 
 	const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!
 
 	return (
 		<ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-			<ThemeProvider>
-				<FavoritesProvider>
-					<RootLayoutNav />
-				</FavoritesProvider>
-			</ThemeProvider>
+			<QueryClientProvider client={queryClient}>
+				<ThemeProvider>
+					<FavoritesProvider>
+						<RootLayoutNav />
+					</FavoritesProvider>
+				</ThemeProvider>
+			</QueryClientProvider>
 		</ClerkProvider>
 	)
 }

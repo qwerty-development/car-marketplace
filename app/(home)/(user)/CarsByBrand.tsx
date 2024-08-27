@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/components/CarDetailModal'
+import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import { supabase } from '@/utils/supabase'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'

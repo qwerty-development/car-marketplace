@@ -12,7 +12,7 @@ import { Picker } from '@react-native-picker/picker'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/components/CarDetailModal'
+import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import RNPickerSelect, { Item as PickerItem } from 'react-native-picker-select'
 
 const ITEMS_PER_PAGE = 10

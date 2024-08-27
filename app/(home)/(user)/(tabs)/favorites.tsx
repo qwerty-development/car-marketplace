@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { View, FlatList, Text } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/components/CarDetailModal'
+import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 

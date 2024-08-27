@@ -23,6 +23,7 @@
     "@react-navigation/native": "^6.0.2",
     "@rneui/themed": "^4.0.0-rc.8",
     "@supabase/supabase-js": "^2.45.1",
+    "@tanstack/react-query": "^5.52.2",
     "axios": "^1.7.4",
     "base-64": "^1.0.0",
     "date-fns": "^3.6.0",
@@ -50,6 +51,7 @@
     "react-native-chart-kit": "^6.12.0",
     "react-native-draggable-flatlist": "^4.0.1",
     "react-native-dropdown-picker": "^5.4.6",
+    "react-native-fast-image": "^8.6.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-html-to-pdf": "^0.12.0",
@@ -65,7 +67,9 @@
     "react-native-svg": "^15.2.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.1.0",
-    "react-native-web": "~0.19.10"
+    "react-native-web": "~0.19.10",
+    "react-query": "^3.39.3",
+    "expo-image": "~1.12.15"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

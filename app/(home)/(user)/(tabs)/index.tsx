@@ -11,7 +11,7 @@ import {
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/components/CarDetailModal'
+import CarDetailModal from '../CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'

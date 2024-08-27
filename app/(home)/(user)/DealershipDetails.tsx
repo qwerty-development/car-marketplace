@@ -15,13 +15,13 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/components/CarDetailModal'
+import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import RNPickerSelect from 'react-native-picker-select'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import MapView, { Marker } from 'react-native-maps'
 
 const ITEMS_PER_PAGE = 10
@@ -290,6 +290,7 @@ export default function DealershipDetails() {
 			<Stack.Screen
 				options={{
 					headerTitle: dealership?.name || 'Dealership',
+					headerTintColor: isDarkMode ? '#D55004' : '#333333',
 					headerTransparent: true,
 					headerBackground: () => (
 						<Animated.View
@@ -324,7 +325,8 @@ export default function DealershipDetails() {
 				ListHeaderComponent={
 					<>
 						{dealership && (
-							<View className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4`}>
+							<View
+								className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4 pt-32`}>
 								<Image
 									source={{ uri: dealership.logo }}
 									className='w-24 h-24 rounded-full self-center mb-4'
@@ -450,7 +452,6 @@ export default function DealershipDetails() {
 					) : null
 				}
 				contentContainerStyle={{
-					paddingTop: insets.top + 60,
 					paddingHorizontal: 16
 				}}
 				onScroll={Animated.event(

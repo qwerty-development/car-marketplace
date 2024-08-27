@@ -3,7 +3,6 @@ import {
 	StyleSheet,
 	View,
 	Text,
-	Image,
 	TouchableOpacity,
 	Modal,
 	ScrollView,
@@ -25,6 +24,7 @@ import MapView, { Marker } from 'react-native-maps'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
+import { Image } from 'expo-image'
 
 const { width } = Dimensions.get('window')
 
@@ -253,6 +253,7 @@ const CarDetailModal = React.memo(
 				<Image
 					source={{ uri: item.images[0] }}
 					className='w-full h-32 rounded-lg mb-2'
+					resizeMode='cover'
 				/>
 				<Text
 					className={`${isDarkMode ? 'text-white' : 'text-black'} font-bold`}>
@@ -282,18 +283,7 @@ const CarDetailModal = React.memo(
 					<View style={styles.header} {...panResponder.panHandlers}></View>
 					<LinearGradient
 						colors={
-							isDarkMode
-								? ['#000000', '#1c1c1c']
-								: [
-										'#FFFFFF',
-										'#F5F5F5',
-										'#EBEBEB',
-										'#E0E0E0',
-										'#D6D6D6',
-										'#CCCCCC',
-										'#C2C2C2',
-										'#B8B8B8'
-								  ]
+							isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#F5F5F5']
 						}
 						style={{ flex: 1 }}>
 						<ScrollView className='flex-1' ref={scrollViewRef}>

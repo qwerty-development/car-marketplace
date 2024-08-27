@@ -17,7 +17,8 @@ export default function RootLayout() {
 						name='filter'
 						options={{
 							presentation: 'modal',
-							animation: 'slide_from_bottom'
+							animation: 'slide_from_bottom',
+							headerShown: false
 						}}
 					/>
 					<Stack.Screen
@@ -36,6 +37,14 @@ export default function RootLayout() {
 						name='DealershipDetails'
 						options={{
 							animation: 'slide_from_right'
+						}}
+					/>
+					<Stack.Screen
+						name='CarDetailModal'
+						options={{
+							presentation: 'modal',
+							animation: 'slide_from_bottom',
+							headerShown: false
 						}}
 					/>
 				</Stack>
