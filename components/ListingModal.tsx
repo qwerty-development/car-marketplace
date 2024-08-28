@@ -254,6 +254,17 @@ const ListingModal = ({
 								<Picker.Item label='4WD' value='4WD' />
 								<Picker.Item label='4x4' value='4x4' />
 							</Picker>
+							<Picker
+								selectedValue={formData.type || 'Benzine'}
+								onValueChange={itemValue =>
+									handleInputChange('type', itemValue)
+								}
+								style={{ height: 50, width: '100%', marginBottom: 16 }}>
+								<Picker.Item label='Benzine' value='Benzine' />
+								<Picker.Item label='Diesel' value='Diesel' />
+								<Picker.Item label='Electric' value='Electric' />
+								<Picker.Item label='Hybrid' value='Hybrid' />
+							</Picker>
 							<StyledTextInput
 								className='border border-gray-300 rounded p-2 mb-4'
 								placeholder='Mileage'

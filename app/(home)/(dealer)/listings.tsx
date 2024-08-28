@@ -51,6 +51,7 @@ interface CarListing {
 	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
 	mileage: number
 	status: 'available' | 'pending' | 'sold'
+	type: 'Benzine' | 'Diesel' | 'Electric' | 'Hybrid'
 }
 
 interface Dealership {
