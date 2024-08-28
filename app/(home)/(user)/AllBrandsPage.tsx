@@ -28,7 +28,13 @@ const CustomHeader = ({ title, onBack }: any) => {
 			edges={['top']}
 			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 14, paddingHorizontal:16 }}>
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					paddingBottom: 14,
+					paddingHorizontal: 16
+				}}>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
@@ -52,28 +58,28 @@ interface Brand {
 }
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
-    const formattedMake = make.toLowerCase().replace(/\s+/g, '-');
-    console.log(formattedMake);
+	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
+	console.log(formattedMake)
 
-    // Handle special cases
-    switch (formattedMake) {
-        case 'range-rover':
-            return isLightMode
-                ? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
-                : 'https://www.carlogos.org/car-logos/land-rover-logo.png';
-        case 'infiniti':
-            return 'https://www.carlogos.org/car-logos/infiniti-logo.png';
-        case 'audi':
-            return isLightMode
-                ? 'https://upload.wikimedia.org/wikipedia/commons/9/92/Audi-Logo_2016.svg'
-                : 'https://cdn.freebiesupply.com/logos/large/2x/audi-1-logo-black-and-white.png';
-        case 'nissan':
-            return isLightMode
-                ? 'https://www.carlogos.org/logo/Nissan-logo-2020-black.png'
-                : 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png';
-        default:
-                return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
-    }
+	// Handle special cases
+	switch (formattedMake) {
+		case 'toyota':
+			return '../../../assets/images/Toyota-Logo.png'
+		case 'volkswagen':
+			return '../../../assets/images/VW-Logo.png'
+		case 'range-rover':
+			return isLightMode
+				? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
+				: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
+		case 'infiniti':
+			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
+		case 'audi':
+			return '../../../assets/images/Audi-Logo.png'
+		case 'nissan':
+			return '../../../assets/images/Nissan-Logo.png'
+		default:
+			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
+	}
 }
 
 export default function AllBrandsPage() {
@@ -87,8 +93,8 @@ export default function AllBrandsPage() {
 
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
-	const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-300'
-	const sectionHeaderBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+	const borderColor = isDarkMode ? 'border-red' : 'border-red'
+	const sectionHeaderBgColor = isDarkMode ? 'bg-gray' : 'bg-white'
 
 	useEffect(() => {
 		fetchBrands()
@@ -154,15 +160,6 @@ export default function AllBrandsPage() {
 		})
 	}
 
-	const scrollToSection = (index: number) => {
-		sectionListRef.current?.scrollToLocation({
-			sectionIndex: index,
-			itemIndex: 0,
-			animated: true,
-			viewPosition: 0
-		})
-	}
-
 	const renderBrandItem = ({ item }: { item: Brand }) => (
 		<TouchableOpacity
 			className={`flex-row items-center py-4 border-b ${borderColor}`}
@@ -181,29 +178,19 @@ export default function AllBrandsPage() {
 	}: {
 		section: SectionListData<Brand>
 	}) => (
-		<View className={`${sectionHeaderBgColor} py-2`}>
+		<View className={`${sectionHeaderBgColor} p-2`}>
 			<Text className={`${textColor} font-bold`}>{section.title}</Text>
 		</View>
 	)
 
-	const AlphabetIndex = () => (
-		<View
-			className={`absolute right-0 top-0 bottom-0 justify-center ${bgColor} bg-opacity-50 px-1`}>
-			{groupedBrands.map((group, index) => (
-				<TouchableOpacity
-					key={group.title}
-					onPress={() => scrollToSection(index)}>
-					<Text className={textColor}>{group.title}</Text>
-				</TouchableOpacity>
-			))}
-		</View>
-	)
-
-	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-
 	return (
-		<View className={`flex-1 ${bgColor} px-2`}>
-			<CustomHeader title='All Brands' onBack = {() => {router.back()}}/>
+		<View className={`flex-1 ${bgColor} `}>
+			<CustomHeader
+				title='All Brands'
+				onBack={() => {
+					router.back()
+				}}
+			/>
 			<View
 				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
 					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
