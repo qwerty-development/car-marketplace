@@ -40,6 +40,68 @@ const ListingModal = ({
 	const [makes, setMakes] = useState([])
 	const [models, setModels] = useState([])
 
+	const colors = [
+		{ id: 1, name: 'Red' },
+		{ id: 2, name: 'Blue' },
+		{ id: 3, name: 'Green' },
+		{ id: 4, name: 'Yellow' },
+		{ id: 5, name: 'Black' },
+		{ id: 6, name: 'White' },
+		{ id: 7, name: 'Silver' },
+		{ id: 8, name: 'Orange' },
+		{ id: 9, name: 'Purple' },
+		{ id: 10, name: 'Brown' },
+		{ id: 11, name: 'Pink' },
+		{ id: 12, name: 'Gold' },
+		{ id: 13, name: 'Grey' },
+		{ id: 14, name: 'Beige' },
+		{ id: 15, name: 'Burgundy' },
+		{ id: 16, name: 'Turquoise' },
+		{ id: 17, name: 'Maroon' },
+		{ id: 18, name: 'Teal' },
+		{ id: 19, name: 'Navy Blue' },
+		{ id: 20, name: 'Charcoal' },
+		{ id: 21, name: 'Ivory' },
+		{ id: 22, name: 'Lavender' },
+		{ id: 23, name: 'Magenta' },
+		{ id: 24, name: 'Champagne' },
+		{ id: 25, name: 'Bronze' },
+		{ id: 26, name: 'Cyan' },
+		{ id: 27, name: 'Copper' },
+		{ id: 28, name: 'Coral' },
+		{ id: 29, name: 'Mint Green' },
+		{ id: 30, name: 'Peach' },
+		{ id: 31, name: 'Sand' },
+		{ id: 32, name: 'Sky Blue' },
+		{ id: 33, name: 'Violet' },
+		{ id: 34, name: 'Lime Green' },
+		{ id: 35, name: 'Saffron' },
+		{ id: 36, name: 'Indigo' },
+		{ id: 37, name: 'Olive' },
+		{ id: 38, name: 'Mustard' },
+		{ id: 39, name: 'Sea Green' },
+		{ id: 40, name: 'Graphite' },
+		{ id: 41, name: 'Electric Blue' },
+		{ id: 42, name: 'Matte Black' },
+		{ id: 43, name: 'Pearl White' },
+		{ id: 44, name: 'Aqua' },
+		{ id: 45, name: 'Crimson' },
+		{ id: 46, name: 'Rose Gold' },
+		{ id: 47, name: 'Titanium' },
+		{ id: 48, name: 'Gunmetal' },
+		{ id: 49, name: 'Lemon Yellow' },
+		{ id: 50, name: 'Rust' },
+		{ id: 51, name: 'Tan' },
+		{ id: 52, name: 'Slate' },
+		{ id: 53, name: 'Khaki' },
+		{ id: 54, name: 'Fuchsia' },
+		{ id: 55, name: 'Mint' },
+		{ id: 56, name: 'Lilac' },
+		{ id: 57, name: 'Plum' },
+		{ id: 58, name: 'Cerulean' },
+		{ id: 59, name: 'Tangerine' }
+	]
+
 	useEffect(() => {
 		if (isVisible) {
 			setFormData(initialData || {})
@@ -90,11 +152,18 @@ const ListingModal = ({
 		}
 	}
 
-	const handleInputChange = (key: string, value: string | number | null) => {
+	const handleInputChange = (
+		key: string,
+		value: string | number | null,
+		customValue?: string
+	) => {
 		setFormData((prev: any) => {
 			const newData = { ...prev, [key]: value }
 			if (key === 'make' && !value) {
 				newData.model = null
+			}
+			if (key === 'color' && value === 'Other' && customValue) {
+				newData.color = customValue
 			}
 			return newData
 		})
@@ -293,11 +362,17 @@ const ListingModal = ({
 								<Picker.Item label='New' value='New' />
 								<Picker.Item label='Used' value='Used' />
 							</Picker>
-							<StyledTextInput
-								className='border border-gray-300 rounded p-2 mb-4'
-								placeholder='Color'
-								value={formData.color || ''}
-								onChangeText={text => handleInputChange('color', text)}
+							<SearchableDropdown
+								items={colors}
+								onItemSelect={item =>
+									handleInputChange('color', item ? item.name : null)
+								}
+								placeholder='Select Color'
+								selectedItem={
+									formData.model
+										? { id: formData.color, name: formData.color }
+										: undefined
+								}
 							/>
 							<Picker
 								selectedValue={formData.transmission || 'Automatic'}

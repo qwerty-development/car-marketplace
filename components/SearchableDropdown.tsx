@@ -16,7 +16,7 @@ const StyledTextInput = styled(TextInput)
 const StyledTouchableOpacity = styled(TouchableOpacity)
 
 interface Item {
-	id: string
+	id: string | number
 	name: string
 }
 
