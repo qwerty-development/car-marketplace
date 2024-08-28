@@ -4,14 +4,48 @@ import {
 	Text,
 	ScrollView,
 	TouchableOpacity,
-	TextInput
+	TextInput,
+	StatusBar
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import RNPickerSelect from 'react-native-picker-select'
 import { supabase } from '@/utils/supabase'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					paddingBottom: 14,
+					paddingHorizontal: 16
+				}}>
+				<TouchableOpacity onPress={onBack}>
+					<Ionicons name='arrow-back' size={24} color={iconColor} />
+				</TouchableOpacity>
+				<Text
+					style={{
+						marginLeft: 16,
+						fontSize: 18,
+						fontWeight: 'bold',
+						color: isDarkMode ? '#FFFFFF' : '#000000'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+}
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
@@ -143,7 +177,8 @@ const FilterPage = () => {
 	)
 
 	return (
-		<View className={`flex-1 pt-8 ${bgColor}`}>
+		<View className={`flex-1 ${bgColor}`}>
+			<CustomHeader title='Filters' onBack={() => router.back()} />
 			<Stack.Screen
 				options={{
 					presentation: 'modal',
