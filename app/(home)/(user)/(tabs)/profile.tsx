@@ -15,6 +15,7 @@ import { useUser, useAuth } from '@clerk/clerk-expo'
 import * as ImagePicker from 'expo-image-picker'
 import { Feather } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
+import ThemeSwitch from '@/components/ThemeSwitch'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
@@ -120,18 +121,16 @@ export default function UserProfileAndSupportPage() {
 						}`}>
 						Profile Information
 					</Text>
-					<Switch
-						value={isDarkMode}
-						onValueChange={toggleTheme}
-						trackColor={{ false: '#767577', true: '#D55004' }}
-						thumbColor={isDarkMode ? '#f4f3f4' : '#f4f3f4'}
-					/>
+					<ThemeSwitch />
 				</View>
 				<View
 					className={`${
 						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
 					} rounded-2xl shadow-md p-6 mb-8`}>
-					<Text className='text-sm font-semibold text-gray-400 mb-2'>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray'
+						} text-sm font-semibold mb-2`}>
 						First Name
 					</Text>
 					<TextInput
@@ -143,7 +142,10 @@ export default function UserProfileAndSupportPage() {
 						placeholder='First Name'
 						placeholderTextColor='gray'
 					/>
-					<Text className='text-sm font-semibold text-gray-400 mb-2'>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray'
+						} text-sm font-semibold mb-2`}>
 						Last Name
 					</Text>
 					<TextInput
@@ -155,7 +157,10 @@ export default function UserProfileAndSupportPage() {
 						placeholder='Last Name'
 						placeholderTextColor='gray'
 					/>
-					<Text className='text-sm font-semibold text-gray-400 mb-2'>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray'
+						} text-sm font-semibold mb-2`}>
 						Email
 					</Text>
 					<TextInput
@@ -233,9 +238,15 @@ export default function UserProfileAndSupportPage() {
 						} mb-4`}>
 						Support Hours
 					</Text>
-					<Text className='text-gray-400'>Monday - Friday: 9AM - 6PM</Text>
-					<Text className='text-gray-400'>Saturday: 10AM - 4PM</Text>
-					<Text className='text-gray-400'>Sunday: Closed</Text>
+					<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
+						Monday - Friday: 9AM - 6PM
+					</Text>
+					<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
+						Saturday: 10AM - 4PM
+					</Text>
+					<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
+						Sunday: Closed
+					</Text>
 				</View>
 
 				<TouchableOpacity
