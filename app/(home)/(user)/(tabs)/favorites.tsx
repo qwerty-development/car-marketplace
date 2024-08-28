@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { View, FlatList, Text } from 'react-native'
+import { View, FlatList, Text, ActivityIndicator } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
@@ -12,14 +12,13 @@ export default function FavoritesPage() {
 	const [favoriteCars, setFavoriteCars] = useState<any>([])
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState<boolean>(false)
+	const [isLoading, setIsLoading] = useState<boolean>(true)
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+	const textColor = isDarkMode ? 'text-white' : 'text-light-text'
 
 	const EmptyFavorites = () => (
 		<View className='flex-1 justify-center items-center'>
-			<Text
-				className={`text-xl font-bold ${
-					isDarkMode ? 'text-white' : 'text-light-text'
-				} mb-2`}>
+			<Text className={`text-xl font-bold ${textColor} mb-2`}>
 				No cars added as favorite
 			</Text>
 			<Text className='text-base text-gray-400'>
@@ -33,24 +32,28 @@ export default function FavoritesPage() {
 	}, [favorites])
 
 	const fetchFavoriteCars = async () => {
+		setIsLoading(true)
 		if (favorites.length === 0) {
 			setFavoriteCars([])
+			setIsLoading(false)
 			return
 		}
 
-		const { data, error } = await supabase
-			.from('cars')
-			.select(
-				`
-        *,
-        dealerships (name,logo,phone,location,latitude,longitude)
-      `
-			)
-			.in('id', favorites)
+		try {
+			const { data, error } = await supabase
+				.from('cars')
+				.select(
+					`
+          *,
+          dealerships (name,logo,phone,location,latitude,longitude)
+        `
+				)
+				.in('id', favorites)
 
-		if (error) {
-			console.error('Error fetching favorite cars:', error)
-		} else {
+			if (error) {
+				throw error
+			}
+
 			const carsData =
 				data?.map(item => ({
 					...item,
@@ -62,6 +65,10 @@ export default function FavoritesPage() {
 					dealership_longitude: item.dealerships.longitude
 				})) || []
 			setFavoriteCars(carsData)
+		} catch (error) {
+			console.error('Error fetching favorite cars:', error)
+		} finally {
+			setIsLoading(false)
 		}
 	}
 
@@ -106,6 +113,17 @@ export default function FavoritesPage() {
 		),
 		[handleCarPress, handleFavoritePress]
 	)
+
+	if (isLoading) {
+		return (
+			<View className={`flex-1 ${bgColor} justify-center items-center`}>
+				<ActivityIndicator
+					size='large'
+					color={isDarkMode ? '#ffffff' : '#000000'}
+				/>
+			</View>
+		)
+	}
 
 	return (
 		<View className={`flex-1 ${bgColor}`}>
