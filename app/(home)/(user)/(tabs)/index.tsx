@@ -1,15 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
-	Text,
 	FlatList,
 	TextInput,
 	TouchableOpacity,
-	ActivityIndicator,
-	Dimensions
+	ActivityIndicator
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '../CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
@@ -23,84 +20,40 @@ import { useTheme } from '@/utils/ThemeContext'
 
 const ITEMS_PER_PAGE = 7
 
-interface Car {
-	id: number
-	make: string
-	model: string
-	year: number
-	price: number
-	dealership_name: string
-	images: string[]
-	description: string
-	condition: 'New' | 'Used'
-	mileage: number
-	color: string
-	transmission: 'Manual' | 'Automatic'
-	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
-}
-
 export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
-	const { user } = useUser()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
-	const [cars, setCars] = useState<Car[]>([])
-	const [currentPage, setCurrentPage] = useState(1)
-	const [totalPages, setTotalPages] = useState(1)
-	const [isLoading, setIsLoading] = useState(false)
-	const [searchQuery, setSearchQuery] = useState('')
-	const [sortOption, setSortOption] = useState('')
-
-	const [filters, setFilters] = useState({
-		dealership: '',
-		make: '',
-		model: '',
-		condition: '',
-		priceRange: [0, 1000000],
-		mileageRange: [0, 500000],
-		year: '',
-		color: '',
-		transmission: '',
-		drivetrain: ''
-	})
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [cars, setCars] = useState<any>([])
+	const [currentPage, setCurrentPage] = useState<any>(1)
+	const [totalPages, setTotalPages] = useState<any>(1)
+	const [isLoading, setIsLoading] = useState<any>(false)
+	const [searchQuery, setSearchQuery] = useState<any>('')
+	const [sortOption, setSortOption] = useState<any>('')
+	const [filters, setFilters] = useState<any>({})
+	const [selectedCar, setSelectedCar] = useState<any>(null)
+	const [isModalVisible, setIsModalVisible] = useState<any>(false)
 
 	const router = useRouter()
 	const params = useLocalSearchParams()
 
-	const renderHeader = useMemo(() => {
-		return (
-			<View>
-				<ByBrands />
-				<Text
-					className={`${
-						isDarkMode ? 'text-white' : 'text-black'
-					} font-bold text-xl mt-4 mb-2 px-4`}>
-					All Cars
-				</Text>
-			</View>
-		)
-	}, [])
-	useEffect(() => {
-		fetchInitialData()
-	}, [])
-
 	useEffect(() => {
 		if (params.filters) {
-			const newFilters = JSON.parse(params.filters as string)
-			setFilters(newFilters)
-			fetchCars(1, newFilters)
+			try {
+				const parsedFilters = JSON.parse(params.filters as string)
+				setFilters(parsedFilters)
+				fetchCars(1, parsedFilters, sortOption, searchQuery)
+			} catch (error) {
+				console.error('Error parsing filters:', error)
+			}
+		} else {
+			fetchCars(1, {}, sortOption, searchQuery)
 		}
 	}, [params.filters])
-
-	const fetchInitialData = () => {
-		fetchCars()
-	}
 
 	const fetchCars = useCallback(
 		async (
 			page = 1,
-			currentFilters = filters,
+			currentFilters: any = filters,
 			currentSortOption = sortOption,
 			query = searchQuery
 		) => {
@@ -109,7 +62,7 @@ export default function BrowseCarsPage() {
 				`
       *,
       dealerships (name,logo,phone,location,latitude,longitude)
-      `,
+    `,
 				{ count: 'exact' }
 			)
 
@@ -125,8 +78,10 @@ export default function BrowseCarsPage() {
 				queryBuilder = queryBuilder.eq('model', currentFilters.model)
 			if (currentFilters.condition)
 				queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
-			if (currentFilters.year)
-				queryBuilder = queryBuilder.eq('year', currentFilters.year)
+			if (currentFilters.yearRange)
+				queryBuilder = queryBuilder
+					.gte('year', currentFilters.yearRange[0])
+					.lte('year', currentFilters.yearRange[1])
 			if (currentFilters.color)
 				queryBuilder = queryBuilder.eq('color', currentFilters.color)
 			if (currentFilters.transmission)
@@ -136,24 +91,18 @@ export default function BrowseCarsPage() {
 				)
 			if (currentFilters.drivetrain)
 				queryBuilder = queryBuilder.eq('drivetrain', currentFilters.drivetrain)
-
-			queryBuilder = queryBuilder
-				.gte('price', currentFilters.priceRange[0])
-				.lte('price', currentFilters.priceRange[1])
-			queryBuilder = queryBuilder
-				.gte('mileage', currentFilters.mileageRange[0])
-				.lte('mileage', currentFilters.mileageRange[1])
+			if (currentFilters.priceRange)
+				queryBuilder = queryBuilder
+					.gte('price', currentFilters.priceRange[0])
+					.lte('price', currentFilters.priceRange[1])
+			if (currentFilters.mileageRange)
+				queryBuilder = queryBuilder
+					.gte('mileage', currentFilters.mileageRange[0])
+					.lte('mileage', currentFilters.mileageRange[1])
 
 			if (query) {
-				const { data: dealershipIds } = await supabase
-					.from('dealerships')
-					.select('id')
-					.ilike('name', `%${query}%`)
-
 				queryBuilder = queryBuilder.or(
-					`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%,dealership_id.in.(${dealershipIds!
-						.map(d => d.id)
-						.join(',')})`
+					`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%`
 				)
 			}
 
@@ -181,16 +130,8 @@ export default function BrowseCarsPage() {
 					queryBuilder = queryBuilder.order('listed_at', { ascending: false })
 			}
 
-			// First, get the total count
-			const { count, error: countError } = await queryBuilder
+			const { count } = await queryBuilder
 
-			if (countError) {
-				console.error('Error fetching car count:', countError)
-				setIsLoading(false)
-				return
-			}
-
-			// Calculate the correct page and range
 			const totalItems = count || 0
 			const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 			const safePageNumber = Math.min(page, totalPages)
@@ -200,7 +141,6 @@ export default function BrowseCarsPage() {
 				totalItems - 1
 			)
 
-			// Fetch the actual data
 			const { data, error } = await queryBuilder.range(startRange, endRange)
 
 			if (error) {
@@ -214,10 +154,9 @@ export default function BrowseCarsPage() {
 						dealership_phone: item.dealerships.phone,
 						dealership_location: item.dealerships.location,
 						dealership_latitude: item.dealerships.latitude,
-						dealership_longitude: item.dealerships.longitude,
-						listed_at: item.listed_at
+						dealership_longitude: item.dealerships.longitude
 					})) || []
-				setCars(prevCars =>
+				setCars((prevCars: any) =>
 					safePageNumber === 1 ? newCars : [...prevCars, ...newCars]
 				)
 				setTotalPages(totalPages)
@@ -225,13 +164,13 @@ export default function BrowseCarsPage() {
 			}
 			setIsLoading(false)
 		},
-		[filters, sortOption]
+		[filters, sortOption, searchQuery]
 	)
 
-	const handleFavoritePress = async (carId: number) => {
+	const handleFavoritePress = async (carId: any) => {
 		const newLikesCount = await toggleFavorite(carId)
-		setCars(prevCars =>
-			prevCars.map(car =>
+		setCars((prevCars: any[]) =>
+			prevCars.map((car: { id: any }) =>
 				car.id === carId ? { ...car, likes: newLikesCount } : car
 			)
 		)
@@ -239,15 +178,16 @@ export default function BrowseCarsPage() {
 
 	const handleSortChange = (value: any) => {
 		setSortOption(value)
-		fetchCars(1, filters, value)
+		fetchCars(1, filters, value, searchQuery)
 	}
 
-	const handleCarPress = (car: Car) => {
+	const handleCarPress = (car: any) => {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}
+
 	const renderCarItem = useCallback(
-		({ item, index }: any) => (
+		({ item }: any) => (
 			<CarCard
 				car={item}
 				onPress={() => handleCarPress(item)}
@@ -265,24 +205,21 @@ export default function BrowseCarsPage() {
 		})
 	}
 
-	const handleViewUpdate = (carId: number, newViewCount: number) => {
-		setCars(prevCars =>
-			prevCars.map(car =>
+	const handleViewUpdate = (carId: any, newViewCount: any) => {
+		setCars((prevCars: any[]) =>
+			prevCars.map((car: { id: any }) =>
 				car.id === carId ? { ...car, views: newViewCount } : car
 			)
 		)
 	}
 
+	const handleSearch = () => {
+		fetchCars(1, filters, sortOption, searchQuery)
+	}
+
 	return (
 		<LinearGradient
-			colors={
-				isDarkMode
-					? [
-							'#000000', // Deep Black
-							'#D55004' // Classy Orange
-					  ]
-					: ['#FFFFFF', '#D55004']
-			}
+			colors={isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#D55004']}
 			style={{ flex: 1 }}
 			start={{ x: 1, y: 0.3 }}
 			end={{ x: 2, y: 1 }}>
@@ -355,24 +292,23 @@ export default function BrowseCarsPage() {
 				</View>
 
 				<FlatList
-					ListHeaderComponent={renderHeader}
+					ListHeaderComponent={<ByBrands />}
 					data={cars}
 					renderItem={renderCarItem}
-					extraData={cars}
-					keyExtractor={(item, index) => `${item.id}_${index}`}
-					showsVerticalScrollIndicator={false}
+					keyExtractor={item => item.id.toString()}
 					onEndReached={() => {
 						if (currentPage < totalPages && !isLoading) {
-							fetchCars(currentPage + 1)
+							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
 						}
 					}}
-					scrollEnabled={!isModalVisible}
 					onEndReachedThreshold={0.1}
 					ListFooterComponent={() =>
 						isLoading ? (
-							<View className='mb-16 mt-4'>
-								<ActivityIndicator size='large' color='#D55004' />
-							</View>
+							<ActivityIndicator
+								size='large'
+								color='#D55004'
+								style={{ marginVertical: 20 }}
+							/>
 						) : null
 					}
 				/>

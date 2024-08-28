@@ -1,101 +1,62 @@
-// (home)/(user)/filter.tsx
 import React, { useState, useEffect } from 'react'
 import {
 	View,
 	Text,
 	ScrollView,
 	TouchableOpacity,
-	Dimensions
+	TextInput
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import RNPickerSelect from 'react-native-picker-select'
-import Slider from '@react-native-community/slider'
 import { supabase } from '@/utils/supabase'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
-const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
 	const params = useLocalSearchParams()
-	const [filters, setFilters] = useState<any>(
-		JSON.parse(params.filters as string)
-	)
+	const [filters, setFilters] = useState<any>(() => {
+		try {
+			return JSON.parse(params.filters as string) || {}
+		} catch {
+			return {
+				dealership: '',
+				make: '',
+				model: '',
+				condition: '',
+				priceRange: [0, 1000000],
+				mileageRange: [0, 500000],
+				yearRange: [1900, new Date().getFullYear()],
+				color: '',
+				transmission: '',
+				drivetrain: ''
+			}
+		}
+	})
+
 	const [dealerships, setDealerships] = useState<any>([])
 	const [makes, setMakes] = useState<any>([])
 	const [models, setModels] = useState<any>([])
 	const [colors, setColors] = useState<any>([])
-	const [priceRange, setPriceRange] = useState<any>([0, 1000000])
-	const [mileageRange, setMileageRange] = useState<any>([0, 500000])
-
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const inputBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 	const buttonBgColor = isDarkMode ? 'bg-red' : 'bg-red'
 	const cancelBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-
-	const CustomRangeSlider = ({
-		minValue,
-		maxValue,
-		currentMin,
-		currentMax,
-		onValuesChange,
-		step,
-		formatLabel
-	}: any) => (
-		<View className='w-full'>
-			<View className='flex-row justify-between mb-2'>
-				<Text className={textColor}>{formatLabel(currentMin)}</Text>
-				<Text className={textColor}>{formatLabel(currentMax)}</Text>
-			</View>
-			<View className='flex-row justify-between'>
-				<Slider
-					style={{ width: SCREEN_WIDTH * 0.4 }}
-					minimumValue={minValue}
-					maximumValue={maxValue}
-					step={step}
-					value={currentMin}
-					onValueChange={value => onValuesChange([value, currentMax])}
-					minimumTrackTintColor='#D55004'
-					maximumTrackTintColor={`${isDarkMode ? '#FFFFFF' : '#000000'}`}
-					thumbTintColor='#D55004'
-				/>
-				<Slider
-					style={{ width: SCREEN_WIDTH * 0.4 }}
-					minimumValue={currentMin}
-					maximumValue={maxValue}
-					step={step}
-					value={currentMax}
-					onValueChange={value => onValuesChange([currentMin, value])}
-					minimumTrackTintColor='#D55004'
-					maximumTrackTintColor={`${isDarkMode ? '#FFFFFF' : '#000000'}`}
-					thumbTintColor='#D55004'
-				/>
-			</View>
-		</View>
-	)
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
 
-	const fetchInitialData = () => {
-		fetchDealerships()
-		fetchMakes()
-		fetchColors()
-		fetchPriceRange()
-		fetchMileageRange()
+	const fetchInitialData = async () => {
+		await Promise.all([fetchDealerships(), fetchMakes(), fetchColors()])
 	}
 
 	const fetchDealerships = async () => {
 		const { data, error } = await supabase
 			.from('dealerships')
 			.select('id, name')
-		if (error) {
-			console.error('Error fetching dealerships:', error)
-		} else {
-			setDealerships(data || [])
-		}
+		if (!error) setDealerships(data || [])
 	}
 
 	const fetchMakes = async () => {
@@ -103,26 +64,16 @@ const FilterPage = () => {
 			.from('cars')
 			.select('make')
 			.order('make')
-		if (error) {
-			console.error('Error fetching makes:', error)
-		} else {
-			const uniqueMakes = [...new Set(data?.map(item => item.make))]
-			setMakes(uniqueMakes)
-		}
+		if (!error) setMakes([...new Set(data?.map(item => item.make))])
 	}
 
-	const fetchModels = async (make: string) => {
+	const fetchModels = async (make: any) => {
 		const { data, error } = await supabase
 			.from('cars')
 			.select('model')
 			.eq('make', make)
 			.order('model')
-		if (error) {
-			console.error('Error fetching models:', error)
-		} else {
-			const uniqueModels = [...new Set(data?.map(item => item.model))]
-			setModels(uniqueModels)
-		}
+		if (!error) setModels([...new Set(data?.map(item => item.model))])
 	}
 
 	const fetchColors = async () => {
@@ -130,65 +81,22 @@ const FilterPage = () => {
 			.from('cars')
 			.select('color')
 			.order('color')
-		if (error) {
-			console.error('Error fetching colors:', error)
-		} else {
-			const uniqueColors = [...new Set(data?.map(item => item.color))]
-			setColors(uniqueColors)
-		}
+		if (!error) setColors([...new Set(data?.map(item => item.color))])
 	}
 
 	const clearFilters = () => {
-		const clearedFilters = {
+		setFilters({
 			dealership: '',
 			make: '',
 			model: '',
 			condition: '',
-			priceRange: [priceRange[0], priceRange[1]],
-			mileageRange: [mileageRange[0], mileageRange[1]],
-			year: '',
+			priceRange: [0, 1000000],
+			mileageRange: [0, 500000],
+			yearRange: [1900, new Date().getFullYear()],
 			color: '',
 			transmission: '',
 			drivetrain: ''
-		}
-		setFilters(clearedFilters)
-		// Apply the cleared filters immediately
-		router.push({
-			pathname: '/(home)/(user)',
-			params: { filters: JSON.stringify(clearedFilters) }
 		})
-	}
-	const fetchPriceRange = async () => {
-		const { data, error } = await supabase
-			.from('cars')
-			.select('price')
-			.order('price', { ascending: false })
-			.limit(1)
-
-		if (error) {
-			console.error('Error fetching price range:', error)
-		} else if (data && data.length > 0) {
-			setPriceRange([0, data[0].price])
-			setFilters((prev: any) => ({ ...prev, priceRange: [0, data[0].price] }))
-		}
-	}
-
-	const fetchMileageRange = async () => {
-		const { data, error } = await supabase
-			.from('cars')
-			.select('mileage')
-			.order('mileage', { ascending: false })
-			.limit(1)
-
-		if (error) {
-			console.error('Error fetching mileage range:', error)
-		} else if (data && data.length > 0) {
-			setMileageRange([0, data[0].mileage])
-			setFilters((prev: any) => ({
-				...prev,
-				mileageRange: [0, data[0].mileage]
-			}))
-		}
 	}
 
 	const applyFilters = () => {
@@ -197,6 +105,42 @@ const FilterPage = () => {
 			params: { filters: JSON.stringify(filters) }
 		})
 	}
+
+	const RangeInput = ({ label, min, max, value, onChange }: any) => (
+		<View>
+			<Text className={`font-semibold ${textColor} mb-2`}>{label}</Text>
+			<View className='flex-row justify-between'>
+				<TextInput
+					style={{
+						width: '48%',
+						padding: 10,
+						backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
+						color: isDarkMode ? 'white' : 'black',
+						borderRadius: 5
+					}}
+					keyboardType='numeric'
+					value={value[0].toString()}
+					onChangeText={text => onChange([parseInt(text) || min, value[1]])}
+					placeholder={`Min ${min}`}
+					placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
+				/>
+				<TextInput
+					style={{
+						width: '48%',
+						padding: 10,
+						backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
+						color: isDarkMode ? 'white' : 'black',
+						borderRadius: 5
+					}}
+					keyboardType='numeric'
+					value={value[1].toString()}
+					onChangeText={text => onChange([value[0], parseInt(text) || max])}
+					placeholder={`Max ${max}`}
+					placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
+				/>
+			</View>
+		</View>
+	)
 
 	return (
 		<View className={`flex-1 pt-8 ${bgColor}`}>
@@ -345,76 +289,35 @@ const FilterPage = () => {
 					</View>
 
 					{/* Price Range Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>
-							Price Range
-						</Text>
-						<CustomRangeSlider
-							minValue={priceRange[0]}
-							maxValue={priceRange[1]}
-							currentMin={filters.priceRange[0]}
-							currentMax={filters.priceRange[1]}
-							onValuesChange={(values: any) =>
-								setFilters({ ...filters, priceRange: values })
-							}
-							step={1000}
-							formatLabel={(value: { toLocaleString: () => any }) =>
-								`$${value.toLocaleString()}`
-							}
-							isDarkMode={isDarkMode}
-						/>
-					</View>
+					<RangeInput
+						label='Price Range'
+						min={0}
+						max={1000000}
+						value={filters.priceRange || [0, 1000000]}
+						onChange={(value: any) =>
+							setFilters({ ...filters, priceRange: value })
+						}
+					/>
 
-					{/* Mileage Range Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>
-							Mileage Range
-						</Text>
-						<CustomRangeSlider
-							minValue={mileageRange[0]}
-							maxValue={mileageRange[1]}
-							currentMin={filters.mileageRange[0]}
-							currentMax={filters.mileageRange[1]}
-							onValuesChange={(values: any) =>
-								setFilters({ ...filters, mileageRange: values })
-							}
-							step={1000}
-							formatLabel={(value: { toLocaleString: () => any }) =>
-								`${value.toLocaleString()} miles`
-							}
-							isDarkMode={isDarkMode}
-						/>
-					</View>
+					<RangeInput
+						label='Mileage Range'
+						min={0}
+						max={500000}
+						value={filters.mileageRange || [0, 500000]}
+						onChange={(value: any) =>
+							setFilters({ ...filters, mileageRange: value })
+						}
+					/>
 
-					{/* Year Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>Year</Text>
-						<RNPickerSelect
-							onValueChange={value => setFilters({ ...filters, year: value })}
-							value={filters.year}
-							items={Array.from({ length: 30 }, (_, i) => 2024 - i).map(
-								year => ({
-									label: year.toString(),
-									value: year.toString()
-								})
-							)}
-							placeholder={{ label: 'All Years', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
-								}
-							}}
-						/>
-					</View>
+					<RangeInput
+						label='Year Range'
+						min={1900}
+						max={new Date().getFullYear()}
+						value={filters.yearRange || [1900, new Date().getFullYear()]}
+						onChange={(value: any) =>
+							setFilters({ ...filters, yearRange: value })
+						}
+					/>
 
 					{/* Color Filter */}
 					<View>
