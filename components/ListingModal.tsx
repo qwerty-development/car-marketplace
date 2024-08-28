@@ -18,6 +18,8 @@ import { supabase } from '@/utils/supabase'
 import { Buffer } from 'buffer'
 import DraggableFlatList from 'react-native-draggable-flatlist'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import axios from 'axios'
+import SearchableDropdown from './SearchableDropdown'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -35,16 +37,67 @@ const ListingModal = ({
 	const [formData, setFormData] = useState(initialData || {})
 	const [modalImages, setModalImages] = useState(initialData?.images || [])
 	const [isUploading, setIsUploading] = useState(false)
+	const [makes, setMakes] = useState([])
+	const [models, setModels] = useState([])
 
 	useEffect(() => {
 		if (isVisible) {
 			setFormData(initialData || {})
 			setModalImages(initialData?.images || [])
+			fetchMakes()
 		}
 	}, [isVisible, initialData])
 
-	const handleInputChange = (key: string, value: string | number) => {
-		setFormData((prev: any) => ({ ...prev, [key]: value }))
+	useEffect(() => {
+		if (formData.make) {
+			fetchModels(formData.make)
+		} else {
+			setModels([])
+		}
+	}, [formData.make])
+
+	const fetchMakes = async () => {
+		try {
+			const response = await axios.get(
+				'https://www.carqueryapi.com/api/0.3/?cmd=getMakes'
+			)
+			const makesData = response.data.Makes.map(
+				(make: { make_id: any; make_display: any }) => ({
+					id: make.make_id,
+					name: make.make_display
+				})
+			)
+			setMakes(makesData)
+		} catch (error) {
+			console.error('Error fetching makes:', error)
+		}
+	}
+
+	const fetchModels = async (make: string) => {
+		try {
+			const response = await axios.get(
+				`https://www.carqueryapi.com/api/0.3/?cmd=getModels&make=${make}`
+			)
+			const modelsData = response.data.Models.map(
+				(model: { model_name: any }) => ({
+					id: model.model_name,
+					name: model.model_name
+				})
+			)
+			setModels(modelsData)
+		} catch (error) {
+			console.error('Error fetching models:', error)
+		}
+	}
+
+	const handleInputChange = (key: string, value: string | number | null) => {
+		setFormData((prev: any) => {
+			const newData = { ...prev, [key]: value }
+			if (key === 'make' && !value) {
+				newData.model = null
+			}
+			return newData
+		})
 	}
 
 	const pickImage = async () => {
@@ -171,17 +224,30 @@ const ListingModal = ({
 								{initialData ? 'Edit Listing' : 'Create New Listing'}
 							</StyledText>
 
-							<StyledTextInput
-								className='border border-gray-300 rounded p-2 mb-4'
-								placeholder='Make'
-								value={formData.make || ''}
-								onChangeText={text => handleInputChange('make', text)}
+							<SearchableDropdown
+								items={makes}
+								onItemSelect={item =>
+									handleInputChange('make', item ? item.name : null)
+								}
+								placeholder='Select Make'
+								selectedItem={
+									formData.make
+										? { id: formData.make, name: formData.make }
+										: undefined
+								}
 							/>
-							<StyledTextInput
-								className='border border-gray-300 rounded p-2 mb-4'
-								placeholder='Model'
-								value={formData.model || ''}
-								onChangeText={text => handleInputChange('model', text)}
+
+							<SearchableDropdown
+								items={models}
+								onItemSelect={item =>
+									handleInputChange('model', item ? item.name : null)
+								}
+								placeholder='Select Model'
+								selectedItem={
+									formData.model
+										? { id: formData.model, name: formData.model }
+										: undefined
+								}
 							/>
 							<StyledTextInput
 								className='border border-gray-300 rounded p-2 mb-4'
