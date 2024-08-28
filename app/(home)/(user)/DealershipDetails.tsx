@@ -62,7 +62,13 @@ const CustomHeader = ({ title, onBack }: any) => {
 			edges={['top']}
 			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 14, paddingHorizontal:16 }}>
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					paddingBottom: 14,
+					paddingHorizontal: 16
+				}}>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
@@ -88,6 +94,8 @@ export default function DealershipDetails() {
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [cars, setCars] = useState<Car[]>([])
 	const [isLoading, setIsLoading] = useState(true)
+	const [isDealershipLoading, setIsDealershipLoading] = useState(true)
+	const [isCarsLoading, setIsCarsLoading] = useState(true)
 	const [isRefreshing, setIsRefreshing] = useState(false)
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
@@ -135,6 +143,7 @@ export default function DealershipDetails() {
 		}
 	})
 	const fetchDealershipDetails = async () => {
+		setIsDealershipLoading(true)
 		const { data, error } = await supabase
 			.from('dealerships')
 			.select('*')
@@ -146,13 +155,14 @@ export default function DealershipDetails() {
 		} else {
 			setDealership(data)
 		}
+		setIsDealershipLoading(false)
 	}
 
 	const fetchDealershipCars = async (page = 1, refresh = false) => {
 		if (refresh) {
 			setIsRefreshing(true)
 		} else {
-			setIsLoading(true)
+			setIsCarsLoading(true)
 		}
 
 		let query = supabase
@@ -183,7 +193,7 @@ export default function DealershipDetails() {
 			setCurrentPage(page)
 		}
 
-		setIsLoading(false)
+		setIsCarsLoading(false)
 		setIsRefreshing(false)
 	}
 
@@ -246,7 +256,7 @@ export default function DealershipDetails() {
 	}
 
 	const handleLoadMore = () => {
-		if (currentPage < totalPages && !isLoading) {
+		if (currentPage < totalPages && !isCarsLoading) {
 			fetchDealershipCars(currentPage + 1)
 		}
 	}
@@ -302,7 +312,7 @@ export default function DealershipDetails() {
 		extrapolate: 'clamp'
 	})
 
-	if (isLoading && cars.length === 0) {
+	if (isDealershipLoading || (isCarsLoading && cars.length === 0)) {
 		return (
 			<View
 				className={`flex-1 justify-center items-center ${
@@ -393,15 +403,6 @@ export default function DealershipDetails() {
 								onSubmitEditing={handleSearch}
 							/>
 							<View className='flex-row justify-between mb-4'>
-								<View className='flex-1 mr-2'>
-									<RNPickerSelect
-										onValueChange={handleMakeFilter}
-										items={makes.map(make => ({ label: make, value: make }))}
-										placeholder={{ label: 'All Makes', value: null }}
-										value={filterMake}
-										style={pickerSelectStyles(isDarkMode)}
-									/>
-								</View>
 								<View className='flex-1 ml-2'>
 									<RNPickerSelect
 										onValueChange={handleModelFilter}
@@ -452,7 +453,7 @@ export default function DealershipDetails() {
 					</>
 				}
 				ListFooterComponent={() =>
-					isLoading ? (
+					isCarsLoading ? (
 						<View className='py-4'>
 							<ActivityIndicator size='large' color='#D55004' />
 						</View>
