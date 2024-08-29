@@ -69,7 +69,9 @@ export default function BrowseCarsPage() {
       dealerships (name,logo,phone,location,latitude,longitude)
     `,
 				{ count: 'exact' }
+				
 			)
+			.neq('status','sold')
 
 			// Apply filters
 			if (currentFilters.dealership)
