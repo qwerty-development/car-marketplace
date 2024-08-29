@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { View, FlatList, Text, ActivityIndicator } from 'react-native'
+import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 
 export default function FavoritesPage() {
 	const { isDarkMode } = useTheme()
+	const router = useRouter()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [favoriteCars, setFavoriteCars] = useState<any>([])
-	const [selectedCar, setSelectedCar] = useState<any>(null)
-	const [isModalVisible, setIsModalVisible] = useState<boolean>(false)
 	const [isLoading, setIsLoading] = useState<boolean>(true)
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-light-text'
@@ -27,11 +27,7 @@ export default function FavoritesPage() {
 		</View>
 	)
 
-	useEffect(() => {
-		fetchFavoriteCars()
-	}, [favorites])
-
-	const fetchFavoriteCars = async () => {
+	const fetchFavoriteCars = useCallback(async () => {
 		setIsLoading(true)
 		if (favorites.length === 0) {
 			setFavoriteCars([])
@@ -70,36 +66,33 @@ export default function FavoritesPage() {
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [favorites])
+
+	useFocusEffect(
+		useCallback(() => {
+			fetchFavoriteCars()
+		}, [fetchFavoriteCars])
+	)
 
 	const handleFavoritePress = useCallback(
 		async (carId: number) => {
-			const newLikesCount = await toggleFavorite(carId)
-			setFavoriteCars((prevCars: any[]) =>
-				prevCars
-					.map((car: { id: number }) =>
-						car.id === carId ? { ...car, likes: newLikesCount } : car
-					)
-					.filter((car: { id: number }) => isFavorite(car.id))
-			)
+			await toggleFavorite(carId)
+			fetchFavoriteCars()
 		},
-		[toggleFavorite, isFavorite]
+		[toggleFavorite, fetchFavoriteCars]
 	)
 
-	const handleCarPress = useCallback((car: any) => {
-		setSelectedCar(car)
-		setIsModalVisible(true)
-	}, [])
-
-	const handleViewUpdate = useCallback(
-		(carId: number, newViewCount: number) => {
-			setFavoriteCars((prevCars: any[]) =>
-				prevCars.map((car: { id: number }) =>
-					car.id === carId ? { ...car, views: newViewCount } : car
-				)
-			)
+	const handleCarPress = useCallback(
+		(car: any) => {
+			router.push({
+				pathname: '/CarDetailModal',
+				params: {
+					car: JSON.stringify(car),
+					isFavorite: 'true'
+				}
+			})
 		},
-		[]
+		[router]
 	)
 
 	const renderCarItem = useCallback(
@@ -137,18 +130,6 @@ export default function FavoritesPage() {
 			) : (
 				<EmptyFavorites />
 			)}
-			<CarDetailModal
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={true}
-				onViewUpdate={handleViewUpdate}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-			/>
 		</View>
 	)
 }
