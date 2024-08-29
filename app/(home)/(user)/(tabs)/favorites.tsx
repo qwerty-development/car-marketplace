@@ -18,29 +18,30 @@ import { router } from 'expo-router'
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
-	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	return (
 		<SafeAreaView
 			edges={['top']}
-			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+			style={{
+				backgroundColor: isDarkMode ? 'black' : 'white',
+				borderBottomWidth: 0,
+				borderBottomColor: '#D55004',
+				borderTopWidth: 0,
+				borderWidth: 0,
+				borderColor: '#D55004'
+			}}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View
 				style={{
 					flexDirection: 'row',
 					alignItems: 'center',
-					paddingBottom: 14,
 					paddingHorizontal: 16
 				}}>
-				<TouchableOpacity onPress={onBack}>
-					<Ionicons name='arrow-back' size={24} color={iconColor} />
-				</TouchableOpacity>
 				<Text
 					style={{
-						marginLeft: 16,
 						fontSize: 18,
-						fontWeight: 'bold',
-						color: isDarkMode ? '#FFFFFF' : '#000000'
+
+						color: '#D55004'
 					}}>
 					{title}
 				</Text>

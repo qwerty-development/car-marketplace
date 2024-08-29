@@ -62,7 +62,8 @@ export default function TabLayout() {
 					tabBarIcon: ({ color, size }) => (
 						<Ionicons name='business-outline' size={size} color={color} />
 					),
-					headerTitle: 'Dealerships'
+					headerTitle: 'Dealerships',
+					headerShown: false
 				}}
 			/>
 			<Tabs.Screen

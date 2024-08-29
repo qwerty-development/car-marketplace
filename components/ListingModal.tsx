@@ -38,8 +38,8 @@ const ListingModal = ({
 	const [formData, setFormData] = useState(initialData || {})
 	const [modalImages, setModalImages] = useState(initialData?.images || [])
 	const [isUploading, setIsUploading] = useState(false)
-	const [makes, setMakes] = useState([])
-	const [models, setModels] = useState([])
+	const [makes, setMakes] = useState<any>([])
+	const [models, setModels] = useState<any>([])
 
 	const colors = [
 		{ id: 1, name: 'Red' },
@@ -360,7 +360,7 @@ const ListingModal = ({
 									borderWidth: 0.5,
 									borderRadius: 8,
 									paddingHorizontal: 8,
-									marginBottom: 16,
+									marginBottom: 16
 								}}
 								placeholderStyle={{ fontSize: 16 }}
 								selectedTextStyle={{ fontSize: 16 }}
@@ -368,13 +368,13 @@ const ListingModal = ({
 								data={[
 									{ label: 'Available', value: 'available' },
 									{ label: 'Pending', value: 'pending' },
-									{ label: 'Sold', value: 'sold' },
+									{ label: 'Sold', value: 'sold' }
 								]}
 								maxHeight={300}
-								labelField="label"
-								valueField="value"
-								placeholder="Select Status"
-								searchPlaceholder="Search..."
+								labelField='label'
+								valueField='value'
+								placeholder='Select Status'
+								searchPlaceholder='Search...'
 								value={formData.status}
 								onChange={item => handleInputChange('status', item.value)}
 							/>
@@ -386,20 +386,20 @@ const ListingModal = ({
 									borderWidth: 0.5,
 									borderRadius: 8,
 									paddingHorizontal: 8,
-									marginBottom: 16,
+									marginBottom: 16
 								}}
 								placeholderStyle={{ fontSize: 16 }}
 								selectedTextStyle={{ fontSize: 16 }}
 								inputSearchStyle={{ height: 40, fontSize: 16 }}
 								data={[
 									{ label: 'New', value: 'New' },
-									{ label: 'Used', value: 'Used' },
+									{ label: 'Used', value: 'Used' }
 								]}
 								maxHeight={300}
-								labelField="label"
-								valueField="value"
-								placeholder="Select Condition"
-								searchPlaceholder="Search..."
+								labelField='label'
+								valueField='value'
+								placeholder='Select Condition'
+								searchPlaceholder='Search...'
 								value={formData.condition}
 								onChange={item => handleInputChange('condition', item.value)}
 							/>
@@ -424,20 +424,20 @@ const ListingModal = ({
 									borderWidth: 0.5,
 									borderRadius: 8,
 									paddingHorizontal: 8,
-									marginBottom: 16,
+									marginBottom: 16
 								}}
 								placeholderStyle={{ fontSize: 16 }}
 								selectedTextStyle={{ fontSize: 16 }}
 								inputSearchStyle={{ height: 40, fontSize: 16 }}
 								data={[
 									{ label: 'Automatic', value: 'Automatic' },
-									{ label: 'Manual', value: 'Manual' },
+									{ label: 'Manual', value: 'Manual' }
 								]}
 								maxHeight={300}
-								labelField="label"
-								valueField="value"
-								placeholder="Select Transmission"
-								searchPlaceholder="Search..."
+								labelField='label'
+								valueField='value'
+								placeholder='Select Transmission'
+								searchPlaceholder='Search...'
 								value={formData.transmission}
 								onChange={item => handleInputChange('transmission', item.value)}
 							/>
@@ -449,7 +449,7 @@ const ListingModal = ({
 									borderWidth: 0.5,
 									borderRadius: 8,
 									paddingHorizontal: 8,
-									marginBottom: 16,
+									marginBottom: 16
 								}}
 								placeholderStyle={{ fontSize: 16 }}
 								selectedTextStyle={{ fontSize: 16 }}
@@ -459,13 +459,13 @@ const ListingModal = ({
 									{ label: 'RWD', value: 'RWD' },
 									{ label: 'AWD', value: 'AWD' },
 									{ label: '4WD', value: '4WD' },
-									{ label: '4x4', value: '4x4' },
+									{ label: '4x4', value: '4x4' }
 								]}
 								maxHeight={300}
-								labelField="label"
-								valueField="value"
-								placeholder="Select Drivetrain"
-								searchPlaceholder="Search..."
+								labelField='label'
+								valueField='value'
+								placeholder='Select Drivetrain'
+								searchPlaceholder='Search...'
 								value={formData.drivetrain}
 								onChange={item => handleInputChange('drivetrain', item.value)}
 							/>
@@ -477,7 +477,7 @@ const ListingModal = ({
 									borderWidth: 0.5,
 									borderRadius: 8,
 									paddingHorizontal: 8,
-									marginBottom: 16,
+									marginBottom: 16
 								}}
 								placeholderStyle={{ fontSize: 16 }}
 								selectedTextStyle={{ fontSize: 16 }}
@@ -486,13 +486,13 @@ const ListingModal = ({
 									{ label: 'Benzine', value: 'Benzine' },
 									{ label: 'Diesel', value: 'Diesel' },
 									{ label: 'Electric', value: 'Electric' },
-									{ label: 'Hybrid', value: 'Hybrid' },
+									{ label: 'Hybrid', value: 'Hybrid' }
 								]}
 								maxHeight={300}
-								labelField="label"
-								valueField="value"
-								placeholder="Select Type"
-								searchPlaceholder="Search..."
+								labelField='label'
+								valueField='value'
+								placeholder='Select Type'
+								searchPlaceholder='Search...'
 								value={formData.type}
 								onChange={item => handleInputChange('type', item.value)}
 							/>

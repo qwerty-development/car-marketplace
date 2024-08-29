@@ -7,18 +7,54 @@ import {
 	TextInput,
 	SectionList,
 	SectionListData,
-	Alert
+	Alert,
+	StatusBar
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useNavigation } from '@react-navigation/native'
 import { FontAwesome } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 interface Dealership {
 	id: number
 	name: string
 	logo: string
+}
+
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{
+				backgroundColor: isDarkMode ? 'black' : 'white',
+				borderBottomWidth: 0,
+				borderBottomColor: '#D55004',
+				borderTopWidth: 0,
+				borderWidth: 0,
+				borderColor: '#D55004'
+			}}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					paddingHorizontal: 16
+				}}>
+				<Text
+					style={{
+						fontSize: 18,
+
+						color: '#D55004'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
 }
 
 export default function DealershipListPage() {
@@ -87,8 +123,6 @@ export default function DealershipListPage() {
 		})
 	}
 
-
-
 	const renderDealershipItem = ({ item }: { item: Dealership }) => (
 		<TouchableOpacity
 			className={`flex-row items-center py-4 border-b ${borderColor}`}
@@ -110,6 +144,7 @@ export default function DealershipListPage() {
 
 	return (
 		<View className={`flex-1 ${bgColor}`}>
+			<CustomHeader title='Dealerships' onBack={() => router.back()} />
 			<View
 				className={`border mt-4 mx-3 z-50 border-red rounded-full flex-row items-center ${inputBgColor}`}>
 				<FontAwesome
