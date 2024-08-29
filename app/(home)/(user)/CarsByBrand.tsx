@@ -30,7 +30,13 @@ const CustomHeader = ({ title, onBack }: any) => {
 			edges={['top']}
 			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 14, paddingHorizontal:16 }}>
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					paddingBottom: 14,
+					paddingHorizontal: 16
+				}}>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
@@ -90,8 +96,6 @@ export default function CarsByBrand() {
 		}
 		setIsLoading(false)
 	}, [])
-
-	
 
 	useEffect(() => {
 		if (brand) {
@@ -160,9 +164,8 @@ export default function CarsByBrand() {
 	)
 
 	return (
-		
 		<View className={`flex-1 ${bgColor}`}>
-			<CustomHeader title={brand} onBack={()=>router.back()}/>
+			<CustomHeader title={brand} onBack={() => router.back()} />
 			{memoizedHeader}
 			{isLoading ? (
 				<ActivityIndicator

@@ -37,9 +37,9 @@ export default function BrowseCarsPage() {
 	const params = useLocalSearchParams()
 
 	const handleCloseModal = () => {
-		setIsModalVisible(false);
-		console.log('modal closed');
-	  };
+		setIsModalVisible(false)
+		console.log('modal closed')
+	}
 
 	useEffect(() => {
 		if (params.filters) {
@@ -63,15 +63,16 @@ export default function BrowseCarsPage() {
 			query = searchQuery
 		) => {
 			setIsLoading(true)
-			let queryBuilder = supabase.from('cars').select(
-				`
+			let queryBuilder = supabase
+				.from('cars')
+				.select(
+					`
       *,
       dealerships (name,logo,phone,location,latitude,longitude)
     `,
-				{ count: 'exact' }
-				
-			)
-			.neq('status','sold')
+					{ count: 'exact' }
+				)
+				.neq('status', 'sold')
 
 			// Apply filters
 			if (currentFilters.dealership)
@@ -235,8 +236,9 @@ export default function BrowseCarsPage() {
 				<View className='p-4 rounded-full'>
 					<View className='flex-row items-center justify-between'>
 						<TouchableOpacity
-							className={`${isDarkMode ? 'bg-red' : 'bg-light-accent'
-								} p-3 rounded-full`}
+							className={`${
+								isDarkMode ? 'bg-red' : 'bg-light-accent'
+							} p-3 rounded-full`}
 							onPress={openFilterPage}>
 							<FontAwesome
 								name='filter'
@@ -245,11 +247,13 @@ export default function BrowseCarsPage() {
 							/>
 						</TouchableOpacity>
 						<View
-							className={`flex-grow mx-2 border ${isDarkMode ? 'border-red' : 'border-light-accent'
-								} rounded-full flex-row items-center`}>
+							className={`flex-grow mx-2 border ${
+								isDarkMode ? 'border-red' : 'border-light-accent'
+							} rounded-full flex-row items-center`}>
 							<TouchableOpacity
-								className={`${isDarkMode ? 'bg-red' : 'bg-light-accent'
-									} p-3 rounded-full`}
+								className={`${
+									isDarkMode ? 'bg-red' : 'bg-light-accent'
+								} p-3 rounded-full`}
 								onPress={() => fetchCars(1, filters, sortOption, searchQuery)}>
 								<FontAwesome
 									name='search'
@@ -258,8 +262,9 @@ export default function BrowseCarsPage() {
 								/>
 							</TouchableOpacity>
 							<TextInput
-								className={`py-2 ${isDarkMode ? 'text-white' : 'text-light-text'
-									} ml-4 justify-center`}
+								className={`py-2 ${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								} ml-4 justify-center`}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
 								value={searchQuery}
@@ -320,9 +325,9 @@ export default function BrowseCarsPage() {
 					isVisible={isModalVisible}
 					car={selectedCar}
 					onClose={() => {
-						setIsModalVisible(false);
-						setSelectedCar(null);
-					  }}
+						setIsModalVisible(false)
+						setSelectedCar(null)
+					}}
 					setSelectedCar={setSelectedCar}
 					setIsModalVisible={setIsModalVisible}
 					onFavoritePress={() =>
