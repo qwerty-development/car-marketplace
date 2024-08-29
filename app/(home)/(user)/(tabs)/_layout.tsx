@@ -71,7 +71,8 @@ export default function TabLayout() {
 					tabBarIcon: ({ color, size }) => (
 						<Ionicons name='heart-outline' size={size} color={color} />
 					),
-					headerTitle: 'Favorites'
+					headerTitle: 'Favorites',
+					headerShown: false
 				}}
 			/>
 			<Tabs.Screen
