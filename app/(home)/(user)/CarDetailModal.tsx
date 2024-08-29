@@ -229,259 +229,284 @@ export default function CarDetailModal() {
 	)
 
 	return (
-		<LinearGradient
-			colors={isDarkMode ? ['#333', '#222', '#111'] : ['#FFFFFF', '#F5F5F5']}
-			className='flex-1'>
+		<View style={{ flex: 1 }}>
 			<Stack.Screen
 				options={{
 					headerLeft: () => (
 						<TouchableOpacity onPress={() => router.back()}>
-							<Ionicons
-								name='arrow-back'
-								size={24}
-								color={isDarkMode ? 'white' : 'black'}
-							/>
+							<Ionicons name='arrow-back' size={24} color='#D55004' />
 						</TouchableOpacity>
-					)
+					),
+					headerTitle: `${car.year} ${car.make} ${car.model}`,
+					headerTitleStyle: { color: isDarkMode ? 'white' : 'black' },
+					headerStyle: {
+						backgroundColor: isDarkMode ? '#333' : '#FFFFFF'
+					}
 				}}
 			/>
-			<ScrollView className='flex-1' ref={scrollViewRef}>
-				<FlatList
-					data={car.images}
-					renderItem={({ item }) => (
-						<Image
-							source={{ uri: item }}
-							style={{ width, height: 300 }}
-							contentFit='cover'
-						/>
-					)}
-					keyExtractor={(item, index) => index.toString()}
-					horizontal
-					pagingEnabled
-					showsHorizontalScrollIndicator={false}
-				/>
-				<View className='p-4 mb-24'>
-					<Text
-						className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						{car.year} {car.make} {car.model}
-					</Text>
-					<Text className='text-xl font-extrabold text-red mt-2'>
-						${car.price.toLocaleString()}
-					</Text>
-					<View className='flex-row justify-between mt-4 mb-4'>
+			<LinearGradient
+				colors={isDarkMode ? ['#333', '#222', '#111'] : ['#FFFFFF', '#F5F5F5']}
+				style={{ flex: 1 }}>
+				<ScrollView
+					ref={scrollViewRef}
+					contentContainerStyle={{ paddingBottom: 80 }}
+					showsVerticalScrollIndicator={false}>
+					<FlatList
+						data={car.images}
+						renderItem={({ item }) => (
+							<Image
+								source={{ uri: item }}
+								style={{ width, height: 300 }}
+								contentFit='cover'
+							/>
+						)}
+						keyExtractor={(item, index) => index.toString()}
+						horizontal
+						pagingEnabled
+						showsHorizontalScrollIndicator={false}
+					/>
+					<View className='p-4'>
 						<Text
-							className={`text-l ${isDarkMode ? 'text-white' : 'text-black'}`}>
-							Views: {car.views || 0}
+							className={`text-2xl ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							{car.year} {car.make} {car.model}
+						</Text>
+						<Text className='text-xl font-extrabold text-red mt-2'>
+							${car.price.toLocaleString()}
+						</Text>
+
+						<View className='flex-row justify-between mt-4 mb-4'>
+							<Text
+								className={`text-l ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Views: {car.views || 0}
+							</Text>
+							<Text
+								className={`text-l ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Likes: {car.likes || 0}
+							</Text>
+						</View>
+
+						<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+							<View
+								style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+							/>
+							<View
+								style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+							/>
+						</View>
+						<Text
+							className={`text-s mt-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							} font-bold text-l mb-3`}>
+							Description
 						</Text>
 						<Text
-							className={`text-l ${isDarkMode ? 'text-white' : 'text-black'}`}>
-							Likes: {car.likes || 0}
+							className={`text-s mb-4 font-light ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							{car.description}
 						</Text>
-					</View>
 
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
-						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
-					</View>
-					<Text
-						className={`text-s mt-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} font-bold text-l mb-3`}>
-						Description
-					</Text>
-					<Text
-						className={`text-s mb-4 font-light ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						{car.description}
-					</Text>
+						<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+							<View
+								style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+							/>
+							<View
+								style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+							/>
+						</View>
 
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
-						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
-					</View>
+						<Text
+							className={`text-l mt-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							} mb-3 font-bold`}>
+							Technical Data
+						</Text>
+						<View
+							className={`mb-6 mt-3 border ${
+								isDarkMode ? 'border-white' : 'border-black'
+							} rounded-lg`}>
+							<View
+								className={`flex-row p-2 border-b ${
+									isDarkMode ? 'border-white' : 'border-black'
+								} justify-between py-2`}>
+								<Text
+									className={`text-l ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold`}>
+									Mileage
+								</Text>
+								<Text className='text-l' style={{ color: '#D55004' }}>
+									{`${car.mileage.toLocaleString()} km`}
+								</Text>
+							</View>
+							<View
+								className={`flex-row p-2 border-b ${
+									isDarkMode ? 'border-white' : 'border-black'
+								} justify-between py-2`}>
+								<Text
+									className={`text-l ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold`}>
+									Transmission
+								</Text>
+								<Text className='text-l' style={{ color: '#D55004' }}>
+									{car.transmission}
+								</Text>
+							</View>
+							<View
+								className={`flex-row p-2 border-b ${
+									isDarkMode ? 'border-white' : 'border-black'
+								} justify-between py-2`}>
+								<Text
+									className={`text-l ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold`}>
+									Condition
+								</Text>
+								<Text className='text-l' style={{ color: '#D55004' }}>
+									{car.condition}
+								</Text>
+							</View>
+							<View
+								className={`flex-row p-2 border-b ${
+									isDarkMode ? 'border-white' : 'border-black'
+								} justify-between py-2`}>
+								<Text
+									className={`text-l ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold`}>
+									Color
+								</Text>
+								<Text className='text-l' style={{ color: '#D55004' }}>
+									{car.color}
+								</Text>
+							</View>
+							<View
+								className={`flex-row p-2 border-b ${
+									isDarkMode ? 'border-white' : 'border-black'
+								} justify-between py-2`}>
+								<Text
+									className={`text-l ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold`}>
+									Drive Train
+								</Text>
+								<Text className='text-l' style={{ color: '#D55004' }}>
+									{car.drivetrain}
+								</Text>
+							</View>
+						</View>
 
-					<Text
-						className={`text-l mt-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mb-3 font-bold`}>
-						Technical Data
-					</Text>
-					<View
-						className={`mb-6 mt-3 border ${
-							isDarkMode ? 'border-white' : 'border-black'
-						} rounded-lg`}>
-						<View
-							className={`flex-row p-2 border-b ${
-								isDarkMode ? 'border-white' : 'border-black'
-							} justify-between py-2`}>
+						<TouchableOpacity
+							className={`flex-row items-center justify-center ${
+								isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+							} p-3 rounded-lg mb-6`}
+							onPress={handleFavoritePress}>
+							<Ionicons
+								name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
+								size={24}
+								color={
+									isFavorite(car.id) ? 'red' : isDarkMode ? 'white' : 'black'
+								}
+							/>
 							<Text
-								className={`text-l ${
+								className={`text-lg font-bold ${
 									isDarkMode ? 'text-white' : 'text-black'
-								} font-bold`}>
-								Mileage
+								} ml-3`}>
+								{isFavorite(car.id) ? 'Unlike' : 'Like'}
 							</Text>
-							<Text className='text-l' style={{ color: '#D55004' }}>
-								{`${car.mileage.toLocaleString()} km`}
-							</Text>
-						</View>
-						<View
-							className={`flex-row p-2 border-b ${
-								isDarkMode ? 'border-white' : 'border-black'
-							} justify-between py-2`}>
-							<Text
-								className={`text-l ${
-									isDarkMode ? 'text-white' : 'text-black'
-								} font-bold`}>
-								Transmission
-							</Text>
-							<Text className='text-l' style={{ color: '#D55004' }}>
-								{car.transmission}
-							</Text>
-						</View>
-						<View
-							className={`flex-row p-2 border-b ${
-								isDarkMode ? 'border-white' : 'border-black'
-							} justify-between py-2`}>
-							<Text
-								className={`text-l ${
-									isDarkMode ? 'text-white' : 'text-black'
-								} font-bold`}>
-								Condition
-							</Text>
-							<Text className='text-l' style={{ color: '#D55004' }}>
-								{car.condition}
-							</Text>
-						</View>
-						<View
-							className={`flex-row p-2 border-b ${
-								isDarkMode ? 'border-white' : 'border-black'
-							} justify-between py-2`}>
-							<Text
-								className={`text-l ${
-									isDarkMode ? 'text-white' : 'text-black'
-								} font-bold`}>
-								Color
-							</Text>
-							<Text className='text-l' style={{ color: '#D55004' }}>
-								{car.color}
-							</Text>
-						</View>
-						<View
-							className={`flex-row p-2 border-b ${
-								isDarkMode ? 'border-white' : 'border-black'
-							} justify-between py-2`}>
-							<Text
-								className={`text-l ${
-									isDarkMode ? 'text-white' : 'text-black'
-								} font-bold`}>
-								Drive Train
-							</Text>
-							<Text className='text-l' style={{ color: '#D55004' }}>
-								{car.drivetrain}
-							</Text>
-						</View>
-					</View>
+						</TouchableOpacity>
 
-					<TouchableOpacity
-						className={`flex-row items-center justify-center ${
-							isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-						} p-3 rounded-lg mb-6`}
-						onPress={handleFavoritePress}>
-						<Ionicons
-							name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
-							size={24}
-							color={
-								isFavorite(car.id) ? 'red' : isDarkMode ? 'white' : 'black'
-							}
-						/>
+						<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+							<View
+								style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+							/>
+							<View
+								style={{ flex: 1, height: 1, backgroundColor: '#D55004' }}
+							/>
+						</View>
+
 						<Text
 							className={`text-lg font-bold ${
 								isDarkMode ? 'text-white' : 'text-black'
-							} ml-3`}>
-							{isFavorite(car.id) ? 'Unlike' : 'Like'}
+							} mt-2 mb-2`}>
+							Dealer Information
 						</Text>
-					</TouchableOpacity>
+						<View className='border-t border-gray-600 pt-4'>
+							<View className='items-center'>
+								{car.dealership_logo && (
+									<TouchableOpacity onPress={handleDealershipPress}>
+										<Image
+											source={{ uri: car.dealership_logo }}
+											className='w-32 rounded-full h-32 mb-4'
+											resizeMode='contain'
+										/>
+									</TouchableOpacity>
+								)}
+								<Text
+									className={`text-xl font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mb-2`}>
+									{car.dealership_name}
+								</Text>
+							</View>
 
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
-						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
-					</View>
-
-					<Text
-						className={`text-lg font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mt-2 mb-2`}>
-						Dealer Information
-					</Text>
-					<View className='border-t border-gray-600 pt-4'>
-						<View className='items-center'>
-							{car.dealership_logo && (
-								<TouchableOpacity onPress={handleDealershipPress}>
-									<Image
-										source={{ uri: car.dealership_logo }}
-										className='w-32 rounded-full h-32 mb-4'
-										resizeMode='contain'
-									/>
-								</TouchableOpacity>
-							)}
-							<Text
-								className={`text-xl font-bold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								} mb-2`}>
-								{car.dealership_name}
-							</Text>
+							<MapView
+								style={{
+									height: 200,
+									borderRadius: 10,
+									marginVertical: 10
+								}}
+								region={mapRegion}>
+								<Marker
+									coordinate={{
+										latitude: car.dealership_latitude || 37.7749,
+										longitude: car.dealership_longitude || -122.4194
+									}}
+									title={car.dealership_name}
+									description={car.dealership_location}
+								/>
+							</MapView>
 						</View>
 
-						<MapView
-							style={{
-								height: 200,
-								borderRadius: 10,
-								marginVertical: 10
-							}}
-							region={mapRegion}>
-							<Marker
-								coordinate={{
-									latitude: car.dealership_latitude || 37.7749,
-									longitude: car.dealership_longitude || -122.4194
-								}}
-								title={car.dealership_name}
-								description={car.dealership_location}
-							/>
-						</MapView>
+						{/* Similar Cars Section */}
+						<Text
+							className={`text-xl font-bold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							} mt-8 mb-4`}>
+							Similarly Priced Cars
+						</Text>
+						<FlatList
+							data={similarCars}
+							renderItem={renderCarItem}
+							keyExtractor={item => item.id.toString()}
+							horizontal
+							showsHorizontalScrollIndicator={false}
+						/>
+
+						{/* Other Cars from Same Dealer Section */}
+						<Text
+							className={`text-xl font-bold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							} mt-8 mb-4`}>
+							More from {car.dealership_name}
+						</Text>
+						<FlatList
+							data={dealerCars}
+							renderItem={renderCarItem}
+							keyExtractor={item => item.id.toString()}
+							horizontal
+							showsHorizontalScrollIndicator={false}
+						/>
 					</View>
-
-					{/* Similar Cars Section */}
-					<Text
-						className={`text-xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mt-8 mb-4`}>
-						Similarly Priced Cars
-					</Text>
-					<FlatList
-						data={similarCars}
-						renderItem={renderCarItem}
-						keyExtractor={item => item.id.toString()}
-						horizontal
-						showsHorizontalScrollIndicator={false}
-					/>
-
-					{/* Other Cars from Same Dealer Section */}
-					<Text
-						className={`text-xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mt-8`}>
-						More from {car.dealership_name}
-					</Text>
-					<FlatList
-						data={dealerCars}
-						renderItem={renderCarItem}
-						keyExtractor={item => item.id.toString()}
-						horizontal
-						showsHorizontalScrollIndicator={false}
-					/>
-				</View>
-			</ScrollView>
+				</ScrollView>
+			</LinearGradient>
 			<View
 				className={`absolute bottom-0 w-full flex-row justify-around py-2 border-t ${
 					isDarkMode
@@ -511,7 +536,7 @@ export default function CarDetailModal() {
 					<MaterialIcons name='share' size={24} color='#D55004' />
 				</TouchableOpacity>
 			</View>
-		</LinearGradient>
+		</View>
 	)
 }
 
