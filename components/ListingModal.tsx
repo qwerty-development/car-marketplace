@@ -20,6 +20,7 @@ import DraggableFlatList from 'react-native-draggable-flatlist'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import axios from 'axios'
 import SearchableDropdown from './SearchableDropdown'
+import { Dropdown } from 'react-native-element-dropdown'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -120,15 +121,19 @@ const ListingModal = ({
 
 	const fetchMakes = async () => {
 		try {
-			const response = await axios.get(
-				'https://www.carqueryapi.com/api/0.3/?cmd=getMakes'
-			)
-			const makesData = response.data.Makes.map(
-				(make: { make_id: any; make_display: any }) => ({
-					id: make.make_id,
-					name: make.make_display
-				})
-			)
+			const { data, error } = await supabase
+				.from('allcars')
+				.select('make')
+				.order('make')
+
+			if (error) throw error
+
+			const uniqueMakes = Array.from(new Set(data.map(item => item.make)))
+			const makesData = uniqueMakes.map(make => ({
+				id: make,
+				name: make
+			}))
+
 			setMakes(makesData)
 		} catch (error) {
 			console.error('Error fetching makes:', error)
@@ -137,15 +142,20 @@ const ListingModal = ({
 
 	const fetchModels = async (make: string) => {
 		try {
-			const response = await axios.get(
-				`https://www.carqueryapi.com/api/0.3/?cmd=getModels&make=${make}`
-			)
-			const modelsData = response.data.Models.map(
-				(model: { model_name: any }) => ({
-					id: model.model_name,
-					name: model.model_name
-				})
-			)
+			const { data, error } = await supabase
+				.from('allcars')
+				.select('model')
+				.eq('make', make)
+				.order('model')
+
+			if (error) throw error
+
+			const uniqueModels = Array.from(new Set(data.map(item => item.model)))
+			const modelsData = uniqueModels.map(model => ({
+				id: model,
+				name: model
+			}))
+
 			setModels(modelsData)
 		} catch (error) {
 			console.error('Error fetching models:', error)
@@ -343,25 +353,57 @@ const ListingModal = ({
 								onChangeText={text => handleInputChange('description', text)}
 								multiline
 							/>
-							<Picker
-								selectedValue={formData.status || 'available'}
-								onValueChange={itemValue =>
-									handleInputChange('status', itemValue)
-								}
-								style={{ height: 50, width: '100%', marginBottom: 16 }}>
-								<Picker.Item label='Available' value='available' />
-								<Picker.Item label='Pending' value='pending' />
-								<Picker.Item label='Sold' value='sold' />
-							</Picker>
-							<Picker
-								selectedValue={formData.condition || 'Used'}
-								onValueChange={itemValue =>
-									handleInputChange('condition', itemValue)
-								}
-								style={{ height: 50, width: '100%', marginBottom: 16 }}>
-								<Picker.Item label='New' value='New' />
-								<Picker.Item label='Used' value='Used' />
-							</Picker>
+							<Dropdown
+								style={{
+									height: 50,
+									borderColor: 'gray',
+									borderWidth: 0.5,
+									borderRadius: 8,
+									paddingHorizontal: 8,
+									marginBottom: 16,
+								}}
+								placeholderStyle={{ fontSize: 16 }}
+								selectedTextStyle={{ fontSize: 16 }}
+								inputSearchStyle={{ height: 40, fontSize: 16 }}
+								data={[
+									{ label: 'Available', value: 'available' },
+									{ label: 'Pending', value: 'pending' },
+									{ label: 'Sold', value: 'sold' },
+								]}
+								maxHeight={300}
+								labelField="label"
+								valueField="value"
+								placeholder="Select Status"
+								searchPlaceholder="Search..."
+								value={formData.status}
+								onChange={item => handleInputChange('status', item.value)}
+							/>
+
+							<Dropdown
+								style={{
+									height: 50,
+									borderColor: 'gray',
+									borderWidth: 0.5,
+									borderRadius: 8,
+									paddingHorizontal: 8,
+									marginBottom: 16,
+								}}
+								placeholderStyle={{ fontSize: 16 }}
+								selectedTextStyle={{ fontSize: 16 }}
+								inputSearchStyle={{ height: 40, fontSize: 16 }}
+								data={[
+									{ label: 'New', value: 'New' },
+									{ label: 'Used', value: 'Used' },
+								]}
+								maxHeight={300}
+								labelField="label"
+								valueField="value"
+								placeholder="Select Condition"
+								searchPlaceholder="Search..."
+								value={formData.condition}
+								onChange={item => handleInputChange('condition', item.value)}
+							/>
+
 							<SearchableDropdown
 								items={colors}
 								onItemSelect={item =>
@@ -369,43 +411,91 @@ const ListingModal = ({
 								}
 								placeholder='Select Color'
 								selectedItem={
-									formData.model
+									formData.color
 										? { id: formData.color, name: formData.color }
 										: undefined
 								}
 							/>
-							<Picker
-								selectedValue={formData.transmission || 'Automatic'}
-								onValueChange={itemValue =>
-									handleInputChange('transmission', itemValue)
-								}
-								style={{ height: 50, width: '100%', marginBottom: 16 }}>
-								<Picker.Item label='Automatic' value='Automatic' />
-								<Picker.Item label='Manual' value='Manual' />
-							</Picker>
-							<Picker
-								selectedValue={formData.drivetrain || 'FWD'}
-								onValueChange={itemValue =>
-									handleInputChange('drivetrain', itemValue)
-								}
-								style={{ height: 50, width: '100%', marginBottom: 16 }}>
-								<Picker.Item label='FWD' value='FWD' />
-								<Picker.Item label='RWD' value='RWD' />
-								<Picker.Item label='AWD' value='AWD' />
-								<Picker.Item label='4WD' value='4WD' />
-								<Picker.Item label='4x4' value='4x4' />
-							</Picker>
-							<Picker
-								selectedValue={formData.type || 'Benzine'}
-								onValueChange={itemValue =>
-									handleInputChange('type', itemValue)
-								}
-								style={{ height: 50, width: '100%', marginBottom: 16 }}>
-								<Picker.Item label='Benzine' value='Benzine' />
-								<Picker.Item label='Diesel' value='Diesel' />
-								<Picker.Item label='Electric' value='Electric' />
-								<Picker.Item label='Hybrid' value='Hybrid' />
-							</Picker>
+
+							<Dropdown
+								style={{
+									height: 50,
+									borderColor: 'gray',
+									borderWidth: 0.5,
+									borderRadius: 8,
+									paddingHorizontal: 8,
+									marginBottom: 16,
+								}}
+								placeholderStyle={{ fontSize: 16 }}
+								selectedTextStyle={{ fontSize: 16 }}
+								inputSearchStyle={{ height: 40, fontSize: 16 }}
+								data={[
+									{ label: 'Automatic', value: 'Automatic' },
+									{ label: 'Manual', value: 'Manual' },
+								]}
+								maxHeight={300}
+								labelField="label"
+								valueField="value"
+								placeholder="Select Transmission"
+								searchPlaceholder="Search..."
+								value={formData.transmission}
+								onChange={item => handleInputChange('transmission', item.value)}
+							/>
+
+							<Dropdown
+								style={{
+									height: 50,
+									borderColor: 'gray',
+									borderWidth: 0.5,
+									borderRadius: 8,
+									paddingHorizontal: 8,
+									marginBottom: 16,
+								}}
+								placeholderStyle={{ fontSize: 16 }}
+								selectedTextStyle={{ fontSize: 16 }}
+								inputSearchStyle={{ height: 40, fontSize: 16 }}
+								data={[
+									{ label: 'FWD', value: 'FWD' },
+									{ label: 'RWD', value: 'RWD' },
+									{ label: 'AWD', value: 'AWD' },
+									{ label: '4WD', value: '4WD' },
+									{ label: '4x4', value: '4x4' },
+								]}
+								maxHeight={300}
+								labelField="label"
+								valueField="value"
+								placeholder="Select Drivetrain"
+								searchPlaceholder="Search..."
+								value={formData.drivetrain}
+								onChange={item => handleInputChange('drivetrain', item.value)}
+							/>
+
+							<Dropdown
+								style={{
+									height: 50,
+									borderColor: 'gray',
+									borderWidth: 0.5,
+									borderRadius: 8,
+									paddingHorizontal: 8,
+									marginBottom: 16,
+								}}
+								placeholderStyle={{ fontSize: 16 }}
+								selectedTextStyle={{ fontSize: 16 }}
+								inputSearchStyle={{ height: 40, fontSize: 16 }}
+								data={[
+									{ label: 'Benzine', value: 'Benzine' },
+									{ label: 'Diesel', value: 'Diesel' },
+									{ label: 'Electric', value: 'Electric' },
+									{ label: 'Hybrid', value: 'Hybrid' },
+								]}
+								maxHeight={300}
+								labelField="label"
+								valueField="value"
+								placeholder="Select Type"
+								searchPlaceholder="Search..."
+								value={formData.type}
+								onChange={item => handleInputChange('type', item.value)}
+							/>
 							<StyledTextInput
 								className='border border-gray-300 rounded p-2 mb-4'
 								placeholder='Mileage'

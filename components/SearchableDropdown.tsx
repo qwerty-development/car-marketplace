@@ -1,95 +1,80 @@
-import React, { useState, useRef } from 'react'
-import {
-	View,
-	Text,
-	TextInput,
-	FlatList,
-	TouchableOpacity,
-	ScrollView
-} from 'react-native'
-import { styled } from 'nativewind'
-import { FontAwesome } from '@expo/vector-icons'
+import React, { useState } from 'react';
+import { View, Text } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
+import { styled } from 'nativewind';
+import { FontAwesome } from '@expo/vector-icons';
 
-const StyledView = styled(View)
-const StyledText = styled(Text)
-const StyledTextInput = styled(TextInput)
-const StyledTouchableOpacity = styled(TouchableOpacity)
+const StyledView = styled(View);
+const StyledText = styled(Text);
 
 interface Item {
-	id: string | number
-	name: string
+  id: string | number;
+  name: string;
 }
 
-interface SearchableDropdownProps {
-	items: Item[]
-	onItemSelect: (item: Item | null) => void
-	placeholder: string
-	selectedItem?: Item
+interface DropdownComponentProps {
+  items: Item[];
+  onItemSelect: (item: Item | null) => void;
+  placeholder: string;
+  selectedItem?: Item;
 }
 
-const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
-	items,
-	onItemSelect,
-	placeholder,
-	selectedItem
+const DropdownComponent: React.FC<DropdownComponentProps> = ({
+  items,
+  onItemSelect,
+  placeholder,
+  selectedItem
 }) => {
-	const [searchTerm, setSearchTerm] = useState('')
-	const [showDropdown, setShowDropdown] = useState(false)
-	const inputRef = useRef<TextInput>(null)
+  const [isFocus, setIsFocus] = useState(false);
 
-	const filteredItems = items.filter(item =>
-		item.name.toLowerCase().includes(searchTerm.toLowerCase())
-	)
+  const renderLabel = () => {
+    if (selectedItem || isFocus) {
+      return (
+        <StyledText className="absolute left-0 top-0 z-10 bg-white px-1 text-sm text-gray-600">
+          {placeholder}
+        </StyledText>
+      );
+    }
+    return null;
+  };
 
-	const handleClearInput = () => {
-		setSearchTerm('')
-		onItemSelect(null)
-		inputRef.current?.focus()
-	}
+  return (
+    <StyledView className="mb-4">
+      {renderLabel()}
+      <Dropdown
+        style={[
+          { height: 50, borderColor: 'gray', borderWidth: 0.5, borderRadius: 8, paddingHorizontal: 8 },
+          isFocus && { borderColor: 'blue' },
+        ]}
+        placeholderStyle={{ fontSize: 16, color: 'gray' }}
+        selectedTextStyle={{ fontSize: 16 }}
+        inputSearchStyle={{ height: 40, fontSize: 16 }}
+        iconStyle={{ width: 20, height: 20 }}
+        data={items}
+        search
+        maxHeight={300}
+        labelField="name"
+        valueField="id"
+        placeholder={!isFocus ? placeholder : '...'}
+        searchPlaceholder="Search..."
+        value={selectedItem?.id}
+        onFocus={() => setIsFocus(true)}
+        onBlur={() => setIsFocus(false)}
+        onChange={(item) => {
+          onItemSelect(item);
+          setIsFocus(false);
+        }}
+        renderLeftIcon={() => (
+          <FontAwesome
+            style={{ marginRight: 5 }}
+            color={isFocus ? 'blue' : 'black'}
+            name="search"
+            size={20}
+          />
+        )}
+      />
+    </StyledView>
+  );
+};
 
-	return (
-		<StyledView className='relative mb-4'>
-			<StyledView className='flex-row items-center border border-gray-300 rounded'>
-				<StyledTextInput
-					ref={inputRef}
-					className='flex-1 p-2'
-					placeholder={placeholder}
-					value={selectedItem ? selectedItem.name : searchTerm}
-					onChangeText={text => {
-						setSearchTerm(text)
-						setShowDropdown(true)
-						if (selectedItem) {
-							onItemSelect(null)
-						}
-					}}
-					onFocus={() => setShowDropdown(true)}
-				/>
-				{(selectedItem || searchTerm) && (
-					<StyledTouchableOpacity className='pr-2' onPress={handleClearInput}>
-						<FontAwesome name='times-circle' size={20} color='gray' />
-					</StyledTouchableOpacity>
-				)}
-			</StyledView>
-			{showDropdown && (
-				<StyledView className='absolute top-full left-0 right-0 bg-white border border-gray-300 rounded z-10'>
-					<ScrollView style={{ maxHeight: 200 }}>
-						{filteredItems.map(item => (
-							<StyledTouchableOpacity
-								key={item.id}
-								className='p-2 border-b border-gray-200'
-								onPress={() => {
-									onItemSelect(item)
-									setSearchTerm('')
-									setShowDropdown(false)
-								}}>
-								<StyledText>{item.name}</StyledText>
-							</StyledTouchableOpacity>
-						))}
-					</ScrollView>
-				</StyledView>
-			)}
-		</StyledView>
-	)
-}
-
-export default SearchableDropdown
+export default DropdownComponent;
