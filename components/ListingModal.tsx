@@ -296,8 +296,8 @@ const ListingModal = ({
 	return (
 		<Modal visible={isVisible} animationType='slide' transparent={true}>
 			<GestureHandlerRootView style={{ flex: 1 }}>
-				<StyledView className='flex-1 justify-center items-center bg-black bg-opacity-50'>
-					<StyledView className='bg-white p-6 rounded-lg w-5/6 max-h-5/6'>
+				<StyledView className='flex-1 py-24 justify-center items-cent0'>
+					<StyledView className='bg-white p-6 rounded-lg'>
 						<ScrollView>
 							<StyledText className='text-2xl font-bold mb-4'>
 								{initialData ? 'Edit Listing' : 'Create New Listing'}
