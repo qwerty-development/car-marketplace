@@ -45,9 +45,8 @@ export default function CarCard({
 	const handleWhatsApp = () => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model}.`
-			const url = `https://wa.me/${
-				car.dealership_phone
-			}?text=${encodeURIComponent(message)}`
+			const url = `https://wa.me/${car.dealership_phone
+				}?text=${encodeURIComponent(message)}`
 			Linking.openURL(url)
 		} else {
 			Alert.alert('WhatsApp number not available')
@@ -84,11 +83,10 @@ export default function CarCard({
 		<StyledScrollView>
 			<StyledTouchableOpacity
 				onPress={onPress}
-				className={`m-4 ${
-					isDarkMode
+				className={`m-4 ${isDarkMode
 						? 'bg-black border-red'
 						: 'bg-light-secondary border-light-accent'
-				} border rounded-3xl overflow-hidden shadow-xl shadow-stone-200`}>
+					} border rounded-3xl overflow-hidden shadow-xl shadow-stone-200`}>
 				<StyledView className='relative'>
 					<Image
 						source={{ uri: car.images[0] }}
@@ -112,9 +110,8 @@ export default function CarCard({
 				</StyledView>
 
 				<StyledView
-					className={`p-3 border ${
-						isDarkMode ? 'border-red' : 'border-light-accent'
-					}`}>
+					className={`p-3  ${isDarkMode ? 'border-red' : 'border-light-accent'
+						}`}>
 					<StyledView className='flex-row justify-between items-center my-2 '>
 						<StyledView className='flex-row items-center'>
 							<Ionicons
@@ -123,18 +120,16 @@ export default function CarCard({
 								color={isDarkMode ? '#6B7280' : '#4C4C4C'}
 							/>
 							<StyledText
-								className={`ml-2 ${
-									isDarkMode ? 'text-white' : 'text-light-text'
-								}`}>
+								className={`ml-2 ${isDarkMode ? 'text-white' : 'text-light-text'
+									}`}>
 								{car.views || 0} views
 							</StyledText>
 						</StyledView>
 						<StyledView className='flex-row items-center'>
 							<Ionicons name='heart' size={18} color='#EF4444' />
 							<StyledText
-								className={`ml-2 ${
-									isDarkMode ? 'text-white' : 'text-light-text'
-								}`}>
+								className={`ml-2 ${isDarkMode ? 'text-white' : 'text-light-text'
+									}`}>
 								{car.likes || 0} likes
 							</StyledText>
 						</StyledView>
@@ -143,21 +138,18 @@ export default function CarCard({
 					<StyledView className='flex-row justify-between items-center mb-4 mt-2'>
 						<StyledView>
 							<StyledText
-								className={`text-2xl font-semibold ${
-									isDarkMode ? 'text-white' : 'text-light-text'
-								}`}>
+								className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-light-text'
+									}`}>
 								{car.year} {car.make} {car.model}
 							</StyledText>
 							<StyledText
-								className={`text-xl font-medium ${
-									isDarkMode ? 'text-red' : 'text-light-accent'
-								} mt-2`}>
+								className={`text-xl font-medium ${isDarkMode ? 'text-red' : 'text-red'
+									} mt-2`}>
 								${car.price.toLocaleString()}
 							</StyledText>
 							<StyledText
-								className={`text-s font-medium 	${
-									isDarkMode ? 'text-white' : 'text-light-text'
-								} mt-2`}>
+								className={`text-s font-medium 	${isDarkMode ? 'text-white' : 'text-light-text'
+									} mt-2`}>
 								{car.dealership_location}
 							</StyledText>
 						</StyledView>
@@ -170,50 +162,54 @@ export default function CarCard({
 						)}
 					</StyledView>
 
-					<StyledView className='flex-row justify-between items-center  p-4 rounded-lg shadow-lg'>
+					<StyledView className='flex-row justify-between items-center p-4 rounded-lg shadow-lg'>
 						<InfoItem
 							icon='speedometer-outline'
 							text={
-								<Text
-									className={`font-semibold ${
-										isDarkMode ? 'text-red' : 'text-light-accent'
-									}`}>
-									{car.mileage.toLocaleString()}{' '}
-									<Text className='text-xs text-gray-500'>km</Text>
-								</Text>
+								<View className='flex items-center min-w-[80px]'>
+									<Text
+										className={` text-s ${isDarkMode ? 'text-red' : 'text-red'
+											}`}>
+										{car.mileage.toLocaleString()}{' '}
+										<Text className='text-xs text-gray-500'>km</Text>
+									</Text>
+								</View>
 							}
 						/>
 						<View className='w-0.5 bg-gray-300 h-full mx-2' />
 						<InfoItem
 							icon='cog-outline'
 							text={
-								<Text
-									className={`font-semibold ${
-										isDarkMode ? 'text-red' : 'text-light-accent'
-									}`}>
-									{car.transmission}
-								</Text>
+								<View className='flex items-center min-w-[80px]'>
+									<Text
+										className={` ${isDarkMode ? 'text-red' : 'text-red'
+											}`}>
+										{car.transmission}
+									</Text>
+								</View>
 							}
 						/>
 						<View className='w-0.5 bg-gray-300 h-full mx-2' />
 						<InfoItem
 							icon='car-sport-outline'
 							text={
-								<Text
-									className={`font-semibold ${
-										isDarkMode ? 'text-red' : 'text-light-accent'
-									}`}>
-									{car.condition}
-								</Text>
+								<View className='flex items-center min-w-[80px]'>
+									<Text
+										className={` ${isDarkMode ? 'text-red' : 'text-red'
+											}`}>
+										{car.condition}
+									</Text>
+								</View>
 							}
 						/>
 					</StyledView>
 
+
 					<View
 						className='mt-1 mb-1'
 						style={{ flexDirection: 'row', alignItems: 'center' }}>
-						<View style={{ flex: 1, height: 1, backgroundColor: '#701E1E' }} />
-						<View style={{ flex: 1, height: 1, backgroundColor: '#701E1E' }} />
+						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
+						<View style={{ flex: 1, height: 1, backgroundColor: '#D55004' }} />
 					</View>
 
 					<StyledView className='flex-row mx-12 justify-between items-center mt-2'>
