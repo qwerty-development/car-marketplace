@@ -11,7 +11,7 @@ import CarCard from '@/components/CarCard'
 import CarDetailModal from '../CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import SortPicker from '@/components/SortPicker'
 import ByBrands from '@/components/ByBrands'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -181,18 +181,10 @@ export default function BrowseCarsPage() {
 		fetchCars(1, filters, value, searchQuery)
 	}
 
-	const handleCarPress = useCallback(
-		(car: any) => {
-			router.push({
-				pathname: '/CarDetailModal',
-				params: {
-					car: JSON.stringify(car),
-					isFavorite: `${isFavorite(car.id)}`
-				}
-			})
-		},
-		[router]
-	)
+	const handleCarPress = (car: any) => {
+		setSelectedCar(car)
+		setIsModalVisible(true)
+	}
 
 	const renderCarItem = useCallback(
 		({ item }: any) => (
@@ -321,7 +313,7 @@ export default function BrowseCarsPage() {
 					}
 				/>
 
-				{/* <CarDetailModal
+				<CarDetailModal
 					isVisible={isModalVisible}
 					car={selectedCar}
 					onClose={() => setIsModalVisible(false)}
@@ -332,7 +324,7 @@ export default function BrowseCarsPage() {
 					onViewUpdate={handleViewUpdate}
 					setSelectedCar={setSelectedCar}
 					setIsModalVisible={setIsModalVisible}
-				/> */}
+				/>
 			</SafeAreaView>
 		</LinearGradient>
 	)
