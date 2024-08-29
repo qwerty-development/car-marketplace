@@ -8,10 +8,9 @@ import {
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '../CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import SortPicker from '@/components/SortPicker'
 import ByBrands from '@/components/ByBrands'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -24,14 +23,12 @@ export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [cars, setCars] = useState<any>([])
-	const [currentPage, setCurrentPage] = useState<any>(1)
-	const [totalPages, setTotalPages] = useState<any>(1)
-	const [isLoading, setIsLoading] = useState<any>(false)
-	const [searchQuery, setSearchQuery] = useState<any>('')
-	const [sortOption, setSortOption] = useState<any>('')
+	const [currentPage, setCurrentPage] = useState<number>(1)
+	const [totalPages, setTotalPages] = useState<number>(1)
+	const [isLoading, setIsLoading] = useState<boolean>(false)
+	const [searchQuery, setSearchQuery] = useState<string>('')
+	const [sortOption, setSortOption] = useState<string>('')
 	const [filters, setFilters] = useState<any>({})
-	const [selectedCar, setSelectedCar] = useState<any>(null)
-	const [isModalVisible, setIsModalVisible] = useState<any>(false)
 
 	const router = useRouter()
 	const params = useLocalSearchParams()
@@ -50,6 +47,33 @@ export default function BrowseCarsPage() {
 		}
 	}, [params.filters])
 
+	useEffect(() => {
+		const unsubscribe = () => {
+			if (params.carId && params.likesCount) {
+				const carId = parseInt(params.carId as string)
+				const newLikesCount = parseInt(params.likesCount as string)
+				setCars((prevCars: any[]) =>
+					prevCars.map(car =>
+						car.id === carId ? { ...car, likes: newLikesCount } : car
+					)
+				)
+			}
+			if (params.carId && params.viewCount) {
+				const carId = parseInt(params.carId as string)
+				const newViewCount = parseInt(params.viewCount as string)
+				setCars((prevCars: any[]) =>
+					prevCars.map(car =>
+						car.id === carId ? { ...car, views: newViewCount } : car
+					)
+				)
+			}
+		}
+
+		unsubscribe()
+
+		return () => unsubscribe()
+	}, [params.carId, params.likesCount, params.viewCount])
+
 	const fetchCars = useCallback(
 		async (
 			page = 1,
@@ -60,9 +84,9 @@ export default function BrowseCarsPage() {
 			setIsLoading(true)
 			let queryBuilder = supabase.from('cars').select(
 				`
-      *,
-      dealerships (name,logo,phone,location,latitude,longitude)
-    `,
+          *,
+          dealerships (name,logo,phone,location,latitude,longitude)
+        `,
 				{ count: 'exact' }
 			)
 
@@ -167,32 +191,26 @@ export default function BrowseCarsPage() {
 		[filters, sortOption, searchQuery]
 	)
 
-	const handleFavoritePress = async (carId: any) => {
+	const handleFavoritePress = async (carId: number) => {
 		const newLikesCount = await toggleFavorite(carId)
 		setCars((prevCars: any[]) =>
-			prevCars.map((car: { id: any }) =>
+			prevCars.map(car =>
 				car.id === carId ? { ...car, likes: newLikesCount } : car
 			)
 		)
 	}
 
-	const handleSortChange = (value: any) => {
+	const handleSortChange = (value: string) => {
 		setSortOption(value)
 		fetchCars(1, filters, value, searchQuery)
 	}
 
-	const handleCarPress = useCallback(
-		(car: any) => {
-			router.push({
-				pathname: '/CarDetailModal',
-				params: {
-					car: JSON.stringify(car),
-					isFavorite: `${isFavorite(car.id)}`
-				}
-			})
-		},
-		[router]
-	)
+	const handleCarPress = (car: any) => {
+		router.push({
+			pathname: '/CarDetailModal',
+			params: { car: JSON.stringify(car) }
+		})
+	}
 
 	const renderCarItem = useCallback(
 		({ item }: any) => (
@@ -211,14 +229,6 @@ export default function BrowseCarsPage() {
 			pathname: '/(home)/(user)/filter',
 			params: { filters: JSON.stringify(filters) }
 		})
-	}
-
-	const handleViewUpdate = (carId: any, newViewCount: any) => {
-		setCars((prevCars: any[]) =>
-			prevCars.map((car: { id: any }) =>
-				car.id === carId ? { ...car, views: newViewCount } : car
-			)
-		)
 	}
 
 	const handleSearch = () => {
@@ -254,7 +264,7 @@ export default function BrowseCarsPage() {
 								className={`${
 									isDarkMode ? 'bg-red' : 'bg-light-accent'
 								} p-3 rounded-full`}
-								onPress={() => fetchCars(1, filters, sortOption, searchQuery)}>
+								onPress={handleSearch}>
 								<FontAwesome
 									name='search'
 									size={20}
@@ -272,16 +282,14 @@ export default function BrowseCarsPage() {
 									setSearchQuery(text)
 									setCurrentPage(1)
 								}}
-								onSubmitEditing={() =>
-									fetchCars(1, filters, sortOption, searchQuery)
-								}
+								onSubmitEditing={handleSearch}
 							/>
 							{searchQuery.length > 0 && (
 								<TouchableOpacity
 									className='p-2'
 									onPress={() => {
 										setSearchQuery('')
-										fetchCars(1, filters, sortOption, '') // Pass empty string as query
+										fetchCars(1, filters, sortOption, '')
 									}}>
 									<FontAwesome
 										name='times-circle'
@@ -320,19 +328,6 @@ export default function BrowseCarsPage() {
 						) : null
 					}
 				/>
-
-				{/* <CarDetailModal
-					isVisible={isModalVisible}
-					car={selectedCar}
-					onClose={() => setIsModalVisible(false)}
-					onFavoritePress={() =>
-						selectedCar && handleFavoritePress(selectedCar.id)
-					}
-					isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
-					onViewUpdate={handleViewUpdate}
-					setSelectedCar={setSelectedCar}
-					setIsModalVisible={setIsModalVisible}
-				/> */}
 			</SafeAreaView>
 		</LinearGradient>
 	)
