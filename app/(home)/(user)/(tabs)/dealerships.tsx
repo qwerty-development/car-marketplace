@@ -35,21 +35,29 @@ const CustomHeader = ({ title, onBack }: any) => {
 				borderBottomColor: '#D55004',
 				borderTopWidth: 0,
 				borderWidth: 0,
-				borderColor: '#D55004'
-			}}>
+
+				borderColor: '#D55004',
+			}}
+		>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View
 				style={{
 					flexDirection: 'row',
 					alignItems: 'center',
-					paddingHorizontal: 16
-				}}>
+					justifyContent: 'center', // Centers the content horizontally
+					paddingHorizontal: 0,
+					paddingBottom: 9,
+				}}
+			>
 				<Text
 					style={{
-						fontSize: 18,
+						fontSize: 20,
+						textAlign: 'center',
+						color: '#D55004',
+						fontWeight: '600',
 
-						color: '#D55004'
-					}}>
+					}}
+				>
 					{title}
 				</Text>
 			</View>

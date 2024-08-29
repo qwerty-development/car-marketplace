@@ -63,10 +63,6 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 
 	// Handle special cases
 	switch (formattedMake) {
-		case 'toyota':
-			return '../../../assets/images/Toyota-Logo.png'
-		case 'volkswagen':
-			return '../../../assets/images/VW-Logo.png'
 		case 'range-rover':
 			return isLightMode
 				? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
@@ -74,9 +70,9 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 		case 'infiniti':
 			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
 		case 'audi':
-			return '../../../assets/images/Audi-Logo.png'
+			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
 		case 'nissan':
-			return '../../../assets/images/Nissan-Logo.png'
+			return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
 		default:
 			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
 	}
@@ -162,7 +158,7 @@ export default function AllBrandsPage() {
 
 	const renderBrandItem = ({ item }: { item: Brand }) => (
 		<TouchableOpacity
-			className={`flex-row items-center py-4 border-b ${borderColor}`}
+			className={`flex-row mx-3 items-center py-4 border-b ${borderColor}`}
 			onPress={() => handleBrandPress(item.name)}>
 			<Image
 				source={{ uri: item.logoUrl }}
@@ -192,9 +188,8 @@ export default function AllBrandsPage() {
 				}}
 			/>
 			<View
-				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
-					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-				}`}>
+				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+					}`}>
 				<FontAwesome
 					name='search'
 					size={20}

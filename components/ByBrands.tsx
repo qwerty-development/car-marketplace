@@ -19,7 +19,7 @@ interface Brand {
 }
 
 const BRANDS_CACHE_KEY = 'cachedBrands'
-const CACHE_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+const CACHE_EXPIRY = 10 // 24 hours in milliseconds
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
@@ -27,10 +27,6 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 
 	// Handle special cases
 	switch (formattedMake) {
-		case 'toyota':
-			return '../../../assets/images/Toyota-Logo.png'
-		case 'volkswagen':
-			return '../../../assets/images/VW-Logo.png'
 		case 'range-rover':
 			return isLightMode
 				? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
@@ -38,9 +34,9 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 		case 'infiniti':
 			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
 		case 'audi':
-			return '../../../assets/images/Audi-Logo.png'
+			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
 		case 'nissan':
-			return '../../../assets/images/Nissan-Logo.png'
+			return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
 		default:
 			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
 	}
