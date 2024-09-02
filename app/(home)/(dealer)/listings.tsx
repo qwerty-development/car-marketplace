@@ -52,6 +52,7 @@ interface CarListing {
 	mileage: number
 	status: 'available' | 'pending' | 'sold'
 	type: 'Benzine' | 'Diesel' | 'Electric' | 'Hybrid'
+	category: 'Sedan' | 'SUV' | 'Hatchback' | 'Convertible' | 'Coupe' | 'Sports' | 'Other';
 }
 
 interface Dealership {

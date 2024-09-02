@@ -366,6 +366,35 @@ const ListingModal = ({
 								selectedTextStyle={{ fontSize: 16 }}
 								inputSearchStyle={{ height: 40, fontSize: 16 }}
 								data={[
+									{ label: 'Sedan', value: 'Sedan' },
+									{ label: 'SUV', value: 'SUV' },
+									{ label: 'Hatchback', value: 'Hatchback' },
+									{ label: 'Convertible', value: 'Convertible' },
+									{ label: 'Coupe', value: 'Coupe' },
+									{ label: 'Sports', value: 'Sports' },
+									{ label: 'Others', value: 'Other' }
+								]}
+								maxHeight={300}
+								labelField='label'
+								valueField='value'
+								placeholder='Select Category'
+								searchPlaceholder='Search...'
+								value={formData.status}
+								onChange={item => handleInputChange('category', item.value)}
+							/>
+							<Dropdown
+								style={{
+									height: 50,
+									borderColor: 'gray',
+									borderWidth: 0.5,
+									borderRadius: 8,
+									paddingHorizontal: 8,
+									marginBottom: 16
+								}}
+								placeholderStyle={{ fontSize: 16 }}
+								selectedTextStyle={{ fontSize: 16 }}
+								inputSearchStyle={{ height: 40, fontSize: 16 }}
+								data={[
 									{ label: 'Available', value: 'available' },
 									{ label: 'Pending', value: 'pending' },
 									{ label: 'Sold', value: 'sold' }

@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
 	View,
 	FlatList,
 	TextInput,
 	TouchableOpacity,
-	ActivityIndicator
+	ActivityIndicator,
+	StyleSheet,
+	Text
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
@@ -17,29 +19,55 @@ import ByBrands from '@/components/ByBrands'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
+import CategorySelector from '@/components/Category'
 
 const ITEMS_PER_PAGE = 7
+
+interface Car {
+	id: string
+	make: string
+	model: string
+	year: number
+	price: number
+	mileage: number
+	category: stringr
+	dealership_name: string
+	dealership_logo: string
+	dealership_phone: string
+	dealership_location: string
+	dealership_latitude: number
+	dealership_longitude: number
+}
+
+interface Filters {
+	dealership?: string
+	make?: string
+	model?: string
+	condition?: string
+	yearRange?: [number, number]
+	color?: string
+	transmission?: string
+	drivetrain?: string
+	priceRange?: [number, number]
+	mileageRange?: [number, number]
+	categories?: string[]
+}
 
 export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
-	const [cars, setCars] = useState<any>([])
-	const [currentPage, setCurrentPage] = useState<any>(1)
-	const [totalPages, setTotalPages] = useState<any>(1)
-	const [isLoading, setIsLoading] = useState<any>(false)
-	const [searchQuery, setSearchQuery] = useState<any>('')
-	const [sortOption, setSortOption] = useState<any>('')
-	const [filters, setFilters] = useState<any>({})
-	const [selectedCar, setSelectedCar] = useState<any>(null)
-	const [isModalVisible, setIsModalVisible] = useState<any>(false)
+	const [cars, setCars] = useState<Car[]>([])
+	const [currentPage, setCurrentPage] = useState(1)
+	const [totalPages, setTotalPages] = useState(1)
+	const [isLoading, setIsLoading] = useState(false)
+	const [searchQuery, setSearchQuery] = useState('')
+	const [sortOption, setSortOption] = useState('')
+	const [filters, setFilters] = useState<Filters>({})
+	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
+	const [isModalVisible, setIsModalVisible] = useState(false)
 
 	const router = useRouter()
-	const params = useLocalSearchParams()
-
-	const handleCloseModal = () => {
-		setIsModalVisible(false)
-		console.log('modal closed')
-	}
+	const params = useLocalSearchParams<{ filters: string }>()
 
 	useEffect(() => {
 		if (params.filters) {
@@ -58,7 +86,7 @@ export default function BrowseCarsPage() {
 	const fetchCars = useCallback(
 		async (
 			page = 1,
-			currentFilters: any = filters,
+			currentFilters: Filters = filters,
 			currentSortOption = sortOption,
 			query = searchQuery
 		) => {
@@ -67,9 +95,9 @@ export default function BrowseCarsPage() {
 				.from('cars')
 				.select(
 					`
-      *,
-      dealerships (name,logo,phone,location,latitude,longitude)
-    `,
+          *,
+          dealerships (name,logo,phone,location,latitude,longitude)
+        `,
 					{ count: 'exact' }
 				)
 				.neq('status', 'sold')
@@ -107,6 +135,8 @@ export default function BrowseCarsPage() {
 				queryBuilder = queryBuilder
 					.gte('mileage', currentFilters.mileageRange[0])
 					.lte('mileage', currentFilters.mileageRange[1])
+			if (currentFilters.categories && currentFilters.categories.length > 0)
+				queryBuilder = queryBuilder.in('category', currentFilters.categories)
 
 			if (query) {
 				queryBuilder = queryBuilder.or(
@@ -175,36 +205,33 @@ export default function BrowseCarsPage() {
 		[filters, sortOption, searchQuery]
 	)
 
-	const handleFavoritePress = async (carId: any) => {
+	const handleFavoritePress = async (carId: string) => {
 		const newLikesCount = await toggleFavorite(carId)
-		setCars((prevCars: any[]) =>
-			prevCars.map((car: { id: any }) =>
+		setCars(prevCars =>
+			prevCars.map(car =>
 				car.id === carId ? { ...car, likes: newLikesCount } : car
 			)
 		)
 	}
 
-	const handleSortChange = (value: any) => {
+	const handleSortChange = (value: string) => {
 		setSortOption(value)
 		fetchCars(1, filters, value, searchQuery)
 	}
 
-	const handleCarPress = (car: any) => {
+	const handleCarPress = (car: Car) => {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}
 
-	const renderCarItem = useCallback(
-		({ item }: any) => (
-			<CarCard
-				car={item}
-				onPress={() => handleCarPress(item)}
-				onFavoritePress={() => handleFavoritePress(item.id)}
-				isFavorite={isFavorite(item.id)}
-			/>
-		),
-		[handleCarPress, handleFavoritePress, isFavorite]
-	)
+	const renderCarItem = useCallback(({ item }: { item: Car }) => (
+		<CarCard
+			car={item}
+			onPress={() => handleCarPress(item)}
+			onFavoritePress={() => handleFavoritePress(item.id)}
+			isFavorite={isFavorite(item.id)}
+		/>
+	), [handleCarPress, handleFavoritePress, isFavorite])
 
 	const openFilterPage = () => {
 		router.push({
@@ -213,9 +240,9 @@ export default function BrowseCarsPage() {
 		})
 	}
 
-	const handleViewUpdate = (carId: any, newViewCount: any) => {
-		setCars((prevCars: any[]) =>
-			prevCars.map((car: { id: any }) =>
+	const handleViewUpdate = (carId: string, newViewCount: number) => {
+		setCars(prevCars =>
+			prevCars.map(car =>
 				car.id === carId ? { ...car, views: newViewCount } : car
 			)
 		)
@@ -225,20 +252,65 @@ export default function BrowseCarsPage() {
 		fetchCars(1, filters, sortOption, searchQuery)
 	}
 
+	const handleCategoryPress = (category: string) => {
+		setFilters(prevFilters => {
+			const updatedCategories = prevFilters.categories
+				? prevFilters.categories.includes(category)
+					? prevFilters.categories.filter(c => c !== category)
+					: [...prevFilters.categories, category]
+				: [category]
+
+			const newFilters = {
+				...prevFilters,
+				categories: updatedCategories
+			}
+
+			fetchCars(1, newFilters, sortOption, searchQuery)
+			return newFilters
+		})
+	}
+
+	const handleResetFilters = () => {
+		setFilters({})
+		setSearchQuery('')
+		setSortOption('')
+		fetchCars(1, {}, '', '')
+	}
+
+	const renderListHeader = useMemo(() => (
+		<>
+			<ByBrands />
+			<CategorySelector
+				selectedCategories={filters.categories || []}
+				onCategoryPress={handleCategoryPress}
+			/>
+		</>
+	), [filters.categories, handleCategoryPress])
+
+	const renderListEmpty = useCallback(() => (
+		<View style={styles.emptyContainer}>
+			<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
+				No cars available.
+			</Text>
+			{(Object.keys(filters).length > 0 || searchQuery) && (
+				<TouchableOpacity onPress={handleResetFilters} style={styles.resetButton}>
+					<Text style={styles.resetButtonText}>Remove filters</Text>
+				</TouchableOpacity>
+			)}
+		</View>
+	), [filters, searchQuery, isDarkMode, handleResetFilters])
+
 	return (
 		<LinearGradient
 			colors={isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#D55004']}
 			style={{ flex: 1 }}
 			start={{ x: 1, y: 0.3 }}
 			end={{ x: 2, y: 1 }}>
-			<SafeAreaView
-				className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-light-background'}`}>
-				<View className='p-4 rounded-full'>
-					<View className='flex-row items-center justify-between'>
+			<SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
+				<View style={styles.searchContainer}>
+					<View style={styles.searchInputContainer}>
 						<TouchableOpacity
-							className={`${
-								isDarkMode ? 'bg-red' : 'bg-light-accent'
-							} p-3 rounded-full`}
+							style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
 							onPress={openFilterPage}>
 							<FontAwesome
 								name='filter'
@@ -246,15 +318,10 @@ export default function BrowseCarsPage() {
 								color={isDarkMode ? 'white' : 'black'}
 							/>
 						</TouchableOpacity>
-						<View
-							className={`flex-grow mx-2 border ${
-								isDarkMode ? 'border-red' : 'border-light-accent'
-							} rounded-full flex-row items-center`}>
+						<View style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
 							<TouchableOpacity
-								className={`${
-									isDarkMode ? 'bg-red' : 'bg-light-accent'
-								} p-3 rounded-full`}
-								onPress={() => fetchCars(1, filters, sortOption, searchQuery)}>
+								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
+								onPress={handleSearch}>
 								<FontAwesome
 									name='search'
 									size={20}
@@ -262,26 +329,19 @@ export default function BrowseCarsPage() {
 								/>
 							</TouchableOpacity>
 							<TextInput
-								className={`py-2 ${
-									isDarkMode ? 'text-white' : 'text-light-text'
-								} ml-4 justify-center`}
+								style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
 								value={searchQuery}
-								onChangeText={text => {
-									setSearchQuery(text)
-									setCurrentPage(1)
-								}}
-								onSubmitEditing={() =>
-									fetchCars(1, filters, sortOption, searchQuery)
-								}
+								onChangeText={setSearchQuery}
+								onSubmitEditing={handleSearch}
 							/>
 							{searchQuery.length > 0 && (
 								<TouchableOpacity
-									className='p-2'
+									style={styles.clearButton}
 									onPress={() => {
 										setSearchQuery('')
-										fetchCars(1, filters, sortOption, '') // Pass empty string as query
+										fetchCars(1, filters, sortOption, '')
 									}}>
 									<FontAwesome
 										name='times-circle'
@@ -292,7 +352,6 @@ export default function BrowseCarsPage() {
 							)}
 						</View>
 						<SortPicker
-							className='sort-picker'
 							onValueChange={handleSortChange}
 							initialValue={{ label: 'Sort', value: null }}
 						/>
@@ -300,16 +359,17 @@ export default function BrowseCarsPage() {
 				</View>
 
 				<FlatList
-					ListHeaderComponent={<ByBrands />}
+					ListHeaderComponent={renderListHeader}
 					data={cars}
 					renderItem={renderCarItem}
 					keyExtractor={item => item.id.toString()}
 					onEndReached={() => {
-						if (currentPage < totalPages && !isLoading) {
+						if (currentPage < totalPages) {
 							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
 						}
 					}}
 					onEndReachedThreshold={0.1}
+					ListEmptyComponent={renderListEmpty}
 					ListFooterComponent={() =>
 						isLoading ? (
 							<ActivityIndicator
@@ -340,3 +400,66 @@ export default function BrowseCarsPage() {
 		</LinearGradient>
 	)
 }
+
+const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+	},
+	darkContainer: {
+		backgroundColor: '#121212',
+	},
+	searchContainer: {
+		padding: 10,
+	},
+	searchInputContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+	},
+	iconButton: {
+		padding: 10,
+		borderRadius: 20,
+		backgroundColor: '#f0f0f0',
+	},
+	darkIconButton: {
+		backgroundColor: '#333',
+	},
+	searchBar: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+		borderWidth: 1,
+		borderColor: '#ccc',
+		borderRadius: 20,
+		marginHorizontal: 10,
+	},
+	darkSearchBar: {
+		borderColor: '#555',
+	},
+	searchInput: {
+		flex: 1,
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		color: 'black',
+	},
+	darkSearchInput: {
+		color: 'white',
+	},
+	clearButton: {
+		padding: 10,
+	},
+	emptyContainer: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+	},
+	emptyText: {
+		fontSize: 16,
+		textAlign: 'center',
+		color: '#000',
+	},
+	darkEmptyText: {
+		color: '#fff',
+	},
+})

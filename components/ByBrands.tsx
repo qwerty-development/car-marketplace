@@ -19,7 +19,7 @@ interface Brand {
 }
 
 const BRANDS_CACHE_KEY = 'cachedBrands'
-const CACHE_EXPIRY = 10 // 24 hours in milliseconds
+const CACHE_EXPIRY = 1000000000 // 24 hours in milliseconds
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
