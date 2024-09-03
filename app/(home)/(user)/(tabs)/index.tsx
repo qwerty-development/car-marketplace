@@ -30,7 +30,7 @@ interface Car {
 	year: number
 	price: number
 	mileage: number
-	category: stringr
+	category: string
 	dealership_name: string
 	dealership_logo: string
 	dealership_phone: string
@@ -405,9 +405,7 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 	},
-	darkContainer: {
-		backgroundColor: '#121212',
-	},
+
 	searchContainer: {
 		padding: 10,
 	},

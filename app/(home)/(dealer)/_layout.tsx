@@ -1,9 +1,26 @@
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { useColorScheme } from 'react-native';
 
 export default function DealerLayout() {
+	const colorScheme = useColorScheme();
+	const isDarkMode = colorScheme === 'dark';
+  
+
 	return (
-		<Tabs>
+	  <Tabs
+		screenOptions={{
+		  headerStyle: {
+			backgroundColor: isDarkMode ? 'black' : 'white',
+		  },
+		  headerTintColor: '#D55004',
+		  tabBarStyle: {
+			backgroundColor: isDarkMode ? 'black' : 'white',
+		  },
+		  tabBarActiveTintColor: '#D55004',
+		  tabBarInactiveTintColor: isDarkMode ? 'gray' : 'black',
+		}}
+	  >
 			<Tabs.Screen
 				name='index'
 				options={{

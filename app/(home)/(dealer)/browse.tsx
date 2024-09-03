@@ -1,143 +1,222 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   View,
-  Text,
   FlatList,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
   StyleSheet,
-  Alert,
-  SafeAreaView,
-  StatusBar
+  Text
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
-import RNPickerSelect from 'react-native-picker-select'
+import CarDetailModal from '../(user)/CarDetailModal'
+import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
+import { useRouter, useLocalSearchParams } from 'expo-router'
+import SortPicker from '@/components/SortPicker'
+import ByBrands from '@/components/ByBrands'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
+import CategorySelector from '@/components/Category'
 
-const ITEMS_PER_PAGE = 10
+const ITEMS_PER_PAGE = 7
 
 interface Car {
-  id: number
+  id: string
   make: string
   model: string
   year: number
   price: number
+  mileage: number
+  category: string
   dealership_name: string
-  images: string[]
-  description: string
+  dealership_logo: string
+  dealership_phone: string
+  dealership_location: string
+  dealership_latitude: number
+  dealership_longitude: number
 }
 
-interface Dealership {
-  id: number
-  name: string
+interface Filters {
+  dealership?: string
+  make?: string
+  model?: string
+  condition?: string
+  yearRange?: [number, number]
+  color?: string
+  transmission?: string
+  drivetrain?: string
+  priceRange?: [number, number]
+  mileageRange?: [number, number]
+  categories?: string[]
 }
 
 export default function BrowseCarsPage() {
   const { isDarkMode } = useTheme()
-  const { user } = useUser()
+  const { favorites, toggleFavorite, isFavorite } = useFavorites()
   const [cars, setCars] = useState<Car[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState('listed_at')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [filterDealership, setFilterDealership] = useState('')
-  const [filterMake, setFilterMake] = useState('')
-  const [filterModel, setFilterModel] = useState('')
-  const [dealerships, setDealerships] = useState<Dealership[]>([])
-  const [makes, setMakes] = useState<string[]>([])
-  const [models, setModels] = useState<string[]>([])
+  const [sortOption, setSortOption] = useState('')
+  const [filters, setFilters] = useState<Filters>({})
   const [selectedCar, setSelectedCar] = useState<Car | null>(null)
   const [isModalVisible, setIsModalVisible] = useState(false)
-  const [filtersChanged, setFiltersChanged] = useState(false)
+
+  const router = useRouter()
+  const params = useLocalSearchParams<{ filters: string }>()
 
   useEffect(() => {
-    if (filtersChanged) {
-      setCurrentPage(1)
-      setFiltersChanged(false)
-    }
-    fetchCars()
-    fetchDealerships()
-    fetchMakes()
-  }, [currentPage, sortBy, sortOrder, filterDealership, filterMake, filterModel, searchQuery, user, filtersChanged])
-
-  const fetchCars = useCallback(async () => {
-    let query = supabase
-      .from('cars')
-      .select('*, dealerships (name)', { count: 'exact' })
-
-    if (filterDealership) query = query.eq('dealership_id', filterDealership)
-    if (filterMake) query = query.eq('make', filterMake)
-    if (filterModel) query = query.eq('model', filterModel)
-
-    if (searchQuery) {
-      query = query.or(`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,year.eq.${searchQuery},price.eq.${searchQuery}`)
-    }
-
-    const { count, error: countError } = await query
-
-    if (countError) {
-      console.error('Error fetching count:', countError)
-      Alert.alert('Error', 'Failed to fetch listings count')
-      return
-    }
-
-    const totalPages = Math.ceil((count || 0) / ITEMS_PER_PAGE)
-    const safeCurrentPage = Math.min(currentPage, totalPages || 1)
-    const from = (safeCurrentPage - 1) * ITEMS_PER_PAGE
-    const to = from + ITEMS_PER_PAGE - 1
-
-    query = query
-      .range(from, to)
-      .order(sortBy, { ascending: sortOrder === 'asc' })
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error('Error fetching listings:', error)
-      Alert.alert('Error', 'Failed to fetch listings')
+    if (params.filters) {
+      try {
+        const parsedFilters = JSON.parse(params.filters as string)
+        setFilters(parsedFilters)
+        fetchCars(1, parsedFilters, sortOption, searchQuery)
+      } catch (error) {
+        console.error('Error parsing filters:', error)
+      }
     } else {
-      setCars(data?.map(item => ({
-        ...item,
-        dealership_name: item.dealerships.name
-      })) || [])
-      setTotalPages(totalPages)
-      setCurrentPage(safeCurrentPage)
+      fetchCars(1, {}, sortOption, searchQuery)
     }
-  }, [currentPage, sortBy, sortOrder, filterDealership, filterMake, filterModel, searchQuery])
+  }, [params.filters])
 
-  const fetchDealerships = async () => {
-    const { data, error } = await supabase.from('dealerships').select('id, name')
-    if (error) {
-      console.error('Error fetching dealerships:', error)
-    } else {
-      setDealerships(data || [])
-    }
+  const fetchCars = useCallback(
+    async (
+      page = 1,
+      currentFilters: Filters = filters,
+      currentSortOption = sortOption,
+      query = searchQuery
+    ) => {
+      setIsLoading(true)
+      let queryBuilder = supabase
+        .from('cars')
+        .select(
+          `
+          *,
+          dealerships (name,logo,phone,location,latitude,longitude)
+        `,
+          { count: 'exact' }
+        )
+        .neq('status', 'sold')
+
+      // Apply filters
+      if (currentFilters.dealership)
+        queryBuilder = queryBuilder.eq(
+          'dealership_id',
+          currentFilters.dealership
+        )
+      if (currentFilters.make)
+        queryBuilder = queryBuilder.eq('make', currentFilters.make)
+      if (currentFilters.model)
+        queryBuilder = queryBuilder.eq('model', currentFilters.model)
+      if (currentFilters.condition)
+        queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
+      if (currentFilters.yearRange)
+        queryBuilder = queryBuilder
+          .gte('year', currentFilters.yearRange[0])
+          .lte('year', currentFilters.yearRange[1])
+      if (currentFilters.color)
+        queryBuilder = queryBuilder.eq('color', currentFilters.color)
+      if (currentFilters.transmission)
+        queryBuilder = queryBuilder.eq(
+          'transmission',
+          currentFilters.transmission
+        )
+      if (currentFilters.drivetrain)
+        queryBuilder = queryBuilder.eq('drivetrain', currentFilters.drivetrain)
+      if (currentFilters.priceRange)
+        queryBuilder = queryBuilder
+          .gte('price', currentFilters.priceRange[0])
+          .lte('price', currentFilters.priceRange[1])
+      if (currentFilters.mileageRange)
+        queryBuilder = queryBuilder
+          .gte('mileage', currentFilters.mileageRange[0])
+          .lte('mileage', currentFilters.mileageRange[1])
+      if (currentFilters.categories && currentFilters.categories.length > 0)
+        queryBuilder = queryBuilder.in('category', currentFilters.categories)
+
+      if (query) {
+        queryBuilder = queryBuilder.or(
+          `make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%`
+        )
+      }
+
+      // Apply sorting
+      switch (currentSortOption) {
+        case 'price_asc':
+          queryBuilder = queryBuilder.order('price', { ascending: true })
+          break
+        case 'price_desc':
+          queryBuilder = queryBuilder.order('price', { ascending: false })
+          break
+        case 'year_asc':
+          queryBuilder = queryBuilder.order('year', { ascending: true })
+          break
+        case 'year_desc':
+          queryBuilder = queryBuilder.order('year', { ascending: false })
+          break
+        case 'mileage_asc':
+          queryBuilder = queryBuilder.order('mileage', { ascending: true })
+          break
+        case 'mileage_desc':
+          queryBuilder = queryBuilder.order('mileage', { ascending: false })
+          break
+        default:
+          queryBuilder = queryBuilder.order('listed_at', { ascending: false })
+      }
+
+      const { count } = await queryBuilder
+
+      const totalItems = count || 0
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+      const safePageNumber = Math.min(page, totalPages)
+      const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
+      const endRange = Math.min(
+        safePageNumber * ITEMS_PER_PAGE - 1,
+        totalItems - 1
+      )
+
+      const { data, error } = await queryBuilder.range(startRange, endRange)
+
+      if (error) {
+        console.error('Error fetching cars:', error)
+      } else {
+        const newCars =
+          data?.map(item => ({
+            ...item,
+            dealership_name: item.dealerships.name,
+            dealership_logo: item.dealerships.logo,
+            dealership_phone: item.dealerships.phone,
+            dealership_location: item.dealerships.location,
+            dealership_latitude: item.dealerships.latitude,
+            dealership_longitude: item.dealerships.longitude
+          })) || []
+        setCars((prevCars: any) =>
+          safePageNumber === 1 ? newCars : [...prevCars, ...newCars]
+        )
+        setTotalPages(totalPages)
+        setCurrentPage(safePageNumber)
+      }
+      setIsLoading(false)
+    },
+    [filters, sortOption, searchQuery]
+  )
+
+  const handleFavoritePress = async (carId: string) => {
+    const newLikesCount = await toggleFavorite(carId)
+    setCars(prevCars =>
+      prevCars.map(car =>
+        car.id === carId ? { ...car, likes: newLikesCount } : car
+      )
+    )
   }
 
-  const fetchMakes = async () => {
-    const { data, error } = await supabase.from('cars').select('make').order('make')
-    if (error) {
-      console.error('Error fetching makes:', error)
-    } else {
-      const uniqueMakes = [...new Set(data?.map(item => item.make))]
-      setMakes(uniqueMakes)
-    }
-  }
-
-  const fetchModels = async (make: string) => {
-    const { data, error } = await supabase.from('cars').select('model').eq('make', make).order('model')
-    if (error) {
-      console.error('Error fetching models:', error)
-    } else {
-      const uniqueModels = [...new Set(data?.map(item => item.model))]
-      setModels(uniqueModels)
-    }
+  const handleSortChange = (value: string) => {
+    setSortOption(value)
+    fetchCars(1, filters, value, searchQuery)
   }
 
   const handleCarPress = (car: Car) => {
@@ -145,262 +224,239 @@ export default function BrowseCarsPage() {
     setIsModalVisible(true)
   }
 
-  const handleSearch = (text: string) => {
-    setSearchQuery(text)
-    setFiltersChanged(true)
-  }
-
-  const handleDealershipFilter = (value: string) => {
-    setFilterDealership(value)
-    setFiltersChanged(true)
-  }
-
-  const handleMakeFilter = (value: string) => {
-    setFilterMake(value)
-    fetchModels(value)
-    setFiltersChanged(true)
-  }
-
-  const handleModelFilter = (value: string) => {
-    setFilterModel(value)
-    setFiltersChanged(true)
-  }
-
-  const handleSort = (newSortBy: string) => {
-    if (sortBy === newSortBy) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy(newSortBy)
-      setSortOrder('asc')
-    }
-    setFiltersChanged(true)
-  }
-
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage)
-  }
-
   const renderCarItem = useCallback(({ item }: { item: Car }) => (
-    <CarCard car={item} onPress={() => handleCarPress(item)} />
-  ), [])
+    <CarCard
+      car={item}
+      onPress={() => handleCarPress(item)}
+      onFavoritePress={() => handleFavoritePress(item.id)}
+      isFavorite={isFavorite(item.id)}
+    />
+  ), [handleCarPress, handleFavoritePress, isFavorite])
+
+  const openFilterPage = () => {
+    router.push({
+      pathname: '/(home)/(user)/filter',
+      params: { filters: JSON.stringify(filters) }
+    })
+  }
+
+  const handleViewUpdate = (carId: string, newViewCount: number) => {
+    setCars(prevCars =>
+      prevCars.map(car =>
+        car.id === carId ? { ...car, views: newViewCount } : car
+      )
+    )
+  }
+
+  const handleSearch = () => {
+    fetchCars(1, filters, sortOption, searchQuery)
+  }
+
+  const handleCategoryPress = (category: string) => {
+    setFilters(prevFilters => {
+      const updatedCategories = prevFilters.categories
+        ? prevFilters.categories.includes(category)
+          ? prevFilters.categories.filter(c => c !== category)
+          : [...prevFilters.categories, category]
+        : [category]
+
+      const newFilters = {
+        ...prevFilters,
+        categories: updatedCategories
+      }
+
+      fetchCars(1, newFilters, sortOption, searchQuery)
+      return newFilters
+    })
+  }
+
+  const handleResetFilters = () => {
+    setFilters({})
+    setSearchQuery('')
+    setSortOption('')
+    fetchCars(1, {}, '', '')
+  }
+
+  const renderListHeader = useMemo(() => (
+    <>
+      <ByBrands />
+      <CategorySelector
+        selectedCategories={filters.categories || []}
+        onCategoryPress={handleCategoryPress}
+      />
+    </>
+  ), [filters.categories, handleCategoryPress])
+
+  const renderListEmpty = useCallback(() => (
+    <View style={styles.emptyContainer}>
+      <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
+        No cars available.
+      </Text>
+      {(Object.keys(filters).length > 0 || searchQuery) && (
+        <TouchableOpacity onPress={handleResetFilters} style={styles.resetButton}>
+          <Text style={styles.resetButtonText}>Remove filters</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  ), [filters, searchQuery, isDarkMode, handleResetFilters])
 
   return (
     <LinearGradient
-      colors={isDarkMode ? ['#1E1E1E', '#2D2D2D'] : ['#F5F5F5', '#E0E0E0']}
-      style={styles.gradient}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <View style={styles.container}>
-          
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
-              placeholder='Search cars...'
-              placeholderTextColor={isDarkMode ? '#999' : '#666'}
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-            <TouchableOpacity style={styles.searchButton} onPress={() => fetchCars()}>
-              <FontAwesome name="search" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
+      colors={isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#D55004']}
+      style={{ flex: 1 }}
+      start={{ x: 1, y: 0.3 }}
+      end={{ x: 2, y: 1 }}>
 
-          <View style={styles.filtersContainer}>
-            <RNPickerSelect
-              onValueChange={handleDealershipFilter}
-              items={dealerships.map(d => ({ label: d.name, value: d.id.toString() }))}
-              style={pickerSelectStyles}
-              value={filterDealership}
-              placeholder={{ label: 'All Dealerships', value: null }}
-            />
-            <RNPickerSelect
-              onValueChange={handleMakeFilter}
-              items={makes.map(make => ({ label: make, value: make }))}
-              style={pickerSelectStyles}
-              value={filterMake}
-              placeholder={{ label: 'All Makes', value: null }}
-            />
-            <RNPickerSelect
-              onValueChange={handleModelFilter}
-              items={models.map(model => ({ label: model, value: model }))}
-              style={pickerSelectStyles}
-              value={filterModel}
-              placeholder={{ label: 'All Models', value: null }}
-            />
-          </View>
-
-          <View style={styles.sortContainer}>
-            <TouchableOpacity onPress={() => handleSort('price')} style={styles.sortButton}>
-              <Text style={[styles.sortButtonText, isDarkMode && styles.darkText]}>
-                Price {sortBy === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSort('year')} style={styles.sortButton}>
-              <Text style={[styles.sortButtonText, isDarkMode && styles.darkText]}>
-                Year {sortBy === 'year' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSort('listed_at')} style={styles.sortButton}>
-              <Text style={[styles.sortButtonText, isDarkMode && styles.darkText]}>
-                Date Listed {sortBy === 'listed_at' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            data={cars}
-            renderItem={renderCarItem}
-            keyExtractor={item => item.id.toString()}
-            contentContainerStyle={styles.listContainer}
-          />
-
-          <View style={styles.paginationContainer}>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
             <TouchableOpacity
-              onPress={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}
-            >
-              <Text style={[styles.paginationButtonText, isDarkMode && styles.darkText]}>Previous</Text>
+              style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
+              onPress={openFilterPage}>
+              <FontAwesome
+                name='filter'
+                size={20}
+                color={isDarkMode ? 'white' : 'black'}
+              />
             </TouchableOpacity>
-            <Text style={[styles.pageInfo, isDarkMode && styles.darkText]}>
-              Page {currentPage} of {totalPages}
-            </Text>
-            <TouchableOpacity
-              onPress={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              style={[styles.paginationButton, currentPage === totalPages && styles.disabledButton]}
-            >
-              <Text style={[styles.paginationButtonText, isDarkMode && styles.darkText]}>Next</Text>
-            </TouchableOpacity>
+            <View style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
+              <TouchableOpacity
+                style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
+                onPress={handleSearch}>
+                <FontAwesome
+                  name='search'
+                  size={20}
+                  color={isDarkMode ? 'white' : 'black'}
+                />
+              </TouchableOpacity>
+              <TextInput
+                style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
+                placeholder='Search cars...'
+                placeholderTextColor={isDarkMode ? 'white' : 'gray'}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={handleSearch}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => {
+                    setSearchQuery('')
+                    fetchCars(1, filters, sortOption, '')
+                  }}>
+                  <FontAwesome
+                    name='times-circle'
+                    size={20}
+                    color={isDarkMode ? 'white' : 'black'}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+            <SortPicker
+              onValueChange={handleSortChange}
+              initialValue={{ label: 'Sort', value: null }}
+            />
           </View>
-
-          <CarDetailModal
-            isVisible={isModalVisible}
-            car={selectedCar}
-            onClose={() => setIsModalVisible(false)}
-            onViewUpdate={(carId: number, newViewCount: any) => {
-              setCars(prevCars =>
-                prevCars.map(car =>
-                  car.id === carId ? { ...car, views: newViewCount } : car
-                )
-              )
-            }}
-          />
         </View>
-      </SafeAreaView>
+
+        <FlatList
+          ListHeaderComponent={renderListHeader}
+          data={cars}
+          renderItem={renderCarItem}
+          keyExtractor={item => item.id.toString()}
+          onEndReached={() => {
+            if (currentPage < totalPages) {
+              fetchCars(currentPage + 1, filters, sortOption, searchQuery)
+            }
+          }}
+          onEndReachedThreshold={0.1}
+          ListEmptyComponent={renderListEmpty}
+          ListFooterComponent={() =>
+            isLoading ? (
+              <ActivityIndicator
+                size='large'
+                color='#D55004'
+                style={{ marginVertical: 20 }}
+              />
+            ) : null
+          }
+        />
+
+        <CarDetailModal
+          isVisible={isModalVisible}
+          car={selectedCar}
+          onClose={() => {
+            setIsModalVisible(false)
+            setSelectedCar(null)
+          }}
+          setSelectedCar={setSelectedCar}
+          setIsModalVisible={setIsModalVisible}
+          onFavoritePress={() =>
+            selectedCar && handleFavoritePress(selectedCar.id)
+          }
+          isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+          onViewUpdate={handleViewUpdate}
+        />
     </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-    padding: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-  },
-  darkText: {
-    color: '#FFF',
-  },
+
   searchContainer: {
+    padding: 10,
+  },
+  searchInputContainer: {
     flexDirection: 'row',
-    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  darkIconButton: {
+    backgroundColor: '#333',
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 20,
+    marginHorizontal: 10,
+  },
+  darkSearchBar: {
+    borderColor: '#555',
   },
   searchInput: {
     flex: 1,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginRight: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    color: 'black',
   },
   darkSearchInput: {
-    backgroundColor: '#444',
-    color: '#FFF',
+    color: 'white',
   },
-  searchButton: {
-    backgroundColor: '#D55004',
+  clearButton: {
     padding: 10,
-    borderRadius: 5,
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  filtersContainer: {
-    marginBottom: 15,
-  },
-  sortContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  sortButton: {
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#D55004',
-  },
-  sortButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    paddingBottom: 20,
-  },
-  paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  paginationButton: {
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#D55004',
-  },
-  paginationButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  pageInfo: {
+  emptyText: {
     fontSize: 16,
+    textAlign: 'center',
+    color: '#000',
   },
-})
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 4,
-    color: 'black',
-    paddingRight: 30,
-    backgroundColor: 'white',
-    marginBottom: 10,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 0.5,
-    borderColor: 'gray',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30,
-    backgroundColor: 'white',
-    marginBottom: 10,
+  darkEmptyText: {
+    color: '#fff',
   },
 })

@@ -112,7 +112,7 @@ const ByBrands = React.memo(() => {
 
 	return (
 		<View
-			className={`mt-4 px-3  mb-4 ${isDarkMode ? 'bg-night' : 'bg-[#FFFFFF]'}`}>
+			className={`mt-4 px-3  mb-4 ${isDarkMode ? '' : 'bg-[#FFFFFF]'}`}>
 			<View className='flex-row justify-between items-center mb-4'>
 				<Text
 					className={`text-xl font-bold ${

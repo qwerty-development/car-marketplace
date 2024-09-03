@@ -296,7 +296,7 @@ const ListingModal = ({
 	return (
 		<Modal visible={isVisible} animationType='slide' transparent={true}>
 			<GestureHandlerRootView style={{ flex: 1 }}>
-				<StyledView className='flex-1 py-24 justify-center items-cent0'>
+				<StyledView className='flex-1 mt-24 justify-center items-cent0'>
 					<StyledView className='bg-white p-6 rounded-lg'>
 						<ScrollView>
 							<StyledText className='text-2xl font-bold mb-4'>
