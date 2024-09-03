@@ -12,13 +12,16 @@ export default function DealerLayout() {
 		screenOptions={{
 		  headerStyle: {
 			backgroundColor: isDarkMode ? 'black' : 'white',
+			borderBottomWidth: 0,
+			borderTopWidth: 0,
+			borderWidth: 0,
 		  },
 		  headerTintColor: '#D55004',
 		  tabBarStyle: {
 			backgroundColor: isDarkMode ? 'black' : 'white',
 		  },
 		  tabBarActiveTintColor: '#D55004',
-		  tabBarInactiveTintColor: isDarkMode ? 'gray' : 'black',
+		  tabBarInactiveTintColor: isDarkMode ? 'white' : 'black',
 		}}
 	  >
 			<Tabs.Screen

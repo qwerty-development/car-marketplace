@@ -12,10 +12,13 @@ import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
 import { Dimensions } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '@/utils/ThemeContext'
+import ThemeSwitch from '@/components/ThemeSwitch'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
 export default function DealerAnalyticsPage() {
+	const { isDarkMode } = useTheme()
 	const { user } = useUser()
 	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
@@ -63,38 +66,42 @@ export default function DealerAnalyticsPage() {
 		if (data) setCars(data)
 	}
 
-	if (!analytics) return <Text className='p-4'>Loading analytics...</Text>
+	if (!analytics) return <Text className={`p-4 ${isDarkMode ? 'text-white' : 'text-black'}`}>Loading analytics...</Text>
 
 	const renderCarItem = ({ item }: { item: any }) => (
 		<TouchableOpacity
-			className='bg-white p-4 mb-2 rounded-lg flex-row justify-between items-center'
+			className={`${isDarkMode ? 'bg-gray' : 'bg-white'} p-4 mb-2 rounded-lg flex-row justify-between items-center`}
 			onPress={() => router.push(`/car-analytics/${item.id}`)}>
 			<View>
-				<Text className='font-bold'>
+				<Text className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 					{item.year} {item.make} {item.model}
 				</Text>
-				<Text className='text-gray-600'>
+				<Text className={isDarkMode ? 'text-gray' : 'text-gray'}>
 					Views: {item.views} | Likes: {item.likes}
 				</Text>
 			</View>
-			<Ionicons name='chevron-forward' size={24} color='#007AFF' />
+			<Ionicons name='chevron-forward' size={24} color={isDarkMode ? '#ffffff' : '#007AFF'} />
 		</TouchableOpacity>
 	)
 
 	return (
-		<View className='flex-1 bg-gray-100'>
-			<View className='p-4 rounded-lg shadow-md'>
+		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+			<View className={`p-4 rounded-lg shadow-md ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+				<View className='flex-row justify-between items-center mb-4'>
+					<Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Analytics</Text>
+					<ThemeSwitch />
+				</View>
 				<View className='flex-row justify-around mb-4'>
 					{['week', 'month', 'year']?.map(range => (
 						<TouchableOpacity
 							key={range}
 							onPress={() => setTimeRange(range)}
 							className={`px-4 py-2 rounded-full ${
-								timeRange === range ? 'bg-red' : 'bg-gray-200'
+								timeRange === range ? 'bg-red' : isDarkMode ? 'bg-gray' : 'bg-'
 							}`}>
 							<Text
 								className={
-									timeRange === range ? 'text-white' : 'text-gray-800'
+									timeRange === range ? 'text-white' : isDarkMode ? 'text-white' : 'text-gray'
 								}>
 								{range.charAt(0).toUpperCase() + range.slice(1)}
 							</Text>
@@ -104,32 +111,32 @@ export default function DealerAnalyticsPage() {
 			</View>
 
 			<ScrollView>
-				<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-					<Text className='text-xl font-semibold mb-2'>Overview</Text>
+				<View className={`rounded-lg shadow-md m-4 p-4 ${isDarkMode ? 'bg-gray' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>Overview</Text>
 					<View className='flex-row justify-between'>
 						<View className='items-center'>
 							<Text className='text-3xl font-bold text-blue-500'>
 								{analytics.total_listings}
 							</Text>
-							<Text className='text-sm text-gray-600'>Total Listings</Text>
+							<Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Listings</Text>
 						</View>
 						<View className='items-center'>
 							<Text className='text-3xl font-bold text-green-500'>
 								{analytics.total_views}
 							</Text>
-							<Text className='text-sm text-gray-600'>Total Views</Text>
+							<Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Views</Text>
 						</View>
 						<View className='items-center'>
 							<Text className='text-3xl font-bold text-red-500'>
 								{analytics.total_likes}
 							</Text>
-							<Text className='text-sm text-gray-600'>Total Likes</Text>
+							<Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Likes</Text>
 						</View>
 					</View>
 				</View>
 
-				<View className='bg-white rounded-lg shadow-md p-4'>
-					<Text className='text-xl font-semibold mb-2'>
+				<View className={`rounded-lg shadow-md p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Views and Likes Over Time
 					</Text>
 					<LineChart
@@ -150,11 +157,11 @@ export default function DealerAnalyticsPage() {
 						width={SCREEN_WIDTH - 40}
 						height={220}
 						chartConfig={{
-							backgroundColor: '#ffffff',
-							backgroundGradientFrom: '#ffffff',
-							backgroundGradientTo: '#ffffff',
+							backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+							backgroundGradientFrom: isDarkMode ? '#1e1e1e' : '#ffffff',
+							backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 							decimalPlaces: 0,
-							color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+							color: (opacity = 1) => isDarkMode ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
 							style: { borderRadius: 16 }
 						}}
 						bezier
@@ -162,8 +169,8 @@ export default function DealerAnalyticsPage() {
 					/>
 				</View>
 
-				<View className='bg-white rounded-lg shadow-md p-4'>
-					<Text className='text-xl font-semibold mb-2'>
+				<View className={`rounded-lg shadow-md p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Top 5 Most Viewed Cars
 					</Text>
 					<BarChart
@@ -180,9 +187,9 @@ export default function DealerAnalyticsPage() {
 						yAxisLabel=''
 						yAxisSuffix=''
 						chartConfig={{
-							backgroundColor: '#ffffff',
-							backgroundGradientFrom: '#ffffff',
-							backgroundGradientTo: '#ffffff',
+							backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+							backgroundGradientFrom: isDarkMode ? '#1e1e1e' : '#ffffff',
+							backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 							decimalPlaces: 0,
 							color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`,
 							style: { borderRadius: 16 }
@@ -191,8 +198,8 @@ export default function DealerAnalyticsPage() {
 					/>
 				</View>
 
-				<View className='bg-white rounded-lg shadow-md p-4'>
-					<Text className='text-xl font-semibold mb-2'>
+				<View className={`rounded-lg shadow-md p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Top 5 Most Liked Cars
 					</Text>
 					<BarChart
@@ -209,9 +216,9 @@ export default function DealerAnalyticsPage() {
 						yAxisLabel=''
 						yAxisSuffix=''
 						chartConfig={{
-							backgroundColor: '#ffffff',
-							backgroundGradientFrom: '#ffffff',
-							backgroundGradientTo: '#ffffff',
+							backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+							backgroundGradientFrom: isDarkMode ? '#1e1e1e' : '#ffffff',
+							backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 							decimalPlaces: 0,
 							color: (opacity = 1) => `rgba(255, 0, 0, ${opacity})`,
 							style: { borderRadius: 16 }
@@ -220,29 +227,29 @@ export default function DealerAnalyticsPage() {
 					/>
 				</View>
 
-				<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-					<Text className='text-xl font-semibold mb-2'>Inventory Summary</Text>
+				<View className={`rounded-lg shadow-md m-4 p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>Inventory Summary</Text>
 					<PieChart
 						data={[
 							{
 								name: 'New',
 								population: analytics.inventory_summary.new_cars,
 								color: '#FF9800',
-								legendFontColor: '#7F7F7F',
+								legendFontColor: isDarkMode ? '#E0E0E0' : '#7F7F7F',
 								legendFontSize: 12
 							},
 							{
 								name: 'Used',
 								population: analytics.inventory_summary.used_cars,
 								color: '#2196F3',
-								legendFontColor: '#7F7F7F',
+								legendFontColor: isDarkMode ? '#E0E0E0' : '#7F7F7F',
 								legendFontSize: 12
 							}
 						]}
 						width={SCREEN_WIDTH - 40}
 						height={220}
 						chartConfig={{
-							color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`
+							color: (opacity = 1) => isDarkMode ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`
 						}}
 						accessor='population'
 						backgroundColor='transparent'
@@ -250,19 +257,19 @@ export default function DealerAnalyticsPage() {
 					/>
 				</View>
 
-				<View className='bg-white rounded-lg shadow-md m-2 p-4'>
-					<Text className='text-xl font-semibold mb-2'>
+				<View className={`rounded-lg shadow-md m-2 p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Performance Metrics
 					</Text>
 					<View className='flex-row justify-between items-center mb-2'>
-						<Text className='text-gray-600'>Avg. Time to Sell:</Text>
-						<Text className='font-bold'>
+						<Text className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Avg. Time to Sell:</Text>
+						<Text className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 							{analytics.performance_metrics.avg_time_to_sell} days
 						</Text>
 					</View>
 					<View className='flex-row justify-between items-center mb-2'>
-						<Text className='text-gray-600'>Conversion Rate:</Text>
-						<Text className='font-bold'>
+						<Text className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Conversion Rate:</Text>
+						<Text className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 							{(analytics.performance_metrics.conversion_rate * 100)?.toFixed(
 								2
 							)}
@@ -270,15 +277,15 @@ export default function DealerAnalyticsPage() {
 						</Text>
 					</View>
 					<View className='flex-row justify-between items-center'>
-						<Text className='text-gray-600'>Avg. Listing Price:</Text>
-						<Text className='font-bold'>
+						<Text className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Avg. Listing Price:</Text>
+						<Text className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 							${analytics.performance_metrics.avg_listing_price?.toFixed(2)}
 						</Text>
 					</View>
 				</View>
 
-				<View className='bg-white rounded-lg shadow-md m-4 p-4'>
-					<Text className='text-xl font-semibold mb-2'>
+				<View className={`rounded-lg shadow-md m-4 p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+					<Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Individual Car Analytics
 					</Text>
 					<FlatList
