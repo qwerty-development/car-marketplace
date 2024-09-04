@@ -40,6 +40,9 @@ const ListingModal = ({
 	const [isUploading, setIsUploading] = useState(false)
 	const [makes, setMakes] = useState<any>([])
 	const [models, setModels] = useState<any>([])
+	const [uploadProgress, setUploadProgress] = useState<{
+		[key: string]: number
+	}>({})
 
 	const colors = [
 		{ id: 1, name: 'Red' },
@@ -179,7 +182,7 @@ const ListingModal = ({
 		})
 	}
 
-	const pickImage = async () => {
+	const pickImages = async () => {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 		if (status !== 'granted') {
 			alert('Sorry, we need camera roll permissions to make this work!')
@@ -188,22 +191,74 @@ const ListingModal = ({
 
 		let result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [4, 3],
+			allowsMultipleSelection: true,
 			quality: 1
 		})
 
 		if (!result.canceled && result.assets && result.assets.length > 0) {
 			setIsUploading(true)
 			try {
-				await handleImageUpload(result.assets[0].uri)
+				await handleMultipleImageUpload(result.assets)
 			} catch (error) {
-				console.error('Error uploading image:', error)
-				alert('Failed to upload image. Please try again.')
+				console.error('Error uploading images:', error)
+				alert('Failed to upload images. Please try again.')
 			} finally {
 				setIsUploading(false)
+				setUploadProgress({})
 			}
 		}
+	}
+
+	const handleMultipleImageUpload = async (
+		assets: ImagePicker.ImagePickerAsset[]
+	) => {
+		if (!dealership) return
+
+		const uploadPromises = assets.map(async (asset, index) => {
+			try {
+				const fileName = `${Date.now()}_${Math.random()
+					.toString(36)
+					.substring(7)}_${index}.jpg`
+				const filePath = `${dealership.id}/${fileName}`
+
+				const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+					encoding: FileSystem.EncodingType.Base64
+				})
+
+				const { data, error } = await supabase.storage
+					.from('cars')
+					.upload(filePath, Buffer.from(base64, 'base64'), {
+						contentType: 'image/jpeg'
+					})
+
+				if (error) throw error
+
+				const { data: publicURLData } = supabase.storage
+					.from('cars')
+					.getPublicUrl(filePath)
+
+				if (!publicURLData) throw new Error('Error getting public URL')
+
+				setUploadProgress(prev => ({ ...prev, [asset.uri]: 100 }))
+
+				return publicURLData.publicUrl
+			} catch (error) {
+				console.error('Error uploading image:', error)
+				setUploadProgress(prev => ({ ...prev, [asset.uri]: -1 }))
+				return null
+			}
+		})
+
+		const uploadedUrls = await Promise.all(uploadPromises)
+		const successfulUploads = uploadedUrls.filter(
+			url => url !== null
+		) as string[]
+
+		setModalImages((prev: any) => [...successfulUploads, ...prev])
+		setFormData((prev: { images: any }) => ({
+			...prev,
+			images: [...successfulUploads, ...(prev.images || [])]
+		}))
 	}
 
 	const handleImageUpload = async (imageUri: string) => {
@@ -553,15 +608,36 @@ const ListingModal = ({
 							<StyledView className='flex-row justify-between mt-2'>
 								<StyledTouchableOpacity
 									className='bg-blue-500 py-2 px-4 rounded flex-1 mr-2 items-center'
-									onPress={pickImage}
+									onPress={pickImages}
 									disabled={isUploading}>
 									{isUploading ? (
 										<ActivityIndicator color='white' />
 									) : (
-										<StyledText className='text-white'>Add Image</StyledText>
+										<StyledText className='text-white'>Add Images</StyledText>
 									)}
 								</StyledTouchableOpacity>
 							</StyledView>
+
+							{Object.keys(uploadProgress).length > 0 && (
+								<StyledView className='mt-2'>
+									{Object.entries(uploadProgress).map(([uri, progress]) => (
+										<StyledView
+											key={uri}
+											className='flex-row items-center mb-1'>
+											<StyledText className='mr-2'>{`Image ${uri.slice(
+												-8
+											)}: `}</StyledText>
+											{progress === 100 ? (
+												<FontAwesome name='check' size={16} color='green' />
+											) : progress === -1 ? (
+												<FontAwesome name='times' size={16} color='red' />
+											) : (
+												<ActivityIndicator size='small' />
+											)}
+										</StyledView>
+									))}
+								</StyledView>
+							)}
 
 							<StyledView className='flex-row justify-end mt-4 mb-10'>
 								<StyledTouchableOpacity
