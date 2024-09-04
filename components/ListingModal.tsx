@@ -379,7 +379,7 @@ const ListingModal = ({
 								valueField='value'
 								placeholder='Select Category'
 								searchPlaceholder='Search...'
-								value={formData.status}
+								value={formData.category}
 								onChange={item => handleInputChange('category', item.value)}
 							/>
 							<Dropdown
