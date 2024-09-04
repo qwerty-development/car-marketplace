@@ -441,7 +441,7 @@ const ListingModal = ({
 								placeholder='Select Color'
 								selectedItem={
 									formData.color
-										? { id: formData.color, name: formData.color }
+										? colors.find(color => color.name === formData.color)
 										: undefined
 								}
 							/>

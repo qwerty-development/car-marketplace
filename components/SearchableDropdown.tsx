@@ -12,7 +12,7 @@ interface DropdownComponentProps {
 	items: Item[]
 	onItemSelect: (item: Item | null) => void
 	placeholder: string
-	selectedItem?: any
+	selectedItem?: Item | null
 }
 
 const DropdownComponent: React.FC<DropdownComponentProps> = ({
@@ -20,7 +20,7 @@ const DropdownComponent: React.FC<DropdownComponentProps> = ({
 	onItemSelect,
 	placeholder,
 	selectedItem
-}) => {
+}: any) => {
 	const [isFocus, setIsFocus] = useState(false)
 
 	return (
@@ -39,7 +39,7 @@ const DropdownComponent: React.FC<DropdownComponentProps> = ({
 				valueField='id'
 				placeholder={!isFocus && !selectedItem ? placeholder : ''}
 				searchPlaceholder='Search...'
-				value={selectedItem?.id}
+				value={selectedItem ? selectedItem.id : null}
 				onFocus={() => setIsFocus(true)}
 				onBlur={() => setIsFocus(false)}
 				onChange={item => {
