@@ -16,11 +16,13 @@ import * as FileSystem from 'expo-file-system'
 import { Buffer } from 'buffer'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
+import { useRouter } from 'expo-router'
 
 export default function DealershipProfilePage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
 	const { signOut } = useAuth()
+	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
 	const [name, setName] = useState('')
 	const [location, setLocation] = useState('')
@@ -29,54 +31,74 @@ export default function DealershipProfilePage() {
 	const [latitude, setLatitude] = useState('')
 	const [longitude, setLongitude] = useState('')
 	const [isUploading, setIsUploading] = useState(false)
+	const [isLoading, setIsLoading] = useState(true)
+	const [error, setError] = useState<string | null>(null)
 
 	useEffect(() => {
 		if (user) fetchDealershipProfile()
 	}, [user])
 
 	const fetchDealershipProfile = async () => {
-		const { data, error } = await supabase
-			.from('dealerships')
-			.select('*')
-			.eq('user_id', user?.id)
-			.single()
+		setIsLoading(true)
+		setError(null)
+		try {
+			const { data, error } = await supabase
+				.from('dealerships')
+				.select('*')
+				.eq('user_id', user?.id)
+				.single()
 
-		if (data) {
-			setDealership(data)
-			setName(data.name)
-			setLocation(data.location)
-			setPhone(data.phone)
-			setLogo(data.logo)
-			setLatitude(data.latitude ? data.latitude.toString() : '')
-			setLongitude(data.longitude ? data.longitude.toString() : '')
+			if (error) throw error
+
+			if (data) {
+				setDealership(data)
+				setName(data.name)
+				setLocation(data.location)
+				setPhone(data.phone)
+				setLogo(data.logo)
+				setLatitude(data.latitude ? data.latitude.toString() : '')
+				setLongitude(data.longitude ? data.longitude.toString() : '')
+			}
+		} catch (error: any) {
+			setError(error.message)
+		} finally {
+			setIsLoading(false)
 		}
 	}
 
 	const updateProfile = async () => {
-		const { error } = await supabase
-			.from('dealerships')
-			.update({
-				name,
-				location,
-				phone,
-				logo,
-				latitude: parseFloat(latitude) || null,
-				longitude: parseFloat(longitude) || null
-			})
-			.eq('id', dealership.id)
+		setIsLoading(true)
+		setError(null)
+		try {
+			const { error } = await supabase
+				.from('dealerships')
+				.update({
+					name,
+					location,
+					phone,
+					logo,
+					latitude: parseFloat(latitude) || null,
+					longitude: parseFloat(longitude) || null
+				})
+				.eq('id', dealership.id)
 
-		if (!error) {
+			if (error) throw error
+
 			Alert.alert('Success', 'Profile updated successfully')
-		} else {
-			console.error('Error updating profile:', error)
-			Alert.alert('Error', 'Failed to update profile. Please try again.')
+		} catch (error: any) {
+			setError(`Failed to update profile: ${error.message}`)
+		} finally {
+			setIsLoading(false)
 		}
 	}
 
 	const pickImage = async () => {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 		if (status !== 'granted') {
-			Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!')
+			Alert.alert(
+				'Permission Denied',
+				'Sorry, we need camera roll permissions to make this work!'
+			)
 			return
 		}
 
@@ -104,7 +126,9 @@ export default function DealershipProfilePage() {
 		if (!dealership) return
 
 		try {
-			const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`
+			const fileName = `${Date.now()}_${Math.random()
+				.toString(36)
+				.substring(7)}.jpg`
 			const filePath = `${dealership.id}/${fileName}`
 
 			const base64 = await FileSystem.readAsStringAsync(imageUri, {
@@ -136,9 +160,29 @@ export default function DealershipProfilePage() {
 		}
 	}
 
+	const navigateToAnalytics = () => {
+		router.push('/analytics')
+	}
+
 	return (
 		<ScrollView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-gray-100'}`}>
-			<View className={`items-center ${isDarkMode ? 'bg-red' : 'bg-red'} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
+			{isLoading && (
+				<View className='items-center justify-center py-4'>
+					<ActivityIndicator
+						size='large'
+						color={isDarkMode ? 'white' : 'black'}
+					/>
+				</View>
+			)}
+			{error && (
+				<View className='bg-red-500 p-4 mb-4 rounded-xl'>
+					<Text className='text-white font-bold text-center'>{error}</Text>
+				</View>
+			)}
+			<View
+				className={`items-center ${
+					isDarkMode ? 'bg-red' : 'bg-red'
+				} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
 				<Image
 					source={{ uri: logo || 'https://via.placeholder.com/150' }}
 					className='w-36 h-36 rounded-full border-4 border-white mb-6'
@@ -150,47 +194,70 @@ export default function DealershipProfilePage() {
 					{isUploading ? (
 						<ActivityIndicator color='red' />
 					) : (
-						<Text className='text-red-600 font-semibold text-lg'>Change Logo</Text>
+						<Text className='text-red-600 font-semibold text-lg'>
+							Change Logo
+						</Text>
 					)}
 				</TouchableOpacity>
 			</View>
 
 			<View className='px-6 mt-8'>
 				<View className='flex-row justify-between items-center mb-6'>
-					<Text className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+					<Text
+						className={`text-3xl font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
 						Dealership Profile
 					</Text>
 					<ThemeSwitch />
 				</View>
 
-				<View className={`${isDarkMode ? 'bg-black' : 'bg-white'} rounded-2xl shadow-md p-6 mb-8`}>
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+				<View
+					className={`${
+						isDarkMode ? 'bg-black' : 'bg-white'
+					} rounded-2xl shadow-md p-6 mb-8`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Dealership Name
 					</Text>
 					<TextInput
-						className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'} p-4 rounded-xl mb-4`}
+						className={`${
+							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={name}
 						onChangeText={setName}
 						placeholder='Dealership Name'
 						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 					/>
 
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Location
 					</Text>
 					<TextInput
-						className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'} p-4 rounded-xl mb-4`}
+						className={`${
+							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={location}
 						onChangeText={setLocation}
 						placeholder='Location'
 						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 					/>
 
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Phone
 					</Text>
 					<TextInput
-						className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'} p-4 rounded-xl mb-4`}
+						className={`${
+							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={phone}
 						onChangeText={setPhone}
 						placeholder='Phone'
@@ -198,11 +265,16 @@ export default function DealershipProfilePage() {
 						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 					/>
 
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Latitude
 					</Text>
 					<TextInput
-						className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'} p-4 rounded-xl mb-4`}
+						className={`${
+							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={latitude}
 						onChangeText={setLatitude}
 						placeholder='Latitude'
@@ -210,11 +282,16 @@ export default function DealershipProfilePage() {
 						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 					/>
 
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Longitude
 					</Text>
 					<TextInput
-						className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'} p-4 rounded-xl mb-4`}
+						className={`${
+							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
+						} p-4 rounded-xl mb-4`}
 						value={longitude}
 						onChangeText={setLongitude}
 						placeholder='Longitude'
@@ -222,17 +299,33 @@ export default function DealershipProfilePage() {
 						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 					/>
 
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Email
 					</Text>
-					<Text className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-gray-100 text-black'} p-4 rounded-xl mb-4`}>
+					<Text
+						className={`${
+							isDarkMode
+								? 'bg-gray-800 text-orange-500'
+								: 'bg-gray-100 text-black'
+						} p-4 rounded-xl mb-4`}>
 						{user?.emailAddresses[0].emailAddress}
 					</Text>
 
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray-700'} text-sm font-semibold mb-2`}>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-gray-700'
+						} text-sm font-semibold mb-2`}>
 						Subscription End Date
 					</Text>
-					<Text className={`${isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-gray-100 text-black'} p-4 rounded-xl mb-6`}>
+					<Text
+						className={`${
+							isDarkMode
+								? 'bg-gray-800 text-orange-500'
+								: 'bg-gray-100 text-black'
+						} p-4 rounded-xl mb-6`}>
 						{dealership?.subscription_end_date
 							? new Date(dealership.subscription_end_date).toLocaleDateString()
 							: 'N/A'}
@@ -242,6 +335,12 @@ export default function DealershipProfilePage() {
 						className='bg-red p-4 rounded-xl items-center mt-4'
 						onPress={updateProfile}>
 						<Text className='text-white font-bold text-xl'>Update Profile</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						className='bg-blue-500 p-4 rounded-xl items-center mt-4'
+						onPress={navigateToAnalytics}>
+						<Text className='text-white font-bold text-xl'>View Analytics</Text>
 					</TouchableOpacity>
 				</View>
 

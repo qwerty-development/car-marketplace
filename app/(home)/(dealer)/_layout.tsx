@@ -63,10 +63,7 @@ export default function DealerLayout() {
 				<Tabs.Screen
 					name='analytics'
 					options={{
-						title: 'Analytics',
-						tabBarIcon: ({ color, size }) => (
-							<Ionicons name='bar-chart' size={size} color={color} />
-						)
+						tabBarButton: () => null
 					}}
 				/>
 				<Tabs.Screen
