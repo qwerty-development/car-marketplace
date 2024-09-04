@@ -333,7 +333,7 @@ const ListingModal = ({
 			}}>
 			<StyledImage
 				source={{ uri: item }}
-				style={{ width: 80, height: 80, marginRight: 10 }}
+				style={{ width: 150, height: 150, marginRight: 10 }}
 			/>
 			<FontAwesome name='bars' size={20} color='gray' />
 			<StyledTouchableOpacity
@@ -592,13 +592,16 @@ const ListingModal = ({
 
 							<StyledText className='font-bold mb-2 mt-4'>Images:</StyledText>
 							{modalImages.length > 0 ? (
-								<DraggableFlatList
-									data={modalImages}
-									renderItem={renderDraggableItem}
-									keyExtractor={(item, index) => `draggable-item-${index}`}
-									onDragEnd={({ data }) => setModalImages(data)}
-									horizontal={false}
-								/>
+								<View>
+									<Text> Hold and drah image to reorder it </Text>
+									<DraggableFlatList
+										data={modalImages}
+										renderItem={renderDraggableItem}
+										keyExtractor={(item, index) => `draggable-item-${index}`}
+										onDragEnd={({ data }) => setModalImages(data)}
+										horizontal={false}
+									/>
+								</View>
 							) : (
 								<StyledText className='text-gray-500 mb-2'>
 									No images uploaded yet
