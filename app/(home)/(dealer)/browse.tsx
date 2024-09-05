@@ -18,8 +18,47 @@ import ByBrands from '@/components/ByBrands'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import CategorySelector from '@/components/Category'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { StatusBar } from 'react-native'
 
 const ITEMS_PER_PAGE = 7
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{
+				backgroundColor: isDarkMode ? 'black' : 'white',
+				borderBottomWidth: 0,
+				borderBottomColor: '#D55004',
+				borderTopWidth: 0,
+				borderWidth: 0,
+
+				borderColor: '#D55004'
+			}}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					justifyContent: 'center', // Centers the content horizontally
+					paddingHorizontal: 0,
+					paddingBottom: 9
+				}}>
+				<Text
+					style={{
+						fontSize: 20,
+						textAlign: 'center',
+						color: '#D55004',
+						fontWeight: '600'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+}
 
 export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
@@ -265,6 +304,7 @@ export default function BrowseCarsPage() {
 			className='flex-1'
 			start={{ x: 1, y: 0.3 }}
 			end={{ x: 2, y: 1 }}>
+			<CustomHeader title='Browse Cars' />
 			<View className='p-4'>
 				<View className='flex-row items-center justify-between'>
 					<TouchableOpacity

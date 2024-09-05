@@ -22,7 +22,8 @@ export default function DealerLayout() {
 						backgroundColor: isDarkMode ? 'black' : 'white'
 					},
 					tabBarActiveTintColor: '#D55004',
-					tabBarInactiveTintColor: isDarkMode ? 'white' : 'black'
+					tabBarInactiveTintColor: isDarkMode ? 'white' : 'black',
+					headerShown: false
 				}}>
 				<Tabs.Screen
 					name='index'

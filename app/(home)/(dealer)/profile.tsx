@@ -7,7 +7,8 @@ import {
 	Image,
 	ScrollView,
 	ActivityIndicator,
-	Alert
+	Alert,
+	StatusBar
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
@@ -17,6 +18,44 @@ import { Buffer } from 'buffer'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
 import { useRouter } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{
+				backgroundColor: isDarkMode ? 'black' : 'white',
+				borderBottomWidth: 0,
+				borderBottomColor: '#D55004',
+				borderTopWidth: 0,
+				borderWidth: 0,
+
+				borderColor: '#D55004'
+			}}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					justifyContent: 'center', // Centers the content horizontally
+					paddingHorizontal: 0,
+					paddingBottom: 9
+				}}>
+				<Text
+					style={{
+						fontSize: 20,
+						textAlign: 'center',
+						color: '#D55004',
+						fontWeight: '600'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+}
 
 export default function DealershipProfilePage() {
 	const { isDarkMode } = useTheme()
@@ -165,191 +204,211 @@ export default function DealershipProfilePage() {
 	}
 
 	return (
-		<ScrollView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-gray-100'}`}>
-			{isLoading && (
-				<View className='items-center justify-center py-4'>
-					<ActivityIndicator
-						size='large'
-						color={isDarkMode ? 'white' : 'black'}
-					/>
-				</View>
-			)}
-			{error && (
-				<View className='bg-red-500 p-4 mb-4 rounded-xl'>
-					<Text className='text-white font-bold text-center'>{error}</Text>
-				</View>
-			)}
-			<View
-				className={`items-center ${
-					isDarkMode ? 'bg-red' : 'bg-red'
-				} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
-				<Image
-					source={{ uri: logo || 'https://via.placeholder.com/150' }}
-					className='w-36 h-36 rounded-full border-4 border-white mb-6'
-				/>
-				<TouchableOpacity
-					className='bg-white px-6 py-3 rounded-full shadow-md'
-					onPress={pickImage}
-					disabled={isUploading}>
-					{isUploading ? (
-						<ActivityIndicator color='red' />
-					) : (
-						<Text className='text-red-600 font-semibold text-lg'>
-							Change Logo
-						</Text>
-					)}
-				</TouchableOpacity>
-			</View>
-
-			<View className='px-6 mt-8'>
-				<View className='flex-row justify-between items-center mb-6'>
-					<Text
-						className={`text-3xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Dealership Profile
-					</Text>
-					<ThemeSwitch />
-				</View>
-
+		<>
+			<CustomHeader title='Profile' />
+			<ScrollView
+				className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-gray-100'}`}>
+				{isLoading && (
+					<View className='items-center justify-center py-4'>
+						<ActivityIndicator
+							size='large'
+							color={isDarkMode ? 'white' : 'black'}
+						/>
+					</View>
+				)}
+				{error && (
+					<View className='bg-red-500 p-4 mb-4 rounded-xl'>
+						<Text className='text-white font-bold text-center'>{error}</Text>
+					</View>
+				)}
 				<View
-					className={`${
-						isDarkMode ? 'bg-black' : 'bg-white'
-					} rounded-2xl shadow-md p-6 mb-8`}>
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Dealership Name
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={name}
-						onChangeText={setName}
-						placeholder='Dealership Name'
-						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					className={`items-center ${
+						isDarkMode ? 'bg-red' : 'bg-red'
+					} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
+					<Image
+						source={{ uri: logo || 'https://via.placeholder.com/150' }}
+						className='w-36 h-36 rounded-full border-4 border-white mb-6'
 					/>
-
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Location
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={location}
-						onChangeText={setLocation}
-						placeholder='Location'
-						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-					/>
-
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Phone
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={phone}
-						onChangeText={setPhone}
-						placeholder='Phone'
-						keyboardType='phone-pad'
-						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-					/>
-
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Latitude
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={latitude}
-						onChangeText={setLatitude}
-						placeholder='Latitude'
-						keyboardType='numeric'
-						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-					/>
-
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Longitude
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray-800 text-orange-500' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={longitude}
-						onChangeText={setLongitude}
-						placeholder='Longitude'
-						keyboardType='numeric'
-						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-					/>
-
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Email
-					</Text>
-					<Text
-						className={`${
-							isDarkMode
-								? 'bg-gray-800 text-orange-500'
-								: 'bg-gray-100 text-black'
-						} p-4 rounded-xl mb-4`}>
-						{user?.emailAddresses[0].emailAddress}
-					</Text>
-
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray-700'
-						} text-sm font-semibold mb-2`}>
-						Subscription End Date
-					</Text>
-					<Text
-						className={`${
-							isDarkMode
-								? 'bg-gray-800 text-orange-500'
-								: 'bg-gray-100 text-black'
-						} p-4 rounded-xl mb-6`}>
-						{dealership?.subscription_end_date
-							? new Date(dealership.subscription_end_date).toLocaleDateString()
-							: 'N/A'}
-					</Text>
-
 					<TouchableOpacity
-						className='bg-red p-4 rounded-xl items-center mt-4'
-						onPress={updateProfile}>
-						<Text className='text-white font-bold text-xl'>Update Profile</Text>
-					</TouchableOpacity>
-
-					<TouchableOpacity
-						className='bg-blue-500 p-4 rounded-xl items-center mt-4'
-						onPress={navigateToAnalytics}>
-						<Text className='text-white font-bold text-xl'>View Analytics</Text>
+						className='bg-white px-6 py-3 rounded-full shadow-md'
+						onPress={pickImage}
+						disabled={isUploading}>
+						{isUploading ? (
+							<ActivityIndicator color='red' />
+						) : (
+							<Text className='text-red-600 font-semibold text-lg'>
+								Change Logo
+							</Text>
+						)}
 					</TouchableOpacity>
 				</View>
 
-				<TouchableOpacity
-					className='bg-[#FF000024] p-5 mb-24 rounded-xl items-center'
-					onPress={() => signOut()}>
-					<Text className='text-white font-bold text-xl'>Sign Out</Text>
-				</TouchableOpacity>
-			</View>
-		</ScrollView>
+				<View className='px-6 mt-8'>
+					<View className='flex-row justify-between items-center mb-6'>
+						<Text
+							className={`text-3xl font-bold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Dealership Profile
+						</Text>
+						<ThemeSwitch />
+					</View>
+
+					<View
+						className={`${
+							isDarkMode ? 'bg-black' : 'bg-white'
+						} rounded-2xl shadow-md p-6 mb-8`}>
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Dealership Name
+						</Text>
+						<TextInput
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-white text-black'
+							} p-4 rounded-xl mb-4`}
+							value={name}
+							onChangeText={setName}
+							placeholder='Dealership Name'
+							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						/>
+
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Location
+						</Text>
+						<TextInput
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-white text-black'
+							} p-4 rounded-xl mb-4`}
+							value={location}
+							onChangeText={setLocation}
+							placeholder='Location'
+							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						/>
+
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Phone
+						</Text>
+						<TextInput
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-white text-black'
+							} p-4 rounded-xl mb-4`}
+							value={phone}
+							onChangeText={setPhone}
+							placeholder='Phone'
+							keyboardType='phone-pad'
+							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						/>
+
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Latitude
+						</Text>
+						<TextInput
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-white text-black'
+							} p-4 rounded-xl mb-4`}
+							value={latitude}
+							onChangeText={setLatitude}
+							placeholder='Latitude'
+							keyboardType='numeric'
+							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						/>
+
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Longitude
+						</Text>
+						<TextInput
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-white text-black'
+							} p-4 rounded-xl mb-4`}
+							value={longitude}
+							onChangeText={setLongitude}
+							placeholder='Longitude'
+							keyboardType='numeric'
+							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						/>
+
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Email
+						</Text>
+						<Text
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-gray-100 text-black'
+							} p-4 rounded-xl mb-4`}>
+							{user?.emailAddresses[0].emailAddress}
+						</Text>
+
+						<Text
+							className={`${
+								isDarkMode ? 'text-white' : 'text-gray-700'
+							} text-sm font-semibold mb-2`}>
+							Subscription End Date
+						</Text>
+						<Text
+							className={`${
+								isDarkMode
+									? 'bg-gray-800 text-orange-500'
+									: 'bg-gray-100 text-black'
+							} p-4 rounded-xl mb-6`}>
+							{dealership?.subscription_end_date
+								? new Date(
+										dealership.subscription_end_date
+								  ).toLocaleDateString()
+								: 'N/A'}
+						</Text>
+
+						<TouchableOpacity
+							className='bg-red p-4 rounded-xl items-center mt-4'
+							onPress={updateProfile}>
+							<Text className='text-white font-bold text-xl'>
+								Update Profile
+							</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							className='bg-blue-500 p-4 rounded-xl items-center mt-4'
+							onPress={navigateToAnalytics}>
+							<Text className='text-white font-bold text-xl'>
+								View Analytics
+							</Text>
+						</TouchableOpacity>
+					</View>
+
+					<TouchableOpacity
+						className='bg-[#FF000024] p-5 mb-24 rounded-xl items-center'
+						onPress={() => signOut()}>
+						<Text className='text-white font-bold text-xl'>Sign Out</Text>
+					</TouchableOpacity>
+				</View>
+			</ScrollView>
+		</>
 	)
 }

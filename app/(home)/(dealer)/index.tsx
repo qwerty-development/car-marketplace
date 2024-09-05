@@ -21,11 +21,50 @@ import ListingModal from '@/components/ListingModal'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import SortPicker from '@/components/SortPicker'
 import { styled } from 'nativewind'
+import { StatusBar } from 'react-native'
 const StyledView = styled(View)
 const StyledText = styled(Text)
 const StyledTextInput = styled(TextInput)
 const StyledTouchableOpacity = styled(TouchableOpacity)
 const ITEMS_PER_PAGE = 10
+
+const CustomHeader = ({ title, onBack }: any) => {
+	const { isDarkMode } = useTheme()
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={{
+				backgroundColor: isDarkMode ? 'black' : 'white',
+				borderBottomWidth: 0,
+				borderBottomColor: '#D55004',
+				borderTopWidth: 0,
+				borderWidth: 0,
+
+				borderColor: '#D55004'
+			}}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					justifyContent: 'center', // Centers the content horizontally
+					paddingHorizontal: 0,
+					paddingBottom: 9
+				}}>
+				<Text
+					style={{
+						fontSize: 20,
+						textAlign: 'center',
+						color: '#D55004',
+						fontWeight: '600'
+					}}>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+}
 
 interface CarListing {
 	id: number
@@ -412,6 +451,7 @@ export default function DealerListings() {
 
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
+			<CustomHeader title='My cars' />
 			<LinearGradient
 				colors={isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#D55004']}
 				style={{ flex: 1 }}
