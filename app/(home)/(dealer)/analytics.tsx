@@ -428,7 +428,12 @@ export default function DealerAnalyticsPage() {
 					<FlatList
 						data={cars}
 						renderItem={renderCarItem}
-						keyExtractor={item => item.id.toString()}
+						keyExtractor={item => {
+							const id = item.id?.toString() || ''
+							const make = item.make || ''
+							const model = item.model || ''
+							return `${id}-${make}-${model}-${Math.random()}`
+						}}
 						scrollEnabled={false}
 					/>
 				</View>

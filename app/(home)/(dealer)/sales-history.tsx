@@ -152,7 +152,12 @@ export default function SalesHistoryPage() {
 					<FlatList
 						data={salesHistory}
 						renderItem={renderSaleItem}
-						keyExtractor={item => item.id.toString()}
+						keyExtractor={item => {
+							const id = item.id?.toString() || ''
+							const make = item.make || ''
+							const model = item.model || ''
+							return `${id}-${make}-${model}-${Math.random()}`
+						}}
 						contentContainerStyle={styles.listContainer}
 					/>
 				</View>

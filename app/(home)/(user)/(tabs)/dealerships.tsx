@@ -173,7 +173,12 @@ export default function DealershipListPage() {
 				sections={groupedDealerships}
 				renderItem={renderDealershipItem}
 				renderSectionHeader={renderSectionHeader}
-				keyExtractor={item => item.id.toString()}
+				keyExtractor={item => {
+					const id = item.id?.toString() || ''
+					const make = item.name || ''
+					const model = item.logo || ''
+					return `${id}-${make}-${model}-${Math.random()}`
+				}}
 				stickySectionHeadersEnabled={true}
 				className='px-2 mb-24'
 			/>

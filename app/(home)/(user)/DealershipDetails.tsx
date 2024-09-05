@@ -332,7 +332,12 @@ export default function DealershipDetails() {
 			<Animated.FlatList
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={item => item.id.toString()}
+				keyExtractor={item => {
+					const id = item.id?.toString() || ''
+					const make = item.make || ''
+					const model = item.model || ''
+					return `${id}-${make}-${model}-${Math.random()}`
+				}}
 				showsVerticalScrollIndicator={false}
 				onEndReached={handleLoadMore}
 				onEndReachedThreshold={0.1}

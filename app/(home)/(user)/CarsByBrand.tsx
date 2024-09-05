@@ -177,7 +177,12 @@ export default function CarsByBrand() {
 				<FlatList
 					data={cars}
 					renderItem={renderCarItem}
-					keyExtractor={item => item.id.toString()}
+					keyExtractor={item => {
+						const id = item.id?.toString() || ''
+						const make = item.make || ''
+						const model = item.model || ''
+						return `${id}-${make}-${model}-${Math.random()}`
+					}}
 					showsVerticalScrollIndicator={false}
 					snapToAlignment='start'
 					decelerationRate='fast'

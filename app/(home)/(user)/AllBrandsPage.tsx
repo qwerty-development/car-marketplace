@@ -188,8 +188,9 @@ export default function AllBrandsPage() {
 				}}
 			/>
 			<View
-				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-					}`}>
+				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
+					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+				}`}>
 				<FontAwesome
 					name='search'
 					size={20}
@@ -213,7 +214,11 @@ export default function AllBrandsPage() {
 						sections={groupedBrands}
 						renderItem={renderBrandItem}
 						renderSectionHeader={renderSectionHeader}
-						keyExtractor={item => item.name}
+						keyExtractor={item => {
+							const make = item.name || ''
+							const model = item.logoUrl
+							return `-${make}-${model}-${Math.random()}`
+						}}
 						stickySectionHeadersEnabled={true}
 						className='mt-4'
 					/>

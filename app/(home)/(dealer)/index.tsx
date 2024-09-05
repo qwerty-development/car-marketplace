@@ -516,7 +516,12 @@ export default function DealerListings() {
 				<FlatList
 					data={listings}
 					renderItem={({ item }) => <ListingCard item={item} />}
-					keyExtractor={item => item.id.toString()}
+					keyExtractor={item => {
+						const id = item.id?.toString() || ''
+						const make = item.make || ''
+						const model = item.model || ''
+						return `${id}-${make}-${model}-${Math.random()}`
+					}}
 					onEndReached={() => {
 						if (currentPage < totalPages) {
 							setCurrentPage(prev => prev + 1)

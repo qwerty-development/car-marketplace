@@ -13,7 +13,12 @@ export default function AdminBrowseScreen() {
 			<Text style={styles.title}>Manage Listings</Text>
 			<FlatList
 				data={dummyCars}
-				keyExtractor={item => item.id}
+				keyExtractor={item => {
+					const id = item.id?.toString() || ''
+					const make = item.make || ''
+					const model = item.model || ''
+					return `${id}-${make}-${model}-${Math.random()}`
+				}}
 				renderItem={({ item }) => (
 					<View style={styles.carItem}>
 						<Text>

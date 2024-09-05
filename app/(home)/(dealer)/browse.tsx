@@ -367,7 +367,12 @@ export default function BrowseCarsPage() {
 				ListHeaderComponent={renderListHeader}
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={item => item.id.toString()}
+				keyExtractor={item => {
+					const id = item.id?.toString() || ''
+					const make = item.make || ''
+					const model = item.model || ''
+					return `${id}-${make}-${model}-${Math.random()}`
+				}}
 				onEndReached={() => {
 					if (currentPage < totalPages) {
 						fetchCars(currentPage + 1, filters, sortOption, searchQuery)

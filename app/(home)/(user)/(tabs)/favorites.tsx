@@ -28,10 +28,9 @@ const CustomHeader = ({ title, onBack }: any) => {
 				borderBottomColor: '#D55004',
 				borderTopWidth: 0,
 				borderWidth: 0,
-				
-				borderColor: '#D55004',
-			}}
-		>
+
+				borderColor: '#D55004'
+			}}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View
 				style={{
@@ -39,18 +38,15 @@ const CustomHeader = ({ title, onBack }: any) => {
 					alignItems: 'center',
 					justifyContent: 'center', // Centers the content horizontally
 					paddingHorizontal: 0,
-					paddingBottom:9,
-				}}
-			>
+					paddingBottom: 9
+				}}>
 				<Text
 					style={{
 						fontSize: 20,
 						textAlign: 'center',
 						color: '#D55004',
-						fontWeight:'600',
-						
-					}}
-				>
+						fontWeight: '600'
+					}}>
 					{title}
 				</Text>
 			</View>
@@ -183,7 +179,12 @@ export default function FavoritesPage() {
 				<FlatList
 					data={favoriteCars}
 					renderItem={renderCarItem}
-					keyExtractor={item => item.id.toString()}
+					keyExtractor={item => {
+						const id = item.id?.toString() || ''
+						const make = item.make || ''
+						const model = item.model || ''
+						return `${id}-${make}-${model}-${Math.random()}`
+					}}
 					contentContainerStyle={{ paddingBottom: 20 }}
 				/>
 			) : (

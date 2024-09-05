@@ -294,28 +294,35 @@ const CarDetailModal = memo(
 
 		return (
 			<PanGestureHandler onGestureEvent={gestureHandler}>
-				<Animated.View className={`${isDarkMode?'bg-gray':'bg-white'}`} style={[styles.modalOverlay, animatedStyle]}>
+				<Animated.View
+					className={`${isDarkMode ? 'bg-gray' : 'bg-white'}`}
+					style={[styles.modalOverlay, animatedStyle]}>
 					<LinearGradient
 						colors={
 							isDarkMode ? ['#333', '#222', '#111'] : ['#FFFFFF', '#F5F5F5']
 						}
 						style={styles.gradientContainer}>
 						<ScrollView style={styles.scrollView}>
-							<TouchableOpacity
-								style={styles.closeButton}
-								onPress={closeModal}>
+							<TouchableOpacity style={styles.closeButton} onPress={closeModal}>
 								<Ionicons name='close' size={50} color='#D55004' />
 							</TouchableOpacity>
 							<View style={styles.imageContainer}>
 								<FlatList
 									data={car.images}
 									renderItem={renderImageItem}
-									keyExtractor={(item, index) => index.toString()}
+									keyExtractor={item => {
+										const id = item.id?.toString() || ''
+										const make = item.make || ''
+										const model = item.model || ''
+										return `${id}-${make}-${model}-${Math.random()}`
+									}}
 									horizontal
 									pagingEnabled
 									showsHorizontalScrollIndicator={false}
-									onMomentumScrollEnd={(event) => {
-										const newIndex = Math.round(event.nativeEvent.contentOffset.x / width)
+									onMomentumScrollEnd={event => {
+										const newIndex = Math.round(
+											event.nativeEvent.contentOffset.x / width
+										)
 										setActiveImageIndex(newIndex)
 									}}
 								/>
@@ -323,8 +330,9 @@ const CarDetailModal = memo(
 							</View>
 							<View className='p-4 mb-24'>
 								<Text
-									className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'
-										}`}>
+									className={`text-2xl ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
 									{car.year} {car.make} {car.model}
 								</Text>
 								<Text className='text-xl font-extrabold text-red mt-2'>
@@ -332,13 +340,15 @@ const CarDetailModal = memo(
 								</Text>
 								<View className='flex-row justify-between mt-4 mb-4'>
 									<Text
-										className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-											}`}>
+										className={`text-l ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
 										Views: {car.views || 0}
 									</Text>
 									<Text
-										className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-											}`}>
+										className={`text-l ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
 										Likes: {car.likes || 0}
 									</Text>
 								</View>
@@ -352,13 +362,15 @@ const CarDetailModal = memo(
 									/>
 								</View>
 								<Text
-									className={`text-s mt-4 ${isDarkMode ? 'text-white' : 'text-black'
-										} font-bold text-l mb-3`}>
+									className={`text-s mt-4 ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold text-l mb-3`}>
 									Description
 								</Text>
 								<Text
-									className={`text-s mb-4 font-light ${isDarkMode ? 'text-white' : 'text-black'
-										}`}>
+									className={`text-s mb-4 font-light ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
 									{car.description}
 								</Text>
 
@@ -372,19 +384,23 @@ const CarDetailModal = memo(
 								</View>
 
 								<Text
-									className={`text-l mt-4 ${isDarkMode ? 'text-white' : 'text-black'
-										} mb-3 font-bold`}>
+									className={`text-l mt-4 ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mb-3 font-bold`}>
 									Technical Data
 								</Text>
 								<View
-									className={`mb-6 mt-3 border ${isDarkMode ? 'border-white' : 'border-black'
-										} rounded-lg`}>
+									className={`mb-6 mt-3 border ${
+										isDarkMode ? 'border-white' : 'border-black'
+									} rounded-lg`}>
 									<View
-										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
-											} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
 										<Text
-											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-												} font-bold`}>
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
 											Mileage
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -392,11 +408,13 @@ const CarDetailModal = memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
-											} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
 										<Text
-											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-												} font-bold`}>
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
 											Transmission
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -404,11 +422,13 @@ const CarDetailModal = memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
-											} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
 										<Text
-											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-												} font-bold`}>
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
 											Condition
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -416,11 +436,13 @@ const CarDetailModal = memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
-											} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
 										<Text
-											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-												} font-bold`}>
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
 											Color
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -428,11 +450,13 @@ const CarDetailModal = memo(
 										</Text>
 									</View>
 									<View
-										className={`flex-row p-2 border-b ${isDarkMode ? 'border-white' : 'border-black'
-											} justify-between py-2`}>
+										className={`flex-row p-2 border-b ${
+											isDarkMode ? 'border-white' : 'border-black'
+										} justify-between py-2`}>
 										<Text
-											className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
-												} font-bold`}>
+											className={`text-l ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} font-bold`}>
 											Drive Train
 										</Text>
 										<Text className='text-l' style={{ color: '#D55004' }}>
@@ -442,8 +466,9 @@ const CarDetailModal = memo(
 								</View>
 
 								<TouchableOpacity
-									className={`flex-row items-center justify-center ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-										} p-3 rounded-lg mb-6`}
+									className={`flex-row items-center justify-center ${
+										isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+									} p-3 rounded-lg mb-6`}
 									onPress={() => onFavoritePress(car.id)}>
 									<Ionicons
 										name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
@@ -452,13 +477,14 @@ const CarDetailModal = memo(
 											isFavorite(car.id)
 												? 'red'
 												: isDarkMode
-													? 'white'
-													: 'black'
+												? 'white'
+												: 'black'
 										}
 									/>
 									<Text
-										className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'
-											} ml-3`}>
+										className={`text-lg font-bold ${
+											isDarkMode ? 'text-white' : 'text-black'
+										} ml-3`}>
 										{isFavorite(car.id) ? 'Unlike' : 'Like'}
 									</Text>
 								</TouchableOpacity>
@@ -473,8 +499,9 @@ const CarDetailModal = memo(
 								</View>
 
 								<Text
-									className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'
-										} mt-2 mb-2`}>
+									className={`text-lg font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mt-2 mb-2`}>
 									Dealer Information
 								</Text>
 								<View className='border-t border-gray-600 pt-4'>
@@ -489,8 +516,9 @@ const CarDetailModal = memo(
 											</TouchableOpacity>
 										)}
 										<Text
-											className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
-												} mb-2`}>
+											className={`text-xl font-bold ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} mb-2`}>
 											{car.dealership_name}
 										</Text>
 									</View>
@@ -515,28 +543,40 @@ const CarDetailModal = memo(
 
 								{/* Similar Cars Section */}
 								<Text
-									className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
-										} mt-8 mb-4`}>
+									className={`text-xl font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mt-8 mb-4`}>
 									Similarly Priced Cars
 								</Text>
 								<FlatList
 									data={similarCars}
 									renderItem={renderCarItem}
-									keyExtractor={item => item.id.toString()}
+									keyExtractor={item => {
+										const id = item.id?.toString() || ''
+										const make = item.make || ''
+										const model = item.model || ''
+										return `${id}-${make}-${model}-${Math.random()}`
+									}}
 									horizontal
 									showsHorizontalScrollIndicator={false}
 								/>
 
 								{/* Other Cars from Same Dealer Section */}
 								<Text
-									className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
-										} mt-8`}>
+									className={`text-xl font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mt-8`}>
 									More from {car.dealership_name}
 								</Text>
 								<FlatList
 									data={dealerCars}
 									renderItem={renderCarItem}
-									keyExtractor={item => item.id.toString()}
+									keyExtractor={item => {
+										const id = item.id?.toString() || ''
+										const make = item.make || ''
+										const model = item.model || ''
+										return `${id}-${make}-${model}-${Math.random()}`
+									}}
 									horizontal
 									showsHorizontalScrollIndicator={false}
 								/>
@@ -610,7 +650,7 @@ const styles = StyleSheet.create({
 		width: 50,
 		height: 50
 	},
-	
+
 	imageContainer: {
 		position: 'relative',
 		height: 300,  // Adjust this value as needed
