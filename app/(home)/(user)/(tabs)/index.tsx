@@ -224,14 +224,17 @@ export default function BrowseCarsPage() {
 		setIsModalVisible(true)
 	}
 
-	const renderCarItem = useCallback(({ item }: { item: Car }) => (
-		<CarCard
-			car={item}
-			onPress={() => handleCarPress(item)}
-			onFavoritePress={() => handleFavoritePress(item.id)}
-			isFavorite={isFavorite(item.id)}
-		/>
-	), [handleCarPress, handleFavoritePress, isFavorite])
+	const renderCarItem = useCallback(
+		({ item }: { item: Car }) => (
+			<CarCard
+				car={item}
+				onPress={() => handleCarPress(item)}
+				onFavoritePress={() => handleFavoritePress(item.id)}
+				isFavorite={isFavorite(item.id)}
+			/>
+		),
+		[handleCarPress, handleFavoritePress, isFavorite]
+	)
 
 	const openFilterPage = () => {
 		router.push({
@@ -277,28 +280,36 @@ export default function BrowseCarsPage() {
 		fetchCars(1, {}, '', '')
 	}
 
-	const renderListHeader = useMemo(() => (
-		<>
-			<ByBrands />
-			<CategorySelector
-				selectedCategories={filters.categories || []}
-				onCategoryPress={handleCategoryPress}
-			/>
-		</>
-	), [filters.categories, handleCategoryPress])
+	const renderListHeader = useMemo(
+		() => (
+			<>
+				<ByBrands />
+				<CategorySelector
+					selectedCategories={filters.categories || []}
+					onCategoryPress={handleCategoryPress}
+				/>
+			</>
+		),
+		[filters.categories, handleCategoryPress]
+	)
 
-	const renderListEmpty = useCallback(() => (
-		<View style={styles.emptyContainer}>
-			<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-				No cars available.
-			</Text>
-			{(Object.keys(filters).length > 0 || searchQuery) && (
-				<TouchableOpacity onPress={handleResetFilters} style={styles.resetButton}>
-					<Text style={styles.resetButtonText}>Remove filters</Text>
-				</TouchableOpacity>
-			)}
-		</View>
-	), [filters, searchQuery, isDarkMode, handleResetFilters])
+	const renderListEmpty = useCallback(
+		() => (
+			<View style={styles.emptyContainer}>
+				<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
+					No cars available.
+				</Text>
+				{(Object.keys(filters).length > 0 || searchQuery) && (
+					<TouchableOpacity
+						onPress={handleResetFilters}
+						style={styles.resetButton}>
+						<Text style={styles.resetButtonText}>Remove filters</Text>
+					</TouchableOpacity>
+				)}
+			</View>
+		),
+		[filters, searchQuery, isDarkMode, handleResetFilters]
+	)
 
 	return (
 		<LinearGradient
@@ -306,7 +317,8 @@ export default function BrowseCarsPage() {
 			style={{ flex: 1 }}
 			start={{ x: 1, y: 0.3 }}
 			end={{ x: 2, y: 1 }}>
-			<SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
+			<SafeAreaView
+				style={[styles.container, isDarkMode && styles.darkContainer]}>
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
 						<TouchableOpacity
@@ -318,7 +330,8 @@ export default function BrowseCarsPage() {
 								color={isDarkMode ? 'white' : 'black'}
 							/>
 						</TouchableOpacity>
-						<View style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
+						<View
+							style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
 							<TouchableOpacity
 								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
 								onPress={handleSearch}>
@@ -329,7 +342,10 @@ export default function BrowseCarsPage() {
 								/>
 							</TouchableOpacity>
 							<TextInput
-								style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
+								style={[
+									styles.searchInput,
+									isDarkMode && styles.darkSearchInput
+								]}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
 								value={searchQuery}
@@ -403,24 +419,26 @@ export default function BrowseCarsPage() {
 
 const styles = StyleSheet.create({
 	container: {
-		flex: 1,
+		flex: 1
 	},
-
+	darkContainer: {
+		backgroundColor: '#000000'
+	},
 	searchContainer: {
-		padding: 10,
+		padding: 10
 	},
 	searchInputContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'space-between',
+		justifyContent: 'space-between'
 	},
 	iconButton: {
 		padding: 10,
 		borderRadius: 20,
-		backgroundColor: '#f0f0f0',
+		backgroundColor: '#f0f0f0'
 	},
 	darkIconButton: {
-		backgroundColor: '#333',
+		backgroundColor: '#333'
 	},
 	searchBar: {
 		flex: 1,
@@ -429,35 +447,45 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: '#ccc',
 		borderRadius: 20,
-		marginHorizontal: 10,
+		marginHorizontal: 10
 	},
 	darkSearchBar: {
-		borderColor: '#555',
+		borderColor: '#555'
 	},
 	searchInput: {
 		flex: 1,
 		paddingVertical: 8,
 		paddingHorizontal: 12,
-		color: 'black',
+		color: 'black'
 	},
 	darkSearchInput: {
-		color: 'white',
+		color: 'white'
 	},
 	clearButton: {
-		padding: 10,
+		padding: 10
 	},
 	emptyContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		padding: 20,
+		padding: 20
 	},
 	emptyText: {
 		fontSize: 16,
 		textAlign: 'center',
-		color: '#000',
+		color: '#000'
 	},
 	darkEmptyText: {
-		color: '#fff',
+		color: '#fff'
 	},
+	resetButton: {
+		marginTop: 10,
+		padding: 10,
+		backgroundColor: '#D55004',
+		borderRadius: 5
+	},
+	resetButtonText: {
+		color: 'white',
+		fontWeight: 'bold'
+	}
 })

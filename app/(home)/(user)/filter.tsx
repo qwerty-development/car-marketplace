@@ -13,6 +13,7 @@ import { supabase } from '@/utils/supabase'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import CategorySelector from '@/components/Category'
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
@@ -46,6 +47,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 		</SafeAreaView>
 	)
 }
+
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
@@ -64,7 +66,8 @@ const FilterPage = () => {
 				yearRange: [1900, new Date().getFullYear()],
 				color: '',
 				transmission: '',
-				drivetrain: ''
+				drivetrain: '',
+				categories: []
 			}
 		}
 	})
@@ -78,6 +81,7 @@ const FilterPage = () => {
 	const inputBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 	const buttonBgColor = isDarkMode ? 'bg-red' : 'bg-red'
 	const cancelBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+
 	useEffect(() => {
 		fetchInitialData()
 	}, [])
@@ -129,7 +133,8 @@ const FilterPage = () => {
 			yearRange: [1900, new Date().getFullYear()],
 			color: '',
 			transmission: '',
-			drivetrain: ''
+			drivetrain: '',
+			categories: []
 		})
 	}
 
@@ -137,6 +142,21 @@ const FilterPage = () => {
 		router.push({
 			pathname: '/(home)/(user)',
 			params: { filters: JSON.stringify(filters) }
+		})
+	}
+
+	const handleCategoryPress = (category: string) => {
+		setFilters((prevFilters: any) => {
+			const updatedCategories = prevFilters.categories
+				? prevFilters.categories.includes(category)
+					? prevFilters.categories.filter((c: string) => c !== category)
+					: [...prevFilters.categories, category]
+				: [category]
+
+			return {
+				...prevFilters,
+				categories: updatedCategories
+			}
 		})
 	}
 
@@ -446,6 +466,15 @@ const FilterPage = () => {
 									borderRadius: 5
 								}
 							}}
+						/>
+					</View>
+					<View>
+						<Text className={`font-semibold ${textColor} mb-2`}>
+							Categories
+						</Text>
+						<CategorySelector
+							selectedCategories={filters.categories || []}
+							onCategoryPress={handleCategoryPress}
 						/>
 					</View>
 				</View>
