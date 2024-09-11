@@ -277,7 +277,9 @@ export default function BrowseCarsPage() {
 		setFilters({})
 		setSearchQuery('')
 		setSortOption('')
+		setIsLoading(true)
 		fetchCars(1, {}, '', '')
+		setIsLoading(false)
 	}
 
 	const renderListHeader = useMemo(
@@ -294,21 +296,22 @@ export default function BrowseCarsPage() {
 	)
 
 	const renderListEmpty = useCallback(
-		() => (
-			<View style={styles.emptyContainer}>
-				<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-					No cars available.
-				</Text>
-				{(Object.keys(filters).length > 0 || searchQuery) && (
-					<TouchableOpacity
-						onPress={handleResetFilters}
-						style={styles.resetButton}>
-						<Text style={styles.resetButtonText}>Remove filters</Text>
-					</TouchableOpacity>
-				)}
-			</View>
-		),
-		[filters, searchQuery, isDarkMode, handleResetFilters]
+		() =>
+			!isLoading && (
+				<View style={styles.emptyContainer}>
+					<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
+						No cars available.
+					</Text>
+					{(Object.keys(filters).length > 0 || searchQuery) && (
+						<TouchableOpacity
+							onPress={handleResetFilters}
+							style={styles.resetButton}>
+							<Text style={styles.resetButtonText}>Remove filters</Text>
+						</TouchableOpacity>
+					)}
+				</View>
+			),
+		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
 	)
 
 	return (
@@ -357,7 +360,9 @@ export default function BrowseCarsPage() {
 									style={styles.clearButton}
 									onPress={() => {
 										setSearchQuery('')
-										fetchCars(1, filters, sortOption, '')
+										setIsLoading(true)
+										fetchCars(1, {}, '', '')
+										setIsLoading(false)
 									}}>
 									<FontAwesome
 										name='times-circle'

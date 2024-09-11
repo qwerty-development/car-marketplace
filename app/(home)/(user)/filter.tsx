@@ -122,29 +122,40 @@ const FilterPage = () => {
 		if (!error) setColors([...new Set(data?.map(item => item.color))])
 	}
 
-	const clearFilters = () => {
+	const clearFilters = async () => {
+		// Reset the filters to their default state
 		setFilters({
-			dealership: '',
-			make: '',
-			model: '',
+			dealership: null,
+			make: null,
+			model: null,
 			condition: '',
 			priceRange: [0, 1000000],
 			mileageRange: [0, 500000],
 			yearRange: [1900, new Date().getFullYear()],
-			color: '',
-			transmission: '',
-			drivetrain: '',
+			color: null,
+			transmission: null,
+			drivetrain: null,
 			categories: []
 		})
+
+		// Await a small delay to ensure state updates are applied before navigating
+		await new Promise(resolve => setTimeout(resolve, 100))
+
+		// Navigate back to the main page with no filters applied
+		router.replace({
+			pathname: '/(home)/(user)',
+			params: { filters: JSON.stringify({}) } // Send empty filters
+		})
+		await new Promise(resolve => setTimeout(resolve, 200))
 	}
 
-	const applyFilters = () => {
-		router.push({
+	const applyFilters = async () => {
+		await new Promise(resolve => setTimeout(resolve, 100))
+		router.replace({
 			pathname: '/(home)/(user)',
 			params: { filters: JSON.stringify(filters) }
 		})
 	}
-
 	const handleCategoryPress = (category: string) => {
 		setFilters((prevFilters: any) => {
 			const updatedCategories = prevFilters.categories
