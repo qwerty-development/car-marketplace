@@ -180,8 +180,9 @@ const CarDetailModal = memo(
 		const handleWhatsApp = useCallback(() => {
 			if (car.dealership_phone) {
 				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/${car.dealership_phone
-					}?text=${encodeURIComponent(message)}`
+				const url = `https://wa.me/${
+					car.dealership_phone
+				}?text=${encodeURIComponent(message)}`
 				Linking.openURL(url)
 			} else {
 				Alert.alert('WhatsApp number not available')
@@ -195,8 +196,9 @@ const CarDetailModal = memo(
 		const handleShare = useCallback(async () => {
 			try {
 				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${car.model
-						} for $${car.price.toLocaleString()}!`,
+					message: `Check out this ${car.year} ${car.make} ${
+						car.model
+					} for $${car.price.toLocaleString()}!`,
 					url: car.images[0]
 				})
 				if (result.action === Share.sharedAction) {
@@ -216,8 +218,9 @@ const CarDetailModal = memo(
 		const renderCarItem = useCallback(
 			({ item }: any) => (
 				<TouchableOpacity
-					className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-						} rounded-lg p-2 mr-4 w-48`}
+					className={`${
+						isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+					} rounded-lg p-2 mr-4 w-48`}
 					onPress={() => {
 						onClose()
 						setSelectedCar(item)
@@ -258,7 +261,7 @@ const CarDetailModal = memo(
 			}
 		})
 
-		const renderImageItem = ({ item, index }:any) => (
+		const renderImageItem = ({ item, index }: any) => (
 			<Image
 				source={{ uri: item }}
 				style={styles.image}
@@ -277,7 +280,9 @@ const CarDetailModal = memo(
 								key={index}
 								style={[
 									styles.paginationDot,
-									index === activeImageIndex ? styles.activeDot : styles.inactiveDot
+									index === activeImageIndex
+										? styles.activeDot
+										: styles.inactiveDot
 								]}
 							/>
 						)
@@ -518,7 +523,8 @@ const CarDetailModal = memo(
 										<Text
 											className={`text-xl font-bold ${
 												isDarkMode ? 'text-white' : 'text-black'
-											} mb-2`}>
+											} mb-2`}
+											onPress={handleDealershipPress}>
 											{car.dealership_name}
 										</Text>
 									</View>
@@ -653,7 +659,7 @@ const styles = StyleSheet.create({
 
 	imageContainer: {
 		position: 'relative',
-		height: 300,  // Adjust this value as needed
+		height: 300 // Adjust this value as needed
 	},
 	image: {
 		width: width,
@@ -668,30 +674,30 @@ const styles = StyleSheet.create({
 		bottom: 10,
 		left: 0,
 		right: 0,
-		zIndex: 1,
+		zIndex: 1
 	},
 	paginationDot: {
 		width: 8,
 		height: 8,
 		borderRadius: 4,
-		marginHorizontal: 4,
+		marginHorizontal: 4
 	},
 	activeDot: {
-		backgroundColor: '#D55004',
+		backgroundColor: '#D55004'
 	},
 	inactiveDot: {
-		backgroundColor: 'rgba(255, 255, 255, 0.5)',
+		backgroundColor: 'rgba(255, 255, 255, 0.5)'
 	},
 	closeButton: {
 		position: 'absolute',
 		top: 10,
 		right: 10,
-		zIndex: 2,
+		zIndex: 2
 	},
 	contentContainer: {
 		padding: 16,
-		paddingBottom: 96,  // Adjust this value to ensure content is not hidden behind the action buttons
-	},
+		paddingBottom: 96 // Adjust this value to ensure content is not hidden behind the action buttons
+	}
 })
 
 export default CarDetailModal

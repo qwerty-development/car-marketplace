@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	FlatList,
@@ -21,6 +21,8 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import CategorySelector from '@/components/Category'
 import { RefreshControl } from 'react-native'
+import { Animated } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 
 const ITEMS_PER_PAGE = 7
 
@@ -67,6 +69,12 @@ export default function BrowseCarsPage() {
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
+	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
+	const scrollY = useRef<any>(new Animated.Value(0)).current
+	const flatListRef = useRef<any>(null)
+	const scrollToTop = () => {
+		flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+	}
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
@@ -398,6 +406,17 @@ export default function BrowseCarsPage() {
 							titleColor={isDarkMode ? '#FFFFFF' : '#000000'}
 						/>
 					}
+					ref={flatListRef}
+					onScroll={Animated.event(
+						[{ nativeEvent: { contentOffset: { y: scrollY } } }],
+						{
+							useNativeDriver: false,
+							listener: ({ nativeEvent }: any) => {
+								setShowScrollTopButton(nativeEvent.contentOffset.y > 200)
+							}
+						}
+					)}
+					scrollEventThrottle={16}
 					ListHeaderComponent={renderListHeader}
 					data={cars}
 					renderItem={renderCarItem}
@@ -421,6 +440,20 @@ export default function BrowseCarsPage() {
 						) : null
 					}
 				/>
+				{showScrollTopButton && (
+					<TouchableOpacity
+						style={[
+							styles.scrollTopButton,
+							{ backgroundColor: isDarkMode ? '#333333' : '#FFFFFF' }
+						]}
+						onPress={scrollToTop}>
+						<Ionicons
+							name='chevron-up'
+							size={24}
+							color={isDarkMode ? '#FFFFFF' : '#000000'}
+						/>
+					</TouchableOpacity>
+				)}
 
 				<CarDetailModal
 					isVisible={isModalVisible}
@@ -451,6 +484,21 @@ const styles = StyleSheet.create({
 	},
 	searchContainer: {
 		padding: 10
+	},
+	scrollTopButton: {
+		position: 'absolute',
+		right: 20,
+		bottom: 70,
+		width: 50,
+		height: 50,
+		borderRadius: 25,
+		justifyContent: 'center',
+		alignItems: 'center',
+		elevation: 5,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84
 	},
 	searchInputContainer: {
 		flexDirection: 'row',
