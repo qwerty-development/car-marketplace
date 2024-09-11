@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import CategorySelector from '@/components/Category'
+import { RefreshControl } from 'react-native'
 
 const ITEMS_PER_PAGE = 7
 
@@ -65,6 +66,7 @@ export default function BrowseCarsPage() {
 	const [filters, setFilters] = useState<Filters>({})
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [refreshing, setRefreshing] = useState(false)
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
@@ -204,6 +206,12 @@ export default function BrowseCarsPage() {
 		},
 		[filters, sortOption, searchQuery]
 	)
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		fetchCars(1, filters, sortOption, searchQuery).then(() =>
+			setRefreshing(false)
+		)
+	}, [filters, sortOption, searchQuery, fetchCars])
 
 	const handleFavoritePress = async (carId: string) => {
 		const newLikesCount = await toggleFavorite(carId)
@@ -230,7 +238,7 @@ export default function BrowseCarsPage() {
 				car={item}
 				onPress={() => handleCarPress(item)}
 				onFavoritePress={() => handleFavoritePress(item.id)}
-				isFavorite={isFavorite(item.id)}
+				isFavorite={isFavorite(Number(item.id))}
 			/>
 		),
 		[handleCarPress, handleFavoritePress, isFavorite]
@@ -380,15 +388,22 @@ export default function BrowseCarsPage() {
 				</View>
 
 				<FlatList
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
+							colors={['#D55004']}
+							tintColor={isDarkMode ? '#FFFFFF' : '#D55004'}
+							title='Pull to refresh'
+							titleColor={isDarkMode ? '#FFFFFF' : '#000000'}
+						/>
+					}
 					ListHeaderComponent={renderListHeader}
 					data={cars}
 					renderItem={renderCarItem}
-					keyExtractor={item => {
-						const id = item.id?.toString() || ''
-						const make = item.make || ''
-						const model = item.model || ''
-						return `${id}-${make}-${model}-${Math.random()}`
-					}}
+					keyExtractor={item =>
+						`${item.id}-${item.make}-${item.model}-${Math.random()}`
+					}
 					onEndReached={() => {
 						if (currentPage < totalPages) {
 							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
@@ -419,7 +434,7 @@ export default function BrowseCarsPage() {
 					onFavoritePress={() =>
 						selectedCar && handleFavoritePress(selectedCar.id)
 					}
-					isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+					isFavorite={!!selectedCar && isFavorite(Number(selectedCar.id))}
 					onViewUpdate={handleViewUpdate}
 				/>
 			</SafeAreaView>

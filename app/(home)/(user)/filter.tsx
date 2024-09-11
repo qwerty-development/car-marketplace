@@ -15,6 +15,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import CategorySelector from '@/components/Category'
 
+
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
@@ -51,6 +52,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
+
 	const params = useLocalSearchParams()
 	const [filters, setFilters] = useState<any>(() => {
 		try {
