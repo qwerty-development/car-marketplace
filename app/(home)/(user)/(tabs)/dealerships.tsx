@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -16,6 +16,7 @@ import { FontAwesome } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { RefreshControl } from 'react-native'
 
 interface Dealership {
 	id: number
@@ -36,9 +37,8 @@ const CustomHeader = ({ title, onBack }: any) => {
 				borderTopWidth: 0,
 				borderWidth: 0,
 
-				borderColor: '#D55004',
-			}}
-		>
+				borderColor: '#D55004'
+			}}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View
 				style={{
@@ -46,18 +46,15 @@ const CustomHeader = ({ title, onBack }: any) => {
 					alignItems: 'center',
 					justifyContent: 'center', // Centers the content horizontally
 					paddingHorizontal: 0,
-					paddingBottom: 9,
-				}}
-			>
+					paddingBottom: 9
+				}}>
 				<Text
 					style={{
 						fontSize: 20,
 						textAlign: 'center',
 						color: '#D55004',
-						fontWeight: '600',
-
-					}}
-				>
+						fontWeight: '600'
+					}}>
 					{title}
 				</Text>
 			</View>
@@ -72,6 +69,7 @@ export default function DealershipListPage() {
 	const navigation = useNavigation()
 	const sectionListRef = useRef<SectionList>(null)
 	const router = useRouter()
+	const [refreshing, setRefreshing] = useState(false)
 
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
@@ -101,6 +99,12 @@ export default function DealershipListPage() {
 			setDealerships(data || [])
 		}
 	}
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true)
+		await fetchDealerships()
+		setRefreshing(false)
+	}, [])
 
 	const filteredDealerships = useMemo(() => {
 		return dealerships.filter(dealership =>
@@ -181,6 +185,16 @@ export default function DealershipListPage() {
 				}}
 				stickySectionHeadersEnabled={true}
 				className='px-2 mb-24'
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={['#D55004']} // Color of the refresh indicator
+						tintColor={isDarkMode ? '#FFFFFF' : '#000000'} // Color of the refresh indicator for iOS
+						title='Pull to refresh' // Text shown under the refresh indicator on iOS
+						titleColor={isDarkMode ? '#FFFFFF' : '#000000'} // Color of the text on iOS
+					/>
+				}
 			/>
 		</View>
 	)
