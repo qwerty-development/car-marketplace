@@ -6,7 +6,8 @@ import {
 	TouchableOpacity,
 	Dimensions,
 	Text,
-	StatusBar
+	StatusBar,
+	RefreshControl
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
@@ -66,6 +67,7 @@ export default function CarsByBrand() {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
+	const [refreshing, setRefreshing] = useState(false)
 
 	const fetchCarsByBrand = useCallback(async (brand: string) => {
 		setIsLoading(true)
@@ -96,6 +98,15 @@ export default function CarsByBrand() {
 		}
 		setIsLoading(false)
 	}, [])
+
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		if (brand) {
+			fetchCarsByBrand(brand as string).then(() => setRefreshing(false))
+		} else {
+			setRefreshing(false)
+		}
+	}, [brand, fetchCarsByBrand])
 
 	useEffect(() => {
 		if (brand) {
@@ -167,7 +178,7 @@ export default function CarsByBrand() {
 		<View className={`flex-1 ${bgColor}`}>
 			<CustomHeader title={brand} onBack={() => router.back()} />
 			{memoizedHeader}
-			{isLoading ? (
+			{isLoading && !refreshing ? (
 				<ActivityIndicator
 					size='large'
 					color='#D55004'
@@ -177,17 +188,22 @@ export default function CarsByBrand() {
 				<FlatList
 					data={cars}
 					renderItem={renderCarItem}
-					keyExtractor={item => {
-						const id = item.id?.toString() || ''
-						const make = item.make || ''
-						const model = item.model || ''
-						return `${id}-${make}-${model}-${Math.random()}`
-					}}
+					keyExtractor={item =>
+						`${item.id}-${item.make}-${item.model}-${Math.random()}`
+					}
 					showsVerticalScrollIndicator={false}
 					snapToAlignment='start'
 					decelerationRate='fast'
 					snapToInterval={CAR_CARD_HEIGHT}
 					contentContainerStyle={{ paddingBottom: 20 }}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
+							tintColor={isDarkMode ? '#ffffff' : '#000000'}
+							colors={['#D55004']}
+						/>
+					}
 				/>
 			) : (
 				<View className='flex-1 justify-center items-center'>

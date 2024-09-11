@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -8,7 +8,8 @@ import {
 	ScrollView,
 	Alert,
 	Linking,
-	Switch
+	Switch,
+	RefreshControl
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
@@ -28,6 +29,7 @@ export default function UserProfileAndSupportPage() {
 	const [firstName, setFirstName] = useState('')
 	const [lastName, setLastName] = useState('')
 	const [email, setEmail] = useState('')
+	const [refreshing, setRefreshing] = useState(false)
 
 	useEffect(() => {
 		if (user) {
@@ -52,6 +54,16 @@ export default function UserProfileAndSupportPage() {
 			Alert.alert('Error', 'Failed to update profile')
 		}
 	}
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		// Fetch updated user data
+		if (user) {
+			setFirstName(user.firstName || '')
+			setLastName(user.lastName || '')
+			setEmail(user.emailAddresses[0].emailAddress || '')
+		}
+		setRefreshing(false)
+	}, [user])
 
 	const onPickImage = async () => {
 		try {
@@ -95,7 +107,16 @@ export default function UserProfileAndSupportPage() {
 	}
 
 	return (
-		<ScrollView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+		<ScrollView
+			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
+			refreshControl={
+				<RefreshControl
+					refreshing={refreshing}
+					onRefresh={onRefresh}
+					tintColor={isDarkMode ? '#ffffff' : '#000000'}
+					colors={['#D55004']}
+				/>
+			}>
 			<View
 				className={`items-center ${
 					isDarkMode ? 'bg-red' : 'bg-red'

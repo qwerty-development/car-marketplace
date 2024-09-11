@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -9,7 +9,8 @@ import {
 	SectionListData,
 	ActivityIndicator,
 	Animated,
-	StatusBar
+	StatusBar,
+	RefreshControl
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useNavigation } from '@react-navigation/native'
@@ -86,6 +87,9 @@ export default function AllBrandsPage() {
 	const router = useRouter()
 	const sectionListRef = useRef<SectionList>(null)
 	const { isDarkMode } = useTheme()
+	const [refreshing, setRefreshing] = useState(false) // Add this state
+
+	// ... existing useEffect hooks
 
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
@@ -126,6 +130,10 @@ export default function AllBrandsPage() {
 		}
 		setIsLoading(false)
 	}
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		fetchBrands().then(() => setRefreshing(false))
+	}, [])
 
 	const filteredBrands = useMemo(() => {
 		return brands.filter(brand =>
@@ -205,24 +213,26 @@ export default function AllBrandsPage() {
 					onChangeText={setSearchQuery}
 				/>
 			</View>
-			{isLoading ? (
+			{isLoading && !refreshing ? (
 				<ActivityIndicator size='large' color='#D55004' className='mt-4' />
 			) : (
-				<>
-					<SectionList
-						ref={sectionListRef}
-						sections={groupedBrands}
-						renderItem={renderBrandItem}
-						renderSectionHeader={renderSectionHeader}
-						keyExtractor={item => {
-							const make = item.name || ''
-							const model = item.logoUrl
-							return `-${make}-${model}-${Math.random()}`
-						}}
-						stickySectionHeadersEnabled={true}
-						className='mt-4'
-					/>
-				</>
+				<SectionList
+					ref={sectionListRef}
+					sections={groupedBrands}
+					renderItem={renderBrandItem}
+					renderSectionHeader={renderSectionHeader}
+					keyExtractor={item => `${item.name}-${item.logoUrl}-${Math.random()}`}
+					stickySectionHeadersEnabled={true}
+					className='mt-4'
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
+							tintColor={isDarkMode ? '#ffffff' : '#000000'}
+							colors={['#D55004']}
+						/>
+					}
+				/>
 			)}
 		</View>
 	)

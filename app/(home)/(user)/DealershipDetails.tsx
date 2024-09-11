@@ -142,7 +142,7 @@ export default function DealershipDetails() {
 			}
 		}
 	})
-	const fetchDealershipDetails = async () => {
+	const fetchDealershipDetails = useCallback(async () => {
 		setIsDealershipLoading(true)
 		const { data, error } = await supabase
 			.from('dealerships')
@@ -156,46 +156,57 @@ export default function DealershipDetails() {
 			setDealership(data)
 		}
 		setIsDealershipLoading(false)
-	}
+	}, [dealershipId])
 
-	const fetchDealershipCars = async (page = 1, refresh = false) => {
-		if (refresh) {
-			setIsRefreshing(true)
-		} else {
-			setIsCarsLoading(true)
-		}
+	const fetchDealershipCars = useCallback(
+		async (page = 1, refresh = false) => {
+			if (refresh) {
+				setIsRefreshing(true)
+			} else {
+				setIsCarsLoading(true)
+			}
 
-		let query = supabase
-			.from('cars')
-			.select('*', { count: 'exact' })
-			.eq('dealership_id', dealershipId)
+			let query = supabase
+				.from('cars')
+				.select('*', { count: 'exact' })
+				.eq('dealership_id', dealershipId)
 
-		if (searchQuery) {
-			query = query.or(
-				`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
-			)
-		}
-		if (filterMake) query = query.eq('make', filterMake)
-		if (filterModel) query = query.eq('model', filterModel)
-		if (filterCondition) query = query.eq('condition', filterCondition)
+			if (searchQuery) {
+				query = query.or(
+					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
+				)
+			}
+			if (filterMake) query = query.eq('make', filterMake)
+			if (filterModel) query = query.eq('model', filterModel)
+			if (filterCondition) query = query.eq('condition', filterCondition)
 
-		query = query
-			.order(sortBy, { ascending: sortOrder === 'asc' })
-			.range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
+			query = query
+				.order(sortBy, { ascending: sortOrder === 'asc' })
+				.range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
 
-		const { data, count, error } = await query
+			const { data, count, error } = await query
 
-		if (error) {
-			console.error('Error fetching dealership cars:', error)
-		} else {
-			setCars(prevCars => (page === 1 ? data : [...prevCars, ...data]))
-			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
-			setCurrentPage(page)
-		}
+			if (error) {
+				console.error('Error fetching dealership cars:', error)
+			} else {
+				setCars(prevCars => (page === 1 ? data : [...prevCars, ...data]))
+				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
+				setCurrentPage(page)
+			}
 
-		setIsCarsLoading(false)
-		setIsRefreshing(false)
-	}
+			setIsCarsLoading(false)
+			setIsRefreshing(false)
+		},
+		[
+			dealershipId,
+			searchQuery,
+			filterMake,
+			filterModel,
+			filterCondition,
+			sortBy,
+			sortOrder
+		]
+	)
 
 	const fetchMakes = async () => {
 		const { data, error } = await supabase
@@ -250,10 +261,16 @@ export default function DealershipDetails() {
 		)
 	}
 
-	const handleRefresh = () => {
-		setCurrentPage(1)
-		fetchDealershipCars(1, true)
-	}
+	const handleRefresh = useCallback(() => {
+		setIsRefreshing(true)
+		Promise.all([
+			fetchDealershipDetails(),
+			fetchDealershipCars(1, true),
+			fetchMakes()
+		]).then(() => {
+			setIsRefreshing(false)
+		})
+	}, [dealershipId])
 
 	const handleLoadMore = () => {
 		if (currentPage < totalPages && !isCarsLoading) {
@@ -332,17 +349,19 @@ export default function DealershipDetails() {
 			<Animated.FlatList
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={item => {
-					const id = item.id?.toString() || ''
-					const make = item.make || ''
-					const model = item.model || ''
-					return `${id}-${make}-${model}-${Math.random()}`
-				}}
+				keyExtractor={item =>
+					`${item.id}-${item.make}-${item.model}-${Math.random()}`
+				}
 				showsVerticalScrollIndicator={false}
 				onEndReached={handleLoadMore}
 				onEndReachedThreshold={0.1}
 				refreshControl={
-					<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+					<RefreshControl
+						refreshing={isRefreshing}
+						onRefresh={handleRefresh}
+						tintColor={isDarkMode ? '#ffffff' : '#000000'}
+						colors={['#D55004']}
+					/>
 				}
 				ListHeaderComponent={
 					<>
