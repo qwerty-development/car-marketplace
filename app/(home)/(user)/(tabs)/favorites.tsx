@@ -5,7 +5,8 @@ import {
 	Text,
 	ActivityIndicator,
 	StatusBar,
-	TouchableOpacity
+	TouchableOpacity,
+	RefreshControl
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
@@ -62,6 +63,11 @@ export default function FavoritesPage() {
 	const [isLoading, setIsLoading] = useState<boolean>(true)
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-light-text'
+	const [refreshing, setRefreshing] = useState(false)
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		fetchFavoriteCars().then(() => setRefreshing(false))
+	}, [])
 
 	const EmptyFavorites = () => (
 		<View className='flex-1 justify-center items-center'>
@@ -161,7 +167,7 @@ export default function FavoritesPage() {
 		[handleCarPress, handleFavoritePress]
 	)
 
-	if (isLoading) {
+	if (isLoading && !refreshing) {
 		return (
 			<View className={`flex-1 ${bgColor} justify-center items-center`}>
 				<ActivityIndicator
@@ -185,7 +191,15 @@ export default function FavoritesPage() {
 						const model = item.model || ''
 						return `${id}-${make}-${model}-${Math.random()}`
 					}}
-					contentContainerStyle={{ paddingBottom: 20 }}
+					contentContainerStyle={{ paddingBottom: 50 }}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
+							tintColor={isDarkMode ? '#ffffff' : '#000000'}
+							colors={['#D55004']}
+						/>
+					}
 				/>
 			) : (
 				<EmptyFavorites />
