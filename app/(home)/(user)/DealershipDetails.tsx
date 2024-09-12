@@ -13,7 +13,7 @@ import {
 	PanResponder,
 	StatusBar
 } from 'react-native'
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import RNPickerSelect from 'react-native-picker-select'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import MapView, { Marker } from 'react-native-maps'
 
 const ITEMS_PER_PAGE = 10
@@ -60,25 +60,16 @@ const CustomHeader = ({ title, onBack }: any) => {
 	return (
 		<SafeAreaView
 			edges={['top']}
-			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+			className={`${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					paddingBottom: 14,
-					paddingHorizontal: 16
-				}}>
+			<View className='flex-row items-center pb-4 px-4'>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
 				<Text
-					style={{
-						marginLeft: 16,
-						fontSize: 18,
-						fontWeight: 'bold',
-						color: isDarkMode ? '#FFFFFF' : '#000000'
-					}}>
+					className={`ml-4 text-lg font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
 					{title}
 				</Text>
 			</View>
@@ -90,10 +81,8 @@ export default function DealershipDetails() {
 	const { isDarkMode } = useTheme()
 	const { dealershipId } = useLocalSearchParams()
 	const router = useRouter()
-	const insets = useSafeAreaInsets()
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [cars, setCars] = useState<Car[]>([])
-	const [isLoading, setIsLoading] = useState(true)
 	const [isDealershipLoading, setIsDealershipLoading] = useState(true)
 	const [isCarsLoading, setIsCarsLoading] = useState(true)
 	const [isRefreshing, setIsRefreshing] = useState(false)
@@ -101,7 +90,7 @@ export default function DealershipDetails() {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
-	const { favorites, toggleFavorite, isFavorite } = useFavorites()
+	const { toggleFavorite, isFavorite } = useFavorites()
 	const [searchQuery, setSearchQuery] = useState('')
 	const [filterMake, setFilterMake] = useState('')
 	const [filterModel, setFilterModel] = useState('')
@@ -114,9 +103,20 @@ export default function DealershipDetails() {
 
 	useEffect(() => {
 		fetchDealershipDetails()
-		fetchDealershipCars()
 		fetchMakes()
 	}, [dealershipId])
+
+	useEffect(() => {
+		fetchDealershipCars(1, true)
+	}, [
+		dealershipId,
+		filterMake,
+		filterModel,
+		filterCondition,
+		sortBy,
+		sortOrder,
+		searchQuery
+	])
 
 	const bgGradient = isDarkMode
 		? ['#000000', '#1c1c1c']
@@ -125,23 +125,15 @@ export default function DealershipDetails() {
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 	const cardBgColor = isDarkMode ? 'bg-gray-800' : 'bg-white'
 
-	const mapRegion = {
-		latitude: dealership?.latitude || 37.7749,
-		longitude: dealership?.longitude || -122.4194,
-		latitudeDelta: 0.01,
-		longitudeDelta: 0.01
-	}
-
 	const panResponder = PanResponder.create({
-		onMoveShouldSetPanResponder: (_, gestureState) => {
-			return gestureState.dx < -30
-		},
+		onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dx < -30,
 		onPanResponderRelease: (_, gestureState) => {
 			if (gestureState.dx < -50) {
 				// Implement close functionality if needed
 			}
 		}
 	})
+
 	const fetchDealershipDetails = useCallback(async () => {
 		setIsDealershipLoading(true)
 		const { data, error } = await supabase
@@ -280,35 +272,28 @@ export default function DealershipDetails() {
 
 	const handleSearch = () => {
 		setCurrentPage(1)
-		fetchDealershipCars(1)
+		fetchDealershipCars(1, true)
 	}
 
 	const handleMakeFilter = (value: string) => {
 		setFilterMake(value)
 		setFilterModel('')
 		fetchModels(value)
-		setCurrentPage(1)
-		fetchDealershipCars(1)
 	}
 
 	const handleModelFilter = (value: string) => {
 		setFilterModel(value)
-		setCurrentPage(1)
-		fetchDealershipCars(1)
 	}
 
 	const handleConditionFilter = (value: string) => {
 		setFilterCondition(value)
-		setCurrentPage(1)
-		fetchDealershipCars(1)
 	}
 
 	const handleSort = (value: string) => {
+		if (value === null) return
 		const [newSortBy, newSortOrder] = value.split('_')
 		setSortBy(newSortBy)
 		setSortOrder(newSortOrder as 'asc' | 'desc')
-		setCurrentPage(1)
-		fetchDealershipCars(1)
 	}
 
 	const renderCarItem = useCallback(
@@ -322,12 +307,6 @@ export default function DealershipDetails() {
 		),
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
-
-	const headerOpacity = scrollY.interpolate({
-		inputRange: [0, 100],
-		outputRange: [0, 1],
-		extrapolate: 'clamp'
-	})
 
 	if (isDealershipLoading || (isCarsLoading && cars.length === 0)) {
 		return (
@@ -366,8 +345,7 @@ export default function DealershipDetails() {
 				ListHeaderComponent={
 					<>
 						{dealership && (
-							<View
-								className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4 pt-10`}>
+							<View className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4`}>
 								<Image
 									source={{ uri: dealership.logo }}
 									className='w-24 h-24 rounded-full self-center mb-4'
@@ -427,6 +405,15 @@ export default function DealershipDetails() {
 								onSubmitEditing={handleSearch}
 							/>
 							<View className='flex-row justify-between mb-4'>
+								<View className='flex-1 mr-2'>
+									<RNPickerSelect
+										onValueChange={handleMakeFilter}
+										items={makes.map(make => ({ label: make, value: make }))}
+										placeholder={{ label: 'All Makes', value: null }}
+										value={filterMake}
+										style={pickerSelectStyles(isDarkMode)}
+									/>
+								</View>
 								<View className='flex-1 ml-2'>
 									<RNPickerSelect
 										onValueChange={handleModelFilter}
@@ -457,8 +444,6 @@ export default function DealershipDetails() {
 									<RNPickerSelect
 										onValueChange={handleSort}
 										items={[
-											{ label: 'Newest', value: 'listed_at_desc' },
-											{ label: 'Oldest', value: 'listed_at_asc' },
 											{ label: 'Price: Low to High', value: 'price_asc' },
 											{ label: 'Price: High to Low', value: 'price_desc' },
 											{ label: 'Mileage: Low to High', value: 'mileage_asc' },
