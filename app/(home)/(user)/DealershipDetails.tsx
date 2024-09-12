@@ -290,7 +290,11 @@ export default function DealershipDetails() {
 	}
 
 	const handleSort = (value: string) => {
-		if (value === null) return
+		if (value === null) {
+			setSortBy('listed_at')
+			setSortOrder('desc')
+			return
+		}
 		const [newSortBy, newSortOrder] = value.split('_')
 		setSortBy(newSortBy)
 		setSortOrder(newSortOrder as 'asc' | 'desc')
