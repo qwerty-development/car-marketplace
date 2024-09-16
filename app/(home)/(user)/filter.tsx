@@ -156,7 +156,9 @@ const FilterPage = () => {
 		router.replace({
 			pathname: '/(home)/(user)',
 			params: { filters: JSON.stringify(filters) }
+
 		})
+		router.back()
 	}
 	const handleCategoryPress = (category: string) => {
 		setFilters((prevFilters: any) => {
