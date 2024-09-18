@@ -25,15 +25,14 @@ export default function RootLayout() {
 						name='CarsByBrand'
 						options={{
 							animation: 'slide_from_right',
-              headerShown: false
-              
+							headerShown: false
 						}}
 					/>
 					<Stack.Screen
 						name='AllBrandsPage'
 						options={{
 							animation: 'slide_from_right',
-              headerShown: false
+							headerShown: false
 						}}
 					/>
 					<Stack.Screen

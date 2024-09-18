@@ -14,42 +14,37 @@ import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import CategorySelector from '@/components/Category'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
+	const insets = useSafeAreaInsets()
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	return (
-		<SafeAreaView
-			edges={['top']}
-			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					paddingBottom: 14,
-					paddingHorizontal: 16
-				}}>
+		<View
+			style={{
+				paddingTop: insets.top - 10,
+				backgroundColor: isDarkMode ? '#000000' : '#FFFFFF'
+			}}>
+			<View className='flex-row items-center py-4 px-4'>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
 				<Text
-					style={{
-						marginLeft: 16,
-						fontSize: 18,
-						fontWeight: 'bold',
-						color: isDarkMode ? '#FFFFFF' : '#000000'
-					}}>
+					className={`ml-4 text-lg font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
 					{title}
 				</Text>
 			</View>
-		</SafeAreaView>
+		</View>
 	)
 }
 
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
+	const insets = useSafeAreaInsets()
 	const router = useRouter()
 
 	const params = useLocalSearchParams()
@@ -214,27 +209,10 @@ const FilterPage = () => {
 	)
 
 	return (
-		<View className={`flex-1 ${bgColor}`}>
+		<View
+			className={`flex-1 ${bgColor}`}
+			style={{ paddingBottom: insets.bottom }}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
-			<Stack.Screen
-				options={{
-					presentation: 'modal',
-					headerLeft: () => (
-						<TouchableOpacity onPress={() => router.back()}>
-							<Ionicons
-								name='arrow-back'
-								size={24}
-								color={isDarkMode ? 'white' : 'black'}
-							/>
-						</TouchableOpacity>
-					),
-					title: 'Filters',
-					headerStyle: {
-						backgroundColor: isDarkMode ? '#0D0D0D' : '#FFFFFF'
-					},
-					headerTintColor: isDarkMode ? '#FFFFFF' : '#333333'
-				}}
-			/>
 			<ScrollView className='flex-1 p-4'>
 				<View className='space-y-4'>
 					{/* Dealership Filter */}
