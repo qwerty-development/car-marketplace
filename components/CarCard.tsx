@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
 import { formatDistanceToNow } from 'date-fns'
 import { useTheme } from '@/utils/ThemeContext'
-import { Image } from 'expo-image'
+import { Image } from 'react-native'
 const StyledView = styled(View)
 const StyledText = styled(Text)
 const StyledImage = styled(Image)
@@ -45,8 +45,9 @@ export default function CarCard({
 	const handleWhatsApp = () => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model}.`
-			const url = `https://wa.me/${car.dealership_phone
-				}?text=${encodeURIComponent(message)}`
+			const url = `https://wa.me/${
+				car.dealership_phone
+			}?text=${encodeURIComponent(message)}`
 			Linking.openURL(url)
 		} else {
 			Alert.alert('WhatsApp number not available')
@@ -83,15 +84,16 @@ export default function CarCard({
 		<StyledScrollView>
 			<StyledTouchableOpacity
 				onPress={onPress}
-				className={`m-4 ${isDarkMode
+				className={`m-4 ${
+					isDarkMode
 						? 'bg-black border-red'
 						: 'bg-light-secondary border-light-accent'
-					} border rounded-3xl overflow-hidden shadow-xl shadow-stone-200`}>
+				} border rounded-3xl overflow-hidden shadow-xl shadow-stone-200`}>
 				<StyledView className='relative'>
 					<Image
 						source={{ uri: car.images[0] }}
 						className='w-full h-64 rounded-t-3xl'
-						contentFit='cover'
+						resizeMode='cover'
 					/>
 					<StyledView className='absolute top-4 right-4 rounded-full p-1'>
 						<TouchableOpacity onPress={onFavoritePress}>
@@ -110,8 +112,9 @@ export default function CarCard({
 				</StyledView>
 
 				<StyledView
-					className={`p-3  ${isDarkMode ? 'border-red' : 'border-light-accent'
-						}`}>
+					className={`p-3  ${
+						isDarkMode ? 'border-red' : 'border-light-accent'
+					}`}>
 					<StyledView className='flex-row justify-between items-center my-2 '>
 						<StyledView className='flex-row items-center'>
 							<Ionicons
@@ -120,16 +123,18 @@ export default function CarCard({
 								color={isDarkMode ? '#6B7280' : '#4C4C4C'}
 							/>
 							<StyledText
-								className={`ml-2 ${isDarkMode ? 'text-white' : 'text-light-text'
-									}`}>
+								className={`ml-2 ${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								}`}>
 								{car.views || 0} views
 							</StyledText>
 						</StyledView>
 						<StyledView className='flex-row items-center'>
 							<Ionicons name='heart' size={18} color='#EF4444' />
 							<StyledText
-								className={`ml-2 ${isDarkMode ? 'text-white' : 'text-light-text'
-									}`}>
+								className={`ml-2 ${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								}`}>
 								{car.likes || 0} likes
 							</StyledText>
 						</StyledView>
@@ -138,18 +143,21 @@ export default function CarCard({
 					<StyledView className='flex-row justify-between items-center mb-4 mt-2'>
 						<StyledView>
 							<StyledText
-								className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-light-text'
-									}`}>
+								className={`text-2xl font-semibold ${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								}`}>
 								{car.year} {car.make} {car.model}
 							</StyledText>
 							<StyledText
-								className={`text-xl font-medium ${isDarkMode ? 'text-red' : 'text-red'
-									} mt-2`}>
+								className={`text-xl font-medium ${
+									isDarkMode ? 'text-red' : 'text-red'
+								} mt-2`}>
 								${car.price.toLocaleString()}
 							</StyledText>
 							<StyledText
-								className={`text-s font-medium 	${isDarkMode ? 'text-white' : 'text-light-text'
-									} mt-2`}>
+								className={`text-s font-medium 	${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								} mt-2`}>
 								{car.dealership_location}
 							</StyledText>
 						</StyledView>
@@ -168,8 +176,9 @@ export default function CarCard({
 							text={
 								<View className='flex items-center min-w-[80px]'>
 									<Text
-										className={` text-s ${isDarkMode ? 'text-red' : 'text-red'
-											}`}>
+										className={` text-s ${
+											isDarkMode ? 'text-red' : 'text-red'
+										}`}>
 										{car.mileage.toLocaleString()}{' '}
 										<Text className='text-xs text-gray-500'>km</Text>
 									</Text>
@@ -181,9 +190,7 @@ export default function CarCard({
 							icon='cog-outline'
 							text={
 								<View className='flex items-center min-w-[80px]'>
-									<Text
-										className={` ${isDarkMode ? 'text-red' : 'text-red'
-											}`}>
+									<Text className={` ${isDarkMode ? 'text-red' : 'text-red'}`}>
 										{car.transmission}
 									</Text>
 								</View>
@@ -194,16 +201,13 @@ export default function CarCard({
 							icon='car-sport-outline'
 							text={
 								<View className='flex items-center min-w-[80px]'>
-									<Text
-										className={` ${isDarkMode ? 'text-red' : 'text-red'
-											}`}>
+									<Text className={` ${isDarkMode ? 'text-red' : 'text-red'}`}>
 										{car.condition}
 									</Text>
 								</View>
 							}
 						/>
 					</StyledView>
-
 
 					<View
 						className='mt-1 mb-1'

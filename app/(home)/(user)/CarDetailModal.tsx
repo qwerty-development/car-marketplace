@@ -10,7 +10,8 @@ import {
 	Linking,
 	Alert,
 	Share,
-	Platform
+	Platform,
+	Image
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
@@ -21,7 +22,7 @@ import MapView, { Marker } from 'react-native-maps'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
-import { Image } from 'expo-image'
+
 import Animated, {
 	useSharedValue,
 	useAnimatedStyle,
