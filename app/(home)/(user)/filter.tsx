@@ -154,6 +154,7 @@ const FilterPage = () => {
 			params: { filters: JSON.stringify(filters) }
 		})
 	}
+
 	const handleCategoryPress = (category: string) => {
 		setFilters((prevFilters: any) => {
 			const updatedCategories = prevFilters.categories.includes(category)
@@ -175,10 +176,13 @@ const FilterPage = () => {
 					<TextInput
 						style={{
 							width: '48%',
-							padding: 10,
+							paddingVertical: 0,
+							paddingTop: 3,
+							paddingLeft: 10,
 							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 							color: isDarkMode ? 'white' : 'black',
-							borderRadius: 5
+							borderRadius: 5,
+							textAlignVertical: 'center' // Align text vertically
 						}}
 						keyboardType='numeric'
 						value={value[0].toString()}
@@ -189,10 +193,13 @@ const FilterPage = () => {
 					<TextInput
 						style={{
 							width: '48%',
-							padding: 10,
+							paddingVertical: 0,
+							paddingTop: 3,
+							paddingLeft: 10,
 							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
 							color: isDarkMode ? 'white' : 'black',
-							borderRadius: 5
+							borderRadius: 5,
+							textAlignVertical: 'center' // Align text vertically
 						}}
 						keyboardType='numeric'
 						value={value[1].toString()}
@@ -250,15 +257,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -281,15 +292,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -309,15 +324,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -339,15 +358,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -398,15 +421,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -430,15 +457,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -465,15 +496,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
