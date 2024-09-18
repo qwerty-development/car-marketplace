@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -14,43 +14,37 @@ import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import CategorySelector from '@/components/Category'
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
+	const insets = useSafeAreaInsets()
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	return (
-		<SafeAreaView
-			edges={['top']}
-			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					paddingBottom: 14,
-					paddingHorizontal: 16
-				}}>
+		<View
+			style={{
+				paddingTop: insets.top - 10,
+				backgroundColor: isDarkMode ? '#000000' : '#FFFFFF'
+			}}>
+			<View className='flex-row items-center py-4 px-4'>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
 				<Text
-					style={{
-						marginLeft: 16,
-						fontSize: 18,
-						fontWeight: 'bold',
-						color: isDarkMode ? '#FFFFFF' : '#000000'
-					}}>
+					className={`ml-4 text-lg font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
 					{title}
 				</Text>
 			</View>
-		</SafeAreaView>
+		</View>
 	)
 }
 
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
+	const insets = useSafeAreaInsets()
 	const router = useRouter()
 
 	const params = useLocalSearchParams()
@@ -125,7 +119,6 @@ const FilterPage = () => {
 	}
 
 	const clearFilters = async () => {
-		// Reset the filters to their default state
 		setFilters({
 			dealership: null,
 			make: null,
@@ -140,13 +133,11 @@ const FilterPage = () => {
 			categories: []
 		})
 
-		// Await a small delay to ensure state updates are applied before navigating
 		await new Promise(resolve => setTimeout(resolve, 100))
 
-		// Navigate back to the main page with no filters applied
 		router.replace({
 			pathname: '/(home)/(user)',
-			params: { filters: JSON.stringify({}) } // Send empty filters
+			params: { filters: JSON.stringify({}) }
 		})
 		await new Promise(resolve => setTimeout(resolve, 200))
 	}
@@ -156,17 +147,14 @@ const FilterPage = () => {
 		router.replace({
 			pathname: '/(home)/(user)',
 			params: { filters: JSON.stringify(filters) }
-
 		})
-		router.back()
 	}
+
 	const handleCategoryPress = (category: string) => {
 		setFilters((prevFilters: any) => {
-			const updatedCategories = prevFilters.categories
-				? prevFilters.categories.includes(category)
-					? prevFilters.categories.filter((c: string) => c !== category)
-					: [...prevFilters.categories, category]
-				: [category]
+			const updatedCategories = prevFilters.categories.includes(category)
+				? prevFilters.categories.filter((c: string) => c !== category)
+				: [...prevFilters.categories, category]
 
 			return {
 				...prevFilters,
@@ -175,64 +163,56 @@ const FilterPage = () => {
 		})
 	}
 
-	const RangeInput = ({ label, min, max, value, onChange }: any) => (
-		<View>
-			<Text className={`font-semibold ${textColor} mb-2`}>{label}</Text>
-			<View className='flex-row justify-between'>
-				<TextInput
-					style={{
-						width: '48%',
-						padding: 10,
-						backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-						color: isDarkMode ? 'white' : 'black',
-						borderRadius: 5
-					}}
-					keyboardType='numeric'
-					value={value[0].toString()}
-					onChangeText={text => onChange([parseInt(text) || min, value[1]])}
-					placeholder={`Min ${min}`}
-					placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
-				/>
-				<TextInput
-					style={{
-						width: '48%',
-						padding: 10,
-						backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-						color: isDarkMode ? 'white' : 'black',
-						borderRadius: 5
-					}}
-					keyboardType='numeric'
-					value={value[1].toString()}
-					onChangeText={text => onChange([value[0], parseInt(text) || max])}
-					placeholder={`Max ${max}`}
-					placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
-				/>
+	const RangeInput = useCallback(
+		({ label, min, max, value, onChange }: any) => (
+			<View>
+				<Text className={`font-semibold ${textColor} mb-2`}>{label}</Text>
+				<View className='flex-row justify-between'>
+					<TextInput
+						style={{
+							width: '48%',
+							paddingVertical: 0,
+							paddingTop: 3,
+							paddingLeft: 10,
+							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
+							color: isDarkMode ? 'white' : 'black',
+							borderRadius: 5,
+							textAlignVertical: 'center' // Align text vertically
+						}}
+						keyboardType='numeric'
+						value={value[0].toString()}
+						onChangeText={text => onChange([parseInt(text) || min, value[1]])}
+						placeholder={`Min ${min}`}
+						placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
+					/>
+					<TextInput
+						style={{
+							width: '48%',
+							paddingVertical: 0,
+							paddingTop: 3,
+							paddingLeft: 10,
+							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
+							color: isDarkMode ? 'white' : 'black',
+							borderRadius: 5,
+							textAlignVertical: 'center' // Align text vertically
+						}}
+						keyboardType='numeric'
+						value={value[1].toString()}
+						onChangeText={text => onChange([value[0], parseInt(text) || max])}
+						placeholder={`Max ${max}`}
+						placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
+					/>
+				</View>
 			</View>
-		</View>
+		),
+		[isDarkMode, textColor]
 	)
 
 	return (
-		<View className={`flex-1 ${bgColor}`}>
+		<View
+			className={`flex-1 ${bgColor}`}
+			style={{ paddingBottom: insets.bottom }}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
-			<Stack.Screen
-				options={{
-					presentation: 'modal',
-					headerLeft: () => (
-						<TouchableOpacity onPress={() => router.back()}>
-							<Ionicons
-								name='arrow-back'
-								size={24}
-								color={isDarkMode ? 'white' : 'black'}
-							/>
-						</TouchableOpacity>
-					),
-					title: 'Filters',
-					headerStyle: {
-						backgroundColor: isDarkMode ? '#0D0D0D' : '#FFFFFF'
-					},
-					headerTintColor: isDarkMode ? '#FFFFFF' : '#333333'
-				}}
-			/>
 			<ScrollView className='flex-1 p-4'>
 				<View className='space-y-4'>
 					{/* Dealership Filter */}
@@ -255,15 +235,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -286,15 +270,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -314,15 +302,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -344,15 +336,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -403,15 +399,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -435,15 +435,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
@@ -470,15 +474,19 @@ const FilterPage = () => {
 							style={{
 								inputIOS: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								},
 								inputAndroid: {
 									color: isDarkMode ? 'white' : 'black',
-									padding: 10,
+									paddingVertical: 0, // Even vertical padding,
+									paddingTop: 15,
 									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5
+									borderRadius: 5,
+									textAlignVertical: 'center' // Align text vertically
 								}
 							}}
 						/>
