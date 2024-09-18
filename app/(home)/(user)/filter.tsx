@@ -15,7 +15,6 @@ import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import CategorySelector from '@/components/Category'
 
-
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
@@ -156,9 +155,7 @@ const FilterPage = () => {
 		router.replace({
 			pathname: '/(home)/(user)',
 			params: { filters: JSON.stringify(filters) }
-
 		})
-		router.back()
 	}
 	const handleCategoryPress = (category: string) => {
 		setFilters((prevFilters: any) => {
