@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -124,7 +124,6 @@ const FilterPage = () => {
 	}
 
 	const clearFilters = async () => {
-		// Reset the filters to their default state
 		setFilters({
 			dealership: null,
 			make: null,
@@ -139,13 +138,11 @@ const FilterPage = () => {
 			categories: []
 		})
 
-		// Await a small delay to ensure state updates are applied before navigating
 		await new Promise(resolve => setTimeout(resolve, 100))
 
-		// Navigate back to the main page with no filters applied
 		router.replace({
 			pathname: '/(home)/(user)',
-			params: { filters: JSON.stringify({}) } // Send empty filters
+			params: { filters: JSON.stringify({}) }
 		})
 		await new Promise(resolve => setTimeout(resolve, 200))
 	}
@@ -159,11 +156,9 @@ const FilterPage = () => {
 	}
 	const handleCategoryPress = (category: string) => {
 		setFilters((prevFilters: any) => {
-			const updatedCategories = prevFilters.categories
-				? prevFilters.categories.includes(category)
-					? prevFilters.categories.filter((c: string) => c !== category)
-					: [...prevFilters.categories, category]
-				: [category]
+			const updatedCategories = prevFilters.categories.includes(category)
+				? prevFilters.categories.filter((c: string) => c !== category)
+				: [...prevFilters.categories, category]
 
 			return {
 				...prevFilters,
@@ -172,40 +167,43 @@ const FilterPage = () => {
 		})
 	}
 
-	const RangeInput = ({ label, min, max, value, onChange }: any) => (
-		<View>
-			<Text className={`font-semibold ${textColor} mb-2`}>{label}</Text>
-			<View className='flex-row justify-between'>
-				<TextInput
-					style={{
-						width: '48%',
-						padding: 10,
-						backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-						color: isDarkMode ? 'white' : 'black',
-						borderRadius: 5
-					}}
-					keyboardType='numeric'
-					value={value[0].toString()}
-					onChangeText={text => onChange([parseInt(text) || min, value[1]])}
-					placeholder={`Min ${min}`}
-					placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
-				/>
-				<TextInput
-					style={{
-						width: '48%',
-						padding: 10,
-						backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-						color: isDarkMode ? 'white' : 'black',
-						borderRadius: 5
-					}}
-					keyboardType='numeric'
-					value={value[1].toString()}
-					onChangeText={text => onChange([value[0], parseInt(text) || max])}
-					placeholder={`Max ${max}`}
-					placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
-				/>
+	const RangeInput = useCallback(
+		({ label, min, max, value, onChange }: any) => (
+			<View>
+				<Text className={`font-semibold ${textColor} mb-2`}>{label}</Text>
+				<View className='flex-row justify-between'>
+					<TextInput
+						style={{
+							width: '48%',
+							padding: 10,
+							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
+							color: isDarkMode ? 'white' : 'black',
+							borderRadius: 5
+						}}
+						keyboardType='numeric'
+						value={value[0].toString()}
+						onChangeText={text => onChange([parseInt(text) || min, value[1]])}
+						placeholder={`Min ${min}`}
+						placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
+					/>
+					<TextInput
+						style={{
+							width: '48%',
+							padding: 10,
+							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
+							color: isDarkMode ? 'white' : 'black',
+							borderRadius: 5
+						}}
+						keyboardType='numeric'
+						value={value[1].toString()}
+						onChangeText={text => onChange([value[0], parseInt(text) || max])}
+						placeholder={`Max ${max}`}
+						placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
+					/>
+				</View>
 			</View>
-		</View>
+		),
+		[isDarkMode, textColor]
 	)
 
 	return (
