@@ -353,10 +353,12 @@ const FilterPage = () => {
 				<CollapsibleSection title='Basic Filters'>
 					<SearchableSelect
 						label='Dealership'
-						items={dealerships.map((d:any) => d.name)}
+						items={dealerships.map((d: any) => d.name)}
 						value={filters.dealershipName}
 						onChange={(value: any) => {
-							const selectedDealership = dealerships.find((d:any) => d.name === value)
+							const selectedDealership = dealerships.find(
+								(d: any) => d.name === value
+							)
 							setFilters({
 								...filters,
 								dealership: selectedDealership ? selectedDealership.id : '',
