@@ -1,20 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
 	View,
 	Text,
 	ScrollView,
 	TouchableOpacity,
 	TextInput,
-	StatusBar
+	Animated,
+	FlatList
 } from 'react-native'
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
-import RNPickerSelect from 'react-native-picker-select'
-import { supabase } from '@/utils/supabase'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import CategorySelector from '@/components/Category'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { supabase } from '@/utils/supabase'
+import Slider from '@react-native-community/slider'
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
@@ -42,18 +42,76 @@ const CustomHeader = ({ title, onBack }: any) => {
 	)
 }
 
+const CollapsibleSection = ({ title, children }: any) => {
+	const [isCollapsed, setIsCollapsed] = useState(false)
+	const animatedHeight = useRef(new Animated.Value(0)).current
+	const { isDarkMode } = useTheme()
+
+	useEffect(() => {
+		Animated.timing(animatedHeight, {
+			toValue: isCollapsed ? 0 : 1,
+			duration: 300,
+			useNativeDriver: false
+		}).start()
+	}, [isCollapsed])
+
+	return (
+		<View className='mb-6'>
+			<TouchableOpacity
+				onPress={() => setIsCollapsed(!isCollapsed)}
+				className='flex-row justify-between items-center mb-2'>
+				<Text
+					className={`font-semibold ${
+						isDarkMode ? 'text-white' : 'text-night'
+					} text-lg`}>
+					{title}
+				</Text>
+				<Ionicons
+					name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+					size={24}
+					color='#D55004'
+				/>
+			</TouchableOpacity>
+			<Animated.View
+				style={{
+					maxHeight: animatedHeight.interpolate({
+						inputRange: [0, 1],
+						outputRange: [0, 1000]
+					}),
+					overflow: 'hidden'
+				}}>
+				{children}
+			</Animated.View>
+		</View>
+	)
+}
+
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
-	const insets = useSafeAreaInsets()
 	const router = useRouter()
-
 	const params = useLocalSearchParams()
-	const [filters, setFilters] = useState<any>(() => {
+	const [filters, setFilters] = useState(() => {
 		try {
-			return JSON.parse(params.filters as string) || {}
+			return (
+				JSON.parse(params.filters as string) || {
+					dealership: '',
+					dealershipName: '',
+					make: '',
+					model: '',
+					condition: '',
+					priceRange: [0, 1000000],
+					mileageRange: [0, 500000],
+					yearRange: [1900, new Date().getFullYear()],
+					color: '',
+					transmission: '',
+					drivetrain: '',
+					categories: []
+				}
+			)
 		} catch {
 			return {
 				dealership: '',
+				dealershipName: '',
 				make: '',
 				model: '',
 				condition: '',
@@ -72,11 +130,6 @@ const FilterPage = () => {
 	const [makes, setMakes] = useState<any>([])
 	const [models, setModels] = useState<any>([])
 	const [colors, setColors] = useState<any>([])
-	const textColor = isDarkMode ? 'text-white' : 'text-black'
-	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
-	const inputBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-	const buttonBgColor = isDarkMode ? 'bg-red' : 'bg-red'
-	const cancelBgColor = isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 
 	useEffect(() => {
 		fetchInitialData()
@@ -118,410 +171,337 @@ const FilterPage = () => {
 		if (!error) setColors([...new Set(data?.map(item => item.color))])
 	}
 
-	const clearFilters = async () => {
-		setFilters({
-			dealership: null,
-			make: null,
-			model: null,
-			condition: '',
-			priceRange: [0, 1000000],
-			mileageRange: [0, 500000],
-			yearRange: [1900, new Date().getFullYear()],
-			color: null,
-			transmission: null,
-			drivetrain: null,
-			categories: []
-		})
+	const RangeSlider = ({ label, min, max, value, onChange, step = 1 }: any) => {
+		const { isDarkMode } = useTheme()
 
-		await new Promise(resolve => setTimeout(resolve, 100))
-
-		router.replace({
-			pathname: '/(home)/(user)',
-			params: { filters: JSON.stringify({}) }
-		})
-		await new Promise(resolve => setTimeout(resolve, 200))
+		return (
+			<View className='mb-6'>
+				<View className='flex-row justify-between items-center mb-2'>
+					<Text
+						className={`font-semibold ${
+							isDarkMode ? 'text-white' : 'text-night'
+						}`}>
+						{label}
+					</Text>
+				</View>
+				<View className='flex-row justify-between mb-2'>
+					<Text className={isDarkMode ? 'text-gray' : 'text-gray'}>
+						{value[0].toLocaleString()}
+					</Text>
+					<Text className={isDarkMode ? 'text-gray' : 'text-gray'}>
+						{value[1].toLocaleString()}
+					</Text>
+				</View>
+				<Slider
+					style={{ width: '100%', height: 40 }}
+					minimumValue={min}
+					maximumValue={max}
+					step={step}
+					value={value[0]}
+					onValueChange={newValue => onChange([Math.round(newValue), value[1]])}
+					minimumTrackTintColor='#D55004'
+					maximumTrackTintColor={isDarkMode ? 'gray' : 'light-secondary'}
+					thumbTintColor='#D55004'
+				/>
+				<Slider
+					style={{ width: '100%', height: 40 }}
+					minimumValue={min}
+					maximumValue={max}
+					step={step}
+					value={value[1]}
+					onValueChange={newValue => onChange([value[0], Math.round(newValue)])}
+					minimumTrackTintColor='#D55004'
+					maximumTrackTintColor={isDarkMode ? 'gray' : 'light-secondary'}
+					thumbTintColor='#D55004'
+				/>
+			</View>
+		)
 	}
 
-	const applyFilters = async () => {
-		await new Promise(resolve => setTimeout(resolve, 100))
-		router.replace({
-			pathname: '/(home)/(user)',
-			params: { filters: JSON.stringify(filters) }
-		})
-	}
+	const SearchableSelect = ({
+		label,
+		items,
+		value,
+		onChange,
+		placeholder
+	}: any) => {
+		const [searchQuery, setSearchQuery] = useState('')
+		const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+		const filteredItems = items.filter((item: string) =>
+			item?.toLowerCase()?.includes(searchQuery?.toLowerCase())
+		)
 
-	const handleCategoryPress = (category: string) => {
-		setFilters((prevFilters: any) => {
-			const updatedCategories = prevFilters.categories.includes(category)
-				? prevFilters.categories.filter((c: string) => c !== category)
-				: [...prevFilters.categories, category]
-
-			return {
-				...prevFilters,
-				categories: updatedCategories
-			}
-		})
-	}
-
-	const RangeInput = useCallback(
-		({ label, min, max, value, onChange }: any) => (
-			<View>
-				<Text className={`font-semibold ${textColor} mb-2`}>{label}</Text>
-				<View className='flex-row justify-between'>
-					<TextInput
-						style={{
-							width: '48%',
-							paddingVertical: 0,
-							paddingTop: 3,
-							paddingLeft: 10,
-							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-							color: isDarkMode ? 'white' : 'black',
-							borderRadius: 5,
-							textAlignVertical: 'center' // Align text vertically
-						}}
-						keyboardType='numeric'
-						value={value[0].toString()}
-						onChangeText={text => onChange([parseInt(text) || min, value[1]])}
-						placeholder={`Min ${min}`}
-						placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
-					/>
-					<TextInput
-						style={{
-							width: '48%',
-							paddingVertical: 0,
-							paddingTop: 3,
-							paddingLeft: 10,
-							backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-							color: isDarkMode ? 'white' : 'black',
-							borderRadius: 5,
-							textAlignVertical: 'center' // Align text vertically
-						}}
-						keyboardType='numeric'
-						value={value[1].toString()}
-						onChangeText={text => onChange([value[0], parseInt(text) || max])}
-						placeholder={`Max ${max}`}
-						placeholderTextColor={isDarkMode ? '#A0A0A0' : '#606060'}
-					/>
+		return (
+			<View className='mb-6'>
+				<View className='flex-row justify-between items-center mb-2'>
+					<Text
+						className={`font-semibold ${
+							isDarkMode ? 'text-white' : 'text-night'
+						}`}>
+						{label}
+					</Text>
+					{value && (
+						<TouchableOpacity onPress={() => onChange('')}>
+							<Ionicons name='close-circle' size={24} color='red' />
+						</TouchableOpacity>
+					)}
+				</View>
+				<View
+					className={`border rounded-md ${
+						isDarkMode ? 'border-gray' : 'border-light-secondary'
+					}`}>
+					<TouchableOpacity
+						onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+						className={`p-2 flex-row justify-between items-center ${
+							value ? 'bg-red' : isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+						}`}>
+						<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+							{value || `Select ${placeholder}`}
+						</Text>
+						<Ionicons
+							name={isDropdownOpen ? 'chevron-up' : 'chevron-down'}
+							size={24}
+							color={isDarkMode ? 'white' : 'night'}
+						/>
+					</TouchableOpacity>
+					{isDropdownOpen && (
+						<View>
+							<TextInput
+								className={`p-2 ${
+									isDarkMode
+										? 'text-white bg-gray'
+										: 'text-night bg-light-secondary'
+								}`}
+								placeholder={`Search ${placeholder}`}
+								placeholderTextColor={isDarkMode ? 'light-text' : 'gray'}
+								value={searchQuery}
+								onChangeText={setSearchQuery}
+							/>
+							<FlatList
+								data={filteredItems}
+								keyExtractor={(item, index) => index.toString()}
+								renderItem={({ item }) => (
+									<TouchableOpacity
+										onPress={() => {
+											onChange(item)
+											setIsDropdownOpen(false)
+											setSearchQuery('')
+										}}
+										className={`p-2 ${
+											item === value
+												? 'bg-red'
+												: isDarkMode
+												? 'bg-gray'
+												: 'bg-light-secondary'
+										}`}>
+										<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+											{item}
+										</Text>
+									</TouchableOpacity>
+								)}
+								style={{ maxHeight: 200 }}
+								nestedScrollEnabled={true}
+							/>
+						</View>
+					)}
 				</View>
 			</View>
-		),
-		[isDarkMode, textColor]
-	)
+		)
+	}
+
+	const PopularFilters = () => {
+		const popularFilters = [
+			{ label: 'SUVs', filter: { categories: ['SUV'] } },
+			{ label: 'Under $30,000', filter: { priceRange: [0, 30000] } },
+			{ label: 'Low Mileage', filter: { mileageRange: [0, 50000] } }
+		]
+
+		return (
+			<View className='mb-6'>
+				<Text
+					className={`font-semibold ${
+						isDarkMode ? 'text-white' : 'text-night'
+					} text-lg mb-2`}>
+					Popular Filters
+				</Text>
+				<View className='flex-row flex-wrap'>
+					{popularFilters.map((item, index) => (
+						<TouchableOpacity
+							key={index}
+							onPress={() =>
+								setFilters((prev: any) => ({ ...prev, ...item.filter }))
+							}
+							className={`mr-2 mb-2 px-3 py-1 rounded-full ${
+								isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+							}`}>
+							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+								{item.label}
+							</Text>
+						</TouchableOpacity>
+					))}
+				</View>
+			</View>
+		)
+	}
 
 	return (
-		<View
-			className={`flex-1 ${bgColor}`}
-			style={{ paddingBottom: insets.bottom }}>
+		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
 			<ScrollView className='flex-1 p-4'>
-				<View className='space-y-4'>
-					{/* Dealership Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>
-							Dealership
-						</Text>
-						<RNPickerSelect
-							onValueChange={value =>
-								setFilters({ ...filters, dealership: value })
-							}
-							value={filters.dealership}
-							items={dealerships.map(
-								(dealership: { name: any; id: { toString: () => any } }) => ({
-									label: dealership.name,
-									value: dealership.id.toString()
-								})
-							)}
-							placeholder={{ label: 'All Dealerships', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
-						/>
-					</View>
+				<PopularFilters />
 
-					{/* Make Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>Make</Text>
-						<RNPickerSelect
-							onValueChange={value => {
-								setFilters({ ...filters, make: value, model: '' })
-								if (value) fetchModels(value)
-							}}
-							value={filters.make}
-							items={makes.map((make: any) => ({
-								label: make,
-								value: make
-							}))}
-							placeholder={{ label: 'All Makes', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
-						/>
-					</View>
-
-					{/* Model Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>Model</Text>
-						<RNPickerSelect
-							onValueChange={value => setFilters({ ...filters, model: value })}
+				<CollapsibleSection title='Basic Filters'>
+					<SearchableSelect
+						label='Dealership'
+						items={dealerships.map((d:any) => d.name)}
+						value={filters.dealershipName}
+						onChange={(value: any) => {
+							const selectedDealership = dealerships.find((d:any) => d.name === value)
+							setFilters({
+								...filters,
+								dealership: selectedDealership ? selectedDealership.id : '',
+								dealershipName: value
+							})
+						}}
+						placeholder='dealerships'
+					/>
+					<SearchableSelect
+						label='Make'
+						items={makes}
+						value={filters.make}
+						onChange={(value: any) => {
+							setFilters({ ...filters, make: value, model: '' })
+							fetchModels(value)
+						}}
+						placeholder='makes'
+					/>
+					{filters.make && (
+						<SearchableSelect
+							label='Model'
+							items={models}
 							value={filters.model}
-							items={models.map((model: any) => ({
-								label: model,
-								value: model
-							}))}
-							placeholder={{ label: 'All Models', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
-						/>
-					</View>
-
-					{/* Condition Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>Condition</Text>
-						<RNPickerSelect
-							onValueChange={value =>
-								setFilters({ ...filters, condition: value })
+							onChange={(value: any) =>
+								setFilters({ ...filters, model: value })
 							}
-							value={filters.condition}
-							items={[
-								{ label: 'New', value: 'New' },
-								{ label: 'Used', value: 'Used' }
-							]}
-							placeholder={{ label: 'All Conditions', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
+							placeholder='models'
 						/>
-					</View>
-
-					{/* Price Range Filter */}
-					<RangeInput
+					)}
+					<RangeSlider
 						label='Price Range'
 						min={0}
 						max={1000000}
+						step={1000}
 						value={filters.priceRange || [0, 1000000]}
 						onChange={(value: any) =>
 							setFilters({ ...filters, priceRange: value })
 						}
 					/>
+				</CollapsibleSection>
 
-					<RangeInput
+				<CollapsibleSection title='Advanced Filters'>
+					<RangeSlider
 						label='Mileage Range'
 						min={0}
 						max={500000}
+						step={1000}
 						value={filters.mileageRange || [0, 500000]}
 						onChange={(value: any) =>
 							setFilters({ ...filters, mileageRange: value })
 						}
 					/>
-
-					<RangeInput
+					<RangeSlider
 						label='Year Range'
 						min={1900}
 						max={new Date().getFullYear()}
+						step={1}
 						value={filters.yearRange || [1900, new Date().getFullYear()]}
 						onChange={(value: any) =>
 							setFilters({ ...filters, yearRange: value })
 						}
 					/>
+					<SearchableSelect
+						label='Color'
+						items={colors}
+						value={filters.color}
+						onChange={(value: any) => setFilters({ ...filters, color: value })}
+						placeholder='colors'
+					/>
+					<SearchableSelect
+						label='Transmission'
+						items={['Automatic', 'Manual']}
+						value={filters.transmission}
+						onChange={(value: any) =>
+							setFilters({ ...filters, transmission: value })
+						}
+						placeholder='transmission types'
+					/>
+					<SearchableSelect
+						label='Drivetrain'
+						items={['FWD', 'RWD', 'AWD', '4WD', '4x4']}
+						value={filters.drivetrain}
+						onChange={(value: any) =>
+							setFilters({ ...filters, drivetrain: value })
+						}
+						placeholder='drivetrain types'
+					/>
+				</CollapsibleSection>
 
-					{/* Color Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>Color</Text>
-						<RNPickerSelect
-							onValueChange={value => setFilters({ ...filters, color: value })}
-							value={filters.color}
-							items={colors.map((color: any) => ({
-								label: color,
-								value: color
-							}))}
-							placeholder={{ label: 'All Colors', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
-						/>
-					</View>
-
-					{/* Transmission Filter */}
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>
-							Transmission
-						</Text>
-						<RNPickerSelect
-							onValueChange={value =>
-								setFilters({ ...filters, transmission: value })
-							}
-							value={filters.transmission}
-							items={[
-								{ label: 'Manual', value: 'Manual' },
-								{ label: 'Automatic', value: 'Automatic' }
-							]}
-							placeholder={{ label: 'All Transmissions', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
-						/>
-					</View>
-
-					{/* Drivetrain Filter */}
-					<View className='mb-12'>
-						<Text className={`font-semibold ${textColor} mb-2`}>
-							Drivetrain
-						</Text>
-						<RNPickerSelect
-							onValueChange={value =>
-								setFilters({ ...filters, drivetrain: value })
-							}
-							value={filters.drivetrain}
-							items={[
-								{ label: 'FWD', value: 'FWD' },
-								{ label: 'RWD', value: 'RWD' },
-								{ label: 'AWD', value: 'AWD' },
-								{ label: '4WD', value: '4WD' },
-								{ label: '4x4', value: '4x4' }
-							]}
-							placeholder={{ label: 'All Drivetrains', value: null }}
-							style={{
-								inputIOS: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								},
-								inputAndroid: {
-									color: isDarkMode ? 'white' : 'black',
-									paddingVertical: 0, // Even vertical padding,
-									paddingTop: 15,
-									backgroundColor: isDarkMode ? '#4C4C4C' : '#F5F5F5',
-									borderRadius: 5,
-									textAlignVertical: 'center' // Align text vertically
-								}
-							}}
-						/>
-					</View>
-					<View>
-						<Text className={`font-semibold ${textColor} mb-2`}>
-							Categories
-						</Text>
-						<CategorySelector
-							selectedCategories={filters.categories || []}
-							onCategoryPress={handleCategoryPress}
-						/>
-					</View>
-				</View>
+				<CollapsibleSection title='Categories'>
+					<CategorySelector
+						selectedCategories={filters.categories || []}
+						onCategoryPress={category => {
+							const updatedCategories = filters.categories?.includes(category)
+								? filters.categories.filter((c: string) => c !== category)
+								: [...(filters.categories || []), category]
+							setFilters({ ...filters, categories: updatedCategories })
+						}}
+					/>
+				</CollapsibleSection>
 			</ScrollView>
-			<View className={`flex-row ${inputBgColor} justify-between p-4 mb-10`}>
+			<View
+				className={`flex-row justify-between p-4 ${
+					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+				}`}>
 				<TouchableOpacity
-					className={`${cancelBgColor} py-2 px-4 rounded`}
-					onPress={clearFilters}>
-					<Text className={textColor}>Clear Filters</Text>
+					className={`py-2 px-4 rounded ${
+						isDarkMode ? 'bg-night' : 'bg-white'
+					}`}
+					onPress={() => {
+						setFilters({
+							dealership: '',
+							dealershipName: '',
+							make: '',
+							model: '',
+							condition: '',
+							priceRange: [0, 1000000],
+							mileageRange: [0, 500000],
+							yearRange: [1900, new Date().getFullYear()],
+							color: '',
+							transmission: '',
+							drivetrain: '',
+							categories: []
+						})
+						router.push({
+							pathname: '/(home)/(user)',
+							params: { filters: JSON.stringify({}) }
+						})
+					}}>
+					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+						Clear All
+					</Text>
 				</TouchableOpacity>
-				<View className='flex-row'>
-					<TouchableOpacity
-						className={`${cancelBgColor} py-2 px-4 rounded mr-2`}
-						onPress={() => router.back()}>
-						<Text className={textColor}>Cancel</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						className={`${buttonBgColor} py-2 px-4 rounded`}
-						onPress={applyFilters}>
-						<Text className={textColor}>Apply Filters</Text>
-					</TouchableOpacity>
-				</View>
+				<TouchableOpacity
+					className='bg-red py-2 px-4 rounded'
+					onPress={() => {
+						router.push({
+							pathname: '/(home)/(user)',
+							params: { filters: JSON.stringify(filters) }
+						})
+					}}>
+					<Text className='text-white'>Apply Filters</Text>
+				</TouchableOpacity>
 			</View>
-		</View>
+		</SafeAreaView>
 	)
 }
 
