@@ -1,22 +1,20 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
 	View,
 	FlatList,
 	Text,
 	ActivityIndicator,
-	StatusBar,
-	TouchableOpacity,
-	RefreshControl
+	RefreshControl,
+	ListRenderItem,
+	StatusBar
 } from 'react-native'
+import { router } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import { router } from 'expo-router'
-
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
 
@@ -54,38 +52,38 @@ const CustomHeader = ({ title, onBack }: any) => {
 		</SafeAreaView>
 	)
 }
+
+interface Car {
+	id: number
+	make: string
+	model: string
+	likes: number
+	views: number
+	dealerships: {
+		name: string
+		logo: string
+		phone: string
+		location: string
+		latitude: number
+		longitude: number
+	}
+}
+
 export default function FavoritesPage() {
 	const { isDarkMode } = useTheme()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
-	const [favoriteCars, setFavoriteCars] = useState<any>([])
-	const [selectedCar, setSelectedCar] = useState<any>(null)
-	const [isModalVisible, setIsModalVisible] = useState<boolean>(false)
-	const [isLoading, setIsLoading] = useState<boolean>(true)
+	const [favoriteCars, setFavoriteCars] = useState<Car[]>([])
+	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
+	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [isLoading, setIsLoading] = useState(true)
+	const [refreshing, setRefreshing] = useState(false)
+	const [error, setError] = useState<string | null>(null)
+
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-light-text'
-	const [refreshing, setRefreshing] = useState(false)
-	const onRefresh = useCallback(() => {
-		setRefreshing(true)
-		fetchFavoriteCars().then(() => setRefreshing(false))
-	}, [])
 
-	const EmptyFavorites = () => (
-		<View className='flex-1 justify-center items-center'>
-			<Text className={`text-xl font-bold ${textColor} mb-2`}>
-				No cars added as favorite
-			</Text>
-			<Text className='text-base text-gray-400'>
-				Your favorite cars will appear here
-			</Text>
-		</View>
-	)
-
-	useEffect(() => {
-		fetchFavoriteCars()
-	}, [favorites])
-
-	const fetchFavoriteCars = async () => {
-		setIsLoading(true)
+	const fetchFavoriteCars = useCallback(async () => {
+		setError(null)
 		if (favorites.length === 0) {
 			setFavoriteCars([])
 			setIsLoading(false)
@@ -98,14 +96,12 @@ export default function FavoritesPage() {
 				.select(
 					`
           *,
-          dealerships (name,logo,phone,location,latitude,longitude)
+          dealerships (name, logo, phone, location, latitude, longitude)
         `
 				)
 				.in('id', favorites)
 
-			if (error) {
-				throw error
-			}
+			if (error) throw error
 
 			const carsData =
 				data?.map(item => ({
@@ -117,37 +113,49 @@ export default function FavoritesPage() {
 					dealership_latitude: item.dealerships.latitude,
 					dealership_longitude: item.dealerships.longitude
 				})) || []
+
 			setFavoriteCars(carsData)
 		} catch (error) {
 			console.error('Error fetching favorite cars:', error)
+			setError('Failed to fetch favorite cars. Please try again.')
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [favorites])
+
+	useEffect(() => {
+		fetchFavoriteCars()
+	}, [fetchFavoriteCars])
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true)
+		await fetchFavoriteCars()
+		setRefreshing(false)
+	}, [fetchFavoriteCars])
 
 	const handleFavoritePress = useCallback(
 		async (carId: number) => {
 			const newLikesCount = await toggleFavorite(carId)
-			setFavoriteCars((prevCars: any[]) =>
+			setFavoriteCars(prevCars =>
 				prevCars
-					.map((car: { id: number }) =>
+					.map(car =>
 						car.id === carId ? { ...car, likes: newLikesCount } : car
 					)
-					.filter((car: { id: number }) => isFavorite(car.id))
+					.filter(car => isFavorite(car.id))
 			)
 		},
 		[toggleFavorite, isFavorite]
 	)
 
-	const handleCarPress = useCallback((car: any) => {
+	const handleCarPress = useCallback((car: Car) => {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}, [])
 
 	const handleViewUpdate = useCallback(
 		(carId: number, newViewCount: number) => {
-			setFavoriteCars((prevCars: any[]) =>
-				prevCars.map((car: { id: number }) =>
+			setFavoriteCars(prevCars =>
+				prevCars.map(car =>
 					car.id === carId ? { ...car, views: newViewCount } : car
 				)
 			)
@@ -155,8 +163,8 @@ export default function FavoritesPage() {
 		[]
 	)
 
-	const renderCarItem = useCallback(
-		({ item }: any) => (
+	const renderCarItem: ListRenderItem<Car> = useCallback(
+		({ item }) => (
 			<CarCard
 				car={item}
 				onPress={() => handleCarPress(item)}
@@ -167,43 +175,76 @@ export default function FavoritesPage() {
 		[handleCarPress, handleFavoritePress]
 	)
 
-	if (isLoading && !refreshing) {
-		return (
-			<View className={`flex-1 ${bgColor} justify-center items-center`}>
-				<ActivityIndicator
-					size='large'
-					color={isDarkMode ? '#ffffff' : '#000000'}
-				/>
+	const keyExtractor = useCallback(
+		(item: Car) => `${item.id}-${item.make}-${item.model}`,
+		[]
+	)
+
+	const EmptyFavorites = useMemo(
+		() => (
+			<View className='flex-1 justify-center items-center'>
+				<Text className={`text-xl font-bold ${textColor} mb-2`}>
+					No cars added as favorite
+				</Text>
+				<Text className='text-base text-gray-400'>
+					Your favorite cars will appear here
+				</Text>
 			</View>
+		),
+		[textColor]
+	)
+
+	const ErrorMessage = useMemo(
+		() => (
+			<View className='flex-1 justify-center items-center'>
+				<Text className={`text-xl font-bold ${textColor} mb-2`}>{error}</Text>
+				<Text className='text-base text-gray-400'>
+					Pull down to refresh and try again
+				</Text>
+			</View>
+		),
+		[error, textColor]
+	)
+
+	const renderContent = () => {
+		if (isLoading) {
+			return (
+				<View className='flex-1 justify-center items-center'>
+					<ActivityIndicator
+						size='large'
+						color={isDarkMode ? '#ffffff' : '#000000'}
+					/>
+				</View>
+			)
+		}
+
+		if (error) {
+			return ErrorMessage
+		}
+
+		return (
+			<FlatList
+				data={favoriteCars}
+				renderItem={renderCarItem}
+				keyExtractor={keyExtractor}
+				contentContainerStyle={{ flexGrow: 1, paddingBottom: 50 }}
+				ListEmptyComponent={EmptyFavorites}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						tintColor={isDarkMode ? '#ffffff' : '#000000'}
+						colors={['#D55004']}
+					/>
+				}
+			/>
 		)
 	}
 
 	return (
-		<View className={`flex-1 ${bgColor}`}>
+		<SafeAreaView className={`flex-1 ${bgColor}`}>
 			<CustomHeader title='Favorites' onBack={() => router.back()} />
-			{favoriteCars.length > 0 ? (
-				<FlatList
-					data={favoriteCars}
-					renderItem={renderCarItem}
-					keyExtractor={item => {
-						const id = item.id?.toString() || ''
-						const make = item.make || ''
-						const model = item.model || ''
-						return `${id}-${make}-${model}-${Math.random()}`
-					}}
-					contentContainerStyle={{ paddingBottom: 50 }}
-					refreshControl={
-						<RefreshControl
-							refreshing={refreshing}
-							onRefresh={onRefresh}
-							tintColor={isDarkMode ? '#ffffff' : '#000000'}
-							colors={['#D55004']}
-						/>
-					}
-				/>
-			) : (
-				<EmptyFavorites />
-			)}
+			{renderContent()}
 			<CarDetailModal
 				isVisible={isModalVisible}
 				car={selectedCar}
@@ -216,6 +257,6 @@ export default function FavoritesPage() {
 				setSelectedCar={setSelectedCar}
 				setIsModalVisible={setIsModalVisible}
 			/>
-		</View>
+		</SafeAreaView>
 	)
 }
