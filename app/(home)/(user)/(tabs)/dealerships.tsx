@@ -32,16 +32,36 @@ const AnimatedTextInput = Animated.createAnimatedComponent(TextInput)
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
+
 	return (
 		<SafeAreaView
-			edges={['top']}
-			className={`${isDarkMode ? 'bg-night' : 'bg-white'}`}>
+			style={{
+				backgroundColor: isDarkMode ? 'black' : 'white',
+				borderBottomWidth: 0,
+				borderBottomColor: '#D55004',
+				borderTopWidth: 0,
+				borderWidth: 0,
+
+				borderColor: '#D55004'
+			}}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center justify-between px-4 py-2'>
-				<TouchableOpacity onPress={onBack}>
-					<Ionicons name='arrow-back' size={24} color='#D55004' />
-				</TouchableOpacity>
-				<Text className='text-xl font-bold text-red'>{title}</Text>
+			<View
+				style={{
+					flexDirection: 'row',
+					alignItems: 'center',
+					justifyContent: 'center', // Centers the content horizontally
+					paddingHorizontal: 0,
+					paddingBottom: 9
+				}}>
+				<Text
+					style={{
+						fontSize: 20,
+						textAlign: 'center',
+						color: '#D55004',
+						fontWeight: '600'
+					}}>
+					{title}
+				</Text>
 			</View>
 		</SafeAreaView>
 	)
@@ -184,8 +204,8 @@ export default function DealershipListPage() {
 	)
 
 	return (
-		<View className={`flex-1 ${bgColor}`}>
-			<CustomHeader title='Dealerships' onBack={() => router.back()} />
+		<View className={`flex-1  ${bgColor} `}>
+			<CustomHeader title='Dealerships' />
 			<Animated.View
 				style={{
 					width: searchBarWidth.interpolate({

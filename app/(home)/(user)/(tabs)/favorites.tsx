@@ -19,11 +19,12 @@ const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
 
 	return (
-		<SafeAreaView
-			edges={['top']}
+		<View
 			style={{
 				backgroundColor: isDarkMode ? 'black' : 'white',
 				borderBottomWidth: 0,
+				paddingTop: 10,
+				paddingBottom:10,
 				borderBottomColor: '#D55004',
 				borderTopWidth: 0,
 				borderWidth: 0,
@@ -49,7 +50,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 					{title}
 				</Text>
 			</View>
-		</SafeAreaView>
+		</View>
 	)
 }
 
