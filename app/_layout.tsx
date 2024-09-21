@@ -8,6 +8,12 @@ import 'react-native-gesture-handler'
 import CustomSplashScreen from './CustomSplashScreen'
 import { ThemeProvider } from '@/utils/ThemeContext'
 import { QueryClient, QueryClientProvider } from 'react-query'
+import { LogBox } from 'react-native'
+
+LogBox.ignoreLogs([
+	'Encountered two children with the same key' // This will ignore the specific warning about duplicate keys
+])
+
 SplashScreen.preventAutoHideAsync()
 
 function RootLayoutNav() {
