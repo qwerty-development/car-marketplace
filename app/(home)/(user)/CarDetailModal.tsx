@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end'
 	},
 	gradientContainer: {
-		height: '90%',
+		height: '96%',
 		width: '100%'
 	},
 	scrollView: {
