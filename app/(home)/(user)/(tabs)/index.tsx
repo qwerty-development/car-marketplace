@@ -334,8 +334,8 @@ export default function BrowseCarsPage() {
 		<LinearGradient
 			colors={
 				isDarkMode
-					? ['#000000', '#1A1A1A', '#333333', '#666666', '#A63E07'] // Stronger black, subtler orange in dark mode
-					: ['#FFFFFF', '#F2F2F2', '#E6E6E6', '#CCCCCC', '#FFA07A'] // Stronger white, softer orange in light mode
+					? ['#000000', '#0D0D0D', '#0D0D0D', '#0D0D0D', '#D55004'] // Stronger black, subtler orange in dark mode
+					: ['#FFFFFF', '#FFFFFF', '#F2F2F2', '#FFA07A', '#D55004'] // Stronger white, softer orange in light mode
 			}
 			style={{ flex: 1 }}
 			start={{ x: 0, y: 0 }}
