@@ -101,13 +101,14 @@ export default function BrowseCarsPage() {
 			query = searchQuery
 		) => {
 			setIsLoading(true)
+
 			let queryBuilder = supabase
 				.from('cars')
 				.select(
 					`
-          *,
-          dealerships (name,logo,phone,location,latitude,longitude)
-        `,
+				*,
+				dealerships (name,logo,phone,location,latitude,longitude)
+				`,
 					{ count: 'exact' }
 				)
 				.neq('status', 'sold')
@@ -179,7 +180,6 @@ export default function BrowseCarsPage() {
 			}
 
 			const { count } = await queryBuilder
-
 			const totalItems = count || 0
 			const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 			const safePageNumber = Math.min(page, totalPages)
@@ -204,16 +204,25 @@ export default function BrowseCarsPage() {
 						dealership_latitude: item.dealerships.latitude,
 						dealership_longitude: item.dealerships.longitude
 					})) || []
-				setCars((prevCars: any) =>
-					safePageNumber === 1 ? newCars : [...prevCars, ...newCars]
+
+				// Remove duplicate cars by using a Set to filter by unique IDs
+				const uniqueCars = Array.from(new Set(newCars.map(car => car.id))).map(
+					id => newCars.find(car => car.id === id)
 				)
+
+				setCars((prevCars: any) =>
+					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
+				)
+
 				setTotalPages(totalPages)
 				setCurrentPage(safePageNumber)
 			}
+
 			setIsLoading(false)
 		},
 		[filters, sortOption, searchQuery]
 	)
+
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		fetchCars(1, filters, sortOption, searchQuery).then(() =>
