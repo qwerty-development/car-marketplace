@@ -267,6 +267,11 @@ export default function BrowseCarsPage() {
 		)
 	}
 
+	const keyExtractor = useCallback(
+		(item: any) => `${item.id}-${item.make}-${item.model}`,
+		[]
+	)
+
 	const handleSearch = () => {
 		fetchCars(1, filters, sortOption, searchQuery)
 	}
@@ -428,9 +433,7 @@ export default function BrowseCarsPage() {
 					ListHeaderComponent={renderListHeader}
 					data={cars}
 					renderItem={renderCarItem}
-					keyExtractor={item =>
-						`${item.id}-${item.make}-${item.model}-${Math.random()}`
-					}
+					keyExtractor={keyExtractor}
 					onEndReached={() => {
 						if (currentPage < totalPages) {
 							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
