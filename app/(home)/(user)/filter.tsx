@@ -54,11 +54,11 @@ const CollapsibleSection = ({ title, children }: any) => {
 		<View className='mb-6'>
 			<TouchableOpacity
 				onPress={() => setIsCollapsed(!isCollapsed)}
-				className='flex-row justify-between items-center mb-2'>
+				className='flex-row justify-between items-center mb-3'>
 				<Text
-					className={`font-semibold ${
-						isDarkMode ? 'text-white' : 'text-night'
-					} text-lg`}>
+					className={`text-lg font-semibold ${
+						isDarkMode ? 'text-white' : 'text-gray'
+					}`}>
 					{title}
 				</Text>
 				<Ionicons
@@ -93,21 +93,24 @@ const RangeInput = ({ label, min, max, value, onChange, step = 1 }: any) => {
 	}
 
 	return (
-		<View className='mb-6'>
+		<View className='mb-4'>
 			<Text
-				className={`font-semibold mb-2 ${
-					isDarkMode ? 'text-white' : 'text-night'
+				className={`text-base font-semibold mb-2 ${
+					isDarkMode ? 'text-white' : 'text-gray'
 				}`}>
 				{label}
 			</Text>
 			<View className='flex-row justify-between'>
 				<View className='flex-1 mr-2'>
-					<Text className={isDarkMode ? 'text-gray' : 'text-gray'}>Min</Text>
+					<Text
+						className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+						Min
+					</Text>
 					<TextInput
 						className={`border rounded-md p-2 mt-1 ${
 							isDarkMode
-								? 'text-white border-gray'
-								: 'text-night border-light-secondary'
+								? 'text-white border-red bg-gray'
+								: 'text-gray border-gray bg-white'
 						}`}
 						keyboardType='numeric'
 						value={value[0].toString()}
@@ -115,12 +118,15 @@ const RangeInput = ({ label, min, max, value, onChange, step = 1 }: any) => {
 					/>
 				</View>
 				<View className='flex-1 ml-2'>
-					<Text className={isDarkMode ? 'text-gray' : 'text-gray'}>Max</Text>
+					<Text
+						className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+						Max
+					</Text>
 					<TextInput
 						className={`border rounded-md p-2 mt-1 ${
 							isDarkMode
-								? 'text-white border-gray'
-								: 'text-night border-light-secondary'
+								? 'text-white border-red bg-gray'
+								: 'text-gray border-gray bg-white'
 						}`}
 						keyboardType='numeric'
 						value={value[1].toString()}
@@ -147,48 +153,49 @@ const SearchableSelect = ({
 	)
 
 	return (
-		<View className='mb-6'>
+		<View className='mb-4'>
 			<View className='flex-row justify-between items-center mb-2'>
 				<Text
-					className={`font-semibold ${
-						isDarkMode ? 'text-white' : 'text-night'
+					className={`text-base font-semibold ${
+						isDarkMode ? 'text-white' : 'text-gray'
 					}`}>
 					{label}
 				</Text>
 				{value && (
 					<TouchableOpacity onPress={() => onChange('')}>
-						<Ionicons name='close-circle' size={24} color='red' />
+						<Ionicons name='close-circle' size={24} color='#D55004' />
 					</TouchableOpacity>
 				)}
 			</View>
 			<View
 				className={`border rounded-md ${
-					isDarkMode ? 'border-gray' : 'border-light-secondary'
+					isDarkMode ? 'border-red' : 'border-gray'
 				}`}>
 				<TouchableOpacity
 					onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-					className={`p-2 flex-row justify-between items-center ${
-						value ? 'bg-red' : isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+					className={`p-3 flex-row justify-between items-center ${
+						value ? 'bg-red' : isDarkMode ? 'bg-gray' : 'bg-white'
 					}`}>
-					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+					<Text
+						className={`${isDarkMode ? 'text-white' : 'text-gray'} ${
+							value ? 'font-semibold' : ''
+						}`}>
 						{value || `Select ${placeholder}`}
 					</Text>
 					<Ionicons
 						name={isDropdownOpen ? 'chevron-up' : 'chevron-down'}
 						size={24}
-						color={isDarkMode ? 'white' : 'night'}
+						color={isDarkMode ? 'white' : 'black'}
 					/>
 				</TouchableOpacity>
 				{isDropdownOpen && (
 					<View>
 						<TextInput
-							className={`p-2 ${
-								isDarkMode
-									? 'text-white bg-gray'
-									: 'text-night bg-light-secondary'
+							className={`p-3 ${
+								isDarkMode ? 'text-white bg-red' : 'text-white bg-red'
 							}`}
 							placeholder={`Search ${placeholder}`}
-							placeholderTextColor={isDarkMode ? 'light-text' : 'gray'}
+							placeholderTextColor={isDarkMode ? '#F2F2F2' : '#F2F2F2'}
 							value={searchQuery}
 							onChangeText={setSearchQuery}
 						/>
@@ -202,14 +209,14 @@ const SearchableSelect = ({
 										setIsDropdownOpen(false)
 										setSearchQuery('')
 									}}
-									className={`p-2 ${
+									className={`p-3 ${
 										item === value
 											? 'bg-red'
 											: isDarkMode
 											? 'bg-gray'
-											: 'bg-light-secondary'
+											: 'bg-white'
 									}`}>
-									<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+									<Text className={isDarkMode ? 'text-white' : 'text-gray'}>
 										{item}
 									</Text>
 								</TouchableOpacity>
@@ -235,9 +242,9 @@ const PopularFilters = ({ onApply }: any) => {
 	return (
 		<View className='mb-6'>
 			<Text
-				className={`font-semibold ${
-					isDarkMode ? 'text-white' : 'text-night'
-				} text-lg mb-2`}>
+				className={`text-lg font-semibold mb-3 ${
+					isDarkMode ? 'text-white' : 'text-gray'
+				}`}>
 				Popular Filters
 			</Text>
 			<View className='flex-row flex-wrap'>
@@ -245,10 +252,10 @@ const PopularFilters = ({ onApply }: any) => {
 					<TouchableOpacity
 						key={index}
 						onPress={() => onApply(item.filter)}
-						className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-							isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+						className={`mr-2 mb-2 px-4 py-2 rounded-full ${
+							isDarkMode ? 'bg-gray' : 'bg-gray'
 						}`}>
-						<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+						<Text className={isDarkMode ? 'text-white' : 'text-white'}>
 							{item.label}
 						</Text>
 					</TouchableOpacity>
@@ -261,8 +268,8 @@ const PopularFilters = ({ onApply }: any) => {
 const FilterPage = () => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
-	const params = useLocalSearchParams()
-	const [filters, setFilters] = useState(() => {
+	const params: any = useLocalSearchParams()
+	const [filters, setFilters] = useState<any>(() => {
 		try {
 			return (
 				JSON.parse(params.filters) || {
@@ -298,10 +305,10 @@ const FilterPage = () => {
 		}
 	})
 
-	const [dealerships, setDealerships] = useState([])
-	const [makes, setMakes] = useState([])
-	const [models, setModels] = useState([])
-	const [colors, setColors] = useState([])
+	const [dealerships, setDealerships] = useState<any>([])
+	const [makes, setMakes] = useState<any>([])
+	const [models, setModels] = useState<any>([])
+	const [colors, setColors] = useState<any>([])
 
 	useEffect(() => {
 		fetchInitialData()
@@ -348,18 +355,20 @@ const FilterPage = () => {
 	}
 
 	return (
-		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
+		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
-			<ScrollView className='flex-1 p-4'>
+			<ScrollView className='flex-1 px-4 py-6'>
 				<PopularFilters onApply={handlePopularFilterApply} />
 
 				<CollapsibleSection title='Basic Filters'>
 					<SearchableSelect
 						label='Dealership'
-						items={dealerships.map(d => d.name)}
+						items={dealerships.map((d: any) => d.name)}
 						value={filters.dealershipName}
 						onChange={(value: any) => {
-							const selectedDealership = dealerships.find(d => d.name === value)
+							const selectedDealership: any = dealerships.find(
+								(d: any) => d.name === value
+							)
 							setFilters({
 								...filters,
 								dealership: selectedDealership ? selectedDealership.id : '',
@@ -415,7 +424,7 @@ const FilterPage = () => {
 					<RangeInput
 						label='Year Range'
 						min={1900}
-						max={new Date().getFullYear()}
+						max={new Date().getFullYear() + 1}
 						step={1}
 						value={filters.yearRange || [1900, new Date().getFullYear()]}
 						onChange={(value: any) =>
@@ -464,11 +473,11 @@ const FilterPage = () => {
 
 			<View
 				className={`flex-row justify-between p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-				}`}>
+					isDarkMode ? 'bg-gray' : 'bg-white'
+				} border-t ${isDarkMode ? 'border-night' : 'border-white'}`}>
 				<TouchableOpacity
-					className={`py-2 px-4 rounded ${
-						isDarkMode ? 'bg-night' : 'bg-white'
+					className={`py-3 px-6 rounded-full ${
+						isDarkMode ? 'bg-night' : 'bg-night'
 					}`}
 					onPress={() => {
 						setFilters({
@@ -490,19 +499,19 @@ const FilterPage = () => {
 							params: { filters: JSON.stringify({}) }
 						})
 					}}>
-					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+					<Text className={isDarkMode ? 'text-white' : 'text-white'}>
 						Clear All
 					</Text>
 				</TouchableOpacity>
 				<TouchableOpacity
-					className='bg-red py-2 px-4 rounded'
+					className='bg-red py-3 px-6 rounded-full'
 					onPress={() => {
 						router.replace({
 							pathname: '/(home)/(user)',
 							params: { filters: JSON.stringify(filters) }
 						})
 					}}>
-					<Text className='text-white'>Apply Filters</Text>
+					<Text className='text-white font-semibold'>Apply Filters</Text>
 				</TouchableOpacity>
 			</View>
 		</SafeAreaView>
