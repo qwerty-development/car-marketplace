@@ -75,7 +75,7 @@ export default function FavoritesPage() {
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [favoriteCars, setFavoriteCars] = useState<Car[]>([])
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [isModalVisible, setIsModalVisible] = useState<any>(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [refreshing, setRefreshing] = useState(false)
 	const [error, setError] = useState<string | null>(null)
