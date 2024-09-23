@@ -85,12 +85,10 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 	)
 }
 
-export default function CarCard({
-	car,
-	onPress,
-	onFavoritePress,
-	isFavorite
-}: any) {
+export default function CarCard(
+	{ car, onPress, onFavoritePress, isFavorite }: any,
+	isDealer: any = false
+) {
 	const { isDarkMode } = useTheme()
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)
@@ -184,15 +182,18 @@ export default function CarCard({
 							/>
 						))}
 					</StyledView>
-					<StyledView className='absolute bottom-4 right-4 rounded-full p-1'>
-						<TouchableOpacity onPress={onFavoritePress}>
-							<Ionicons
-								name={isFavorite ? 'heart' : 'heart-outline'}
-								size={28}
-								color={isFavorite ? '#EF4444' : '#D1D5DB'}
-							/>
-						</TouchableOpacity>
-					</StyledView>
+
+					{!isDealer && (
+						<StyledView className='absolute bottom-4 right-4 rounded-full p-1'>
+							<TouchableOpacity onPress={onFavoritePress}>
+								<Ionicons
+									name={isFavorite ? 'heart' : 'heart-outline'}
+									size={28}
+									color={isFavorite ? '#EF4444' : '#D1D5DB'}
+								/>
+							</TouchableOpacity>
+						</StyledView>
+					)}
 					<StyledView className='absolute bottom-4 left-4 bg-red/60 rounded-full px-3 py-1'>
 						<StyledText className='text-white text-sm'>
 							{formattedListingDate}
