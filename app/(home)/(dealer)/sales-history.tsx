@@ -305,7 +305,7 @@ export default function SalesHistoryPage() {
 						<RefreshControl
 							refreshing={refreshing}
 							onRefresh={onRefresh}
-							tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+							tintColor='#D55004'
 						/>
 					}
 					ListEmptyComponent={

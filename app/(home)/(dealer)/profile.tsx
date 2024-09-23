@@ -8,12 +8,15 @@ import {
 	ScrollView,
 	ActivityIndicator,
 	Alert,
-	StatusBar
+	StatusBar,
+	Modal
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
+import * as Location from 'expo-location'
+import MapView, { Marker } from 'react-native-maps'
 import { Buffer } from 'buffer'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
@@ -72,6 +75,44 @@ export default function DealershipProfilePage() {
 	const [isUploading, setIsUploading] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
+	const [mapVisible, setMapVisible] = useState(false)
+	const [selectedLocation, setSelectedLocation] = useState<{
+		latitude: number
+		longitude: number
+	} | null>(null)
+
+	const getLocation = async () => {
+		let { status } = await Location.requestForegroundPermissionsAsync()
+		if (status !== 'granted') {
+			Alert.alert('Permission to access location was denied')
+			return
+		}
+
+		let location = await Location.getCurrentPositionAsync({})
+		setLatitude(location.coords.latitude.toString())
+		setLongitude(location.coords.longitude.toString())
+	}
+
+	const openMap = () => {
+		setMapVisible(true)
+	}
+
+	const closeMap = () => {
+		setMapVisible(false)
+		setSelectedLocation(null)
+	}
+
+	const selectLocation = (event: any) => {
+		const { latitude, longitude } = event.nativeEvent.coordinate
+		setSelectedLocation({ latitude, longitude })
+	}
+	const confirmLocation = () => {
+		if (selectedLocation) {
+			setLatitude(selectedLocation.latitude.toString())
+			setLongitude(selectedLocation.longitude.toString())
+		}
+		closeMap()
+	}
 
 	useEffect(() => {
 		if (user) fetchDealershipProfile()
@@ -280,7 +321,7 @@ export default function DealershipProfilePage() {
 							className={`${
 								isDarkMode ? 'text-white' : 'text-gray-700'
 							} text-sm font-semibold mb-2`}>
-							Location
+							Address
 						</Text>
 						<TextInput
 							className={`${
@@ -317,39 +358,50 @@ export default function DealershipProfilePage() {
 							className={`${
 								isDarkMode ? 'text-white' : 'text-gray-700'
 							} text-sm font-semibold mb-2`}>
-							Latitude
+							Location
 						</Text>
-						<TextInput
-							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-white text-black'
-							} p-4 rounded-xl mb-4`}
-							value={latitude}
-							onChangeText={setLatitude}
-							placeholder='Latitude'
-							keyboardType='numeric'
-							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-						/>
-
-						<Text
-							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
-							} text-sm font-semibold mb-2`}>
-							Longitude
-						</Text>
-						<TextInput
-							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-white text-black'
-							} p-4 rounded-xl mb-4`}
-							value={longitude}
-							onChangeText={setLongitude}
-							placeholder='Longitude'
-							keyboardType='numeric'
-							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-						/>
+						<View className='flex-row items-center mb-4'>
+							<TextInput
+								className={`${
+									isDarkMode
+										? 'bg-gray-800 text-orange-500'
+										: 'bg-white text-black'
+								} p-4 rounded-xl flex-1 mr-2`}
+								value={latitude}
+								onChangeText={setLatitude}
+								placeholder='Latitude'
+								keyboardType='numeric'
+								placeholderTextColor={
+									isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+								}
+							/>
+							<TextInput
+								className={`${
+									isDarkMode
+										? 'bg-gray-800 text-orange-500'
+										: 'bg-white text-black'
+								} p-4 rounded-xl flex-1 ml-2`}
+								value={longitude}
+								onChangeText={setLongitude}
+								placeholder='Longitude'
+								keyboardType='numeric'
+								placeholderTextColor={
+									isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+								}
+							/>
+						</View>
+						<View className='flex-row justify-between mb-4'>
+							<TouchableOpacity
+								className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center'
+								onPress={getLocation}>
+								<Text className='text-white font-bold'>Get Location</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center'
+								onPress={openMap}>
+								<Text className='text-white font-bold'>Pick on Map</Text>
+							</TouchableOpacity>
+						</View>
 
 						<Text
 							className={`${
@@ -409,6 +461,45 @@ export default function DealershipProfilePage() {
 					</TouchableOpacity>
 				</View>
 			</ScrollView>
+			<Modal visible={mapVisible} animationType='slide'>
+				<View style={{ flex: 1 }}>
+					<MapView
+						style={{ flex: 1 }}
+						initialRegion={{
+							latitude: parseFloat(latitude) || 0,
+							longitude: parseFloat(longitude) || 0,
+							latitudeDelta: 0.0922,
+							longitudeDelta: 0.0421
+						}}
+						onPress={selectLocation}>
+						{selectedLocation && (
+							<Marker
+								coordinate={{
+									latitude: selectedLocation.latitude,
+									longitude: selectedLocation.longitude
+								}}
+							/>
+						)}
+					</MapView>
+					<View
+						style={{
+							flexDirection: 'row',
+							justifyContent: 'space-around',
+							padding: 15
+						}}>
+						<TouchableOpacity
+							style={{ backgroundColor: 'red', padding: 10, borderRadius: 5 }}
+							onPress={closeMap}>
+							<Text style={{ color: 'white' }}>Cancel</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={{ backgroundColor: 'green', padding: 10, borderRadius: 5 }}
+							onPress={confirmLocation}>
+							<Text style={{ color: 'white' }}>Confirm Location</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</Modal>
 		</>
 	)
 }
