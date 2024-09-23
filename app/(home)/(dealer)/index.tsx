@@ -7,60 +7,32 @@ import {
 	TouchableOpacity,
 	TextInput,
 	Alert,
-	StyleSheet,
 	ActivityIndicator,
+	RefreshControl,
+	StatusBar,
 	Modal
 } from 'react-native'
 import { FontAwesome } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import ListingModal from '@/components/ListingModal'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import SortPicker from '@/components/SortPicker'
-import { styled } from 'nativewind'
-import { StatusBar } from 'react-native'
-const StyledView = styled(View)
-const StyledText = styled(Text)
-const StyledTextInput = styled(TextInput)
-const StyledTouchableOpacity = styled(TouchableOpacity)
+import RNPickerSelect from 'react-native-picker-select'
+
 const ITEMS_PER_PAGE = 10
 
-const CustomHeader = ({ title, onBack }: any) => {
+const CustomHeader = ({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
-
 	return (
 		<SafeAreaView
 			edges={['top']}
-			style={{
-				backgroundColor: isDarkMode ? 'black' : 'white',
-				borderBottomWidth: 0,
-				borderBottomColor: '#D55004',
-				borderTopWidth: 0,
-				borderWidth: 0,
-
-				borderColor: '#D55004'
-			}}>
+			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					justifyContent: 'center', // Centers the content horizontally
-					paddingHorizontal: 0,
-					paddingBottom: 9
-				}}>
-				<Text
-					style={{
-						fontSize: 20,
-						textAlign: 'center',
-						color: '#D55004',
-						fontWeight: '600'
-					}}>
-					{title}
-				</Text>
+			<View className='flex-row items-center justify-center pb-2'>
+				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
 	)
@@ -72,26 +44,13 @@ interface CarListing {
 	model: string
 	year: number
 	price: number
-	description: string
 	images: string[]
 	views: number
 	likes: number
-	dealership_id: number
-	condition: 'New' | 'Used'
-	color: string
-	transmission: 'Manual' | 'Automatic'
-	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
-	mileage: number
 	status: 'available' | 'pending' | 'sold'
-	type: 'Benzine' | 'Diesel' | 'Electric' | 'Hybrid'
-	category:
-		| 'Sedan'
-		| 'SUV'
-		| 'Hatchback'
-		| 'Convertible'
-		| 'Coupe'
-		| 'Sports'
-		| 'Other'
+	condition: 'New' | 'Used'
+	mileage: number
+	transmission: 'Manual' | 'Automatic'
 }
 
 interface Dealership {
@@ -106,63 +65,31 @@ export default function DealerListings() {
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [listings, setListings] = useState<CarListing[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
-	const [totalPages, setTotalPages] = useState(1)
 	const [isLoading, setIsLoading] = useState(false)
+	const [isRefreshing, setIsRefreshing] = useState(false)
 	const [sortBy, setSortBy] = useState('listed_at')
 	const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-	const [filterStatus, setFilterStatus] = useState('all')
 	const [searchQuery, setSearchQuery] = useState('')
 	const [selectedListing, setSelectedListing] = useState<CarListing | null>(
 		null
 	)
 	const [isListingModalVisible, setIsListingModalVisible] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	const [hasMoreListings, setHasMoreListings] = useState(true)
+	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
+	const [soldInfo, setSoldInfo] = useState({ price: '', date: '' })
+	const [filters, setFilters] = useState({
+		status: '',
+		condition: '',
+		minPrice: '',
+		maxPrice: '',
+		minYear: '',
+		maxYear: ''
+	})
 
-	const handleMarkAsSold = useCallback(
-		async (soldInfo: { price: string; date: string }) => {
-			if (!selectedListing || !dealership) return
-
-			try {
-				const { error } = await supabase
-					.from('cars')
-					.update({
-						status: 'sold',
-						sold_price: parseInt(soldInfo.price),
-						date_sold: soldInfo.date
-					})
-					.eq('id', selectedListing.id)
-					.eq('dealership_id', dealership.id)
-
-				if (error) throw error
-
-				fetchListings()
-				setIsSoldModalVisible(false)
-				setSelectedListing(null)
-				Alert.alert('Success', 'Listing marked as sold successfully')
-			} catch (error) {
-				console.error('Error marking as sold:', error)
-				Alert.alert('Error', 'Failed to mark listing as sold')
-			}
-		},
-		[selectedListing, dealership]
-	)
-
-	useEffect(() => {
-		if (user) {
-			fetchDealership()
-		}
-	}, [user])
-
-	useEffect(() => {
-		if (dealership) {
-			fetchListings()
-		}
-	}, [dealership, currentPage, sortBy, sortOrder, filterStatus, searchQuery])
-
-	const fetchDealership = async () => {
+	const fetchDealership = useCallback(async () => {
 		if (!user) return
-
 		const { data, error } = await supabase
 			.from('dealerships')
 			.select('*')
@@ -170,279 +97,538 @@ export default function DealerListings() {
 			.single()
 
 		if (error) {
-			console.error('Error fetching dealership:', error)
 			setError('Failed to fetch dealership information')
 		} else if (data) {
 			setDealership(data)
 		} else {
-			setError('You do not have a dealership associated with your account')
+			setError('No dealership associated with your account')
 		}
-	}
+	}, [user])
 
-	const fetchListings = useCallback(async () => {
-		if (!dealership) return
-		setIsLoading(true)
+	const fetchListings = useCallback(
+		async (page: number, refresh: boolean = false) => {
+			if (!dealership) return
+			setIsLoading(true)
+			let query = supabase
+				.from('cars')
+				.select('*', { count: 'exact' })
+				.eq('dealership_id', dealership.id)
+				.order(sortBy, { ascending: sortOrder === 'asc' })
 
-		let query = supabase
-			.from('cars')
-			.select('*', { count: 'exact' })
-			.eq('dealership_id', dealership.id)
-			.order(sortBy, { ascending: sortOrder === 'asc' })
-
-		if (filterStatus !== 'all') {
-			query = query.eq('status', filterStatus)
-		}
-
-		if (searchQuery) {
-			query = query.or(
-				`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
-			)
-		}
-
-		const { data, count, error } = await query.range(
-			(currentPage - 1) * ITEMS_PER_PAGE,
-			currentPage * ITEMS_PER_PAGE - 1
-		)
-
-		if (error) {
-			console.error('Error fetching listings:', error)
-			setError('Failed to fetch car listings')
-		} else {
-			setListings(data || [])
-			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
-		}
-		setIsLoading(false)
-	}, [dealership, currentPage, sortBy, sortOrder, filterStatus, searchQuery])
-
-	const handleDeleteListing = async (id: number) => {
-		if (!dealership) return
-
-		Alert.alert(
-			'Delete Listing',
-			'Are you sure you want to delete this listing?',
-			[
-				{ text: 'Cancel', style: 'cancel' },
-				{
-					text: 'Delete',
-					onPress: async () => {
-						try {
-							const { error } = await supabase
-								.from('cars')
-								.delete()
-								.eq('id', id)
-								.eq('dealership_id', dealership.id)
-
-							if (error) throw error
-
-							fetchListings()
-							Alert.alert('Success', 'Listing deleted successfully')
-						} catch (error) {
-							console.error('Error in handleDeleteListing:', error)
-							Alert.alert('Error', 'Failed to delete listing')
-						}
-					},
-					style: 'destructive'
-				}
-			]
-		)
-	}
-
-	const handleSubmitListing = async (formData: Partial<CarListing>) => {
-		if (!dealership) return
-
-		try {
-			if (selectedListing) {
-				const { error } = await supabase
-					.from('cars')
-					.update(formData)
-					.eq('id', selectedListing.id)
-					.eq('dealership_id', dealership.id)
-
-				if (error) throw error
-
-				Alert.alert('Success', 'Listing updated successfully')
-			} else {
-				const { error } = await supabase.from('cars').insert({
-					...formData,
-					dealership_id: dealership.id
-				})
-
-				if (error) throw error
-
-				Alert.alert('Success', 'New listing created successfully')
+			if (searchQuery) {
+				query = query.or(
+					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
+				)
 			}
 
-			fetchListings()
-			setIsListingModalVisible(false)
-			setSelectedListing(null)
-		} catch (error) {
-			console.error('Error submitting listing:', error)
-			Alert.alert('Error', 'Failed to submit listing. Please try again.')
-		}
-	}
+			// Apply filters
+			if (filters.status) query = query.eq('status', filters.status)
+			if (filters.condition) query = query.eq('condition', filters.condition)
+			if (filters.minPrice)
+				query = query.gte('price', parseInt(filters.minPrice))
+			if (filters.maxPrice)
+				query = query.lte('price', parseInt(filters.maxPrice))
+			if (filters.minYear) query = query.gte('year', parseInt(filters.minYear))
+			if (filters.maxYear) query = query.lte('year', parseInt(filters.maxYear))
 
-	const handleSortChange = (value: string) => {
-		const [newSortBy, newSortOrder] = value.split('_')
-		setSortBy(newSortBy)
-		setSortOrder(newSortOrder as 'asc' | 'desc')
-	}
+			const { data, error, count } = await query.range(
+				(page - 1) * ITEMS_PER_PAGE,
+				page * ITEMS_PER_PAGE - 1
+			)
 
-	const handleSearch = () => {
-		setCurrentPage(1)
-		fetchListings()
-	}
-
-	const SoldModal = useCallback(() => {
-		const [localSoldInfo, setLocalSoldInfo] = useState({ price: '', date: '' })
-
-		const handleConfirm = () => {
-			handleMarkAsSold(localSoldInfo)
-		}
-
-		return (
-			<Modal
-				visible={isSoldModalVisible}
-				animationType='slide'
-				transparent={true}>
-				<StyledView className='flex-1 justify-center items-center  bg-opacity-50'>
-					<StyledView className='bg-white p-6 rounded-lg w-5/6'>
-						<StyledText className='text-2xl font-bold mb-4'>
-							Mark as Sold
-						</StyledText>
-						<StyledTextInput
-							className='border border-gray-300 rounded p-2 mb-4'
-							placeholder='Sold Price'
-							value={localSoldInfo.price}
-							onChangeText={text =>
-								setLocalSoldInfo(prev => ({ ...prev, price: text }))
-							}
-							keyboardType='numeric'
-						/>
-						<StyledTextInput
-							className='border border-gray-300 rounded p-2 mb-4'
-							placeholder='Date Sold (YYYY-MM-DD)'
-							value={localSoldInfo.date}
-							onChangeText={text =>
-								setLocalSoldInfo(prev => ({ ...prev, date: text }))
-							}
-						/>
-						<StyledView className='flex-row justify-end mt-4'>
-							<StyledTouchableOpacity
-								className='bg-gray-300 py-2 px-4 rounded mr-2'
-								onPress={() => setIsSoldModalVisible(false)}>
-								<StyledText>Cancel</StyledText>
-							</StyledTouchableOpacity>
-							<StyledTouchableOpacity
-								className='bg-red py-2 px-4 rounded'
-								onPress={handleConfirm}>
-								<StyledText className='text-white'>Confirm</StyledText>
-							</StyledTouchableOpacity>
-						</StyledView>
-					</StyledView>
-				</StyledView>
-			</Modal>
-		)
-	}, [isSoldModalVisible, handleMarkAsSold])
-
-	const ListingCard = ({ item }: { item: CarListing }) => (
-		<View
-			className='border border-red'
-			style={[styles.listingCard, isDarkMode && styles.darkListingCard]}>
-			<Image
-				source={{ uri: item.images?.[0] || 'default_image_url' }}
-				style={styles.listingImage}
-			/>
-			<LinearGradient
-				colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.6)']}
-				style={styles.gradientOverlay}
-			/>
-			<View style={styles.statusBadge}>
-				<Text style={styles.statusText}>{item.status}</Text>
-			</View>
-			<View style={styles.topStatsRow}>
-				<View style={styles.stat}>
-					<FontAwesome name='eye' size={16} color='#FFFFFF' />
-					<Text style={styles.statText}>{item.views || 0}</Text>
-				</View>
-				<View style={styles.stat}>
-					<FontAwesome name='heart' size={16} color='#FFFFFF' />
-					<Text style={styles.statText}>{item.likes || 0}</Text>
-				</View>
-			</View>
-			<View style={styles.cardContent}>
-				<View style={styles.topRow}>
-					<Text style={styles.listingTitle}>
-						{`${item.year} ${item.make} ${item.model}`}
-					</Text>
-					<Text style={styles.listingPrice}>
-						${item.price != null ? item.price.toLocaleString() : 'N/A'}
-					</Text>
-				</View>
-				<View style={styles.infoRow}>
-					<View style={styles.infoItem}>
-						<FontAwesome name='car' size={16} color='#FFFFFF' />
-						<Text style={styles.listingInfo}>{item.condition}</Text>
-					</View>
-					<View style={styles.infoItem}>
-						<FontAwesome name='tachometer' size={16} color='#FFFFFF' />
-						<Text style={styles.listingInfo}>
-							{item.mileage != null
-								? `${item.mileage.toLocaleString()} mi`
-								: 'N/A'}
-						</Text>
-					</View>
-					<View style={styles.infoItem}>
-						<FontAwesome name='gears' size={16} color='#FFFFFF' />
-						<Text style={styles.listingInfo}>{item.transmission}</Text>
-					</View>
-				</View>
-			</View>
-			<View style={styles.actionContainer}>
-				<TouchableOpacity
-					style={styles.actionButton}
-					onPress={() => {
-						setSelectedListing(item)
-						setIsListingModalVisible(true)
-					}}>
-					<FontAwesome name='edit' size={18} color='#FFFFFF' />
-					<Text style={styles.actionButtonText}>Edit</Text>
-				</TouchableOpacity>
-				{item.status !== 'sold' && (
-					<TouchableOpacity
-						style={styles.actionButton}
-						onPress={() => {
-							setSelectedListing(item)
-							setIsSoldModalVisible(true)
-						}}>
-						<FontAwesome name='check-circle' size={18} color='#FFFFFF' />
-						<Text style={styles.actionButtonText}>Sold</Text>
-					</TouchableOpacity>
-				)}
-				<TouchableOpacity
-					style={styles.actionButton}
-					onPress={() => handleDeleteListing(item.id)}>
-					<FontAwesome name='trash' size={18} color='#FFFFFF' />
-					<Text style={styles.actionButtonText}>Delete</Text>
-				</TouchableOpacity>
-			</View>
-		</View>
+			if (error) {
+				setError('Failed to fetch car listings')
+			} else {
+				setListings(prevListings =>
+					refresh ? data || [] : [...prevListings, ...(data || [])]
+				)
+				setCurrentPage(page)
+				setHasMoreListings((count || 0) > page * ITEMS_PER_PAGE)
+			}
+			setIsLoading(false)
+			setIsRefreshing(false)
+		},
+		[dealership, sortBy, sortOrder, searchQuery, filters]
 	)
 
-	const renderListEmpty = useCallback(
-		() => (
-			<View style={styles.emptyContainer}>
-				<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-					No listings available.
-				</Text>
+	useEffect(() => {
+		fetchDealership()
+	}, [fetchDealership])
+
+	useEffect(() => {
+		if (dealership) {
+			fetchListings(1, true)
+		}
+	}, [dealership, fetchListings])
+
+	const handleRefresh = useCallback(() => {
+		setIsRefreshing(true)
+		setCurrentPage(1)
+		fetchListings(1, true)
+	}, [fetchListings])
+
+	const handleLoadMore = useCallback(() => {
+		if (!isLoading && hasMoreListings) {
+			fetchListings(currentPage + 1)
+		}
+	}, [currentPage, isLoading, hasMoreListings, fetchListings])
+
+	const handleDeleteListing = useCallback(
+		async (id: number) => {
+			if (!dealership) return
+			Alert.alert(
+				'Delete Listing',
+				'Are you sure you want to delete this listing?',
+				[
+					{ text: 'Cancel', style: 'cancel' },
+					{
+						text: 'Delete',
+						onPress: async () => {
+							try {
+								await supabase
+									.from('cars')
+									.delete()
+									.eq('id', id)
+									.eq('dealership_id', dealership.id)
+								setListings(prevListings =>
+									prevListings.filter(listing => listing.id !== id)
+								)
+								Alert.alert('Success', 'Listing deleted successfully')
+							} catch (error) {
+								console.error('Error in handleDeleteListing:', error)
+								Alert.alert('Error', 'Failed to delete listing')
+							}
+						},
+						style: 'destructive'
+					}
+				]
+			)
+		},
+		[dealership]
+	)
+
+	const handleSubmitListing = useCallback(
+		async (formData: Partial<CarListing>) => {
+			if (!dealership) return
+			try {
+				if (selectedListing) {
+					await supabase
+						.from('cars')
+						.update(formData)
+						.eq('id', selectedListing.id)
+						.eq('dealership_id', dealership.id)
+					setListings(prevListings =>
+						prevListings.map(listing =>
+							listing.id === selectedListing.id
+								? { ...listing, ...formData }
+								: listing
+						)
+					)
+					Alert.alert('Success', 'Listing updated successfully')
+				} else {
+					const { data, error } = await supabase
+						.from('cars')
+						.insert({ ...formData, dealership_id: dealership.id })
+					if (error) throw error
+					if (data)
+						setListings(prevListings => [
+							...prevListings,
+							data[0] as CarListing
+						])
+					Alert.alert('Success', 'New listing created successfully')
+				}
+				setIsListingModalVisible(false)
+				setSelectedListing(null)
+			} catch (error) {
+				console.error('Error submitting listing:', error)
+				Alert.alert('Error', 'Failed to submit listing. Please try again.')
+			}
+		},
+		[dealership, selectedListing]
+	)
+
+	const handleSortChange = useCallback(
+		(value: string) => {
+			const [newSortBy, newSortOrder] = value.split('_')
+			setSortBy(newSortBy)
+			setSortOrder(newSortOrder as 'asc' | 'desc')
+			setCurrentPage(1)
+			fetchListings(1, true)
+		},
+		[fetchListings]
+	)
+
+	const handleSearch = useCallback(() => {
+		setCurrentPage(1)
+		fetchListings(1, true)
+	}, [fetchListings])
+
+	const handleFilterChange = (key: string, value: string) => {
+		setFilters(prevFilters => ({ ...prevFilters, [key]: value }))
+	}
+
+	const applyFilters = () => {
+		setIsFilterModalVisible(false)
+		setCurrentPage(1)
+		fetchListings(1, true)
+	}
+
+	const handleMarkAsSold = useCallback(async () => {
+		if (!selectedListing || !dealership) return
+
+		try {
+			const { error } = await supabase
+				.from('cars')
+				.update({
+					status: 'sold',
+					sold_price: parseInt(soldInfo.price),
+					date_sold: soldInfo.date
+				})
+				.eq('id', selectedListing.id)
+				.eq('dealership_id', dealership.id)
+
+			if (error) throw error
+
+			setListings(prevListings =>
+				prevListings.map(listing =>
+					listing.id === selectedListing.id
+						? { ...listing, status: 'sold' }
+						: listing
+				)
+			)
+			setIsSoldModalVisible(false)
+			setSelectedListing(null)
+			setSoldInfo({ price: '', date: '' })
+			Alert.alert('Success', 'Listing marked as sold successfully')
+		} catch (error) {
+			console.error('Error marking as sold:', error)
+			Alert.alert('Error', 'Failed to mark listing as sold')
+		}
+	}, [selectedListing, dealership, soldInfo])
+
+	const ListingCard = useMemo(
+		() =>
+			({ item }: { item: CarListing }) =>
+				(
+					<View
+						className={`border border-red rounded-lg overflow-hidden mb-4 ${
+							isDarkMode ? 'bg-gray-800' : 'bg-white'
+						}`}>
+						<Image source={{ uri: item.images[0] }} className='w-full h-48' />
+						<LinearGradient
+							colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.6)']}
+							className='absolute inset-0'
+						/>
+						<View className='absolute top-2 right-2 bg-red/60 rounded-full px-2 py-1'>
+							<Text className='text-white text-xs font-bold uppercase'>
+								{item.status}
+							</Text>
+						</View>
+						<View className='absolute top-2 left-2 flex-row'>
+							<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1 mr-2'>
+								<FontAwesome name='eye' size={12} color='#FFFFFF' />
+								<Text className='text-white text-xs ml-1'>
+									{item.views || 0}
+								</Text>
+							</View>
+							<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1'>
+								<FontAwesome name='heart' size={12} color='#FFFFFF' />
+								<Text className='text-white text-xs ml-1'>
+									{item.likes || 0}
+								</Text>
+							</View>
+						</View>
+						<View className='p-4'>
+							<Text
+								className={`text-lg font-bold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								{item.year} {item.make} {item.model}
+							</Text>
+							<Text className='text-red text-xl font-semibold mt-1'>
+								${item.price.toLocaleString()}
+							</Text>
+							<View className='flex-row justify-between mt-2'>
+								<View className='flex-row items-center'>
+									<FontAwesome
+										name='car'
+										size={14}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										{item.condition}
+									</Text>
+								</View>
+								<View className='flex-row items-center'>
+									<FontAwesome
+										name='tachometer'
+										size={14}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										{item.mileage.toLocaleString()} mi
+									</Text>
+								</View>
+								<View className='flex-row items-center'>
+									<FontAwesome
+										name='gears'
+										size={14}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										{item.transmission}
+									</Text>
+								</View>
+							</View>
+						</View>
+						<View className='flex-row justify-between p-4 border-t border-red'>
+							<TouchableOpacity
+								className='flex-row items-center justify-center bg-red py-2 px-4 rounded-full'
+								onPress={() => {
+									setSelectedListing(item)
+									setIsListingModalVisible(true)
+								}}>
+								<FontAwesome name='edit' size={14} color='#FFFFFF' />
+								<Text className='text-white font-bold ml-2'>Edit</Text>
+							</TouchableOpacity>
+							{item.status !== 'sold' && (
+								<TouchableOpacity
+									className='flex-row items-center justify-center bg-green-500 py-2 px-4 rounded-full'
+									onPress={() => {
+										setSelectedListing(item)
+										setIsSoldModalVisible(true)
+									}}>
+									<FontAwesome name='check' size={14} color='#FFFFFF' />
+									<Text className='text-white font-bold ml-2'>
+										Mark as Sold
+									</Text>
+								</TouchableOpacity>
+							)}
+							<TouchableOpacity
+								className='flex-row items-center justify-center bg-red py-2 px-4 rounded-full'
+								onPress={() => handleDeleteListing(item.id)}>
+								<FontAwesome name='trash' size={14} color='#FFFFFF' />
+								<Text className='text-white font-bold ml-2'>Delete</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				),
+		[isDarkMode, handleDeleteListing]
+	)
+
+	const FilterModal = () => (
+		<Modal
+			visible={isFilterModalVisible}
+			animationType='slide'
+			transparent={true}
+			onRequestClose={() => setIsFilterModalVisible(false)}>
+			<View className='flex-1 justify-end bg-black/50'>
+				<View
+					className={`bg-${
+						isDarkMode ? 'gray-800' : 'white'
+					} rounded-t-3xl p-6`}>
+					<Text
+						className={`text-xl font-bold mb-4 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Filters
+					</Text>
+
+					<Text
+						className={`font-semibold mb-2 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Status
+					</Text>
+					<RNPickerSelect
+						onValueChange={value => handleFilterChange('status', value)}
+						items={[
+							{ label: 'All', value: '' },
+							{ label: 'Available', value: 'available' },
+							{ label: 'Pending', value: 'pending' },
+							{ label: 'Sold', value: 'sold' }
+						]}
+						value={filters.status}
+						style={pickerSelectStyles(isDarkMode)}
+					/>
+
+					<Text
+						className={`font-semibold mb-2 mt-4 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Condition
+					</Text>
+					<RNPickerSelect
+						onValueChange={value => handleFilterChange('condition', value)}
+						items={[
+							{ label: 'All', value: '' },
+							{ label: 'New', value: 'New' },
+							{ label: 'Used', value: 'Used' }
+						]}
+						value={filters.condition}
+						style={pickerSelectStyles(isDarkMode)}
+					/>
+
+					<Text
+						className={`font-semibold mb-2 mt-4 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Price Range
+					</Text>
+					<View className='flex-row justify-between'>
+						<TextInput
+							className={`w-[48%] p-2 rounded-md ${
+								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
+							}`}
+							placeholder='Min Price'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={filters.minPrice}
+							onChangeText={value => handleFilterChange('minPrice', value)}
+							keyboardType='numeric'
+						/>
+						<TextInput
+							className={`w-[48%] p-2 rounded-md ${
+								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
+							}`}
+							placeholder='Max Price'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={filters.maxPrice}
+							onChangeText={value => handleFilterChange('maxPrice', value)}
+							keyboardType='numeric'
+						/>
+					</View>
+
+					<Text
+						className={`font-semibold mb-2 mt-4 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Year Range
+					</Text>
+					<View className='flex-row justify-between'>
+						<TextInput
+							className={`w-[48%] p-2 rounded-md ${
+								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
+							}`}
+							placeholder='Min Year'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={filters.minYear}
+							onChangeText={value => handleFilterChange('minYear', value)}
+							keyboardType='numeric'
+						/>
+						<TextInput
+							className={`w-[48%] p-2 rounded-md ${
+								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
+							}`}
+							placeholder='Max Year'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={filters.maxYear}
+							onChangeText={value => handleFilterChange('maxYear', value)}
+							keyboardType='numeric'
+						/>
+					</View>
+
+					<View className='flex-row justify-between mt-6'>
+						<TouchableOpacity
+							className='bg-gray-500 py-2 px-4 rounded-full'
+							onPress={() => setIsFilterModalVisible(false)}>
+							<Text className='text-white font-bold'>Cancel</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							className='bg-red py-2 px-4 rounded-full'
+							onPress={applyFilters}>
+							<Text className='text-white font-bold'>Apply Filters</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
 			</View>
-		),
-		[isDarkMode]
+		</Modal>
+	)
+
+	const SoldModal = () => (
+		<Modal
+			visible={isSoldModalVisible}
+			animationType='slide'
+			transparent={true}
+			onRequestClose={() => setIsSoldModalVisible(false)}>
+			<View className='flex-1 justify-center items-center bg-black/50'>
+				<View
+					className={`bg-${
+						isDarkMode ? 'gray-800' : 'white'
+					} rounded-3xl p-6 w-5/6`}>
+					<Text
+						className={`text-xl font-bold mb-4 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Mark as Sold
+					</Text>
+
+					<Text
+						className={`font-semibold mb-2 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Sold Price
+					</Text>
+					<TextInput
+						className={`p-2 rounded-md mb-4 ${
+							isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
+						}`}
+						placeholder='Enter sold price'
+						placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+						value={soldInfo.price}
+						onChangeText={value =>
+							setSoldInfo(prev => ({ ...prev, price: value }))
+						}
+						keyboardType='numeric'
+					/>
+
+					<Text
+						className={`font-semibold mb-2 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Date Sold
+					</Text>
+					<TextInput
+						className={`p-2 rounded-md mb-4 ${
+							isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
+						}`}
+						placeholder='YYYY-MM-DD'
+						placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+						value={soldInfo.date}
+						onChangeText={value =>
+							setSoldInfo(prev => ({ ...prev, date: value }))
+						}
+					/>
+
+					<View className='flex-row justify-between mt-4'>
+						<TouchableOpacity
+							className='bg-gray-500 py-2 px-4 rounded-full'
+							onPress={() => setIsSoldModalVisible(false)}>
+							<Text className='text-white font-bold'>Cancel</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							className='bg-green-500 py-2 px-4 rounded-full'
+							onPress={handleMarkAsSold}>
+							<Text className='text-white font-bold'>Confirm</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</View>
+		</Modal>
 	)
 
 	if (!dealership) {
 		return (
-			<View style={styles.loadingContainer}>
-				<Text style={styles.loadingText}>
+			<View className='flex-1 justify-center items-center'>
+				<Text className='text-lg text-gray-600'>
 					Loading dealership information...
 				</Text>
 			</View>
@@ -450,313 +636,111 @@ export default function DealerListings() {
 	}
 
 	return (
-		<GestureHandlerRootView style={{ flex: 1 }}>
-			<CustomHeader title='My cars' />
-			<LinearGradient
-				colors={isDarkMode ? ['#000000', '#D55004'] : ['#FFFFFF', '#D55004']}
-				style={{ flex: 1 }}
-				start={{ x: 1, y: 0.3 }}
-				end={{ x: 2, y: 1 }}>
-				{error && <Text style={styles.errorText}>{error}</Text>}
-
-				<View style={styles.searchContainer}>
-					<View style={styles.searchInputContainer}>
-						<View
-							style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
-							<TouchableOpacity
-								style={[styles.iconButton, isDarkMode && styles.iconButton]}
-								onPress={handleSearch}>
-								<FontAwesome
-									name='search'
-									size={20}
-									color={isDarkMode ? 'white' : 'black'}
-								/>
-							</TouchableOpacity>
-							<TextInput
-								style={[
-									styles.searchInput,
-									isDarkMode && styles.darkSearchInput
-								]}
-								placeholder='Search listings...'
-								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
-								value={searchQuery}
-								onChangeText={setSearchQuery}
-								onSubmitEditing={handleSearch}
-							/>
-							{searchQuery.length > 0 && (
-								<TouchableOpacity
-									style={styles.clearButton}
-									onPress={() => {
-										setSearchQuery('')
-										fetchListings()
-									}}>
-									<FontAwesome
-										name='times-circle'
-										size={20}
-										color={isDarkMode ? 'white' : 'black'}
-									/>
-								</TouchableOpacity>
-							)}
-						</View>
-						<SortPicker
-							onValueChange={handleSortChange}
-							initialValue={{ label: 'Sort', value: null }}
+		<LinearGradient
+			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
+			className='flex-1'>
+			<CustomHeader title='My Cars' />
+			{error && <Text className='text-red text-center py-2'>{error}</Text>}
+			<View className='px-4 py-2'>
+				<View className='flex-row items-center justify-between mb-4'>
+					<View className='flex-1 flex-row items-center bg-white dark:bg-gray-800 rounded-full mr-2'>
+						<TextInput
+							className='flex-1 py-2 px-4 text-black dark:text-white'
+							placeholder='Search listings...'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={searchQuery}
+							onChangeText={setSearchQuery}
+							onSubmitEditing={handleSearch}
 						/>
-						<TouchableOpacity
-							style={styles.addButton}
-							onPress={() => {
-								setSelectedListing(null)
-								setIsListingModalVisible(true)
-							}}>
-							<FontAwesome name='plus' size={20} color='white' />
+						<TouchableOpacity className='pr-3' onPress={handleSearch}>
+							<FontAwesome
+								name='search'
+								size={20}
+								color={isDarkMode ? '#FFFFFF' : '#000000'}
+							/>
 						</TouchableOpacity>
 					</View>
+					{/* <TouchableOpacity
+						className='bg-red w-10 h-10 rounded-full items-center justify-center mr-2'
+						onPress={() => setIsFilterModalVisible(true)}>
+						<FontAwesome name='filter' size={20} color='white' />
+					</TouchableOpacity> */}
+					<SortPicker
+						onValueChange={handleSortChange}
+						initialValue={{ label: 'Sort', value: null }}
+					/>
+					<TouchableOpacity
+						className='bg-red w-10 h-10 rounded-full items-center justify-center ml-2'
+						onPress={() => {
+							setSelectedListing(null)
+							setIsListingModalVisible(true)
+						}}>
+						<FontAwesome name='plus' size={20} color='white' />
+					</TouchableOpacity>
 				</View>
-
-				<FlatList
-					data={listings}
-					renderItem={({ item }) => <ListingCard item={item} />}
-					keyExtractor={item => {
-						const id = item.id?.toString() || ''
-						const make = item.make || ''
-						const model = item.model || ''
-						return `${id}-${make}-${model}-${Math.random()}`
-					}}
-					onEndReached={() => {
-						if (currentPage < totalPages) {
-							setCurrentPage(prev => prev + 1)
-						}
-					}}
-					onEndReachedThreshold={0.1}
-					ListEmptyComponent={renderListEmpty}
-					ListFooterComponent={() =>
-						isLoading ? (
-							<ActivityIndicator
-								size='large'
-								color='#D55004'
-								style={{ marginVertical: 20 }}
-							/>
-						) : null
-					}
-				/>
-
-				<ListingModal
-					isVisible={isListingModalVisible}
-					onClose={() => {
-						setIsListingModalVisible(false)
-						setSelectedListing(null)
-					}}
-					onSubmit={handleSubmitListing}
-					initialData={selectedListing}
-					dealership={dealership}
-				/>
-				<SoldModal />
-			</LinearGradient>
-		</GestureHandlerRootView>
+			</View>
+			<FlatList
+				data={listings}
+				renderItem={({ item }) => <ListingCard item={item} />}
+				keyExtractor={item => `${item.id}`}
+				contentContainerStyle={{ padding: 16 }}
+				onEndReached={handleLoadMore}
+				onEndReachedThreshold={0.1}
+				refreshControl={
+					<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+				}
+				ListEmptyComponent={
+					<View className='flex-1 justify-center items-center py-20'>
+						<Text
+							className={`text-lg ${isDarkMode ? 'text-white' : 'text-black'}`}>
+							No listings available.
+						</Text>
+					</View>
+				}
+				ListFooterComponent={
+					isLoading && hasMoreListings ? (
+						<ActivityIndicator size='large' color='#D55004' />
+					) : null
+				}
+			/>
+			<ListingModal
+				isVisible={isListingModalVisible}
+				onClose={() => {
+					setIsListingModalVisible(false)
+					setSelectedListing(null)
+				}}
+				onSubmit={handleSubmitListing}
+				initialData={selectedListing}
+				dealership={dealership}
+			/>
+			<FilterModal />
+			<SoldModal />
+		</LinearGradient>
 	)
 }
 
-// ... (previous code remains the same)
-
-const styles = StyleSheet.create({
-	safeArea: {
-		flex: 1
-	},
-	loadingContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center'
-	},
-	loadingText: {
-		fontSize: 18,
-		color: '#666666'
-	},
-	errorText: {
-		color: '#FF3B30',
-		marginBottom: 16,
+const pickerSelectStyles = (isDarkMode: boolean) => ({
+	inputIOS: {
 		fontSize: 16,
-		padding: 10
-	},
-	searchContainer: {
-		marginBottom: 16,
-		margin: 10
-	},
-	searchInputContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between'
-	},
-	searchBar: {
-		flex: 1,
-		flexDirection: 'row',
-		alignItems: 'center',
+		paddingVertical: 12,
+		paddingHorizontal: 10,
 		borderWidth: 1,
-		borderColor: '#ccc',
-		borderRadius: 20,
-		marginRight: 10,
-		backgroundColor: 'white'
+		borderColor: isDarkMode ? '#4A5568' : '#E2E8F0',
+		borderRadius: 4,
+		color: isDarkMode ? 'white' : 'black',
+		paddingRight: 30,
+		backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7'
 	},
-	darkSearchBar: {
-		borderColor: '#555',
-		backgroundColor: '#333'
-	},
-	iconButton: {
-		padding: 10
-	},
-
-	searchInput: {
-		flex: 1,
-		paddingVertical: 8,
-		paddingHorizontal: 12,
-		color: 'black'
-	},
-	darkSearchInput: {
-		color: 'white'
-	},
-	clearButton: {
-		padding: 10
-	},
-	addButton: {
-		backgroundColor: '#D55004',
-		width: 40,
-		height: 40,
-		borderRadius: 20,
-		justifyContent: 'center',
-		alignItems: 'center'
-	},
-	listingCard: {
-		backgroundColor: '#FFFFFF',
-		borderRadius: 12,
-		marginHorizontal: 10,
-		marginBottom: 16,
-		overflow: 'hidden',
-		elevation: 3,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.1,
-		shadowRadius: 4
-	},
-	darkListingCard: {
-		backgroundColor: '#2D2D2D'
-	},
-	listingImage: {
-		width: '100%',
-		height: 200,
-		resizeMode: 'cover'
-	},
-	gradientOverlay: {
-		position: 'absolute',
-		left: 0,
-		right: 0,
-		top: 0,
-		bottom: 0
-	},
-	statusBadge: {
-		position: 'absolute',
-		top: 10,
-		right: 10,
-		backgroundColor: 'rgba(213, 80, 4, 0.8)',
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-		borderRadius: 12
-	},
-	statusText: {
-		color: '#FFFFFF',
-		fontSize: 12,
-		fontWeight: 'bold',
-		textTransform: 'uppercase'
-	},
-	topStatsRow: {
-		position: 'absolute',
-		top: 10,
-		left: 10,
-		flexDirection: 'row',
-		alignItems: 'center'
-	},
-	stat: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		marginRight: 16,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-		borderRadius: 12
-	},
-	statText: {
-		marginLeft: 4,
-		color: '#FFFFFF',
-		fontSize: 12
-	},
-	cardContent: {
-		padding: 16
-	},
-	topRow: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginBottom: 8
-	},
-	listingTitle: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#FFFFFF',
-		flex: 1
-	},
-	listingPrice: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: '#D55004'
-	},
-	infoRow: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginTop: 8
-	},
-	infoItem: {
-		flexDirection: 'row',
-		alignItems: 'center'
-	},
-	listingInfo: {
-		fontSize: 14,
-		color: '#FFFFFF',
-		marginLeft: 6
-	},
-	actionContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		padding: 10,
-		borderColor: '#D55004',
-		borderTopWidth: 1,
-		backgroundColor: 'rgba(0, 0, 0, 0)'
-	},
-	actionButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'center',
-		backgroundColor: '#D55004',
-		paddingVertical: 8,
-		paddingHorizontal: 12,
-		borderRadius: 20,
-		marginHorizontal: 4
-	},
-	actionButtonText: {
-		color: '#FFFFFF',
-		fontWeight: 'bold',
-		marginLeft: 6,
-		fontSize: 14
-	},
-	emptyContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-		padding: 20
-	},
-	emptyText: {
+	inputAndroid: {
 		fontSize: 16,
-		textAlign: 'center',
-		color: '#000'
+		paddingHorizontal: 10,
+		paddingVertical: 8,
+		borderWidth: 1,
+		borderColor: isDarkMode ? '#4A5568' : '#E2E8F0',
+		borderRadius: 8,
+		color: isDarkMode ? 'white' : 'black',
+		paddingRight: 30,
+		backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7'
 	},
-	darkEmptyText: {
-		color: '#fff'
-	}
+	placeholderColor: isDarkMode ? '#A0AEC0' : '#718096'
 })
