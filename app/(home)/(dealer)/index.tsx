@@ -273,38 +273,40 @@ export default function DealerListings() {
 		fetchListings(1, true)
 	}
 
-	const handleMarkAsSold = useCallback(async () => {
-		if (!selectedListing || !dealership) return
+	const handleMarkAsSold = useCallback(
+		async (soldInfo: { price: string; date: string }) => {
+			if (!selectedListing || !dealership) return
 
-		try {
-			const { error } = await supabase
-				.from('cars')
-				.update({
-					status: 'sold',
-					sold_price: parseInt(soldInfo.price),
-					date_sold: soldInfo.date
-				})
-				.eq('id', selectedListing.id)
-				.eq('dealership_id', dealership.id)
+			try {
+				const { error } = await supabase
+					.from('cars')
+					.update({
+						status: 'sold',
+						sold_price: parseInt(soldInfo.price),
+						date_sold: soldInfo.date
+					})
+					.eq('id', selectedListing.id)
+					.eq('dealership_id', dealership.id)
 
-			if (error) throw error
+				if (error) throw error
 
-			setListings(prevListings =>
-				prevListings.map(listing =>
-					listing.id === selectedListing.id
-						? { ...listing, status: 'sold' }
-						: listing
+				setListings(prevListings =>
+					prevListings.map(listing =>
+						listing.id === selectedListing.id
+							? { ...listing, status: 'sold' }
+							: listing
+					)
 				)
-			)
-			setIsSoldModalVisible(false)
-			setSelectedListing(null)
-			setSoldInfo({ price: '', date: '' })
-			Alert.alert('Success', 'Listing marked as sold successfully')
-		} catch (error) {
-			console.error('Error marking as sold:', error)
-			Alert.alert('Error', 'Failed to mark listing as sold')
-		}
-	}, [selectedListing, dealership, soldInfo])
+				setIsSoldModalVisible(false)
+				setSelectedListing(null)
+				Alert.alert('Success', 'Listing marked as sold successfully')
+			} catch (error) {
+				console.error('Error marking as sold:', error)
+				Alert.alert('Error', 'Failed to mark listing as sold')
+			}
+		},
+		[selectedListing, dealership]
+	)
 
 	const ListingCard = useMemo(
 		() =>
@@ -425,205 +427,228 @@ export default function DealerListings() {
 		[isDarkMode, handleDeleteListing]
 	)
 
-	const FilterModal = () => (
-		<Modal
-			visible={isFilterModalVisible}
-			animationType='slide'
-			transparent={true}
-			onRequestClose={() => setIsFilterModalVisible(false)}>
-			<View className='flex-1 justify-end bg-black/50'>
-				<View
-					className={`bg-${
-						isDarkMode ? 'gray-800' : 'white'
-					} rounded-t-3xl p-6`}>
-					<Text
-						className={`text-xl font-bold mb-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Filters
-					</Text>
+	const FilterModal = useCallback(() => {
+		const [localFilters, setLocalFilters] = useState(filters)
 
-					<Text
-						className={`font-semibold mb-2 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Status
-					</Text>
-					<RNPickerSelect
-						onValueChange={value => handleFilterChange('status', value)}
-						items={[
-							{ label: 'All', value: '' },
-							{ label: 'Available', value: 'available' },
-							{ label: 'Pending', value: 'pending' },
-							{ label: 'Sold', value: 'sold' }
-						]}
-						value={filters.status}
-						style={pickerSelectStyles(isDarkMode)}
-					/>
+		const handleLocalFilterChange = (key: string, value: string) => {
+			setLocalFilters(prev => ({ ...prev, [key]: value }))
+		}
 
-					<Text
-						className={`font-semibold mb-2 mt-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Condition
-					</Text>
-					<RNPickerSelect
-						onValueChange={value => handleFilterChange('condition', value)}
-						items={[
-							{ label: 'All', value: '' },
-							{ label: 'New', value: 'New' },
-							{ label: 'Used', value: 'Used' }
-						]}
-						value={filters.condition}
-						style={pickerSelectStyles(isDarkMode)}
-					/>
+		const handleApplyFilters = () => {
+			setFilters(localFilters)
+			setIsFilterModalVisible(false)
+			setCurrentPage(1)
+			fetchListings(1, true)
+		}
 
-					<Text
-						className={`font-semibold mb-2 mt-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Price Range
-					</Text>
-					<View className='flex-row justify-between'>
-						<TextInput
-							className={`w-[48%] p-2 rounded-md ${
-								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
-							}`}
-							placeholder='Min Price'
-							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-							value={filters.minPrice}
-							onChangeText={value => handleFilterChange('minPrice', value)}
-							keyboardType='numeric'
+		return (
+			<Modal
+				visible={isFilterModalVisible}
+				animationType='slide'
+				transparent={true}
+				onRequestClose={() => setIsFilterModalVisible(false)}>
+				<View className='flex-1 justify-end bg-black/50'>
+					<View
+						className={`bg-${isDarkMode ? 'gray' : 'white'} rounded-t-3xl p-6`}>
+						<Text
+							className={`text-xl font-bold mb-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Filters
+						</Text>
+
+						<Text
+							className={`font-semibold mb-2 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Status
+						</Text>
+						<RNPickerSelect
+							onValueChange={value => handleLocalFilterChange('status', value)}
+							items={[
+								{ label: 'All', value: '' },
+								{ label: 'Available', value: 'available' },
+								{ label: 'Pending', value: 'pending' },
+								{ label: 'Sold', value: 'sold' }
+							]}
+							value={localFilters.status}
+							style={pickerSelectStyles(isDarkMode)}
 						/>
-						<TextInput
-							className={`w-[48%] p-2 rounded-md ${
-								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
-							}`}
-							placeholder='Max Price'
-							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-							value={filters.maxPrice}
-							onChangeText={value => handleFilterChange('maxPrice', value)}
-							keyboardType='numeric'
+
+						<Text
+							className={`font-semibold mb-2 mt-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Condition
+						</Text>
+						<RNPickerSelect
+							onValueChange={value =>
+								handleLocalFilterChange('condition', value)
+							}
+							items={[
+								{ label: 'All', value: '' },
+								{ label: 'New', value: 'New' },
+								{ label: 'Used', value: 'Used' }
+							]}
+							value={localFilters.condition}
+							style={pickerSelectStyles(isDarkMode)}
 						/>
-					</View>
 
-					<Text
-						className={`font-semibold mb-2 mt-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Year Range
-					</Text>
-					<View className='flex-row justify-between'>
-						<TextInput
-							className={`w-[48%] p-2 rounded-md ${
-								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
-							}`}
-							placeholder='Min Year'
-							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-							value={filters.minYear}
-							onChangeText={value => handleFilterChange('minYear', value)}
-							keyboardType='numeric'
-						/>
-						<TextInput
-							className={`w-[48%] p-2 rounded-md ${
-								isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
-							}`}
-							placeholder='Max Year'
-							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-							value={filters.maxYear}
-							onChangeText={value => handleFilterChange('maxYear', value)}
-							keyboardType='numeric'
-						/>
-					</View>
+						<Text
+							className={`font-semibold mb-2 mt-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Price Range
+						</Text>
+						<View className='flex-row justify-between'>
+							<TextInput
+								className={`w-[48%] p-2 rounded-md border-red border-2 ${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								}`}
+								placeholder='Min Price'
+								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+								value={localFilters.minPrice}
+								onChangeText={value =>
+									handleLocalFilterChange('minPrice', value)
+								}
+								keyboardType='numeric'
+							/>
+							<TextInput
+								className={`w-[48%] p-2 rounded-md border-red border-2 ${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								}`}
+								placeholder='Max Price'
+								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+								value={localFilters.maxPrice}
+								onChangeText={value =>
+									handleLocalFilterChange('maxPrice', value)
+								}
+								keyboardType='numeric'
+							/>
+						</View>
 
-					<View className='flex-row justify-between mt-6'>
-						<TouchableOpacity
-							className='bg-gray-500 py-2 px-4 rounded-full'
-							onPress={() => setIsFilterModalVisible(false)}>
-							<Text className='text-white font-bold'>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							className='bg-red py-2 px-4 rounded-full'
-							onPress={applyFilters}>
-							<Text className='text-white font-bold'>Apply Filters</Text>
-						</TouchableOpacity>
-					</View>
-				</View>
-			</View>
-		</Modal>
-	)
+						<Text
+							className={`font-semibold mb-2 mt-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Year Range
+						</Text>
+						<View className='flex-row justify-between'>
+							<TextInput
+								className={`w-[48%] p-2 rounded-md border-red border-2 ${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								}`}
+								placeholder='Min Year'
+								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+								value={localFilters.minYear}
+								onChangeText={value =>
+									handleLocalFilterChange('minYear', value)
+								}
+								keyboardType='numeric'
+							/>
+							<TextInput
+								className={`w-[48%] p-2 rounded-md border-red border-2 ${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								}`}
+								placeholder='Max Year'
+								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+								value={localFilters.maxYear}
+								onChangeText={value =>
+									handleLocalFilterChange('maxYear', value)
+								}
+								keyboardType='numeric'
+							/>
+						</View>
 
-	const SoldModal = () => (
-		<Modal
-			visible={isSoldModalVisible}
-			animationType='slide'
-			transparent={true}
-			onRequestClose={() => setIsSoldModalVisible(false)}>
-			<View className='flex-1 justify-center items-center bg-black/50'>
-				<View
-					className={`bg-${
-						isDarkMode ? 'gray-800' : 'white'
-					} rounded-3xl p-6 w-5/6`}>
-					<Text
-						className={`text-xl font-bold mb-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Mark as Sold
-					</Text>
-
-					<Text
-						className={`font-semibold mb-2 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Sold Price
-					</Text>
-					<TextInput
-						className={`p-2 rounded-md mb-4 ${
-							isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
-						}`}
-						placeholder='Enter sold price'
-						placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-						value={soldInfo.price}
-						onChangeText={value =>
-							setSoldInfo(prev => ({ ...prev, price: value }))
-						}
-						keyboardType='numeric'
-					/>
-
-					<Text
-						className={`font-semibold mb-2 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Date Sold
-					</Text>
-					<TextInput
-						className={`p-2 rounded-md mb-4 ${
-							isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'
-						}`}
-						placeholder='YYYY-MM-DD'
-						placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-						value={soldInfo.date}
-						onChangeText={value =>
-							setSoldInfo(prev => ({ ...prev, date: value }))
-						}
-					/>
-
-					<View className='flex-row justify-between mt-4'>
-						<TouchableOpacity
-							className='bg-gray-500 py-2 px-4 rounded-full'
-							onPress={() => setIsSoldModalVisible(false)}>
-							<Text className='text-white font-bold'>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							className='bg-green-500 py-2 px-4 rounded-full'
-							onPress={handleMarkAsSold}>
-							<Text className='text-white font-bold'>Confirm</Text>
-						</TouchableOpacity>
+						<View className='flex-row justify-between mt-6'>
+							<TouchableOpacity
+								className='bg-black  py-2 px-4 rounded-full'
+								onPress={() => setIsFilterModalVisible(false)}>
+								<Text className='text-white font-bold'>Cancel</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='bg-red py-2 px-4 rounded-full'
+								onPress={handleApplyFilters}>
+								<Text className='text-white font-bold'>Apply Filters</Text>
+							</TouchableOpacity>
+						</View>
 					</View>
 				</View>
-			</View>
-		</Modal>
-	)
+			</Modal>
+		)
+	}, [
+		isFilterModalVisible,
+		isDarkMode,
+		filters,
+		setFilters,
+		setIsFilterModalVisible,
+		setCurrentPage,
+		fetchListings
+	])
+
+	const SoldModal = useCallback(() => {
+		const [localSoldInfo, setLocalSoldInfo] = useState({ price: '', date: '' })
+
+		const handleConfirm = () => {
+			handleMarkAsSold(localSoldInfo)
+		}
+
+		return (
+			<Modal
+				visible={isSoldModalVisible}
+				animationType='slide'
+				transparent={true}>
+				<View className='flex-1 justify-center items-center bg-black/50'>
+					<View
+						className={`bg-${
+							isDarkMode ? 'gray' : 'white'
+						} p-6 rounded-lg w-5/6`}>
+						<Text
+							className={`text-2xl font-bold mb-4 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Mark as Sold
+						</Text>
+						<TextInput
+							className={`border border-red rounded p-2 mb-4 ${
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+							}`}
+							placeholder='Sold Price'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={localSoldInfo.price}
+							onChangeText={text =>
+								setLocalSoldInfo(prev => ({ ...prev, price: text }))
+							}
+							keyboardType='numeric'
+						/>
+						<TextInput
+							className={`border border-red rounded p-2 mb-4 ${
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+							}`}
+							placeholder='Date Sold (YYYY-MM-DD)'
+							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+							value={localSoldInfo.date}
+							onChangeText={text =>
+								setLocalSoldInfo(prev => ({ ...prev, date: text }))
+							}
+						/>
+						<View className='flex-row justify-end mt-4'>
+							<TouchableOpacity
+								className='bg-black text-white py-2 px-4 rounded mr-2'
+								onPress={() => setIsSoldModalVisible(false)}>
+								<Text className='text-white'>Cancel</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='bg-red py-2 px-4 rounded'
+								onPress={handleConfirm}>
+								<Text className='text-white'>Confirm</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</View>
+			</Modal>
+		)
+	}, [isSoldModalVisible, isDarkMode, handleMarkAsSold, setIsSoldModalVisible])
 
 	if (!dealership) {
 		return (
@@ -660,11 +685,11 @@ export default function DealerListings() {
 							/>
 						</TouchableOpacity>
 					</View>
-					{/* <TouchableOpacity
+					<TouchableOpacity
 						className='bg-red w-10 h-10 rounded-full items-center justify-center mr-2'
 						onPress={() => setIsFilterModalVisible(true)}>
 						<FontAwesome name='filter' size={20} color='white' />
-					</TouchableOpacity> */}
+					</TouchableOpacity>
 					<SortPicker
 						onValueChange={handleSortChange}
 						initialValue={{ label: 'Sort', value: null }}
