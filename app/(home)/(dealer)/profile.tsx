@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -9,7 +9,9 @@ import {
 	ActivityIndicator,
 	Alert,
 	StatusBar,
-	Modal
+	Modal,
+	RefreshControl,
+	Keyboard
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
@@ -17,11 +19,14 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import * as Location from 'expo-location'
 import MapView, { Marker } from 'react-native-maps'
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
 import { Buffer } from 'buffer'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
 
@@ -80,17 +85,25 @@ export default function DealershipProfilePage() {
 		latitude: number
 		longitude: number
 	} | null>(null)
+	const [refreshing, setRefreshing] = useState(false)
 
 	const getLocation = async () => {
 		let { status } = await Location.requestForegroundPermissionsAsync()
 		if (status !== 'granted') {
-			Alert.alert('Permission to access location was denied')
+			Alert.alert(
+				'Permission Denied',
+				'Please allow access to your location to use this feature.'
+			)
 			return
 		}
 
 		let location = await Location.getCurrentPositionAsync({})
 		setLatitude(location.coords.latitude.toString())
 		setLongitude(location.coords.longitude.toString())
+		setSelectedLocation({
+			latitude: location.coords.latitude,
+			longitude: location.coords.longitude
+		})
 	}
 
 	const openMap = () => {
@@ -106,13 +119,20 @@ export default function DealershipProfilePage() {
 		const { latitude, longitude } = event.nativeEvent.coordinate
 		setSelectedLocation({ latitude, longitude })
 	}
+
 	const confirmLocation = () => {
 		if (selectedLocation) {
 			setLatitude(selectedLocation.latitude.toString())
 			setLongitude(selectedLocation.longitude.toString())
+			setLocation('Custom Location') // You might want to reverse geocode here for a more precise address
 		}
 		closeMap()
 	}
+
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		fetchDealershipProfile().then(() => setRefreshing(false))
+	}, [])
 
 	useEffect(() => {
 		if (user) fetchDealershipProfile()
@@ -177,7 +197,7 @@ export default function DealershipProfilePage() {
 		if (status !== 'granted') {
 			Alert.alert(
 				'Permission Denied',
-				'Sorry, we need camera roll permissions to make this work!'
+				'We need access to your photos to update your logo.'
 			)
 			return
 		}
@@ -234,6 +254,10 @@ export default function DealershipProfilePage() {
 				.from('dealerships')
 				.update({ logo: publicURLData.publicUrl })
 				.eq('id', dealership.id)
+
+			if (updateError) throw updateError
+
+			Alert.alert('Success', 'Logo updated successfully')
 		} catch (error: any) {
 			console.error('Detailed error in handleImageUpload:', error)
 			Alert.alert('Error', `Failed to upload image: ${error.message}`)
@@ -246,9 +270,12 @@ export default function DealershipProfilePage() {
 
 	return (
 		<>
-			<CustomHeader title='Profile' />
+			<CustomHeader title='Dealership Profile' />
 			<ScrollView
-				className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-gray-100'}`}>
+				className={`flex-1 ${isDarkMode ? 'bg-gray' : 'bg-white'}`}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+				}>
 				{isLoading && (
 					<View className='items-center justify-center py-4'>
 						<ActivityIndicator
@@ -258,28 +285,34 @@ export default function DealershipProfilePage() {
 					</View>
 				)}
 				{error && (
-					<View className='bg-red-500 p-4 mb-4 rounded-xl'>
+					<View className='bg-red p-4 mb-4 rounded-xl mx-4 mt-4'>
 						<Text className='text-white font-bold text-center'>{error}</Text>
 					</View>
 				)}
 				<View
-					className={`items-center ${
-						isDarkMode ? 'bg-red' : 'bg-red'
-					} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
+					className={`items-center bg-red  pt-8 pb-8 rounded-b-3xl shadow-lg`}>
 					<Image
 						source={{ uri: logo || 'https://via.placeholder.com/150' }}
 						className='w-36 h-36 rounded-full border-4 border-white mb-6'
 					/>
 					<TouchableOpacity
-						className='bg-white px-6 py-3 rounded-full shadow-md'
+						className='bg-emerald-400 px-6 py-3 rounded-full shadow-md flex-row items-center'
 						onPress={pickImage}
 						disabled={isUploading}>
 						{isUploading ? (
-							<ActivityIndicator color='red' />
+							<ActivityIndicator color='white' />
 						) : (
-							<Text className='text-red-600 font-semibold text-lg'>
-								Change Logo
-							</Text>
+							<>
+								<Ionicons
+									name='camera-outline'
+									size={24}
+									color='white'
+									style={{ marginRight: 8 }}
+								/>
+								<Text className='text-white font-semibold text-lg'>
+									Change Logo
+								</Text>
+							</>
 						)}
 					</TouchableOpacity>
 				</View>
@@ -290,83 +323,75 @@ export default function DealershipProfilePage() {
 							className={`text-3xl font-bold ${
 								isDarkMode ? 'text-white' : 'text-black'
 							}`}>
-							Dealership Profile
+							Dealership Details
 						</Text>
 						<ThemeSwitch />
 					</View>
 
 					<View
 						className={`${
-							isDarkMode ? 'bg-black' : 'bg-white'
+							isDarkMode ? 'bg-gray' : 'bg-white'
 						} rounded-2xl shadow-md p-6 mb-8`}>
 						<Text
 							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
+								isDarkMode ? 'text-red' : 'text-red'
 							} text-sm font-semibold mb-2`}>
 							Dealership Name
 						</Text>
 						<TextInput
 							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-white text-black'
-							} p-4 rounded-xl mb-4`}
+								isDarkMode ? 'bg-gray text-white' : ' text-black'
+							} p-4 rounded-xl mb-4 border border-red`}
 							value={name}
 							onChangeText={setName}
-							placeholder='Dealership Name'
+							placeholder='Enter your dealership name'
 							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 						/>
 
 						<Text
 							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
+								isDarkMode ? 'text-red' : 'text-red'
 							} text-sm font-semibold mb-2`}>
 							Address
 						</Text>
 						<TextInput
 							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-white text-black'
-							} p-4 rounded-xl mb-4`}
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+							} p-4 rounded-xl mb-4 border border-red`}
 							value={location}
 							onChangeText={setLocation}
-							placeholder='Location'
+							placeholder='Enter your dealership address'
 							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 						/>
 
 						<Text
 							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
+								isDarkMode ? 'text-red' : 'text-red'
 							} text-sm font-semibold mb-2`}>
-							Phone
+							Phone Number
 						</Text>
 						<TextInput
 							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-white text-black'
-							} p-4 rounded-xl mb-4`}
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+							} p-4 rounded-xl mb-4 border border-red`}
 							value={phone}
 							onChangeText={setPhone}
-							placeholder='Phone'
+							placeholder='Enter your contact number'
 							keyboardType='phone-pad'
 							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 						/>
 
 						<Text
 							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
+								isDarkMode ? 'text-red' : 'text-red'
 							} text-sm font-semibold mb-2`}>
-							Location
+							Location Coordinates
 						</Text>
 						<View className='flex-row items-center mb-4'>
 							<TextInput
 								className={`${
-									isDarkMode
-										? 'bg-gray-800 text-orange-500'
-										: 'bg-white text-black'
-								} p-4 rounded-xl flex-1 mr-2`}
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl flex-1 mr-2 border border-red`}
 								value={latitude}
 								onChangeText={setLatitude}
 								placeholder='Latitude'
@@ -377,10 +402,8 @@ export default function DealershipProfilePage() {
 							/>
 							<TextInput
 								className={`${
-									isDarkMode
-										? 'bg-gray-800 text-orange-500'
-										: 'bg-white text-black'
-								} p-4 rounded-xl flex-1 ml-2`}
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl flex-1 ml-2 border border-red`}
 								value={longitude}
 								onChangeText={setLongitude}
 								placeholder='Longitude'
@@ -392,44 +415,52 @@ export default function DealershipProfilePage() {
 						</View>
 						<View className='flex-row justify-between mb-4'>
 							<TouchableOpacity
-								className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center'
+								className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center flex-row justify-center'
 								onPress={getLocation}>
+								<Ionicons
+									name='location-outline'
+									size={24}
+									color='white'
+									style={{ marginRight: 8 }}
+								/>
 								<Text className='text-white font-bold'>Get Location</Text>
 							</TouchableOpacity>
 							<TouchableOpacity
-								className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center'
+								className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center flex-row justify-center'
 								onPress={openMap}>
+								<Ionicons
+									name='map-outline'
+									size={24}
+									color='white'
+									style={{ marginRight: 8 }}
+								/>
 								<Text className='text-white font-bold'>Pick on Map</Text>
 							</TouchableOpacity>
 						</View>
 
 						<Text
 							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
+								isDarkMode ? 'text-red' : 'text-red'
 							} text-sm font-semibold mb-2`}>
-							Email
+							Email Address
 						</Text>
 						<Text
 							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-gray-100 text-black'
-							} p-4 rounded-xl mb-4`}>
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+							} p-4 rounded-xl mb-4 border border-red`}>
 							{user?.emailAddresses[0].emailAddress}
 						</Text>
 
 						<Text
 							className={`${
-								isDarkMode ? 'text-white' : 'text-gray-700'
+								isDarkMode ? 'text-red' : 'text-red'
 							} text-sm font-semibold mb-2`}>
 							Subscription End Date
 						</Text>
 						<Text
 							className={`${
-								isDarkMode
-									? 'bg-gray-800 text-orange-500'
-									: 'bg-gray-100 text-black'
-							} p-4 rounded-xl mb-6`}>
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+							} p-4 rounded-xl mb-6 border border-red`}>
 							{dealership?.subscription_end_date
 								? new Date(
 										dealership.subscription_end_date
@@ -438,16 +469,28 @@ export default function DealershipProfilePage() {
 						</Text>
 
 						<TouchableOpacity
-							className='bg-red p-4 rounded-xl items-center mt-4'
+							className='bg-orange-500 p-4 rounded-xl items-center mt-4 flex-row justify-center'
 							onPress={updateProfile}>
+							<Ionicons
+								name='save-outline'
+								size={24}
+								color='white'
+								style={{ marginRight: 8 }}
+							/>
 							<Text className='text-white font-bold text-xl'>
 								Update Profile
 							</Text>
 						</TouchableOpacity>
 
 						<TouchableOpacity
-							className='bg-blue-500 p-4 rounded-xl items-center mt-4'
+							className='bg-blue-500 p-4 rounded-xl items-center mt-4 flex-row justify-center'
 							onPress={navigateToAnalytics}>
+							<Ionicons
+								name='bar-chart-outline'
+								size={24}
+								color='white'
+								style={{ marginRight: 8 }}
+							/>
 							<Text className='text-white font-bold text-xl'>
 								View Analytics
 							</Text>
@@ -455,8 +498,14 @@ export default function DealershipProfilePage() {
 					</View>
 
 					<TouchableOpacity
-						className='bg-[#FF000024] p-5 mb-24 rounded-xl items-center'
+						className='bg-rose-700 p-5 mb-24 rounded-xl items-center flex-row justify-center'
 						onPress={() => signOut()}>
+						<Ionicons
+							name='log-out-outline'
+							size={24}
+							color='white'
+							style={{ marginRight: 8 }}
+						/>
 						<Text className='text-white font-bold text-xl'>Sign Out</Text>
 					</TouchableOpacity>
 				</View>
@@ -483,19 +532,73 @@ export default function DealershipProfilePage() {
 					</MapView>
 					<View
 						style={{
+							position: 'absolute',
+							top: 10,
+							left: 10,
+							right: 10,
+							backgroundColor: isDarkMode
+								? 'rgba(0,0,0,0.7)'
+								: 'rgba(255,255,255,0.7)',
+							padding: 10,
+							borderRadius: 5
+						}}>
+						<Text
+							style={{
+								color: isDarkMode ? 'white' : 'black',
+								fontWeight: 'bold',
+								marginBottom: 5
+							}}>
+							Tap on the map to select a location
+						</Text>
+						{selectedLocation && (
+							<Text style={{ color: isDarkMode ? 'white' : 'black' }}>
+								Selected: {selectedLocation.latitude.toFixed(6)},{' '}
+								{selectedLocation.longitude.toFixed(6)}
+							</Text>
+						)}
+					</View>
+					<View
+						style={{
 							flexDirection: 'row',
 							justifyContent: 'space-around',
-							padding: 15
+							padding: 15,
+							backgroundColor: isDarkMode ? '#1E1E1E' : 'white'
 						}}>
 						<TouchableOpacity
-							style={{ backgroundColor: 'red', padding: 10, borderRadius: 5 }}
+							style={{
+								backgroundColor: 'red',
+								padding: 10,
+								borderRadius: 5,
+								flexDirection: 'row',
+								alignItems: 'center'
+							}}
 							onPress={closeMap}>
-							<Text style={{ color: 'white' }}>Cancel</Text>
+							<Ionicons
+								name='close-outline'
+								size={24}
+								color='white'
+								style={{ marginRight: 8 }}
+							/>
+							<Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
 						</TouchableOpacity>
 						<TouchableOpacity
-							style={{ backgroundColor: 'green', padding: 10, borderRadius: 5 }}
+							style={{
+								backgroundColor: 'green',
+								padding: 10,
+								borderRadius: 5,
+								flexDirection: 'row',
+								alignItems: 'center'
+							}}
 							onPress={confirmLocation}>
-							<Text style={{ color: 'white' }}>Confirm Location</Text>
+							<Ionicons
+								name='checkmark-outline'
+								size={24}
+								color='white'
+								style={{ marginRight: 8 }}
+							/>
+							<Text style={{ color: 'white', fontWeight: 'bold' }}>
+								Confirm Location
+							</Text>
 						</TouchableOpacity>
 					</View>
 				</View>
