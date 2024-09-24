@@ -110,13 +110,55 @@ export default function DealerAnalyticsPage() {
 	const [hasMore, setHasMore] = useState(false)
 	const [filterStatus, setFilterStatus] = useState('all')
 	const [sortBy, setSortBy] = useState('latest')
+	const [isLoadingCars, setIsLoadingCars] = useState(false)
 
+	const fetchCarData = useCallback(
+		async (dealershipId: any) => {
+			if (!dealershipId) return
+			setIsLoadingCars(true)
+			try {
+				let query = supabase
+					.from('cars')
+					.select('*', { count: 'exact' })
+					.eq('dealership_id', dealershipId)
+
+				if (filterStatus !== 'all') {
+					query = query.eq('status', filterStatus)
+				}
+
+				if (sortBy === 'latest') {
+					query = query.order('listed_at', { ascending: false })
+				} else if (sortBy === 'views') {
+					query = query.order('views', { ascending: false })
+				} else if (sortBy === 'likes') {
+					query = query.order('likes', { ascending: false })
+				}
+
+				const { data, error, count } = await query.range(
+					(currentPage - 1) * carsPerPage,
+					currentPage * carsPerPage - 1
+				)
+
+				if (error) throw error
+
+				setCars(data || [])
+				setTotalPages(Math.ceil((count || 0) / carsPerPage))
+				setHasMore(currentPage * carsPerPage < (count || 0))
+			} catch (err) {
+				console.error('Error fetching car data:', err)
+			} finally {
+				setIsLoadingCars(false)
+			}
+		},
+		[currentPage, carsPerPage, filterStatus, sortBy]
+	)
+
+	// Modify the existing fetchData function
 	const fetchData = useCallback(async () => {
+		if (!user) return
 		setIsLoading(true)
 		setError(null)
 		try {
-			if (!user) throw new Error('User not authenticated')
-
 			const { data: dealershipData, error: dealershipError } = await supabase
 				.from('dealerships')
 				.select('*')
@@ -137,42 +179,24 @@ export default function DealerAnalyticsPage() {
 			if (analyticsError) throw analyticsError
 			setAnalytics(analyticsData)
 
-			let query = supabase
-				.from('cars')
-				.select('*', { count: 'exact' })
-				.eq('dealership_id', dealershipData.id)
-
-			if (filterStatus !== 'all') {
-				query = query.eq('status', filterStatus)
-			}
-
-			if (sortBy === 'latest') {
-				query = query.order('listed_at', { ascending: false })
-			} else if (sortBy === 'views') {
-				query = query.order('views', { ascending: false })
-			} else if (sortBy === 'likes') {
-				query = query.order('likes', { ascending: false })
-			}
-
-			const { data, error, count } = await query.range(
-				(currentPage - 1) * carsPerPage,
-				currentPage * carsPerPage - 1
-			)
-
-			if (error) throw error
-
-			setCars(data || [])
-			setTotalPages(Math.ceil((count || 0) / carsPerPage))
+			// Fetch initial car data
+			await fetchCarData(dealershipData.id)
 		} catch (err: any) {
 			setError(err.message)
 		} finally {
 			setIsLoading(false)
 		}
-	}, [user, currentPage, carsPerPage, filterStatus, sortBy])
+	}, [user, timeRange, fetchCarData])
 
 	useEffect(() => {
 		fetchData()
-	}, [fetchData, currentPage, filterStatus, sortBy])
+	}, [fetchData])
+
+	useEffect(() => {
+		if (dealership) {
+			fetchCarData(dealership.id)
+		}
+	}, [fetchCarData, dealership, currentPage, filterStatus, sortBy])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
@@ -180,25 +204,6 @@ export default function DealerAnalyticsPage() {
 	}, [fetchData])
 
 	const CarListing = () => {
-		const getFilterStatusLabel = (value: string) => {
-			const item = [
-				{ label: 'All', value: 'all' },
-				{ label: 'Available', value: 'available' },
-				{ label: 'Sold', value: 'sold' },
-				{ label: 'Pending', value: 'pending' }
-			].find(item => item.value === value)
-			return item ? item.label : ''
-		}
-
-		const getSortByLabel = (value: string) => {
-			const item = [
-				{ label: 'Latest', value: 'latest' },
-				{ label: 'Most Viewed', value: 'views' },
-				{ label: 'Most Liked', value: 'likes' }
-			].find(item => item.value === value)
-			return item ? item.label : ''
-		}
-
 		return (
 			<View
 				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
@@ -213,7 +218,7 @@ export default function DealerAnalyticsPage() {
 
 				<View className='flex-row justify-between items-center mb-4'>
 					<View className='flex-1 mr-2'>
-						<Text className={` ${isDarkMode ? 'text-white' : 'text-night'}`}>
+						<Text className={`${isDarkMode ? 'text-white' : 'text-night'}`}>
 							Status:
 						</Text>
 						<RNPickerSelect
@@ -253,44 +258,52 @@ export default function DealerAnalyticsPage() {
 					</View>
 				</View>
 
-				<FlatList
-					data={cars}
-					renderItem={renderCarItem}
-					keyExtractor={item =>
-						`${item.id}-${item.make}-${item.model}-${Math.random()}`
-					}
-					ListEmptyComponent={
-						<Text
-							className={`text-center py-4 ${
-								isDarkMode ? 'text-red' : 'text-gray'
-							}`}>
-							No car data available
-						</Text>
-					}
-				/>
+				{isLoadingCars ? (
+					<ActivityIndicator size='large' color='#D55004' />
+				) : (
+					<>
+						<FlatList
+							data={cars}
+							renderItem={renderCarItem}
+							keyExtractor={item =>
+								`${item.id}-${item.make}-${item.model}-${Math.random()}`
+							}
+							ListEmptyComponent={
+								<Text
+									className={`text-center py-4 ${
+										isDarkMode ? 'text-red' : 'text-gray'
+									}`}>
+									No car data available
+								</Text>
+							}
+						/>
 
-				<View className='flex-row justify-between items-center mt-4'>
-					<TouchableOpacity
-						onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-						disabled={currentPage === 1}>
-						<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
-							Previous
-						</Text>
-					</TouchableOpacity>
-					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-						Page {currentPage} of {totalPages}
-					</Text>
-					<TouchableOpacity
-						onPress={() =>
-							setCurrentPage(prev => Math.min(totalPages, prev + 1))
-						}
-						disabled={currentPage === totalPages}>
-						<Text
-							className={currentPage === totalPages ? 'text-gray' : 'text-red'}>
-							Next
-						</Text>
-					</TouchableOpacity>
-				</View>
+						<View className='flex-row justify-between items-center mt-4'>
+							<TouchableOpacity
+								onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+								disabled={currentPage === 1}>
+								<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
+									Previous
+								</Text>
+							</TouchableOpacity>
+							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+								Page {currentPage} of {totalPages}
+							</Text>
+							<TouchableOpacity
+								onPress={() =>
+									setCurrentPage(prev => Math.min(totalPages, prev + 1))
+								}
+								disabled={currentPage === totalPages}>
+								<Text
+									className={
+										currentPage === totalPages ? 'text-gray' : 'text-red'
+									}>
+									Next
+								</Text>
+							</TouchableOpacity>
+						</View>
+					</>
+				)}
 			</View>
 		)
 	}
