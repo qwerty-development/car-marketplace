@@ -184,7 +184,7 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 
 			<View className='flex-row justify-between items-center mb-4'>
 				<View className='flex-1 mr-2'>
-					<Text className={`mb-1 ${isDarkMode ? 'text-white' : 'text-night'}`}>
+					<Text className={` ${isDarkMode ? 'text-white' : 'text-night'}`}>
 						Status:
 					</Text>
 					<RNPickerSelect
@@ -204,7 +204,7 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 					/>
 				</View>
 				<View className='flex-1 ml-2'>
-					<Text className={`mb-1 ${isDarkMode ? 'text-white' : 'text-night'}`}>
+					<Text className={` ${isDarkMode ? 'text-white' : 'text-night'}`}>
 						Sort by:
 					</Text>
 					<RNPickerSelect
