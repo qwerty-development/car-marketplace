@@ -9,7 +9,8 @@ import {
 	ActivityIndicator,
 	RefreshControl,
 	Dimensions,
-	LogBox
+	LogBox,
+	StyleSheet
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
@@ -25,6 +26,7 @@ import {
 	startOfMonth,
 	startOfYear
 } from 'date-fns'
+import RNPickerSelect from 'react-native-picker-select'
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested'])
 
@@ -102,6 +104,12 @@ export default function DealerAnalyticsPage() {
 	const [isLoading, setIsLoading] = useState<boolean>(true)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState<boolean>(false)
+	const [currentPage, setCurrentPage] = useState(1)
+	const [carsPerPage] = useState(10)
+	const [totalPages, setTotalPages] = useState(1)
+	const [hasMore, setHasMore] = useState(false)
+	const [filterStatus, setFilterStatus] = useState('all')
+	const [sortBy, setSortBy] = useState('latest')
 
 	const fetchData = useCallback(async () => {
 		setIsLoading(true)
@@ -129,29 +137,163 @@ export default function DealerAnalyticsPage() {
 			if (analyticsError) throw analyticsError
 			setAnalytics(analyticsData)
 
-			const { data: carsData, error: carsError } = await supabase
+			let query = supabase
 				.from('cars')
-				.select('id, make, model, year, views, likes, price, status')
+				.select('*', { count: 'exact' })
 				.eq('dealership_id', dealershipData.id)
-				.order('views', { ascending: false })
 
-			if (carsError) throw carsError
-			setCars(carsData)
+			if (filterStatus !== 'all') {
+				query = query.eq('status', filterStatus)
+			}
+
+			if (sortBy === 'latest') {
+				query = query.order('listed_at', { ascending: false })
+			} else if (sortBy === 'views') {
+				query = query.order('views', { ascending: false })
+			} else if (sortBy === 'likes') {
+				query = query.order('likes', { ascending: false })
+			}
+
+			const { data, error, count } = await query.range(
+				(currentPage - 1) * carsPerPage,
+				currentPage * carsPerPage - 1
+			)
+
+			if (error) throw error
+
+			setCars(data || [])
+			setTotalPages(Math.ceil((count || 0) / carsPerPage))
 		} catch (err: any) {
 			setError(err.message)
 		} finally {
 			setIsLoading(false)
 		}
-	}, [user, timeRange])
+	}, [user, currentPage, carsPerPage, filterStatus, sortBy])
 
 	useEffect(() => {
 		fetchData()
-	}, [fetchData])
+	}, [fetchData, currentPage, filterStatus, sortBy])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		fetchData().then(() => setRefreshing(false))
 	}, [fetchData])
+
+	const CarListing = () => {
+		const getFilterStatusLabel = (value: string) => {
+			const item = [
+				{ label: 'All', value: 'all' },
+				{ label: 'Available', value: 'available' },
+				{ label: 'Sold', value: 'sold' },
+				{ label: 'Pending', value: 'pending' }
+			].find(item => item.value === value)
+			return item ? item.label : ''
+		}
+
+		const getSortByLabel = (value: string) => {
+			const item = [
+				{ label: 'Latest', value: 'latest' },
+				{ label: 'Most Viewed', value: 'views' },
+				{ label: 'Most Liked', value: 'likes' }
+			].find(item => item.value === value)
+			return item ? item.label : ''
+		}
+
+		return (
+			<View
+				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
+					isDarkMode ? 'bg-gray' : 'bg-white'
+				}`}>
+				<Text
+					className={`text-xl font-semibold mb-2 ${
+						isDarkMode ? 'text-white' : 'text-night'
+					}`}>
+					Car Listings
+				</Text>
+
+				<View className='flex-row justify-between items-center mb-4'>
+					<View className='flex-1 mr-2'>
+						<Text className={` ${isDarkMode ? 'text-white' : 'text-night'}`}>
+							Status:
+						</Text>
+						<RNPickerSelect
+							onValueChange={value => {
+								setFilterStatus(value)
+								setCurrentPage(1)
+							}}
+							items={[
+								{ label: 'All', value: 'all' },
+								{ label: 'Available', value: 'available' },
+								{ label: 'Sold', value: 'sold' },
+								{ label: 'Pending', value: 'pending' }
+							]}
+							style={pickerSelectStyles}
+							value={filterStatus}
+							placeholder={{}}
+						/>
+					</View>
+					<View className='flex-1 ml-2'>
+						<Text className={`${isDarkMode ? 'text-white' : 'text-night'}`}>
+							Sort by:
+						</Text>
+						<RNPickerSelect
+							onValueChange={value => {
+								setSortBy(value)
+								setCurrentPage(1)
+							}}
+							items={[
+								{ label: 'Latest', value: 'latest' },
+								{ label: 'Most Viewed', value: 'views' },
+								{ label: 'Most Liked', value: 'likes' }
+							]}
+							style={pickerSelectStyles}
+							value={sortBy}
+							placeholder={{}}
+						/>
+					</View>
+				</View>
+
+				<FlatList
+					data={cars}
+					renderItem={renderCarItem}
+					keyExtractor={item =>
+						`${item.id}-${item.make}-${item.model}-${Math.random()}`
+					}
+					ListEmptyComponent={
+						<Text
+							className={`text-center py-4 ${
+								isDarkMode ? 'text-red' : 'text-gray'
+							}`}>
+							No car data available
+						</Text>
+					}
+				/>
+
+				<View className='flex-row justify-between items-center mt-4'>
+					<TouchableOpacity
+						onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+						disabled={currentPage === 1}>
+						<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
+							Previous
+						</Text>
+					</TouchableOpacity>
+					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+						Page {currentPage} of {totalPages}
+					</Text>
+					<TouchableOpacity
+						onPress={() =>
+							setCurrentPage(prev => Math.min(totalPages, prev + 1))
+						}
+						disabled={currentPage === totalPages}>
+						<Text
+							className={currentPage === totalPages ? 'text-gray' : 'text-red'}>
+							Next
+						</Text>
+					</TouchableOpacity>
+				</View>
+			</View>
+		)
+	}
 
 	const renderCarItem = useCallback(
 		({ item }: any) => (
@@ -278,15 +420,6 @@ export default function DealerAnalyticsPage() {
 			}
 		]
 	}, [analytics, isDarkMode])
-
-	const getRandomColor = () => {
-		const letters = '0123456789ABCDEF'
-		let color = '#'
-		for (let i = 0; i < 6; i++) {
-			color += letters[Math.floor(Math.random() * 16)]
-		}
-		return color
-	}
 
 	const categoryColors = {
 		Sedan: '#4285F4', // Blue
@@ -775,33 +908,30 @@ export default function DealerAnalyticsPage() {
 					</Text>
 				</View>
 			</View>
-
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Individual Car Analytics
-				</Text>
-				<FlatList
-					data={cars}
-					renderItem={renderCarItem}
-					keyExtractor={item =>
-						`${item.id}-${item.make}-${item.model}-${Math.random()}`
-					}
-					ListEmptyComponent={
-						<Text
-							className={`text-center py-4 ${
-								isDarkMode ? 'text-red' : 'text-gray'
-							}`}>
-							No car data available
-						</Text>
-					}
-				/>
-			</View>
+			<CarListing />
 		</ScrollView>
 	)
 }
+
+const pickerSelectStyles = StyleSheet.create({
+	inputIOS: {
+		fontSize: 16,
+		paddingVertical: 12,
+		paddingHorizontal: 10,
+		borderWidth: 1,
+		borderColor: 'gray',
+		borderRadius: 4,
+		color: 'black',
+		paddingRight: 30
+	},
+	inputAndroid: {
+		fontSize: 16,
+		paddingHorizontal: 10,
+		paddingVertical: 8,
+		borderWidth: 1,
+		borderColor: 'gray',
+		borderRadius: 8,
+		color: 'black',
+		paddingRight: 30
+	}
+})
