@@ -44,6 +44,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 			}}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View
+				className='border-b border-red'
 				style={{
 					flexDirection: 'row',
 					alignItems: 'center',

@@ -52,7 +52,8 @@ const CustomHeader = ({ title }: any) => {
 					justifyContent: 'center', // Centers the content horizontally
 					paddingHorizontal: 0,
 					paddingBottom: 9
-				}}>
+				}}
+				className='border-b border-red'>
 				<Text
 					style={{
 						fontSize: 20,
@@ -282,7 +283,7 @@ export default function SalesHistoryPage() {
 			<View className='flex-1 px-4'>
 				<View className='flex-row justify-between items-center mb-4'>
 					<Text
-						className={`text-2xl font-bold ${
+						className={`text-2xl mt-4 font-bold ${
 							isDarkMode ? 'text-white' : 'text-black'
 						}`}>
 						Sales History

@@ -31,7 +31,7 @@ const CustomHeader = ({ title }: { title: string }) => {
 			edges={['top']}
 			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center justify-center pb-2'>
+			<View className='flex-row items-center border-b border-red justify-center pb-2'>
 				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
