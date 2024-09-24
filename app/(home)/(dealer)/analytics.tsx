@@ -93,65 +93,198 @@ const ChartContainer = ({
 	)
 }
 
+const CarListing = ({ dealershipId, isDarkMode }: any) => {
+	const router = useRouter()
+	const [cars, setCars] = useState<any>([])
+	const [isLoadingCars, setIsLoadingCars] = useState<any>(false)
+	const [currentPage, setCurrentPage] = useState<any>(1)
+	const [totalPages, setTotalPages] = useState<any>(1)
+	const [filterStatus, setFilterStatus] = useState<any>('all')
+	const [sortBy, setSortBy] = useState<any>('latest')
+	const carsPerPage = 10
+
+	const fetchCarData = useCallback(async () => {
+		if (!dealershipId) return
+		setIsLoadingCars(true)
+		try {
+			let query = supabase
+				.from('cars')
+				.select('*', { count: 'exact' })
+				.eq('dealership_id', dealershipId)
+
+			if (filterStatus !== 'all') {
+				query = query.eq('status', filterStatus)
+			}
+
+			if (sortBy === 'latest') {
+				query = query.order('listed_at', { ascending: false })
+			} else if (sortBy === 'views') {
+				query = query.order('views', { ascending: false })
+			} else if (sortBy === 'likes') {
+				query = query.order('likes', { ascending: false })
+			}
+
+			const { data, error, count } = await query.range(
+				(currentPage - 1) * carsPerPage,
+				currentPage * carsPerPage - 1
+			)
+
+			if (error) throw error
+
+			setCars(data || [])
+			setTotalPages(Math.ceil((count || 0) / carsPerPage))
+		} catch (err) {
+			console.error('Error fetching car data:', err)
+		} finally {
+			setIsLoadingCars(false)
+		}
+	}, [dealershipId, currentPage, filterStatus, sortBy])
+
+	useEffect(() => {
+		fetchCarData()
+	}, [fetchCarData])
+
+	const renderCarItem = ({ item }: any) => (
+		<TouchableOpacity
+			className={`border border-red ${
+				isDarkMode ? 'bg-gray' : 'bg-white'
+			} p-4 mb-2 rounded-lg flex-row justify-between items-center`}
+			onPress={() => router.push(`/car-analytics/${item.id}`)}>
+			<View>
+				<Text
+					className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
+					{item.year} {item.make} {item.model}
+				</Text>
+				<Text className='text-red'>
+					Views: {item.views} | Likes: {item.likes}
+				</Text>
+				<Text className={isDarkMode ? 'text-light-secondary' : 'text-gray'}>
+					Price: ${item.price.toLocaleString()} | Status: {item.status}
+				</Text>
+			</View>
+			<Ionicons
+				name='chevron-forward'
+				size={24}
+				color={isDarkMode ? '#ffffff' : '#D55004'}
+			/>
+		</TouchableOpacity>
+	)
+
+	return (
+		<View
+			className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
+				isDarkMode ? 'bg-gray' : 'bg-white'
+			}`}>
+			<Text
+				className={`text-xl font-semibold mb-2 ${
+					isDarkMode ? 'text-white' : 'text-night'
+				}`}>
+				Car Listings
+			</Text>
+
+			<View className='flex-row justify-between items-center mb-4'>
+				<View className='flex-1 mr-2'>
+					<Text className={`mb-1 ${isDarkMode ? 'text-white' : 'text-night'}`}>
+						Status:
+					</Text>
+					<RNPickerSelect
+						onValueChange={value => {
+							setFilterStatus(value)
+							setCurrentPage(1)
+						}}
+						items={[
+							{ label: 'All', value: 'all' },
+							{ label: 'Available', value: 'available' },
+							{ label: 'Sold', value: 'sold' },
+							{ label: 'Pending', value: 'pending' }
+						]}
+						style={pickerSelectStyles}
+						value={filterStatus}
+						placeholder={{}}
+					/>
+				</View>
+				<View className='flex-1 ml-2'>
+					<Text className={`mb-1 ${isDarkMode ? 'text-white' : 'text-night'}`}>
+						Sort by:
+					</Text>
+					<RNPickerSelect
+						onValueChange={value => {
+							setSortBy(value)
+							setCurrentPage(1)
+						}}
+						items={[
+							{ label: 'Latest', value: 'latest' },
+							{ label: 'Most Viewed', value: 'views' },
+							{ label: 'Most Liked', value: 'likes' }
+						]}
+						style={pickerSelectStyles}
+						value={sortBy}
+						placeholder={{}}
+					/>
+				</View>
+			</View>
+
+			{isLoadingCars ? (
+				<ActivityIndicator size='large' color='#D55004' />
+			) : (
+				<>
+					<FlatList
+						data={cars}
+						renderItem={renderCarItem}
+						keyExtractor={item =>
+							`${item.id}-${item.make}-${item.model}-${Math.random()}`
+						}
+						ListEmptyComponent={
+							<Text
+								className={`text-center py-4 ${
+									isDarkMode ? 'text-red' : 'text-gray'
+								}`}>
+								No car data available
+							</Text>
+						}
+					/>
+
+					<View className='flex-row justify-between items-center mt-4'>
+						<TouchableOpacity
+							onPress={() =>
+								setCurrentPage((prev: any) => Math.max(1, prev - 1))
+							}
+							disabled={currentPage === 1}>
+							<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
+								Previous
+							</Text>
+						</TouchableOpacity>
+						<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+							Page {currentPage} of {totalPages}
+						</Text>
+						<TouchableOpacity
+							onPress={() =>
+								setCurrentPage((prev: any) => Math.min(totalPages, prev + 1))
+							}
+							disabled={currentPage === totalPages}>
+							<Text
+								className={
+									currentPage === totalPages ? 'text-gray' : 'text-red'
+								}>
+								Next
+							</Text>
+						</TouchableOpacity>
+					</View>
+				</>
+			)}
+		</View>
+	)
+}
+
 export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
-	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
 	const [analytics, setAnalytics] = useState<any>(null)
-	const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week')
-	const [cars, setCars] = useState<any>([])
-	const [isLoading, setIsLoading] = useState<boolean>(true)
-	const [error, setError] = useState<string | null>(null)
-	const [refreshing, setRefreshing] = useState<boolean>(false)
-	const [currentPage, setCurrentPage] = useState(1)
-	const [carsPerPage] = useState(10)
-	const [totalPages, setTotalPages] = useState(1)
-	const [hasMore, setHasMore] = useState(false)
-	const [filterStatus, setFilterStatus] = useState('all')
-	const [sortBy, setSortBy] = useState('latest')
-	const [isLoadingCars, setIsLoadingCars] = useState(false)
-
-	const fetchCarData = useCallback(
-		async (dealershipId: any) => {
-			if (!dealershipId) return
-			setIsLoadingCars(true)
-			try {
-				let query = supabase
-					.from('cars')
-					.select('*', { count: 'exact' })
-					.eq('dealership_id', dealershipId)
-
-				if (filterStatus !== 'all') {
-					query = query.eq('status', filterStatus)
-				}
-
-				if (sortBy === 'latest') {
-					query = query.order('listed_at', { ascending: false })
-				} else if (sortBy === 'views') {
-					query = query.order('views', { ascending: false })
-				} else if (sortBy === 'likes') {
-					query = query.order('likes', { ascending: false })
-				}
-
-				const { data, error, count } = await query.range(
-					(currentPage - 1) * carsPerPage,
-					currentPage * carsPerPage - 1
-				)
-
-				if (error) throw error
-
-				setCars(data || [])
-				setTotalPages(Math.ceil((count || 0) / carsPerPage))
-				setHasMore(currentPage * carsPerPage < (count || 0))
-			} catch (err) {
-				console.error('Error fetching car data:', err)
-			} finally {
-				setIsLoadingCars(false)
-			}
-		},
-		[currentPage, carsPerPage, filterStatus, sortBy]
-	)
+	const [timeRange, setTimeRange] = useState<any>('week')
+	const [isLoading, setIsLoading] = useState<any>(true)
+	const [error, setError] = useState<any>(null)
+	const [refreshing, setRefreshing] = useState<any>(false)
 
 	// Modify the existing fetchData function
 	const fetchData = useCallback(async () => {
@@ -178,164 +311,21 @@ export default function DealerAnalyticsPage() {
 
 			if (analyticsError) throw analyticsError
 			setAnalytics(analyticsData)
-
-			// Fetch initial car data
-			await fetchCarData(dealershipData.id)
 		} catch (err: any) {
 			setError(err.message)
 		} finally {
 			setIsLoading(false)
 		}
-	}, [user, timeRange, fetchCarData])
+	}, [user, timeRange])
 
 	useEffect(() => {
 		fetchData()
 	}, [fetchData])
 
-	useEffect(() => {
-		if (dealership) {
-			fetchCarData(dealership.id)
-		}
-	}, [fetchCarData, dealership, currentPage, filterStatus, sortBy])
-
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		fetchData().then(() => setRefreshing(false))
 	}, [fetchData])
-
-	const CarListing = () => {
-		return (
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Car Listings
-				</Text>
-
-				<View className='flex-row justify-between items-center mb-4'>
-					<View className='flex-1 mr-2'>
-						<Text className={`${isDarkMode ? 'text-white' : 'text-night'}`}>
-							Status:
-						</Text>
-						<RNPickerSelect
-							onValueChange={value => {
-								setFilterStatus(value)
-								setCurrentPage(1)
-							}}
-							items={[
-								{ label: 'All', value: 'all' },
-								{ label: 'Available', value: 'available' },
-								{ label: 'Sold', value: 'sold' },
-								{ label: 'Pending', value: 'pending' }
-							]}
-							style={pickerSelectStyles}
-							value={filterStatus}
-							placeholder={{}}
-						/>
-					</View>
-					<View className='flex-1 ml-2'>
-						<Text className={`${isDarkMode ? 'text-white' : 'text-night'}`}>
-							Sort by:
-						</Text>
-						<RNPickerSelect
-							onValueChange={value => {
-								setSortBy(value)
-								setCurrentPage(1)
-							}}
-							items={[
-								{ label: 'Latest', value: 'latest' },
-								{ label: 'Most Viewed', value: 'views' },
-								{ label: 'Most Liked', value: 'likes' }
-							]}
-							style={pickerSelectStyles}
-							value={sortBy}
-							placeholder={{}}
-						/>
-					</View>
-				</View>
-
-				{isLoadingCars ? (
-					<ActivityIndicator size='large' color='#D55004' />
-				) : (
-					<>
-						<FlatList
-							data={cars}
-							renderItem={renderCarItem}
-							keyExtractor={item =>
-								`${item.id}-${item.make}-${item.model}-${Math.random()}`
-							}
-							ListEmptyComponent={
-								<Text
-									className={`text-center py-4 ${
-										isDarkMode ? 'text-red' : 'text-gray'
-									}`}>
-									No car data available
-								</Text>
-							}
-						/>
-
-						<View className='flex-row justify-between items-center mt-4'>
-							<TouchableOpacity
-								onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-								disabled={currentPage === 1}>
-								<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
-									Previous
-								</Text>
-							</TouchableOpacity>
-							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-								Page {currentPage} of {totalPages}
-							</Text>
-							<TouchableOpacity
-								onPress={() =>
-									setCurrentPage(prev => Math.min(totalPages, prev + 1))
-								}
-								disabled={currentPage === totalPages}>
-								<Text
-									className={
-										currentPage === totalPages ? 'text-gray' : 'text-red'
-									}>
-									Next
-								</Text>
-							</TouchableOpacity>
-						</View>
-					</>
-				)}
-			</View>
-		)
-	}
-
-	const renderCarItem = useCallback(
-		({ item }: any) => (
-			<TouchableOpacity
-				className={`border border-red ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				} p-4 mb-2 rounded-lg flex-row justify-between items-center`}
-				onPress={() => router.push(`/car-analytics/${item.id}`)}>
-				<View>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{item.year} {item.make} {item.model}
-					</Text>
-					<Text className='text-red'>
-						Views: {item.views} | Likes: {item.likes}
-					</Text>
-					<Text className={isDarkMode ? 'text-light-secondary' : 'text-gray'}>
-						Price: ${item.price.toLocaleString()} | Status: {item.status}
-					</Text>
-				</View>
-				<Ionicons
-					name='chevron-forward'
-					size={24}
-					color={isDarkMode ? '#ffffff' : '#D55004'}
-				/>
-			</TouchableOpacity>
-		),
-		[isDarkMode, router]
-	)
 
 	const getDateRange = useMemo(() => {
 		const endDate = new Date()
@@ -921,7 +911,9 @@ export default function DealerAnalyticsPage() {
 					</Text>
 				</View>
 			</View>
-			<CarListing />
+			{dealership && (
+				<CarListing dealershipId={dealership.id} isDarkMode={isDarkMode} />
+			)}
 		</ScrollView>
 	)
 }
