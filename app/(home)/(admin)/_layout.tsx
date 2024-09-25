@@ -1,9 +1,26 @@
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { useTheme } from '@/utils/ThemeContext'
 
 export default function AdminLayout() {
+	const { isDarkMode } = useTheme()
 	return (
-		<Tabs>
+		<Tabs
+			screenOptions={{
+				headerStyle: {
+					backgroundColor: isDarkMode ? 'black' : 'white',
+					borderBottomWidth: 0,
+					borderTopWidth: 0,
+					borderWidth: 0
+				},
+				headerTintColor: '#D55004',
+				tabBarStyle: {
+					backgroundColor: isDarkMode ? 'black' : 'white'
+				},
+				tabBarActiveTintColor: '#D55004',
+				tabBarInactiveTintColor: isDarkMode ? 'white' : 'black',
+				headerShown: false
+			}}>
 			<Tabs.Screen
 				name='index'
 				options={{
