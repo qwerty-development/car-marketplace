@@ -30,30 +30,13 @@ export default function AdminLayout() {
 					)
 				}}
 			/>
+
 			<Tabs.Screen
-				name='browse'
+				name='users'
 				options={{
-					title: 'Browse Cars',
+					title: 'Users',
 					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='car' size={size} color={color} />
-					)
-				}}
-			/>
-			<Tabs.Screen
-				name='admin'
-				options={{
-					title: 'Admin',
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='settings' size={size} color={color} />
-					)
-				}}
-			/>
-			<Tabs.Screen
-				name='listings'
-				options={{
-					title: 'All Listings',
-					tabBarIcon: ({ color, size }) => (
-						<Ionicons name='list' size={size} color={color} />
+						<Ionicons name='people' size={size} color={color} />
 					)
 				}}
 			/>
