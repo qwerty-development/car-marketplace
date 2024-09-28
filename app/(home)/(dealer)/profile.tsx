@@ -273,7 +273,7 @@ export default function DealershipProfilePage() {
 		<>
 			<CustomHeader title='Dealership Profile' />
 			<ScrollView
-				className={`flex-1 ${isDarkMode ? 'bg-gray' : 'bg-white'}`}
+				className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}
 				refreshControl={
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
 				}>
@@ -297,7 +297,7 @@ export default function DealershipProfilePage() {
 						className='w-36 h-36 rounded-full border-4 border-white mb-6'
 					/>
 					<TouchableOpacity
-						className='bg-emerald-400 px-6 py-3 rounded-full shadow-md flex-row items-center'
+						className='bg-blue-500 px-6 py-3 rounded-full shadow-md flex-row items-center'
 						onPress={pickImage}
 						disabled={isUploading}>
 						{isUploading ? (
@@ -331,7 +331,7 @@ export default function DealershipProfilePage() {
 
 					<View
 						className={`${
-							isDarkMode ? 'bg-gray' : 'bg-white'
+							isDarkMode ? 'bg-night' : 'bg-white'
 						} rounded-2xl shadow-md p-6 mb-8`}>
 						<Text
 							className={`${
@@ -341,7 +341,7 @@ export default function DealershipProfilePage() {
 						</Text>
 						<TextInput
 							className={`${
-								isDarkMode ? 'bg-gray text-white' : ' text-black'
+								isDarkMode ? 'bg-night text-white' : ' text-black'
 							} p-4 rounded-xl mb-4 border border-red`}
 							value={name}
 							onChangeText={setName}
@@ -357,7 +357,7 @@ export default function DealershipProfilePage() {
 						</Text>
 						<TextInput
 							className={`${
-								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
 							} p-4 rounded-xl mb-4 border border-red`}
 							value={location}
 							onChangeText={setLocation}
@@ -373,12 +373,12 @@ export default function DealershipProfilePage() {
 						</Text>
 						<TextInput
 							className={`${
-								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
 							} p-4 rounded-xl mb-4 border border-red`}
-							value={phone}
+							value={phone.toString()}
 							onChangeText={setPhone}
 							placeholder='Enter your contact number'
-							keyboardType='phone-pad'
+							keyboardType='numeric'
 							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
 						/>
 
@@ -391,7 +391,7 @@ export default function DealershipProfilePage() {
 						<View className='flex-row items-center mb-4'>
 							<TextInput
 								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
 								} p-4 rounded-xl flex-1 mr-2 border border-red`}
 								value={latitude}
 								onChangeText={setLatitude}
@@ -403,7 +403,7 @@ export default function DealershipProfilePage() {
 							/>
 							<TextInput
 								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
 								} p-4 rounded-xl flex-1 ml-2 border border-red`}
 								value={longitude}
 								onChangeText={setLongitude}
@@ -447,7 +447,7 @@ export default function DealershipProfilePage() {
 						</Text>
 						<Text
 							className={`${
-								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
 							} p-4 rounded-xl mb-4 border border-red`}>
 							{user?.emailAddresses[0].emailAddress}
 						</Text>
@@ -460,7 +460,7 @@ export default function DealershipProfilePage() {
 						</Text>
 						<Text
 							className={`${
-								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
 							} p-4 rounded-xl mb-6 border border-red`}>
 							{dealership?.subscription_end_date
 								? new Date(
@@ -470,7 +470,7 @@ export default function DealershipProfilePage() {
 						</Text>
 
 						<TouchableOpacity
-							className='bg-orange-500 p-4 rounded-xl items-center mt-4 flex-row justify-center'
+							className='bg-red p-4 rounded-xl items-center mt-4 flex-row justify-center'
 							onPress={updateProfile}>
 							<Ionicons
 								name='save-outline'
@@ -499,7 +499,7 @@ export default function DealershipProfilePage() {
 					</View>
 
 					<TouchableOpacity
-						className='bg-rose-700 p-5 mb-24 rounded-xl items-center flex-row justify-center'
+						className='bg-rose-600 p-5 mb-24 rounded-xl items-center flex-row justify-center'
 						onPress={() => signOut()}>
 						<Ionicons
 							name='log-out-outline'
