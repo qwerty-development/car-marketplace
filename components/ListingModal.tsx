@@ -320,6 +320,16 @@ const ListingModal = ({
 							className={`bg-${
 								isDarkMode ? 'night' : 'white'
 							} rounded-t-3xl p-6 h-5/6`}>
+							<TouchableOpacity
+								onPress={onClose}
+								className='absolute top-4 right-4 z-10'>
+								<Ionicons
+									name='close-circle'
+									size={32}
+									color={isDarkMode ? '#D55004' : '#FF8C00'}
+								/>
+							</TouchableOpacity>
+
 							<ScrollView showsVerticalScrollIndicator={false}>
 								<Text
 									className={`text-2xl font-bold mb-6 ${
