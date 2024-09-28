@@ -8,16 +8,18 @@ import {
 	Alert,
 	Image,
 	RefreshControl,
-	StatusBar
+	StatusBar,
+	TextInput
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { Ionicons, FontAwesome } from '@expo/vector-icons'
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Dropdown } from 'react-native-element-dropdown'
 import ListingModal from '@/components/ListingModal'
 import { LinearGradient } from 'expo-linear-gradient'
 import SortPicker from '@/components/SortPicker'
+import { BlurView } from 'expo-blur'
 
 const ITEMS_PER_PAGE = 10
 
@@ -28,10 +30,92 @@ const CustomHeader = ({ title }: any) => {
 			edges={['top']}
 			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center border-b border-red justify-center pb-2'>
-				<Text className='text-xl font-semibold text-red'>{title}</Text>
+			<View className='flex-row items-center justify-center py-4'>
+				<Text className='text-2xl font-bold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
+	)
+}
+
+const ListingCard = ({ item, onEdit, onDelete, isDarkMode }: any) => {
+	return (
+		<View
+			className={`bg-${
+				isDarkMode ? 'gray' : 'white'
+			} rounded-lg shadow-lg mb-4 overflow-hidden`}>
+			<Image
+				source={{ uri: item.images[0] }}
+				className='w-full h-48 object-cover'
+			/>
+			<LinearGradient
+				colors={['rgba(0,0,0,0.8)', 'transparent']}
+				className='absolute top-0 left-0 right-0 h-16 flex-row justify-between items-center px-4'>
+				<Text className='text-white font-bold'>
+					{item.year} {item.make} {item.model}
+				</Text>
+				<Text className='text-red text-lg font-semibold'>
+					${item.price.toLocaleString()}
+				</Text>
+			</LinearGradient>
+			<BlurView
+				intensity={80}
+				tint={isDarkMode ? 'dark' : 'light'}
+				className='p-4'>
+				<View className='flex-row justify-between items-center mb-2'>
+					<View className='flex-row items-center'>
+						<FontAwesome5
+							name='car'
+							size={16}
+							color={isDarkMode ? '#fff' : '#000'}
+						/>
+						<Text
+							className={`ml-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
+							{item.status}
+						</Text>
+					</View>
+					<View className='flex-row items-center'>
+						<Ionicons
+							name='eye'
+							size={16}
+							color={isDarkMode ? '#fff' : '#000'}
+						/>
+						<Text
+							className={`ml-1 ${isDarkMode ? 'text-white' : 'text-black'}`}>
+							{item.views}
+						</Text>
+						<Ionicons
+							name='heart'
+							size={16}
+							color={isDarkMode ? '#fff' : '#000'}
+							className='ml-3'
+						/>
+						<Text
+							className={`ml-1 ${isDarkMode ? 'text-white' : 'text-black'}`}>
+							{item.likes}
+						</Text>
+					</View>
+				</View>
+				<Text
+					className={`${isDarkMode ? 'text-white' : 'text-black'} mb-2`}
+					numberOfLines={2}>
+					{item.description}
+				</Text>
+				<View className='flex-row justify-between mt-2'>
+					<TouchableOpacity
+						onPress={() => onEdit(item)}
+						className='bg-blue-500 px-4 py-2 rounded-full flex-row items-center'>
+						<FontAwesome5 name='edit' size={16} color='white' />
+						<Text className='text-white ml-2'>Edit</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						onPress={() => onDelete(item.id)}
+						className='bg-rose-500 px-4 py-2 rounded-full flex-row items-center'>
+						<FontAwesome5 name='trash-alt' size={16} color='white' />
+						<Text className='text-white ml-2'>Delete</Text>
+					</TouchableOpacity>
+				</View>
+			</BlurView>
+		</View>
 	)
 }
 
@@ -49,6 +133,7 @@ export default function AdminBrowseScreen() {
 	const [refreshing, setRefreshing] = useState<any>(false)
 	const [currentPage, setCurrentPage] = useState<any>(1)
 	const [totalPages, setTotalPages] = useState<any>(1)
+	const [searchQuery, setSearchQuery] = useState<any>('')
 
 	useEffect(() => {
 		fetchDealerships()
@@ -56,7 +141,14 @@ export default function AdminBrowseScreen() {
 
 	useEffect(() => {
 		fetchListings()
-	}, [sortBy, sortOrder, filterStatus, selectedDealership, currentPage])
+	}, [
+		sortBy,
+		sortOrder,
+		filterStatus,
+		selectedDealership,
+		currentPage,
+		searchQuery
+	])
 
 	const fetchDealerships = async () => {
 		try {
@@ -83,6 +175,12 @@ export default function AdminBrowseScreen() {
 
 			if (filterStatus !== 'all') {
 				query = query.eq('status', filterStatus)
+			}
+
+			if (searchQuery) {
+				query = query.or(
+					`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,year.ilike.%${searchQuery}%`
+				)
 			}
 
 			const { data, count, error } = await query.range(
@@ -169,183 +267,166 @@ export default function AdminBrowseScreen() {
 		[]
 	)
 
-	const renderListingItem = ({ item }: any) => (
-		<View
-			className={`bg-${
-				isDarkMode ? 'gray' : 'white'
-			} rounded-lg shadow-md mb-4 overflow-hidden`}>
-			<Image
-				source={{ uri: item.images[0] }}
-				className='w-full h-48 object-cover'
-			/>
-			<View className='p-4'>
-				<Text
-					className={`text-lg font-bold ${
-						isDarkMode ? 'text-white' : 'text-black'
-					}`}>
-					{item.year} {item.make} {item.model}
-				</Text>
-				<Text className='text-red text-xl font-semibold mt-1'>
-					${item.price.toLocaleString()}
-				</Text>
-				<Text className={`${isDarkMode ? 'text-white' : 'text-gray'} mt-1`}>
-					Status: {item.status}
-				</Text>
-				<Text className={`${isDarkMode ? 'text-white' : 'text-gray'} mt-1`}>
-					Views: {item.views} | Likes: {item.likes}
-				</Text>
-				<View className='flex-row justify-between mt-4'>
-					<TouchableOpacity
-						onPress={() => handleEditListing(item)}
-						className='bg-blue-500 px-4 py-2 rounded-full flex-row items-center'>
-						<FontAwesome name='edit' size={16} color='white' />
-						<Text className='text-white ml-2'>Edit</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						onPress={() => handleDeleteListing(item.id)}
-						className='bg-rose-500 px-4 py-2 rounded-full flex-row items-center'>
-						<FontAwesome name='trash' size={16} color='white' />
-						<Text className='text-white ml-2'>Delete</Text>
-					</TouchableOpacity>
-				</View>
-			</View>
-		</View>
-	)
-
 	return (
 		<LinearGradient
 			colors={isDarkMode ? ['#1A1A1A', '#2D2D2D'] : ['#F5F5F5', '#E0E0E0']}
 			className='flex-1'>
 			<CustomHeader title='Manage Listings' />
-			<View className='flex-1 px-4 pt-4'>
-				<View className='mb-4'>
-					<Dropdown
-						style={[
-							styles.dropdown,
-							{ backgroundColor: isDarkMode ? '#333' : 'white' }
-						]}
-						placeholderStyle={styles.placeholderStyle}
-						selectedTextStyle={styles.selectedTextStyle}
-						inputSearchStyle={styles.inputSearchStyle}
-						data={[
-							{ label: 'All Dealerships', value: null },
-							...dealerships.map((d: { name: any; id: any }) => ({
-								label: d.name,
-								value: d.id
-							}))
-						]}
-						search
-						maxHeight={300}
-						labelField='label'
-						valueField='value'
-						placeholder='Select Dealership'
-						searchPlaceholder='Search...'
-						value={selectedDealership?.id}
-						onChange={item => {
-							setSelectedDealership(
-								dealerships.find((d: { id: any }) => d.id === item.value) ||
-									null
-							)
-							setCurrentPage(1)
-						}}
-					/>
-				</View>
-
-				<View className='flex-row justify-between mb-4'>
-					<Dropdown
-						style={[
-							styles.dropdown,
-
-							{ backgroundColor: isDarkMode ? '#333' : 'white' }
-						]}
-						placeholderStyle={styles.placeholderStyle}
-						selectedTextStyle={styles.selectedTextStyle}
-						inputSearchStyle={styles.inputSearchStyle}
-						data={[
-							{ label: 'All', value: 'all' },
-							{ label: 'Available', value: 'available' },
-							{ label: 'Pending', value: 'pending' },
-							{ label: 'Sold', value: 'sold' }
-						]}
-						maxHeight={300}
-						labelField='label'
-						valueField='value'
-						placeholder='Filter Status'
-						value={filterStatus}
-						onChange={item => {
-							setFilterStatus(item.value)
-							setCurrentPage(1)
-						}}
-					/>
-
-					<View className='mt-3'>
-						<SortPicker
-							onValueChange={handleSortChange}
-							initialValue={{ label: 'Newest', value: 'listed_at_desc' }}
+			<FlatList
+				ListHeaderComponent={
+					<View className='px-4 pt-4'>
+						<TextInput
+							className={`bg-${isDarkMode ? 'gray' : 'white'} text-${
+								isDarkMode ? 'white' : 'black'
+							} rounded-full px-4 py-2 mb-4`}
+							placeholder='Search listings...'
+							placeholderTextColor={isDarkMode ? '#999' : '#666'}
+							value={searchQuery}
+							onChangeText={setSearchQuery}
+							onSubmitEditing={() => fetchListings()}
 						/>
-					</View>
-				</View>
 
-				<FlatList
-					data={listings}
-					renderItem={renderListingItem}
-					keyExtractor={item => item.id.toString()}
-					ListEmptyComponent={
-						<Text
-							className={`text-center mt-4 ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}>
-							No listings found
-						</Text>
-					}
-					refreshControl={
-						<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-					}
-					ListFooterComponent={() =>
-						isLoading ? (
-							<ActivityIndicator
-								size='large'
-								color='#D55004'
-								style={{ marginVertical: 20 }}
+						<View className='mb-4'>
+							<Dropdown
+								style={[
+									styles.dropdown,
+									{ backgroundColor: isDarkMode ? '#333' : 'white' }
+								]}
+								placeholderStyle={styles.placeholderStyle}
+								selectedTextStyle={styles.selectedTextStyle}
+								inputSearchStyle={styles.inputSearchStyle}
+								data={[
+									{ label: 'All Dealerships', value: null },
+									...dealerships.map((d: { name: any; id: any }) => ({
+										label: d.name,
+										value: d.id
+									}))
+								]}
+								search
+								maxHeight={300}
+								labelField='label'
+								valueField='value'
+								placeholder='Select Dealership'
+								searchPlaceholder='Search...'
+								value={selectedDealership?.id}
+								onChange={item => {
+									setSelectedDealership(
+										dealerships.find((d: { id: any }) => d.id === item.value) ||
+											null
+									)
+									setCurrentPage(1)
+								}}
 							/>
-						) : null
-					}
-				/>
+						</View>
 
-				<View className='flex-row justify-between items-center mt-4 mb-4'>
-					<TouchableOpacity
-						onPress={() =>
-							setCurrentPage((prev: number) => Math.max(1, prev - 1))
-						}
-						disabled={currentPage === 1}
-						className={`px-4 py-2 rounded ${
-							currentPage === 1 ? 'bg-gray' : 'bg-blue-500'
+						<View className='flex-row justify-between mb-4'>
+							<Dropdown
+								style={[
+									styles.dropdown,
+									styles.halfWidth,
+									{ backgroundColor: isDarkMode ? '#333' : 'white' }
+								]}
+								placeholderStyle={styles.placeholderStyle}
+								selectedTextStyle={styles.selectedTextStyle}
+								inputSearchStyle={styles.inputSearchStyle}
+								data={[
+									{ label: 'All', value: 'all' },
+									{ label: 'Available', value: 'available' },
+									{ label: 'Pending', value: 'pending' },
+									{ label: 'Sold', value: 'sold' }
+								]}
+								maxHeight={300}
+								labelField='label'
+								valueField='value'
+								placeholder='Filter Status'
+								value={filterStatus}
+								onChange={item => {
+									setFilterStatus(item.value)
+									setCurrentPage(1)
+								}}
+							/>
+
+							<View
+								style={styles.halfWidth}
+								className='flex-row justify-end py-3'>
+								<SortPicker
+									onValueChange={handleSortChange}
+									initialValue={{ label: 'Newest', value: 'listed_at_desc' }}
+								/>
+							</View>
+						</View>
+					</View>
+				}
+				data={listings}
+				renderItem={({ item }) => (
+					<ListingCard
+						item={item}
+						onEdit={handleEditListing}
+						onDelete={handleDeleteListing}
+						isDarkMode={isDarkMode}
+					/>
+				)}
+				keyExtractor={item => item.id.toString()}
+				contentContainerStyle={{ paddingHorizontal: 16 }}
+				ListEmptyComponent={
+					<Text
+						className={`text-center mt-4 ${
+							isDarkMode ? 'text-white' : 'text-black'
 						}`}>
-						<Text
-							className={`${currentPage === 1 ? 'text-white' : 'text-white'}`}>
-							Previous
-						</Text>
-					</TouchableOpacity>
-					<Text className={isDarkMode ? 'text-white' : 'text-black'}>
-						Page {currentPage} of {totalPages}
+						No listings found
 					</Text>
-					<TouchableOpacity
-						onPress={() =>
-							setCurrentPage((prev: number) => Math.min(totalPages, prev + 1))
-						}
-						disabled={currentPage === totalPages}
-						className={`px-4 py-2 rounded ${
-							currentPage === totalPages ? 'bg-gray' : 'bg-blue-500'
-						}`}>
-						<Text
-							className={`${
-								currentPage === totalPages ? 'text-white' : 'text-white'
-							}`}>
-							Next
-						</Text>
-					</TouchableOpacity>
-				</View>
-			</View>
+				}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+				}
+				ListFooterComponent={() =>
+					isLoading ? (
+						<ActivityIndicator
+							size='large'
+							color='#D55004'
+							style={{ marginVertical: 20 }}
+						/>
+					) : (
+						<View className='flex-row justify-between items-center mt-4 mb-4'>
+							<TouchableOpacity
+								onPress={() =>
+									setCurrentPage((prev: number) => Math.max(1, prev - 1))
+								}
+								disabled={currentPage === 1}
+								className={`px-4 py-2 rounded ${
+									currentPage === 1 ? 'bg-gray' : 'bg-blue-500'
+								}`}>
+								<Text
+									className={`${
+										currentPage === 1 ? 'text-white' : 'text-white'
+									}`}>
+									Previous
+								</Text>
+							</TouchableOpacity>
+							<Text className={isDarkMode ? 'text-white' : 'text-black'}>
+								Page {currentPage} of {totalPages}
+							</Text>
+							<TouchableOpacity
+								onPress={() =>
+									setCurrentPage((prev: number) =>
+										Math.min(totalPages, prev + 1)
+									)
+								}
+								disabled={currentPage === totalPages}
+								className={`px-4 py-2 rounded ${
+									currentPage === totalPages ? 'bg-gray' : 'bg-blue-500'
+								}`}>
+								<Text
+									className={`${
+										currentPage === totalPages ? 'text-white' : 'text-white'
+									}`}>
+									Next
+								</Text>
+							</TouchableOpacity>
+						</View>
+					)
+				}
+			/>
 
 			<ListingModal
 				isVisible={isListingModalVisible}

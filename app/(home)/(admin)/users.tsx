@@ -165,12 +165,14 @@ export default function AdminUserManagement() {
 				isDarkMode ? 'bg-gray' : 'bg-white'
 			} shadow-md`}
 			onPress={() => setSelectedUser(item)}>
-			<Text
-				className={`text-lg font-bold ${
-					isDarkMode ? 'text-white' : 'text-night'
-				}`}>
-				{item.firstName} {item.lastName}
-			</Text>
+			{item.firstName && (
+				<Text
+					className={`text-lg font-bold ${
+						isDarkMode ? 'text-white' : 'text-night'
+					}`}>
+					{item.firstName} {item.lastName}
+				</Text>
+			)}
 			<Text className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
 				{item.emailAddresses[0].emailAddress}
 			</Text>
