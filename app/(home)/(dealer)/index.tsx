@@ -667,7 +667,7 @@ export default function DealerListings() {
 			<CustomHeader title='My Cars' />
 			{error && <Text className='text-red text-center py-2'>{error}</Text>}
 			<View className='px-4 py-2'>
-				<View className='flex-row items-center justify-between mb-4'>
+				<View className='flex-row items-center justify-between -mb-1'>
 					<View className='flex-1 flex-row items-center bg-white dark:bg-gray-800 rounded-full mr-2'>
 						<TextInput
 							className='flex-1 py-2 px-4 text-black dark:text-white'
