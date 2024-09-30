@@ -88,13 +88,6 @@ export default function AdminProfilePage() {
 		}
 	}
 
-	const handleCopyUserId = async () => {
-		if (user?.id) {
-			await Clipboard.setStringAsync(user.id)
-			Alert.alert('Success', 'User ID copied to clipboard')
-		}
-	}
-
 	const handleSignOut = async () => {
 		try {
 			await clerk.signOut()

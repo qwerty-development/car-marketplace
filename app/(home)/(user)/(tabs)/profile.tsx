@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
 import * as ImagePicker from 'expo-image-picker'
-import { Feather } from '@expo/vector-icons'
+import { Feather, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
 
@@ -30,6 +30,10 @@ export default function UserProfileAndSupportPage() {
 	const [lastName, setLastName] = useState('')
 	const [email, setEmail] = useState('')
 	const [refreshing, setRefreshing] = useState(false)
+	const [isChangePasswordMode, setIsChangePasswordMode] = useState(false)
+	const [currentPassword, setCurrentPassword] = useState('')
+	const [newPassword, setNewPassword] = useState('')
+	const [confirmPassword, setConfirmPassword] = useState('')
 
 	useEffect(() => {
 		if (user) {
@@ -54,9 +58,9 @@ export default function UserProfileAndSupportPage() {
 			Alert.alert('Error', 'Failed to update profile')
 		}
 	}
+
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
-		// Fetch updated user data
 		if (user) {
 			setFirstName(user.firstName || '')
 			setLastName(user.lastName || '')
@@ -106,6 +110,28 @@ export default function UserProfileAndSupportPage() {
 		Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}`)
 	}
 
+	const handleChangePassword = async () => {
+		if (newPassword !== confirmPassword) {
+			Alert.alert('Error', 'New passwords do not match')
+			return
+		}
+
+		try {
+			await user?.updatePassword({
+				currentPassword,
+				newPassword
+			})
+			Alert.alert('Success', 'Password changed successfully')
+			setIsChangePasswordMode(false)
+			setCurrentPassword('')
+			setNewPassword('')
+			setConfirmPassword('')
+		} catch (error) {
+			console.error('Error changing password:', error)
+			Alert.alert('Error', 'Failed to change password')
+		}
+	}
+
 	return (
 		<ScrollView
 			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
@@ -128,9 +154,7 @@ export default function UserProfileAndSupportPage() {
 				<TouchableOpacity
 					className='bg-white px-6 py-3 rounded-full shadow-md'
 					onPress={onPickImage}>
-					<Text className='text-red-600 font-semibold text-lg'>
-						Change Picture
-					</Text>
+					<Text className='text-red font-semibold text-lg'>Change Picture</Text>
 				</TouchableOpacity>
 			</View>
 
@@ -146,59 +170,125 @@ export default function UserProfileAndSupportPage() {
 				</View>
 				<View
 					className={`${
-						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
+						isDarkMode ? 'bg-gray' : 'bg-white'
 					} rounded-2xl shadow-md p-6 mb-8`}>
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray'
-						} text-sm font-semibold mb-2`}>
-						First Name
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={firstName}
-						onChangeText={setFirstName}
-						placeholder='First Name'
-						placeholderTextColor='gray'
-					/>
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray'
-						} text-sm font-semibold mb-2`}>
-						Last Name
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={lastName}
-						onChangeText={setLastName}
-						placeholder='Last Name'
-						placeholderTextColor='gray'
-					/>
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-gray'
-						} text-sm font-semibold mb-2`}>
-						Email
-					</Text>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={email}
-						placeholder='Email'
-						keyboardType='email-address'
-						editable={false}
-						placeholderTextColor='gray'
-					/>
-					<TouchableOpacity
-						className='bg-red p-4 rounded-xl items-center mt-4'
-						onPress={updateProfile}>
-						<Text className='text-white font-bold text-xl'>Update Profile</Text>
-					</TouchableOpacity>
+					{isChangePasswordMode ? (
+						<>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={currentPassword}
+								onChangeText={setCurrentPassword}
+								placeholder='Current Password'
+								placeholderTextColor='gray'
+								secureTextEntry
+							/>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={newPassword}
+								onChangeText={setNewPassword}
+								placeholder='New Password'
+								placeholderTextColor='gray'
+								secureTextEntry
+							/>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={confirmPassword}
+								onChangeText={setConfirmPassword}
+								placeholder='Confirm New Password'
+								placeholderTextColor='gray'
+								secureTextEntry
+							/>
+							<View className='flex-row justify-between mt-4'>
+								<TouchableOpacity
+									className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
+									onPress={() => setIsChangePasswordMode(false)}>
+									<Text className='text-white font-bold text-lg'>Cancel</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
+									onPress={handleChangePassword}>
+									<Text className='text-white font-bold text-lg'>
+										Change Password
+									</Text>
+								</TouchableOpacity>
+							</View>
+						</>
+					) : (
+						<>
+							<Text
+								className={`${
+									isDarkMode ? 'text-white' : 'text-gray'
+								} text-sm font-semibold mb-2`}>
+								First Name
+							</Text>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={firstName}
+								onChangeText={setFirstName}
+								placeholder='First Name'
+								placeholderTextColor='gray'
+							/>
+							<Text
+								className={`${
+									isDarkMode ? 'text-white' : 'text-gray'
+								} text-sm font-semibold mb-2`}>
+								Last Name
+							</Text>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={lastName}
+								onChangeText={setLastName}
+								placeholder='Last Name'
+								placeholderTextColor='gray'
+							/>
+							<Text
+								className={`${
+									isDarkMode ? 'text-white' : 'text-gray'
+								} text-sm font-semibold mb-2`}>
+								Email
+							</Text>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={email}
+								placeholder='Email'
+								keyboardType='email-address'
+								editable={false}
+								placeholderTextColor='gray'
+							/>
+							<TouchableOpacity
+								className='bg-red p-4 rounded-xl items-center mt-4'
+								onPress={updateProfile}>
+								<Text className='text-white font-bold text-xl'>
+									Update Profile
+								</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='bg-yellow-600 p-4 rounded-xl items-center mt-4 flex-row justify-center'
+								onPress={() => setIsChangePasswordMode(true)}>
+								<Ionicons
+									name='key-outline'
+									size={24}
+									color='white'
+									style={{ marginRight: 8 }}
+								/>
+								<Text className='text-white font-bold text-xl'>
+									Change Password
+								</Text>
+							</TouchableOpacity>
+						</>
+					)}
 				</View>
 
 				<Text
@@ -209,7 +299,7 @@ export default function UserProfileAndSupportPage() {
 				</Text>
 				<View
 					className={`${
-						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
+						isDarkMode ? 'bg-gray' : 'bg-white'
 					} rounded-2xl shadow-md p-6 mb-8`}>
 					<TouchableOpacity
 						className='flex-row items-center mb-6'
@@ -224,9 +314,7 @@ export default function UserProfileAndSupportPage() {
 								}`}>
 								Chat on WhatsApp
 							</Text>
-							<Text className='text-gray-400'>
-								Quick responses, 24/7 support
-							</Text>
+							<Text className='text-red'>Quick responses, 24/7 support</Text>
 						</View>
 					</TouchableOpacity>
 					<TouchableOpacity
@@ -242,16 +330,14 @@ export default function UserProfileAndSupportPage() {
 								}`}>
 								Send an Email
 							</Text>
-							<Text className='text-gray-400'>
-								Detailed inquiries and feedback
-							</Text>
+							<Text className='text-red'>Detailed inquiries and feedback</Text>
 						</View>
 					</TouchableOpacity>
 				</View>
 
 				<View
 					className={`border border-red rounded-2xl shadow-md p-6 mb-8 ${
-						isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
+						isDarkMode ? 'bg-gray' : 'bg-white'
 					}`}>
 					<Text
 						className={`text-xl font-semibold ${

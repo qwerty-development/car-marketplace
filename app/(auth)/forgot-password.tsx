@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
 						</Text>
 						<TextInput
 							className={`w-full h-12 px-4 mb-4 rounded-lg ${
-								isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-200 text-black'
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
 							}`}
 							placeholder='Enter your email'
 							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
@@ -152,7 +152,7 @@ export default function ForgotPasswordPage() {
 						</Text>
 						<TextInput
 							className={`w-full h-12 px-4 mb-4 rounded-lg ${
-								isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-200 text-black'
+								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
 							}`}
 							placeholder='Reset code'
 							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
@@ -162,9 +162,7 @@ export default function ForgotPasswordPage() {
 						<View className='relative mb-4'>
 							<TextInput
 								className={`w-full h-12 px-4 pr-12 rounded-lg ${
-									isDarkMode
-										? 'bg-gray-800 text-white'
-										: 'bg-gray-200 text-black'
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
 								}`}
 								placeholder='New password'
 								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
