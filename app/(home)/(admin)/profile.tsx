@@ -237,38 +237,15 @@ export default function AdminProfilePage() {
 					)}
 				</View>
 
-				<View
-					className={`${
-						isDarkMode ? 'bg-gray' : 'bg-white'
-					} rounded-3xl shadow-lg p-6 mb-8`}>
-					<TouchableOpacity
-						className='flex-row items-center justify-between mb-4 bg-yellow-300 p-4 rounded-xl'
-						onPress={handleCopyUserId}>
-						<View className='flex-row items-center'>
-							<MaterialIcons name='content-copy' size={24} color='#FF6B6B' />
-							<Text
-								className={`${
-									isDarkMode ? 'text-red' : 'text-red'
-								} text-lg ml-4`}>
-								Copy User ID
-							</Text>
-						</View>
-						<Ionicons
-							name='chevron-forward'
-							size={24}
-							color={isDarkMode ? 'white' : 'black'}
-						/>
-					</TouchableOpacity>
-					<TouchableOpacity
-						className='flex-row items-center justify-between bg-rose-500 p-4 rounded-xl'
-						onPress={handleSignOut}>
-						<View className='flex-row items-center'>
-							<MaterialIcons name='logout' size={24} color='#FFFFFF' />
-							<Text className='text-white text-lg ml-4'>Sign Out</Text>
-						</View>
-						<Ionicons name='chevron-forward' size={24} color='#FFFFFF' />
-					</TouchableOpacity>
-				</View>
+				<TouchableOpacity
+					className='flex-row items-center justify-between bg-rose-500 p-2 rounded-xl mb-5'
+					onPress={handleSignOut}>
+					<View className='flex-row items-center'>
+						<MaterialIcons name='logout' size={24} color='#FFFFFF' />
+						<Text className='text-white text-lg ml-4'>Sign Out</Text>
+					</View>
+					<Ionicons name='chevron-forward' size={24} color='#FFFFFF' />
+				</TouchableOpacity>
 			</View>
 		</ScrollView>
 	)
