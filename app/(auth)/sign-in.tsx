@@ -235,6 +235,11 @@ export default function SignInPage() {
 						</Text>
 					</Link>
 				</View>
+				<TouchableOpacity
+					onPress={() => router.push('/forgot-password')}
+					className='mx-auto'>
+					<Text className={`text-white underline`}>Forgot Password?</Text>
+				</TouchableOpacity>
 			</View>
 		</KeyboardAvoidingView>
 	)

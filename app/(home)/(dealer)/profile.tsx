@@ -19,7 +19,6 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import * as Location from 'expo-location'
 import MapView, { Marker } from 'react-native-maps'
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
 import { Buffer } from 'buffer'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
@@ -39,7 +38,6 @@ const CustomHeader = ({ title, onBack }: any) => {
 				borderBottomColor: '#D55004',
 				borderTopWidth: 0,
 				borderWidth: 0,
-
 				borderColor: '#D55004'
 			}}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
@@ -48,7 +46,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 				style={{
 					flexDirection: 'row',
 					alignItems: 'center',
-					justifyContent: 'center', // Centers the content horizontally
+					justifyContent: 'center',
 					paddingHorizontal: 0,
 					paddingBottom: 9
 				}}>
@@ -87,6 +85,10 @@ export default function DealershipProfilePage() {
 		longitude: number
 	} | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
+	const [isChangePasswordMode, setIsChangePasswordMode] = useState(false)
+	const [currentPassword, setCurrentPassword] = useState('')
+	const [newPassword, setNewPassword] = useState('')
+	const [confirmPassword, setConfirmPassword] = useState('')
 
 	const getLocation = async () => {
 		let { status } = await Location.requestForegroundPermissionsAsync()
@@ -125,7 +127,7 @@ export default function DealershipProfilePage() {
 		if (selectedLocation) {
 			setLatitude(selectedLocation.latitude.toString())
 			setLongitude(selectedLocation.longitude.toString())
-			setLocation('Custom Location') // You might want to reverse geocode here for a more precise address
+			setLocation('Custom Location')
 		}
 		closeMap()
 	}
@@ -269,6 +271,28 @@ export default function DealershipProfilePage() {
 		router.push('/analytics')
 	}
 
+	const handleChangePassword = async () => {
+		if (newPassword !== confirmPassword) {
+			Alert.alert('Error', 'New passwords do not match')
+			return
+		}
+
+		try {
+			await user?.updatePassword({
+				currentPassword,
+				newPassword
+			})
+			Alert.alert('Success', 'Password changed successfully')
+			setIsChangePasswordMode(false)
+			setCurrentPassword('')
+			setNewPassword('')
+			setConfirmPassword('')
+		} catch (error) {
+			console.error('Error changing password:', error)
+			Alert.alert('Error', 'Failed to change password')
+		}
+	}
+
 	return (
 		<>
 			<CustomHeader title='Dealership Profile' />
@@ -333,169 +357,246 @@ export default function DealershipProfilePage() {
 						className={`${
 							isDarkMode ? 'bg-night' : 'bg-white'
 						} rounded-2xl shadow-md p-6 mb-8`}>
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} text-sm font-semibold mb-2`}>
-							Dealership Name
-						</Text>
-						<TextInput
-							className={`${
-								isDarkMode ? 'bg-night text-white' : ' text-black'
-							} p-4 rounded-xl mb-4 border border-red`}
-							value={name}
-							onChangeText={setName}
-							placeholder='Enter your dealership name'
-							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-						/>
-
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} text-sm font-semibold mb-2`}>
-							Address
-						</Text>
-						<TextInput
-							className={`${
-								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-							} p-4 rounded-xl mb-4 border border-red`}
-							value={location}
-							onChangeText={setLocation}
-							placeholder='Enter your dealership address'
-							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-						/>
-
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} text-sm font-semibold mb-2`}>
-							Phone Number
-						</Text>
-						<TextInput
-							className={`${
-								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-							} p-4 rounded-xl mb-4 border border-red`}
-							value={phone.toString()}
-							onChangeText={setPhone}
-							placeholder='Enter your contact number'
-							keyboardType='numeric'
-							placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
-						/>
-
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} text-sm font-semibold mb-2`}>
-							Location Coordinates
-						</Text>
-						<View className='flex-row items-center mb-4'>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-								} p-4 rounded-xl flex-1 mr-2 border border-red`}
-								value={latitude}
-								onChangeText={setLatitude}
-								placeholder='Latitude'
-								keyboardType='numeric'
-								placeholderTextColor={
-									isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-								}
-							/>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-								} p-4 rounded-xl flex-1 ml-2 border border-red`}
-								value={longitude}
-								onChangeText={setLongitude}
-								placeholder='Longitude'
-								keyboardType='numeric'
-								placeholderTextColor={
-									isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-								}
-							/>
-						</View>
-						<View className='flex-row justify-between mb-4'>
-							<TouchableOpacity
-								className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center flex-row justify-center'
-								onPress={getLocation}>
-								<Ionicons
-									name='location-outline'
-									size={24}
-									color='white'
-									style={{ marginRight: 8 }}
+						{isChangePasswordMode ? (
+							<>
+								<TextInput
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-4 border border-red`}
+									value={currentPassword}
+									onChangeText={setCurrentPassword}
+									placeholder='Current Password'
+									placeholderTextColor={
+										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+									}
+									secureTextEntry
 								/>
-								<Text className='text-white font-bold'>Get Location</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center flex-row justify-center'
-								onPress={openMap}>
-								<Ionicons
-									name='map-outline'
-									size={24}
-									color='white'
-									style={{ marginRight: 8 }}
+								<TextInput
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-4 border border-red`}
+									value={newPassword}
+									onChangeText={setNewPassword}
+									placeholder='New Password'
+									placeholderTextColor={
+										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+									}
+									secureTextEntry
 								/>
-								<Text className='text-white font-bold'>Pick on Map</Text>
-							</TouchableOpacity>
-						</View>
+								<TextInput
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-4 border border-red`}
+									value={confirmPassword}
+									onChangeText={setConfirmPassword}
+									placeholder='Confirm New Password'
+									placeholderTextColor={
+										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+									}
+									secureTextEntry
+								/>
+								<View className='flex-row justify-between mt-4'>
+									<TouchableOpacity
+										className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
+										onPress={() => setIsChangePasswordMode(false)}>
+										<Text className='text-white font-bold text-lg'>Cancel</Text>
+									</TouchableOpacity>
+									<TouchableOpacity
+										className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
+										onPress={handleChangePassword}>
+										<Text className='text-white font-bold text-lg'>
+											Change Password
+										</Text>
+									</TouchableOpacity>
+								</View>
+							</>
+						) : (
+							<>
+								<Text
+									className={`${
+										isDarkMode ? 'text-red' : 'text-red'
+									} text-sm font-semibold mb-2`}>
+									Dealership Name
+								</Text>
+								<TextInput
+									className={`${
+										isDarkMode ? 'bg-night text-white' : ' text-black'
+									} p-4 rounded-xl mb-4 border border-red`}
+									value={name}
+									onChangeText={setName}
+									placeholder='Enter your dealership name'
+									placeholderTextColor={
+										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+									}
+								/>
 
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} text-sm font-semibold mb-2`}>
-							Email Address
-						</Text>
-						<Text
-							className={`${
-								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-							} p-4 rounded-xl mb-4 border border-red`}>
-							{user?.emailAddresses[0].emailAddress}
-						</Text>
+								<Text
+									className={`${
+										isDarkMode ? 'text-red' : 'text-red'
+									} text-sm font-semibold mb-2`}>
+									Address
+								</Text>
+								<TextInput
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-4 border border-red`}
+									value={location}
+									onChangeText={setLocation}
+									placeholder='Enter your dealership address'
+									placeholderTextColor={
+										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+									}
+								/>
 
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} text-sm font-semibold mb-2`}>
-							Subscription End Date
-						</Text>
-						<Text
-							className={`${
-								isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-							} p-4 rounded-xl mb-6 border border-red`}>
-							{dealership?.subscription_end_date
-								? new Date(
-										dealership.subscription_end_date
-								  ).toLocaleDateString()
-								: 'N/A'}
-						</Text>
+								<Text
+									className={`${
+										isDarkMode ? 'text-red' : 'text-red'
+									} text-sm font-semibold mb-2`}>
+									Phone Number Phone Number
+								</Text>
+								<TextInput
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-4 border border-red`}
+									value={phone.toString()}
+									onChangeText={setPhone}
+									placeholder='Enter your contact number'
+									keyboardType='numeric'
+									placeholderTextColor={
+										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+									}
+								/>
 
-						<TouchableOpacity
-							className='bg-red p-4 rounded-xl items-center mt-4 flex-row justify-center'
-							onPress={updateProfile}>
-							<Ionicons
-								name='save-outline'
-								size={24}
-								color='white'
-								style={{ marginRight: 8 }}
-							/>
-							<Text className='text-white font-bold text-xl'>
-								Update Profile
-							</Text>
-						</TouchableOpacity>
+								<Text
+									className={`${
+										isDarkMode ? 'text-red' : 'text-red'
+									} text-sm font-semibold mb-2`}>
+									Location Coordinates
+								</Text>
+								<View className='flex-row items-center mb-4'>
+									<TextInput
+										className={`${
+											isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+										} p-4 rounded-xl flex-1 mr-2 border border-red`}
+										value={latitude}
+										onChangeText={setLatitude}
+										placeholder='Latitude'
+										keyboardType='numeric'
+										placeholderTextColor={
+											isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+										}
+									/>
+									<TextInput
+										className={`${
+											isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+										} p-4 rounded-xl flex-1 ml-2 border border-red`}
+										value={longitude}
+										onChangeText={setLongitude}
+										placeholder='Longitude'
+										keyboardType='numeric'
+										placeholderTextColor={
+											isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
+										}
+									/>
+								</View>
+								<View className='flex-row justify-between mb-4'>
+									<TouchableOpacity
+										className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center flex-row justify-center'
+										onPress={getLocation}>
+										<Ionicons
+											name='location-outline'
+											size={24}
+											color='white'
+											style={{ marginRight: 8 }}
+										/>
+										<Text className='text-white font-bold'>Get Location</Text>
+									</TouchableOpacity>
+									<TouchableOpacity
+										className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center flex-row justify-center'
+										onPress={openMap}>
+										<Ionicons
+											name='map-outline'
+											size={24}
+											color='white'
+											style={{ marginRight: 8 }}
+										/>
+										<Text className='text-white font-bold'>Pick on Map</Text>
+									</TouchableOpacity>
+								</View>
 
-						<TouchableOpacity
-							className='bg-blue-500 p-4 rounded-xl items-center mt-4 flex-row justify-center'
-							onPress={navigateToAnalytics}>
-							<Ionicons
-								name='bar-chart-outline'
-								size={24}
-								color='white'
-								style={{ marginRight: 8 }}
-							/>
-							<Text className='text-white font-bold text-xl'>
-								View Analytics
-							</Text>
-						</TouchableOpacity>
+								<Text
+									className={`${
+										isDarkMode ? 'text-red' : 'text-red'
+									} text-sm font-semibold mb-2`}>
+									Email Address
+								</Text>
+								<Text
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-4 border border-red`}>
+									{user?.emailAddresses[0].emailAddress}
+								</Text>
+
+								<Text
+									className={`${
+										isDarkMode ? 'text-red' : 'text-red'
+									} text-sm font-semibold mb-2`}>
+									Subscription End Date
+								</Text>
+								<Text
+									className={`${
+										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+									} p-4 rounded-xl mb-6 border border-red`}>
+									{dealership?.subscription_end_date
+										? new Date(
+												dealership.subscription_end_date
+										  ).toLocaleDateString()
+										: 'N/A'}
+								</Text>
+
+								<TouchableOpacity
+									className='bg-red p-4 rounded-xl items-center mt-4 flex-row justify-center'
+									onPress={updateProfile}>
+									<Ionicons
+										name='save-outline'
+										size={24}
+										color='white'
+										style={{ marginRight: 8 }}
+									/>
+									<Text className='text-white font-bold text-xl'>
+										Update Profile
+									</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									className='bg-yellow-600 p-4 rounded-xl items-center mt-4 flex-row justify-center'
+									onPress={() => setIsChangePasswordMode(true)}>
+									<Ionicons
+										name='key-outline'
+										size={24}
+										color='white'
+										style={{ marginRight: 8 }}
+									/>
+									<Text className='text-white font-bold text-xl'>
+										Change Password
+									</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									className='bg-blue-500 p-4 rounded-xl items-center mt-4 flex-row justify-center'
+									onPress={navigateToAnalytics}>
+									<Ionicons
+										name='bar-chart-outline'
+										size={24}
+										color='white'
+										style={{ marginRight: 8 }}
+									/>
+									<Text className='text-white font-bold text-xl'>
+										View Analytics
+									</Text>
+								</TouchableOpacity>
+							</>
+						)}
 					</View>
 
 					<TouchableOpacity

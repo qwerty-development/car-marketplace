@@ -33,6 +33,10 @@ export default function AdminProfilePage() {
 		lastLogin: new Date().toISOString()
 	})
 	const [isEditMode, setIsEditMode] = useState(false)
+	const [isChangePasswordMode, setIsChangePasswordMode] = useState(false)
+	const [currentPassword, setCurrentPassword] = useState('')
+	const [newPassword, setNewPassword] = useState('')
+	const [confirmPassword, setConfirmPassword] = useState('')
 
 	useEffect(() => {
 		if (user) {
@@ -97,6 +101,28 @@ export default function AdminProfilePage() {
 			router.replace('/(auth)/sign-in')
 		} catch (error) {
 			console.error('Error signing out:', error)
+		}
+	}
+
+	const handleChangePassword = async () => {
+		if (newPassword !== confirmPassword) {
+			Alert.alert('Error', 'New passwords do not match')
+			return
+		}
+
+		try {
+			await user?.updatePassword({
+				currentPassword,
+				newPassword
+			})
+			Alert.alert('Success', 'Password changed successfully')
+			setIsChangePasswordMode(false)
+			setCurrentPassword('')
+			setNewPassword('')
+			setConfirmPassword('')
+		} catch (error) {
+			console.error('Error changing password:', error)
+			Alert.alert('Error', 'Failed to change password')
 		}
 	}
 
@@ -180,6 +206,53 @@ export default function AdminProfilePage() {
 								</TouchableOpacity>
 							</View>
 						</>
+					) : isChangePasswordMode ? (
+						<>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={currentPassword}
+								onChangeText={setCurrentPassword}
+								placeholder='Current Password'
+								placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
+								secureTextEntry
+							/>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={newPassword}
+								onChangeText={setNewPassword}
+								placeholder='New Password'
+								placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
+								secureTextEntry
+							/>
+							<TextInput
+								className={`${
+									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+								} p-4 rounded-xl mb-4`}
+								value={confirmPassword}
+								onChangeText={setConfirmPassword}
+								placeholder='Confirm New Password'
+								placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
+								secureTextEntry
+							/>
+							<View className='flex-row justify-between mt-4'>
+								<TouchableOpacity
+									className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
+									onPress={() => setIsChangePasswordMode(false)}>
+									<Text className='text-white font-bold text-lg'>Cancel</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
+									onPress={handleChangePassword}>
+									<Text className='text-white font-bold text-lg'>
+										Change Password
+									</Text>
+								</TouchableOpacity>
+							</View>
+						</>
 					) : (
 						<>
 							<View className='flex-row justify-between items-center mb-4'>
@@ -231,6 +304,13 @@ export default function AdminProfilePage() {
 								onPress={() => setIsEditMode(true)}>
 								<Text className='text-white font-bold text-lg'>
 									Edit Profile
+								</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='bg-yellow-600 p-4 rounded-xl items-center mt-4'
+								onPress={() => setIsChangePasswordMode(true)}>
+								<Text className='text-white font-bold text-lg'>
+									Change Password
 								</Text>
 							</TouchableOpacity>
 						</>
