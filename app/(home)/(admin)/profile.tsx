@@ -240,9 +240,7 @@ export default function AdminProfilePage() {
 								<TouchableOpacity
 									className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
 									onPress={handleChangePassword}>
-									<Text className='text-white font-bold text-lg'>
-										Change Password
-									</Text>
+									<Text className='text-white font-bold text-lg'>Confirm</Text>
 								</TouchableOpacity>
 							</View>
 						</>
