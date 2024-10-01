@@ -8,8 +8,7 @@ import {
 	StatusBar,
 	ActivityIndicator,
 	RefreshControl,
-	Dimensions,
-	StyleSheet
+	Dimensions
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
@@ -17,6 +16,8 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as FileSystem from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -83,6 +84,7 @@ export default function AdminAnalyticsDashboard() {
 			const { data, error } = await supabase.rpc('get_admin_analytics')
 			if (error) throw error
 			setAnalytics(data)
+			console.log(analytics)
 		} catch (err) {
 			setError(err.message)
 		} finally {
@@ -98,6 +100,21 @@ export default function AdminAnalyticsDashboard() {
 		setRefreshing(true)
 		fetchAnalytics().then(() => setRefreshing(false))
 	}, [])
+
+	const exportToCSV = async () => {
+		if (!analytics) return
+
+		const csvContent = generateCSVContent(analytics)
+		const fileName = 'admin_analytics.csv'
+		const filePath = `${FileSystem.documentDirectory}${fileName}`
+
+		try {
+			await FileSystem.writeAsStringAsync(filePath, csvContent)
+			await Sharing.shareAsync(filePath)
+		} catch (error) {
+			console.error('Error exporting to CSV:', error)
+		}
+	}
 
 	if (isLoading) {
 		return (
@@ -127,6 +144,26 @@ export default function AdminAnalyticsDashboard() {
 			</View>
 		)
 	}
+
+	// Process sales trend data
+	const salesTrendData = analytics.sales_trend
+		.sort((a, b) => new Date(a.month) - new Date(b.month))
+		.slice(-12) // Get last 12 months
+
+	// Process price distribution data
+	const priceRangeOrder = [
+		'Under $10k',
+		'$10k-$20k',
+		'$20k-$30k',
+		'$30k-$50k',
+		'Over $50k'
+	]
+	const priceDistributionData = priceRangeOrder.map(range => ({
+		range,
+		count:
+			analytics.price_distribution.find(item => item.range === range)?.count ||
+			0
+	}))
 
 	return (
 		<ScrollView
@@ -198,7 +235,7 @@ export default function AdminAnalyticsDashboard() {
 						labels: analytics.top_dealerships.map(d => d.name),
 						datasets: [{ data: analytics.top_dealerships.map(d => d.listings) }]
 					}}
-					width={SCREEN_WIDTH * 1.5}
+					width={SCREEN_WIDTH * 2}
 					height={220}
 					yAxisLabel=''
 					yAxisSuffix=''
@@ -208,7 +245,9 @@ export default function AdminAnalyticsDashboard() {
 						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 						decimalPlaces: 0,
 						color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-						style: { borderRadius: 16 }
+						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						style: { borderRadius: 16 },
+						barPercentage: 0.5
 					}}
 					style={{ marginVertical: 8, borderRadius: 16 }}
 				/>
@@ -220,8 +259,8 @@ export default function AdminAnalyticsDashboard() {
 						labels: analytics.top_cars.map(c => `${c.make} ${c.model}`),
 						datasets: [{ data: analytics.top_cars.map(c => c.views) }]
 					}}
-					width={SCREEN_WIDTH * 1.5}
-					height={220}
+					width={SCREEN_WIDTH * 3} // Increased width
+					height={300} // Increased height
 					yAxisLabel=''
 					yAxisSuffix=''
 					chartConfig={{
@@ -230,22 +269,15 @@ export default function AdminAnalyticsDashboard() {
 						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 						decimalPlaces: 0,
 						color: (opacity = 1) => `rgba(255, 99, 132, ${opacity})`,
-						style: { borderRadius: 16 }
+						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						style: { borderRadius: 16 },
+						barPercentage: 0.5
 					}}
 					style={{ marginVertical: 8, borderRadius: 16 }}
 				/>
 			</ChartContainer>
 
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Inventory Summary
-				</Text>
+			<ChartContainer title='Inventory Summary'>
 				<PieChart
 					data={Object.entries(
 						analytics.inventory_summary.condition_distribution
@@ -268,7 +300,64 @@ export default function AdminAnalyticsDashboard() {
 					paddingLeft='15'
 					absolute
 				/>
-			</View>
+			</ChartContainer>
+
+			<ChartContainer title='Price Distribution'>
+				<BarChart
+					data={{
+						labels: priceDistributionData.map(item => item.range),
+						datasets: [{ data: priceDistributionData.map(item => item.count) }]
+					}}
+					width={SCREEN_WIDTH * 2}
+					height={220}
+					yAxisLabel=''
+					yAxisSuffix=''
+					chartConfig={{
+						backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+						backgroundGradientFrom: isDarkMode ? '#1e1e1e' : '#ffffff',
+						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
+						decimalPlaces: 0,
+						color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`,
+						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						style: { borderRadius: 16 },
+						barPercentage: 0.5
+					}}
+					style={{ marginVertical: 8, borderRadius: 16 }}
+				/>
+			</ChartContainer>
+
+			<ChartContainer title='User Growth'>
+				<LineChart
+					data={{
+						labels: analytics.user_growth.map(
+							item => item.month?.split('-')[1]
+						),
+						datasets: [
+							{
+								data: analytics.user_growth.map(item => item.new_users)
+							}
+						]
+					}}
+					width={SCREEN_WIDTH * 2}
+					height={220}
+					chartConfig={{
+						backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+						backgroundGradientFrom: isDarkMode ? '#1e1e1e' : '#ffffff',
+						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
+						decimalPlaces: 0,
+						color: (opacity = 1) => `rgba(0, 255, 255, ${opacity})`,
+						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						style: { borderRadius: 16 },
+						propsForDots: {
+							r: '6',
+							strokeWidth: '2',
+							stroke: '#ffa726'
+						}
+					}}
+					bezier
+					style={{ marginVertical: 8, borderRadius: 16 }}
+				/>
+			</ChartContainer>
 
 			<View
 				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
@@ -356,7 +445,7 @@ export default function AdminAnalyticsDashboard() {
 					renderItem={({ item }) => (
 						<View className='flex-row justify-between items-center mb-2'>
 							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-								{item.location}
+								{item.name}
 							</Text>
 							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
 								Listings: {item.listings}, Sales: {item.sales}
@@ -365,6 +454,14 @@ export default function AdminAnalyticsDashboard() {
 					)}
 				/>
 			</View>
+
+			<TouchableOpacity
+				className='bg-red py-3 px-6 rounded-full mx-4 mb-8'
+				onPress={exportToCSV}>
+				<Text className='text-white font-semibold text-center'>
+					Export to CSV
+				</Text>
+			</TouchableOpacity>
 		</ScrollView>
 	)
 }
@@ -378,13 +475,12 @@ const MetricCard = ({ title, value, icon, color }) => {
 			} rounded-lg shadow p-3 mb-4`}>
 			<Ionicons name={icon} size={24} color={color} />
 			<Text
-				className={`text-lg font-bold mt-2 ${
+				className={`text-lg font-bold mt-2 text-nowrap ${
 					isDarkMode ? 'text-white' : 'text-black'
 				}`}>
 				{value}
 			</Text>
-			<Text
-				className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+			<Text className={`text-xs ${isDarkMode ? 'text-red' : 'text-red'}`}>
 				{title}
 			</Text>
 		</View>
@@ -403,4 +499,67 @@ const MetricRow = ({ title, value }) => {
 	)
 }
 
-export default AdminAnalyticsDashboard
+const generateCSVContent = analytics => {
+	let csvContent = 'data:text/csv;charset=utf-8,'
+	csvContent += 'Metric,Value\n'
+	csvContent += `Total Listings,${analytics.total_listings}\n`
+	csvContent += `Total Views,${analytics.total_views}\n`
+	csvContent += `Total Likes,${analytics.total_likes}\n`
+	csvContent += `Total Sales,${analytics.total_sales}\n`
+	csvContent += `Total Revenue,${analytics.total_revenue}\n`
+	csvContent += `Total Dealerships,${analytics.total_dealerships}\n`
+	csvContent += `Total Users,${analytics.total_users}\n`
+
+	csvContent += '\nSales Trend\n'
+	csvContent += 'Month,Sales\n'
+	analytics.sales_trend.forEach(item => {
+		csvContent += `${item.month},${item.sales}\n`
+	})
+
+	csvContent += '\nTop Dealerships\n'
+	csvContent += 'Name,Listings,Views,Likes,Sales,Revenue\n'
+	analytics.top_dealerships.forEach(item => {
+		csvContent += `${item.name},${item.listings},${item.views},${item.likes},${item.sales},${item.revenue}\n`
+	})
+
+	csvContent += '\nTop Cars\n'
+	csvContent += 'Make,Model,Views,Likes,Sales,Revenue\n'
+	analytics.top_cars.forEach(item => {
+		csvContent += `${item.make},${item.model},${item.views},${item.likes},${item.sales},${item.revenue}\n`
+	})
+
+	csvContent += '\nInventory Summary\n'
+	csvContent += 'Condition,Count\n'
+	Object.entries(analytics.inventory_summary.condition_distribution).forEach(
+		([key, value]) => {
+			csvContent += `${key},${value}\n`
+		}
+	)
+
+	csvContent += '\nPrice Distribution\n'
+	csvContent += 'Range,Count\n'
+	analytics.price_distribution.forEach(item => {
+		csvContent += `${item.range},${item.count}\n`
+	})
+
+	csvContent += '\nPerformance Metrics\n'
+	csvContent += `Avg. Time to Sell,${analytics.performance_metrics.avg_time_to_sell}\n`
+	csvContent += `Conversion Rate,${analytics.performance_metrics.conversion_rate}\n`
+	csvContent += `Avg. Listing Price,${analytics.performance_metrics.avg_listing_price}\n`
+	csvContent += `Avg. Sale Price,${analytics.performance_metrics.avg_sale_price}\n`
+	csvContent += `Avg. Price Difference,${analytics.performance_metrics.price_difference}\n`
+
+	csvContent += '\nUser Engagement - Top Likers\n'
+	csvContent += 'Name,Email,Likes Count\n'
+	analytics.user_engagement.top_likers.forEach(item => {
+		csvContent += `${item.name},${item.email},${item.likes_count}\n`
+	})
+
+	csvContent += '\nGeographical Data\n'
+	csvContent += 'Name,Listings,Sales\n'
+	analytics.geographical_data.forEach(item => {
+		csvContent += `${item.name},${item.listings},${item.sales}\n`
+	})
+
+	return csvContent
+}
