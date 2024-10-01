@@ -179,7 +179,7 @@ export default function AdminUserManagement() {
 			<View className='flex-row justify-between items-center mt-2'>
 				<Text
 					className={`text-sm italic ${isDarkMode ? 'text-red' : 'text-red'}`}>
-					Role: {item.publicMetadata.role || 'User'}
+					Role: {item.publicMetadata.role || 'user'}
 				</Text>
 				<TouchableOpacity
 					className={`px-3 py-1 rounded-full ${
