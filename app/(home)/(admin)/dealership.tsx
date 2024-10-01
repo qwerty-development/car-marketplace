@@ -296,18 +296,6 @@ export default function DealershipManagement() {
 							icon='calendar'
 							text={`Ends: ${item.subscription_end_date}`}
 						/>
-						<View className='flex-row justify-between items-center mt-2'>
-							<View className='flex-row items-center'>
-								<MaterialCommunityIcons
-									name='currency-usd'
-									size={16}
-									color={isDarkMode ? '#D55004' : '#D55004'}
-								/>
-								<Text className='text-red ml-1'>
-									${item.total_sales.toLocaleString()}
-								</Text>
-							</View>
-						</View>
 					</View>
 				</TouchableOpacity>
 			</Animated.View>
