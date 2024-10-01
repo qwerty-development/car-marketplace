@@ -246,7 +246,12 @@ export default function AdminAnalyticsDashboard() {
 						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 						decimalPlaces: 0,
 						color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						labelColor: (opacity = 1) =>
+							`${
+								isDarkMode
+									? `rgba(255, 255, 255, ${opacity})`
+									: `rgba(0, 0, 0, ${opacity})`
+							} )`,
 						style: { borderRadius: 16 },
 						barPercentage: 0.5
 					}}
@@ -274,7 +279,12 @@ export default function AdminAnalyticsDashboard() {
 						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 						decimalPlaces: 0,
 						color: (opacity = 1) => `rgba(255, 99, 132, ${opacity})`,
-						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						labelColor: (opacity = 1) =>
+							`${
+								isDarkMode
+									? `rgba(255, 255, 255, ${opacity})`
+									: `rgba(0, 0, 0, ${opacity})`
+							} )`,
 						style: { borderRadius: 16 },
 						barPercentage: 0.5
 					}}
@@ -323,7 +333,12 @@ export default function AdminAnalyticsDashboard() {
 						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 						decimalPlaces: 0,
 						color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`,
-						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						labelColor: (opacity = 1) =>
+							`${
+								isDarkMode
+									? `rgba(255, 255, 255, ${opacity})`
+									: `rgba(0, 0, 0, ${opacity})`
+							} )`,
 						style: { borderRadius: 16 },
 						barPercentage: 0.5
 					}}
@@ -353,7 +368,12 @@ export default function AdminAnalyticsDashboard() {
 						backgroundGradientTo: isDarkMode ? '#1e1e1e' : '#ffffff',
 						decimalPlaces: 0,
 						color: (opacity = 1) => `rgba(0, 255, 255, ${opacity})`,
-						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						labelColor: (opacity = 1) =>
+							`${
+								isDarkMode
+									? `rgba(255, 255, 255, ${opacity})`
+									: `rgba(0, 0, 0, ${opacity})`
+							} )`,
 						style: { borderRadius: 16 },
 						propsForDots: {
 							r: '6',
