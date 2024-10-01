@@ -21,7 +21,7 @@ import * as Sharing from 'expo-sharing'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
-const CustomHeader = ({ title, showBackButton = true }) => {
+const CustomHeader = ({ title, showBackButton = true }: any) => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
 
@@ -50,7 +50,7 @@ const CustomHeader = ({ title, showBackButton = true }) => {
 	)
 }
 
-const ChartContainer = ({ title, children }) => {
+const ChartContainer = ({ title, children }: any) => {
 	const { isDarkMode } = useTheme()
 	return (
 		<View
@@ -72,10 +72,10 @@ const ChartContainer = ({ title, children }) => {
 
 export default function AdminAnalyticsDashboard() {
 	const { isDarkMode } = useTheme()
-	const [analytics, setAnalytics] = useState(null)
-	const [isLoading, setIsLoading] = useState(true)
-	const [error, setError] = useState(null)
-	const [refreshing, setRefreshing] = useState(false)
+	const [analytics, setAnalytics] = useState<any>(null)
+	const [isLoading, setIsLoading] = useState<any>(true)
+	const [error, setError] = useState<any>(null)
+	const [refreshing, setRefreshing] = useState<any>(false)
 
 	const fetchAnalytics = async () => {
 		setIsLoading(true)
@@ -85,7 +85,7 @@ export default function AdminAnalyticsDashboard() {
 			if (error) throw error
 			setAnalytics(data)
 			console.log(analytics)
-		} catch (err) {
+		} catch (err: any) {
 			setError(err.message)
 		} finally {
 			setIsLoading(false)
@@ -145,11 +145,6 @@ export default function AdminAnalyticsDashboard() {
 		)
 	}
 
-	// Process sales trend data
-	const salesTrendData = analytics.sales_trend
-		.sort((a, b) => new Date(a.month) - new Date(b.month))
-		.slice(-12) // Get last 12 months
-
 	// Process price distribution data
 	const priceRangeOrder = [
 		'Under $10k',
@@ -161,8 +156,8 @@ export default function AdminAnalyticsDashboard() {
 	const priceDistributionData = priceRangeOrder.map(range => ({
 		range,
 		count:
-			analytics.price_distribution.find(item => item.range === range)?.count ||
-			0
+			analytics!.price_distribution.find((item: any) => item.range === range)
+				?.count || 0
 	}))
 
 	return (
@@ -232,8 +227,14 @@ export default function AdminAnalyticsDashboard() {
 			<ChartContainer title='Top 10 Dealerships'>
 				<BarChart
 					data={{
-						labels: analytics.top_dealerships.map(d => d.name),
-						datasets: [{ data: analytics.top_dealerships.map(d => d.listings) }]
+						labels: analytics.top_dealerships.map((d: { name: any }) => d.name),
+						datasets: [
+							{
+								data: analytics.top_dealerships.map(
+									(d: { listings: any }) => d.listings
+								)
+							}
+						]
 					}}
 					width={SCREEN_WIDTH * 2}
 					height={220}
@@ -256,8 +257,12 @@ export default function AdminAnalyticsDashboard() {
 			<ChartContainer title='Top 10 Cars'>
 				<BarChart
 					data={{
-						labels: analytics.top_cars.map(c => `${c.make} ${c.model}`),
-						datasets: [{ data: analytics.top_cars.map(c => c.views) }]
+						labels: analytics.top_cars.map(
+							(c: { make: any; model: any }) => `${c.make} ${c.model}`
+						),
+						datasets: [
+							{ data: analytics.top_cars.map((c: { views: any }) => c.views) }
+						]
 					}}
 					width={SCREEN_WIDTH * 3} // Increased width
 					height={300} // Increased height
@@ -330,11 +335,13 @@ export default function AdminAnalyticsDashboard() {
 				<LineChart
 					data={{
 						labels: analytics.user_growth.map(
-							item => item.month?.split('-')[1]
+							(item: { month: string }) => item.month?.split('-')[1]
 						),
 						datasets: [
 							{
-								data: analytics.user_growth.map(item => item.new_users)
+								data: analytics.user_growth.map(
+									(item: { new_users: any }) => item.new_users
+								)
 							}
 						]
 					}}
@@ -415,18 +422,48 @@ export default function AdminAnalyticsDashboard() {
 					}`}>
 					Top Likers
 				</Text>
-				{analytics.user_engagement.top_likers.map((user, index) => (
-					<View
-						key={index}
-						className='flex-row justify-between items-center mb-2'>
-						<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-							{user.name}
-						</Text>
-						<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-							{user.likes_count} likes
-						</Text>
-					</View>
-				))}
+				{analytics.user_engagement.top_likers.map(
+					(
+						user: {
+							name:
+								| string
+								| number
+								| boolean
+								| React.ReactElement<
+										any,
+										string | React.JSXElementConstructor<any>
+								  >
+								| Iterable<React.ReactNode>
+								| React.ReactPortal
+								| null
+								| undefined
+							likes_count:
+								| string
+								| number
+								| boolean
+								| React.ReactElement<
+										any,
+										string | React.JSXElementConstructor<any>
+								  >
+								| Iterable<React.ReactNode>
+								| React.ReactPortal
+								| null
+								| undefined
+						},
+						index: React.Key | null | undefined
+					) => (
+						<View
+							key={index}
+							className='flex-row justify-between items-center mb-2'>
+							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+								{user.name}
+							</Text>
+							<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+								{user.likes_count} likes
+							</Text>
+						</View>
+					)
+				)}
 			</View>
 
 			<View
@@ -466,12 +503,12 @@ export default function AdminAnalyticsDashboard() {
 	)
 }
 
-const MetricCard = ({ title, value, icon, color }) => {
+const MetricCard = ({ title, value, icon, color }: any) => {
 	const { isDarkMode } = useTheme()
 	return (
 		<View
 			className={`w-[30%] ${
-				isDarkMode ? 'bg-gray-800' : 'bg-white'
+				isDarkMode ? 'bg-gray' : 'bg-white'
 			} rounded-lg shadow p-3 mb-4`}>
 			<Ionicons name={icon} size={24} color={color} />
 			<Text
@@ -487,7 +524,7 @@ const MetricCard = ({ title, value, icon, color }) => {
 	)
 }
 
-const MetricRow = ({ title, value }) => {
+const MetricRow = ({ title, value }: any) => {
 	const { isDarkMode } = useTheme()
 	return (
 		<View className='flex-row justify-between items-center mb-2'>
@@ -499,7 +536,31 @@ const MetricRow = ({ title, value }) => {
 	)
 }
 
-const generateCSVContent = analytics => {
+const generateCSVContent = (analytics: {
+	total_listings: any
+	total_views: any
+	total_likes: any
+	total_sales: any
+	total_revenue: any
+	total_dealerships: any
+	total_users: any
+	sales_trend: any[]
+	top_dealerships: any[]
+	top_cars: any[]
+	inventory_summary: {
+		condition_distribution: { [s: string]: unknown } | ArrayLike<unknown>
+	}
+	price_distribution: any[]
+	performance_metrics: {
+		avg_time_to_sell: any
+		conversion_rate: any
+		avg_listing_price: any
+		avg_sale_price: any
+		price_difference: any
+	}
+	user_engagement: { top_likers: any[] }
+	geographical_data: any[]
+}) => {
 	let csvContent = 'data:text/csv;charset=utf-8,'
 	csvContent += 'Metric,Value\n'
 	csvContent += `Total Listings,${analytics.total_listings}\n`
