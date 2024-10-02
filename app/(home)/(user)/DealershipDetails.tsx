@@ -125,7 +125,7 @@ export default function DealershipDetails() {
 		: ['#FFFFFF', '#F0F0F0']
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-	const cardBgColor = isDarkMode ? 'bg-gray-800' : 'bg-white'
+	const cardBgColor = isDarkMode ? 'bg-gray' : 'bg-white'
 
 	const panResponder = PanResponder.create({
 		onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dx < -30,
@@ -423,7 +423,7 @@ export default function DealershipDetails() {
 						)}
 						<View className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4`}>
 							<TextInput
-								className={`${textColor} border-b border-gray-300 pb-2 mb-4`}
+								className={`${textColor} border-b border-red pb-2 mb-4`}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? '#888' : '#555'}
 								value={searchQuery}
