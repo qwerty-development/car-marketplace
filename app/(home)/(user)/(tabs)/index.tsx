@@ -6,11 +6,13 @@ import {
 	TouchableOpacity,
 	ActivityIndicator,
 	StyleSheet,
-	Text
+	Text,
+	Platform
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '../CarDetailModal'
+import CarDetailModalIOS from '../CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -344,6 +346,29 @@ export default function BrowseCarsPage() {
 		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
 	)
 
+	const renderModal = () => {
+		const ModalComponent =
+			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
+
+		return (
+			<ModalComponent
+				isVisible={isModalVisible}
+				car={selectedCar}
+				onClose={() => {
+					setIsModalVisible(false)
+					setSelectedCar(null)
+				}}
+				setSelectedCar={setSelectedCar}
+				setIsModalVisible={setIsModalVisible}
+				onFavoritePress={() =>
+					selectedCar && handleFavoritePress(selectedCar.id)
+				}
+				isFavorite={!!selectedCar && isFavorite(Number(selectedCar.id))}
+				onViewUpdate={handleViewUpdate}
+			/>
+		)
+	}
+
 	return (
 		<LinearGradient
 			colors={
@@ -475,21 +500,7 @@ export default function BrowseCarsPage() {
 					</TouchableOpacity>
 				)}
 
-				<CarDetailModal
-					isVisible={isModalVisible}
-					car={selectedCar}
-					onClose={() => {
-						setIsModalVisible(false)
-						setSelectedCar(null)
-					}}
-					setSelectedCar={setSelectedCar}
-					setIsModalVisible={setIsModalVisible}
-					onFavoritePress={() =>
-						selectedCar && handleFavoritePress(selectedCar.id)
-					}
-					isFavorite={!!selectedCar && isFavorite(Number(selectedCar.id))}
-					onViewUpdate={handleViewUpdate}
-				/>
+				{renderModal()}
 			</SafeAreaView>
 		</LinearGradient>
 	)
