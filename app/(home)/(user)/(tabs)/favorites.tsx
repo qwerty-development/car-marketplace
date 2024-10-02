@@ -27,7 +27,6 @@ const CustomHeader = ({ title, onBack }: any) => {
 				backgroundColor: isDarkMode ? 'black' : 'white',
 				borderBottomWidth: 0,
 				paddingTop: 10,
-				paddingBottom: 10,
 				borderBottomColor: '#D55004',
 				borderTopWidth: 0,
 				borderWidth: 0,
@@ -40,8 +39,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 					flexDirection: 'row',
 					alignItems: 'center',
 					justifyContent: 'center', // Centers the content horizontally
-					paddingHorizontal: 0,
-					paddingBottom: 9
+					paddingHorizontal: 0
 				}}>
 				<Text
 					style={{

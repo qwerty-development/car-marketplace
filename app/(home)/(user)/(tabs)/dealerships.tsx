@@ -10,10 +10,10 @@ import {
 	Alert,
 	StatusBar,
 	Animated,
-	Easing
+	Easing,
+	Platform
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useNavigation } from '@react-navigation/native'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
@@ -30,48 +30,25 @@ interface Dealership {
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput)
 
-const CustomHeader = ({ title, onBack }: any) => {
+const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
 
 	return (
 		<SafeAreaView
-			style={{
-				backgroundColor: isDarkMode ? 'black' : 'white',
-				borderBottomWidth: 0,
-				borderBottomColor: '#D55004',
-				borderTopWidth: 0,
-				borderWidth: 0,
-
-				borderColor: '#D55004'
-			}}>
+			className={`bg-${isDarkMode ? 'black' : 'white'} border-b border-red`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					justifyContent: 'center', // Centers the content horizontally
-					paddingHorizontal: 0,
-					paddingBottom: 9
-				}}>
-				<Text
-					style={{
-						fontSize: 20,
-						textAlign: 'center',
-						color: '#D55004',
-						fontWeight: '600'
-					}}>
-					{title}
-				</Text>
+			<View className='flex-row items-center justify-center py-3'>
+				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
 	)
-}
+})
 
 const DealershipItem = React.memo(
 	({ item, onPress, textColor, isDarkMode }: any) => (
 		<TouchableOpacity
 			className={`flex-row items-center py-4 px-4 ${
-				isDarkMode ? 'border-gray-800' : 'border-gray-200'
+				isDarkMode ? 'border-red' : 'border-red'
 			} border-b`}
 			onPress={() => onPress(item)}>
 			<Image source={{ uri: item.logo }} className='w-12 h-12 rounded-full' />
@@ -86,7 +63,6 @@ export default function DealershipListPage() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [refreshing, setRefreshing] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
-	const navigation = useNavigation()
 	const sectionListRef = useRef<SectionList>(null)
 	const router = useRouter()
 	const searchBarWidth = useRef(new Animated.Value(0)).current
@@ -95,12 +71,7 @@ export default function DealershipListPage() {
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 
-	useEffect(() => {
-		fetchDealerships()
-		animateSearchBar()
-	}, [])
-
-	const animateSearchBar = () => {
+	const animateSearchBar = useCallback(() => {
 		Animated.parallel([
 			Animated.timing(searchBarWidth, {
 				toValue: 1,
@@ -115,9 +86,9 @@ export default function DealershipListPage() {
 				useNativeDriver: false
 			})
 		]).start()
-	}
+	}, [searchBarWidth, searchBarOpacity])
 
-	const fetchDealerships = async () => {
+	const fetchDealerships = useCallback(async () => {
 		setIsLoading(true)
 		try {
 			const { data, error } = await supabase
@@ -134,13 +105,18 @@ export default function DealershipListPage() {
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [])
+
+	useEffect(() => {
+		fetchDealerships()
+		animateSearchBar()
+	}, [fetchDealerships, animateSearchBar])
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true)
 		await fetchDealerships()
 		setRefreshing(false)
-	}, [])
+	}, [fetchDealerships])
 
 	const filteredDealerships = useMemo(() => {
 		return dealerships.filter(dealership =>
@@ -164,47 +140,83 @@ export default function DealershipListPage() {
 		return groups
 	}, [filteredDealerships])
 
-	const handleDealershipPress = (dealership: Dealership) => {
-		router.push({
-			pathname: '/(home)/(user)/DealershipDetails',
-			params: { dealershipId: dealership.id }
-		})
-	}
-
-	const renderSectionHeader = ({
-		section
-	}: {
-		section: SectionListData<Dealership>
-	}) => (
-		<LinearGradient
-			colors={isDarkMode ? ['#1A1A1A', '#2A2A2A'] : ['#F0F0F0', '#E0E0E0']}
-			className='py-2 px-4'>
-			<Text className={`${textColor} font-bold text-lg`}>{section.title}</Text>
-		</LinearGradient>
+	const handleDealershipPress = useCallback(
+		(dealership: Dealership) => {
+			router.push({
+				pathname: '/(home)/(user)/DealershipDetails',
+				params: { dealershipId: dealership.id }
+			})
+		},
+		[router]
 	)
 
-	const renderDealershipItem = ({ item }: { item: Dealership }) => (
-		<DealershipItem
-			item={item}
-			onPress={handleDealershipPress}
-			textColor={textColor}
-			isDarkMode={isDarkMode}
-		/>
+	const renderSectionHeader = useCallback(
+		({ section }: { section: SectionListData<Dealership> }) => (
+			<LinearGradient
+				colors={isDarkMode ? ['#1A1A1A', '#2A2A2A'] : ['#F0F0F0', '#E0E0E0']}
+				className='py-2 px-4'>
+				<Text className={`${textColor} font-bold text-lg`}>
+					{section.title}
+				</Text>
+			</LinearGradient>
+		),
+		[isDarkMode, textColor]
 	)
 
-	const renderListEmptyComponent = () => (
-		<View className='flex-1 justify-center items-center py-20'>
-			<Ionicons
-				name='sad-outline'
-				size={50}
-				color={isDarkMode ? '#FFFFFF' : '#000000'}
+	const renderDealershipItem = useCallback(
+		({ item }: { item: Dealership }) => (
+			<DealershipItem
+				item={item}
+				onPress={handleDealershipPress}
+				textColor={textColor}
+				isDarkMode={isDarkMode}
 			/>
-			<Text className={`${textColor} text-lg mt-4`}>No dealerships found</Text>
-		</View>
+		),
+		[handleDealershipPress, textColor, isDarkMode]
+	)
+
+	const renderListEmptyComponent = useCallback(
+		() => (
+			<View className='flex-1 justify-center items-center py-20'>
+				<Ionicons
+					name='sad-outline'
+					size={50}
+					color={isDarkMode ? '#FFFFFF' : '#000000'}
+				/>
+				<Text className={`${textColor} text-lg mt-4`}>
+					No dealerships found
+				</Text>
+			</View>
+		),
+		[isDarkMode, textColor]
+	)
+
+	const renderShimmerPlaceholder = useCallback(
+		() => (
+			<View className='flex-1 justify-center items-center'>
+				{[...Array(3)].map((_, index) => (
+					<ShimmerPlaceholder
+						key={index}
+						style={{
+							width: '90%',
+							height: 60,
+							marginBottom: 10,
+							borderRadius: 10
+						}}
+						shimmerColors={
+							isDarkMode
+								? ['#333', '#3A3A3A', '#333']
+								: ['#f6f7f8', '#edeef1', '#f6f7f8']
+						}
+					/>
+				))}
+			</View>
+		),
+		[isDarkMode]
 	)
 
 	return (
-		<View className={`flex-1  ${bgColor} `}>
+		<View className={`flex-1 ${bgColor}`}>
 			<CustomHeader title='Dealerships' />
 			<Animated.View
 				style={{
@@ -216,13 +228,13 @@ export default function DealershipListPage() {
 				}}>
 				<View
 					className={`mx-4 my-2 rounded-full flex-row items-center ${
-						isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+						isDarkMode ? 'bg-gray' : 'bg-white'
 					}`}>
 					<FontAwesome
 						name='search'
 						size={20}
 						color={isDarkMode ? 'white' : 'black'}
-						className='ml-3'
+						style={{ marginLeft: 12 }}
 					/>
 					<AnimatedTextInput
 						className={`p-2 flex-1 ${textColor}`}
@@ -234,54 +246,14 @@ export default function DealershipListPage() {
 				</View>
 			</Animated.View>
 			{isLoading ? (
-				<View className='flex-1 justify-center items-center'>
-					<ShimmerPlaceholder
-						style={{
-							width: '90%',
-							height: 60,
-							marginBottom: 10,
-							borderRadius: 10
-						}}
-						shimmerColors={
-							isDarkMode
-								? ['#333', '#3A3A3A', '#333']
-								: ['#f6f7f8', '#edeef1', '#f6f7f8']
-						}
-					/>
-					<ShimmerPlaceholder
-						style={{
-							width: '90%',
-							height: 60,
-							marginBottom: 10,
-							borderRadius: 10
-						}}
-						shimmerColors={
-							isDarkMode
-								? ['#333', '#3A3A3A', '#333']
-								: ['#f6f7f8', '#edeef1', '#f6f7f8']
-						}
-					/>
-					<ShimmerPlaceholder
-						style={{
-							width: '90%',
-							height: 60,
-							marginBottom: 10,
-							borderRadius: 10
-						}}
-						shimmerColors={
-							isDarkMode
-								? ['#333', '#3A3A3A', '#333']
-								: ['#f6f7f8', '#edeef1', '#f6f7f8']
-						}
-					/>
-				</View>
+				renderShimmerPlaceholder()
 			) : (
 				<SectionList
 					ref={sectionListRef}
 					sections={groupedDealerships}
 					renderItem={renderDealershipItem}
 					renderSectionHeader={renderSectionHeader}
-					keyExtractor={item => `${item.id}-${item.name}-${Math.random()}`}
+					keyExtractor={item => `${item.id}-${item.name}`}
 					stickySectionHeadersEnabled={true}
 					ListEmptyComponent={renderListEmptyComponent}
 					refreshControl={

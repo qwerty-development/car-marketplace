@@ -8,61 +8,48 @@ import {
 	SectionList,
 	SectionListData,
 	ActivityIndicator,
-	Animated,
 	StatusBar,
 	RefreshControl
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useNavigation } from '@react-navigation/native'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
-import { Stack, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
-import dealership from '../(admin)/dealership'
 import { SafeAreaView } from 'react-native-safe-area-context'
-
-const CustomHeader = ({ title, onBack }: any) => {
-	const { isDarkMode } = useTheme()
-	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-
-	return (
-		<SafeAreaView
-			edges={['top']}
-			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					paddingBottom: 14,
-					paddingHorizontal: 16
-				}}>
-				<TouchableOpacity onPress={onBack}>
-					<Ionicons name='arrow-back' size={24} color={iconColor} />
-				</TouchableOpacity>
-				<Text
-					style={{
-						marginLeft: 16,
-						fontSize: 18,
-						fontWeight: 'bold',
-						color: isDarkMode ? '#FFFFFF' : '#000000'
-					}}>
-					{title}
-				</Text>
-			</View>
-		</SafeAreaView>
-	)
-}
 
 interface Brand {
 	name: string
 	logoUrl: string
 }
 
+const CustomHeader = React.memo(
+	({ title, onBack }: { title: string; onBack: () => void }) => {
+		const { isDarkMode } = useTheme()
+		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
+		return (
+			<SafeAreaView
+				edges={['top']}
+				className={`bg-${isDarkMode ? 'black' : 'white'}`}>
+				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+				<View className='flex-row items-center pb-4 px-4'>
+					<TouchableOpacity onPress={onBack}>
+						<Ionicons name='arrow-back' size={24} color={iconColor} />
+					</TouchableOpacity>
+					<Text
+						className={`ml-4 text-lg font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						{title}
+					</Text>
+				</View>
+			</SafeAreaView>
+		)
+	}
+)
+
 const getLogoUrl = (make: string, isLightMode: boolean) => {
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
-	console.log(formattedMake)
-
-	// Handle special cases
 	switch (formattedMake) {
 		case 'range-rover':
 			return isLightMode
@@ -83,30 +70,17 @@ export default function AllBrandsPage() {
 	const [brands, setBrands] = useState<Brand[]>([])
 	const [searchQuery, setSearchQuery] = useState('')
 	const [isLoading, setIsLoading] = useState(false)
-	const navigation = useNavigation()
+	const [refreshing, setRefreshing] = useState(false)
 	const router = useRouter()
 	const sectionListRef = useRef<SectionList>(null)
 	const { isDarkMode } = useTheme()
-	const [refreshing, setRefreshing] = useState(false) // Add this state
-
-	// ... existing useEffect hooks
 
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
 	const borderColor = isDarkMode ? 'border-red' : 'border-red'
 	const sectionHeaderBgColor = isDarkMode ? 'bg-gray' : 'bg-white'
 
-	useEffect(() => {
-		fetchBrands()
-	}, [])
-
-	useEffect(() => {
-		navigation.setOptions({
-			headerTitle: 'All Brands'
-		})
-	}, [navigation])
-
-	const fetchBrands = async () => {
+	const fetchBrands = useCallback(async () => {
 		setIsLoading(true)
 		try {
 			const { data, error } = await supabase
@@ -127,13 +101,19 @@ export default function AllBrandsPage() {
 			setBrands(brandsData)
 		} catch (error) {
 			console.error('Error fetching brands:', error)
+		} finally {
+			setIsLoading(false)
 		}
-		setIsLoading(false)
-	}
+	}, [isDarkMode])
+
+	useEffect(() => {
+		fetchBrands()
+	}, [fetchBrands])
+
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		fetchBrands().then(() => setRefreshing(false))
-	}, [])
+	}, [fetchBrands])
 
 	const filteredBrands = useMemo(() => {
 		return brands.filter(brand =>
@@ -157,53 +137,53 @@ export default function AllBrandsPage() {
 		return groups
 	}, [filteredBrands])
 
-	const handleBrandPress = (brand: string) => {
-		router.push({
-			pathname: '/(home)/(user)/CarsByBrand',
-			params: { brand }
-		})
-	}
-
-	const renderBrandItem = ({ item }: { item: Brand }) => (
-		<TouchableOpacity
-			className={`flex-row mx-3 items-center py-4 border-b ${borderColor}`}
-			onPress={() => handleBrandPress(item.name)}>
-			<Image
-				source={{ uri: item.logoUrl }}
-				style={{ width: 50, height: 50 }}
-				resizeMode='contain'
-			/>
-			<Text className={`ml-4 text-lg ${textColor}`}>{item.name}</Text>
-		</TouchableOpacity>
+	const handleBrandPress = useCallback(
+		(brand: string) => {
+			router.push({
+				pathname: '/(home)/(user)/CarsByBrand',
+				params: { brand }
+			})
+		},
+		[router]
 	)
 
-	const renderSectionHeader = ({
-		section
-	}: {
-		section: SectionListData<Brand>
-	}) => (
-		<View className={`${sectionHeaderBgColor} p-2`}>
-			<Text className={`${textColor} font-bold`}>{section.title}</Text>
-		</View>
+	const renderBrandItem = useCallback(
+		({ item }: { item: Brand }) => (
+			<TouchableOpacity
+				className={`flex-row mx-3 items-center py-4 border-b border-gray`}
+				onPress={() => handleBrandPress(item.name)}>
+				<Image
+					source={{ uri: item.logoUrl }}
+					style={{ width: 50, height: 50 }}
+					resizeMode='contain'
+				/>
+				<Text className={`ml-4 text-lg ${textColor}`}>{item.name}</Text>
+			</TouchableOpacity>
+		),
+		[borderColor, textColor, handleBrandPress]
+	)
+
+	const renderSectionHeader = useCallback(
+		({ section }: { section: SectionListData<Brand> }) => (
+			<View className={`${sectionHeaderBgColor} p-2`}>
+				<Text className={`${textColor} font-bold`}>{section.title}</Text>
+			</View>
+		),
+		[sectionHeaderBgColor, textColor]
 	)
 
 	return (
-		<View className={`flex-1 ${bgColor} `}>
-			<CustomHeader
-				title='All Brands'
-				onBack={() => {
-					router.back()
-				}}
-			/>
+		<View className={`flex-1 ${bgColor}`}>
+			<CustomHeader title='All Brands' onBack={() => router.back()} />
 			<View
-				className={`border  mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
+				className={`border mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
 					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
 				}`}>
 				<FontAwesome
 					name='search'
 					size={20}
 					color={isDarkMode ? 'white' : 'gray'}
-					className='mx-3'
+					style={{ marginLeft: 12 }}
 				/>
 				<TextInput
 					className={`p-2 ${textColor} flex-1`}
@@ -221,7 +201,7 @@ export default function AllBrandsPage() {
 					sections={groupedBrands}
 					renderItem={renderBrandItem}
 					renderSectionHeader={renderSectionHeader}
-					keyExtractor={item => `${item.name}-${item.logoUrl}-${Math.random()}`}
+					keyExtractor={item => `${item.name}-${item.logoUrl}`}
 					stickySectionHeadersEnabled={true}
 					className='mt-4'
 					refreshControl={

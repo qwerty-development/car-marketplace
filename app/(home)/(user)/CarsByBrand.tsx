@@ -24,68 +24,53 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 const TAB_BAR_HEIGHT = 50
 const CAR_CARD_HEIGHT = SCREEN_HEIGHT - TAB_BAR_HEIGHT
 
-const CustomHeader = ({ title, onBack }: any) => {
-	const { isDarkMode } = useTheme()
-	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+const CustomHeader = React.memo(
+	({ title, onBack }: { title: string; onBack: () => void }) => {
+		const { isDarkMode } = useTheme()
+		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
-	return (
-		<SafeAreaView
-			edges={['top']}
-			style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					paddingBottom: 14,
-					paddingHorizontal: 16
-				}}>
-				<TouchableOpacity onPress={onBack}>
-					<Ionicons name='arrow-back' size={24} color={iconColor} />
-				</TouchableOpacity>
-				<Text
-					style={{
-						marginLeft: 16,
-						fontSize: 18,
-						fontWeight: 'bold',
-						color: isDarkMode ? '#FFFFFF' : '#000000'
-					}}>
-					{title}
-				</Text>
-			</View>
-		</SafeAreaView>
-	)
-}
+		return (
+			<SafeAreaView
+				edges={['top']}
+				className={`bg-${isDarkMode ? 'black' : 'white'}`}>
+				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+				<View className='flex-row items-center pb-4 px-4'>
+					<TouchableOpacity onPress={onBack}>
+						<Ionicons name='arrow-back' size={24} color={iconColor} />
+					</TouchableOpacity>
+					<Text
+						className={`ml-4 text-lg font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						{title}
+					</Text>
+				</View>
+			</SafeAreaView>
+		)
+	}
+)
 
 export default function CarsByBrand() {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
-	const params = useLocalSearchParams()
-	const { brand } = params
+	const { brand } = useLocalSearchParams<{ brand: string }>()
 	const [cars, setCars] = useState<any[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const { isFavorite, toggleFavorite } = useFavorites()
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
-	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
-	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const [refreshing, setRefreshing] = useState(false)
 
-	const fetchCarsByBrand = useCallback(async (brand: string) => {
+	const fetchCarsByBrand = useCallback(async (brandName: string) => {
 		setIsLoading(true)
-		const { data, error } = await supabase
-			.from('cars')
-			.select(
-				`
-        *,
-        dealerships (name,logo,phone,location,latitude,longitude)
-      `
-			)
-			.eq('make', brand)
+		try {
+			const { data, error } = await supabase
+				.from('cars')
+				.select(`*, dealerships (name,logo,phone,location,latitude,longitude)`)
+				.eq('make', brandName)
 
-		if (error) {
-			console.error('Error fetching cars by brand:', error)
-		} else {
+			if (error) throw error
+
 			const carsData =
 				data?.map(item => ({
 					...item,
@@ -97,14 +82,17 @@ export default function CarsByBrand() {
 					dealership_longitude: item.dealerships.longitude
 				})) || []
 			setCars(carsData)
+		} catch (error) {
+			console.error('Error fetching cars by brand:', error)
+		} finally {
+			setIsLoading(false)
 		}
-		setIsLoading(false)
 	}, [])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		if (brand) {
-			fetchCarsByBrand(brand as string).then(() => setRefreshing(false))
+			fetchCarsByBrand(brand).then(() => setRefreshing(false))
 		} else {
 			setRefreshing(false)
 		}
@@ -112,7 +100,7 @@ export default function CarsByBrand() {
 
 	useEffect(() => {
 		if (brand) {
-			fetchCarsByBrand(brand as string)
+			fetchCarsByBrand(brand)
 		}
 	}, [brand, fetchCarsByBrand])
 
@@ -157,10 +145,9 @@ export default function CarsByBrand() {
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
-	const renderModal = () => {
+	const renderModal = useMemo(() => {
 		const ModalComponent =
 			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
-
 		return (
 			<ModalComponent
 				isVisible={isModalVisible}
@@ -175,7 +162,13 @@ export default function CarsByBrand() {
 				setIsModalVisible={setIsModalVisible}
 			/>
 		)
-	}
+	}, [
+		isModalVisible,
+		selectedCar,
+		handleFavoritePress,
+		isFavorite,
+		handleViewUpdate
+	])
 
 	const memoizedHeader = useMemo(
 		() => (
@@ -196,45 +189,59 @@ export default function CarsByBrand() {
 		[brand, router, isDarkMode]
 	)
 
-	return (
-		<View className={`flex-1 ${bgColor}`}>
-			<CustomHeader title={brand} onBack={() => router.back()} />
-			{memoizedHeader}
-			{isLoading && !refreshing ? (
+	const renderContent = () => {
+		if (isLoading && !refreshing) {
+			return (
 				<ActivityIndicator
 					size='large'
 					color='#D55004'
 					className='flex-1 justify-center items-center'
 				/>
-			) : cars.length > 0 ? (
-				<FlatList
-					data={cars}
-					renderItem={renderCarItem}
-					keyExtractor={item =>
-						`${item.id}-${item.make}-${item.model}-${Math.random()}`
-					}
-					showsVerticalScrollIndicator={false}
-					snapToAlignment='start'
-					decelerationRate='fast'
-					snapToInterval={CAR_CARD_HEIGHT}
-					contentContainerStyle={{ paddingBottom: 20 }}
-					refreshControl={
-						<RefreshControl
-							refreshing={refreshing}
-							onRefresh={onRefresh}
-							tintColor={isDarkMode ? '#ffffff' : '#000000'}
-							colors={['#D55004']}
-						/>
-					}
-				/>
-			) : (
+			)
+		}
+
+		if (cars.length === 0) {
+			return (
 				<View className='flex-1 justify-center items-center'>
-					<Text className={`${textColor} text-lg`}>
+					<Text
+						className={`${isDarkMode ? 'text-white' : 'text-black'} text-lg`}>
 						No cars found for this brand.
 					</Text>
 				</View>
-			)}
-			{renderModal()}
+			)
+		}
+
+		return (
+			<FlatList
+				data={cars}
+				renderItem={renderCarItem}
+				keyExtractor={item => `${item.id}-${item.make}-${item.model}`}
+				showsVerticalScrollIndicator={false}
+				snapToAlignment='start'
+				decelerationRate='fast'
+				snapToInterval={CAR_CARD_HEIGHT}
+				contentContainerStyle={{ paddingBottom: 20 }}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						tintColor={isDarkMode ? '#ffffff' : '#000000'}
+						colors={['#D55004']}
+					/>
+				}
+			/>
+		)
+	}
+
+	return (
+		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
+			<CustomHeader
+				title={brand || 'Cars by Brand'}
+				onBack={() => router.back()}
+			/>
+			{memoizedHeader}
+			{renderContent()}
+			{renderModal}
 		</View>
 	)
 }
