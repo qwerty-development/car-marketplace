@@ -7,7 +7,8 @@ import {
 	ActivityIndicator,
 	StyleSheet,
 	Text,
-	Platform
+	Platform,
+	Keyboard
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
@@ -80,6 +81,23 @@ export default function BrowseCarsPage() {
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
+	const [isKeyboardVisible, setKeyboardVisible] = useState(false)
+
+	useEffect(() => {
+		const keyboardDidShowListener = Keyboard.addListener(
+			'keyboardDidShow',
+			() => setKeyboardVisible(true)
+		)
+		const keyboardDidHideListener = Keyboard.addListener(
+			'keyboardDidHide',
+			() => setKeyboardVisible(false)
+		)
+
+		return () => {
+			keyboardDidShowListener.remove()
+			keyboardDidHideListener.remove()
+		}
+	}, [])
 
 	useEffect(() => {
 		if (params.filters) {
@@ -103,99 +121,98 @@ export default function BrowseCarsPage() {
 			query = searchQuery
 		) => {
 			setIsLoading(true)
+			try {
+				let queryBuilder = supabase
+					.from('cars')
+					.select(
+						`*, dealerships (name,logo,phone,location,latitude,longitude)`,
+						{ count: 'exact' }
+					)
+					.neq('status', 'sold')
 
-			let queryBuilder = supabase
-				.from('cars')
-				.select(
-					`
-				*,
-				dealerships (name,logo,phone,location,latitude,longitude)
-				`,
-					{ count: 'exact' }
+				// Apply filters
+				if (currentFilters.dealership)
+					queryBuilder = queryBuilder.eq(
+						'dealership_id',
+						currentFilters.dealership
+					)
+				if (currentFilters.make)
+					queryBuilder = queryBuilder.eq('make', currentFilters.make)
+				if (currentFilters.model)
+					queryBuilder = queryBuilder.eq('model', currentFilters.model)
+				if (currentFilters.condition)
+					queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
+				if (currentFilters.yearRange)
+					queryBuilder = queryBuilder
+						.gte('year', currentFilters.yearRange[0])
+						.lte('year', currentFilters.yearRange[1])
+				if (currentFilters.color)
+					queryBuilder = queryBuilder.eq('color', currentFilters.color)
+				if (currentFilters.transmission)
+					queryBuilder = queryBuilder.eq(
+						'transmission',
+						currentFilters.transmission
+					)
+				if (currentFilters.drivetrain)
+					queryBuilder = queryBuilder.eq(
+						'drivetrain',
+						currentFilters.drivetrain
+					)
+				if (currentFilters.priceRange)
+					queryBuilder = queryBuilder
+						.gte('price', currentFilters.priceRange[0])
+						.lte('price', currentFilters.priceRange[1])
+				if (currentFilters.mileageRange)
+					queryBuilder = queryBuilder
+						.gte('mileage', currentFilters.mileageRange[0])
+						.lte('mileage', currentFilters.mileageRange[1])
+				if (currentFilters.categories && currentFilters.categories.length > 0)
+					queryBuilder = queryBuilder.in('category', currentFilters.categories)
+
+				if (query) {
+					queryBuilder = queryBuilder.or(
+						`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%`
+					)
+				}
+
+				// Apply sorting
+				switch (currentSortOption) {
+					case 'price_asc':
+						queryBuilder = queryBuilder.order('price', { ascending: true })
+						break
+					case 'price_desc':
+						queryBuilder = queryBuilder.order('price', { ascending: false })
+						break
+					case 'year_asc':
+						queryBuilder = queryBuilder.order('year', { ascending: true })
+						break
+					case 'year_desc':
+						queryBuilder = queryBuilder.order('year', { ascending: false })
+						break
+					case 'mileage_asc':
+						queryBuilder = queryBuilder.order('mileage', { ascending: true })
+						break
+					case 'mileage_desc':
+						queryBuilder = queryBuilder.order('mileage', { ascending: false })
+						break
+					default:
+						queryBuilder = queryBuilder.order('listed_at', { ascending: false })
+				}
+
+				const { count } = await queryBuilder
+				const totalItems = count || 0
+				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+				const safePageNumber = Math.min(page, totalPages)
+				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
+				const endRange = Math.min(
+					safePageNumber * ITEMS_PER_PAGE - 1,
+					totalItems - 1
 				)
-				.neq('status', 'sold')
 
-			// Apply filters
-			if (currentFilters.dealership)
-				queryBuilder = queryBuilder.eq(
-					'dealership_id',
-					currentFilters.dealership
-				)
-			if (currentFilters.make)
-				queryBuilder = queryBuilder.eq('make', currentFilters.make)
-			if (currentFilters.model)
-				queryBuilder = queryBuilder.eq('model', currentFilters.model)
-			if (currentFilters.condition)
-				queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
-			if (currentFilters.yearRange)
-				queryBuilder = queryBuilder
-					.gte('year', currentFilters.yearRange[0])
-					.lte('year', currentFilters.yearRange[1])
-			if (currentFilters.color)
-				queryBuilder = queryBuilder.eq('color', currentFilters.color)
-			if (currentFilters.transmission)
-				queryBuilder = queryBuilder.eq(
-					'transmission',
-					currentFilters.transmission
-				)
-			if (currentFilters.drivetrain)
-				queryBuilder = queryBuilder.eq('drivetrain', currentFilters.drivetrain)
-			if (currentFilters.priceRange)
-				queryBuilder = queryBuilder
-					.gte('price', currentFilters.priceRange[0])
-					.lte('price', currentFilters.priceRange[1])
-			if (currentFilters.mileageRange)
-				queryBuilder = queryBuilder
-					.gte('mileage', currentFilters.mileageRange[0])
-					.lte('mileage', currentFilters.mileageRange[1])
-			if (currentFilters.categories && currentFilters.categories.length > 0)
-				queryBuilder = queryBuilder.in('category', currentFilters.categories)
+				const { data, error } = await queryBuilder.range(startRange, endRange)
 
-			if (query) {
-				queryBuilder = queryBuilder.or(
-					`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%`
-				)
-			}
+				if (error) throw error
 
-			// Apply sorting
-			switch (currentSortOption) {
-				case 'price_asc':
-					queryBuilder = queryBuilder.order('price', { ascending: true })
-					break
-				case 'price_desc':
-					queryBuilder = queryBuilder.order('price', { ascending: false })
-					break
-				case 'year_asc':
-					queryBuilder = queryBuilder.order('year', { ascending: true })
-					break
-				case 'year_desc':
-					queryBuilder = queryBuilder.order('year', { ascending: false })
-					break
-				case 'mileage_asc':
-					queryBuilder = queryBuilder.order('mileage', { ascending: true })
-					break
-				case 'mileage_desc':
-					queryBuilder = queryBuilder.order('mileage', { ascending: false })
-					break
-				default:
-					queryBuilder = queryBuilder.order('listed_at', { ascending: false })
-			}
-
-			const { count } = await queryBuilder
-			const totalItems = count || 0
-			const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
-			const safePageNumber = Math.min(page, totalPages)
-			const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
-			const endRange = Math.min(
-				safePageNumber * ITEMS_PER_PAGE - 1,
-				totalItems - 1
-			)
-
-			const { data, error } = await queryBuilder.range(startRange, endRange)
-
-			if (error) {
-				console.error('Error fetching cars:', error)
-			} else {
 				const newCars =
 					data?.map(item => ({
 						...item,
@@ -207,20 +224,20 @@ export default function BrowseCarsPage() {
 						dealership_longitude: item.dealerships.longitude
 					})) || []
 
-				// Remove duplicate cars by using a Set to filter by unique IDs
 				const uniqueCars = Array.from(new Set(newCars.map(car => car.id))).map(
 					id => newCars.find(car => car.id === id)
 				)
 
-				setCars((prevCars: any) =>
+				setCars(prevCars =>
 					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
 				)
-
 				setTotalPages(totalPages)
 				setCurrentPage(safePageNumber)
+			} catch (error) {
+				console.error('Error fetching cars:', error)
+			} finally {
+				setIsLoading(false)
 			}
-
-			setIsLoading(false)
 		},
 		[filters, sortOption, searchQuery]
 	)
@@ -232,24 +249,30 @@ export default function BrowseCarsPage() {
 		)
 	}, [filters, sortOption, searchQuery, fetchCars])
 
-	const handleFavoritePress = async (carId: string) => {
-		const newLikesCount = await toggleFavorite(carId)
-		setCars(prevCars =>
-			prevCars.map(car =>
-				car.id === carId ? { ...car, likes: newLikesCount } : car
+	const handleFavoritePress = useCallback(
+		async (carId: string) => {
+			const newLikesCount = await toggleFavorite(carId)
+			setCars(prevCars =>
+				prevCars.map(car =>
+					car.id === carId ? { ...car, likes: newLikesCount } : car
+				)
 			)
-		)
-	}
+		},
+		[toggleFavorite]
+	)
 
-	const handleSortChange = (value: string) => {
-		setSortOption(value)
-		fetchCars(1, filters, value, searchQuery)
-	}
+	const handleSortChange = useCallback(
+		(value: string) => {
+			setSortOption(value)
+			fetchCars(1, filters, value, searchQuery)
+		},
+		[filters, searchQuery, fetchCars]
+	)
 
-	const handleCarPress = (car: Car) => {
+	const handleCarPress = useCallback((car: Car) => {
 		setSelectedCar(car)
 		setIsModalVisible(true)
-	}
+	}, [])
 
 	const renderCarItem = useCallback(
 		({ item }: { item: Car }) => (
@@ -263,56 +286,60 @@ export default function BrowseCarsPage() {
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
-	const openFilterPage = () => {
+	const openFilterPage = useCallback(() => {
 		router.push({
 			pathname: '/(home)/(user)/filter',
 			params: { filters: JSON.stringify(filters) }
 		})
-	}
+	}, [router, filters])
 
-	const handleViewUpdate = (carId: string, newViewCount: number) => {
-		setCars(prevCars =>
-			prevCars.map(car =>
-				car.id === carId ? { ...car, views: newViewCount } : car
+	const handleViewUpdate = useCallback(
+		(carId: string, newViewCount: number) => {
+			setCars(prevCars =>
+				prevCars.map(car =>
+					car.id === carId ? { ...car, views: newViewCount } : car
+				)
 			)
-		)
-	}
-
-	const keyExtractor = useCallback(
-		(item: any) => `${item.id}-${item.make}-${item.model}`,
+		},
 		[]
 	)
 
-	const handleSearch = () => {
+	const keyExtractor = useCallback(
+		(item: Car) => `${item.id}-${item.make}-${item.model}`,
+		[]
+	)
+
+	const handleSearch = useCallback(() => {
 		fetchCars(1, filters, sortOption, searchQuery)
-	}
+	}, [filters, sortOption, searchQuery, fetchCars])
 
-	const handleCategoryPress = (category: string) => {
-		setFilters(prevFilters => {
-			const updatedCategories = prevFilters.categories
-				? prevFilters.categories.includes(category)
-					? prevFilters.categories.filter(c => c !== category)
-					: [...prevFilters.categories, category]
-				: [category]
+	const handleCategoryPress = useCallback(
+		(category: string) => {
+			setFilters(prevFilters => {
+				const updatedCategories = prevFilters.categories
+					? prevFilters.categories.includes(category)
+						? prevFilters.categories.filter(c => c !== category)
+						: [...prevFilters.categories, category]
+					: [category]
 
-			const newFilters = {
-				...prevFilters,
-				categories: updatedCategories
-			}
+				const newFilters = {
+					...prevFilters,
+					categories: updatedCategories
+				}
 
-			fetchCars(1, newFilters, sortOption, searchQuery)
-			return newFilters
-		})
-	}
+				fetchCars(1, newFilters, sortOption, searchQuery)
+				return newFilters
+			})
+		},
+		[sortOption, searchQuery, fetchCars]
+	)
 
-	const handleResetFilters = () => {
+	const handleResetFilters = useCallback(() => {
 		setFilters({})
 		setSearchQuery('')
 		setSortOption('')
-		setIsLoading(true)
 		fetchCars(1, {}, '', '')
-		setIsLoading(false)
-	}
+	}, [fetchCars])
 
 	const renderListHeader = useMemo(
 		() => (
@@ -346,10 +373,9 @@ export default function BrowseCarsPage() {
 		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
 	)
 
-	const renderModal = () => {
+	const renderModal = useCallback(() => {
 		const ModalComponent =
 			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
-
 		return (
 			<ModalComponent
 				isVisible={isModalVisible}
@@ -367,14 +393,20 @@ export default function BrowseCarsPage() {
 				onViewUpdate={handleViewUpdate}
 			/>
 		)
-	}
+	}, [
+		isModalVisible,
+		selectedCar,
+		handleFavoritePress,
+		isFavorite,
+		handleViewUpdate
+	])
 
 	return (
 		<LinearGradient
 			colors={
 				isDarkMode
-					? ['#000000', '#0D0D0D', '#0D0D0D', '#0D0D0D', '#D55004'] // Stronger black, subtler orange in dark mode
-					: ['#FFFFFF', '#FFFFFF', '#F2F2F2', '#FFA07A', '#D55004'] // Stronger white, softer orange in light mode
+					? ['#000000', '#0D0D0D', '#0D0D0D', '#0D0D0D', '#D55004']
+					: ['#FFFFFF', '#FFFFFF', '#F2F2F2', '#FFA07A', '#D55004']
 			}
 			style={{ flex: 1 }}
 			start={{ x: 0, y: 0 }}
@@ -423,9 +455,7 @@ export default function BrowseCarsPage() {
 									style={styles.clearButton}
 									onPress={() => {
 										setSearchQuery('')
-										setIsLoading(true)
 										fetchCars(1, {}, '', '')
-										setIsLoading(false)
 									}}>
 									<FontAwesome
 										name='times-circle'
@@ -469,29 +499,31 @@ export default function BrowseCarsPage() {
 					renderItem={renderCarItem}
 					keyExtractor={keyExtractor}
 					onEndReached={() => {
-						if (currentPage < totalPages) {
+						if (currentPage < totalPages && !isLoading) {
 							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
 						}
 					}}
-					onEndReachedThreshold={0.1}
+					onEndReachedThreshold={0.5}
 					ListEmptyComponent={renderListEmpty}
 					ListFooterComponent={() =>
 						isLoading ? (
 							<ActivityIndicator
 								size='large'
-								color='#D55004'
+								color='#FFFFFF'
 								style={{ marginVertical: 20 }}
 							/>
 						) : null
 					}
 				/>
-				{showScrollTopButton && (
+				{showScrollTopButton && !isKeyboardVisible && (
 					<TouchableOpacity
 						style={[
 							styles.scrollTopButton,
 							{ backgroundColor: isDarkMode ? '#333333' : '#FFFFFF' }
 						]}
-						onPress={scrollToTop}>
+						onPress={() =>
+							flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+						}>
 						<Ionicons
 							name='chevron-up'
 							size={24}
