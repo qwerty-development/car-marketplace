@@ -7,7 +7,8 @@ import {
 	RefreshControl,
 	ListRenderItem,
 	StatusBar,
-	Platform
+	Platform,
+	TouchableOpacity
 } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -77,13 +78,10 @@ export default function FavoritesPage() {
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [favoriteCars, setFavoriteCars] = useState<Car[]>([])
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-	const [isModalVisible, setIsModalVisible] = useState<any>(false)
+	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [refreshing, setRefreshing] = useState(false)
 	const [error, setError] = useState<string | null>(null)
-
-	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
-	const textColor = isDarkMode ? 'text-white' : 'text-light-text'
 
 	const fetchFavoriteCars = useCallback(async () => {
 		setError(null)
@@ -97,10 +95,7 @@ export default function FavoritesPage() {
 			const { data, error } = await supabase
 				.from('cars')
 				.select(
-					`
-          *,
-          dealerships (name, logo, phone, location, latitude, longitude)
-        `
+					`*, dealerships (name, logo, phone, location, latitude, longitude)`
 				)
 				.in('id', favorites)
 
@@ -166,10 +161,9 @@ export default function FavoritesPage() {
 		[]
 	)
 
-	const renderModal = () => {
+	const renderModal = useMemo(() => {
 		const ModalComponent =
 			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
-
 		return (
 			<ModalComponent
 				isVisible={isModalVisible}
@@ -184,7 +178,7 @@ export default function FavoritesPage() {
 				setIsModalVisible={setIsModalVisible}
 			/>
 		)
-	}
+	}, [isModalVisible, selectedCar, handleFavoritePress, handleViewUpdate])
 
 	const renderCarItem: ListRenderItem<Car> = useCallback(
 		({ item }) => (
@@ -206,27 +200,35 @@ export default function FavoritesPage() {
 	const EmptyFavorites = useMemo(
 		() => (
 			<View className='flex-1 justify-center items-center'>
-				<Text className={`text-xl font-bold ${textColor} mb-2`}>
+				<Text
+					className={`text-xl font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					} mb-2`}>
 					No cars added as favorite
 				</Text>
-				<Text className='text-base text-gray-400'>
+				<Text className='text-base text-gray'>
 					Your favorite cars will appear here
 				</Text>
 			</View>
 		),
-		[textColor]
+		[isDarkMode]
 	)
 
 	const ErrorMessage = useMemo(
 		() => (
 			<View className='flex-1 justify-center items-center'>
-				<Text className={`text-xl font-bold ${textColor} mb-2`}>{error}</Text>
-				<Text className='text-base text-gray-400'>
+				<Text
+					className={`text-xl font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					} mb-2`}>
+					{error}
+				</Text>
+				<Text className='text-base text-gray'>
 					Pull down to refresh and try again
 				</Text>
 			</View>
 		),
-		[error, textColor]
+		[error, isDarkMode]
 	)
 
 	const renderContent = () => {
@@ -265,10 +267,10 @@ export default function FavoritesPage() {
 	}
 
 	return (
-		<SafeAreaView className={`flex-1 ${bgColor}`}>
+		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader title='Favorites' onBack={() => router.back()} />
 			{renderContent()}
-			{renderModal()}
+			{renderModal}
 		</SafeAreaView>
 	)
 }
