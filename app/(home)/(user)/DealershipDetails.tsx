@@ -11,12 +11,14 @@ import {
 	Animated,
 	Dimensions,
 	PanResponder,
-	StatusBar
+	StatusBar,
+	Platform
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
+import CarDetailModalIOS from './CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -300,6 +302,26 @@ export default function DealershipDetails() {
 		setSortOrder(newSortOrder as 'asc' | 'desc')
 	}
 
+	const renderModal = () => {
+		const ModalComponent =
+			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
+
+		return (
+			<ModalComponent
+				isVisible={isModalVisible}
+				car={selectedCar}
+				onClose={() => setIsModalVisible(false)}
+				onFavoritePress={() =>
+					selectedCar && handleFavoritePress(selectedCar.id)
+				}
+				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+				onViewUpdate={handleViewUpdate}
+				setSelectedCar={setSelectedCar}
+				setIsModalVisible={setIsModalVisible}
+			/>
+		)
+	}
+
 	const renderCarItem = useCallback(
 		({ item }: { item: Car }) => (
 			<CarCard
@@ -481,18 +503,7 @@ export default function DealershipDetails() {
 				)}
 				scrollEventThrottle={16}
 			/>
-			<CarDetailModal
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
-				onViewUpdate={handleViewUpdate}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-			/>
+			{renderModal()}
 		</LinearGradient>
 	)
 }

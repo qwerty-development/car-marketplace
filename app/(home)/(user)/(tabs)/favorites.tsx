@@ -6,12 +6,14 @@ import {
 	ActivityIndicator,
 	RefreshControl,
 	ListRenderItem,
-	StatusBar
+	StatusBar,
+	Platform
 } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
+import CarDetailModalIOS from '../CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -164,6 +166,26 @@ export default function FavoritesPage() {
 		[]
 	)
 
+	const renderModal = () => {
+		const ModalComponent =
+			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
+
+		return (
+			<ModalComponent
+				isVisible={isModalVisible}
+				car={selectedCar}
+				onClose={() => setIsModalVisible(false)}
+				onFavoritePress={() =>
+					selectedCar && handleFavoritePress(selectedCar.id)
+				}
+				isFavorite={true}
+				onViewUpdate={handleViewUpdate}
+				setSelectedCar={setSelectedCar}
+				setIsModalVisible={setIsModalVisible}
+			/>
+		)
+	}
+
 	const renderCarItem: ListRenderItem<Car> = useCallback(
 		({ item }) => (
 			<CarCard
@@ -246,18 +268,7 @@ export default function FavoritesPage() {
 		<SafeAreaView className={`flex-1 ${bgColor}`}>
 			<CustomHeader title='Favorites' onBack={() => router.back()} />
 			{renderContent()}
-			<CarDetailModal
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={true}
-				onViewUpdate={handleViewUpdate}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-			/>
+			{renderModal()}
 		</SafeAreaView>
 	)
 }

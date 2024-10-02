@@ -7,11 +7,13 @@ import {
 	Dimensions,
 	Text,
 	StatusBar,
-	RefreshControl
+	RefreshControl,
+	Platform
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from './CarDetailModal'
+import CarDetailModalIOS from './CarDetailModalIOS'
 import { supabase } from '@/utils/supabase'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
@@ -155,6 +157,26 @@ export default function CarsByBrand() {
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
+	const renderModal = () => {
+		const ModalComponent =
+			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
+
+		return (
+			<ModalComponent
+				isVisible={isModalVisible}
+				car={selectedCar}
+				onClose={() => setIsModalVisible(false)}
+				onFavoritePress={() =>
+					selectedCar && handleFavoritePress(selectedCar.id)
+				}
+				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+				onViewUpdate={handleViewUpdate}
+				setSelectedCar={setSelectedCar}
+				setIsModalVisible={setIsModalVisible}
+			/>
+		)
+	}
+
 	const memoizedHeader = useMemo(
 		() => (
 			<Stack.Screen
@@ -212,18 +234,7 @@ export default function CarsByBrand() {
 					</Text>
 				</View>
 			)}
-			<CarDetailModal
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
-				onViewUpdate={handleViewUpdate}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-			/>
+			{renderModal()}
 		</View>
 	)
 }
