@@ -516,7 +516,7 @@ export default function BrowseCarsPage() {
 					<TouchableOpacity
 						style={[
 							styles.scrollTopButton,
-							{ backgroundColor: isDarkMode ? '#333333' : '#FFFFFF' }
+							{ backgroundColor: isDarkMode ? '#696969' : '#FFFFFF' }
 						]}
 						onPress={() =>
 							flatListRef.current?.scrollToOffset({ offset: 0, animated: true })

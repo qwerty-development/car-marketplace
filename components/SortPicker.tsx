@@ -134,7 +134,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 				onPress={openModal}
 				style={[styles.picker, isDarkMode && styles.pickerDark]}>
 				<Ionicons
-					name='funnel-outline'
+					name={selectedOption.icon}
 					size={16}
 					color={isDarkMode ? '#FFFFFF' : '#D55004'}
 					style={styles.pickerIcon}
