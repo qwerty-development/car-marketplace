@@ -370,9 +370,8 @@ export default function DealershipProfilePage() {
 										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 									}
 									secureTextEntry
-									autoFocus
 									cursorColor='#D55004'
-                  autoComplete='password'
+									autoComplete='password'
 								/>
 								<TextInput
 									className={`${
@@ -385,9 +384,8 @@ export default function DealershipProfilePage() {
 										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 									}
 									secureTextEntry
-									autoFocus
 									cursorColor='#D55004'
-                  autoComplete='password'
+									autoComplete='password'
 								/>
 								<TextInput
 									className={`${
@@ -400,9 +398,8 @@ export default function DealershipProfilePage() {
 										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 									}
 									secureTextEntry
-									autoFocus
 									cursorColor='#D55004'
-                  autoComplete='password'
+									autoComplete='password'
 								/>
 								<View className='flex-row justify-between mt-4'>
 									<TouchableOpacity
@@ -437,7 +434,6 @@ export default function DealershipProfilePage() {
 									placeholderTextColor={
 										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 									}
-									autoFocus
 									cursorColor='#D55004'
 									autoComplete='username'
 									autoCapitalize='words'
@@ -459,7 +455,6 @@ export default function DealershipProfilePage() {
 									placeholderTextColor={
 										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 									}
-									autoFocus
 									cursorColor='#D55004'
 									autoComplete='street-address'
 									autoCapitalize='words'
@@ -482,7 +477,6 @@ export default function DealershipProfilePage() {
 									placeholderTextColor={
 										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 									}
-									autoFocus
 									cursorColor='#D55004'
 									autoComplete='tel'
 								/>
@@ -505,7 +499,6 @@ export default function DealershipProfilePage() {
 										placeholderTextColor={
 											isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 										}
-										autoFocus
 										cursorColor='#D55004'
 									/>
 									<TextInput
@@ -519,9 +512,7 @@ export default function DealershipProfilePage() {
 										placeholderTextColor={
 											isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
 										}
-										autoFocus
 										cursorColor='#D55004'
-
 									/>
 								</View>
 								<View className='flex-row justify-between mb-4'>

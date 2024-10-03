@@ -11,7 +11,8 @@ import {
 	Animated,
 	Dimensions,
 	StatusBar,
-	Platform
+	Platform,
+	Linking
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -69,7 +70,7 @@ const CustomHeader = React.memo(
 						<Ionicons name='arrow-back' size={24} color={iconColor} />
 					</TouchableOpacity>
 					<Text
-						className={`ml-4 text-lg font-bold ${
+						className={`ml-4 text-lg font-bold mx-auto ${
 							isDarkMode ? 'text-white' : 'text-black'
 						}`}>
 						{title}
@@ -109,7 +110,7 @@ export default function DealershipDetails() {
 		: ['#FFFFFF', '#F0F0F0']
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-	const cardBgColor = isDarkMode ? 'bg-gray' : 'bg-white'
+	const cardBgColor = isDarkMode ? 'bg-night' : 'bg-white'
 
 	const fetchDealershipDetails = useCallback(async () => {
 		setIsDealershipLoading(true)
@@ -343,11 +344,25 @@ export default function DealershipDetails() {
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
+	const handleCall = useCallback(() => {
+		if (dealership?.phone) {
+			Linking.openURL(`tel:${dealership.phone}`)
+		}
+	}, [dealership])
+
+	const handleWhatsApp = useCallback(() => {
+		if (dealership?.phone) {
+			const whatsappUrl = `https://wa.me/${dealership.phone}`
+			Linking.openURL(whatsappUrl)
+		}
+	}, [dealership])
+
 	const renderHeader = useMemo(
 		() => (
 			<>
 				{dealership && (
-					<View className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4`}>
+					<View
+						className={`bg-light-text rounded-lg shadow-md p-4 mb-4 border border-red`}>
 						<Image
 							source={{ uri: dealership.logo }}
 							className='w-24 h-24 rounded-full self-center mb-4'
@@ -356,9 +371,19 @@ export default function DealershipDetails() {
 							className={`text-2xl font-bold ${textColor} text-center mb-2`}>
 							{dealership.name}
 						</Text>
-						<View className='flex-row items-center justify-center mb-2'>
-							<Ionicons name='call-outline' size={20} color={iconColor} />
-							<Text className={`${textColor} ml-2`}>{dealership.phone}</Text>
+						<View className='flex-row justify-center space-x-4 mb-4'>
+							<TouchableOpacity
+								onPress={handleCall}
+								className='bg-green-500 px-4 py-2 rounded-full flex-row items-center'>
+								<Ionicons name='call-outline' size={20} color='white' />
+								<Text className='text-white ml-2'>Call</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								onPress={handleWhatsApp}
+								className='bg-blue-500 px-4 py-2 rounded-full flex-row items-center'>
+								<Ionicons name='logo-whatsapp' size={20} color='white' />
+								<Text className='text-white ml-2'>WhatsApp</Text>
+							</TouchableOpacity>
 						</View>
 						<View className='flex-row items-center justify-center mb-4'>
 							<Ionicons name='location-outline' size={20} color={iconColor} />

@@ -183,7 +183,7 @@ export default function UserProfileAndSupportPage() {
 								placeholder='Current Password'
 								placeholderTextColor='gray'
 								secureTextEntry
-								autoFocus
+
 								cursorColor='#D55004'
 								autoComplete='password'
 							/>
@@ -196,7 +196,7 @@ export default function UserProfileAndSupportPage() {
 								placeholder='New Password'
 								placeholderTextColor='gray'
 								secureTextEntry
-								autoFocus
+
 								cursorColor='#D55004'
 								autoComplete='password'
 							/>
@@ -209,7 +209,7 @@ export default function UserProfileAndSupportPage() {
 								placeholder='Confirm New Password'
 								placeholderTextColor='gray'
 								secureTextEntry
-								autoFocus
+
 								cursorColor='#D55004'
 								autoComplete='password'
 							/>
@@ -242,7 +242,7 @@ export default function UserProfileAndSupportPage() {
 								onChangeText={setFirstName}
 								placeholder='First Name'
 								placeholderTextColor='gray'
-								autoFocus
+
 								cursorColor='#D55004'
 								autoComplete='name'
 								autoCapitalize='words'
@@ -261,7 +261,7 @@ export default function UserProfileAndSupportPage() {
 								onChangeText={setLastName}
 								placeholder='Last Name'
 								placeholderTextColor='gray'
-								autoFocus
+
 								cursorColor='#D55004'
 								autoComplete='name'
 								autoCapitalize='words'
@@ -281,7 +281,7 @@ export default function UserProfileAndSupportPage() {
 								keyboardType='email-address'
 								editable={false}
 								placeholderTextColor='gray'
-								autoFocus
+
 								cursorColor='#D55004'
 								autoComplete='email'
 							/>
