@@ -177,32 +177,41 @@ export default function UserProfileAndSupportPage() {
 							<TextInput
 								className={`${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4`}
+								} p-4 rounded-xl mb-4 border border-red`}
 								value={currentPassword}
 								onChangeText={setCurrentPassword}
 								placeholder='Current Password'
 								placeholderTextColor='gray'
 								secureTextEntry
+								autoFocus
+								cursorColor='#D55004'
+								autoComplete='password'
 							/>
 							<TextInput
 								className={`${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4`}
+								} p-4 rounded-xl mb-4 border border-red`}
 								value={newPassword}
 								onChangeText={setNewPassword}
 								placeholder='New Password'
 								placeholderTextColor='gray'
 								secureTextEntry
+								autoFocus
+								cursorColor='#D55004'
+								autoComplete='password'
 							/>
 							<TextInput
 								className={`${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4`}
+								} p-4 rounded-xl mb-4 border border-red`}
 								value={confirmPassword}
 								onChangeText={setConfirmPassword}
 								placeholder='Confirm New Password'
 								placeholderTextColor='gray'
 								secureTextEntry
+								autoFocus
+								cursorColor='#D55004'
+								autoComplete='password'
 							/>
 							<View className='flex-row justify-between mt-4'>
 								<TouchableOpacity
@@ -228,11 +237,15 @@ export default function UserProfileAndSupportPage() {
 							<TextInput
 								className={`${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4`}
+								} p-4 rounded-xl mb-4 border border-red`}
 								value={firstName}
 								onChangeText={setFirstName}
 								placeholder='First Name'
 								placeholderTextColor='gray'
+								autoFocus
+								cursorColor='#D55004'
+								autoComplete='name'
+								autoCapitalize='words'
 							/>
 							<Text
 								className={`${
@@ -243,11 +256,15 @@ export default function UserProfileAndSupportPage() {
 							<TextInput
 								className={`${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4`}
+								} p-4 rounded-xl mb-4 border border-red`}
 								value={lastName}
 								onChangeText={setLastName}
 								placeholder='Last Name'
 								placeholderTextColor='gray'
+								autoFocus
+								cursorColor='#D55004'
+								autoComplete='name'
+								autoCapitalize='words'
 							/>
 							<Text
 								className={`${
@@ -258,12 +275,15 @@ export default function UserProfileAndSupportPage() {
 							<TextInput
 								className={`${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4`}
+								} p-4 rounded-xl mb-4 border border-red`}
 								value={email}
 								placeholder='Email'
 								keyboardType='email-address'
 								editable={false}
 								placeholderTextColor='gray'
+								autoFocus
+								cursorColor='#D55004'
+								autoComplete='email'
 							/>
 							<TouchableOpacity
 								className='bg-red p-4 rounded-xl items-center mt-4'
@@ -312,7 +332,9 @@ export default function UserProfileAndSupportPage() {
 								}`}>
 								Chat on WhatsApp
 							</Text>
-							<Text className='text-red'>Quick responses, 24/7 support</Text>
+							<Text className='text-blue-500'>
+								Quick responses, 24/7 support
+							</Text>
 						</View>
 					</TouchableOpacity>
 					<TouchableOpacity
@@ -328,7 +350,9 @@ export default function UserProfileAndSupportPage() {
 								}`}>
 								Send an Email
 							</Text>
-							<Text className='text-red'>Detailed inquiries and feedback</Text>
+							<Text className='text-blue-500'>
+								Detailed inquiries and feedback
+							</Text>
 						</View>
 					</TouchableOpacity>
 				</View>
@@ -355,7 +379,7 @@ export default function UserProfileAndSupportPage() {
 				</View>
 
 				<TouchableOpacity
-					className='bg-[#FF000024]  p-5 mb-24 rounded-xl items-center '
+					className='bg-rose-600  p-5 mb-24 rounded-xl items-center '
 					onPress={() => signOut()}>
 					<Text className='text-white font-bold text-xl'>Sign Out</Text>
 				</TouchableOpacity>
