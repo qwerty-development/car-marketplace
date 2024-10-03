@@ -78,7 +78,7 @@ export default function DealerListings() {
 	const [hasMoreListings, setHasMoreListings] = useState(true)
 	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
-	const [soldInfo, setSoldInfo] = useState({ price: '', date: '' })
+
 	const [filters, setFilters] = useState({
 		status: '',
 		condition: '',
@@ -262,16 +262,6 @@ export default function DealerListings() {
 		setCurrentPage(1)
 		fetchListings(1, true)
 	}, [fetchListings])
-
-	const handleFilterChange = (key: string, value: string) => {
-		setFilters(prevFilters => ({ ...prevFilters, [key]: value }))
-	}
-
-	const applyFilters = () => {
-		setIsFilterModalVisible(false)
-		setCurrentPage(1)
-		fetchListings(1, true)
-	}
 
 	const handleMarkAsSold = useCallback(
 		async (soldInfo: { price: string; date: string }) => {
