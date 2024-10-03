@@ -85,10 +85,13 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 	)
 }
 
-export default function CarCard(
-	{ car, onPress, onFavoritePress, isFavorite }: any,
-	isDealer: any = false
-) {
+export default function CarCard({
+	car,
+	onPress,
+	onFavoritePress,
+	isFavorite,
+	isDealer = false
+}: any) {
 	const { isDarkMode } = useTheme()
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)
@@ -194,6 +197,7 @@ export default function CarCard(
 							</TouchableOpacity>
 						</StyledView>
 					)}
+
 					<StyledView className='absolute bottom-4 left-4 bg-red/60 rounded-full px-3 py-1'>
 						<StyledText className='text-white text-sm'>
 							{formattedListingDate}

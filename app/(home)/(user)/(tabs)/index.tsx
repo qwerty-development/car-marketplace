@@ -75,14 +75,10 @@ export default function BrowseCarsPage() {
 	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 	const scrollY = useRef<any>(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
-	const scrollToTop = () => {
-		flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
-	}
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
 	const [isKeyboardVisible, setKeyboardVisible] = useState(false)
-
 	useEffect(() => {
 		const keyboardDidShowListener = Keyboard.addListener(
 			'keyboardDidShow',
@@ -281,6 +277,7 @@ export default function BrowseCarsPage() {
 				onPress={() => handleCarPress(item)}
 				onFavoritePress={() => handleFavoritePress(item.id)}
 				isFavorite={isFavorite(Number(item.id))}
+				isDealer={false}
 			/>
 		),
 		[handleCarPress, handleFavoritePress, isFavorite]
@@ -509,8 +506,8 @@ export default function BrowseCarsPage() {
 						isLoading ? (
 							<ActivityIndicator
 								size='large'
-								color='#FFFFFF'
-								style={{ marginVertical: 20 }}
+								color='#D55004'
+								className='mb-16'
 							/>
 						) : null
 					}
