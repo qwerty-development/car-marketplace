@@ -74,6 +74,12 @@ export default function DealerLayout() {
 					}}
 				/>
 				<Tabs.Screen
+					name='CarDetailModalIOS'
+					options={{
+						tabBarButton: () => null
+					}}
+				/>
+				<Tabs.Screen
 					name='analytics'
 					options={{
 						tabBarButton: () => null

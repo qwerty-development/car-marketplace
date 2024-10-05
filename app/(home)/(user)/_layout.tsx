@@ -50,6 +50,15 @@ export default function RootLayout() {
 							headerShown: false
 						}}
 					/>
+
+					<Stack.Screen
+						name='CarDetailModalIOS'
+						options={{
+							presentation: 'modal',
+							animation: 'slide_from_bottom',
+							headerShown: false
+						}}
+					/>
 				</Stack>
 			</View>
 		</GestureHandlerRootView>
