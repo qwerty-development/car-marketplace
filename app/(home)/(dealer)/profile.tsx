@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import 'react-native-get-random-values'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -11,7 +12,8 @@ import {
 	StatusBar,
 	Modal,
 	RefreshControl,
-	Keyboard
+	KeyboardAvoidingView,
+	Platform
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
@@ -19,50 +21,27 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import * as Location from 'expo-location'
 import MapView, { Marker } from 'react-native-maps'
-import { Buffer } from 'buffer'
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
+import { BlurView } from 'expo-blur'
 
-const CustomHeader = ({ title, onBack }: any) => {
+const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
-
 	return (
 		<SafeAreaView
 			edges={['top']}
-			style={{
-				backgroundColor: isDarkMode ? 'black' : 'white',
-				borderBottomWidth: 0,
-				borderBottomColor: '#D55004',
-				borderTopWidth: 0,
-				borderWidth: 0,
-				borderColor: '#D55004'
-			}}>
+			className={`${isDarkMode ? 'bg-black' : 'bg-white'} border-b border-red`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				className='border-b border-red'
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					justifyContent: 'center',
-					paddingHorizontal: 0,
-					paddingBottom: 9
-				}}>
-				<Text
-					style={{
-						fontSize: 20,
-						textAlign: 'center',
-						color: '#D55004',
-						fontWeight: '600'
-					}}>
-					{title}
-				</Text>
+			<View className='flex-row items-center justify-center py-4'>
+				<Text className='text-xl font-bold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
 	)
-}
+})
 
 export default function DealershipProfilePage() {
 	const { isDarkMode } = useTheme()
@@ -70,12 +49,14 @@ export default function DealershipProfilePage() {
 	const { signOut } = useAuth()
 	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
-	const [name, setName] = useState('')
-	const [location, setLocation] = useState('')
-	const [phone, setPhone] = useState('')
-	const [logo, setLogo] = useState('')
-	const [latitude, setLatitude] = useState('')
-	const [longitude, setLongitude] = useState('')
+	const [formData, setFormData] = useState({
+		name: '',
+		location: '',
+		phone: '',
+		logo: '',
+		latitude: '',
+		longitude: ''
+	})
 	const [isUploading, setIsUploading] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
@@ -86,12 +67,43 @@ export default function DealershipProfilePage() {
 	} | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
 	const [isChangePasswordMode, setIsChangePasswordMode] = useState(false)
-	const [currentPassword, setCurrentPassword] = useState('')
-	const [newPassword, setNewPassword] = useState('')
-	const [confirmPassword, setConfirmPassword] = useState('')
+	const [passwordData, setPasswordData] = useState({
+		currentPassword: '',
+		newPassword: '',
+		confirmPassword: ''
+	})
+	const [mapRegion, setMapRegion] = useState({
+		latitude: 33.8547, // Beirut, Lebanon latitude
+		longitude: 35.8623, // Beirut, Lebanon longitude
+		latitudeDelta: 0.0922,
+		longitudeDelta: 0.0421
+	})
+	const mapRef = useRef<MapView | null>(null)
 
-	const getLocation = async () => {
-		let { status } = await Location.requestForegroundPermissionsAsync()
+	useEffect(() => {
+		;(async () => {
+			let { status } = await Location.requestForegroundPermissionsAsync()
+			if (status !== 'granted') {
+				console.log('Permission to access location was denied')
+				return
+			}
+
+			let location = await Location.getCurrentPositionAsync({})
+			setMapRegion({
+				latitude: location.coords.latitude,
+				longitude: location.coords.longitude,
+				latitudeDelta: 0.0922,
+				longitudeDelta: 0.0421
+			})
+			setSelectedLocation({
+				latitude: location.coords.latitude,
+				longitude: location.coords.longitude
+			})
+		})()
+	}, [])
+
+	const getLocation = useCallback(async () => {
+		const { status } = await Location.requestForegroundPermissionsAsync()
 		if (status !== 'granted') {
 			Alert.alert(
 				'Permission Denied',
@@ -100,88 +112,117 @@ export default function DealershipProfilePage() {
 			return
 		}
 
-		let location = await Location.getCurrentPositionAsync({})
-		setLatitude(location.coords.latitude.toString())
-		setLongitude(location.coords.longitude.toString())
+		const location = await Location.getCurrentPositionAsync({})
+		setFormData(prev => ({
+			...prev,
+			latitude: location.coords.latitude.toString(),
+			longitude: location.coords.longitude.toString()
+		}))
 		setSelectedLocation({
 			latitude: location.coords.latitude,
 			longitude: location.coords.longitude
 		})
-	}
-
-	const openMap = () => {
-		setMapVisible(true)
-	}
-
-	const closeMap = () => {
-		setMapVisible(false)
-		setSelectedLocation(null)
-	}
-
-	const selectLocation = (event: any) => {
-		const { latitude, longitude } = event.nativeEvent.coordinate
-		setSelectedLocation({ latitude, longitude })
-	}
-
-	const confirmLocation = () => {
-		if (selectedLocation) {
-			setLatitude(selectedLocation.latitude.toString())
-			setLongitude(selectedLocation.longitude.toString())
-			setLocation('Custom Location')
-		}
-		closeMap()
-	}
-
-	const onRefresh = useCallback(() => {
-		setRefreshing(true)
-		fetchDealershipProfile().then(() => setRefreshing(false))
 	}, [])
 
-	useEffect(() => {
-		if (user) fetchDealershipProfile()
-	}, [user])
+	const openMap = useCallback(() => setMapVisible(true), [])
+	const closeMap = useCallback(() => {
+		setMapVisible(false)
+		setSelectedLocation(null)
+	}, [])
 
-	const fetchDealershipProfile = async () => {
+	const selectLocation = useCallback((details: any) => {
+		if (details && details.geometry && details.geometry.location) {
+			const { lat, lng } = details.geometry.location
+			const newRegion = {
+				latitude: lat,
+				longitude: lng,
+				latitudeDelta: 0.0922,
+				longitudeDelta: 0.0421
+			}
+			setSelectedLocation({ latitude: lat, longitude: lng })
+			setMapRegion(newRegion)
+			mapRef.current?.animateToRegion(newRegion, 1000)
+		}
+	}, [])
+
+	const handleMapPress = useCallback((e: any) => {
+		const { latitude, longitude } = e.nativeEvent.coordinate
+		const newRegion = {
+			latitude,
+			longitude,
+			latitudeDelta: 0.0922,
+			longitudeDelta: 0.0421
+		}
+		setSelectedLocation({ latitude, longitude })
+		setMapRegion(newRegion)
+		mapRef.current?.animateToRegion(newRegion, 1000)
+	}, [])
+
+	const confirmLocation = useCallback(() => {
+		if (selectedLocation) {
+			setFormData(prev => ({
+				...prev,
+				latitude: selectedLocation.latitude.toString(),
+				longitude: selectedLocation.longitude.toString(),
+				location: 'Custom Location'
+			}))
+		}
+		closeMap()
+	}, [selectedLocation, closeMap])
+
+	const fetchDealershipProfile = useCallback(async () => {
+		if (!user) return
 		setIsLoading(true)
 		setError(null)
 		try {
 			const { data, error } = await supabase
 				.from('dealerships')
 				.select('*')
-				.eq('user_id', user?.id)
+				.eq('user_id', user.id)
 				.single()
 
 			if (error) throw error
 
 			if (data) {
 				setDealership(data)
-				setName(data.name)
-				setLocation(data.location)
-				setPhone(data.phone)
-				setLogo(data.logo)
-				setLatitude(data.latitude ? data.latitude.toString() : '')
-				setLongitude(data.longitude ? data.longitude.toString() : '')
+				setFormData({
+					name: data.name,
+					location: data.location,
+					phone: data.phone,
+					logo: data.logo,
+					latitude: data.latitude ? data.latitude.toString() : '',
+					longitude: data.longitude ? data.longitude.toString() : ''
+				})
 			}
 		} catch (error: any) {
 			setError(error.message)
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [user])
 
-	const updateProfile = async () => {
+	useEffect(() => {
+		fetchDealershipProfile()
+	}, [fetchDealershipProfile])
+
+	const onRefresh = useCallback(() => {
+		setRefreshing(true)
+		fetchDealershipProfile().then(() => setRefreshing(false))
+	}, [fetchDealershipProfile])
+
+	const updateProfile = useCallback(async () => {
 		setIsLoading(true)
 		setError(null)
 		try {
 			const { error } = await supabase
 				.from('dealerships')
 				.update({
-					name,
-					location,
-					phone,
-					logo,
-					latitude: parseFloat(latitude) || null,
-					longitude: parseFloat(longitude) || null
+					name: formData.name,
+					location: formData.location,
+					phone: formData.phone,
+					logo: formData.logo,
+					latitude: parseFloat(formData.latitude) || null,
+					longitude: parseFloat(formData.longitude) || null
 				})
 				.eq('id', dealership.id)
 
@@ -193,9 +234,9 @@ export default function DealershipProfilePage() {
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [formData, dealership])
 
-	const pickImage = async () => {
+	const pickImage = useCallback(async () => {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 		if (status !== 'granted') {
 			Alert.alert(
@@ -205,7 +246,7 @@ export default function DealershipProfilePage() {
 			return
 		}
 
-		let result = await ImagePicker.launchImageLibraryAsync({
+		const result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsEditing: true,
 			aspect: [1, 1],
@@ -223,81 +264,259 @@ export default function DealershipProfilePage() {
 				setIsUploading(false)
 			}
 		}
-	}
+	}, [])
 
-	const handleImageUpload = async (imageUri: string) => {
-		if (!dealership) return
+	const handleImageUpload = useCallback(
+		async (imageUri: string) => {
+			if (!dealership) return
 
-		try {
-			const fileName = `${Date.now()}_${Math.random()
-				.toString(36)
-				.substring(7)}.jpg`
-			const filePath = `${dealership.id}/${fileName}`
+			try {
+				const fileName = `${Date.now()}_${Math.random()
+					.toString(36)
+					.substring(7)}.jpg`
+				const filePath = `${dealership.id}/${fileName}`
 
-			const base64 = await FileSystem.readAsStringAsync(imageUri, {
-				encoding: FileSystem.EncodingType.Base64
-			})
-
-			const { data, error } = await supabase.storage
-				.from('logos')
-				.upload(filePath, Buffer.from(base64, 'base64'), {
-					contentType: 'image/jpeg'
+				const base64 = await FileSystem.readAsStringAsync(imageUri, {
+					encoding: FileSystem.EncodingType.Base64
 				})
 
-			if (error) throw error
+				const { data, error } = await supabase.storage
+					.from('logos')
+					.upload(filePath, Buffer.from(base64, 'base64'), {
+						contentType: 'image/jpeg'
+					})
 
-			const { data: publicURLData } = supabase.storage
-				.from('logos')
-				.getPublicUrl(filePath)
+				if (error) throw error
 
-			if (!publicURLData) throw new Error('Error getting public URL')
+				const { data: publicURLData } = supabase.storage
+					.from('logos')
+					.getPublicUrl(filePath)
 
-			setLogo(publicURLData.publicUrl)
-			const { error: updateError } = await supabase
-				.from('dealerships')
-				.update({ logo: publicURLData.publicUrl })
-				.eq('id', dealership.id)
+				if (!publicURLData) throw new Error('Error getting public URL')
 
-			if (updateError) throw updateError
+				setFormData(prev => ({ ...prev, logo: publicURLData.publicUrl }))
+				await supabase
+					.from('dealerships')
+					.update({ logo: publicURLData.publicUrl })
+					.eq('id', dealership.id)
 
-			Alert.alert('Success', 'Logo updated successfully')
-		} catch (error: any) {
-			console.error('Detailed error in handleImageUpload:', error)
-			Alert.alert('Error', `Failed to upload image: ${error.message}`)
-		}
-	}
+				Alert.alert('Success', 'Logo updated successfully')
+			} catch (error: any) {
+				console.error('Detailed error in handleImageUpload:', error)
+				Alert.alert('Error', `Failed to upload image: ${error.message}`)
+			}
+		},
+		[dealership]
+	)
 
-	const navigateToAnalytics = () => {
+	const navigateToAnalytics = useCallback(() => {
 		router.push('/analytics')
-	}
+	}, [router])
 
-	const handleChangePassword = async () => {
-		if (newPassword !== confirmPassword) {
+	const handleChangePassword = useCallback(async () => {
+		if (passwordData.newPassword !== passwordData.confirmPassword) {
 			Alert.alert('Error', 'New passwords do not match')
 			return
 		}
 
 		try {
 			await user?.updatePassword({
-				currentPassword,
-				newPassword
+				currentPassword: passwordData.currentPassword,
+				newPassword: passwordData.newPassword
 			})
 			Alert.alert('Success', 'Password changed successfully')
 			setIsChangePasswordMode(false)
-			setCurrentPassword('')
-			setNewPassword('')
-			setConfirmPassword('')
+			setPasswordData({
+				currentPassword: '',
+				newPassword: '',
+				confirmPassword: ''
+			})
 		} catch (error) {
 			console.error('Error changing password:', error)
 			Alert.alert('Error', 'Failed to change password')
 		}
-	}
+	}, [passwordData, user])
+
+	const renderProfileForm = useMemo(
+		() => (
+			<>
+				<TextInput
+					className={`${
+						isDarkMode ? 'bg-night text-white' : ' text-black'
+					} p-4 rounded-xl mb-4 border border-red`}
+					value={formData.name}
+					onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
+					placeholder='Enter your dealership name'
+					placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					cursorColor='#D55004'
+					autoComplete='username'
+					autoCapitalize='words'
+				/>
+				<TextInput
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-4 border border-red`}
+					value={formData.location}
+					onChangeText={text =>
+						setFormData(prev => ({ ...prev, location: text }))
+					}
+					placeholder='Enter your dealership address'
+					placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					cursorColor='#D55004'
+					autoComplete='street-address'
+					autoCapitalize='words'
+				/>
+				<TextInput
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-4 border border-red`}
+					value={formData.phone.toString()}
+					onChangeText={text => setFormData(prev => ({ ...prev, phone: text }))}
+					placeholder='Enter your contact number'
+					keyboardType='numeric'
+					placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					cursorColor='#D55004'
+					autoComplete='tel'
+				/>
+				<View className='flex-row items-center mb-4'>
+					<TextInput
+						className={`${
+							isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+						} p-4 rounded-xl flex-1 mr-2 border border-red`}
+						value={formData.latitude}
+						onChangeText={text =>
+							setFormData(prev => ({ ...prev, latitude: text }))
+						}
+						placeholder='Latitude'
+						keyboardType='numeric'
+						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						cursorColor='#D55004'
+					/>
+					<TextInput
+						className={`${
+							isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+						} p-4 rounded-xl flex-1 ml-2 border border-red`}
+						value={formData.longitude}
+						onChangeText={text =>
+							setFormData(prev => ({ ...prev, longitude: text }))
+						}
+						placeholder='Longitude'
+						keyboardType='numeric'
+						placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+						cursorColor='#D55004'
+					/>
+				</View>
+				<View className='flex-row justify-between mb-4'>
+					<TouchableOpacity
+						className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center flex-row justify-center'
+						onPress={getLocation}>
+						<Ionicons
+							name='location-outline'
+							size={24}
+							color='white'
+							style={{ marginRight: 8 }}
+						/>
+						<Text className='text-white font-bold'>Get Location</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center flex-row justify-center'
+						onPress={openMap}>
+						<Ionicons
+							name='map-outline'
+							size={24}
+							color='white'
+							style={{ marginRight: 8 }}
+						/>
+						<Text className='text-white font-bold'>Pick on Map</Text>
+					</TouchableOpacity>
+				</View>
+				<Text
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-4 border border-red`}>
+					{user?.emailAddresses[0].emailAddress}
+				</Text>
+				<Text
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-6 border border-red`}>
+					{dealership?.subscription_end_date
+						? new Date(dealership.subscription_end_date).toLocaleDateString()
+						: 'N/A'}
+				</Text>
+			</>
+		),
+		[formData, isDarkMode, user, dealership, getLocation, openMap]
+	)
+
+	const renderPasswordForm = useMemo(
+		() => (
+			<>
+				<TextInput
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-4 border-2 border-red`}
+					value={passwordData.currentPassword}
+					onChangeText={text =>
+						setPasswordData(prev => ({ ...prev, currentPassword: text }))
+					}
+					placeholder='Current Password'
+					placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					secureTextEntry
+					cursorColor='#D55004'
+					autoComplete='password'
+				/>
+				<TextInput
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-4 border border-red`}
+					value={passwordData.newPassword}
+					onChangeText={text =>
+						setPasswordData(prev => ({ ...prev, newPassword: text }))
+					}
+					placeholder='New Password'
+					placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					secureTextEntry
+					cursorColor='#D55004'
+					autoComplete='password'
+				/>
+				<TextInput
+					className={`${
+						isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
+					} p-4 rounded-xl mb-4 border border-red`}
+					value={passwordData.confirmPassword}
+					onChangeText={text =>
+						setPasswordData(prev => ({ ...prev, confirmPassword: text }))
+					}
+					placeholder='Confirm New Password'
+					placeholderTextColor={isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'}
+					secureTextEntry
+					cursorColor='#D55004'
+					autoComplete='password'
+				/>
+				<View className='flex-row justify-between mt-4'>
+					<TouchableOpacity
+						className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
+						onPress={() => setIsChangePasswordMode(false)}>
+						<Text className='text-white font-bold text-lg'>Cancel</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
+						onPress={handleChangePassword}>
+						<Text className='text-white font-bold text-lg'>Confirm</Text>
+					</TouchableOpacity>
+				</View>
+			</>
+		),
+		[isDarkMode, passwordData, handleChangePassword]
+	)
 
 	return (
-		<>
+		<KeyboardAvoidingView
+			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader title='Dealership Profile' />
 			<ScrollView
-				className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}
 				refreshControl={
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
 				}>
@@ -315,9 +534,9 @@ export default function DealershipProfilePage() {
 					</View>
 				)}
 				<View
-					className={`items-center bg-red  pt-8 pb-8 rounded-b-3xl shadow-lg`}>
+					className={`items-center bg-red pt-8 pb-8 rounded-b-3xl shadow-lg`}>
 					<Image
-						source={{ uri: logo || 'https://via.placeholder.com/150' }}
+						source={{ uri: formData.logo || 'https://via.placeholder.com/150' }}
 						className='w-36 h-36 rounded-full border-4 border-white mb-6'
 					/>
 					<TouchableOpacity
@@ -357,219 +576,10 @@ export default function DealershipProfilePage() {
 						className={`${
 							isDarkMode ? 'bg-night' : 'bg-white'
 						} rounded-2xl shadow-md p-6 mb-8`}>
-						{isChangePasswordMode ? (
+						{isChangePasswordMode ? renderPasswordForm : renderProfileForm}
+
+						{!isChangePasswordMode && (
 							<>
-								<TextInput
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-4 border-2 border-red`}
-									value={currentPassword}
-									onChangeText={setCurrentPassword}
-									placeholder='Current Password'
-									placeholderTextColor={
-										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-									}
-									secureTextEntry
-									cursorColor='#D55004'
-									autoComplete='password'
-								/>
-								<TextInput
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-4 border border-red`}
-									value={newPassword}
-									onChangeText={setNewPassword}
-									placeholder='New Password'
-									placeholderTextColor={
-										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-									}
-									secureTextEntry
-									cursorColor='#D55004'
-									autoComplete='password'
-								/>
-								<TextInput
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-4 border border-red`}
-									value={confirmPassword}
-									onChangeText={setConfirmPassword}
-									placeholder='Confirm New Password'
-									placeholderTextColor={
-										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-									}
-									secureTextEntry
-									cursorColor='#D55004'
-									autoComplete='password'
-								/>
-								<View className='flex-row justify-between mt-4'>
-									<TouchableOpacity
-										className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
-										onPress={() => setIsChangePasswordMode(false)}>
-										<Text className='text-white font-bold text-lg'>Cancel</Text>
-									</TouchableOpacity>
-									<TouchableOpacity
-										className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
-										onPress={handleChangePassword}>
-										<Text className='text-white font-bold text-lg'>
-											Confirm
-										</Text>
-									</TouchableOpacity>
-								</View>
-							</>
-						) : (
-							<>
-								<Text
-									className={`${
-										isDarkMode ? 'text-red' : 'text-red'
-									} text-sm font-semibold mb-2`}>
-									Dealership Name
-								</Text>
-								<TextInput
-									className={`${
-										isDarkMode ? 'bg-night text-white' : ' text-black'
-									} p-4 rounded-xl mb-4 border border-red`}
-									value={name}
-									onChangeText={setName}
-									placeholder='Enter your dealership name'
-									placeholderTextColor={
-										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-									}
-									cursorColor='#D55004'
-									autoComplete='username'
-									autoCapitalize='words'
-								/>
-
-								<Text
-									className={`${
-										isDarkMode ? 'text-red' : 'text-red'
-									} text-sm font-semibold mb-2`}>
-									Address
-								</Text>
-								<TextInput
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-4 border border-red`}
-									value={location}
-									onChangeText={setLocation}
-									placeholder='Enter your dealership address'
-									placeholderTextColor={
-										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-									}
-									cursorColor='#D55004'
-									autoComplete='street-address'
-									autoCapitalize='words'
-								/>
-
-								<Text
-									className={`${
-										isDarkMode ? 'text-red' : 'text-red'
-									} text-sm font-semibold mb-2`}>
-									Phone Number Phone Number
-								</Text>
-								<TextInput
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-4 border border-red`}
-									value={phone.toString()}
-									onChangeText={setPhone}
-									placeholder='Enter your contact number'
-									keyboardType='numeric'
-									placeholderTextColor={
-										isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-									}
-									cursorColor='#D55004'
-									autoComplete='tel'
-								/>
-
-								<Text
-									className={`${
-										isDarkMode ? 'text-red' : 'text-red'
-									} text-sm font-semibold mb-2`}>
-									Location Coordinates
-								</Text>
-								<View className='flex-row items-center mb-4'>
-									<TextInput
-										className={`${
-											isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-										} p-4 rounded-xl flex-1 mr-2 border border-red`}
-										value={latitude}
-										onChangeText={setLatitude}
-										placeholder='Latitude'
-										keyboardType='numeric'
-										placeholderTextColor={
-											isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-										}
-										cursorColor='#D55004'
-									/>
-									<TextInput
-										className={`${
-											isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-										} p-4 rounded-xl flex-1 ml-2 border border-red`}
-										value={longitude}
-										onChangeText={setLongitude}
-										placeholder='Longitude'
-										keyboardType='numeric'
-										placeholderTextColor={
-											isDarkMode ? 'gray' : 'rgba(0, 0, 0, 0.5)'
-										}
-										cursorColor='#D55004'
-									/>
-								</View>
-								<View className='flex-row justify-between mb-4'>
-									<TouchableOpacity
-										className='bg-blue-500 p-3 rounded-xl flex-1 mr-2 items-center flex-row justify-center'
-										onPress={getLocation}>
-										<Ionicons
-											name='location-outline'
-											size={24}
-											color='white'
-											style={{ marginRight: 8 }}
-										/>
-										<Text className='text-white font-bold'>Get Location</Text>
-									</TouchableOpacity>
-									<TouchableOpacity
-										className='bg-green-500 p-3 rounded-xl flex-1 ml-2 items-center flex-row justify-center'
-										onPress={openMap}>
-										<Ionicons
-											name='map-outline'
-											size={24}
-											color='white'
-											style={{ marginRight: 8 }}
-										/>
-										<Text className='text-white font-bold'>Pick on Map</Text>
-									</TouchableOpacity>
-								</View>
-
-								<Text
-									className={`${
-										isDarkMode ? 'text-red' : 'text-red'
-									} text-sm font-semibold mb-2`}>
-									Email Address
-								</Text>
-								<Text
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-4 border border-red`}>
-									{user?.emailAddresses[0].emailAddress}
-								</Text>
-
-								<Text
-									className={`${
-										isDarkMode ? 'text-red' : 'text-red'
-									} text-sm font-semibold mb-2`}>
-									Subscription End Date
-								</Text>
-								<Text
-									className={`${
-										isDarkMode ? 'bg-night text-white' : 'bg-white text-black'
-									} p-4 rounded-xl mb-6 border border-red`}>
-									{dealership?.subscription_end_date
-										? new Date(
-												dealership.subscription_end_date
-										  ).toLocaleDateString()
-										: 'N/A'}
-								</Text>
-
 								<TouchableOpacity
 									className='bg-red p-4 rounded-xl items-center mt-4 flex-row justify-center'
 									onPress={updateProfile}>
@@ -628,17 +638,42 @@ export default function DealershipProfilePage() {
 					</TouchableOpacity>
 				</View>
 			</ScrollView>
+
 			<Modal visible={mapVisible} animationType='slide'>
 				<View style={{ flex: 1 }}>
-					<MapView
-						style={{ flex: 1 }}
-						initialRegion={{
-							latitude: parseFloat(latitude) || 0,
-							longitude: parseFloat(longitude) || 0,
-							latitudeDelta: 0.0922,
-							longitudeDelta: 0.0421
+					<GooglePlacesAutocomplete
+						placeholder='Search'
+						onPress={(data, details = null) => {
+							if (details) selectLocation(details)
 						}}
-						onPress={selectLocation}>
+						query={{
+							key: 'AIzaSyCe8nbmSQBR9KmZG5AP3yYZeKogvjQbwX4',
+							language: 'en'
+						}}
+						fetchDetails={true} // Add this line
+						styles={{
+							container: {
+								position: 'absolute',
+								top: 10,
+								left: 10,
+								right: 10,
+								zIndex: 1
+							},
+							textInput: {
+								height: 50,
+								borderRadius: 25,
+								paddingHorizontal: 16,
+								backgroundColor: isDarkMode ? '#333' : '#fff',
+								color: isDarkMode ? '#fff' : '#000'
+							}
+						}}
+					/>
+
+					<MapView
+						ref={mapRef}
+						style={{ flex: 1 }}
+						region={mapRegion}
+						onPress={handleMapPress}>
 						{selectedLocation && (
 							<Marker
 								coordinate={{
@@ -648,48 +683,30 @@ export default function DealershipProfilePage() {
 							/>
 						)}
 					</MapView>
-					<View
+					<BlurView
+						intensity={80}
+						tint={isDarkMode ? 'dark' : 'light'}
 						style={{
 							position: 'absolute',
-							top: 10,
+							bottom: 10,
 							left: 10,
 							right: 10,
-							backgroundColor: isDarkMode
-								? 'rgba(0,0,0,0.7)'
-								: 'rgba(255,255,255,0.7)',
 							padding: 10,
 							borderRadius: 5
 						}}>
-						<Text
-							style={{
-								color: isDarkMode ? 'white' : 'black',
-								fontWeight: 'bold',
-								marginBottom: 5
-							}}>
-							Tap on the map to select a location
-						</Text>
 						{selectedLocation && (
 							<Text style={{ color: isDarkMode ? 'white' : 'black' }}>
 								Selected: {selectedLocation.latitude.toFixed(6)},{' '}
 								{selectedLocation.longitude.toFixed(6)}
 							</Text>
 						)}
-					</View>
+					</BlurView>
 					<View
-						style={{
-							flexDirection: 'row',
-							justifyContent: 'space-around',
-							padding: 15,
-							backgroundColor: isDarkMode ? '#1E1E1E' : 'white'
-						}}>
+						className={`flex-row justify-around p-4 ${
+							isDarkMode ? 'bg-night' : 'bg-white'
+						}`}>
 						<TouchableOpacity
-							style={{
-								backgroundColor: 'red',
-								padding: 10,
-								borderRadius: 5,
-								flexDirection: 'row',
-								alignItems: 'center'
-							}}
+							className='bg-red px-6 py-3 rounded-full flex-row items-center'
 							onPress={closeMap}>
 							<Ionicons
 								name='close-outline'
@@ -697,16 +714,10 @@ export default function DealershipProfilePage() {
 								color='white'
 								style={{ marginRight: 8 }}
 							/>
-							<Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
+							<Text className='text-white font-bold'>Cancel</Text>
 						</TouchableOpacity>
 						<TouchableOpacity
-							style={{
-								backgroundColor: 'green',
-								padding: 10,
-								borderRadius: 5,
-								flexDirection: 'row',
-								alignItems: 'center'
-							}}
+							className='bg-green-500 px-6 py-3 rounded-full flex-row items-center'
 							onPress={confirmLocation}>
 							<Ionicons
 								name='checkmark-outline'
@@ -714,13 +725,11 @@ export default function DealershipProfilePage() {
 								color='white'
 								style={{ marginRight: 8 }}
 							/>
-							<Text style={{ color: 'white', fontWeight: 'bold' }}>
-								Confirm Location
-							</Text>
+							<Text className='text-white font-bold'>Confirm Location</Text>
 						</TouchableOpacity>
 					</View>
 				</View>
 			</Modal>
-		</>
+		</KeyboardAvoidingView>
 	)
 }
