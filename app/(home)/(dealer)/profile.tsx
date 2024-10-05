@@ -75,8 +75,8 @@ export default function DealershipProfilePage() {
 	const [mapRegion, setMapRegion] = useState({
 		latitude: 33.8547, // Beirut, Lebanon latitude
 		longitude: 35.8623, // Beirut, Lebanon longitude
-		latitudeDelta: 0.0922,
-		longitudeDelta: 0.0421
+		latitudeDelta: 2, // Increased to show more of Lebanon
+		longitudeDelta: 2
 	})
 	const mapRef = useRef<MapView | null>(null)
 
@@ -642,15 +642,18 @@ export default function DealershipProfilePage() {
 			<Modal visible={mapVisible} animationType='slide'>
 				<View style={{ flex: 1 }}>
 					<GooglePlacesAutocomplete
-						placeholder='Search'
+						placeholder='Search in Lebanon'
 						onPress={(data, details = null) => {
 							if (details) selectLocation(details)
 						}}
 						query={{
 							key: 'AIzaSyCe8nbmSQBR9KmZG5AP3yYZeKogvjQbwX4',
-							language: 'en'
+							language: 'en',
+							components: 'country:lb', // This restricts results to Lebanon
+
+							region: 'lb' // This sets the default region to Lebanon
 						}}
-						fetchDetails={true} // Add this line
+						fetchDetails={true}
 						styles={{
 							container: {
 								position: 'absolute',
@@ -667,8 +670,11 @@ export default function DealershipProfilePage() {
 								color: isDarkMode ? '#fff' : '#000'
 							}
 						}}
+						filterReverseGeocodingByTypes={[
+							'locality',
+							'administrative_area_level_3'
+						]} // This helps in getting more relevant reverse geocoding results
 					/>
-
 					<MapView
 						ref={mapRef}
 						style={{ flex: 1 }}
