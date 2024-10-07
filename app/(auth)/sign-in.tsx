@@ -2,14 +2,14 @@ import React, { useEffect, useCallback, useState } from 'react'
 import { useSignIn } from '@clerk/clerk-expo'
 import { Link, useRouter } from 'expo-router'
 import {
-	Text,
-	TextInput,
-	TouchableOpacity,
-	View,
-	KeyboardAvoidingView,
-	Platform,
-	Animated,
-	Dimensions
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+    KeyboardAvoidingView,
+    Platform,
+    Animated,
+    Dimensions
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 const { width, height } = Dimensions.get('window')
@@ -102,11 +102,39 @@ export default function SignInPage() {
 	const [emailAddress, setEmailAddress] = React.useState('')
 	const [password, setPassword] = React.useState('')
 	const [error, setError] = React.useState('')
+    const [emailError, setEmailError] = useState('')//new
+    const [passwordError, setPasswordError] = useState('')//new
 	const [showPassword, setShowPassword] = useState(false)
 
 	const togglePasswordVisibility = () => setShowPassword(!showPassword)
 	const onSignInPress = useCallback(async () => {
 		if (!isLoaded || !signIn) return
+
+		let hasError = false
+
+		// Regular expression to validate email format
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+		// Check if email is entered and valid
+		if (!emailAddress) {
+			setEmailError('Email is required')
+			hasError = true
+		} else if (!emailRegex.test(emailAddress)) {
+			setEmailError('Please enter a valid email address')
+			hasError = true
+		} else {
+			setEmailError('')
+		}
+
+		// Check if password is entered
+		if (!password) {
+			setPasswordError('Password is required')
+			hasError = true
+		} else {
+			setPasswordError('')
+		}
+
+		if (hasError) return
 
 		try {
 			const signInAttempt = await signIn.create({
@@ -118,15 +146,14 @@ export default function SignInPage() {
 				await setActive({ session: signInAttempt.createdSessionId })
 				router.replace('/')
 			} else {
-				setError('Sign in failed. Please try again.')
+				setEmailError('Sign in failed. Please try again.')
 			}
 		} catch (err: any) {
 			console.error(JSON.stringify(err, null, 2))
-			setError(
-				err.errors?.[0]?.message || 'An error occurred. Please try again.'
-			)
+			setEmailError(err.errors?.[0]?.message || 'An error occurred. Please try again.')
 		}
 	}, [isLoaded, signIn, emailAddress, password, setActive, router])
+
 
 	return (
 		<KeyboardAvoidingView
@@ -172,6 +199,12 @@ export default function SignInPage() {
 						onChangeText={setEmailAddress}
 						keyboardType='email-address'
 					/>
+                    {emailError ? (
+                        <Text style={{ color: '#D55004', marginBottom: 16 }}>
+                            {emailError}
+                        </Text>
+                    ) : null}
+
 					<View className='relative'>
 						<TextInput
 							style={{
@@ -199,10 +232,18 @@ export default function SignInPage() {
 								color='#6B7280'
 							/>
 						</TouchableOpacity>
+
 					</View>
+                    {passwordError ? (
+                        <Text style={{ color: '#D55004', marginBottom: 16 }}>
+                            {passwordError}
+                        </Text>
+                    ) : null}
 				</View>
 				{error ? (
 					<Text className='text-[#D55004] mt-4 text-center'>{error}</Text>
+
+
 				) : null}
 				<TouchableOpacity
 					style={{
@@ -238,7 +279,7 @@ export default function SignInPage() {
 				<TouchableOpacity
 					onPress={() => router.push('/forgot-password')}
 					className='mx-auto'>
-					<Text className={`text-white underline`}>Forgot Password?</Text>
+					<Text className={text-white underline``}>Forgot Password?</Text>
 				</TouchableOpacity>
 			</View>
 		</KeyboardAvoidingView>
