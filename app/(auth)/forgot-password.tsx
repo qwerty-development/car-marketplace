@@ -100,7 +100,7 @@ export default function ForgotPasswordPage() {
 				password
 			})
 			Alert.alert('Success', 'Password reset successfully')
-			await setActive({ session: result!.createdSessionId })
+			await setActive!({ session: result!.createdSessionId })
 			router.replace('/')
 		} catch (err: any) {
 			Alert.alert('Error', err.errors[0].message)
