@@ -18,42 +18,19 @@ import CarDetailModalIOS from '../CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-const CustomHeader = ({ title, onBack }: any) => {
+const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
 
 	return (
-		<View
-			style={{
-				backgroundColor: isDarkMode ? 'black' : 'white',
-				borderBottomWidth: 0,
-				paddingTop: 10,
-				borderBottomColor: '#D55004',
-				borderTopWidth: 0,
-				borderWidth: 0,
-
-				borderColor: '#D55004'
-			}}>
+		<SafeAreaView
+			className={`bg-${isDarkMode ? 'black' : 'white'} border-b border-red`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View
-				style={{
-					flexDirection: 'row',
-					alignItems: 'center',
-					justifyContent: 'center', // Centers the content horizontally
-					paddingHorizontal: 0
-				}}>
-				<Text
-					style={{
-						fontSize: 20,
-						textAlign: 'center',
-						color: '#D55004',
-						fontWeight: '600'
-					}}>
-					{title}
-				</Text>
+			<View className='flex-row items-center justify-center pt-3'>
+				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
-		</View>
+		</SafeAreaView>
 	)
-}
+})
 
 interface Car {
 	id: number
@@ -265,10 +242,10 @@ export default function FavoritesPage() {
 	}
 
 	return (
-		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
-			<CustomHeader title='Favorites' onBack={() => router.back()} />
+		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
+			<CustomHeader title='Favorites' />
 			{renderContent()}
 			{renderModal}
-		</SafeAreaView>
+		</View>
 	)
 }
