@@ -9,7 +9,9 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 	Animated,
-	Dimensions
+	Dimensions,
+	ScrollView,
+	Alert
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { Ionicons } from '@expo/vector-icons'
@@ -97,18 +99,60 @@ export default function SignUpScreen() {
 	const { isLoaded, signUp, setActive } = useSignUp()
 	const router = useRouter()
 
-	const [name, setName] = React.useState('')
-	const [emailAddress, setEmailAddress] = React.useState('')
-	const [password, setPassword] = React.useState('')
-	const [pendingVerification, setPendingVerification] = React.useState(false)
-	const [code, setCode] = React.useState('')
-	const [error, setError] = React.useState('')
+	const [name, setName] = useState('')
+	const [emailAddress, setEmailAddress] = useState('')
+	const [password, setPassword] = useState('')
+	const [pendingVerification, setPendingVerification] = useState(false)
+	const [code, setCode] = useState('')
+	const [errors, setErrors] = useState({
+		name: '',
+		email: '',
+		password: '',
+		code: '',
+		general: ''
+	})
 	const [showPassword, setShowPassword] = useState(false)
 
 	const togglePasswordVisibility = () => setShowPassword(!showPassword)
 
+	const validateInputs = () => {
+		let isValid = true
+		const newErrors = {
+			name: '',
+			email: '',
+			password: '',
+			code: '',
+			general: ''
+		}
+
+		if (!name.trim()) {
+			newErrors.name = 'Name is required'
+			isValid = false
+		}
+
+		if (!emailAddress.trim()) {
+			newErrors.email = 'Email is required'
+			isValid = false
+		} else if (!/\S+@\S+\.\S+/.test(emailAddress)) {
+			newErrors.email = 'Invalid email format'
+			isValid = false
+		}
+
+		if (!password) {
+			newErrors.password = 'Password is required'
+			isValid = false
+		} else if (password.length < 8) {
+			newErrors.password = 'Password must be at least 8 characters long'
+			isValid = false
+		}
+
+		setErrors(newErrors)
+		return isValid
+	}
+
 	const onSignUpPress = async () => {
 		if (!isLoaded) return
+		if (!validateInputs()) return
 
 		try {
 			await signUp.create({
@@ -119,12 +163,19 @@ export default function SignUpScreen() {
 			setPendingVerification(true)
 		} catch (err: any) {
 			console.error(JSON.stringify(err, null, 2))
-			setError('Sign up failed. Please try again.')
+			setErrors(prev => ({
+				...prev,
+				general: err.errors?.[0]?.message || 'Sign up failed. Please try again.'
+			}))
 		}
 	}
 
 	const onPressVerify = async () => {
 		if (!isLoaded) return
+		if (!code.trim()) {
+			setErrors(prev => ({ ...prev, code: 'Verification code is required' }))
+			return
+		}
 
 		try {
 			const completeSignUp = await signUp.attemptEmailAddressVerification({
@@ -132,14 +183,20 @@ export default function SignUpScreen() {
 			})
 
 			if (completeSignUp.status !== 'complete') {
-				setError('Verification failed. Please try again.')
+				setErrors(prev => ({
+					...prev,
+					code: 'Verification failed. Please try again.'
+				}))
 				return
 			}
 
 			const { createdSessionId, createdUserId } = completeSignUp
 
 			if (!createdSessionId || !createdUserId) {
-				setError('Failed to complete sign up. Please try again.')
+				setErrors(prev => ({
+					...prev,
+					general: 'Failed to complete sign up. Please try again.'
+				}))
 				return
 			}
 
@@ -154,16 +211,20 @@ export default function SignUpScreen() {
 
 			if (supabaseError) {
 				console.error('Error creating user in Supabase:', supabaseError)
-				setError(
-					'An error occurred while creating your account. Please try again.'
+				Alert.alert(
+					'Account Created',
+					'Your account was created successfully, but there was an issue saving additional information. You can update your profile later.'
 				)
-				return
 			}
 
 			router.replace('/')
 		} catch (err: any) {
 			console.error(JSON.stringify(err, null, 2))
-			setError('An error occurred. Please try again.')
+			setErrors(prev => ({
+				...prev,
+				general:
+					err.errors?.[0]?.message || 'An error occurred. Please try again.'
+			}))
 		}
 	}
 
@@ -171,98 +232,127 @@ export default function SignUpScreen() {
 		<KeyboardAvoidingView
 			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 			className='flex-1 bg-black'>
-			<View style={{ position: 'absolute', width: '100%', height: '100%' }}>
-				<AnimatedLine startPos={{ x: width * 0.2, y: -100 }} duration={15000} />
-				<AnimatedLine startPos={{ x: width * 0.5, y: -100 }} duration={20000} />
-				<AnimatedLine startPos={{ x: width * 0.8, y: -100 }} duration={18000} />
+			<ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+				<View style={{ position: 'absolute', width: '100%', height: '100%' }}>
+					<AnimatedLine
+						startPos={{ x: width * 0.2, y: -100 }}
+						duration={15000}
+					/>
+					<AnimatedLine
+						startPos={{ x: width * 0.5, y: -100 }}
+						duration={20000}
+					/>
+					<AnimatedLine
+						startPos={{ x: width * 0.8, y: -100 }}
+						duration={18000}
+					/>
 
-				<FadingCircle
-					position={{ x: width * 0.1, y: height * 0.1 }}
-					size={100}
-				/>
-				<FadingCircle
-					position={{ x: width * 0.7, y: height * 0.3 }}
-					size={150}
-				/>
-				<FadingCircle
-					position={{ x: width * 0.3, y: height * 0.8 }}
-					size={120}
-				/>
-			</View>
-
-			<View className='flex-1 justify-center px-8'>
-				<Text className='text-4xl font-bold mb-8 text-[#D55004] text-center'>
-					{pendingVerification ? 'Verify Email' : 'Sign Up'}
-				</Text>
-				<View className='space-y-4'>
-					{!pendingVerification ? (
-						<>
-							<TextInput
-								className='w-full h-12 px-4 bg-gray-800 text-white rounded-lg border border-gray-700'
-								value={name}
-								placeholder='Full Name'
-								placeholderTextColor='#6B7280'
-								onChangeText={setName}
-							/>
-							<TextInput
-								className='w-full h-12 px-4 bg-gray-800 text-white rounded-lg border border-gray-700'
-								autoCapitalize='none'
-								value={emailAddress}
-								placeholder='Email'
-								placeholderTextColor='#6B7280'
-								onChangeText={setEmailAddress}
-								keyboardType='email-address'
-							/>
-							<View className='relative'>
-								<TextInput
-									className='w-full h-12 px-4 pr-12 bg-gray-800 text-white rounded-lg border border-gray-700'
-									value={password}
-									placeholder='Password'
-									placeholderTextColor='#6B7280'
-									secureTextEntry={!showPassword}
-									onChangeText={setPassword}
-								/>
-								<TouchableOpacity
-									className='absolute right-4 top-3'
-									onPress={togglePasswordVisibility}>
-									<Ionicons
-										name={showPassword ? 'eye-off' : 'eye'}
-										size={24}
-										color='#6B7280'
-									/>
-								</TouchableOpacity>
-							</View>
-						</>
-					) : (
-						<TextInput
-							className='w-full h-12 px-4 bg-gray-800 text-white rounded-lg border border-gray-700'
-							value={code}
-							placeholder='Verification Code'
-							placeholderTextColor='#6B7280'
-							onChangeText={setCode}
-							keyboardType='number-pad'
-						/>
-					)}
+					<FadingCircle
+						position={{ x: width * 0.1, y: height * 0.1 }}
+						size={100}
+					/>
+					<FadingCircle
+						position={{ x: width * 0.7, y: height * 0.3 }}
+						size={150}
+					/>
+					<FadingCircle
+						position={{ x: width * 0.3, y: height * 0.8 }}
+						size={120}
+					/>
 				</View>
-				{error ? (
-					<Text className='text-[#D55004] mt-4 text-center'>{error}</Text>
-				) : null}
-				<TouchableOpacity
-					className='bg-[#D55004] py-3 rounded-lg mt-8'
-					onPress={pendingVerification ? onPressVerify : onSignUpPress}>
-					<Text className='text-white font-bold text-lg text-center'>
+
+				<View className='flex-1 justify-center px-8'>
+					<Text className='text-4xl font-bold mb-8 text-[#D55004] text-center'>
 						{pendingVerification ? 'Verify Email' : 'Sign Up'}
 					</Text>
-				</TouchableOpacity>
-				{!pendingVerification && (
-					<View className='flex-row justify-center mt-6'>
-						<Text className='text-gray-400'>Already have an account? </Text>
-						<TouchableOpacity onPress={() => router.push('/sign-in')}>
-							<Text className='text-[#D55004] font-bold'>Sign in</Text>
-						</TouchableOpacity>
+					<View className='space-y-4'>
+						{!pendingVerification ? (
+							<>
+								<View>
+									<TextInput
+										className='w-full h-12 px-4 bg-gray text-white rounded-lg border border-red'
+										value={name}
+										placeholder='Full Name'
+										placeholderTextColor='#6B7280'
+										onChangeText={setName}
+									/>
+									{errors.name && (
+										<Text className='text-red mt-1'>{errors.name}</Text>
+									)}
+								</View>
+								<View>
+									<TextInput
+										className='w-full h-12 px-4 bg-gray text-white rounded-lg border border-red'
+										autoCapitalize='none'
+										value={emailAddress}
+										placeholder='Email'
+										placeholderTextColor='#6B7280'
+										onChangeText={setEmailAddress}
+										keyboardType='email-address'
+									/>
+									{errors.email && (
+										<Text className='text-red mt-1'>{errors.email}</Text>
+									)}
+								</View>
+								<View className='relative'>
+									<TextInput
+										className='w-full h-12 px-4 pr-12 bg-gray text-white rounded-lg border border-red'
+										value={password}
+										placeholder='Password'
+										placeholderTextColor='#6B7280'
+										secureTextEntry={!showPassword}
+										onChangeText={setPassword}
+									/>
+									<TouchableOpacity
+										className='absolute right-4 top-3'
+										onPress={togglePasswordVisibility}>
+										<Ionicons
+											name={showPassword ? 'eye-off' : 'eye'}
+											size={24}
+											color='#6B7280'
+										/>
+									</TouchableOpacity>
+									{errors.password && (
+										<Text className='text-red mt-1'>{errors.password}</Text>
+									)}
+								</View>
+							</>
+						) : (
+							<View>
+								<TextInput
+									className='w-full h-12 px-4 bg-gray text-white rounded-lg border border-red'
+									value={code}
+									placeholder='Verification Code'
+									placeholderTextColor='#6B7280'
+									onChangeText={setCode}
+									keyboardType='number-pad'
+								/>
+								{errors.code && (
+									<Text className='text-red mt-1'>{errors.code}</Text>
+								)}
+							</View>
+						)}
 					</View>
-				)}
-			</View>
+					{errors.general ? (
+						<Text className='text-red mt-4 text-center'>{errors.general}</Text>
+					) : null}
+					<TouchableOpacity
+						className='bg-[#D55004] py-3 rounded-lg mt-8'
+						onPress={pendingVerification ? onPressVerify : onSignUpPress}>
+						<Text className='text-white font-bold text-lg text-center'>
+							{pendingVerification ? 'Verify Email' : 'Sign Up'}
+						</Text>
+					</TouchableOpacity>
+					{!pendingVerification && (
+						<View className='flex-row justify-center mt-6'>
+							<Text className='text-gray'>Already have an account? </Text>
+							<TouchableOpacity onPress={() => router.push('/sign-in')}>
+								<Text className='text-[#D55004] font-bold'>Sign in</Text>
+							</TouchableOpacity>
+						</View>
+					)}
+				</View>
+			</ScrollView>
 		</KeyboardAvoidingView>
 	)
 }
