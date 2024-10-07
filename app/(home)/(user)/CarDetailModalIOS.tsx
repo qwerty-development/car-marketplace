@@ -327,7 +327,7 @@ const CarDetailModalIOS = memo(
 		return (
 			<PanGestureHandler onGestureEvent={gestureHandler}>
 				<Animated.View
-					className={`${isDarkMode ? 'bg-gray' : 'bg-white'}`}
+					className={`${isDarkMode  ? 'bg-black' : 'bg-white'}`}
 					style={[styles.modalOverlay, animatedStyle]}>
 					<LinearGradient
 						colors={
@@ -605,7 +605,7 @@ const CarDetailModalIOS = memo(
 const styles = StyleSheet.create({
 	modalOverlay: {
 		position: 'absolute',
-		top: 0,
+		top: 20,
 		left: 0,
 		right: 0,
 		bottom: 0,
