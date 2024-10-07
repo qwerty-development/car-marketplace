@@ -48,7 +48,7 @@ const DealershipItem = React.memo(
 	({ item, onPress, textColor, isDarkMode }: any) => (
 		<TouchableOpacity
 			className={`flex-row items-center py-4 px-4 ${
-				isDarkMode ? 'border-red' : 'border-red'
+				isDarkMode ? 'border-gray' : 'border-gray'
 			} border-b`}
 			onPress={() => onPress(item)}>
 			<Image source={{ uri: item.logo }} className='w-12 h-12 rounded-full' />
@@ -68,7 +68,7 @@ export default function DealershipListPage() {
 	const searchBarWidth = useRef(new Animated.Value(0)).current
 	const searchBarOpacity = useRef(new Animated.Value(0)).current
 
-	const bgColor = isDarkMode ? 'bg-night' : 'bg-white'
+	const bgColor = isDarkMode ? 'bg-black' : 'bg-white'
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
 
 	const animateSearchBar = useCallback(() => {
@@ -157,7 +157,7 @@ export default function DealershipListPage() {
 	const renderSectionHeader = useCallback(
 		({ section }: { section: SectionListData<Dealership> }) => (
 			<LinearGradient
-				colors={isDarkMode ? ['#1A1A1A', '#2A2A2A'] : ['#F0F0F0', '#E0E0E0']}
+				colors={isDarkMode ? ['#000000', '#000000'] : ['#FFFFFF', '#FFFFFF']}
 				className='py-2 px-4'>
 				<Text className={`${textColor} font-bold text-lg`}>
 					{section.title}
@@ -221,7 +221,7 @@ export default function DealershipListPage() {
 
 	return (
 		<View className={`flex-1 pb-16 ${bgColor}`}>
-			<CustomHeader title='Dealerships' />
+			<CustomHeader  title='Dealerships' />
 			<Animated.View
 				style={{
 					width: searchBarWidth.interpolate({
@@ -231,8 +231,8 @@ export default function DealershipListPage() {
 					opacity: searchBarOpacity
 				}}>
 				<View
-					className={`mx-4 my-2 rounded-full flex-row items-center ${
-						isDarkMode ? 'bg-gray' : 'bg-white'
+					className={`mx-4 my-2 p-2  rounded-full flex-row items-center ${
+						isDarkMode ? 'bg-gray' : 'bg-[#F0F0F0]'
 					}`}>
 					<FontAwesome
 						name='search'
@@ -241,7 +241,7 @@ export default function DealershipListPage() {
 						style={{ marginLeft: 12 }}
 					/>
 					<AnimatedTextInput
-						className={`p-2 flex-1 ${textColor}`}
+						className={`p-2 flex-1  ${textColor}`}
 						placeholder='Search dealerships...'
 						placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
 						value={searchQuery}

@@ -242,7 +242,7 @@ export default function FavoritesPage() {
 	}
 
 	return (
-		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
+		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<CustomHeader title='Favorites' />
 			{renderContent()}
 			{renderModal}
