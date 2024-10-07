@@ -220,7 +220,7 @@ export default function DealershipListPage() {
 	)
 
 	return (
-		<View className={`flex-1 ${bgColor}`}>
+		<View className={`flex-1 pb-16 ${bgColor}`}>
 			<CustomHeader title='Dealerships' />
 			<Animated.View
 				style={{

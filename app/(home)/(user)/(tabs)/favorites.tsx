@@ -198,7 +198,7 @@ export default function FavoritesPage() {
 					} mb-2`}>
 					{error}
 				</Text>
-				<Text className='text-base text-gray'>
+				<Text className='text-base text-red'>
 					Pull down to refresh and try again
 				</Text>
 			</View>
