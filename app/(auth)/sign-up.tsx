@@ -275,6 +275,8 @@ export default function SignUpScreen() {
 										placeholder='Full Name'
 										placeholderTextColor='#6B7280'
 										onChangeText={setName}
+										autoCapitalize='words'
+										autoComplete='name'
 									/>
 									{errors.name && (
 										<Text className='text-red mt-1'>{errors.name}</Text>
@@ -289,6 +291,7 @@ export default function SignUpScreen() {
 										placeholderTextColor='#6B7280'
 										onChangeText={setEmailAddress}
 										keyboardType='email-address'
+										autoComplete='email'
 									/>
 									{errors.email && (
 										<Text className='text-red mt-1'>{errors.email}</Text>
@@ -302,6 +305,7 @@ export default function SignUpScreen() {
 										placeholderTextColor='#6B7280'
 										secureTextEntry={!showPassword}
 										onChangeText={setPassword}
+										autoComplete='password'
 									/>
 									<TouchableOpacity
 										className='absolute right-4 top-3'

@@ -199,6 +199,7 @@ export default function SignInPage() {
 						placeholderTextColor='#6B7280'
 						onChangeText={setEmailAddress}
 						keyboardType='email-address'
+            autoComplete='email'
 					/>
 					{emailError ? (
 						<Text style={{ color: '#D55004', marginBottom: 16 }}>
@@ -223,6 +224,7 @@ export default function SignInPage() {
 							placeholderTextColor='#6B7280'
 							secureTextEntry={!showPassword}
 							onChangeText={setPassword}
+              autoComplete='password'
 						/>
 						<TouchableOpacity
 							className='absolute right-4 top-3'
