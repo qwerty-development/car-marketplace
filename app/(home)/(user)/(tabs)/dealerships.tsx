@@ -114,8 +114,12 @@ export default function DealershipListPage() {
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true)
-		await fetchDealerships()
-		setRefreshing(false)
+		setIsLoading(true)
+		setTimeout(async () => {
+			await fetchDealerships()
+			setRefreshing(false)
+			setIsLoading(false)
+		}, 500)
 	}, [fetchDealerships])
 
 	const filteredDealerships = useMemo(() => {
