@@ -6,7 +6,8 @@ import {
 	TouchableOpacity,
 	TextInput,
 	Animated,
-	FlatList
+	FlatList,
+	StatusBar
 } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -17,21 +18,22 @@ import { supabase } from '@/utils/supabase'
 
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
-	const insets = useSafeAreaInsets()
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	return (
-		<View style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-			<View className='flex-row items-center px-4 mb-4'>
-				<TouchableOpacity onPress={onBack}>
+		<View className={`${isDarkMode ? 'bg-black' : 'bg-white'} top-0 mt-0 pt-0`}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View className='flex-row items-center justify-between py-0 px-4 -mb-1 top-0 '>
+				<TouchableOpacity onPress={onBack} className='p-2'>
 					<Ionicons name='arrow-back' size={24} color={iconColor} />
 				</TouchableOpacity>
 				<Text
-					className={`ml-4 text-lg font-bold ${
+					className={`text-xl font-bold ${
 						isDarkMode ? 'text-white' : 'text-black'
 					}`}>
 					{title}
 				</Text>
+				<View style={{ width: 24 }} />
 			</View>
 		</View>
 	)

@@ -284,7 +284,7 @@ export default function BrowseCarsPage() {
 
 	const openFilterPage = useCallback(() => {
 		router.push({
-			pathname: '/(home)/(user)/filter',
+			pathname: '/(home)/(dealer)/filter',
 			params: { filters: JSON.stringify(filters) }
 		})
 	}, [router, filters])
