@@ -9,8 +9,7 @@ import {
 	ActivityIndicator,
 	RefreshControl,
 	Dimensions,
-	LogBox,
-	StyleSheet
+	LogBox
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
@@ -27,18 +26,13 @@ import {
 	startOfYear
 } from 'date-fns'
 import RNPickerSelect from 'react-native-picker-select'
+import { BlurView } from 'expo-blur'
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested'])
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
-const CustomHeader = ({
-	title,
-	showBackButton = true
-}: {
-	title: string
-	showBackButton?: boolean
-}) => {
+const CustomHeader = ({ title, showBackButton = true }: any) => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
 
@@ -67,19 +61,13 @@ const CustomHeader = ({
 	)
 }
 
-const ChartContainer = ({
-	title,
-	children
-}: {
-	title: string
-	children: React.ReactNode
-}) => {
+const ChartContainer = ({ title, children }: any) => {
 	const { isDarkMode } = useTheme()
 	return (
-		<View
-			className={`rounded-lg shadow-md p-4 mb-4 ${
-				isDarkMode ? 'bg-black' : 'bg-white'
-			}`}>
+		<BlurView
+			intensity={100}
+			tint={isDarkMode ? 'dark' : 'light'}
+			className='rounded-lg shadow-md p-4 mb-4'>
 			<Text
 				className={`text-xl font-semibold mb-2 ${
 					isDarkMode ? 'text-white' : 'text-night'
@@ -89,11 +77,11 @@ const ChartContainer = ({
 			<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 				{children}
 			</ScrollView>
-		</View>
+		</BlurView>
 	)
 }
 
-const CarListing = ({ dealershipId, isDarkMode }: any) => {
+const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 	const router = useRouter()
 	const [cars, setCars] = useState<any>([])
 	const [isLoadingCars, setIsLoadingCars] = useState<any>(false)
@@ -144,37 +132,40 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 		fetchCarData()
 	}, [fetchCarData])
 
-	const renderCarItem = ({ item }: any) => (
-		<TouchableOpacity
-			className={`border border-red ${
-				isDarkMode ? 'bg-gray' : 'bg-white'
-			} p-4 mb-2 rounded-lg flex-row justify-between items-center`}
-			onPress={() => router.push(`/car-analytics/${item.id}`)}>
-			<View>
-				<Text
-					className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-					{item.year} {item.make} {item.model}
-				</Text>
-				<Text className='text-red'>
-					Views: {item.views} | Likes: {item.likes}
-				</Text>
-				<Text className={isDarkMode ? 'text-light-secondary' : 'text-gray'}>
-					Price: ${item.price.toLocaleString()} | Status: {item.status}
-				</Text>
-			</View>
-			<Ionicons
-				name='chevron-forward'
-				size={24}
-				color={isDarkMode ? '#ffffff' : '#D55004'}
-			/>
-		</TouchableOpacity>
+	const renderCarItem = useCallback(
+		({ item }: any) => (
+			<TouchableOpacity
+				className={`border border-red ${
+					isDarkMode ? 'bg-gray' : 'bg-white'
+				} p-4 mb-2 rounded-lg flex-row justify-between items-center`}
+				onPress={() => router.push(`/car-analytics/${item.id}`)}>
+				<View>
+					<Text
+						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
+						{item.year} {item.make} {item.model}
+					</Text>
+					<Text className='text-red'>
+						Views: {item.views} | Likes: {item.likes}
+					</Text>
+					<Text className={isDarkMode ? 'text-light-secondary' : 'text-gray'}>
+						Price: ${item.price.toLocaleString()} | Status: {item.status}
+					</Text>
+				</View>
+				<Ionicons
+					name='chevron-forward'
+					size={24}
+					color={isDarkMode ? '#ffffff' : '#D55004'}
+				/>
+			</TouchableOpacity>
+		),
+		[isDarkMode, router]
 	)
 
 	return (
-		<View
-			className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-				isDarkMode ? 'bg-gray' : 'bg-white'
-			}`}>
+		<BlurView
+			intensity={100}
+			tint={isDarkMode ? 'dark' : 'light'}
+			className='rounded-lg shadow-md mx-4 mb-4 p-4'>
 			<Text
 				className={`text-xl font-semibold mb-2 ${
 					isDarkMode ? 'text-white' : 'text-night'
@@ -184,7 +175,7 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 
 			<View className='flex-row justify-between items-center mb-4'>
 				<View className='flex-1 mr-2'>
-					<Text className={` ${isDarkMode ? 'text-white' : 'text-night'}`}>
+					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
 						Status:
 					</Text>
 					<RNPickerSelect
@@ -198,13 +189,13 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 							{ label: 'Sold', value: 'sold' },
 							{ label: 'Pending', value: 'pending' }
 						]}
-						style={pickerSelectStyles}
+						style={pickerSelectStyles(isDarkMode)}
 						value={filterStatus}
 						placeholder={{}}
 					/>
 				</View>
 				<View className='flex-1 ml-2'>
-					<Text className={` ${isDarkMode ? 'text-white' : 'text-night'}`}>
+					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
 						Sort by:
 					</Text>
 					<RNPickerSelect
@@ -217,7 +208,7 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 							{ label: 'Most Viewed', value: 'views' },
 							{ label: 'Most Liked', value: 'likes' }
 						]}
-						style={pickerSelectStyles}
+						style={pickerSelectStyles(isDarkMode)}
 						value={sortBy}
 						placeholder={{}}
 					/>
@@ -247,7 +238,7 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 					<View className='flex-row justify-between items-center mt-4'>
 						<TouchableOpacity
 							onPress={() =>
-								setCurrentPage((prev: any) => Math.max(1, prev - 1))
+								setCurrentPage((prev: number) => Math.max(1, prev - 1))
 							}
 							disabled={currentPage === 1}>
 							<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
@@ -259,7 +250,7 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 						</Text>
 						<TouchableOpacity
 							onPress={() =>
-								setCurrentPage((prev: any) => Math.min(totalPages, prev + 1))
+								setCurrentPage((prev: number) => Math.min(totalPages, prev + 1))
 							}
 							disabled={currentPage === totalPages}>
 							<Text
@@ -272,9 +263,9 @@ const CarListing = ({ dealershipId, isDarkMode }: any) => {
 					</View>
 				</>
 			)}
-		</View>
+		</BlurView>
 	)
-}
+})
 
 export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
@@ -286,7 +277,6 @@ export default function DealerAnalyticsPage() {
 	const [error, setError] = useState<any>(null)
 	const [refreshing, setRefreshing] = useState<any>(false)
 
-	// Modify the existing fetchData function
 	const fetchData = useCallback(async () => {
 		if (!user) return
 		setIsLoading(true)
@@ -351,12 +341,15 @@ export default function DealerAnalyticsPage() {
 
 		const { startDate, endDate } = getDateRange
 		const data = analytics.time_series_data.filter(
-			(d: any) => new Date(d.date) >= startDate && new Date(d.date) <= endDate
+			(d: { date: string | number | Date }) =>
+				new Date(d.date) >= startDate && new Date(d.date) <= endDate
 		)
 
-		const labels = data.map((d: any) => format(new Date(d.date), 'MMM dd'))
-		const viewsData = data.map((d: any) => d.views)
-		const likesData = data.map((d: any) => d.likes)
+		const labels = data.map((d: { date: string | number | Date }) =>
+			format(new Date(d.date), 'MMM dd')
+		)
+		const viewsData = data.map((d: { views: any }) => d.views)
+		const likesData = data.map((d: { likes: any }) => d.likes)
 
 		return {
 			labels,
@@ -380,9 +373,10 @@ export default function DealerAnalyticsPage() {
 		if (!analytics?.top_viewed_cars) return null
 
 		const labels = analytics.top_viewed_cars.map(
-			(c: any) => `${c.year} ${c.make} ${c.model}`
+			(c: { year: any; make: any; model: any }) =>
+				`${c.year} ${c.make} ${c.model}`
 		)
-		const data = analytics.top_viewed_cars.map((c: any) => c.views)
+		const data = analytics.top_viewed_cars.map((c: { views: any }) => c.views)
 
 		return { labels, data }
 	}, [analytics])
@@ -391,58 +385,32 @@ export default function DealerAnalyticsPage() {
 		if (!analytics?.top_liked_cars) return null
 
 		const labels = analytics.top_liked_cars.map(
-			(c: any) => `${c.year} ${c.make} ${c.model}`
+			(c: { year: any; make: any; model: any }) =>
+				`${c.year} ${c.make} ${c.model}`
 		)
-		const data = analytics.top_liked_cars.map((c: any) => c.likes)
+		const data = analytics.top_liked_cars.map((c: { likes: any }) => c.likes)
 
 		return { labels, data }
 	}, [analytics])
 
-	const inventorySummary = useMemo(() => {
-		if (!analytics?.inventory_summary) return null
-
-		const { new_cars, used_cars } = analytics.inventory_summary
-		const total = new_cars + used_cars
-
-		return [
-			{
-				name: 'New Cars',
-				population: new_cars,
-				color: '#FF9800',
-				legendFontColor: isDarkMode ? '#E0E0E0' : '#7F7F7F',
-				legendFontSize: 12,
-				percentage: ((new_cars / total) * 100).toFixed(1)
-			},
-			{
-				name: 'Used Cars',
-				population: used_cars,
-				color: '#2196F3',
-				legendFontColor: isDarkMode ? '#E0E0E0' : '#7F7F7F',
-				legendFontSize: 12,
-				percentage: ((used_cars / total) * 100).toFixed(1)
-			}
-		]
-	}, [analytics, isDarkMode])
-
-	const categoryColors = {
-		Sedan: '#4285F4', // Blue
-		SUV: '#34A853', // Green
-		Hatchback: '#FBBC05', // Yellow
-		Convertible: '#EA4335', // Red
-		Coupe: '#9C27B0', // Purple
-		Sports: '#FF9800', // Orange
-		Other: '#795548' // Brown
+	const categoryColors: any = {
+		Sedan: '#4285F4',
+		SUV: '#34A853',
+		Hatchback: '#FBBC05',
+		Convertible: '#EA4335',
+		Coupe: '#9C27B0',
+		Sports: '#FF9800',
+		Other: '#795548'
 	}
 
 	const categoryDistribution = useMemo(() => {
 		if (!analytics?.category_distribution) return null
 
 		return Object.entries(analytics.category_distribution).map(
-			([category, count]) => ({
+			([category, count]: any) => ({
 				name: category,
 				population: count,
-				color:
-					categoryColors[category as keyof typeof categoryColors] || '#CCCCCC', // Fallback color if category is not in our list
+				color: categoryColors[category] || '#CCCCCC',
 				legendFontColor: isDarkMode ? '#E0E0E0' : '#7F7F7F',
 				legendFontSize: 12
 			})
@@ -459,7 +427,6 @@ export default function DealerAnalyticsPage() {
 			</View>
 		)
 	}
-
 	if (error) {
 		return (
 			<View
@@ -486,15 +453,15 @@ export default function DealerAnalyticsPage() {
 			}>
 			<CustomHeader title='Analytics' />
 
-			<View
-				className={`p-4 rounded-lg shadow-md  ${
-					isDarkMode ? 'bg-night' : 'bg-white'
-				}`}>
+			<BlurView
+				intensity={100}
+				tint={isDarkMode ? 'dark' : 'light'}
+				className='p-4 rounded-lg shadow-md mx-4 my-4'>
 				<View className='flex-row justify-around mb-4'>
 					{['week', 'month', 'year'].map(range => (
 						<TouchableOpacity
 							key={range}
-							onPress={() => setTimeRange(range as 'week' | 'month' | 'year')}
+							onPress={() => setTimeRange(range)}
 							className={`px-4 py-2 rounded-full ${
 								timeRange === range
 									? 'bg-red'
@@ -515,55 +482,35 @@ export default function DealerAnalyticsPage() {
 						</TouchableOpacity>
 					))}
 				</View>
-			</View>
 
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Overview
-				</Text>
 				<View className='flex-row justify-between'>
-					<View className='items-center'>
-						<Text className='text-3xl font-bold text-teal-500'>
-							{analytics?.total_listings || 0}
-						</Text>
-						<Text
-							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-							Total Listings
-						</Text>
-					</View>
-					<View className='items-center'>
-						<Text className='text-3xl font-bold text-emerald-500'>
-							{analytics?.total_views || 0}
-						</Text>
-						<Text
-							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-							Total Views
-						</Text>
-					</View>
-					<View className='items-center'>
-						<Text className='text-3xl font-bold text-rose-500'>
-							{analytics?.total_likes || 0}
-						</Text>
-						<Text
-							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-							Total Likes
-						</Text>
-					</View>
+					<OverviewMetric
+						title='Total Listings'
+						value={analytics?.total_listings || 0}
+						icon='list'
+						color='#4CAF50'
+					/>
+					<OverviewMetric
+						title='Total Views'
+						value={analytics?.total_views || 0}
+						icon='eye'
+						color='#2196F3'
+					/>
+					<OverviewMetric
+						title='Total Likes'
+						value={analytics?.total_likes || 0}
+						icon='heart'
+						color='#F44336'
+					/>
 				</View>
-			</View>
+			</BlurView>
 
 			{formatChartData && (
 				<ChartContainer title='Views and Likes Over Time'>
 					<LineChart
 						data={formatChartData}
-						width={SCREEN_WIDTH * 2}
-						height={300}
+						width={SCREEN_WIDTH * 1.5}
+						height={220}
 						chartConfig={{
 							backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
 							backgroundGradientFrom: isDarkMode ? '#1e1e1e' : '#ffffff',
@@ -576,7 +523,7 @@ export default function DealerAnalyticsPage() {
 							style: { borderRadius: 16 }
 						}}
 						bezier
-						style={{ marginRight: 20, borderRadius: 16 }}
+						style={{ marginVertical: 8, borderRadius: 16 }}
 					/>
 				</ChartContainer>
 			)}
@@ -588,8 +535,8 @@ export default function DealerAnalyticsPage() {
 							labels: topViewedCarsData.labels,
 							datasets: [{ data: topViewedCarsData.data }]
 						}}
-						width={SCREEN_WIDTH * 2}
-						height={300}
+						width={SCREEN_WIDTH * 1.5}
+						height={220}
 						yAxisLabel=''
 						yAxisSuffix=''
 						chartConfig={{
@@ -601,7 +548,7 @@ export default function DealerAnalyticsPage() {
 							style: { borderRadius: 16 },
 							barPercentage: 0.5
 						}}
-						style={{ marginRight: 20, borderRadius: 16 }}
+						style={{ marginVertical: 8, borderRadius: 16 }}
 						showValuesOnTopOfBars
 						fromZero
 					/>
@@ -615,8 +562,8 @@ export default function DealerAnalyticsPage() {
 							labels: topLikedCarsData.labels,
 							datasets: [{ data: topLikedCarsData.data }]
 						}}
-						width={SCREEN_WIDTH * 2}
-						height={300}
+						width={SCREEN_WIDTH * 1.5}
+						height={220}
 						yAxisLabel=''
 						yAxisSuffix=''
 						chartConfig={{
@@ -628,7 +575,7 @@ export default function DealerAnalyticsPage() {
 							style: { borderRadius: 16 },
 							barPercentage: 0.5
 						}}
-						style={{ marginRight: 20, borderRadius: 16 }}
+						style={{ marginVertical: 8, borderRadius: 16 }}
 						showValuesOnTopOfBars
 						fromZero
 					/>
@@ -639,7 +586,7 @@ export default function DealerAnalyticsPage() {
 				<ChartContainer title='Category Distribution'>
 					<PieChart
 						data={categoryDistribution}
-						width={SCREEN_WIDTH - 40}
+						width={SCREEN_WIDTH - 32}
 						height={220}
 						chartConfig={{
 							color: (opacity = 1) =>
@@ -656,261 +603,11 @@ export default function DealerAnalyticsPage() {
 				</ChartContainer>
 			)}
 
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Inventory Summary
-				</Text>
+			<InventorySummary analytics={analytics} isDarkMode={isDarkMode} />
+			<PerformanceMetrics analytics={analytics} isDarkMode={isDarkMode} />
+			<SalesSummary analytics={analytics} isDarkMode={isDarkMode} />
+			<DealershipInfo dealership={dealership} isDarkMode={isDarkMode} />
 
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Total Cars:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{analytics?.inventory_summary?.new_cars +
-							analytics?.inventory_summary?.used_cars || 0}
-					</Text>
-				</View>
-
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						New Cars:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{analytics?.inventory_summary?.new_cars || 0}
-					</Text>
-				</View>
-
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Used Cars:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{analytics?.inventory_summary?.used_cars || 0}
-					</Text>
-				</View>
-
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Average Price:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						$
-						{analytics?.inventory_summary?.avg_price?.toLocaleString(
-							undefined,
-							{ minimumFractionDigits: 2, maximumFractionDigits: 2 }
-						) || '0'}
-					</Text>
-				</View>
-
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Average Mileage:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{analytics?.inventory_summary?.avg_mileage?.toLocaleString(
-							undefined,
-							{ minimumFractionDigits: 0, maximumFractionDigits: 0 }
-						) || '0'}{' '}
-						miles
-					</Text>
-				</View>
-
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Total Inventory Value:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						$
-						{analytics?.inventory_summary?.total_value?.toLocaleString() || '0'}
-					</Text>
-				</View>
-
-				<View className='flex-row justify-between items-center mb-4'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Price Range:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						$
-						{analytics?.inventory_summary?.price_range?.min?.toLocaleString() ||
-							'0'}{' '}
-						- $
-						{analytics?.inventory_summary?.price_range?.max?.toLocaleString() ||
-							'0'}
-					</Text>
-				</View>
-
-				{inventorySummary && (
-					<View className='mb-4'>
-						<Text
-							className={`text-lg font-semibold mb-2 ${
-								isDarkMode ? 'text-white' : 'text-night'
-							}`}>
-							New vs Used Cars
-						</Text>
-						<PieChart
-							data={inventorySummary}
-							width={SCREEN_WIDTH - 80}
-							height={200}
-							chartConfig={{
-								color: (opacity = 1) =>
-									isDarkMode
-										? `rgba(255, 255, 255, ${opacity})`
-										: `rgba(0, 0, 0, ${opacity})`
-							}}
-							accessor='population'
-							backgroundColor='transparent'
-							paddingLeft='15'
-							center={[10, 0]}
-							absolute
-						/>
-					</View>
-				)}
-			</View>
-
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Performance Metrics
-				</Text>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Avg. Time to Sell:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{analytics?.performance_metrics?.avg_time_to_sell?.toFixed(1) ||
-							'N/A'}{' '}
-						days
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Conversion Rate:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{(analytics?.performance_metrics?.conversion_rate * 100)?.toFixed(
-							2
-						) || 'N/A'}
-						%
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Avg. Listing Price:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						$
-						{analytics?.performance_metrics?.avg_listing_price?.toFixed(2) ||
-							'N/A'}
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Avg. Sale Price:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						$
-						{analytics?.performance_metrics?.avg_sale_price?.toFixed(2) ||
-							'N/A'}
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Avg. Price Difference:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						$
-						{analytics?.performance_metrics?.price_difference?.toFixed(2) ||
-							'N/A'}
-					</Text>
-				</View>
-			</View>
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Sales Summary
-				</Text>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Total Sales:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{analytics?.sales_summary?.total_sales || 0}
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Total Revenue:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						${analytics?.sales_summary?.total_revenue?.toLocaleString() || '0'}
-					</Text>
-				</View>
-			</View>
-
-			<View
-				className={`rounded-lg shadow-md mx-4 mb-4 p-4 ${
-					isDarkMode ? 'bg-gray' : 'bg-white'
-				}`}>
-				<Text
-					className={`text-xl font-semibold mb-2 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					Dealership Information
-				</Text>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>Name:</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{dealership?.name || 'N/A'}
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center mb-2'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>
-						Location:
-					</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{dealership?.location || 'N/A'}
-					</Text>
-				</View>
-				<View className='flex-row justify-between items-center'>
-					<Text className={isDarkMode ? 'text-red' : 'text-gray'}>Phone:</Text>
-					<Text
-						className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
-						{dealership?.phone || 'N/A'}
-					</Text>
-				</View>
-			</View>
 			{dealership && (
 				<CarListing dealershipId={dealership.id} isDarkMode={isDarkMode} />
 			)}
@@ -918,25 +615,219 @@ export default function DealerAnalyticsPage() {
 	)
 }
 
-const pickerSelectStyles = StyleSheet.create({
+const OverviewMetric = ({ title, value, icon, color }: any) => (
+	<View className='items-center'>
+		<Ionicons name={icon} size={24} color={color} />
+		<Text className='text-2xl font-bold mt-2 text-red' style={{ color }}>
+			{value}
+		</Text>
+		<Text className='text-xs text-gray'>{title}</Text>
+	</View>
+)
+
+const InventorySummary = ({ analytics, isDarkMode }: any) => (
+	<BlurView
+		intensity={100}
+		tint={isDarkMode ? 'dark' : 'light'}
+		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
+		<Text
+			className={`text-xl font-semibold mb-2 ${
+				isDarkMode ? 'text-white' : 'text-night'
+			}`}>
+			Inventory Summary
+		</Text>
+		<MetricRow
+			label='Total Cars'
+			value={
+				analytics?.inventory_summary?.new_cars +
+					analytics?.inventory_summary?.used_cars || 0
+			}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='New Cars'
+			value={analytics?.inventory_summary?.new_cars || 0}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Used Cars'
+			value={analytics?.inventory_summary?.used_cars || 0}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Average Price'
+			value={`$${
+				analytics?.inventory_summary?.avg_price?.toLocaleString(undefined, {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2
+				}) || '0'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Average Mileage'
+			value={`${
+				analytics?.inventory_summary?.avg_mileage?.toLocaleString(undefined, {
+					minimumFractionDigits: 0,
+					maximumFractionDigits: 0
+				}) || '0'
+			} miles`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Total Inventory Value'
+			value={`$${
+				analytics?.inventory_summary?.total_value?.toLocaleString() || '0'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Price Range'
+			value={`$${
+				analytics?.inventory_summary?.price_range?.min?.toLocaleString() || '0'
+			} - $${
+				analytics?.inventory_summary?.price_range?.max?.toLocaleString() || '0'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+	</BlurView>
+)
+
+const PerformanceMetrics = ({ analytics, isDarkMode }: any) => (
+	<BlurView
+		intensity={100}
+		tint={isDarkMode ? 'dark' : 'light'}
+		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
+		<Text
+			className={`text-xl font-semibold mb-2 ${
+				isDarkMode ? 'text-white' : 'text-night'
+			}`}>
+			Performance Metrics
+		</Text>
+		<MetricRow
+			label='Avg. Time to Sell'
+			value={`${
+				analytics?.performance_metrics?.avg_time_to_sell?.toFixed(1) || 'N/A'
+			} days`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Conversion Rate'
+			value={`${
+				(analytics?.performance_metrics?.conversion_rate * 100)?.toFixed(2) ||
+				'N/A'
+			}%`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Avg. Listing Price'
+			value={`$${
+				analytics?.performance_metrics?.avg_listing_price?.toFixed(2) || 'N/A'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Avg. Sale Price'
+			value={`$${
+				analytics?.performance_metrics?.avg_sale_price?.toFixed(2) || 'N/A'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Avg. Price Difference'
+			value={`$${
+				analytics?.performance_metrics?.price_difference?.toFixed(2) || 'N/A'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+	</BlurView>
+)
+
+const SalesSummary = ({ analytics, isDarkMode }: any) => (
+	<BlurView
+		intensity={100}
+		tint={isDarkMode ? 'dark' : 'light'}
+		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
+		<Text
+			className={`text-xl font-semibold mb-2 ${
+				isDarkMode ? 'text-white' : 'text-night'
+			}`}>
+			Sales Summary
+		</Text>
+		<MetricRow
+			label='Total Sales'
+			value={analytics?.sales_summary?.total_sales || 0}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Total Revenue'
+			value={`$${
+				analytics?.sales_summary?.total_revenue?.toLocaleString() || '0'
+			}`}
+			isDarkMode={isDarkMode}
+		/>
+	</BlurView>
+)
+
+const DealershipInfo = ({ dealership, isDarkMode }: any) => (
+	<BlurView
+		intensity={100}
+		tint={isDarkMode ? 'dark' : 'light'}
+		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
+		<Text
+			className={`text-xl font-semibold mb-2 ${
+				isDarkMode ? 'text-white' : 'text-night'
+			}`}>
+			Dealership Information
+		</Text>
+		<MetricRow
+			label='Name'
+			value={dealership?.name || 'N/A'}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Location'
+			value={dealership?.location || 'N/A'}
+			isDarkMode={isDarkMode}
+		/>
+		<MetricRow
+			label='Phone'
+			value={dealership?.phone || 'N/A'}
+			isDarkMode={isDarkMode}
+		/>
+	</BlurView>
+)
+
+const MetricRow = ({ label, value, isDarkMode }: any) => (
+	<View className='flex-row justify-between items-center mb-2'>
+		<Text className={isDarkMode ? 'text-red' : 'text-gray'}>{label}:</Text>
+		<Text className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
+			{value}
+		</Text>
+	</View>
+)
+
+const pickerSelectStyles = (isDarkMode: any) => ({
 	inputIOS: {
 		fontSize: 16,
 		paddingVertical: 12,
 		paddingHorizontal: 10,
 		borderWidth: 1,
-		borderColor: 'gray',
+		borderColor: isDarkMode ? '#555' : 'gray',
 		borderRadius: 4,
-		color: 'black',
-		paddingRight: 30
+		color: isDarkMode ? 'white' : 'black',
+		paddingRight: 30,
+		backgroundColor: isDarkMode ? '#333' : 'white'
 	},
 	inputAndroid: {
 		fontSize: 16,
 		paddingHorizontal: 10,
 		paddingVertical: 8,
 		borderWidth: 1,
-		borderColor: 'gray',
+		borderColor: isDarkMode ? '#555' : 'gray',
 		borderRadius: 8,
-		color: 'black',
-		paddingRight: 30
+		color: isDarkMode ? 'white' : 'black',
+		paddingRight: 30,
+		backgroundColor: isDarkMode ? '#333' : 'white'
 	}
 })
