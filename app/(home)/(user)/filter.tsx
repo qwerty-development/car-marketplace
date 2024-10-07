@@ -21,7 +21,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	return (
-		<View className={`${isDarkMode ? 'bg-black' : 'bg-white'} top-0 mt-0 pt-0`}>
+		<View className={`${isDarkMode ? 'bg-black' : 'bg-white'} top-0 mt-0 p-3`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View className='flex-row items-center justify-between py-0 px-4 -mb-1 top-0 '>
 				<TouchableOpacity onPress={onBack} className='p-2'>
@@ -170,7 +170,7 @@ const SearchableSelect = ({
 				)}
 			</View>
 			<View
-				className={`border rounded-md ${
+				className={`border ${
 					isDarkMode ? 'border-red' : 'border-gray'
 				}`}>
 				<TouchableOpacity
@@ -357,9 +357,9 @@ const FilterPage = () => {
 	}
 
 	return (
-		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
-			<ScrollView className='flex-1 px-4 py-6'>
+			<ScrollView className='flex-1  px-4 py-6'>
 				<PopularFilters onApply={handlePopularFilterApply} />
 
 				<CollapsibleSection title='Basic Filters'>
@@ -476,7 +476,7 @@ const FilterPage = () => {
 			<View
 				className={`flex-row justify-between p-4 ${
 					isDarkMode ? 'bg-gray' : 'bg-white'
-				} border-t ${isDarkMode ? 'border-night' : 'border-white'}`}>
+				} border-t  ${isDarkMode ? 'border-night' : 'border-white'}`}>
 				<TouchableOpacity
 					className={`py-3 px-6 rounded-full ${
 						isDarkMode ? 'bg-night' : 'bg-night'
@@ -516,7 +516,7 @@ const FilterPage = () => {
 					<Text className='text-white font-semibold'>Apply Filters</Text>
 				</TouchableOpacity>
 			</View>
-		</SafeAreaView>
+		</View>
 	)
 }
 
