@@ -12,7 +12,8 @@ import {
 	Dimensions,
 	StatusBar,
 	Platform,
-	Linking
+	Linking,
+	StyleSheet
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -26,6 +27,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import RNPickerSelect from 'react-native-picker-select'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import MapView, { Marker } from 'react-native-maps'
+import { BlurView } from 'expo-blur'
 
 const ITEMS_PER_PAGE = 10
 const { width } = Dimensions.get('window')
@@ -65,7 +67,7 @@ const CustomHeader = React.memo(
 				edges={['top']}
 				className={`${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-				<View className='flex-row items-center px-4'>
+				<View className='flex-row items-center px-4 mb-1'>
 					<TouchableOpacity onPress={onBack}>
 						<Ionicons name='arrow-back' size={24} color={iconColor} />
 					</TouchableOpacity>
@@ -280,32 +282,49 @@ export default function DealershipDetails() {
 	}, [fetchDealershipCars])
 
 	const handleMakeFilter = useCallback(
-		(value: string) => {
+		(value: any) => {
 			setFilterMake(value)
 			setFilterModel('')
 			fetchModels(value)
+			setCurrentPage(1)
+			fetchDealershipCars(1, true)
 		},
-		[fetchModels]
+		[fetchModels, fetchDealershipCars]
 	)
 
-	const handleModelFilter = useCallback((value: string) => {
-		setFilterModel(value)
-	}, [])
+	const handleModelFilter = useCallback(
+		(value: string) => {
+			setFilterModel(value)
+			setCurrentPage(1)
+			fetchDealershipCars(1, true)
+		},
+		[fetchDealershipCars]
+	)
 
-	const handleConditionFilter = useCallback((value: string) => {
-		setFilterCondition(value)
-	}, [])
+	const handleConditionFilter = useCallback(
+		(value: string) => {
+			setFilterCondition(value)
+			setCurrentPage(1)
+			fetchDealershipCars(1, true)
+		},
+		[fetchDealershipCars]
+	)
 
-	const handleSort = useCallback((value: string) => {
-		if (value === null) {
-			setSortBy('listed_at')
-			setSortOrder('desc')
-			return
-		}
-		const [newSortBy, newSortOrder] = value.split('_')
-		setSortBy(newSortBy)
-		setSortOrder(newSortOrder as 'asc' | 'desc')
-	}, [])
+	const handleSort = useCallback(
+		(value: string) => {
+			if (value === null) {
+				setSortBy('listed_at')
+				setSortOrder('desc')
+			} else {
+				const [newSortBy, newSortOrder] = value.split('_')
+				setSortBy(newSortBy)
+				setSortOrder(newSortOrder as 'asc' | 'desc')
+			}
+			setCurrentPage(1)
+			fetchDealershipCars(1, true)
+		},
+		[fetchDealershipCars]
+	)
 
 	const renderModal = useMemo(() => {
 		const ModalComponent =
@@ -344,6 +363,137 @@ export default function DealershipDetails() {
 		[handleCarPress, handleFavoritePress, isFavorite]
 	)
 
+	const FilterSection = () => {
+		const [isExpanded, setIsExpanded] = useState(false)
+		const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+
+		const handleLocalSearch = () => {
+			setSearchQuery(localSearchQuery)
+			handleSearch()
+		}
+
+		const handleCancelSearch = () => {
+			setLocalSearchQuery('')
+			setSearchQuery('')
+			handleSearch()
+		}
+
+		return (
+			<BlurView
+				intensity={80}
+				tint={isDarkMode ? 'dark' : 'light'}
+				style={styles.container}>
+				<View style={styles.searchContainer}>
+					<TextInput
+						style={[styles.searchInput, isDarkMode && styles.darkText]}
+						placeholder='Search cars...'
+						placeholderTextColor={isDarkMode ? '#888' : '#555'}
+						value={localSearchQuery}
+						onChangeText={setLocalSearchQuery}
+					/>
+					{localSearchQuery !== '' && (
+						<TouchableOpacity
+							onPress={handleCancelSearch}
+							style={styles.cancelButton}>
+							<Ionicons
+								name='close-circle'
+								size={24}
+								color={isDarkMode ? '#fff' : '#000'}
+							/>
+						</TouchableOpacity>
+					)}
+					<TouchableOpacity
+						onPress={handleLocalSearch}
+						style={styles.searchButton}>
+						<Ionicons name='search' size={24} color='white' />
+					</TouchableOpacity>
+					<TouchableOpacity
+						onPress={() => setIsExpanded(!isExpanded)}
+						style={styles.expandButton}>
+						<Ionicons
+							name={isExpanded ? 'chevron-up' : 'chevron-down'}
+							size={24}
+							color='white'
+						/>
+					</TouchableOpacity>
+				</View>
+
+				{isExpanded && (
+					<View style={styles.filtersContainer}>
+						<View style={styles.filterRow}>
+							<FilterPicker
+								label='Make'
+								value={filterMake}
+								items={makes.map(make => ({ label: make, value: make }))}
+								onValueChange={handleMakeFilter}
+								isDarkMode={isDarkMode}
+							/>
+							<FilterPicker
+								label='Model'
+								value={filterModel}
+								items={models.map(model => ({ label: model, value: model }))}
+								onValueChange={handleModelFilter}
+								isDarkMode={isDarkMode}
+							/>
+						</View>
+						<View style={styles.filterRow}>
+							<FilterPicker
+								label='Condition'
+								value={filterCondition}
+								items={[
+									{ label: 'New', value: 'New' },
+									{ label: 'Used', value: 'Used' }
+								]}
+								onValueChange={handleConditionFilter}
+								isDarkMode={isDarkMode}
+							/>
+							<FilterPicker
+								label='Sort By'
+								value={`${sortBy}_${sortOrder}`}
+								items={[
+									{ label: 'Price: Low to High', value: 'price_asc' },
+									{ label: 'Price: High to Low', value: 'price_desc' },
+									{ label: 'Mileage: Low to High', value: 'mileage_asc' },
+									{ label: 'Mileage: High to Low', value: 'mileage_desc' }
+								]}
+								onValueChange={handleSort}
+								isDarkMode={isDarkMode}
+							/>
+						</View>
+					</View>
+				)}
+			</BlurView>
+		)
+	}
+
+	const FilterPicker = ({
+		label,
+		value,
+		items,
+		onValueChange,
+		isDarkMode
+	}: any) => (
+		<View style={styles.pickerContainer}>
+			<Text style={[styles.pickerLabel, isDarkMode && styles.darkText]}>
+				{label}
+			</Text>
+			<RNPickerSelect
+				onValueChange={onValueChange}
+				items={items}
+				placeholder={{ label: `All ${label}s`, value: null }}
+				value={value}
+				style={pickerSelectStyles(isDarkMode)}
+				useNativeAndroidPickerStyle={false}
+				Icon={() => (
+					<Ionicons
+						name='chevron-down'
+						size={24}
+						color={isDarkMode ? '#fff' : '#000'}
+					/>
+				)}
+			/>
+		</View>
+	)
 	const handleCall = useCallback(() => {
 		if (dealership?.phone) {
 			Linking.openURL(`tel:${dealership.phone}`)
@@ -413,64 +563,7 @@ export default function DealershipDetails() {
 						</MapView>
 					</View>
 				)}
-				<View className={`${cardBgColor} rounded-lg shadow-md p-4 mb-4`}>
-					<TextInput
-						className={`${textColor} border-b border-red pb-2 mb-4`}
-						placeholder='Search cars...'
-						placeholderTextColor={isDarkMode ? '#888' : '#555'}
-						value={searchQuery}
-						onChangeText={setSearchQuery}
-						onSubmitEditing={handleSearch}
-					/>
-					<View className='flex-row justify-between mb-4'>
-						<View className='flex-1 mr-2'>
-							<RNPickerSelect
-								onValueChange={handleMakeFilter}
-								items={makes.map(make => ({ label: make, value: make }))}
-								placeholder={{ label: 'All Makes', value: null }}
-								value={filterMake}
-								style={pickerSelectStyles(isDarkMode)}
-							/>
-						</View>
-						<View className='flex-1 ml-2'>
-							<RNPickerSelect
-								onValueChange={handleModelFilter}
-								items={models.map(model => ({ label: model, value: model }))}
-								placeholder={{ label: 'All Models', value: null }}
-								value={filterModel}
-								style={pickerSelectStyles(isDarkMode)}
-							/>
-						</View>
-					</View>
-					<View className='flex-row justify-between'>
-						<View className='flex-1 mr-2'>
-							<RNPickerSelect
-								onValueChange={handleConditionFilter}
-								items={[
-									{ label: 'New', value: 'New' },
-									{ label: 'Used', value: 'Used' }
-								]}
-								placeholder={{ label: 'All Conditions', value: null }}
-								value={filterCondition}
-								style={pickerSelectStyles(isDarkMode)}
-							/>
-						</View>
-						<View className='flex-1 ml-2'>
-							<RNPickerSelect
-								onValueChange={handleSort}
-								items={[
-									{ label: 'Price: Low to High', value: 'price_asc' },
-									{ label: 'Price: High to Low', value: 'price_desc' },
-									{ label: 'Mileage: Low to High', value: 'mileage_asc' },
-									{ label: 'Mileage: High to Low', value: 'mileage_desc' }
-								]}
-								placeholder={{ label: 'Sort By', value: null }}
-								value={`${sortBy}_${sortOrder}`}
-								style={pickerSelectStyles(isDarkMode)}
-							/>
-						</View>
-					</View>
-				</View>
+				<FilterSection />
 				<Text className={`text-xl font-bold ${textColor} mb-4`}>
 					Available Cars ({cars.length})
 				</Text>
@@ -553,28 +646,96 @@ export default function DealershipDetails() {
 	)
 }
 
-const pickerSelectStyles = (isDarkMode: boolean) => ({
-	inputIOS: {
-		fontSize: 16,
-		paddingVertical: 12,
-		paddingHorizontal: 10,
-		borderWidth: 1,
-		borderColor: isDarkMode ? '#555' : '#d1d1d1',
-		borderRadius: 4,
-		color: isDarkMode ? 'white' : 'black',
-		paddingRight: 30,
-		backgroundColor: isDarkMode ? '#333' : 'white'
+const pickerSelectStyles = (isDarkMode: any) =>
+	StyleSheet.create({
+		inputIOS: {
+			fontSize: 16,
+			paddingVertical: 12,
+			paddingHorizontal: 10,
+			borderWidth: 1,
+			borderColor: isDarkMode ? '#555' : '#d1d1d1',
+			borderRadius: 8,
+			color: isDarkMode ? '#fff' : '#000',
+			paddingRight: 30,
+			backgroundColor: isDarkMode
+				? 'rgba(80, 80, 80, 0.5)'
+				: 'rgba(255, 255, 255, 0.5)'
+		},
+		inputAndroid: {
+			fontSize: 16,
+			paddingHorizontal: 10,
+			paddingVertical: 8,
+			borderWidth: 1,
+			borderColor: isDarkMode ? '#555' : '#d1d1d1',
+			borderRadius: 8,
+			color: isDarkMode ? '#fff' : '#000',
+			paddingRight: 30,
+			backgroundColor: isDarkMode
+				? 'rgba(80, 80, 80, 0.5)'
+				: 'rgba(255, 255, 255, 0.5)'
+		},
+		iconContainer: {
+			top: 10,
+			right: 12
+		}
+	})
+
+const styles = StyleSheet.create({
+	container: {
+		borderRadius: 16,
+		overflow: 'hidden',
+		marginBottom: 16
 	},
-	inputAndroid: {
-		fontSize: 16,
-		paddingHorizontal: 10,
-		paddingVertical: 8,
-		borderWidth: 1,
-		borderColor: isDarkMode ? '#555' : '#d1d1d1',
-		borderRadius: 8,
-		color: isDarkMode ? 'white' : 'black',
-		paddingRight: 30,
-		backgroundColor: isDarkMode ? '#333' : 'white'
+	searchContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		padding: 12
 	},
-	placeholderColor: isDarkMode ? '#888' : '#999'
+	searchInput: {
+		flex: 1,
+		height: 40,
+		backgroundColor: 'rgba(255, 255, 255, 0.2)',
+		borderRadius: 20,
+		paddingHorizontal: 16,
+		paddingRight: 40, // Add space for the cancel button
+		marginRight: 8,
+		color: '#000'
+	},
+	cancelButton: {
+		position: 'absolute',
+		right: 110, // Adjust this value to position the cancel button correctly
+		top: 20,
+		zIndex: 1
+	},
+	searchButton: {
+		backgroundColor: '#D55004',
+		borderRadius: 20,
+		padding: 8,
+		marginRight: 8
+	},
+	expandButton: {
+		backgroundColor: '#D55004',
+		borderRadius: 20,
+		padding: 8
+	},
+	filtersContainer: {
+		padding: 12
+	},
+	filterRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginBottom: 12
+	},
+	pickerContainer: {
+		flex: 1,
+		marginHorizontal: 4
+	},
+	pickerLabel: {
+		fontSize: 14,
+		marginBottom: 4,
+		color: '#000'
+	},
+	darkText: {
+		color: '#fff'
+	}
 })
