@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -12,7 +12,6 @@ import {
 	Dimensions,
 	StatusBar,
 	Platform,
-	Linking,
 	StyleSheet
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -26,8 +25,9 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import RNPickerSelect from 'react-native-picker-select'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import MapView, { Marker } from 'react-native-maps'
 import { BlurView } from 'expo-blur'
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps'
+import * as Linking from 'expo-linking'
 
 const ITEMS_PER_PAGE = 10
 const { width } = Dimensions.get('window')
@@ -82,6 +82,79 @@ const CustomHeader = React.memo(
 		)
 	}
 )
+
+const DealershipMapView = ({ dealership, isDarkMode }: any) => {
+	const mapRef = useRef<any>(null)
+
+	const zoomToFit = () => {
+		if (mapRef.current) {
+			mapRef.current.fitToSuppliedMarkers(['dealershipMarker'], {
+				edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+				animated: true
+			})
+		}
+	}
+
+	const openInMaps = () => {
+		const scheme = Platform.select({
+			ios: 'maps:0,0?q=',
+			android: 'geo:0,0?q='
+		})
+		const latLng = `${dealership.latitude},${dealership.longitude}`
+		const label = dealership.name
+		const url: any = Platform.select({
+			ios: `${scheme}${label}@${latLng}`,
+			android: `${scheme}${latLng}(${label})`
+		})
+		Linking.openURL(url)
+	}
+
+	return (
+		<View className='h-64 rounded-lg overflow-hidden'>
+			<MapView
+				ref={mapRef}
+				provider={PROVIDER_GOOGLE}
+				style={{ flex: 1, height: 200 }}
+				initialRegion={{
+					latitude: dealership.latitude || 37.7749,
+					longitude: dealership.longitude || -122.4194,
+					latitudeDelta: 0.02,
+					longitudeDelta: 0.02
+				}}
+				onMapReady={zoomToFit}
+				showsUserLocation={true}
+				showsMyLocationButton={true}
+				showsCompass={true}
+				zoomControlEnabled={true}
+				mapType={isDarkMode ? 'mutedStandard' : 'standard'}>
+				<Marker
+					identifier='dealershipMarker'
+					coordinate={{
+						latitude: dealership.latitude || 37.7749,
+						longitude: dealership.longitude || -122.4194
+					}}>
+					<Image
+						source={{ uri: dealership.logo }}
+						style={{ width: 40, height: 40, borderRadius: 20 }}
+					/>
+					<Callout>
+						<View className='p-2 w-40'>
+							<Text className='font-bold text-sm'>{dealership.name}</Text>
+							<Text className='text-xs mt-1'>{dealership.location}</Text>
+							<TouchableOpacity
+								className='bg-red mt-2 py-1 px-2 rounded-full'
+								onPress={openInMaps}>
+								<Text className='text-white text-xs text-center'>
+									View on Map
+								</Text>
+							</TouchableOpacity>
+						</View>
+					</Callout>
+				</Marker>
+			</MapView>
+		</View>
+	)
+}
 
 export default function DealershipDetails() {
 	const { isDarkMode } = useTheme()
@@ -539,7 +612,7 @@ export default function DealershipDetails() {
 							<Ionicons name='location-outline' size={20} color={iconColor} />
 							<Text className={`${textColor} ml-2`}>{dealership.location}</Text>
 						</View>
-						<MapView
+						{/* <MapView
 							style={{
 								height: 200,
 								borderRadius: 10,
@@ -560,7 +633,12 @@ export default function DealershipDetails() {
 								title={dealership.name}
 								description={dealership.location}
 							/>
-						</MapView>
+						</MapView> */}
+
+						<DealershipMapView
+							dealership={dealership}
+							isDarkMode={isDarkMode}
+						/>
 					</View>
 				)}
 				<FilterSection />
