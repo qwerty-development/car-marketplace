@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
 import { formatDistanceToNow } from 'date-fns'
 import { useTheme } from '@/utils/ThemeContext'
+import { useRouter } from 'expo-router'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -93,6 +94,7 @@ export default function CarCard({
 	isDealer = false
 }: any) {
 	const { isDarkMode } = useTheme()
+	const router = useRouter()
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)
 
@@ -107,6 +109,13 @@ export default function CarCard({
 			Alert.alert('Phone number not available')
 		}
 	}, [car.dealership_phone])
+
+	const handleDealershipPress = useCallback(() => {
+		router.push({
+			pathname: '/(home)/(user)/DealershipDetails',
+			params: { dealershipId: car.dealership_id }
+		})
+	}, [router, car.dealership_id])
 
 	const handleWhatsApp = useCallback(() => {
 		if (car.dealership_phone) {
@@ -155,7 +164,7 @@ export default function CarCard({
 					? 'bg-black border-red'
 					: 'bg-light-secondary border-light-accent'
 			} border rounded-3xl overflow-hidden shadow-xl shadow-stone-200`}>
-			<View className=' overflow-hidden'>
+			<View className='overflow-hidden'>
 				<FlatList
 					ref={flatListRef}
 					data={car.images}
@@ -235,7 +244,7 @@ export default function CarCard({
 					</StyledView>
 
 					<StyledView className='flex-row justify-between items-center mb-4 mt-2'>
-						<StyledView>
+						<StyledView className='flex-1'>
 							<StyledText
 								className={`text-2xl font-semibold ${
 									isDarkMode ? 'text-white' : 'text-light-text'
@@ -256,10 +265,15 @@ export default function CarCard({
 							</StyledText>
 						</StyledView>
 						{car.dealership_logo && (
-							<OptimizedImage
-								source={{ uri: car.dealership_logo }}
-								style={{ width: 48, height: 48 }}
-							/>
+							<TouchableOpacity
+								onPress={handleDealershipPress}
+								disabled={isDealer}
+								className='absolute top-5 right-0'>
+								<OptimizedImage
+									source={{ uri: car.dealership_logo }}
+									style={{ width: 54, height: 54, borderRadius: 27 }}
+								/>
+							</TouchableOpacity>
 						)}
 					</StyledView>
 
