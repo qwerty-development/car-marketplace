@@ -6,17 +6,18 @@ import {
 	ScrollView,
 	FlatList,
 	Dimensions,
-	Linking,
 	Alert,
 	Share,
-	StyleSheet
+	StyleSheet,
+	Platform
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
-import MapView, { Marker } from 'react-native-maps'
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
+import * as Linking from 'expo-linking'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
@@ -175,6 +176,102 @@ const CarDetailModal = memo(
 			}
 			if (error) console.error('Error fetching dealer cars:', error)
 		}, [car.dealership_id, car.id])
+
+		const DealershipMapView = ({ car, isDarkMode }: any) => {
+			const mapRef = useRef<MapView>(null)
+			const [showCallout, setShowCallout] = useState(false)
+
+			const zoomToFit = useCallback(() => {
+				if (mapRef.current) {
+					mapRef.current.fitToSuppliedMarkers(['dealershipMarker'], {
+						edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+						animated: true
+					})
+				}
+			}, [])
+
+			const openInMaps = useCallback(() => {
+				const scheme = Platform.select({
+					ios: 'maps:0,0?q=',
+					android: 'geo:0,0?q='
+				})
+				const latLng = `${car.dealership_latitude},${car.dealership_longitude}`
+				const label = encodeURIComponent(car.dealership_name)
+				const url: any = Platform.select({
+					ios: `${scheme}${label}@${latLng}`,
+					android: `${scheme}${latLng}(${label})`
+				})
+				Linking.openURL(url)
+			}, [car])
+
+			const handleMarkerPress = useCallback(() => {
+				setShowCallout(true)
+			}, [])
+
+			const handleMapPress = useCallback(() => {
+				setShowCallout(false)
+			}, [])
+
+			return (
+				<View className='h-64 rounded-lg overflow-hidden'>
+					<MapView
+						ref={mapRef}
+						provider={PROVIDER_GOOGLE}
+						style={{ flex: 1 }}
+						initialRegion={{
+							latitude: car.dealership_latitude || 37.7749,
+							longitude: car.dealership_longitude || -122.4194,
+							latitudeDelta: 0.02,
+							longitudeDelta: 0.02
+						}}
+						onMapReady={zoomToFit}
+						showsUserLocation={true}
+						showsMyLocationButton={true}
+						showsCompass={true}
+						zoomControlEnabled={true}
+						mapType={isDarkMode ? 'mutedStandard' : 'standard'}
+						onPress={handleMapPress}>
+						<Marker
+							identifier='dealershipMarker'
+							coordinate={{
+								latitude: car.dealership_latitude || 37.7749,
+								longitude: car.dealership_longitude || -122.4194
+							}}
+							onPress={handleMarkerPress}>
+							<OptimizedImage
+								source={{ uri: car.dealership_logo }}
+								style={{ width: 40, height: 40, borderRadius: 20 }}
+							/>
+						</Marker>
+					</MapView>
+					{showCallout && (
+						<View className='absolute bottom-4 left-4 right-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-lg'>
+							<Text className='font-bold text-sm text-black dark:text-white'>
+								{car.dealership_name}
+							</Text>
+							<Text className='text-xs mt-1 text-gray-600 dark:text-gray-300'>
+								{car.dealership_location}
+							</Text>
+							<View className='flex-row justify-between mt-2'>
+								<TouchableOpacity
+									className='bg-red py-2 px-3 rounded-full flex-row items-center'
+									onPress={openInMaps}>
+									<Ionicons name='map' size={16} color='white' />
+									<Text className='text-white text-xs ml-1'>View on Map</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									className='bg-gray-200 dark:bg-gray-600 py-2 px-3 rounded-full'
+									onPress={() => setShowCallout(false)}>
+									<Text className='text-gray-800 dark:text-white text-xs'>
+										Close
+									</Text>
+								</TouchableOpacity>
+							</View>
+						</View>
+					)}
+				</View>
+			)
+		}
 
 		const trackCarView = useCallback(
 			async (carId: any, userId: any) => {
@@ -337,36 +434,9 @@ const CarDetailModal = memo(
 			}
 		})
 
-		const renderImageItem = useCallback(
-			({ item, index }: any) => (
-				<OptimizedImage
-					source={{ uri: item }}
-					style={styles.image}
-					onLoad={() => {
-						if (index === 0) setActiveImageIndex(0)
-					}}
-				/>
-			),
-			[]
-		)
 
-		const renderPaginationDots = () => {
-			return (
-				<View style={styles.paginationContainer}>
-					{car.images.map((_: any, index: React.Key | null | undefined) => (
-						<View
-							key={index}
-							style={[
-								styles.paginationDot,
-								index === activeImageIndex
-									? styles.activeDot
-									: styles.inactiveDot
-							]}
-						/>
-					))}
-				</View>
-			)
-		}
+
+
 
 		useEffect(() => {
 			if (isVisible) {
@@ -603,24 +673,7 @@ const CarDetailModal = memo(
 											</Text>
 										</View>
 
-										<MapView
-											style={{
-												height: 200,
-												borderRadius: 10,
-												marginVertical: 10
-											}}
-											region={mapRegion}
-											onTouchStart={() => setIsMapInteracting(true)}
-											onTouchEnd={() => setIsMapInteracting(false)}>
-											<Marker
-												coordinate={{
-													latitude: car.dealership_latitude || 37.7749,
-													longitude: car.dealership_longitude || -122.4194
-												}}
-												title={car.dealership_name}
-												description={car.dealership_location}
-											/>
-										</MapView>
+										<DealershipMapView car={car} isDarkMode={isDarkMode} />
 									</View>
 
 									<Text

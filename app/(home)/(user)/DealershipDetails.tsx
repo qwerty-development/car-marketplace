@@ -139,6 +139,10 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 					showsCompass={true}
 					zoomControlEnabled={true}
 					mapType={isDarkMode ? 'mutedStandard' : 'standard'}
+					cacheEnabled={Platform.OS === 'android'}
+					loadingEnabled
+					loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
+					loadingIndicatorColor='#D55004'
 					onPress={handleMapPress}>
 					<Marker
 						identifier='dealershipMarker'
@@ -487,6 +491,7 @@ export default function DealershipDetails() {
 						placeholderTextColor={isDarkMode ? '#888' : '#555'}
 						value={localSearchQuery}
 						onChangeText={setLocalSearchQuery}
+						className='border border-red '
 					/>
 					{localSearchQuery !== '' && (
 						<TouchableOpacity
@@ -609,7 +614,9 @@ export default function DealershipDetails() {
 			<>
 				{dealership && (
 					<View
-						className={`bg-light-text rounded-lg shadow-md p-4 mb-4 border border-red`}>
+						className={`${
+							isDarkMode ? 'bg-light-text' : 'bg-white'
+						} rounded-lg shadow-md p-4 mb-4 border border-red`}>
 						<Image
 							source={{ uri: dealership.logo }}
 							className='w-24 h-24 rounded-full self-center mb-4'
