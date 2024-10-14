@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -6,11 +6,13 @@ import {
 	FlatList,
 	TextInput,
 	Modal,
-	ScrollView,
 	Alert,
 	ActivityIndicator,
 	RefreshControl,
-	Platform
+	Platform,
+	StyleSheet,
+	StatusBar,
+	Vibration
 } from 'react-native'
 import { useUser } from '@clerk/clerk-expo'
 import { Ionicons } from '@expo/vector-icons'
@@ -18,6 +20,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '@/utils/ThemeContext'
 import { LinearGradient } from 'expo-linear-gradient'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import { BlurView } from 'expo-blur'
+import * as Haptics from 'expo-haptics'
 
 interface User {
 	id: string
@@ -32,6 +36,86 @@ interface DealershipForm {
 	phone: string
 	subscriptionEndDate: Date
 }
+
+const CustomHeader = React.memo(({ title }: { title: string }) => {
+	const { isDarkMode } = useTheme()
+	return (
+		<SafeAreaView
+			edges={['top']}
+			style={[
+				styles.header,
+				isDarkMode ? styles.darkHeader : styles.lightHeader
+			]}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View style={styles.headerContent}>
+				<Text style={styles.headerTitle}>{title}</Text>
+			</View>
+		</SafeAreaView>
+	)
+})
+
+const UserItem = React.memo(
+	({
+		item,
+		onPress,
+		onRoleChange
+	}: {
+		item: User
+		onPress: () => void
+		onRoleChange: () => void
+	}) => {
+		const { isDarkMode } = useTheme()
+		return (
+			<TouchableOpacity
+				style={[
+					styles.userItem,
+					isDarkMode ? styles.darkUserItem : styles.lightUserItem
+				]}
+				onPress={onPress}>
+				{item.firstName && (
+					<Text
+						style={[
+							styles.userName,
+							isDarkMode ? styles.darkText : styles.lightText
+						]}>
+						{item.firstName} {item.lastName}
+					</Text>
+				)}
+				<Text
+					style={[
+						styles.userEmail,
+						isDarkMode ? styles.darkSubText : styles.lightSubText
+					]}>
+					{item.emailAddresses[0].emailAddress}
+				</Text>
+				<View style={styles.userRoleContainer}>
+					<Text
+						style={[
+							styles.userRole,
+							{ color: isDarkMode ? '#FF6B6B' : '#D55004' }
+						]}>
+						Role: {item.publicMetadata.role || 'user'}
+					</Text>
+					<TouchableOpacity
+						style={[
+							styles.roleButton,
+							{
+								backgroundColor:
+									item.publicMetadata.role === 'dealer' ? '#4CAF50' : '#2196F3'
+							}
+						]}
+						onPress={onRoleChange}>
+						<Text style={styles.roleButtonText}>
+							{item.publicMetadata.role === 'dealer'
+								? 'Revoke Dealer'
+								: 'Make Dealer'}
+						</Text>
+					</TouchableOpacity>
+				</View>
+			</TouchableOpacity>
+		)
+	}
+)
 
 export default function AdminUserManagement() {
 	const { isDarkMode } = useTheme()
@@ -56,11 +140,18 @@ export default function AdminUserManagement() {
 			const response = await fetch(
 				`https://backend-car-marketplace.vercel.app/api/users?query=${search}`
 			)
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`)
+			}
 			const data = await response.json()
 			setUsers(data.data)
 		} catch (error) {
 			console.error('Failed to fetch users:', error)
-			Alert.alert('Error', 'Failed to fetch users. Please try again.')
+			Alert.alert(
+				'Error',
+				'Failed to fetch users. Please check your internet connection and try again.',
+				[{ text: 'OK' }]
+			)
 		} finally {
 			setIsLoading(false)
 		}
@@ -75,52 +166,59 @@ export default function AdminUserManagement() {
 		fetchUsers().then(() => setRefreshing(false))
 	}, [fetchUsers])
 
-	const handleSetRole = async (userId: string, role: string) => {
+	const handleSetRole = useCallback(async (userId: string, role: string) => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
 		if (role === 'dealer') {
 			setIsModifyingDealer(false)
 			setIsDealershipFormVisible(true)
 		} else {
 			await updateUserRole(userId, role)
 		}
-	}
+	}, [])
 
-	const updateUserRole = async (userId: string, role: string) => {
-		try {
-			const body: any = { userId, role }
-			if (role === 'dealer') {
-				body.location = dealershipForm.location
-				body.phone = dealershipForm.phone
-				body.subscriptionEndDate =
-					dealershipForm.subscriptionEndDate.toISOString()
-			} else {
-				body.subscriptionEndDate = new Date().toISOString()
-			}
-
-			const response = await fetch(
-				`https://backend-car-marketplace.vercel.app/api/setRole`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(body)
+	const updateUserRole = useCallback(
+		async (userId: string, role: string) => {
+			try {
+				const body: any = { userId, role }
+				if (role === 'dealer') {
+					body.location = dealershipForm.location
+					body.phone = dealershipForm.phone
+					body.subscriptionEndDate =
+						dealershipForm.subscriptionEndDate.toISOString()
+				} else {
+					body.subscriptionEndDate = new Date().toISOString()
 				}
-			)
-			const data = await response.json()
-			if (response.ok) {
-				Alert.alert('Success', 'User role updated successfully')
-				fetchUsers()
-				setSelectedUser(null)
-				setIsDealershipFormVisible(false)
-			} else {
-				console.error('Failed to set role:', data.error)
-				Alert.alert('Error', 'Failed to update user role. Please try again.')
-			}
-		} catch (error) {
-			console.error('Failed to set role:', error)
-			Alert.alert('Error', 'An unexpected error occurred. Please try again.')
-		}
-	}
 
-	const handleModifyDealer = async () => {
+				const response = await fetch(
+					`https://backend-car-marketplace.vercel.app/api/setRole`,
+					{
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(body)
+					}
+				)
+				const data = await response.json()
+				if (response.ok) {
+					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+					Alert.alert('Success', 'User role updated successfully')
+					fetchUsers()
+					setSelectedUser(null)
+					setIsDealershipFormVisible(false)
+				} else {
+					console.error('Failed to set role:', data.error)
+					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+					Alert.alert('Error', `Failed to update user role: ${data.error}`)
+				}
+			} catch (error) {
+				console.error('Failed to set role:', error)
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+				Alert.alert('Error', 'An unexpected error occurred. Please try again.')
+			}
+		},
+		[dealershipForm, fetchUsers]
+	)
+
+	const handleModifyDealer = useCallback(async () => {
 		if (!selectedUser) return
 
 		try {
@@ -142,142 +240,137 @@ export default function AdminUserManagement() {
 			)
 			const data = await response.json()
 			if (response.ok) {
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 				Alert.alert('Success', 'Dealership details updated successfully')
 				fetchUsers()
 				setSelectedUser(null)
 				setIsDealershipFormVisible(false)
 			} else {
 				console.error('Failed to update dealership:', data.error)
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
 				Alert.alert(
 					'Error',
-					'Failed to update dealership details. Please try again.'
+					`Failed to update dealership details: ${data.error}`
 				)
 			}
 		} catch (error) {
 			console.error('Failed to update dealership:', error)
+			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
 			Alert.alert('Error', 'An unexpected error occurred. Please try again.')
 		}
-	}
+	}, [selectedUser, dealershipForm, fetchUsers])
 
-	const renderUserItem = ({ item }: { item: User }) => (
-		<TouchableOpacity
-			className={`p-4 mb-4 rounded-lg ${
-				isDarkMode ? 'bg-gray' : 'bg-white'
-			} shadow-md`}
-			onPress={() => setSelectedUser(item)}>
-			{item.firstName && (
-				<Text
-					className={`text-lg font-bold ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					{item.firstName} {item.lastName}
-				</Text>
-			)}
-			<Text className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-				{item.emailAddresses[0].emailAddress}
-			</Text>
-			<View className='flex-row justify-between items-center mt-2'>
-				<Text
-					className={`text-sm italic ${isDarkMode ? 'text-red' : 'text-red'}`}>
-					Role: {item.publicMetadata.role || 'user'}
-				</Text>
-				<TouchableOpacity
-					className={`px-3 py-1 rounded-full ${
-						item.publicMetadata.role === 'dealer'
-							? 'bg-green-500'
-							: 'bg-blue-500'
-					}`}
-					onPress={() =>
-						handleSetRole(
-							item.id,
-							item.publicMetadata.role === 'dealer' ? 'user' : 'dealer'
-						)
-					}>
-					<Text className='text-white text-xs'>
-						{item.publicMetadata.role === 'dealer'
-							? 'Revoke Dealer'
-							: 'Make Dealer'}
+	const renderUserItem = useCallback(
+		({ item }: { item: User }) => (
+			<UserItem
+				item={item}
+				onPress={() => setSelectedUser(item)}
+				onRoleChange={() =>
+					handleSetRole(
+						item.id,
+						item.publicMetadata.role === 'dealer' ? 'user' : 'dealer'
+					)
+				}
+			/>
+		),
+		[handleSetRole]
+	)
+
+	const memoizedUserList = useMemo(
+		() => (
+			<FlatList
+				data={users}
+				renderItem={renderUserItem}
+				keyExtractor={item => item.id}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={['#D55004']}
+					/>
+				}
+				ListEmptyComponent={
+					<Text
+						style={[
+							styles.emptyListText,
+							isDarkMode ? styles.darkText : styles.lightText
+						]}>
+						No users found.
 					</Text>
-				</TouchableOpacity>
-			</View>
-		</TouchableOpacity>
+				}
+				initialNumToRender={10}
+				maxToRenderPerBatch={5}
+				updateCellsBatchingPeriod={50}
+				windowSize={5}
+			/>
+		),
+		[users, renderUserItem, refreshing, onRefresh, isDarkMode]
 	)
 
 	return (
-		<SafeAreaView
-			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-light-background'}`}>
+		<View
+			style={[
+				styles.container,
+				isDarkMode ? styles.darkContainer : styles.lightContainer
+			]}
+			className='mb-10'>
+			<CustomHeader title='User Management' />
 			<LinearGradient
 				colors={isDarkMode ? ['#1A1A1A', '#2D2D2D'] : ['#F0F0F0', '#FFFFFF']}
-				className='flex-1 px-4 py-6'>
-				<Text
-					className={`text-3xl font-bold mb-6 ${
-						isDarkMode ? 'text-white' : 'text-night'
-					}`}>
-					User Management
-				</Text>
-				<View className='flex-row items-center mb-6'>
+				style={styles.gradientContainer}>
+				<View style={styles.searchContainer}>
 					<TextInput
-						className={`flex-1 py-2 px-4 rounded-full mr-2 ${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-night'
-						}`}
+						style={[
+							styles.searchInput,
+							isDarkMode ? styles.darkInput : styles.lightInput
+						]}
 						placeholder='Search users...'
 						placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
 						value={search}
 						onChangeText={setSearch}
 						onSubmitEditing={fetchUsers}
 					/>
-					<TouchableOpacity
-						className='bg-red p-3 rounded-full'
-						onPress={fetchUsers}>
+					<TouchableOpacity style={styles.searchButton} onPress={fetchUsers}>
 						<Ionicons name='search' size={24} color='white' />
 					</TouchableOpacity>
 				</View>
 				{isLoading ? (
-					<ActivityIndicator size='large' color='#D55004' />
-				) : (
-					<FlatList
-						data={users}
-						renderItem={renderUserItem}
-						keyExtractor={item => item.id}
-						refreshControl={
-							<RefreshControl
-								refreshing={refreshing}
-								onRefresh={onRefresh}
-								colors={['#D55004']}
-							/>
-						}
-						ListEmptyComponent={
-							<Text
-								className={`text-center ${
-									isDarkMode ? 'text-white' : 'text-gray'
-								}`}>
-								No users found.
-							</Text>
-						}
+					<ActivityIndicator
+						size='large'
+						color='#D55004'
+						style={styles.loadingIndicator}
 					/>
+				) : (
+					memoizedUserList
 				)}
 
 				<Modal
 					visible={isDealershipFormVisible}
 					animationType='slide'
 					transparent={true}>
-					<View className='flex-1 justify-center items-center bg-black bg-opacity-50'>
+					<BlurView
+						style={styles.modalContainer}
+						intensity={100}
+						tint={isDarkMode ? 'dark' : 'light'}>
 						<View
-							className={`w-11/12 p-6 rounded-2xl ${
-								isDarkMode ? 'bg-gray' : 'bg-white'
-							}`}>
+							style={[
+								styles.modalContent,
+								isDarkMode ? styles.darkModalContent : styles.lightModalContent
+							]}>
 							<Text
-								className={`text-2xl font-bold mb-4 ${
-									isDarkMode ? 'text-white' : 'text-night'
-								}`}>
+								style={[
+									styles.modalTitle,
+									isDarkMode ? styles.darkText : styles.lightText
+								]}>
 								{isModifyingDealer
 									? 'Modify Dealership Details'
 									: 'Dealership Information'}
 							</Text>
 							<TextInput
-								className={`mb-4 p-3 rounded-lg ${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-night'
-								}`}
+								style={[
+									styles.modalInput,
+									isDarkMode ? styles.darkInput : styles.lightInput
+								]}
 								placeholder='Location'
 								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
 								value={dealershipForm.location}
@@ -286,9 +379,10 @@ export default function AdminUserManagement() {
 								}
 							/>
 							<TextInput
-								className={`mb-4 p-3 rounded-lg ${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-night'
-								}`}
+								style={[
+									styles.modalInput,
+									isDarkMode ? styles.darkInput : styles.lightInput
+								]}
 								placeholder='Phone'
 								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
 								value={dealershipForm.phone}
@@ -298,11 +392,12 @@ export default function AdminUserManagement() {
 								keyboardType='phone-pad'
 							/>
 							<TouchableOpacity
-								className={`mb-4 p-3 rounded-lg ${
-									isDarkMode ? 'bg-gray' : 'bg-white'
-								}`}
+								style={[
+									styles.datePickerButton,
+									isDarkMode ? styles.darkInput : styles.lightInput
+								]}
 								onPress={() => setShowDatePicker(true)}>
-								<Text className={isDarkMode ? 'text-white' : 'text-night'}>
+								<Text style={isDarkMode ? styles.darkText : styles.lightText}>
 									Subscription End Date:{' '}
 									{dealershipForm.subscriptionEndDate.toDateString()}
 								</Text>
@@ -325,7 +420,7 @@ export default function AdminUserManagement() {
 								/>
 							)}
 							<TouchableOpacity
-								className='bg-red py-3 px-4 rounded-lg mt-4 mb-3'
+								style={styles.submitButton}
 								onPress={() => {
 									if (selectedUser) {
 										if (isModifyingDealer) {
@@ -335,26 +430,226 @@ export default function AdminUserManagement() {
 										}
 									}
 								}}>
-								<Text className='text-white text-center font-semibold'>
+								<Text style={styles.submitButtonText}>
 									{isModifyingDealer ? 'Update Details' : 'Make Dealer'}
 								</Text>
 							</TouchableOpacity>
 							<TouchableOpacity
-								className={`py-3 px-4 rounded-lg ${
-									isDarkMode ? 'bg-rose-500' : 'bg-rose-500'
-								}`}
+								style={[
+									styles.cancelButton,
+									isDarkMode
+										? styles.darkCancelButton
+										: styles.lightCancelButton
+								]}
 								onPress={() => setIsDealershipFormVisible(false)}>
 								<Text
-									className={`text-center font-semibold ${
-										isDarkMode ? 'text-white' : 'text-night'
-									}`}>
+									style={[
+										styles.cancelButtonText,
+										isDarkMode ? styles.darkText : styles.lightText
+									]}>
 									Cancel
 								</Text>
 							</TouchableOpacity>
 						</View>
-					</View>
+					</BlurView>
 				</Modal>
 			</LinearGradient>
-		</SafeAreaView>
+		</View>
 	)
 }
+
+const styles = StyleSheet.create({
+	container: {
+		flex: 1
+	},
+	darkContainer: {
+		backgroundColor: '#121212'
+	},
+	lightContainer: {
+		backgroundColor: '#F7FAFC'
+	},
+	header: {
+		borderBottomWidth: 1,
+		borderBottomColor: '#D55004'
+	},
+	darkHeader: {
+		backgroundColor: '#000'
+	},
+	lightHeader: {
+		backgroundColor: '#fff'
+	},
+	headerContent: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 12
+	},
+	headerTitle: {
+		fontSize: 22,
+		fontWeight: '600',
+		color: '#D55004'
+	},
+	gradientContainer: {
+		flex: 1,
+		paddingHorizontal: 16,
+		paddingTop: 16
+	},
+	searchContainer: {
+		flexDirection: 'row',
+		marginBottom: 16
+	},
+	searchInput: {
+		flex: 1,
+		height: 48,
+		borderRadius: 24,
+		paddingHorizontal: 16,
+		fontSize: 16
+	},
+	darkInput: {
+		backgroundColor: '#333',
+		color: '#fff'
+	},
+	lightInput: {
+		backgroundColor: '#fff',
+		color: '#000',
+		borderWidth: 1,
+		borderColor: '#E2E8F0'
+	},
+	searchButton: {
+		width: 48,
+		height: 48,
+		borderRadius: 24,
+		backgroundColor: '#D55004',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginLeft: 8
+	},
+	loadingIndicator: {
+		marginTop: 20
+	},
+	userItem: {
+		padding: 16,
+		marginBottom: 12,
+		borderRadius: 8
+	},
+	darkUserItem: {
+		backgroundColor: '#333'
+	},
+	lightUserItem: {
+		backgroundColor: '#fff',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.1,
+		shadowRadius: 2,
+		elevation: 2
+	},
+	userName: {
+		fontSize: 18,
+		fontWeight: '600',
+		marginBottom: 4
+	},
+	userEmail: {
+		fontSize: 14,
+		marginBottom: 8
+	},
+	darkText: {
+		color: '#fff'
+	},
+	lightText: {
+		color: '#000'
+	},
+	darkSubText: {
+		color: '#A0AEC0'
+	},
+	lightSubText: {
+		color: '#718096'
+	},
+	userRoleContainer: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center'
+	},
+	userRole: {
+		fontSize: 14,
+		fontStyle: 'italic'
+	},
+	roleButton: {
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: 16
+	},
+	roleButtonText: {
+		color: '#fff',
+		fontSize: 12,
+		fontWeight: '500'
+	},
+	emptyListText: {
+		textAlign: 'center',
+		marginTop: 20,
+		fontSize: 16
+	},
+	modalContainer: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center'
+	},
+	modalContent: {
+		width: '90%',
+		padding: 20,
+		borderRadius: 12
+	},
+	darkModalContent: {
+		backgroundColor: '#333'
+	},
+	lightModalContent: {
+		backgroundColor: '#fff'
+	},
+	modalTitle: {
+		fontSize: 20,
+		fontWeight: '600',
+		marginBottom: 16,
+		textAlign: 'center'
+	},
+	modalInput: {
+		height: 48,
+		borderRadius: 8,
+		paddingHorizontal: 12,
+		fontSize: 16,
+		marginBottom: 12
+	},
+	datePickerButton: {
+		height: 48,
+		borderRadius: 8,
+		paddingHorizontal: 12,
+		justifyContent: 'center',
+		marginBottom: 12
+	},
+	submitButton: {
+		backgroundColor: '#D55004',
+		paddingVertical: 12,
+		borderRadius: 8,
+		marginTop: 8,
+		marginBottom: 12
+	},
+	submitButtonText: {
+		color: '#fff',
+		textAlign: 'center',
+		fontWeight: '600',
+		fontSize: 16
+	},
+	cancelButton: {
+		paddingVertical: 12,
+		borderRadius: 8
+	},
+	darkCancelButton: {
+		backgroundColor: '#4A5568'
+	},
+	lightCancelButton: {
+		backgroundColor: '#E2E8F0'
+	},
+	cancelButtonText: {
+		textAlign: 'center',
+		fontWeight: '600',
+		fontSize: 16
+	}
+})
