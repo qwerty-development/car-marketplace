@@ -59,40 +59,20 @@ const useDealershipState = () => {
 }
 
 const ITEMS_PER_PAGE = 10
-const CustomHeader = ({
-	title,
-	showBackButton = true
-}: {
-	title: string
-	showBackButton?: boolean
-}) => {
-	const { isDarkMode } = useTheme()
-	const router = useRouter()
 
+const CustomHeader = React.memo(({ title }: { title: string }) => {
+	const { isDarkMode } = useTheme()
 	return (
 		<SafeAreaView
 			edges={['top']}
-			className={`${isDarkMode ? 'bg-night' : 'bg-white'} border-b border-red`}>
+			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center justify-between py-4 px-4'>
-				{showBackButton ? (
-					<TouchableOpacity
-						onPress={() => router.push('/(home)/(dealer)/profile')}>
-						<Ionicons
-							name='chevron-back'
-							size={24}
-							color={isDarkMode ? 'white' : 'black'}
-						/>
-					</TouchableOpacity>
-				) : (
-					<View style={{ width: 24 }} />
-				)}
-				<Text className='text-xl font-bold text-red'>{title}</Text>
-				<View style={{ width: 24 }} />
+			<View className='flex-row items-center border-b border-red justify-center pb-2'>
+				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
 	)
-}
+})
 
 export default function DealershipManagement() {
 	const { isDarkMode } = useTheme()
