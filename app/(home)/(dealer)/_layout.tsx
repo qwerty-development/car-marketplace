@@ -14,7 +14,7 @@ export default function DealerLayout() {
 					tabBarStyle: {
 						position: 'absolute',
 						backgroundColor: isDarkMode ? 'black' : 'white',
-						height: 40, // Increased height to accommodate larger icons
+						height: 40,
 						paddingBottom: 5,
 						borderWidth: 0,
 						borderColor: '#D55004',
@@ -29,7 +29,7 @@ export default function DealerLayout() {
 					tabBarActiveTintColor: '#D55004',
 					tabBarInactiveTintColor: isDarkMode ? 'white' : 'black',
 					tabBarItemStyle: {
-						paddingTop: 5 // Increased padding to center larger icons
+						paddingTop: 5
 					},
 					headerStyle: {
 						backgroundColor: isDarkMode ? 'black' : 'white',
@@ -40,7 +40,7 @@ export default function DealerLayout() {
 						borderColor: '#D55004'
 					},
 					headerTintColor: '#D55004',
-					headerShown: route.name !== 'index'
+					headerShown: false
 				})}>
 				<Tabs.Screen
 					name='index'

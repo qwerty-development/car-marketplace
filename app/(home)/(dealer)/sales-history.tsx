@@ -36,19 +36,19 @@ interface SaleRecord {
 	description: string
 }
 
-const CustomHeader = ({ title }: { title: string }) => {
+const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
 	return (
 		<SafeAreaView
 			edges={['top']}
-			className={`${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='border-b border-red py-2'>
-				<Text className='text-2xl font-bold text-red text-center'>{title}</Text>
+			<View className='flex-row items-center border-b border-red justify-center pb-2'>
+				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
 	)
-}
+})
 
 const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -296,7 +296,7 @@ export default function SalesHistoryPage() {
 					key={item.id}
 					className={`${
 						isDarkMode ? 'bg-gray' : 'bg-white'
-					} p-4 rounded-lg mb-4 shadow-lg`}
+					} p-4 rounded-lg mb-5 shadow-lg`}
 					onPress={() => {
 						setSelectedSale(item)
 						setIsModalVisible(true)
@@ -348,7 +348,7 @@ export default function SalesHistoryPage() {
 			className='flex-1'>
 			<CustomHeader title='Sales History' />
 			<ScrollView className='flex-1'>
-				<View className='px-4 py-2'>
+				<View className='px-4 py-2 mb-5'>
 					<View className='flex-row justify-between items-center mb-4'>
 						<TextInput
 							className={`flex-1 bg-white dark:bg-gray rounded-full px-4 py-2 ${
