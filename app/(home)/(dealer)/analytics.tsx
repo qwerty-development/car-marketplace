@@ -25,14 +25,13 @@ import {
 	startOfMonth,
 	startOfYear
 } from 'date-fns'
-import RNPickerSelect from 'react-native-picker-select'
 import { BlurView } from 'expo-blur'
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested'])
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
-const CustomHeader = ({ title, showBackButton = true }: any) => {
+const CustomHeader = ({ title, showBackButton = true }) => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
 
@@ -61,7 +60,7 @@ const CustomHeader = ({ title, showBackButton = true }: any) => {
 	)
 }
 
-const ChartContainer = ({ title, children }: any) => {
+const ChartContainer = ({ title, children }) => {
 	const { isDarkMode } = useTheme()
 	return (
 		<BlurView
@@ -81,41 +80,24 @@ const ChartContainer = ({ title, children }: any) => {
 	)
 }
 
-const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
+const CarListing = React.memo(({ dealershipId, isDarkMode }) => {
 	const router = useRouter()
-	const [cars, setCars] = useState<any>([])
-	const [isLoadingCars, setIsLoadingCars] = useState<any>(false)
-	const [currentPage, setCurrentPage] = useState<any>(1)
-	const [totalPages, setTotalPages] = useState<any>(1)
-	const [filterStatus, setFilterStatus] = useState<any>('all')
-	const [sortBy, setSortBy] = useState<any>('latest')
+	const [cars, setCars] = useState([])
+	const [isLoadingCars, setIsLoadingCars] = useState(false)
+	const [currentPage, setCurrentPage] = useState(1)
+	const [totalPages, setTotalPages] = useState(1)
 	const carsPerPage = 10
 
 	const fetchCarData = useCallback(async () => {
 		if (!dealershipId) return
 		setIsLoadingCars(true)
 		try {
-			let query = supabase
+			const { data, error, count } = await supabase
 				.from('cars')
 				.select('*', { count: 'exact' })
 				.eq('dealership_id', dealershipId)
-
-			if (filterStatus !== 'all') {
-				query = query.eq('status', filterStatus)
-			}
-
-			if (sortBy === 'latest') {
-				query = query.order('listed_at', { ascending: false })
-			} else if (sortBy === 'views') {
-				query = query.order('views', { ascending: false })
-			} else if (sortBy === 'likes') {
-				query = query.order('likes', { ascending: false })
-			}
-
-			const { data, error, count } = await query.range(
-				(currentPage - 1) * carsPerPage,
-				currentPage * carsPerPage - 1
-			)
+				.range((currentPage - 1) * carsPerPage, currentPage * carsPerPage - 1)
+				.order('listed_at', { ascending: false })
 
 			if (error) throw error
 
@@ -126,14 +108,14 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 		} finally {
 			setIsLoadingCars(false)
 		}
-	}, [dealershipId, currentPage, filterStatus, sortBy])
+	}, [dealershipId, currentPage])
 
 	useEffect(() => {
 		fetchCarData()
 	}, [fetchCarData])
 
 	const renderCarItem = useCallback(
-		({ item }: any) => (
+		({ item }) => (
 			<TouchableOpacity
 				className={`border border-red ${
 					isDarkMode ? 'bg-gray' : 'bg-white'
@@ -170,51 +152,8 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 				className={`text-xl font-semibold mb-2 ${
 					isDarkMode ? 'text-white' : 'text-night'
 				}`}>
-				Car Listings
+				Recent Listings
 			</Text>
-
-			<View className='flex-row justify-between items-center mb-4'>
-				<View className='flex-1 mr-2'>
-					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-						Status:
-					</Text>
-					<RNPickerSelect
-						onValueChange={value => {
-							setFilterStatus(value)
-							setCurrentPage(1)
-						}}
-						items={[
-							{ label: 'All', value: 'all' },
-							{ label: 'Available', value: 'available' },
-							{ label: 'Sold', value: 'sold' },
-							{ label: 'Pending', value: 'pending' }
-						]}
-						style={pickerSelectStyles(isDarkMode)}
-						value={filterStatus}
-						placeholder={{}}
-					/>
-				</View>
-				<View className='flex-1 ml-2'>
-					<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-						Sort by:
-					</Text>
-					<RNPickerSelect
-						onValueChange={value => {
-							setSortBy(value)
-							setCurrentPage(1)
-						}}
-						items={[
-							{ label: 'Latest', value: 'latest' },
-							{ label: 'Most Viewed', value: 'views' },
-							{ label: 'Most Liked', value: 'likes' }
-						]}
-						style={pickerSelectStyles(isDarkMode)}
-						value={sortBy}
-						placeholder={{}}
-					/>
-				</View>
-			</View>
-
 			{isLoadingCars ? (
 				<ActivityIndicator size='large' color='#D55004' />
 			) : (
@@ -222,9 +161,7 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 					<FlatList
 						data={cars}
 						renderItem={renderCarItem}
-						keyExtractor={item =>
-							`${item.id}-${item.make}-${item.model}-${Math.random()}`
-						}
+						keyExtractor={item => `${item.id}-${item.make}-${item.model}`}
 						ListEmptyComponent={
 							<Text
 								className={`text-center py-4 ${
@@ -234,12 +171,9 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 							</Text>
 						}
 					/>
-
 					<View className='flex-row justify-between items-center mt-4'>
 						<TouchableOpacity
-							onPress={() =>
-								setCurrentPage((prev: number) => Math.max(1, prev - 1))
-							}
+							onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
 							disabled={currentPage === 1}>
 							<Text className={currentPage === 1 ? 'text-gray' : 'text-red'}>
 								Previous
@@ -250,7 +184,7 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 						</Text>
 						<TouchableOpacity
 							onPress={() =>
-								setCurrentPage((prev: number) => Math.min(totalPages, prev + 1))
+								setCurrentPage(prev => Math.min(totalPages, prev + 1))
 							}
 							disabled={currentPage === totalPages}>
 							<Text
@@ -270,12 +204,12 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }: any) => {
 export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
-	const [dealership, setDealership] = useState<any>(null)
-	const [analytics, setAnalytics] = useState<any>(null)
-	const [timeRange, setTimeRange] = useState<any>('week')
-	const [isLoading, setIsLoading] = useState<any>(true)
-	const [error, setError] = useState<any>(null)
-	const [refreshing, setRefreshing] = useState<any>(false)
+	const [dealership, setDealership] = useState(null)
+	const [analytics, setAnalytics] = useState(null)
+	const [timeRange, setTimeRange] = useState('year')
+	const [isLoading, setIsLoading] = useState(true)
+	const [error, setError] = useState(null)
+	const [refreshing, setRefreshing] = useState(false)
 
 	const fetchData = useCallback(async () => {
 		if (!user) return
@@ -301,7 +235,7 @@ export default function DealerAnalyticsPage() {
 
 			if (analyticsError) throw analyticsError
 			setAnalytics(analyticsData)
-		} catch (err: any) {
+		} catch (err) {
 			setError(err.message)
 		} finally {
 			setIsLoading(false)
@@ -317,33 +251,10 @@ export default function DealerAnalyticsPage() {
 		fetchData().then(() => setRefreshing(false))
 	}, [fetchData])
 
-	const getDateRange = useMemo(() => {
-		const endDate = new Date()
-		let startDate
-		switch (timeRange) {
-			case 'week':
-				startDate = startOfWeek(endDate)
-				break
-			case 'month':
-				startDate = startOfMonth(endDate)
-				break
-			case 'year':
-				startDate = startOfYear(endDate)
-				break
-			default:
-				startDate = subDays(endDate, 7)
-		}
-		return { startDate, endDate }
-	}, [timeRange])
-
 	const formatChartData = useMemo(() => {
 		if (!analytics?.time_series_data) return null
 
-		const { startDate, endDate } = getDateRange
-		const data = analytics.time_series_data.filter(
-			(d: { date: string | number | Date }) =>
-				new Date(d.date) >= startDate && new Date(d.date) <= endDate
-		)
+		const data = analytics.time_series_data
 
 		const labels = data.map((d: { date: string | number | Date }) =>
 			format(new Date(d.date), 'MMM dd')
@@ -367,7 +278,7 @@ export default function DealerAnalyticsPage() {
 			],
 			legend: ['Views', 'Likes']
 		}
-	}, [analytics, getDateRange])
+	}, [analytics])
 
 	const topViewedCarsData = useMemo(() => {
 		if (!analytics?.top_viewed_cars) return null
@@ -393,7 +304,7 @@ export default function DealerAnalyticsPage() {
 		return { labels, data }
 	}, [analytics])
 
-	const categoryColors: any = {
+	const categoryColors = {
 		Sedan: '#4285F4',
 		SUV: '#34A853',
 		Hatchback: '#FBBC05',
@@ -407,7 +318,7 @@ export default function DealerAnalyticsPage() {
 		if (!analytics?.category_distribution) return null
 
 		return Object.entries(analytics.category_distribution).map(
-			([category, count]: any) => ({
+			([category, count]) => ({
 				name: category,
 				population: count,
 				color: categoryColors[category] || '#CCCCCC',
@@ -427,6 +338,7 @@ export default function DealerAnalyticsPage() {
 			</View>
 		)
 	}
+
 	if (error) {
 		return (
 			<View
@@ -457,32 +369,6 @@ export default function DealerAnalyticsPage() {
 				intensity={100}
 				tint={isDarkMode ? 'dark' : 'light'}
 				className='p-4 rounded-lg shadow-md mx-4 my-4'>
-				<View className='flex-row justify-around mb-4'>
-					{['week', 'month', 'year'].map(range => (
-						<TouchableOpacity
-							key={range}
-							onPress={() => setTimeRange(range)}
-							className={`px-4 py-2 rounded-full ${
-								timeRange === range
-									? 'bg-red'
-									: isDarkMode
-									? 'bg-gray'
-									: 'bg-light-secondary'
-							}`}>
-							<Text
-								className={
-									timeRange === range
-										? 'text-white'
-										: isDarkMode
-										? 'text-white'
-										: 'text-night'
-								}>
-								{range.charAt(0).toUpperCase() + range.slice(1)}
-							</Text>
-						</TouchableOpacity>
-					))}
-				</View>
-
 				<View className='flex-row justify-between'>
 					<OverviewMetric
 						title='Total Listings'
@@ -527,16 +413,18 @@ export default function DealerAnalyticsPage() {
 					/>
 				</ChartContainer>
 			)}
-
 			{topViewedCarsData && (
 				<ChartContainer title='Top 5 Most Viewed Cars'>
 					<BarChart
 						data={{
-							labels: topViewedCarsData.labels,
+							labels: topViewedCarsData.labels.map(
+								(label: string) =>
+									label.split(' ')[1] + ' ' + label.split(' ')[2]
+							), // Only show the year
 							datasets: [{ data: topViewedCarsData.data }]
 						}}
 						width={SCREEN_WIDTH * 1.5}
-						height={220}
+						height={300} // Increased height
 						yAxisLabel=''
 						yAxisSuffix=''
 						chartConfig={{
@@ -546,12 +434,49 @@ export default function DealerAnalyticsPage() {
 							decimalPlaces: 0,
 							color: (opacity = 1) => `rgba(20, 184, 166, ${opacity})`,
 							style: { borderRadius: 16 },
-							barPercentage: 0.5
+							barPercentage: 0.7,
+							propsForVerticalLabels: {
+								fontSize: 10,
+								rotation: 0
+							}
 						}}
 						style={{ marginVertical: 8, borderRadius: 16 }}
 						showValuesOnTopOfBars
 						fromZero
 					/>
+					<View className='mt-4 bg-opacity-20 bg-gray-500 rounded-lg p-3'>
+						{topViewedCarsData.labels.map(
+							(
+								label:
+									| string
+									| number
+									| boolean
+									| React.ReactElement<
+											any,
+											string | React.JSXElementConstructor<any>
+									  >
+									| Iterable<React.ReactNode>
+									| React.ReactPortal
+									| null
+									| undefined,
+								index: React.Key | null | undefined
+							) => (
+								<View key={index} className='flex-row items-center mb-2'>
+									<View className='w-5 h-5 rounded-full bg-teal-500 mr-3 flex items-center justify-center'>
+										<Text className='text-white font-bold text-xs'>
+											{index + 1}
+										</Text>
+									</View>
+									<Text
+										className={`text-sm ${
+											isDarkMode ? 'text-white' : 'text-night'
+										}`}>
+										{label}
+									</Text>
+								</View>
+							)
+						)}
+					</View>
 				</ChartContainer>
 			)}
 
@@ -559,11 +484,14 @@ export default function DealerAnalyticsPage() {
 				<ChartContainer title='Top 5 Most Liked Cars'>
 					<BarChart
 						data={{
-							labels: topLikedCarsData.labels,
+							labels: topViewedCarsData!.labels.map(
+								(label: string) =>
+									label.split(' ')[1] + ' ' + label.split(' ')[2]
+							),
 							datasets: [{ data: topLikedCarsData.data }]
 						}}
 						width={SCREEN_WIDTH * 1.5}
-						height={220}
+						height={300} // Increased height
 						yAxisLabel=''
 						yAxisSuffix=''
 						chartConfig={{
@@ -573,12 +501,49 @@ export default function DealerAnalyticsPage() {
 							decimalPlaces: 0,
 							color: (opacity = 1) => `rgba(0, 255, 0, ${opacity})`,
 							style: { borderRadius: 16 },
-							barPercentage: 0.5
+							barPercentage: 0.7,
+							propsForVerticalLabels: {
+								fontSize: 10,
+								rotation: 0
+							}
 						}}
 						style={{ marginVertical: 8, borderRadius: 16 }}
 						showValuesOnTopOfBars
 						fromZero
 					/>
+					<View className='mt-4 bg-opacity-20 bg-gray-500 rounded-lg p-3'>
+						{topLikedCarsData.labels.map(
+							(
+								label:
+									| string
+									| number
+									| boolean
+									| React.ReactElement<
+											any,
+											string | React.JSXElementConstructor<any>
+									  >
+									| Iterable<React.ReactNode>
+									| React.ReactPortal
+									| null
+									| undefined,
+								index: any
+							) => (
+								<View key={index} className='flex-row items-center mb-2'>
+									<View className='w-5 h-5 rounded-full bg-green-500 mr-3 flex items-center justify-center'>
+										<Text className='text-white font-bold text-xs'>
+											{index + 1}
+										</Text>
+									</View>
+									<Text
+										className={`text-sm ${
+											isDarkMode ? 'text-white' : 'text-night'
+										}`}>
+										{label}
+									</Text>
+								</View>
+							)
+						)}
+					</View>
 				</ChartContainer>
 			)}
 
@@ -615,6 +580,21 @@ export default function DealerAnalyticsPage() {
 	)
 }
 
+const SummaryContainer = ({ title, children, isDarkMode }: any) => (
+	<BlurView
+		intensity={100}
+		tint={isDarkMode ? 'dark' : 'light'}
+		className='rounded-lg shadow-md mx-4 mb-6 p-6'>
+		<Text
+			className={`text-xl font-semibold mb-4 ${
+				isDarkMode ? 'text-white' : 'text-night'
+			}`}>
+			{title}
+		</Text>
+		<View className='bg-opacity-10 bg-gray-500 rounded-lg p-4'>{children}</View>
+	</BlurView>
+)
+
 const OverviewMetric = ({ title, value, icon, color }: any) => (
 	<View className='items-center'>
 		<Ionicons name={icon} size={24} color={color} />
@@ -626,16 +606,7 @@ const OverviewMetric = ({ title, value, icon, color }: any) => (
 )
 
 const InventorySummary = ({ analytics, isDarkMode }: any) => (
-	<BlurView
-		intensity={100}
-		tint={isDarkMode ? 'dark' : 'light'}
-		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
-		<Text
-			className={`text-xl font-semibold mb-2 ${
-				isDarkMode ? 'text-white' : 'text-night'
-			}`}>
-			Inventory Summary
-		</Text>
+	<SummaryContainer title='Inventory Summary' isDarkMode={isDarkMode}>
 		<MetricRow
 			label='Total Cars'
 			value={
@@ -690,20 +661,11 @@ const InventorySummary = ({ analytics, isDarkMode }: any) => (
 			}`}
 			isDarkMode={isDarkMode}
 		/>
-	</BlurView>
+	</SummaryContainer>
 )
 
 const PerformanceMetrics = ({ analytics, isDarkMode }: any) => (
-	<BlurView
-		intensity={100}
-		tint={isDarkMode ? 'dark' : 'light'}
-		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
-		<Text
-			className={`text-xl font-semibold mb-2 ${
-				isDarkMode ? 'text-white' : 'text-night'
-			}`}>
-			Performance Metrics
-		</Text>
+	<SummaryContainer title='Performance Metrics' isDarkMode={isDarkMode}>
 		<MetricRow
 			label='Avg. Time to Sell'
 			value={`${
@@ -740,20 +702,11 @@ const PerformanceMetrics = ({ analytics, isDarkMode }: any) => (
 			}`}
 			isDarkMode={isDarkMode}
 		/>
-	</BlurView>
+	</SummaryContainer>
 )
 
 const SalesSummary = ({ analytics, isDarkMode }: any) => (
-	<BlurView
-		intensity={100}
-		tint={isDarkMode ? 'dark' : 'light'}
-		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
-		<Text
-			className={`text-xl font-semibold mb-2 ${
-				isDarkMode ? 'text-white' : 'text-night'
-			}`}>
-			Sales Summary
-		</Text>
+	<SummaryContainer title='Sales Summary' isDarkMode={isDarkMode}>
 		<MetricRow
 			label='Total Sales'
 			value={analytics?.sales_summary?.total_sales || 0}
@@ -766,27 +719,18 @@ const SalesSummary = ({ analytics, isDarkMode }: any) => (
 			}`}
 			isDarkMode={isDarkMode}
 		/>
-	</BlurView>
+	</SummaryContainer>
 )
 
 const DealershipInfo = ({ dealership, isDarkMode }: any) => (
-	<BlurView
-		intensity={100}
-		tint={isDarkMode ? 'dark' : 'light'}
-		className='rounded-lg shadow-md mx-4 mb-4 p-4'>
-		<Text
-			className={`text-xl font-semibold mb-2 ${
-				isDarkMode ? 'text-white' : 'text-night'
-			}`}>
-			Dealership Information
-		</Text>
+	<SummaryContainer title='Dealership Information' isDarkMode={isDarkMode}>
 		<MetricRow
 			label='Name'
 			value={dealership?.name || 'N/A'}
 			isDarkMode={isDarkMode}
 		/>
 		<MetricRow
-			label='Location'
+			label='Location '
 			value={dealership?.location || 'N/A'}
 			isDarkMode={isDarkMode}
 		/>
@@ -795,39 +739,23 @@ const DealershipInfo = ({ dealership, isDarkMode }: any) => (
 			value={dealership?.phone || 'N/A'}
 			isDarkMode={isDarkMode}
 		/>
-	</BlurView>
+	</SummaryContainer>
 )
 
 const MetricRow = ({ label, value, isDarkMode }: any) => (
-	<View className='flex-row justify-between items-center mb-2'>
-		<Text className={isDarkMode ? 'text-red' : 'text-gray'}>{label}:</Text>
-		<Text className={`font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
+	<View className='flex-row justify-between items-center mb-4 pb-3 border-b border-gray-300'>
+		<View className='flex-row items-center'>
+			<View className='w-2 h-2 rounded-full bg-red mr-2' />
+			<Text
+				className={`${isDarkMode ? 'text-white' : 'text-gray'} font-medium`}>
+				{label}
+			</Text>
+		</View>
+		<Text
+			className={`font-bold text-base ${
+				isDarkMode ? 'text-white' : 'text-night'
+			}`}>
 			{value}
 		</Text>
 	</View>
 )
-
-const pickerSelectStyles = (isDarkMode: any) => ({
-	inputIOS: {
-		fontSize: 16,
-		paddingVertical: 12,
-		paddingHorizontal: 10,
-		borderWidth: 1,
-		borderColor: isDarkMode ? '#555' : 'gray',
-		borderRadius: 4,
-		color: isDarkMode ? 'white' : 'black',
-		paddingRight: 30,
-		backgroundColor: isDarkMode ? '#333' : 'white'
-	},
-	inputAndroid: {
-		fontSize: 16,
-		paddingHorizontal: 10,
-		paddingVertical: 8,
-		borderWidth: 1,
-		borderColor: isDarkMode ? '#555' : 'gray',
-		borderRadius: 8,
-		color: isDarkMode ? 'white' : 'black',
-		paddingRight: 30,
-		backgroundColor: isDarkMode ? '#333' : 'white'
-	}
-})
