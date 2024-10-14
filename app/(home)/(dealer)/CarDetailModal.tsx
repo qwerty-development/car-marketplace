@@ -9,7 +9,8 @@ import {
 	Alert,
 	Share,
 	StyleSheet,
-	Platform
+	Platform,
+	Animated
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
@@ -22,35 +23,8 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import Modal from 'react-native-modal'
-import Animated, {
-	useSharedValue,
-	useAnimatedStyle,
-	withSpring,
-	runOnJS,
-	interpolate,
-	Extrapolate,
-	useAnimatedScrollHandler,
-	useAnimatedGestureHandler,
-	useAnimatedRef,
-	withTiming
-} from 'react-native-reanimated'
-import {
-	PanGestureHandler,
-	ScrollView as GHScrollView
-} from 'react-native-gesture-handler'
 
 const { width, height } = Dimensions.get('window')
-
-const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView)
-
-const SPRING_CONFIG = {
-	damping: 80,
-	stiffness: 400,
-	mass: 1,
-	overshootClamping: false,
-	restDisplacementThreshold: 0.01,
-	restSpeedThreshold: 0.01
-}
 
 const OptimizedImage = memo(({ source, style, onLoad }: any) => {
 	const [loaded, setLoaded] = useState(false)
@@ -95,12 +69,6 @@ const CarDetailModal = memo(
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])
 		const [activeImageIndex, setActiveImageIndex] = useState<any>(0)
-		const [isMapInteracting, setIsMapInteracting] = useState(false)
-
-		const scrollRef = useAnimatedRef<Animated.ScrollView>()
-		const translateY = useSharedValue(0)
-		const scrollY = useSharedValue(0)
-		const isScrolling = useSharedValue(false)
 
 		const handleDealershipPress = useCallback(() => {
 			onClose()
@@ -115,18 +83,8 @@ const CarDetailModal = memo(
 				trackCarView(car.id, user.id)
 				fetchSimilarCars()
 				fetchDealerCars()
-
-				if (scrollRef.current) {
-					scrollRef.current.scrollTo({ y: 0, animated: false })
-				}
 			}
 		}, [isVisible, car, user])
-
-		const closeModal = useCallback(() => {
-			translateY.value = withTiming(height, {}, () => {
-				runOnJS(onClose)()
-			})
-		}, [onClose])
 
 		const fetchSimilarCars = useCallback(async () => {
 			const { data, error } = await supabase
@@ -176,6 +134,112 @@ const CarDetailModal = memo(
 			}
 			if (error) console.error('Error fetching dealer cars:', error)
 		}, [car.dealership_id, car.id])
+
+		const trackCarView = useCallback(
+			async (carId: any, userId: any) => {
+				try {
+					const { data, error } = await supabase.rpc('track_car_view', {
+						car_id: carId,
+						user_id: userId
+					})
+
+					if (error) throw error
+
+					if (data && onViewUpdate) {
+						onViewUpdate(carId, data)
+					}
+				} catch (error) {
+					console.error('Error tracking car view:', error)
+				}
+			},
+			[onViewUpdate]
+		)
+
+		const debouncedTrackCarView = useCallback(
+			debounce((carId: any, userId: any) => {
+				trackCarView(carId, userId)
+			}, 1000),
+			[trackCarView]
+		)
+
+		useEffect(() => {
+			if (isVisible && car && user) {
+				debouncedTrackCarView(car.id, user.id)
+			}
+		}, [isVisible, car, user, debouncedTrackCarView])
+
+		const handleCall = useCallback(() => {
+			if (car.dealership_phone) {
+				Linking.openURL(`tel:${car.dealership_phone}`)
+			} else {
+				Alert.alert('Phone number not available')
+			}
+		}, [car.dealership_phone])
+
+		const handleWhatsApp = useCallback(() => {
+			if (car.dealership_phone) {
+				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
+				const url = `https://wa.me/${
+					car.dealership_phone
+				}?text=${encodeURIComponent(message)}`
+				Linking.openURL(url)
+			} else {
+				Alert.alert('WhatsApp number not available')
+			}
+		}, [car.dealership_phone, car.make, car.model])
+
+		const handleChat = useCallback(() => {
+			Alert.alert('Chat feature coming soon!')
+		}, [])
+
+		const handleShare = useCallback(async () => {
+			try {
+				const result = await Share.share({
+					message: `Check out this ${car.year} ${car.make} ${
+						car.model
+					} for $${car.price.toLocaleString()}!`,
+					url: car.images[0]
+				})
+				if (result.action === Share.sharedAction) {
+					if (result.activityType) {
+						// shared with activity type of result.activityType
+					} else {
+						// shared
+					}
+				} else if (result.action === Share.dismissedAction) {
+					// dismissed
+				}
+			} catch (error: any) {
+				Alert.alert(error.message)
+			}
+		}, [car])
+
+		const renderCarItem = useCallback(
+			({ item }: any) => (
+				<TouchableOpacity
+					className={`${
+						isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+					} rounded-lg p-2 mr-4 w-48`}
+					onPress={() => {
+						onClose()
+						setSelectedCar(item)
+						setIsModalVisible(true)
+					}}>
+					<OptimizedImage
+						source={{ uri: item.images[0] }}
+						style={{ width: '100%', height: 128, borderRadius: 8 }}
+					/>
+					<Text
+						className={`${
+							isDarkMode ? 'text-white' : 'text-black'
+						} font-bold mt-2`}>
+						{item.year} {item.make} {item.model}
+					</Text>
+					<Text className='text-red mt-1'>${item.price.toLocaleString()}</Text>
+				</TouchableOpacity>
+			),
+			[isDarkMode, onClose, setSelectedCar, setIsModalVisible]
+		)
 
 		const DealershipMapView = ({ car, isDarkMode }: any) => {
 			const mapRef = useRef<MapView>(null)
@@ -273,475 +337,316 @@ const CarDetailModal = memo(
 			)
 		}
 
-		const trackCarView = useCallback(
-			async (carId: any, userId: any) => {
-				try {
-					const { data, error } = await supabase.rpc('track_car_view', {
-						car_id: carId,
-						user_id: userId
-					})
-
-					if (error) throw error
-
-					if (data && onViewUpdate) {
-						onViewUpdate(carId, data)
-					}
-				} catch (error) {
-					console.error('Error tracking car view:', error)
-				}
-			},
-			[onViewUpdate]
-		)
-
-		const debouncedTrackCarView = useCallback(
-			debounce((carId: any, userId: any) => {
-				trackCarView(carId, userId)
-			}, 1000),
-			[trackCarView]
-		)
-
-		useEffect(() => {
-			if (isVisible && car && user) {
-				debouncedTrackCarView(car.id, user.id)
-			}
-		}, [isVisible, car, user, debouncedTrackCarView])
-
-		const mapRegion = {
-			latitude: car.dealership_latitude || 37.7749,
-			longitude: car.dealership_longitude || -122.4194,
-			latitudeDelta: 0.01,
-			longitudeDelta: 0.01
-		}
-
-		const handleCall = useCallback(() => {
-			if (car.dealership_phone) {
-				Linking.openURL(`tel:${car.dealership_phone}`)
-			} else {
-				Alert.alert('Phone number not available')
-			}
-		}, [car.dealership_phone])
-
-		const handleWhatsApp = useCallback(() => {
-			if (car.dealership_phone) {
-				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/${
-					car.dealership_phone
-				}?text=${encodeURIComponent(message)}`
-				Linking.openURL(url)
-			} else {
-				Alert.alert('WhatsApp number not available')
-			}
-		}, [car.dealership_phone, car.make, car.model])
-
-		const handleChat = useCallback(() => {
-			Alert.alert('Chat feature coming soon!')
-		}, [])
-
-		const handleShare = useCallback(async () => {
-			try {
-				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${
-						car.model
-					} for $${car.price.toLocaleString()}!`,
-					url: car.images[0]
-				})
-				if (result.action === Share.sharedAction) {
-					if (result.activityType) {
-						// shared with activity type of result.activityType
-					} else {
-						// shared
-					}
-				} else if (result.action === Share.dismissedAction) {
-					// dismissed
-				}
-			} catch (error: any) {
-				Alert.alert(error.message)
-			}
-		}, [car])
-
-		const renderCarItem = useCallback(
-			({ item }: any) => (
-				<TouchableOpacity
-					className={`${
-						isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-					} rounded-lg p-2 mr-4 w-48`}
-					onPress={() => {
-						onClose()
-						setSelectedCar(item)
-						setIsModalVisible(true)
-					}}>
-					<OptimizedImage
-						source={{ uri: item.images[0] }}
-						style={{ width: '100%', height: 128, borderRadius: 8 }}
-					/>
-					<Text
-						className={`${
-							isDarkMode ? 'text-white' : 'text-black'
-						} font-bold mt-2`}>
-						{item.year} {item.make} {item.model}
-					</Text>
-					<Text className='text-red mt-1'>${item.price.toLocaleString()}</Text>
-				</TouchableOpacity>
-			),
-			[isDarkMode, onClose, setSelectedCar, setIsModalVisible]
-		)
-
-		const scrollHandler = useAnimatedScrollHandler({
-			onScroll: event => {
-				scrollY.value = event.contentOffset.y
-			},
-			onBeginDrag: () => {
-				isScrolling.value = true
-			},
-			onEndDrag: () => {
-				isScrolling.value = false
-			}
-		})
-
-		const gestureHandler = useAnimatedGestureHandler({
-			onStart: (_, context: any) => {
-				context.startY = translateY.value
-			},
-			onActive: (event, context: any) => {
-				if (scrollY.value > 0 || isScrolling.value || isMapInteracting) return
-				translateY.value = Math.max(0, context.startY + event.translationY)
-			},
-			onEnd: event => {
-				if (scrollY.value > 0 || isScrolling.value || isMapInteracting) return
-				if (event.velocityY > 500 || translateY.value > height * 0.2) {
-					translateY.value = withSpring(
-						height,
-						{ damping: 50, stiffness: 300 },
-						() => {
-							runOnJS(onClose)()
-						}
-					)
-				} else {
-					translateY.value = withSpring(0, { damping: 50, stiffness: 300 })
-				}
-			}
-		})
-
-		const animatedStyle = useAnimatedStyle(() => {
-			const interpolatedY = interpolate(
-				translateY.value,
-				[0, height],
-				[0, height],
-				Extrapolate.CLAMP
-			)
-			return {
-				transform: [{ translateY: interpolatedY }]
-			}
-		})
-
-
-
-
-
-		useEffect(() => {
-			if (isVisible) {
-				translateY.value = withTiming(0)
-			}
-		}, [isVisible])
-
 		return (
 			<Modal
 				isVisible={isVisible}
 				onBackdropPress={onClose}
 				onSwipeComplete={onClose}
 				swipeDirection={['down']}
-				propagateSwipe
 				style={{ margin: 0 }}
 				useNativeDriver
 				useNativeDriverForBackdrop>
-				<PanGestureHandler onGestureEvent={gestureHandler}>
-					<Animated.View style={[{ flex: 1 }, animatedStyle]}>
+				<View
+					style={{ flex: 1, backgroundColor: isDarkMode ? '#111' : '#F5F5F5' }}>
+					<ScrollView bounces={false} showsVerticalScrollIndicator={false}>
 						<LinearGradient
 							colors={
 								isDarkMode ? ['#333', '#222', '#111'] : ['#FFFFFF', '#F5F5F5']
 							}
 							style={{ flex: 1 }}>
-							<AnimatedScrollView
-								ref={scrollRef}
-								onScroll={scrollHandler}
-								scrollEventThrottle={16}
-								bounces={false}
-								showsVerticalScrollIndicator={false}>
-								<TouchableOpacity style={styles.closeButton} onPress={onClose}>
-									<Ionicons name='close' size={30} color='#D55004' />
-								</TouchableOpacity>
-								<View style={styles.imageContainer}>
-									<FlatList
-										data={car.images}
-										renderItem={({ item, index }) => (
-											<OptimizedImage
-												source={{ uri: item }}
-												style={styles.image}
-												onLoad={() => {
-													if (index === 0) setActiveImageIndex(0)
-												}}
-											/>
-										)}
-										keyExtractor={(item, index) => `${car.id}-image-${index}`}
-										horizontal
-										pagingEnabled
-										showsHorizontalScrollIndicator={false}
-										onMomentumScrollEnd={event => {
-											const newIndex = Math.round(
-												event.nativeEvent.contentOffset.x / width
-											)
-											setActiveImageIndex(newIndex)
-										}}
-										initialNumToRender={1}
-										maxToRenderPerBatch={2}
-										windowSize={3}
-									/>
-									{/* Pagination dots */}
-									<View style={styles.paginationContainer}>
-										{car.images.map(
-											(_: any, index: React.Key | null | undefined) => (
-												<View
-													key={index}
-													style={[
-														styles.paginationDot,
-														index === activeImageIndex
-															? styles.activeDot
-															: styles.inactiveDot
-													]}
-												/>
-											)
-										)}
-									</View>
-								</View>
-								<View className='p-4 mb-24'>
-									<Text
-										className={`text-2xl ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										{car.year} {car.make} {car.model}
-									</Text>
-									<Text className='text-xl font-extrabold text-red mt-2'>
-										${car.price.toLocaleString()}
-									</Text>
-									<View className='flex-row justify-between mt-4 mb-4'>
-										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											}`}>
-											Views: {car.views || 0}
-										</Text>
-										<Text
-											className={`text-l ${
-												isDarkMode ? 'text-white' : 'text-black'
-											}`}>
-											Likes: {car.likes || 0}
-										</Text>
-									</View>
-
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<View
-											style={{
-												flex: 1,
-												height: 1,
-												backgroundColor: '#D55004'
+							<TouchableOpacity style={styles.closeButton} onPress={onClose}>
+								<Ionicons name='close' size={30} color='#D55004' />
+							</TouchableOpacity>
+							<View style={styles.imageContainer}>
+								<FlatList
+									data={car.images}
+									renderItem={({ item, index }) => (
+										<OptimizedImage
+											source={{ uri: item }}
+											style={styles.image}
+											onLoad={() => {
+												if (index === 0) setActiveImageIndex(0)
 											}}
 										/>
-										<View
-											style={{
-												flex: 1,
-												height: 1,
-												backgroundColor: '#D55004'
-											}}
-										/>
-									</View>
-
-									<Text
-										className={`text-s mt-4 ${
-											isDarkMode ? 'text-white' : 'text-black'
-										} font-bold text-l mb-3`}>
-										Description
-									</Text>
-									<Text
-										className={`text-s mb-4 font-light ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										{car.description}
-									</Text>
-
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<View
-											style={{
-												flex: 1,
-												height: 1,
-												backgroundColor: '#D55004'
-											}}
-										/>
-										<View
-											style={{
-												flex: 1,
-												height: 1,
-												backgroundColor: '#D55004'
-											}}
-										/>
-									</View>
-
-									<Text
-										className={`text-l mt-4 ${
-											isDarkMode ? 'text-white' : 'text-black'
-										} mb-3 font-bold`}>
-										Technical Data
-									</Text>
-									<View
-										className={`mb-6 mt-3 border ${
-											isDarkMode ? 'border-white' : 'border-black'
-										} rounded-lg`}>
-										{[
-											{
-												label: 'Mileage',
-												value: `${car.mileage.toLocaleString()} km`
-											},
-											{ label: 'Transmission', value: car.transmission },
-											{ label: 'Condition', value: car.condition },
-											{ label: 'Color', value: car.color },
-											{ label: 'Drive Train', value: car.drivetrain }
-										].map((item, index) => (
+									)}
+									keyExtractor={(item, index) => `${car.id}-image-${index}`}
+									horizontal
+									pagingEnabled
+									showsHorizontalScrollIndicator={false}
+									onMomentumScrollEnd={event => {
+										const newIndex = Math.round(
+											event.nativeEvent.contentOffset.x / width
+										)
+										setActiveImageIndex(newIndex)
+									}}
+									initialNumToRender={1}
+									maxToRenderPerBatch={2}
+									windowSize={3}
+								/>
+								<View style={styles.paginationContainer}>
+									{car.images.map(
+										(_: any, index: React.Key | null | undefined) => (
 											<View
 												key={index}
-												className={`flex-row p-2 ${
-													index !== 4
-														? `border-b ${
-																isDarkMode ? 'border-white' : 'border-black'
-														  }`
-														: ''
-												} justify-between py-2`}>
-												<Text
-													className={`text-l ${
-														isDarkMode ? 'text-white' : 'text-black'
-													} font-bold`}>
-													{item.label}
-												</Text>
-												<Text className='text-l' style={{ color: '#D55004' }}>
-													{item.value}
-												</Text>
-											</View>
-										))}
-									</View>
+												style={[
+													styles.paginationDot,
+													index === activeImageIndex
+														? styles.activeDot
+														: styles.inactiveDot
+												]}
+											/>
+										)
+									)}
+								</View>
+							</View>
+							<View className='p-4 mb-24'>
+								<Text
+									className={`text-2xl ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									{car.year} {car.make} {car.model}
+								</Text>
+								<Text className='text-xl font-extrabold text-red mt-2'>
+									${car.price.toLocaleString()}
+								</Text>
+								<View className='flex-row justify-between mt-4 mb-4'>
+									<Text
+										className={`text-l ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										Views: {car.views || 0}
+									</Text>
+									<Text
+										className={`text-l ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										Likes: {car.likes || 0}
+									</Text>
+								</View>
 
-									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<View
-											style={{
-												flex: 1,
-												height: 1,
-												backgroundColor: '#D55004'
-											}}
-										/>
-										<View
-											style={{
-												flex: 1,
-												height: 1,
-												backgroundColor: '#D55004'
-											}}
-										/>
-									</View>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<View
+										style={{
+											flex: 1,
+											height: 1,
+											backgroundColor: '#D55004'
+										}}
+									/>
+									<View
+										style={{
+											flex: 1,
+											height: 1,
+											backgroundColor: '#D55004'
+										}}
+									/>
+								</View>
 
+								<Text
+									className={`text-s mt-4 ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} font-bold text-l mb-3`}>
+									Description
+								</Text>
+								<Text
+									className={`text-s mb-4 font-light ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									{car.description}
+								</Text>
+
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<View
+										style={{
+											flex: 1,
+											height: 1,
+											backgroundColor: '#D55004'
+										}}
+									/>
+									<View
+										style={{
+											flex: 1,
+											height: 1,
+											backgroundColor: '#D55004'
+										}}
+									/>
+								</View>
+
+								<Text
+									className={`text-l mt-4 ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mb-3 font-bold`}>
+									Technical Data
+								</Text>
+								<View
+									className={`mb-6 mt-3 border ${
+										isDarkMode ? 'border-white' : 'border-black'
+									} rounded-lg`}>
+									{[
+										{
+											label: 'Mileage',
+											value: `${car.mileage.toLocaleString()} km`
+										},
+										{ label: 'Transmission', value: car.transmission },
+										{ label: 'Condition', value: car.condition },
+										{ label: 'Color', value: car.color },
+										{ label: 'Drive Train', value: car.drivetrain }
+									].map((item, index) => (
+										<View
+											key={index}
+											className={`flex-row p-2 ${
+												index !== 4
+													? `border-b ${
+															isDarkMode ? 'border-white' : 'border-black'
+													  }`
+													: ''
+											} justify-between py-2`}>
+											<Text
+												className={`text-l ${
+													isDarkMode ? 'text-white' : 'text-black'
+												} font-bold`}>
+												{item.label}
+											</Text>
+											<Text className='text-l' style={{ color: '#D55004' }}>
+												{item.value}
+											</Text>
+										</View>
+									))}
+								</View>
+
+								<TouchableOpacity
+									className={`flex-row items-center justify-center ${
+										isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
+									} p-3 rounded-lg mb-6`}
+									onPress={() => onFavoritePress(car.id)}>
+									<Ionicons
+										name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
+										size={24}
+										color={
+											isFavorite(car.id)
+												? 'red'
+												: isDarkMode
+												? 'white'
+												: 'black'
+										}
+									/>
 									<Text
 										className={`text-lg font-bold ${
 											isDarkMode ? 'text-white' : 'text-black'
-										} mt-2 mb-2`}>
-										Dealer Information
+										} ml-3`}>
+										{isFavorite(car.id) ? 'Unlike' : 'Like'}
 									</Text>
-									<View className='border-t border-gray-600 pt-4'>
-										<View className='items-center'>
-											{car.dealership_logo && (
-												<TouchableOpacity>
-													<OptimizedImage
-														source={{ uri: car.dealership_logo }}
-														style={{
-															width: 128,
-															height: 128,
-															borderRadius: 64
-														}}
-													/>
-												</TouchableOpacity>
-											)}
-											<Text
-												className={`text-xl font-bold ${
-													isDarkMode ? 'text-white' : 'text-black'
-												} mb-2 mt-4`}
-												onPress={handleDealershipPress}>
-												{car.dealership_name}
-											</Text>
-										</View>
+								</TouchableOpacity>
 
-										<DealershipMapView car={car} isDarkMode={isDarkMode} />
-									</View>
-
-									<Text
-										className={`text-xl font-bold ${
-											isDarkMode ? 'text-white' : 'text-black'
-										} mt-8 mb-4`}>
-										Similarly Priced Cars
-									</Text>
-									<FlatList
-										data={similarCars}
-										renderItem={renderCarItem}
-										keyExtractor={item =>
-											`${item.id}-${item.make}-${item.model}-${Math.random()}`
-										}
-										horizontal
-										showsHorizontalScrollIndicator={false}
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<View
+										style={{
+											flex: 1,
+											height: 1,
+											backgroundColor: '#D55004'
+										}}
 									/>
-
-									<Text
-										className={`text-xl font-bold ${
-											isDarkMode ? 'text-white' : 'text-black'
-										} mt-8 mb-4`}>
-										More from {car.dealership_name}
-									</Text>
-									<FlatList
-										data={dealerCars}
-										renderItem={renderCarItem}
-										keyExtractor={item =>
-											`${item.id}-${item.make}-${item.model}-${Math.random()}`
-										}
-										horizontal
-										showsHorizontalScrollIndicator={false}
+									<View
+										style={{
+											flex: 1,
+											height: 1,
+											backgroundColor: '#D55004'
+										}}
 									/>
 								</View>
-							</AnimatedScrollView>
-							<View
-								style={styles.callToActionContainer}
-								className={isDarkMode ? 'bg-night' : 'bg-light-background'}>
-								{car.dealership_phone && (
-									<TouchableOpacity
-										style={styles.callToActionButton}
-										onPress={handleCall}>
-										<Ionicons name='call-outline' size={24} color='#D55004' />
-									</TouchableOpacity>
-								)}
-								<TouchableOpacity
-									style={styles.callToActionButton}
-									onPress={handleWhatsApp}>
-									<FontAwesome name='whatsapp' size={24} color='#D55004' />
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={styles.callToActionButton}
-									onPress={handleChat}>
-									<Ionicons
-										name='chatbubbles-outline'
-										size={24}
-										color='#D55004'
-									/>
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={styles.callToActionButton}
-									onPress={handleShare}>
-									<MaterialIcons name='share' size={24} color='#D55004' />
-								</TouchableOpacity>
+
+								<Text
+									className={`text-lg font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mt-2 mb-2`}>
+									Dealer Information
+								</Text>
+								<View className='border-t border-gray-600 pt-4'>
+									<View className='items-center'>
+										{car.dealership_logo && (
+											<TouchableOpacity onPress={handleDealershipPress}>
+												<OptimizedImage
+													source={{ uri: car.dealership_logo }}
+													style={{
+														width: 128,
+														height: 128,
+														borderRadius: 64
+													}}
+												/>
+											</TouchableOpacity>
+										)}
+										<Text
+											className={`text-xl font-bold ${
+												isDarkMode ? 'text-white' : 'text-black'
+											} mb-2 mt-4`}
+											onPress={handleDealershipPress}>
+											{car.dealership_name}
+										</Text>
+									</View>
+
+									<DealershipMapView car={car} isDarkMode={isDarkMode} />
+								</View>
+
+								<Text
+									className={`text-xl font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mt-8 mb-4`}>
+									Similarly Priced Cars
+								</Text>
+								<FlatList
+									data={similarCars}
+									renderItem={renderCarItem}
+									keyExtractor={item =>
+										`${item.id}-${item.make}-${item.model}-${Math.random()}`
+									}
+									horizontal
+									showsHorizontalScrollIndicator={false}
+								/>
+
+								<Text
+									className={`text-xl font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									} mt-8 mb-4`}>
+									More from {car.dealership_name}
+								</Text>
+								<FlatList
+									data={dealerCars}
+									renderItem={renderCarItem}
+									keyExtractor={item =>
+										`${item.id}-${item.make}-${item.model}-${Math.random()}`
+									}
+									horizontal
+									showsHorizontalScrollIndicator={false}
+								/>
 							</View>
 						</LinearGradient>
-					</Animated.View>
-				</PanGestureHandler>
+					</ScrollView>
+					<View
+						style={styles.callToActionContainer}
+						className={isDarkMode ? 'bg-night' : 'bg-light-background'}>
+						{car.dealership_phone && (
+							<TouchableOpacity
+								style={styles.callToActionButton}
+								onPress={handleCall}>
+								<Ionicons name='call-outline' size={24} color='#D55004' />
+							</TouchableOpacity>
+						)}
+						<TouchableOpacity
+							style={styles.callToActionButton}
+							onPress={handleWhatsApp}>
+							<FontAwesome name='whatsapp' size={24} color='#D55004' />
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={styles.callToActionButton}
+							onPress={handleChat}>
+							<Ionicons name='chatbubbles-outline' size={24} color='#D55004' />
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={styles.callToActionButton}
+							onPress={handleShare}>
+							<MaterialIcons name='share' size={24} color='#D55004' />
+						</TouchableOpacity>
+					</View>
+				</View>
 			</Modal>
 		)
 	}
