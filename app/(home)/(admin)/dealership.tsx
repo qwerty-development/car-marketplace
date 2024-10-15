@@ -228,11 +228,11 @@ export default function DealershipManagement() {
 
 	const renderDealershipItem = useCallback(
 		({ item }: any) => (
-			<Animated.View entering={FadeInDown} exiting={FadeOutUp}>
+			<Animated.View entering={FadeInDown} exiting={FadeOutUp} className='mb-2'>
 				<TouchableOpacity
 					className={`${
-						isDarkMode ? 'bg-night' : 'bg-white'
-					} rounded-lg shadow-md p-4 mb-4`}
+						isDarkMode ? 'bg-night border-white' : 'bg-white border-gray'
+					} rounded-lg p-4 mb-4 border shadow-2xl shadow-red`}
 					onPress={() => {
 						openModal(item)
 						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -258,7 +258,7 @@ export default function DealershipManagement() {
 							</TouchableOpacity>
 							<Text
 								className={`text-xl font-bold ${
-									isDarkMode ? 'text-white' : 'text-night'
+									isDarkMode ? 'text-red' : 'text-red'
 								} ml-2`}>
 								{item.name}
 							</Text>
@@ -290,7 +290,7 @@ export default function DealershipManagement() {
 				size={16}
 				color={isDarkMode ? '#D55004' : '#D55004'}
 			/>
-			<Text className={`ml-2 ${isDarkMode ? 'text-gray' : 'text-gray'}`}>
+			<Text className={`ml-2 ${isDarkMode ? 'text-white' : 'text-gray'}`}>
 				{text}
 			</Text>
 		</View>
@@ -494,8 +494,10 @@ export default function DealershipManagement() {
 
 	return (
 		<View
-			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-light-background'}`}>
-			<CustomHeader title='Dealership Page' showBackButton={false} />
+			className={`flex-1 ${
+				isDarkMode ? 'bg-night' : 'bg-light-background'
+			} mb-10`}>
+			<CustomHeader title='Dealership Page' />
 			<ScrollView>
 				<View className='px-4 mb-4'>
 					<View className='flex-row mb-4'>
