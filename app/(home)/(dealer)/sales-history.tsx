@@ -20,8 +20,11 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PieChart, LineChart } from 'react-native-chart-kit'
 import { BlurView } from 'expo-blur'
+import { Alert } from 'react-native'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
+
+const SUBSCRIPTION_WARNING_DAYS = 7
 
 interface SaleRecord {
 	id: number
@@ -205,11 +208,53 @@ export default function SalesHistoryPage() {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 
+	const [dealership, setDealership] = useState<any>(null)
+
+	const fetchDealershipDetails = useCallback(async () => {
+		if (!user) return
+		try {
+			const { data, error } = await supabase
+				.from('dealerships')
+				.select('*')
+				.eq('user_id', user.id)
+				.single()
+
+			if (error) throw error
+			setDealership(data)
+		} catch (error) {
+			console.error('Error fetching dealership details:', error)
+		}
+	}, [user])
+
+	useEffect(() => {
+		fetchDealershipDetails()
+	}, [fetchDealershipDetails])
+
+	const isSubscriptionValid = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return false
+		const endDate = new Date(dealership.subscription_end_date)
+		return endDate > new Date()
+	}, [dealership])
+
+	const getDaysUntilExpiration = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return 0
+		const endDate = new Date(dealership.subscription_end_date)
+		const today = new Date()
+		const diffTime = endDate.getTime() - today.getTime()
+		return Math.ceil(diffTime / (1000 * 3600 * 24))
+	}, [dealership])
 
 	const fetchSalesHistory = useCallback(async () => {
 		if (!user) return
 		setIsLoading(true)
 		try {
+			if (!isSubscriptionValid()) {
+				Alert.alert(
+					'Subscription Expired',
+					'Please renew your subscription to view sales history.'
+				)
+				return
+			}
 			const { data: dealershipData } = await supabase
 				.from('dealerships')
 				.select('id')
@@ -299,6 +344,13 @@ export default function SalesHistoryPage() {
 						isDarkMode ? 'bg-gray' : 'bg-white'
 					} p-4 rounded-lg mb-5 shadow-lg`}
 					onPress={() => {
+						if (!isSubscriptionValid()) {
+							Alert.alert(
+								'Subscription Expired',
+								'Please renew your subscription to view sale details.'
+							)
+							return
+						}
 						setSelectedSale(item)
 						setIsModalVisible(true)
 					}}>
@@ -348,6 +400,22 @@ export default function SalesHistoryPage() {
 			colors={isDarkMode ? ['#1E1E1E', '#2D2D2D'] : ['#F5F5F5', '#E0E0E0']}
 			className='flex-1'>
 			<CustomHeader title='Sales History' />
+			{!isSubscriptionValid() && (
+				<View className='bg-rose-700 p-4'>
+					<Text className='text-white text-center font-bold'>
+						Your subscription has expired. Some features may be limited.
+					</Text>
+				</View>
+			)}
+			{isSubscriptionValid() &&
+				getDaysUntilExpiration() <= SUBSCRIPTION_WARNING_DAYS && (
+					<View className='bg-yellow-500 p-4'>
+						<Text className='text-white text-center font-bold'>
+							Your subscription will expire in {getDaysUntilExpiration()}{' '}
+							day(s). Please renew soon.
+						</Text>
+					</View>
+				)}
 			<ScrollView className='flex-1'>
 				<View className='px-4 py-2 mb-5'>
 					<View className='flex-row justify-between items-center mb-4'>

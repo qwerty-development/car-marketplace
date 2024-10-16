@@ -8,7 +8,8 @@ import {
 	StyleSheet,
 	Text,
 	Keyboard,
-	Platform
+	Platform,
+  Alert
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
@@ -25,6 +26,7 @@ import CategorySelector from '@/components/Category'
 import { RefreshControl } from 'react-native'
 import { Animated } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useUser } from '@clerk/clerk-expo'
 
 const ITEMS_PER_PAGE = 7
 
@@ -74,6 +76,42 @@ export default function BrowseCarsPage() {
 	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 	const scrollY = useRef<any>(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
+	const { user } = useUser()
+	const [dealership, setDealership] = useState<any>(null)
+
+	const fetchDealershipDetails = useCallback(async () => {
+		if (!user) return
+		try {
+			const { data, error } = await supabase
+				.from('dealerships')
+				.select('*')
+				.eq('user_id', user.id)
+				.single()
+
+			if (error) throw error
+			setDealership(data)
+		} catch (error) {
+			console.error('Error fetching dealership details:', error)
+		}
+	}, [user])
+
+	useEffect(() => {
+		fetchDealershipDetails()
+	}, [fetchDealershipDetails])
+
+	const isSubscriptionValid = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return false
+		const endDate = new Date(dealership.subscription_end_date)
+		return endDate > new Date()
+	}, [dealership])
+
+	const getDaysUntilExpiration = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return 0
+		const endDate = new Date(dealership.subscription_end_date)
+		const today = new Date()
+		const diffTime = endDate.getTime() - today.getTime()
+		return Math.ceil(diffTime / (1000 * 3600 * 24))
+	}, [dealership])
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
@@ -264,10 +302,23 @@ export default function BrowseCarsPage() {
 		[filters, searchQuery, fetchCars]
 	)
 
-	const handleCarPress = useCallback((car: Car) => {
+const handleCarPress = useCallback(
+	(car: Car) => {
+		if (!isSubscriptionValid()) {
+			Alert.alert(
+				'Subscription Expired',
+				'Please renew your subscription to view car details.'
+			)
+			return
+		}
 		setSelectedCar(car)
 		setIsModalVisible(true)
-	}, [])
+	},
+	[isSubscriptionValid]
+)
+
+
+	const SUBSCRIPTION_WARNING_DAYS = 7
 
 	const renderCarItem = useCallback(
 		({ item }: { item: Car }) => (
@@ -412,6 +463,22 @@ export default function BrowseCarsPage() {
 					isDarkMode && styles.darkContainer,
 					{ backgroundColor: 'transparent' }
 				]}>
+				{!isSubscriptionValid() && (
+					<View className='bg-rose-700 p-4'>
+						<Text className='text-white text-center font-bold'>
+							Your subscription has expired. Some features may be limited.
+						</Text>
+					</View>
+				)}
+				{isSubscriptionValid() &&
+					getDaysUntilExpiration() <= SUBSCRIPTION_WARNING_DAYS && (
+						<View className='bg-yellow-500 p-4'>
+							<Text className='text-white text-center font-bold'>
+								Your subscription will expire in {getDaysUntilExpiration()}{' '}
+								day(s). Please renew soon.
+							</Text>
+						</View>
+					)}
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
 						<TouchableOpacity
