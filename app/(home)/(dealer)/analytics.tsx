@@ -18,13 +18,7 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import {
-	format,
-	subDays,
-	startOfWeek,
-	startOfMonth,
-	startOfYear
-} from 'date-fns'
+import { format } from 'date-fns'
 import { BlurView } from 'expo-blur'
 
 LogBox.ignoreLogs(['VirtualizedLists should never be nested'])
@@ -201,16 +195,18 @@ const CarListing = React.memo(({ dealershipId, isDarkMode }) => {
 	)
 })
 
+const SUBSCRIPTION_WARNING_DAYS = 7
+
 export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
+	const router = useRouter()
 	const [dealership, setDealership] = useState(null)
 	const [analytics, setAnalytics] = useState(null)
 	const [timeRange, setTimeRange] = useState('year')
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState(null)
 	const [refreshing, setRefreshing] = useState(false)
-
 	const fetchData = useCallback(async () => {
 		if (!user) return
 		setIsLoading(true)
@@ -224,6 +220,11 @@ export default function DealerAnalyticsPage() {
 
 			if (dealershipError) throw dealershipError
 			setDealership(dealershipData)
+
+			if (!isSubscriptionValid(dealershipData)) {
+				setError('Subscription expired')
+				return
+			}
 
 			const { data: analyticsData, error: analyticsError } = await supabase.rpc(
 				'get_dealer_analytics',
@@ -250,6 +251,20 @@ export default function DealerAnalyticsPage() {
 		setRefreshing(true)
 		fetchData().then(() => setRefreshing(false))
 	}, [fetchData])
+
+	const isSubscriptionValid = useCallback(dealershipData => {
+		if (!dealershipData || !dealershipData.subscription_end_date) return false
+		const endDate = new Date(dealershipData.subscription_end_date)
+		return endDate > new Date()
+	}, [])
+
+	const getDaysUntilExpiration = useCallback(dealershipData => {
+		if (!dealershipData || !dealershipData.subscription_end_date) return 0
+		const endDate = new Date(dealershipData.subscription_end_date)
+		const today = new Date()
+		const diffTime = endDate.getTime() - today.getTime()
+		return Math.ceil(diffTime / (1000 * 3600 * 24))
+	}, [])
 
 	const formatChartData = useMemo(() => {
 		if (!analytics?.time_series_data) return null
@@ -339,6 +354,27 @@ export default function DealerAnalyticsPage() {
 		)
 	}
 
+	if (error === 'Subscription expired') {
+		return (
+			<SafeAreaView
+				className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
+				<View className='flex-1 justify-center items-center p-4'>
+					<Text
+						className={`text-xl ${
+							isDarkMode ? 'text-white' : 'text-night'
+						} text-center mb-4`}>
+						Your subscription has expired. Please renew to access analytics.
+					</Text>
+					<TouchableOpacity
+						className='bg-rose-700 p-3 rounded-lg'
+						onPress={() => router.push('/(home)/(dealer)/profile')}>
+						<Text className='text-white font-semibold'>Go to Profile</Text>
+					</TouchableOpacity>
+				</View>
+			</SafeAreaView>
+		)
+	}
+
 	if (error) {
 		return (
 			<View
@@ -357,6 +393,10 @@ export default function DealerAnalyticsPage() {
 		)
 	}
 
+	const daysUntilExpiration = getDaysUntilExpiration(dealership)
+	const showWarning =
+		daysUntilExpiration <= SUBSCRIPTION_WARNING_DAYS && daysUntilExpiration > 0
+
 	return (
 		<ScrollView
 			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}
@@ -364,6 +404,15 @@ export default function DealerAnalyticsPage() {
 				<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
 			}>
 			<CustomHeader title='Analytics' />
+
+			{showWarning && (
+				<View className='bg-yellow-500 p-4'>
+					<Text className='text-white text-center font-bold'>
+						Your subscription will expire in {daysUntilExpiration} day(s).
+						Please renew soon.
+					</Text>
+				</View>
+			)}
 
 			<BlurView
 				intensity={100}

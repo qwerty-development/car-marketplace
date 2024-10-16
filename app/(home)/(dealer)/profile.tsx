@@ -538,7 +538,7 @@ export default function DealershipProfilePage() {
 			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader title='Dealership Profile' />
 			{subscriptionExpired && (
-				<View className='bg-red p-4'>
+				<View className='bg-rose-700 p-4'>
 					<Text className='text-white text-center font-bold'>
 						Your subscription has expired. Please renew to manage your listings.
 					</Text>

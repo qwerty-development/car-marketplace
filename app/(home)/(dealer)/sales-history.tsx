@@ -248,13 +248,6 @@ export default function SalesHistoryPage() {
 		if (!user) return
 		setIsLoading(true)
 		try {
-			if (!isSubscriptionValid()) {
-				Alert.alert(
-					'Subscription Expired',
-					'Please renew your subscription to view sales history.'
-				)
-				return
-			}
 			const { data: dealershipData } = await supabase
 				.from('dealerships')
 				.select('id')
