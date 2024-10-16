@@ -585,7 +585,9 @@ export default function DealershipManagement() {
 						<View className='flex-row mb-4'>
 							<TextInput
 								className={`flex-1 ${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-night'
+									isDarkMode
+										? 'bg-gray text-white'
+										: 'bg-light-secondary text-night'
 								} rounded-l-full p-3 mt-3`}
 								placeholder='Search dealerships...'
 								placeholderTextColor={isDarkMode ? '#FFF' : '#D55004'}
