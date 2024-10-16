@@ -1,0 +1,1 @@
+0 0 * * * /bin/bash -c 'curl -i -X POST https://momhdxlmwzdikxmwittx.functions.supabase.co/update-expired-dealerships'

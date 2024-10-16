@@ -43,6 +43,8 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 	)
 })
 
+const SUBSCRIPTION_WARNING_DAYS = 7
+
 export default function DealershipProfilePage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
@@ -79,6 +81,25 @@ export default function DealershipProfilePage() {
 		longitudeDelta: 2
 	})
 	const mapRef = useRef<MapView | null>(null)
+
+	const isSubscriptionValid = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return false
+		const endDate = new Date(dealership.subscription_end_date)
+		return endDate > new Date()
+	}, [dealership])
+
+	const getDaysUntilExpiration = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return 0
+		const endDate = new Date(dealership.subscription_end_date)
+		const today = new Date()
+		const diffTime = endDate.getTime() - today.getTime()
+		return Math.ceil(diffTime / (1000 * 3600 * 24))
+	}, [dealership])
+
+	const daysUntilExpiration = getDaysUntilExpiration()
+	const showWarning =
+		daysUntilExpiration <= SUBSCRIPTION_WARNING_DAYS && daysUntilExpiration > 0
+	const subscriptionExpired = !isSubscriptionValid()
 
 	useEffect(() => {
 		;(async () => {
@@ -516,6 +537,21 @@ export default function DealershipProfilePage() {
 			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader title='Dealership Profile' />
+			{subscriptionExpired && (
+				<View className='bg-red p-4'>
+					<Text className='text-white text-center font-bold'>
+						Your subscription has expired. Please renew to manage your listings.
+					</Text>
+				</View>
+			)}
+			{showWarning && (
+				<View className='bg-yellow-500 p-4'>
+					<Text className='text-white text-center font-bold'>
+						Your subscription will expire in {daysUntilExpiration} day
+						{daysUntilExpiration !== 1 ? 's' : ''}. Please renew soon.
+					</Text>
+				</View>
+			)}
 			<ScrollView
 				refreshControl={
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

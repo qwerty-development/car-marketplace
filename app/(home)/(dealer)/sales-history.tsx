@@ -205,6 +205,7 @@ export default function SalesHistoryPage() {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 
+
 	const fetchSalesHistory = useCallback(async () => {
 		if (!user) return
 		setIsLoading(true)

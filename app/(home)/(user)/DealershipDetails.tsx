@@ -245,6 +245,7 @@ export default function DealershipDetails() {
 				let query = supabase
 					.from('cars')
 					.select('*', { count: 'exact' })
+					.eq('status', 'available')
 					.eq('dealership_id', dealershipId)
 
 				if (searchQuery) {

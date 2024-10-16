@@ -25,6 +25,7 @@ import RNPickerSelect from 'react-native-picker-select'
 import { debounce } from 'lodash'
 
 const ITEMS_PER_PAGE = 10
+const SUBSCRIPTION_WARNING_DAYS = 7
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
@@ -59,6 +60,7 @@ interface Dealership {
 	id: number
 	name: string
 	user_id: string
+	subscription_end_date: string
 }
 
 export default function DealerListings() {
@@ -81,6 +83,20 @@ export default function DealerListings() {
 	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
 	const [filters, setFilters] = useState<any>({})
+
+	const isSubscriptionValid = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return false
+		const endDate = new Date(dealership.subscription_end_date)
+		return endDate > new Date()
+	}, [dealership])
+
+	const getDaysUntilExpiration = useCallback(() => {
+		if (!dealership || !dealership.subscription_end_date) return 0
+		const endDate = new Date(dealership.subscription_end_date)
+		const today = new Date()
+		const diffTime = endDate.getTime() - today.getTime()
+		return Math.ceil(diffTime / (1000 * 3600 * 24))
+	}, [dealership])
 
 	const fetchDealership = useCallback(async () => {
 		if (!user) return
@@ -177,7 +193,7 @@ export default function DealerListings() {
 
 	const handleDeleteListing = useCallback(
 		async (id: number) => {
-			if (!dealership) return
+			if (!dealership || !isSubscriptionValid()) return
 			Alert.alert(
 				'Delete Listing',
 				'Are you sure you want to delete this listing?',
@@ -206,12 +222,12 @@ export default function DealerListings() {
 				]
 			)
 		},
-		[dealership]
+		[dealership, isSubscriptionValid]
 	)
 
 	const handleSubmitListing = useCallback(
 		async (formData: Partial<CarListing>) => {
-			if (!dealership) return
+			if (!dealership || !isSubscriptionValid()) return
 			try {
 				if (selectedListing) {
 					await supabase
@@ -246,7 +262,7 @@ export default function DealerListings() {
 				Alert.alert('Error', 'Failed to submit listing. Please try again.')
 			}
 		},
-		[dealership, selectedListing]
+		[dealership, selectedListing, isSubscriptionValid]
 	)
 
 	const handleSortChange = useCallback(
@@ -271,7 +287,7 @@ export default function DealerListings() {
 
 	const handleMarkAsSold = useCallback(
 		async (soldInfo: { price: string; date: string }) => {
-			if (!selectedListing || !dealership) return
+			if (!selectedListing || !dealership || !isSubscriptionValid()) return
 			try {
 				const { error } = await supabase
 					.from('cars')
@@ -300,126 +316,166 @@ export default function DealerListings() {
 				Alert.alert('Error', 'Failed to mark listing as sold')
 			}
 		},
-		[selectedListing, dealership]
+		[selectedListing, dealership, isSubscriptionValid]
 	)
 
 	const ListingCard = useMemo(
 		() =>
-			React.memo(({ item }: { item: CarListing }) => (
-				<Animated.View
-					entering={FadeInDown}
-					exiting={FadeOutUp}
-					className={`border border-red rounded-lg overflow-hidden mb-4 ${
-						isDarkMode ? '' : 'bg-white'
-					}`}>
-					<Image source={{ uri: item.images[0] }} className='w-full h-48' />
-					<LinearGradient
-						colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.6)']}
-						className='absolute inset-0'
-					/>
-					<View className='absolute top-2 right-2 bg-red/60 rounded-full px-2 py-1'>
-						<Text className='text-white text-xs font-bold uppercase'>
-							{item.status}
-						</Text>
-					</View>
-					<View className='absolute top-2 left-2 flex-row'>
-						<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1 mr-2'>
-							<FontAwesome name='eye' size={12} color='#FFFFFF' />
-							<Text className='text-white text-xs ml-1'>{item.views || 0}</Text>
+			React.memo(({ item }: { item: CarListing }) => {
+				const subscriptionValid = isSubscriptionValid()
+
+				return (
+					<Animated.View
+						entering={FadeInDown}
+						exiting={FadeOutUp}
+						className={`border border-red rounded-lg overflow-hidden mb-4 ${
+							isDarkMode ? '' : 'bg-white'
+						}`}>
+						<Image source={{ uri: item.images[0] }} className='w-full h-48' />
+						<LinearGradient
+							colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.6)']}
+							className='absolute inset-0'
+						/>
+						<View className='absolute top-2 right-2 bg-red/60 rounded-full px-2 py-1'>
+							<Text className='text-white text-xs font-bold uppercase'>
+								{item.status}
+							</Text>
 						</View>
-						<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1'>
-							<FontAwesome name='heart' size={12} color='#FFFFFF' />
-							<Text className='text-white text-xs ml-1'>{item.likes || 0}</Text>
-						</View>
-					</View>
-					<View className='p-4'>
-						<Text
-							className={`text-lg font-bold ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}>
-							{item.year} {item.make} {item.model}
-						</Text>
-						<Text className='text-red text-xl font-semibold mt-1'>
-							${item.price.toLocaleString()}
-						</Text>
-						<View className='flex-row justify-between mt-2'>
-							<View className='flex-row items-center'>
-								<FontAwesome
-									name='car'
-									size={14}
-									color={isDarkMode ? '#FFFFFF' : '#000000'}
-								/>
-								<Text
-									className={`ml-1 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									{item.condition}
+						<View className='absolute top-2 left-2 flex-row'>
+							<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1 mr-2'>
+								<FontAwesome name='eye' size={12} color='#FFFFFF' />
+								<Text className='text-white text-xs ml-1'>
+									{item.views || 0}
 								</Text>
 							</View>
-							<View className='flex-row items-center'>
-								<FontAwesome
-									name='tachometer'
-									size={14}
-									color={isDarkMode ? '#FFFFFF' : '#000000'}
-								/>
-								<Text
-									className={`ml-1 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									{item.mileage.toLocaleString()} mi
-								</Text>
-							</View>
-							<View className='flex-row items-center'>
-								<FontAwesome
-									name='gears'
-									size={14}
-									color={isDarkMode ? '#FFFFFF' : '#000000'}
-								/>
-								<Text
-									className={`ml-1 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									{item.transmission}
+							<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1'>
+								<FontAwesome name='heart' size={12} color='#FFFFFF' />
+								<Text className='text-white text-xs ml-1'>
+									{item.likes || 0}
 								</Text>
 							</View>
 						</View>
-					</View>
-					<View className='flex-row justify-between p-4 border-t border-red'>
-						<TouchableOpacity
-							className='flex-row items-center justify-center bg-red py-2 px-4 rounded-full'
-							onPress={() => {
-								setSelectedListing(item)
-								setIsListingModalVisible(true)
-							}}>
-							<FontAwesome name='edit' size={14} color='#FFFFFF' />
-							<Text className='text-white font-bold ml-2'>Edit</Text>
-						</TouchableOpacity>
-						{item.status !== 'sold' && (
+						<View className='p-4'>
+							<Text
+								className={`text-lg font-bold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								{item.year} {item.make} {item.model}
+							</Text>
+							<Text className='text-red text-xl font-semibold mt-1'>
+								${item.price.toLocaleString()}
+							</Text>
+							<View className='flex-row justify-between mt-2'>
+								<View className='flex-row items-center'>
+									<FontAwesome
+										name='car'
+										size={14}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										{item.condition}
+									</Text>
+								</View>
+								<View className='flex-row items-center'>
+									<FontAwesome
+										name='tachometer'
+										size={14}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										{item.mileage.toLocaleString()} mi
+									</Text>
+								</View>
+								<View className='flex-row items-center'>
+									<FontAwesome
+										name='gears'
+										size={14}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										{item.transmission}
+									</Text>
+								</View>
+							</View>
+						</View>
+						<View className='flex-row justify-between p-4 border-t border-red'>
 							<TouchableOpacity
-								className='flex-row items-center justify-center bg-green-500 py-2 px-4 rounded-full'
+								className={`flex-row items-center justify-center ${
+									subscriptionValid ? 'bg-red' : 'bg-light-text'
+								} py-2 px-4 rounded-full`}
 								onPress={() => {
-									setSelectedListing(item)
-									setIsSoldModalVisible(true)
+									if (subscriptionValid) {
+										setSelectedListing(item)
+										setIsListingModalVisible(true)
+									} else {
+										Alert.alert(
+											'Subscription Expired',
+											'Please renew your subscription to edit listings.'
+										)
+									}
 								}}>
-								<FontAwesome name='check' size={14} color='#FFFFFF' />
-								<Text className='text-white font-bold ml-2'>Mark as Sold</Text>
+								<FontAwesome name='edit' size={14} color='#FFFFFF' />
+								<Text className='text-white font-bold ml-2'>Edit</Text>
 							</TouchableOpacity>
-						)}
-						<TouchableOpacity
-							className='flex-row items-center justify-center bg-red py-2 px-4 rounded-full'
-							onPress={() => handleDeleteListing(item.id)}>
-							<FontAwesome name='trash' size={14} color='#FFFFFF' />
-							<Text className='text-white font-bold ml-2'>Delete</Text>
-						</TouchableOpacity>
-					</View>
-				</Animated.View>
-			)),
+							{item.status !== 'sold' && (
+								<TouchableOpacity
+									className={`flex-row items-center justify-center ${
+										subscriptionValid ? 'bg-green-500' : 'bg-light-text'
+									} py-2 px-4 rounded-full`}
+									onPress={() => {
+										if (subscriptionValid) {
+											setSelectedListing(item)
+											setIsSoldModalVisible(true)
+										} else {
+											Alert.alert(
+												'Subscription Expired',
+												'Please renew your subscription to mark listings as sold.'
+											)
+										}
+									}}>
+									<FontAwesome name='check' size={14} color='#FFFFFF' />
+									<Text className='text-white font-bold ml-2'>
+										Mark as Sold
+									</Text>
+								</TouchableOpacity>
+							)}
+							<TouchableOpacity
+								className={`flex-row items-center justify-center ${
+									subscriptionValid ? 'bg-red' : 'bg-light-text'
+								} py-2 px-4 rounded-full`}
+								onPress={() => {
+									if (subscriptionValid) {
+										handleDeleteListing(item.id)
+									} else {
+										Alert.alert(
+											'Subscription Expired',
+											'Please renew your subscription to delete listings.'
+										)
+									}
+								}}>
+								<FontAwesome name='trash' size={14} color='#FFFFFF' />
+								<Text className='text-white font-bold ml-2'>Delete</Text>
+							</TouchableOpacity>
+						</View>
+					</Animated.View>
+				)
+			}),
 		[
 			isDarkMode,
 			handleDeleteListing,
 			setSelectedListing,
 			setIsListingModalVisible,
-			setIsSoldModalVisible
+			setIsSoldModalVisible,
+			isSubscriptionValid
 		]
 	)
 
@@ -595,14 +651,7 @@ export default function DealerListings() {
 					</Modal>
 				)
 			}),
-		[
-			isFilterModalVisible,
-			isDarkMode,
-			filters,
-			setFilters,
-			setIsFilterModalVisible,
-			fetchListings
-		]
+		[isDarkMode, filters, setFilters, setIsFilterModalVisible, fetchListings]
 	)
 
 	const SoldModal = useMemo(
@@ -687,12 +736,32 @@ export default function DealerListings() {
 		)
 	}
 
+	const daysUntilExpiration = getDaysUntilExpiration()
+	const showWarning =
+		daysUntilExpiration <= SUBSCRIPTION_WARNING_DAYS && daysUntilExpiration > 0
+	const subscriptionExpired = !isSubscriptionValid()
+
 	return (
 		<LinearGradient
 			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
-			className='flex-1'>
+			className='flex-1 mb-10'>
 			<CustomHeader title='My Cars' />
 			{error && <Text className='text-red text-center py-2'>{error}</Text>}
+			{subscriptionExpired && (
+				<View className='bg-rose-600 p-4'>
+					<Text className='text-white text-center font-bold'>
+						Your subscription has expired. Please renew to manage your listings.
+					</Text>
+				</View>
+			)}
+			{showWarning && (
+				<View className='bg-yellow-500 p-4 '>
+					<Text className='text-white text-center font-bold'>
+						Your subscription will expire in {daysUntilExpiration} day
+						{daysUntilExpiration !== 1 ? 's' : ''}. Please renew soon.
+					</Text>
+				</View>
+			)}
 			<View className='px-4 py-2'>
 				<View className='flex-row items-center justify-between mb-2'>
 					<View className='flex-1 flex-row items-center bg-white dark:bg-gray rounded-full mr-2'>
@@ -713,13 +782,23 @@ export default function DealerListings() {
 						</TouchableOpacity>
 					</View>
 					<TouchableOpacity
-						className='bg-red w-12 h-12 rounded-full items-center justify-center'
-						onPress={() => setIsFilterModalVisible(true)}>
+						className={`${
+							subscriptionExpired ? 'bg-light-text' : 'bg-red'
+						} w-12 h-12 rounded-full items-center justify-center`}
+						onPress={() => {
+							if (subscriptionExpired) {
+								Alert.alert(
+									'Subscription Expired',
+									'Please renew your subscription to use filters.'
+								)
+							} else {
+								setIsFilterModalVisible(true)
+							}
+						}}>
 						<FontAwesome name='filter' size={20} color='white' />
 					</TouchableOpacity>
 				</View>
 
-				{/* Second Row: Sort and Add */}
 				<View className='flex-row items-center justify-between'>
 					<View className='flex-1 mr-2'>
 						<SortPicker
@@ -728,10 +807,19 @@ export default function DealerListings() {
 						/>
 					</View>
 					<TouchableOpacity
-						className='bg-red w-12 h-12 rounded-full items-center justify-center'
+						className={`${
+							subscriptionExpired ? 'bg-light-text' : 'bg-red'
+						} w-12 h-12 rounded-full items-center justify-center`}
 						onPress={() => {
-							setSelectedListing(null)
-							setIsListingModalVisible(true)
+							if (subscriptionExpired) {
+								Alert.alert(
+									'Subscription Expired',
+									'Please renew your subscription to add new listings.'
+								)
+							} else {
+								setSelectedListing(null)
+								setIsListingModalVisible(true)
+							}
 						}}>
 						<Ionicons name='add' size={24} color='white' />
 					</TouchableOpacity>
@@ -751,7 +839,9 @@ export default function DealerListings() {
 					<View className='flex-1 justify-center items-center py-20'>
 						<Text
 							className={`text-lg ${isDarkMode ? 'text-white' : 'text-black'}`}>
-							No listings available.
+							{subscriptionExpired
+								? 'Your subscription has expired. Renew to view and manage listings.'
+								: 'No listings available.'}
 						</Text>
 					</View>
 				}
@@ -762,18 +852,22 @@ export default function DealerListings() {
 				}
 			/>
 
-			<ListingModal
-				isVisible={isListingModalVisible}
-				onClose={() => {
-					setIsListingModalVisible(false)
-					setSelectedListing(null)
-				}}
-				onSubmit={handleSubmitListing}
-				initialData={selectedListing}
-				dealership={dealership}
-			/>
-			<FilterModal />
-			<SoldModal />
+			{!subscriptionExpired && (
+				<>
+					<ListingModal
+						isVisible={isListingModalVisible}
+						onClose={() => {
+							setIsListingModalVisible(false)
+							setSelectedListing(null)
+						}}
+						onSubmit={handleSubmitListing}
+						initialData={selectedListing}
+						dealership={dealership}
+					/>
+					<FilterModal />
+					<SoldModal />
+				</>
+			)}
 		</LinearGradient>
 	)
 }

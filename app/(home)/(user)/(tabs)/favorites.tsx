@@ -72,6 +72,7 @@ export default function FavoritesPage() {
 				.select(
 					`*, dealerships (name, logo, phone, location, latitude, longitude)`
 				)
+        .eq('status','available')
 				.in('id', favorites)
 
 			if (error) throw error
