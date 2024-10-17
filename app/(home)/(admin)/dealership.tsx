@@ -25,6 +25,7 @@ import { Dropdown } from 'react-native-element-dropdown'
 import * as ImagePicker from 'expo-image-picker'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { PieChart } from 'react-native-chart-kit'
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
@@ -77,25 +78,36 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 	)
 })
 
-const InfoRow = React.memo(({ icon, text }: { icon: string; text: string }) => {
-	const { isDarkMode } = useTheme()
-	return (
-		<View className='flex-row items-center'>
-			<Ionicons
-				name={`${icon}-outline` as any}
-				size={16}
-				color={isDarkMode ? '#D55004' : '#D55004'}
-			/>
-			<Text className={`ml-2 ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-				{text}
-			</Text>
-		</View>
-	)
-})
+const InfoRow = React.memo(
+	({ icon, text, color }: { icon: string; text: string; color?: string }) => {
+		const { isDarkMode } = useTheme()
+		return (
+			<View className='flex-row items-center h-6'>
+				<Ionicons
+					name={`${icon}-outline` as any}
+					size={16}
+					color={color || (isDarkMode ? '#D55004' : '#D55004')}
+				/>
+				<Text
+					className={`ml-2 ${isDarkMode ? 'text-white' : 'text-gray'} flex-1`}
+					style={color ? { color } : {}}
+					numberOfLines={1}
+					ellipsizeMode='tail'>
+					{text}
+				</Text>
+			</View>
+		)
+	}
+)
 
 export default function DealershipManagement() {
 	const { isDarkMode } = useTheme()
 	const [dealerships, setDealerships] = useState<Dealership[]>([])
+	const [allDealerships, setAllDealerships] = useState<Dealership[]>([])
+	const [expiredDealerships, setExpiredDealerships] = useState<Dealership[]>([])
+	const [nearExpiringDealerships, setNearExpiringDealerships] = useState<
+		Dealership[]
+	>([])
 	const [searchQuery, setSearchQuery] = useState('')
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
@@ -107,9 +119,69 @@ export default function DealershipManagement() {
 	const [bulkAction, setBulkAction] = useState<string | null>(null)
 	const [extendMonths, setExtendMonths] = useState(1)
 	const [refreshing, setRefreshing] = useState(false)
+	const [subscriptionStats, setSubscriptionStats] = useState({
+		active: 0,
+		expiring: 0,
+		expired: 0
+	})
 
 	const { selectedDealership, isModalVisible, openModal, closeModal } =
 		useDealershipState()
+
+	const fetchAllDealerships = useCallback(async () => {
+		try {
+			const { data, error } = await supabase
+				.from('dealerships')
+				.select('*,cars(count)')
+
+			if (error) throw error
+
+			const dealershipsWithCarCount =
+				data?.map(d => ({
+					...d,
+					cars_listed: d.cars[0].count
+				})) || []
+
+			setAllDealerships(dealershipsWithCarCount)
+
+			// Calculate subscription stats
+			const now = new Date()
+			const thirtyDaysFromNow = new Date(
+				now.getTime() + 30 * 24 * 60 * 60 * 1000
+			)
+			const stats = dealershipsWithCarCount.reduce(
+				(acc, d) => {
+					const endDate = new Date(d.subscription_end_date)
+					if (endDate < now) acc.expired++
+					else if (endDate <= thirtyDaysFromNow) acc.expiring++
+					else acc.active++
+					return acc
+				},
+				{ active: 0, expiring: 0, expired: 0 }
+			)
+			setSubscriptionStats(stats)
+
+			// Set expired and near-expiring dealerships
+			setExpiredDealerships(
+				dealershipsWithCarCount.filter(
+					d => new Date(d.subscription_end_date) < now
+				)
+			)
+			setNearExpiringDealerships(
+				dealershipsWithCarCount.filter(d => {
+					const endDate = new Date(d.subscription_end_date)
+					return endDate >= now && endDate <= thirtyDaysFromNow
+				})
+			)
+		} catch (error) {
+			console.error('Error fetching all dealerships:', error)
+			Alert.alert('Error', 'Failed to fetch all dealerships data.')
+		}
+	}, [])
+
+	useEffect(() => {
+		fetchAllDealerships()
+	}, [fetchAllDealerships])
 
 	const fetchDealerships = useCallback(async () => {
 		setIsLoading(true)
@@ -138,6 +210,7 @@ export default function DealershipManagement() {
 					...d,
 					cars_listed: d.cars[0].count
 				})) || []
+
 			setDealerships(dealershipsWithCarCount)
 			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
 		} catch (error) {
@@ -189,6 +262,7 @@ export default function DealershipManagement() {
 				if (error) throw error
 
 				fetchDealerships()
+				fetchAllDealerships()
 				closeModal()
 				Alert.alert('Success', 'Dealership updated successfully!')
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -198,7 +272,7 @@ export default function DealershipManagement() {
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
 			}
 		},
-		[fetchDealerships, closeModal]
+		[fetchDealerships, fetchAllDealerships, closeModal]
 	)
 
 	const handleBulkAction = useCallback(async () => {
@@ -236,6 +310,7 @@ export default function DealershipManagement() {
 			await Promise.all(updatePromises)
 
 			fetchDealerships()
+			fetchAllDealerships()
 			setSelectedDealerships([])
 			setBulkAction(null)
 			Alert.alert(
@@ -257,67 +332,100 @@ export default function DealershipManagement() {
 		selectedDealerships,
 		dealerships,
 		extendMonths,
-		fetchDealerships
+		fetchDealerships,
+		fetchAllDealerships
 	])
 
+	const getSubscriptionStatus = useCallback((endDate: string) => {
+		const now = new Date()
+		const subscriptionEnd = new Date(endDate)
+		const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+		if (subscriptionEnd < now) {
+			return { status: 'Expired', color: '#FF0000' }
+		} else if (subscriptionEnd <= thirtyDaysFromNow) {
+			return { status: 'Expiring Soon', color: '#FFA500' }
+		} else {
+			return { status: 'Active', color: '#008000' }
+		}
+	}, [])
 	const renderDealershipItem = useCallback(
-		({ item }: { item: any }) => (
-			<Animated.View entering={FadeInDown} exiting={FadeOutUp} className='mb-2'>
-				<TouchableOpacity
-					className={`${
-						isDarkMode ? 'bg-night border-white' : 'bg-white border-gray'
-					} rounded-lg p-4 mb-4 border shadow-2xl shadow-red`}
-					onPress={() => openModal(item)}>
-					<View className='flex-row justify-between items-center mb-2'>
-						<View className='flex-row items-center'>
-							<TouchableOpacity
-								onPress={() => {
-									const newSelected = selectedDealerships.includes(item.id)
-										? selectedDealerships.filter(id => id !== item.id)
-										: [...selectedDealerships, item.id]
-									setSelectedDealerships(newSelected)
-									Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-								}}>
-								<Ionicons
-									name={
-										selectedDealerships.includes(item.id)
-											? 'checkbox'
-											: 'square-outline'
-									}
-									size={24}
-									color={isDarkMode ? '#D55004' : '#D55004'}
-								/>
-							</TouchableOpacity>
-							<Text
-								className={`text-xl font-bold ${
-									isDarkMode ? 'text-red' : 'text-red'
-								} ml-2`}>
-								{item.name}
-							</Text>
+		({ item }: { item: any }) => {
+			const { status, color } = getSubscriptionStatus(
+				item.subscription_end_date
+			)
+
+			return (
+				<Animated.View
+					entering={FadeInDown}
+					exiting={FadeOutUp}
+					className='mb-2'>
+					<TouchableOpacity
+						className={`${
+							isDarkMode ? 'bg-night border-white' : 'bg-white border-gray'
+						} rounded-lg p-4 mb-4 border shadow-2xl shadow-red`}
+						onPress={() => openModal(item)}>
+						<View className='flex-row justify-between items-center mb-2'>
+							<View className='flex-row items-center'>
+								<TouchableOpacity
+									onPress={() => {
+										const newSelected = selectedDealerships.includes(item.id)
+											? selectedDealerships.filter(id => id !== item.id)
+											: [...selectedDealerships, item.id]
+										setSelectedDealerships(newSelected)
+										Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+									}}>
+									<Ionicons
+										name={
+											selectedDealerships.includes(item.id)
+												? 'checkbox'
+												: 'square-outline'
+										}
+										size={24}
+										color={isDarkMode ? '#D55004' : '#D55004'}
+									/>
+								</TouchableOpacity>
+								<Text
+									className={`text-xl font-bold ${
+										isDarkMode ? 'text-red' : 'text-red'
+									} ml-2`}>
+									{item.name}
+								</Text>
+							</View>
+							<View className='bg-red rounded-full px-2 py-1'>
+								<Text className='text-white font-semibold text-xs'>
+									{item.cars_listed} cars
+								</Text>
+							</View>
 						</View>
-						<View className='bg-red rounded-full px-2 py-1'>
-							<Text className='text-white font-semibold text-xs'>
-								{item.cars_listed} cars
-							</Text>
+						<View className='space-y-1'>
+							<InfoRow icon='location' text={item.location} />
+							<InfoRow icon='call' text={item.phone} />
+							<InfoRow
+								icon='calendar'
+								text={`Ends: ${item.subscription_end_date}`}
+								color={color}
+							/>
+							<InfoRow
+								icon='information-circle'
+								text={`Status: ${status}`}
+								color={color}
+							/>
 						</View>
-					</View>
-					<View className='space-y-1'>
-						<InfoRow icon='location' text={item.location} />
-						<InfoRow icon='call' text={item.phone} />
-						<InfoRow
-							icon='calendar'
-							text={`Ends: ${item.subscription_end_date}`}
-						/>
-					</View>
-				</TouchableOpacity>
-			</Animated.View>
-		),
-		[isDarkMode, selectedDealerships, openModal]
+					</TouchableOpacity>
+				</Animated.View>
+			)
+		},
+		[isDarkMode, selectedDealerships, openModal, getSubscriptionStatus]
 	)
 
 	const DealershipModal = useMemo(() => {
 		return ({ isVisible, dealership, onClose }: any) => {
 			const [modalDealership, setModalDealership] = useState(dealership)
+
+			useEffect(() => {
+				setModalDealership(dealership)
+			}, [dealership])
 
 			const pickImage = async () => {
 				try {
@@ -329,9 +437,10 @@ export default function DealershipManagement() {
 					})
 
 					if (!result.canceled && result.assets[0].uri) {
-						setModalDealership((prev: any) =>
-							prev ? { ...prev, logo: result.assets[0].uri } : null
-						)
+						setModalDealership((prev: any) => ({
+							...prev,
+							logo: result.assets[0].uri
+						}))
 						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 					}
 				} catch (error) {
@@ -567,7 +676,103 @@ export default function DealershipManagement() {
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		fetchDealerships()
-	}, [fetchDealerships])
+		fetchAllDealerships()
+	}, [fetchDealerships, fetchAllDealerships])
+
+	const SubscriptionChart = useMemo(() => {
+		const data = [
+			{
+				name: 'Active',
+				population: subscriptionStats.active,
+				color: '#008000',
+				legendFontColor: '#7F7F7F',
+				legendFontSize: 12
+			},
+			{
+				name: 'Expiring',
+				population: subscriptionStats.expiring,
+				color: '#FFA500',
+				legendFontColor: '#7F7F7F',
+				legendFontSize: 12
+			},
+			{
+				name: 'Expired',
+				population: subscriptionStats.expired,
+				color: '#FF0000',
+				legendFontColor: '#7F7F7F',
+				legendFontSize: 12
+			}
+		]
+		return (
+			<View className='mb-4'>
+				<Text
+					className={`text-lg font-bold mb-2 ${
+						isDarkMode ? 'text-white' : 'text-night'
+					}`}>
+					Subscription Overview
+				</Text>
+				<PieChart
+					data={data}
+					width={SCREEN_WIDTH - 32}
+					height={200}
+					chartConfig={{
+						color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+						labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`
+					}}
+					accessor='population'
+					backgroundColor='transparent'
+					paddingLeft='15'
+					absolute
+				/>
+			</View>
+		)
+	}, [subscriptionStats, isDarkMode])
+
+	const ExpiredDealershipsList = useMemo(
+		() => (
+			<View className='mb-4'>
+				<Text
+					className={`text-lg font-bold mb-2  ${
+						isDarkMode ? 'text-white' : 'text-night'
+					}`}>
+					Expired Subscriptions
+				</Text>
+				<FlatList
+					data={expiredDealerships}
+					renderItem={renderDealershipItem}
+					keyExtractor={item => `expired-${item.id}`}
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					contentContainerStyle={{ paddingLeft: 0 }}
+					ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+				/>
+			</View>
+		),
+		[expiredDealerships, isDarkMode, renderDealershipItem]
+	)
+
+	const NearExpiringDealershipsList = useMemo(
+		() => (
+			<View className='mb-4'>
+				<Text
+					className={`text-lg font-bold mb-2  ${
+						isDarkMode ? 'text-white' : 'text-night'
+					}`}>
+					Expiring Soon
+				</Text>
+				<FlatList
+					data={nearExpiringDealerships}
+					renderItem={renderDealershipItem}
+					keyExtractor={item => `expiring-${item.id}`}
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					contentContainerStyle={{ paddingLeft: 0 }}
+					ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+				/>
+			</View>
+		),
+		[nearExpiringDealerships, isDarkMode, renderDealershipItem]
+	)
 
 	return (
 		<View
@@ -582,6 +787,9 @@ export default function DealershipManagement() {
 				contentContainerStyle={{ paddingHorizontal: 16 }}
 				ListHeaderComponent={
 					<>
+						{SubscriptionChart}
+						{ExpiredDealershipsList}
+						{NearExpiringDealershipsList}
 						<View className='flex-row mb-4'>
 							<TextInput
 								className={`flex-1 ${
