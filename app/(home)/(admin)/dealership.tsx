@@ -261,8 +261,8 @@ export default function DealershipManagement() {
 
 				if (error) throw error
 
-				fetchDealerships()
-				fetchAllDealerships()
+				await fetchDealerships()
+				await fetchAllDealerships()
 				closeModal()
 				Alert.alert('Success', 'Dealership updated successfully!')
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -282,16 +282,17 @@ export default function DealershipManagement() {
 		try {
 			const currentDate = new Date()
 			const updatePromises = selectedDealerships.map(async id => {
-				const dealership = dealerships.find(d => d.id === id)
+				const dealership = allDealerships.find(d => d.id === id)
 				if (!dealership) return
 
 				let updateData: any = {}
 				if (bulkAction === 'extend') {
 					const subscriptionEndDate = new Date(dealership.subscription_end_date)
-					subscriptionEndDate.setMonth(
-						subscriptionEndDate.getMonth() + extendMonths
+					const newEndDate = new Date(
+						Math.max(currentDate.getTime(), subscriptionEndDate.getTime())
 					)
-					updateData.subscription_end_date = subscriptionEndDate
+					newEndDate.setMonth(newEndDate.getMonth() + extendMonths)
+					updateData.subscription_end_date = newEndDate
 						.toISOString()
 						.split('T')[0]
 				} else if (bulkAction === 'end') {
@@ -330,7 +331,7 @@ export default function DealershipManagement() {
 	}, [
 		bulkAction,
 		selectedDealerships,
-		dealerships,
+		allDealerships,
 		extendMonths,
 		fetchDealerships,
 		fetchAllDealerships
@@ -349,6 +350,7 @@ export default function DealershipManagement() {
 			return { status: 'Active', color: '#008000' }
 		}
 	}, [])
+
 	const renderDealershipItem = useCallback(
 		({ item }: { item: any }) => {
 			const { status, color } = getSubscriptionStatus(
@@ -422,9 +424,13 @@ export default function DealershipManagement() {
 	const DealershipModal = useMemo(() => {
 		return ({ isVisible, dealership, onClose }: any) => {
 			const [modalDealership, setModalDealership] = useState(dealership)
+			const [modalDate, setModalDate] = useState(
+				new Date(dealership?.subscription_end_date || new Date())
+			)
 
 			useEffect(() => {
 				setModalDealership(dealership)
+				setModalDate(new Date(dealership?.subscription_end_date || new Date()))
 			}, [dealership])
 
 			const pickImage = async () => {
@@ -450,9 +456,11 @@ export default function DealershipManagement() {
 			}
 
 			const handleSubmit = () => {
-				handleUpdateDealership(modalDealership)
+				handleUpdateDealership({
+					...modalDealership,
+					subscription_end_date: modalDate.toISOString().split('T')[0]
+				})
 			}
-
 			return (
 				<Modal visible={isVisible} animationType='slide' transparent>
 					<BlurView
@@ -569,38 +577,7 @@ export default function DealershipManagement() {
 										keyboardType='numeric'
 										placeholderTextColor={isDarkMode ? '#D55004' : '#D55004'}
 									/>
-									<TouchableOpacity
-										className={`${
-											isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-										} rounded-lg p-3 mb-4`}
-										onPress={() => setShowDatePicker(true)}>
-										<Text className={isDarkMode ? 'text-white' : 'text-night'}>
-											Subscription End Date:{' '}
-											{modalDealership?.subscription_end_date || 'Select Date'}
-										</Text>
-									</TouchableOpacity>
-									{showDatePicker && (
-										<DateTimePicker
-											value={
-												new Date(
-													modalDealership?.subscription_end_date || Date.now()
-												)
-											}
-											mode='date'
-											display='default'
-											onChange={(event, selectedDate) => {
-												setShowDatePicker(false)
-												if (selectedDate) {
-													setModalDealership((prev: any) => ({
-														...prev!,
-														subscription_end_date: selectedDate
-															.toISOString()
-															.split('T')[0]
-													}))
-												}
-											}}
-										/>
-									)}
+
 									<TouchableOpacity
 										className='bg-red rounded-lg p-4 items-center mb-2'
 										onPress={handleSubmit}>
@@ -628,7 +605,6 @@ export default function DealershipManagement() {
 			)
 		}
 	}, [isDarkMode, handleUpdateDealership, showDatePicker])
-
 	const SortButton = useCallback(
 		({ title, column }: { title: string; column: string }) => {
 			return (
