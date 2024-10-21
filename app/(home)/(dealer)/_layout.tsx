@@ -14,8 +14,8 @@ export default function DealerLayout() {
 					tabBarStyle: {
 						position: 'absolute',
 						backgroundColor: isDarkMode ? 'black' : 'white',
-						height: 40,
-						paddingBottom: 5,
+						height: 60,
+						paddingBottom: 20,
 						borderWidth: 0,
 						borderColor: '#D55004',
 						shadowColor: '#000',

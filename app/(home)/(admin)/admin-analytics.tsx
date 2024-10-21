@@ -198,7 +198,7 @@ export default function AdminAnalyticsDashboard() {
 					<BlurView
 						intensity={100}
 						tint={isDarkMode ? 'dark' : 'light'}
-						className={`rounded-xl  p-4 border border-red ${
+						className={`rounded-xl  p-4 ${
 							isDarkMode ? 'bg-gray' : 'bg-white'
 						} mb-2 `}>
 						<Text

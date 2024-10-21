@@ -12,8 +12,8 @@ export default function AdminLayout() {
 					tabBarStyle: {
 						position: 'absolute',
 						backgroundColor: isDarkMode ? 'black' : 'white',
-						height: 40,
-						paddingBottom: 5,
+						height: 60,
+						paddingBottom: 20,
 						borderWidth: 0,
 						borderColor: '#D55004',
 						shadowColor: '#000',
@@ -22,6 +22,7 @@ export default function AdminLayout() {
 						shadowRadius: 5,
 						borderTopWidth: 0,
 						borderTopColor: '#D55004'
+						
 					},
 					tabBarShowLabel: false,
 					tabBarActiveTintColor: '#D55004',
