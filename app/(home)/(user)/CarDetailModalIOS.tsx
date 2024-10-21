@@ -284,13 +284,6 @@ const CarDetailModalIOS = memo(
 			}
 		}, [isVisible, car, user, debouncedTrackCarView])
 
-		const mapRegion = {
-			latitude: car.dealership_latitude || 37.7749,
-			longitude: car.dealership_longitude || -122.4194,
-			latitudeDelta: 0.01,
-			longitudeDelta: 0.01
-		}
-
 		const handleCall = useCallback(() => {
 			if (car.dealership_phone) {
 				Linking.openURL(`tel:${car.dealership_phone}`)
