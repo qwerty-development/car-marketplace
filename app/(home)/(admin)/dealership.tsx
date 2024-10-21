@@ -14,16 +14,14 @@ import {
 	Image,
 	RefreshControl
 } from 'react-native'
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
-import DateTimePicker from '@react-native-community/datetimepicker'
 import * as Haptics from 'expo-haptics'
 import { BlurView } from 'expo-blur'
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { Dropdown } from 'react-native-element-dropdown'
 import * as ImagePicker from 'expo-image-picker'
-import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PieChart } from 'react-native-chart-kit'
 
@@ -286,6 +284,8 @@ export default function DealershipManagement() {
 				if (!dealership) return
 
 				let updateData: any = {}
+				let newCarStatus: 'available' | 'pending' = 'available'
+
 				if (bulkAction === 'extend') {
 					const subscriptionEndDate = new Date(dealership.subscription_end_date)
 					const newEndDate = new Date(
@@ -295,17 +295,26 @@ export default function DealershipManagement() {
 					updateData.subscription_end_date = newEndDate
 						.toISOString()
 						.split('T')[0]
+					newCarStatus = 'available'
 				} else if (bulkAction === 'end') {
 					updateData.subscription_end_date = currentDate
 						.toISOString()
 						.split('T')[0]
+					newCarStatus = 'pending'
 				}
 
-				const { error } = await supabase
+				const { error: dealershipError } = await supabase
 					.from('dealerships')
 					.update(updateData)
 					.eq('id', id)
-				if (error) throw error
+				if (dealershipError) throw dealershipError
+
+				const { error: carsError } = await supabase
+					.from('cars')
+					.update({ status: newCarStatus })
+					.eq('dealership_id', id)
+					.eq('status', bulkAction === 'extend' ? 'pending' : 'available')
+				if (carsError) throw carsError
 			})
 
 			await Promise.all(updatePromises)
@@ -318,7 +327,7 @@ export default function DealershipManagement() {
 				'Success',
 				`Subscription ${
 					bulkAction === 'extend' ? 'extended' : 'ended'
-				} for selected dealerships!`
+				} for selected dealerships and car statuses updated!`
 			)
 			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 		} catch (error) {
