@@ -718,7 +718,7 @@ export default function DealershipDetails() {
 		<LinearGradient colors={bgGradient} className='flex-1 mb-14'>
 			<CustomHeader
 				title={dealership?.name || 'Dealership'}
-				onBack={() => router.back()}
+				onBack={() => router.push('/home/(dealer)/browse')}
 			/>
 			<Animated.FlatList
 				data={cars}
