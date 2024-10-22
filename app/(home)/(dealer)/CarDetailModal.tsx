@@ -73,7 +73,7 @@ const CarDetailModal = memo(
 		const handleDealershipPress = useCallback(() => {
 			onClose()
 			router.push({
-				pathname: '/(home)/(user)/DealershipDetails',
+				pathname: '/(home)/(dealer)/DealershipDetails',
 				params: { dealershipId: car.dealership_id }
 			})
 		}, [onClose, router, car.dealership_id])

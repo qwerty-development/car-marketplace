@@ -307,6 +307,14 @@ const CarDetailModal = memo(
 			[]
 		)
 
+		const handleDealershipPress = useCallback(() => {
+			onClose()
+			router.push({
+				pathname: '/(home)/(dealer)/DealershipDetails',
+				params: { dealershipId: car.dealership_id }
+			})
+		}, [onClose, router, car.dealership_id])
+
 		const renderPaginationDots = () => {
 			return (
 				<View style={styles.paginationContainer}>
@@ -472,10 +480,16 @@ const CarDetailModal = memo(
 								<View className='border-t border-gray-600 pt-4'>
 									<View className='items-center'>
 										{car.dealership_logo && (
-											<OptimizedImage
-												source={{ uri: car.dealership_logo }}
-												style={{ width: 128, height: 128, borderRadius: 64 }}
-											/>
+											<TouchableOpacity onPress={handleDealershipPress}>
+												<OptimizedImage
+													source={{ uri: car.dealership_logo }}
+													style={{
+														width: 128,
+														height: 128,
+														borderRadius: 64
+													}}
+												/>
+											</TouchableOpacity>
 										)}
 										<Text
 											className={`text-xl font-bold ${
