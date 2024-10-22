@@ -460,6 +460,7 @@ export default function DealershipDetails() {
 				onPress={() => handleCarPress(item)}
 				onFavoritePress={() => handleFavoritePress(item.id)}
 				isFavorite={isFavorite(item.id)}
+				isDealer
 			/>
 		),
 		[handleCarPress, handleFavoritePress, isFavorite]
