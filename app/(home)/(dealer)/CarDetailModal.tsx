@@ -10,7 +10,8 @@ import {
 	Share,
 	StyleSheet,
 	Platform,
-	Animated
+	Animated,
+	TouchableWithoutFeedback
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
@@ -294,6 +295,10 @@ const CarDetailModal = memo(
 						showsCompass={true}
 						zoomControlEnabled={true}
 						mapType={isDarkMode ? 'mutedStandard' : 'standard'}
+						cacheEnabled={Platform.OS === 'android'}
+						loadingEnabled
+						loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
+						loadingIndicatorColor='#D55004'
 						onPress={handleMapPress}>
 						<Marker
 							identifier='dealershipMarker'

@@ -31,6 +31,7 @@ import Animated, {
 	useAnimatedGestureHandler
 } from 'react-native-reanimated'
 import { PanGestureHandler } from 'react-native-gesture-handler'
+import { BlurView } from 'expo-blur'
 
 const { width, height } = Dimensions.get('window')
 
@@ -109,94 +110,159 @@ const CarDetailModalIOS = memo(
 		const DealershipMapView = ({ car, isDarkMode }: any) => {
 			const mapRef = useRef<MapView>(null)
 			const [showCallout, setShowCallout] = useState(false)
+			const [region, setRegion] = useState({
+				latitude: car.dealership_latitude || 37.7749,
+				longitude: car.dealership_longitude || -122.4194,
+				latitudeDelta: 0.02,
+				longitudeDelta: 0.02
+			})
 
 			const zoomToFit = useCallback(() => {
-				if (mapRef.current) {
-					mapRef.current.fitToSuppliedMarkers(['dealershipMarker'], {
-						edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-						animated: true
-					})
+				if (mapRef.current && Platform.OS === 'ios') {
+					mapRef.current.animateToRegion(region, 1000)
 				}
-			}, [])
+			}, [region])
 
 			const openInMaps = useCallback(() => {
-				const scheme = Platform.select({
-					ios: 'maps:0,0?q=',
-					android: 'geo:0,0?q='
-				})
-				const latLng = `${car.dealership_latitude},${car.dealership_longitude}`
-				const label = encodeURIComponent(car.dealership_name)
-				const url: any = Platform.select({
-					ios: `${scheme}${label}@${latLng}`,
-					android: `${scheme}${latLng}(${label})`
-				})
-				Linking.openURL(url)
-			}, [car])
+				try {
+					const { latitude, longitude } = {
+						latitude: car.dealership_latitude || 37.7749,
+						longitude: car.dealership_longitude || -122.4194
+					}
 
-			const handleMarkerPress = useCallback(() => {
-				setShowCallout(true)
-			}, [])
+					const label = encodeURIComponent(car.dealership_name)
+					const address = encodeURIComponent(car.dealership_location)
 
-			const handleMapPress = useCallback(() => {
-				setShowCallout(false)
-			}, [])
+					// Different URL schemes for iOS and Android
+					if (Platform.OS === 'ios') {
+						// Try Apple Maps first
+						Linking.openURL(
+							`maps://?q=${label}&ll=${latitude},${longitude}&address=${address}`
+						).catch(() => {
+							// Fallback to Google Maps if Apple Maps fails
+							Linking.openURL(
+								`comgooglemaps://?q=${latitude},${longitude}&query=${label}&address=${address}`
+							).catch(() => {
+								// If both fail, open in browser
+								Linking.openURL(
+									`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`
+								).catch(() => {
+									Alert.alert(
+										'Navigation Error',
+										'Could not open any maps application. Please make sure you have a maps app installed.'
+									)
+								})
+							})
+						})
+					} else {
+						// Android
+						const scheme = 'geo:0,0?q='
+						const latLng = `${latitude},${longitude}`
+						const url = `${scheme}${latLng}(${label})`
+
+						Linking.openURL(url).catch(() => {
+							// Fallback to Google Maps in browser if native intent fails
+							Linking.openURL(
+								`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`
+							).catch(() => {
+								Alert.alert(
+									'Navigation Error',
+									'Could not open any maps application. Please make sure you have a maps app installed.'
+								)
+							})
+						})
+					}
+				} catch (error) {
+					console.error('Error opening maps:', error)
+					Alert.alert(
+						'Error',
+						'There was an error opening the maps application. Please try again.'
+					)
+				}
+			}, [
+				car.dealership_latitude,
+				car.dealership_longitude,
+				car.dealership_name,
+				car.dealership_location
+			])
+
+			useEffect(() => {
+				// Ensure map is properly initialized on iOS
+				if (Platform.OS === 'ios') {
+					const timer = setTimeout(zoomToFit, 1000)
+					return () => clearTimeout(timer)
+				}
+			}, [zoomToFit])
 
 			return (
-				<View className='h-64 rounded-lg overflow-hidden'>
+				<View className='relative h-64 w-full rounded-lg overflow-hidden'>
 					<MapView
 						ref={mapRef}
-						provider={PROVIDER_GOOGLE}
+						provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
 						style={{ flex: 1 }}
-						initialRegion={{
-							latitude: car.dealership_latitude || 37.7749,
-							longitude: car.dealership_longitude || -122.4194,
-							latitudeDelta: 0.02,
-							longitudeDelta: 0.02
-						}}
-						onMapReady={zoomToFit}
-						showsUserLocation={true}
-						showsMyLocationButton={true}
-						showsCompass={true}
-						zoomControlEnabled={true}
+						initialRegion={region}
+						region={Platform.OS === 'ios' ? region : undefined}
+						onMapReady={Platform.OS === 'android' ? zoomToFit : undefined}
+						showsUserLocation
+						showsMyLocationButton
+						showsCompass
+						zoomControlEnabled
 						mapType={isDarkMode ? 'mutedStandard' : 'standard'}
-						onPress={handleMapPress}>
+						className='absolute inset-0 h-full w-full'>
 						<Marker
 							identifier='dealershipMarker'
 							coordinate={{
 								latitude: car.dealership_latitude || 37.7749,
 								longitude: car.dealership_longitude || -122.4194
 							}}
-							onPress={handleMarkerPress}>
-							<OptimizedImage
-								source={{ uri: car.dealership_logo }}
-								style={{ width: 40, height: 40, borderRadius: 20 }}
-							/>
+							onPress={() => setShowCallout(true)}
+							tracksViewChanges={false}>
+							<View className='h-10 w-10 rounded-full border-2 border-white overflow-hidden'>
+								<OptimizedImage
+									source={{ uri: car.dealership_logo }}
+									style={{ width: 40, height: 40 }}
+								/>
+							</View>
 						</Marker>
 					</MapView>
+
 					{showCallout && (
-						<View className='absolute bottom-4 left-4 right-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-lg'>
-							<Text className='font-bold text-sm text-black dark:text-white'>
-								{car.dealership_name}
-							</Text>
-							<Text className='text-xs mt-1 text-gray-600 dark:text-gray-300'>
-								{car.dealership_location}
-							</Text>
-							<View className='flex-row justify-between mt-2'>
-								<TouchableOpacity
-									className='bg-red py-2 px-3 rounded-full flex-row items-center'
-									onPress={openInMaps}>
-									<Ionicons name='map' size={16} color='white' />
-									<Text className='text-white text-xs ml-1'>View on Map</Text>
-								</TouchableOpacity>
-								<TouchableOpacity
-									className='bg-gray-200 dark:bg-gray-600 py-2 px-3 rounded-full'
-									onPress={() => setShowCallout(false)}>
-									<Text className='text-gray-800 dark:text-white text-xs'>
-										Close
-									</Text>
-								</TouchableOpacity>
+						<BlurView
+							intensity={80}
+							tint={isDarkMode ? 'dark' : 'light'}
+							className='absolute bottom-4 left-4 right-4 rounded-lg overflow-hidden'>
+							<View className='p-3'>
+								<Text
+									className='font-bold text-sm'
+									style={{ color: isDarkMode ? '#fff' : '#000' }}>
+									{car.dealership_name}
+								</Text>
+								<Text
+									className='text-xs mt-1'
+									style={{ color: isDarkMode ? '#ccc' : '#666' }}>
+									{car.dealership_location}
+								</Text>
+								<View className='flex-row justify-between mt-2'>
+									<TouchableOpacity
+										onPress={openInMaps}
+										className='bg-red px-3 py-2 rounded-full flex-row items-center'>
+										<Ionicons name='map' size={16} color='white' />
+										<Text className='text-white text-xs ml-1'>
+											Open in Maps
+										</Text>
+									</TouchableOpacity>
+									<TouchableOpacity
+										onPress={() => setShowCallout(false)}
+										className='bg-gray-200 dark:bg-gray-600 px-3 py-2 rounded-full'>
+										<Text
+											className='text-xs'
+											style={{ color: isDarkMode ? '#fff' : '#000' }}>
+											Close
+										</Text>
+									</TouchableOpacity>
+								</View>
 							</View>
-						</View>
+						</BlurView>
 					)}
 				</View>
 			)
