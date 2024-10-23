@@ -233,7 +233,11 @@ export default function SalesHistoryPage() {
 	const isSubscriptionValid = useCallback(() => {
 		if (!dealership || !dealership.subscription_end_date) return false
 		const endDate = new Date(dealership.subscription_end_date)
-		return endDate > new Date()
+		const today = new Date()
+		// Set the time to midnight for accurate date comparison
+		endDate.setHours(0, 0, 0, 0)
+		today.setHours(0, 0, 0, 0)
+		return endDate >= today // Changed from > to >= to include the end date
 	}, [dealership])
 
 	const getDaysUntilExpiration = useCallback(() => {
