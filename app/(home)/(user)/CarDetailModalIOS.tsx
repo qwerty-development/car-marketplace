@@ -133,13 +133,17 @@ const CarDetailModalIOS = memo(
 					const label = encodeURIComponent(car.dealership_name)
 					const address = encodeURIComponent(car.dealership_location)
 
+					// Different URL schemes for iOS and Android
 					if (Platform.OS === 'ios') {
+						// Try Apple Maps first
 						Linking.openURL(
 							`maps://?q=${label}&ll=${latitude},${longitude}&address=${address}`
 						).catch(() => {
+							// Fallback to Google Maps if Apple Maps fails
 							Linking.openURL(
 								`comgooglemaps://?q=${latitude},${longitude}&query=${label}&address=${address}`
 							).catch(() => {
+								// If both fail, open in browser
 								Linking.openURL(
 									`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`
 								).catch(() => {
@@ -151,11 +155,13 @@ const CarDetailModalIOS = memo(
 							})
 						})
 					} else {
+						// Android
 						const scheme = 'geo:0,0?q='
 						const latLng = `${latitude},${longitude}`
 						const url = `${scheme}${latLng}(${label})`
 
 						Linking.openURL(url).catch(() => {
+							// Fallback to Google Maps in browser if native intent fails
 							Linking.openURL(
 								`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${label}`
 							).catch(() => {
@@ -181,36 +187,28 @@ const CarDetailModalIOS = memo(
 			])
 
 			useEffect(() => {
+				// Ensure map is properly initialized on iOS
 				if (Platform.OS === 'ios') {
-					const timer = setTimeout(() => {
-						if (mapRef.current) {
-							mapRef.current.animateToRegion(region, 1000)
-						}
-					}, 1000)
+					const timer = setTimeout(zoomToFit, 1000)
 					return () => clearTimeout(timer)
 				}
 			}, [zoomToFit])
 
 			return (
-				<View
-					style={{
-						position: 'relative',
-						height: 256,
-						width: '100%',
-						borderRadius: 10,
-						overflow: 'hidden'
-					}}>
+				<View className='relative h-64 w-full rounded-lg overflow-hidden'>
 					<MapView
 						ref={mapRef}
-						provider={undefined}
+						provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
 						style={{ flex: 1 }}
 						initialRegion={region}
-						onMapReady={zoomToFit}
+						region={Platform.OS === 'ios' ? region : undefined}
+						onMapReady={Platform.OS === 'android' ? zoomToFit : undefined}
 						showsUserLocation
 						showsMyLocationButton
 						showsCompass
 						zoomControlEnabled
-						mapType={isDarkMode ? 'mutedStandard' : 'standard'}>
+						mapType={isDarkMode ? 'mutedStandard' : 'standard'}
+						className='absolute inset-0 h-full w-full'>
 						<Marker
 							identifier='dealershipMarker'
 							coordinate={{
@@ -219,15 +217,7 @@ const CarDetailModalIOS = memo(
 							}}
 							onPress={() => setShowCallout(true)}
 							tracksViewChanges={false}>
-							<View
-								style={{
-									height: 40,
-									width: 40,
-									borderRadius: 20,
-									borderWidth: 2,
-									borderColor: 'white',
-									overflow: 'hidden'
-								}}>
+							<View className='h-10 w-10 rounded-full border-2 border-white overflow-hidden'>
 								<OptimizedImage
 									source={{ uri: car.dealership_logo }}
 									style={{ width: 40, height: 40 }}
@@ -240,66 +230,33 @@ const CarDetailModalIOS = memo(
 						<BlurView
 							intensity={80}
 							tint={isDarkMode ? 'dark' : 'light'}
-							style={{
-								position: 'absolute',
-								bottom: 16,
-								left: 16,
-								right: 16,
-								borderRadius: 10,
-								overflow: 'hidden'
-							}}>
-							<View style={{ padding: 12 }}>
+							className='absolute bottom-4 left-4 right-4 rounded-lg overflow-hidden'>
+							<View className='p-3'>
 								<Text
-									style={{
-										fontWeight: 'bold',
-										fontSize: 14,
-										color: isDarkMode ? '#fff' : '#000'
-									}}>
+									className='font-bold text-sm'
+									style={{ color: isDarkMode ? '#fff' : '#000' }}>
 									{car.dealership_name}
 								</Text>
 								<Text
-									style={{
-										fontSize: 12,
-										marginTop: 4,
-										color: isDarkMode ? '#ccc' : '#666'
-									}}>
+									className='text-xs mt-1'
+									style={{ color: isDarkMode ? '#ccc' : '#666' }}>
 									{car.dealership_location}
 								</Text>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										marginTop: 8
-									}}>
+								<View className='flex-row justify-between mt-2'>
 									<TouchableOpacity
 										onPress={openInMaps}
-										style={{
-											backgroundColor: 'red',
-											paddingVertical: 6,
-											paddingHorizontal: 12,
-											borderRadius: 20,
-											flexDirection: 'row',
-											alignItems: 'center'
-										}}>
+										className='bg-red px-3 py-2 rounded-full flex-row items-center'>
 										<Ionicons name='map' size={16} color='white' />
-										<Text
-											style={{ color: 'white', fontSize: 12, marginLeft: 4 }}>
+										<Text className='text-white text-xs ml-1'>
 											Open in Maps
 										</Text>
 									</TouchableOpacity>
 									<TouchableOpacity
 										onPress={() => setShowCallout(false)}
-										style={{
-											backgroundColor: '#e0e0e0',
-											paddingVertical: 6,
-											paddingHorizontal: 12,
-											borderRadius: 20
-										}}>
+										className='bg-gray-200 dark:bg-gray-600 px-3 py-2 rounded-full'>
 										<Text
-											style={{
-												fontSize: 12,
-												color: isDarkMode ? '#fff' : '#000'
-											}}>
+											className='text-xs'
+											style={{ color: isDarkMode ? '#fff' : '#000' }}>
 											Close
 										</Text>
 									</TouchableOpacity>
