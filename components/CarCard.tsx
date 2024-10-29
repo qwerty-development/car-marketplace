@@ -9,7 +9,8 @@ import {
 	Alert,
 	FlatList,
 	Image,
-	ActivityIndicator
+	ActivityIndicator,
+	SafeAreaView
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'

@@ -316,7 +316,7 @@ export default function AdminUserManagement() {
 			className='mb-10'>
 			<CustomHeader title='User Management' />
 			<LinearGradient
-				colors={isDarkMode ? ['#1A1A1A', '#2D2D2D'] : ['#F0F0F0', '#FFFFFF']}
+				colors={isDarkMode ? ['#000000', '#2D2D2D'] : ['#F0F0F0', '#FFFFFF']}
 				style={styles.gradientContainer}>
 				<View style={styles.searchContainer}>
 					<TextInput
@@ -492,7 +492,8 @@ const styles = StyleSheet.create({
 	gradientContainer: {
 		flex: 1,
 		paddingHorizontal: 16,
-		paddingTop: 16
+		paddingTop: 16,
+		marginBottom:16,
 	},
 	searchContainer: {
 		flexDirection: 'row',
@@ -567,7 +568,7 @@ const styles = StyleSheet.create({
 	userRoleContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		alignItems: 'center'
+		alignItems: 'center',
 	},
 	userRole: {
 		fontSize: 14,

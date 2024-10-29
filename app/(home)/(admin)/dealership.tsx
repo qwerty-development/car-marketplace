@@ -63,18 +63,22 @@ const useDealershipState = () => {
 const ITEMS_PER_PAGE = 10
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
-	return (
-		<SafeAreaView
-			edges={['top']}
-			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
+		const { isDarkMode } = useTheme();
+	  
+		return (
+		  <SafeAreaView 
+			edges={['top']} 
+			className={`${isDarkMode ? 'bg-black' : 'bg-white'} border-b border-[#D55004]`}
+		  >
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center border-b border-red justify-center pb-2'>
-				<Text className='text-xl font-semibold text-red'>{title}</Text>
+			<View className="flex flex-row items-center justify-center py-3">
+			  <Text className="text-[22px] font-semibold text-[#D55004]">
+				{title}
+			  </Text>
 			</View>
-		</SafeAreaView>
-	)
-})
+		  </SafeAreaView>
+		);
+	  });
 
 const InfoRow = React.memo(
 	({ icon, text, color }: { icon: string; text: string; color?: string }) => {
@@ -373,8 +377,8 @@ export default function DealershipManagement() {
 					className='mb-2'>
 					<TouchableOpacity
 						className={`${
-							isDarkMode ? 'bg-night border-white' : 'bg-white border-gray'
-						} rounded-lg p-4 mb-4 border shadow-2xl shadow-red`}
+							isDarkMode ? 'bg-gray border-white' : 'bg-white border-black'
+						} rounded-lg p-4 mb-4 border shadow-2xl `}
 						onPress={() => openModal(item)}>
 						<View className='flex-row justify-between items-center mb-2'>
 							<View className='flex-row items-center'>
@@ -479,7 +483,7 @@ export default function DealershipManagement() {
 						<View className='flex-1 justify-end'>
 							<View
 								className={`${
-									isDarkMode ? 'bg-night' : 'bg-white'
+									isDarkMode ? 'bg-gray' : 'bg-white'
 								} rounded-t-3xl p-6 h-4/5`}>
 								<ScrollView showsVerticalScrollIndicator={false}>
 									<Text
@@ -683,13 +687,13 @@ export default function DealershipManagement() {
 			{
 				name: 'Expired',
 				population: subscriptionStats.expired,
-				color: '#FF0000',
+				color: '#c30010',
 				legendFontColor: '#7F7F7F',
 				legendFontSize: 12
 			}
 		]
 		return (
-			<View className='mb-4'>
+			<View className='mb-4 mt-4 '>
 				<Text
 					className={`text-lg font-bold mb-2 ${
 						isDarkMode ? 'text-white' : 'text-night'
@@ -861,7 +865,7 @@ export default function DealershipManagement() {
 					</>
 				}
 				ListFooterComponent={
-					<View className='flex-row justify-between items-center p-4 border-t border-gray'>
+					<View className='flex-row justify-between items-center mb-8 p-4 border-t border-gray'>
 						<PaginationButton
 							title='Previous'
 							onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -897,12 +901,14 @@ export default function DealershipManagement() {
 	)
 }
 
+
+
 const LoadingOverlay = ({ isVisible }: { isVisible: boolean }) => {
 	if (!isVisible) return null
 
 	return (
 		<View
-			className='absolute inset-0 bg-black bg-opacity-50 justify-center items-center z-50'
+			className='absolute inset-0 bg-gray bg-opacity-50 justify-center items-center z-50'
 			style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}>
 			<BlurView
 				intensity={80}
@@ -914,3 +920,5 @@ const LoadingOverlay = ({ isVisible }: { isVisible: boolean }) => {
 		</View>
 	)
 }
+
+

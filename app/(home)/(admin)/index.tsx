@@ -514,10 +514,10 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		paddingBottom: 8
+		paddingVertical: 12
 	},
 	headerTitle: {
-		fontSize: 20,
+		fontSize: 22,
 		fontWeight: '600',
 		color: '#D55004'
 	},
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		alignItems: 'center',
 		marginTop: 16,
-		marginBottom: 16
+		marginBottom: 32
 	},
 	paginationButton: {
 		paddingHorizontal: 16,

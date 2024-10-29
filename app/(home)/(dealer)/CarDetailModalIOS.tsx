@@ -29,6 +29,7 @@ import Animated, {
 	useAnimatedGestureHandler
 } from 'react-native-reanimated'
 import { PanGestureHandler } from 'react-native-gesture-handler'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 const { width, height } = Dimensions.get('window')
 
@@ -56,6 +57,8 @@ const OptimizedImage = memo(({ source, style, onLoad }: any) => {
 		</View>
 	)
 })
+
+
 
 const CarDetailModal = memo(
 	({
@@ -143,9 +146,8 @@ const CarDetailModal = memo(
 		const handleWhatsApp = useCallback(() => {
 			if (car.dealership_phone) {
 				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/${
-					car.dealership_phone
-				}?text=${encodeURIComponent(message)}`
+				const url = `https://wa.me/${car.dealership_phone
+					}?text=${encodeURIComponent(message)}`
 				Linking.openURL(url)
 			} else {
 				Alert.alert('WhatsApp number not available')
@@ -159,9 +161,8 @@ const CarDetailModal = memo(
 		const handleShare = useCallback(async () => {
 			try {
 				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${
-						car.model
-					} for $${car.price.toLocaleString()}!`,
+					message: `Check out this ${car.year} ${car.make} ${car.model
+						} for $${car.price.toLocaleString()}!`,
 					url: car.images[0]
 				})
 				if (result.action === Share.sharedAction) {
@@ -243,10 +244,20 @@ const CarDetailModal = memo(
 			}
 		}, [isVisible])
 
+		const handleOpenInGoogleMaps = useCallback(() => {
+			const latitude = car.dealership_latitude || 37.7749;
+			const longitude = car.dealership_longitude || -122.4194;
+			const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+			Linking.openURL(url).catch(err => {
+				Alert.alert('Error', 'Could not open Google Maps');
+			});
+		}, [car.dealership_latitude, car.dealership_longitude]);
+
 		return (
 			<PanGestureHandler onGestureEvent={gestureHandler}>
 				<Animated.View
-					className={`${isDarkMode ? 'bg-gray' : 'bg-white'}`}
+					className={`${isDarkMode ? 'bg-black' : 'bg-white'}`}
 					style={[styles.modalOverlay, animatedStyle]}>
 					<LinearGradient
 						colors={
@@ -279,9 +290,8 @@ const CarDetailModal = memo(
 							</View>
 							<View className='p-4 mb-24'>
 								<Text
-									className={`text-2xl ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
+									className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'
+										}`}>
 									{car.year} {car.make} {car.model}
 								</Text>
 								<Text className='text-xl font-extrabold text-red mt-2'>
@@ -289,15 +299,13 @@ const CarDetailModal = memo(
 								</Text>
 								<View className='flex-row justify-between mt-4 mb-4'>
 									<Text
-										className={`text-l ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
+										className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+											}`}>
 										Views: {car.views || 0}
 									</Text>
 									<Text
-										className={`text-l ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
+										className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+											}`}>
 										Likes: {car.likes || 0}
 									</Text>
 								</View>
@@ -312,15 +320,13 @@ const CarDetailModal = memo(
 								</View>
 
 								<Text
-									className={`text-s mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} font-bold text-l mb-3`}>
+									className={`text-s mt-4 ${isDarkMode ? 'text-white' : 'text-black'
+										} font-bold text-l mb-3`}>
 									Description
 								</Text>
 								<Text
-									className={`text-s mb-4 font-light ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
+									className={`text-s mb-4 font-light ${isDarkMode ? 'text-white' : 'text-black'
+										}`}>
 									{car.description}
 								</Text>
 
@@ -334,15 +340,13 @@ const CarDetailModal = memo(
 								</View>
 
 								<Text
-									className={`text-l mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mb-3 font-bold`}>
+									className={`text-l mt-4 ${isDarkMode ? 'text-white' : 'text-black'
+										} mb-3 font-bold`}>
 									Technical Data
 								</Text>
 								<View
-									className={`mb-6 mt-3 border ${
-										isDarkMode ? 'border-white' : 'border-black'
-									} rounded-lg`}>
+									className={`mb-6 mt-3 border ${isDarkMode ? 'border-white' : 'border-black'
+										} rounded-lg`}>
 									{[
 										{
 											label: 'Mileage',
@@ -355,17 +359,14 @@ const CarDetailModal = memo(
 									].map((item, index) => (
 										<View
 											key={index}
-											className={`flex-row p-2 ${
-												index !== 4
-													? `border-b ${
-															isDarkMode ? 'border-white' : 'border-black'
-													  }`
+											className={`flex-row p-2 ${index !== 4
+													? `border-b ${isDarkMode ? 'border-white' : 'border-black'
+													}`
 													: ''
-											} justify-between py-2`}>
+												} justify-between py-2`}>
 											<Text
-												className={`text-l ${
-													isDarkMode ? 'text-white' : 'text-black'
-												} font-bold`}>
+												className={`text-l ${isDarkMode ? 'text-white' : 'text-black'
+													} font-bold`}>
 												{item.label}
 											</Text>
 											<Text className='text-l' style={{ color: '#D55004' }}>
@@ -376,9 +377,8 @@ const CarDetailModal = memo(
 								</View>
 
 								<Text
-									className={`text-lg font-bold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mt-2 mb-2`}>
+									className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'
+										} mt-2 mb-2`}>
 									Dealer Information
 								</Text>
 								<View className='border-t border-gray-600 pt-4'>
@@ -396,9 +396,8 @@ const CarDetailModal = memo(
 											</TouchableOpacity>
 										)}
 										<Text
-											className={`text-xl font-bold ${
-												isDarkMode ? 'text-white' : 'text-black'
-											} mb-2 mt-4`}>
+											className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'
+												} mb-2 mt-4`}>
 											{car.dealership_name}
 										</Text>
 									</View>
@@ -419,6 +418,14 @@ const CarDetailModal = memo(
 											description={car.dealership_location}
 										/>
 									</MapView>
+									<TouchableOpacity
+										onPress={handleOpenInGoogleMaps}
+										className={`flex-row items-center justify-center p-3 mt-2 rounded-lg bg-red`}>
+										<Ionicons name="navigate-outline" size={24} color="white" />
+										<Text className="text-white font-semibold ml-2">
+											Open in Google Maps
+										</Text>
+									</TouchableOpacity>
 								</View>
 							</View>
 						</ScrollView>
@@ -469,7 +476,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end'
 	},
 	gradientContainer: {
-		height: '96%',
+		height: '90%',
 		width: '100%'
 	},
 	scrollView: {

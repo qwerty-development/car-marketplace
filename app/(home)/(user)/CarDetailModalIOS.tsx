@@ -324,6 +324,16 @@ const CarDetailModalIOS = memo(
 			}
 		}, [isVisible])
 
+		const handleOpenInGoogleMaps = useCallback(() => {
+			const latitude = car.dealership_latitude || 37.7749;
+			const longitude = car.dealership_longitude || -122.4194;
+			const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+			Linking.openURL(url).catch(err => {
+				Alert.alert('Error', 'Could not open Google Maps');
+			});
+		}, [car.dealership_latitude, car.dealership_longitude]);
+
 		return (
 			<PanGestureHandler onGestureEvent={gestureHandler}>
 				<Animated.View
@@ -530,6 +540,14 @@ const CarDetailModalIOS = memo(
 											description={car.dealership_location}
 										/>
 									</MapView>
+									<TouchableOpacity
+										onPress={handleOpenInGoogleMaps}
+										className={`flex-row items-center justify-center p-3 mt-2 rounded-lg bg-red`}>
+										<Ionicons name="navigate-outline" size={24} color="white" />
+										<Text className="text-white font-semibold ml-2">
+											Open in Google Maps
+										</Text>
+									</TouchableOpacity>
 								</View>
 
 								<Text
@@ -612,7 +630,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end'
 	},
 	gradientContainer: {
-		height: '96%',
+		height: '90%',
 		width: '100%'
 	},
 	scrollView: {
