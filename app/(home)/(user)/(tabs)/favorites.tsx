@@ -25,7 +25,7 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 		<SafeAreaView
 			className={`bg-${isDarkMode ? 'black' : 'white'} border-b border-red`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center justify-center pt-3'>
+			<View className='flex-row items-center justify-center'>
 				<Text className='text-xl font-semibold text-red'>{title}</Text>
 			</View>
 		</SafeAreaView>
