@@ -34,6 +34,37 @@ import StreetViewPanorama from 'react-native-maps'
 const ITEMS_PER_PAGE = 10
 const { width } = Dimensions.get('window')
 
+const OptimizedImage = React.memo(({ source, style, className }: any) => {
+	const [isLoading, setIsLoading] = useState(true)
+	const [hasError, setHasError] = useState(false)
+
+	return (
+		<View className={`relative ${className}`}>
+			{isLoading && (
+				<View className='absolute inset-0 flex items-center justify-center bg-gray-200 dark:bg-gray-800 rounded-full'>
+					<ActivityIndicator color='#D55004' size='small' />
+				</View>
+			)}
+			{hasError && (
+				<View className='absolute inset-0 flex items-center justify-center bg-gray-200 dark:bg-gray-800 rounded-full'>
+					<Ionicons name='image-outline' size={24} color='#D55004' />
+				</View>
+			)}
+			<Image
+				source={source}
+				className={className}
+				style={style}
+				onLoadStart={() => setIsLoading(true)}
+				onLoadEnd={() => setIsLoading(false)}
+				onError={() => {
+					setHasError(true)
+					setIsLoading(false)
+				}}
+			/>
+		</View>
+	)
+})
+
 interface Dealership {
 	id: number
 	name: string
@@ -226,6 +257,7 @@ export default function DealershipDetails() {
 
 			if (error) throw error
 			setDealership(data)
+			console.log(data)
 		} catch (error) {
 			console.error('Error fetching dealership details:', error)
 		} finally {
@@ -618,9 +650,18 @@ export default function DealershipDetails() {
 						className={`${
 							isDarkMode ? 'bg-light-text' : 'bg-white'
 						} rounded-lg shadow-md p-4 mb-4 border border-red`}>
-						<Image
-							source={{ uri: dealership.logo }}
+						<OptimizedImage
+							source={{
+								uri: dealership.logo || 'https://via.placeholder.com/150'
+							}}
 							className='w-24 h-24 rounded-full self-center mb-4'
+							style={{
+								shadowColor: isDarkMode ? '#D55004' : '#000',
+								shadowOffset: { width: 0, height: 2 },
+								shadowOpacity: 0.25,
+								shadowRadius: 3.84,
+								elevation: 5
+							}}
 						/>
 						<Text
 							className={`text-2xl font-bold ${textColor} text-center mb-2`}>
@@ -644,29 +685,6 @@ export default function DealershipDetails() {
 							<Ionicons name='location-outline' size={20} color={iconColor} />
 							<Text className={`${textColor} ml-2`}>{dealership.location}</Text>
 						</View>
-						{/* <MapView
-							style={{
-								height: 200,
-								borderRadius: 10,
-								marginVertical: 10,
-								width: width - 64
-							}}
-							region={{
-								latitude: dealership.latitude || 37.7749,
-								longitude: dealership.longitude || -122.4194,
-								latitudeDelta: 0.01,
-								longitudeDelta: 0.01
-							}}>
-							<Marker
-								coordinate={{
-									latitude: dealership.latitude || 37.7749,
-									longitude: dealership.longitude || -122.4194
-								}}
-								title={dealership.name}
-								description={dealership.location}
-							/>
-						</MapView> */}
-
 						<DealershipMapView
 							dealership={dealership}
 							isDarkMode={isDarkMode}
