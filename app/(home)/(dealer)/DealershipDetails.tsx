@@ -3,7 +3,6 @@ import {
 	View,
 	Text,
 	Image,
-	FlatList,
 	ActivityIndicator,
 	TouchableOpacity,
 	TextInput,
@@ -29,7 +28,6 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
-import StreetViewPanorama from 'react-native-maps'
 
 const ITEMS_PER_PAGE = 10
 const { width } = Dimensions.get('window')
@@ -718,7 +716,7 @@ export default function DealershipDetails() {
 		<LinearGradient colors={bgGradient} className='flex-1 mb-14'>
 			<CustomHeader
 				title={dealership?.name || 'Dealership'}
-				onBack={() => router.push('/(home)/(dealer)/browse')}
+				onBack={() => router.back()}
 			/>
 			<Animated.FlatList
 				data={cars}

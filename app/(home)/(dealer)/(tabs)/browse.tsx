@@ -9,12 +9,12 @@ import {
 	Text,
 	Keyboard,
 	Platform,
-  Alert
+	Alert
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModalIOS from './CarDetailModalIOS'
-import CarDetailModal from './CarDetailModal'
+import CarDetailModalIOS from '../CarDetailModalIOS'
+import CarDetailModal from '../CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -302,21 +302,20 @@ export default function BrowseCarsPage() {
 		[filters, searchQuery, fetchCars]
 	)
 
-const handleCarPress = useCallback(
-	(car: Car) => {
-		if (!isSubscriptionValid()) {
-			Alert.alert(
-				'Subscription Expired',
-				'Please renew your subscription to view car details.'
-			)
-			return
-		}
-		setSelectedCar(car)
-		setIsModalVisible(true)
-	},
-	[isSubscriptionValid]
-)
-
+	const handleCarPress = useCallback(
+		(car: Car) => {
+			if (!isSubscriptionValid()) {
+				Alert.alert(
+					'Subscription Expired',
+					'Please renew your subscription to view car details.'
+				)
+				return
+			}
+			setSelectedCar(car)
+			setIsModalVisible(true)
+		},
+		[isSubscriptionValid]
+	)
 
 	const SUBSCRIPTION_WARNING_DAYS = 7
 

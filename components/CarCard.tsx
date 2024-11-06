@@ -268,7 +268,6 @@ export default function CarCard({
 						{car.dealership_logo && (
 							<TouchableOpacity
 								onPress={handleDealershipPress}
-								disabled={isDealer}
 								className='absolute top-5 right-0'>
 								<OptimizedImage
 									source={{ uri: car.dealership_logo }}
