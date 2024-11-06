@@ -83,11 +83,14 @@ const CustomHeader = React.memo(
 	}
 )
 
+// Modified DealershipMapView component
 const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 	const mapRef = useRef<any>(null)
-	const [showCallout, setShowCallout] = useState(false)
+	const [mapReady, setMapReady] = useState(false)
+	const isIOS = Platform.OS === 'ios'
 
-	const zoomToFit = () => {
+	const handleMapReady = () => {
+		setMapReady(true)
 		if (mapRef.current) {
 			mapRef.current.fitToSuppliedMarkers(['dealershipMarker'], {
 				edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
@@ -110,75 +113,118 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 		Linking.openURL(url)
 	}
 
-	const handleMarkerPress = () => {
-		setShowCallout(true)
-	}
-
-	const handleMapPress = () => {
-		setShowCallout(false)
-	}
-
 	return (
-		<TouchableWithoutFeedback onPress={handleMapPress}>
-			<View className='h-64 rounded-lg overflow-hidden'>
-				<MapView
-					ref={mapRef}
-					provider={PROVIDER_GOOGLE}
-					style={{ flex: 1 }}
-					initialRegion={{
-						latitude: dealership.latitude || 37.7749,
-						longitude: dealership.longitude || -122.4194,
-						latitudeDelta: 0.02,
-						longitudeDelta: 0.02
-					}}
-					onMapReady={zoomToFit}
-					showsUserLocation={true}
-					showsMyLocationButton={true}
-					showsCompass={true}
-					zoomControlEnabled={true}
-					mapType={isDarkMode ? 'mutedStandard' : 'standard'}
-					cacheEnabled={Platform.OS === 'android'}
-					loadingEnabled
-					loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
-					loadingIndicatorColor='#D55004'
-					onPress={handleMapPress}>
+		<View className='h-64 rounded-lg overflow-hidden'>
+			<MapView
+				ref={mapRef}
+				provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
+				style={{ flex: 1 }}
+				initialRegion={{
+					latitude: dealership.latitude || 37.7749,
+					longitude: dealership.longitude || -122.4194,
+					latitudeDelta: 0.02,
+					longitudeDelta: 0.02
+				}}
+				onMapReady={handleMapReady}
+				showsUserLocation={true}
+				showsMyLocationButton={isIOS ? false : true}
+				showsCompass={true}
+				mapType={isDarkMode ? 'mutedStandard' : 'standard'}
+				className={isDarkMode ? 'opacity-90' : 'opacity-100'}>
+				{mapReady && (
 					<Marker
 						identifier='dealershipMarker'
 						coordinate={{
 							latitude: dealership.latitude || 37.7749,
 							longitude: dealership.longitude || -122.4194
-						}}
-						onPress={handleMarkerPress}>
-						<TouchableWithoutFeedback onPress={handleMarkerPress}>
+						}}>
+						<View className='items-center'>
 							<Image
 								source={{ uri: dealership.logo }}
-								style={{ width: 40, height: 40, borderRadius: 20 }}
+								className='w-12 h-12 rounded-full border-2 border-red'
 							/>
-						</TouchableWithoutFeedback>
-					</Marker>
-				</MapView>
-				{showCallout && (
-					<TouchableWithoutFeedback>
-						<View className='absolute bottom-4 left-4 right-4 bg-white dark:bg-gray rounded-lg p-3 shadow-lg flex-1'>
-							<Text className='font-bold text-sm text-black dark:text-white mx-auto'>
-								{dealership.name}
-							</Text>
-							<Text className='text-xs mt-1 text-gray dark:text-light-secondary mx-auto'>
-								{dealership.location}
-							</Text>
-							<View className='flex-row justify-center items-center mt-2'>
-								<TouchableOpacity
-									className='bg-red py-2 px-3 rounded-full flex-row items-center'
-									onPress={openInMaps}>
-									<Ionicons name='map' size={16} color='white' />
-									<Text className='text-white text-xs ml-1'>View on Map</Text>
-								</TouchableOpacity>
-							</View>
+							{isIOS && (
+								<View className='bg-white/90 dark:bg-gray/90 px-3 py-2 rounded-lg mt-2 shadow-lg'>
+									<Text className='text-sm font-bold text-red text-center'>
+										{dealership.name}
+									</Text>
+								</View>
+							)}
 						</View>
-					</TouchableWithoutFeedback>
+						{!isIOS && (
+							<Callout tooltip>
+								<BlurView
+									intensity={90}
+									tint={isDarkMode ? 'dark' : 'light'}
+									className='rounded-xl overflow-hidden shadow-lg'>
+									<View className='p-4 min-w-[250px]'>
+										<View className='flex-row items-center mb-2'>
+											<Image
+												source={{ uri: dealership.logo }}
+												className='w-8 h-8 rounded-full mr-2'
+											/>
+											<Text className='text-lg font-bold text-red flex-1'>
+												{dealership.name}
+											</Text>
+										</View>
+
+										<View className='flex-row items-center mb-2'>
+											<Ionicons
+												name='location-outline'
+												size={16}
+												color={isDarkMode ? '#fff' : '#000'}
+												className='mr-2'
+											/>
+											<Text
+												className={`text-sm ${
+													isDarkMode ? 'text-white' : 'text-black'
+												} flex-1`}>
+												{dealership.location}
+											</Text>
+										</View>
+
+										{dealership.phone && (
+											<View className='flex-row items-center'>
+												<Ionicons
+													name='call-outline'
+													size={16}
+													color={isDarkMode ? '#fff' : '#000'}
+													className='mr-2'
+												/>
+												<Text
+													className={`text-sm ${
+														isDarkMode ? 'text-white' : 'text-black'
+													}`}>
+													{dealership.phone}
+												</Text>
+											</View>
+										)}
+
+										<TouchableOpacity
+											className='bg-red mt-3 py-2 rounded-lg'
+											onPress={openInMaps}>
+											<Text className='text-white text-center font-semibold'>
+												Get Directions
+											</Text>
+										</TouchableOpacity>
+									</View>
+								</BlurView>
+							</Callout>
+						)}
+					</Marker>
 				)}
-			</View>
-		</TouchableWithoutFeedback>
+			</MapView>
+
+			<TouchableOpacity
+				onPress={openInMaps}
+				className='absolute bottom-4 right-4 bg-red/90 px-4 py-2 rounded-full
+                  flex-row items-center shadow-lg border border-white/20'>
+				<Ionicons name='navigate' size={20} color='white' />
+				<Text className='text-white text-sm font-semibold ml-2'>
+					Directions
+				</Text>
+			</TouchableOpacity>
+		</View>
 	)
 }
 
@@ -713,7 +759,7 @@ export default function DealershipDetails() {
 	}
 
 	return (
-		<LinearGradient colors={bgGradient} className='flex-1 mb-14'>
+		<LinearGradient colors={bgGradient} className='flex-1'>
 			<CustomHeader
 				title={dealership?.name || 'Dealership'}
 				onBack={() => router.back()}

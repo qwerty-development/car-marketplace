@@ -112,10 +112,17 @@ export default function CarCard({
 	}, [car.dealership_phone])
 
 	const handleDealershipPress = useCallback(() => {
-		router.push({
-			pathname: '/(home)/(user)/DealershipDetails',
-			params: { dealershipId: car.dealership_id }
-		})
+		if (isDealer) {
+			router.push({
+				pathname: '/(home)/(dealer)/DealershipDetails',
+				params: { dealershipId: car.dealership_id }
+			})
+		} else {
+			router.push({
+				pathname: '/(home)/(user)/DealershipDetails',
+				params: { dealershipId: car.dealership_id }
+			})
+		}
 	}, [router, car.dealership_id])
 
 	const handleWhatsApp = useCallback(() => {
