@@ -232,12 +232,21 @@ export default function SalesHistoryPage() {
 
 	const isSubscriptionValid = useCallback(() => {
 		if (!dealership || !dealership.subscription_end_date) return false
+
 		const endDate = new Date(dealership.subscription_end_date)
 		const today = new Date()
-		// Set the time to midnight for accurate date comparison
+
+		// Normalize dates by setting time to start of day
 		endDate.setHours(0, 0, 0, 0)
 		today.setHours(0, 0, 0, 0)
-		return endDate >= today // Changed from > to >= to include the end date
+
+		// Add debug logging
+		console.log('End Date:', endDate)
+		console.log('Today:', today)
+		console.log('Is Valid:', endDate >= today)
+
+		// Compare dates including the end date
+		return endDate >= today
 	}, [dealership])
 
 	const getDaysUntilExpiration = useCallback(() => {
@@ -341,13 +350,28 @@ export default function SalesHistoryPage() {
 						isDarkMode ? 'bg-gray' : 'bg-white'
 					} p-4 rounded-lg mb-5 shadow-lg`}
 					onPress={() => {
-						if (!isSubscriptionValid()) {
+						// Add debug logging
+						console.log('Subscription Status:', isSubscriptionValid())
+						console.log('Current Dealership:', dealership)
+
+						if (!dealership?.subscription_end_date) {
 							Alert.alert(
-								'Subscription Expired',
-								'Please renew your subscription to view sale details.'
+								'Error',
+								'Unable to verify subscription status. Please try again.'
 							)
 							return
 						}
+
+						if (!isSubscriptionValid()) {
+							Alert.alert(
+								'Subscription Expired',
+								`Your subscription expired on ${new Date(
+									dealership.subscription_end_date
+								).toLocaleDateString()}`
+							)
+							return
+						}
+
 						setSelectedSale(item)
 						setIsModalVisible(true)
 					}}>
@@ -389,7 +413,7 @@ export default function SalesHistoryPage() {
 				</TouchableOpacity>
 			)
 		},
-		[isDarkMode]
+		[isDarkMode, dealership, isSubscriptionValid]
 	)
 
 	return (
@@ -404,16 +428,36 @@ export default function SalesHistoryPage() {
 					</Text>
 				</View>
 			)}
-			{isSubscriptionValid() &&
-				getDaysUntilExpiration() <= SUBSCRIPTION_WARNING_DAYS && (
-					<View className='bg-yellow-500 p-4'>
-						<Text className='text-white text-center font-bold'>
-							Your subscription will expire in {getDaysUntilExpiration()}{' '}
-							day(s). Please renew soon.
-						</Text>
-					</View>
-				)}
-			<ScrollView className='flex-1'>
+			{dealership?.subscription_end_date ? (
+				<>
+					{!isSubscriptionValid() && (
+						<View className='bg-rose-700 p-4'>
+							<Text className='text-white text-center font-bold'>
+								Your subscription expired on{' '}
+								{new Date(
+									dealership.subscription_end_date
+								).toLocaleDateString()}
+							</Text>
+						</View>
+					)}
+					{isSubscriptionValid() &&
+						getDaysUntilExpiration() <= SUBSCRIPTION_WARNING_DAYS && (
+							<View className='bg-yellow-500 p-4'>
+								<Text className='text-white text-center font-bold'>
+									Your subscription will expire in {getDaysUntilExpiration()}{' '}
+									day(s). Please renew soon.
+								</Text>
+							</View>
+						)}
+				</>
+			) : (
+				<View className='bg-rose-700 p-4'>
+					<Text className='text-white text-center font-bold'>
+						Unable to verify subscription status. Please contact support.
+					</Text>
+				</View>
+			)}
+			<ScrollView className='flex-1 mb-10'>
 				<View className='px-4 py-2 mb-5'>
 					<View className='flex-row justify-between items-center mb-4'>
 						<TextInput
