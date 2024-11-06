@@ -132,30 +132,48 @@ export default function AdminUserManagement() {
 	const [isLoading, setIsLoading] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
 	const [showDatePicker, setShowDatePicker] = useState(false)
-	const { user } = useUser()
+
+	const [debouncedSearch, setDebouncedSearch] = useState(search)
 
 	const fetchUsers = useCallback(async () => {
 		setIsLoading(true)
 		try {
 			const response = await fetch(
-				`https://backend-car-marketplace.vercel.app/api/users?query=${search}`
+				`https://backend-car-marketplace.vercel.app/api/users?query=${debouncedSearch}`
 			)
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`)
+
+			// Handle no results case without throwing error
+			if (response.status === 404) {
+				setUsers([])
+				return
 			}
+
+			// Handle server errors more gracefully
+			if (!response.ok) {
+				throw new Error(
+					response.status === 500
+						? 'Server is temporarily unavailable'
+						: `Error: ${response.status}`
+				)
+			}
+
 			const data = await response.json()
-			setUsers(data.data)
-		} catch (error) {
-			console.error('Failed to fetch users:', error)
-			Alert.alert(
-				'Error',
-				'Failed to fetch users. Please check your internet connection and try again.',
-				[{ text: 'OK' }]
-			)
+			setUsers(data.data || [])
+		} catch (error: any) {
+			console.warn('Search warning:', error)
+			// Don't show alert for expected cases
+			if (error.message !== 'Server is temporarily unavailable') {
+				Alert.alert(
+					'Notice',
+					'Search results may be incomplete. Please try again later.',
+					[{ text: 'OK' }]
+				)
+			}
+			// Keep existing results on error
 		} finally {
 			setIsLoading(false)
 		}
-	}, [search])
+	}, [debouncedSearch])
 
 	useEffect(() => {
 		fetchUsers()
@@ -302,38 +320,69 @@ export default function AdminUserManagement() {
 				maxToRenderPerBatch={5}
 				updateCellsBatchingPeriod={50}
 				windowSize={5}
+				className='mb-14'
 			/>
 		),
 		[users, renderUserItem, refreshing, onRefresh, isDarkMode]
 	)
 
+	const SearchBar = useMemo(
+		() => (
+			<View className='flex-row items-center space-x-2 px-4 my-2'>
+				<View className='flex-1 relative'>
+					<TextInput
+						className={`rounded-xl py-3 px-4 ${
+							isDarkMode
+								? 'bg-gray text-white border-gray-700'
+								: 'bg-white text-gray border-gray-200'
+						} border`}
+						placeholder='Search users...'
+						placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+						value={search}
+						onChangeText={setSearch}
+						returnKeyType='search'
+						onSubmitEditing={() => {
+							setDebouncedSearch(search)
+							fetchUsers()
+						}}
+					/>
+					{search !== '' && (
+						<TouchableOpacity
+							className='absolute right-12 top-3.5'
+							onPress={() => {
+								setSearch('')
+								setDebouncedSearch('')
+								fetchUsers()
+							}}>
+							<Ionicons
+								name='close-circle'
+								size={20}
+								color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+							/>
+						</TouchableOpacity>
+					)}
+				</View>
+				<TouchableOpacity
+					className={`p-3 rounded-xl ${isDarkMode ? 'bg-red' : 'bg-red'}`}
+					onPress={() => {
+						setDebouncedSearch(search)
+						fetchUsers()
+						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+					}}>
+					<Ionicons name='search' size={22} color='white' />
+				</TouchableOpacity>
+			</View>
+		),
+		[search, isDarkMode, fetchUsers]
+	)
+
 	return (
-		<View
-			style={[
-				styles.container,
-				isDarkMode ? styles.darkContainer : styles.lightContainer
-			]}
-			className='mb-10'>
+		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<CustomHeader title='User Management' />
 			<LinearGradient
 				colors={isDarkMode ? ['#000000', '#2D2D2D'] : ['#F0F0F0', '#FFFFFF']}
-				style={styles.gradientContainer}>
-				<View style={styles.searchContainer}>
-					<TextInput
-						style={[
-							styles.searchInput,
-							isDarkMode ? styles.darkInput : styles.lightInput
-						]}
-						placeholder='Search users...'
-						placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-						value={search}
-						onChangeText={setSearch}
-						onSubmitEditing={fetchUsers}
-					/>
-					<TouchableOpacity style={styles.searchButton} onPress={fetchUsers}>
-						<Ionicons name='search' size={24} color='white' />
-					</TouchableOpacity>
-				</View>
+				className='flex-1'>
+				{SearchBar}
 				{isLoading ? (
 					<ActivityIndicator
 						size='large'
@@ -493,7 +542,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		paddingHorizontal: 16,
 		paddingTop: 16,
-		marginBottom:16,
+		marginBottom: 16
 	},
 	searchContainer: {
 		flexDirection: 'row',
@@ -568,7 +617,7 @@ const styles = StyleSheet.create({
 	userRoleContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		alignItems: 'center',
+		alignItems: 'center'
 	},
 	userRole: {
 		fontSize: 14,
