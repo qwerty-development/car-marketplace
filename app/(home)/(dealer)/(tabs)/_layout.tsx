@@ -51,6 +51,15 @@ export default function TabsLayout() {
 				}}
 			/>
 			<Tabs.Screen
+				name='create-autoclip'
+				options={{
+					tabBarIcon: ({ color }) => (
+						<Ionicons name='play-outline' size={32} color={color} />
+					),
+					headerTitle: 'Auto Clips'
+				}}
+			/>
+			<Tabs.Screen
 				name='sales-history'
 				options={{
 					tabBarIcon: ({ color }) => (
@@ -59,6 +68,7 @@ export default function TabsLayout() {
 					headerTitle: 'Sales History'
 				}}
 			/>
+
 			<Tabs.Screen
 				name='browse'
 				options={{

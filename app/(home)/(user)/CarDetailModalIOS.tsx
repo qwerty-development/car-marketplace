@@ -582,8 +582,7 @@ const CarDetailModalIOS = memo(
 									showsHorizontalScrollIndicator={false}
 								/>
 							</View>
-						</ScrollView>
-						<View
+							<View
 							style={styles.callToActionContainer}
 							className={isDarkMode ? 'bg-night' : 'bg-light-background'}>
 							{car.dealership_phone && (
@@ -613,6 +612,8 @@ const CarDetailModalIOS = memo(
 								<MaterialIcons name='share' size={24} color='#D55004' />
 							</TouchableOpacity>
 						</View>
+						</ScrollView>
+
 					</LinearGradient>
 				</Animated.View>
 			</PanGestureHandler>
@@ -637,13 +638,11 @@ const styles = StyleSheet.create({
 		flex: 1
 	},
 	callToActionContainer: {
-		position: 'absolute',
-		bottom: 0,
 		width: '100%',
 		flexDirection: 'row',
 		justifyContent: 'space-around',
+		marginBottom:64,
 		paddingVertical: 10,
-		borderTopWidth: 1
 	},
 	callToActionButton: {
 		alignItems: 'center',

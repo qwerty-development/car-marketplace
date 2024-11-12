@@ -57,6 +57,16 @@ export default function TabLayout() {
 				}}
 			/>
 			<Tabs.Screen
+				name='autoclips'
+				options={{
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name='play-outline' size={size} color={color} />
+					),
+					headerTitle: 'Autoclips',
+					headerShown: false
+				}}
+			/>
+			<Tabs.Screen
 				name='dealerships'
 				options={{
 					tabBarIcon: ({ color, size }) => (

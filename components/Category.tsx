@@ -44,18 +44,13 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 							styles.categoryButton,
 							selectedCategories.includes(category.name) &&
 								styles.selectedButton,
-							{ backgroundColor: isDarkMode ? '#333333' : '#F0F0F0' }
+							{ backgroundColor: isDarkMode ? '#FFFFFF' : '#F0F0F0' }
 						]}
 						onPress={() => onCategoryPress(category.name)}>
 						<Image
 							source={category.image}
 							style={[
 								styles.categoryImage,
-								isDarkMode && {
-									tintColor: selectedCategories.includes(category.name)
-										? '#D55004'
-										: '#FFFFFF'
-								},
 								selectedCategories.includes(category.name) &&
 									!isDarkMode && { tintColor: '#D55004' }
 							]}
@@ -88,7 +83,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		justifyContent: 'space-around',
-		padding: 8
+		padding: 1
 	},
 	categoryButton: {
 		flexDirection: 'column',
@@ -103,8 +98,8 @@ const styles = StyleSheet.create({
 		borderWidth: 2
 	},
 	categoryImage: {
-		width: 60,
-		height: 60,
+		width: 100,
+		height: 100,
 		marginBottom: 8,
 		resizeMode: 'contain'
 	},
