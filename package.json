@@ -20,7 +20,6 @@
     "@react-native-community/datetimepicker": "^8.2.0",
     "@react-native-community/slider": "4.5.2",
     "@react-native-picker/picker": "2.7.5",
-    "@react-navigation/native": "^6.0.2",
     "@rneui/themed": "^4.0.0-rc.8",
     "@shopify/flash-list": "1.6.4",
     "@supabase/supabase-js": "^2.45.1",
