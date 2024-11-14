@@ -217,29 +217,45 @@ export default function AutoClips() {
 			setIsLoading(false)
 		}
 	}
+	const [videoPositions, setVideoPositions] = useState<{
+		[key: number]: number
+	}>({})
 
 	const onViewableItemsChanged = useCallback(
-		({ viewableItems }: any) => {
+		async ({ viewableItems }: any) => {
 			if (viewableItems.length > 0) {
 				const visibleClip = viewableItems[0].item
-				setCurrentVideoIndex(
-					autoClips.findIndex(clip => clip.id === visibleClip.id)
-				)
+				const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id)
 
-				// Auto-play visible video
-				Object.entries(videoRefs.current).forEach(([clipId, ref]) => {
-					const shouldPlay = clipId === visibleClip.id.toString()
-					if (shouldPlay) {
-						ref?.playAsync()
-						setIsPlaying(prev => ({ ...prev, [clipId]: true }))
-					} else {
-						ref?.pauseAsync()
-						setIsPlaying(prev => ({ ...prev, [clipId]: false }))
-					}
-				})
+				// Only proceed if we're actually changing videos
+				if (newIndex !== currentVideoIndex) {
+					setCurrentVideoIndex(newIndex)
+
+					// Handle video transitions
+					await Promise.all(
+						Object.entries(videoRefs.current).map(async ([clipId, ref]) => {
+							const shouldPlay = clipId === visibleClip.id.toString()
+
+							try {
+								if (shouldPlay) {
+									// For the new video
+									await ref?.setPositionAsync(0)
+									await ref?.playAsync()
+									setIsPlaying(prev => ({ ...prev, [clipId]: true }))
+								} else {
+									// For other videos
+									await ref?.pauseAsync()
+									setIsPlaying(prev => ({ ...prev, [clipId]: false }))
+								}
+							} catch (error) {
+								console.error('Error transitioning video:', error)
+							}
+						})
+					)
+				}
 			}
 		},
-		[autoClips]
+		[autoClips, currentVideoIndex]
 	)
 
 	useEffect(() => {
@@ -249,23 +265,29 @@ export default function AutoClips() {
 	// Video playback management
 	useEffect(() => {
 		if (!isFocused) {
-			Object.values(videoRefs.current).forEach(ref => {
-				ref?.pauseAsync().catch(console.error)
+			Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+				try {
+					await ref?.pauseAsync()
+					await ref?.setPositionAsync(0)
+					setVideoPositions(prev => ({ ...prev, [clipId]: 0 }))
+				} catch (error) {
+					console.error('Error cleaning up video:', error)
+				}
 			})
-		} else if (autoClips[currentVideoIndex]) {
-			const currentClipId = autoClips[currentVideoIndex].id
-			const videoRef = videoRefs.current[currentClipId]
-			if (videoRef && isPlaying[currentClipId]) {
-				videoRef.playAsync().catch(console.error)
-			}
 		}
 
 		return () => {
-			Object.values(videoRefs.current).forEach(ref => {
-				ref?.pauseAsync().catch(console.error)
+			Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+				try {
+					await ref?.pauseAsync()
+					await ref?.setPositionAsync(0)
+					setVideoPositions(prev => ({ ...prev, [clipId]: 0 }))
+				} catch (error) {
+					console.error('Error cleaning up video:', error)
+				}
 			})
 		}
-	}, [isFocused, currentVideoIndex, isPlaying])
+	}, [isFocused])
 
 	// Video interactions
 	const handleVideoPress = async (clipId: number) => {
@@ -275,33 +297,35 @@ export default function AutoClips() {
 		const newPlayingState = !isPlaying[clipId]
 		setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
 
-		// Animate play/pause icon
-		const animation = playPauseAnimations.current[clipId]
-		setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: true }))
-
-		Animated.sequence([
-			Animated.timing(animation, {
-				toValue: 1,
-				duration: 200,
-				useNativeDriver: true
-			}),
-			Animated.timing(animation, {
-				toValue: 0,
-				duration: 200,
-				delay: 500,
-				useNativeDriver: true
-			})
-		]).start(() => {
-			setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: false }))
-		})
-
-		setTimeout(() => {
+		try {
 			if (newPlayingState) {
-				videoRef.playAsync()
+				await videoRef.playAsync()
 			} else {
-				videoRef.pauseAsync()
+				await videoRef.pauseAsync()
 			}
-		}, PAUSE_DELAY)
+
+			// Animate play/pause icon
+			const animation = playPauseAnimations.current[clipId]
+			setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: true }))
+
+			Animated.sequence([
+				Animated.timing(animation, {
+					toValue: 1,
+					duration: 200,
+					useNativeDriver: true
+				}),
+				Animated.timing(animation, {
+					toValue: 0,
+					duration: 200,
+					delay: 500,
+					useNativeDriver: true
+				})
+			]).start(() => {
+				setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: false }))
+			})
+		} catch (error) {
+			console.error('Error handling video playback:', error)
+		}
 	}
 
 	const handleSeek = async (
@@ -449,6 +473,33 @@ export default function AutoClips() {
 		)
 	}
 
+	useEffect(() => {
+		const preloadAdjacentVideos = async () => {
+			if (autoClips.length > 0) {
+				const prevIndex = Math.max(0, currentVideoIndex - 1)
+				const nextIndex = Math.min(autoClips.length - 1, currentVideoIndex + 1)
+
+				for (const index of [prevIndex, nextIndex]) {
+					if (index !== currentVideoIndex) {
+						const clip = autoClips[index]
+						if (clip) {
+							try {
+								const ref = videoRefs.current[clip.id]
+								if (ref) {
+									await ref.loadAsync({ uri: clip.video_url }, {}, false)
+								}
+							} catch (error) {
+								console.error('Error preloading video:', error)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		preloadAdjacentVideos()
+	}, [currentVideoIndex, autoClips])
+
 	const renderClip = ({ item, index }: { item: AutoClip; index: number }) => (
 		<View style={styles.clipContainer}>
 			<TouchableOpacity
@@ -467,6 +518,22 @@ export default function AutoClips() {
 					onPlaybackStatusUpdate={status =>
 						handlePlaybackStatusUpdate(status, item.id)
 					}
+					progressUpdateIntervalMillis={500} // Reduce update frequency
+					onLoad={async () => {
+						if (index === currentVideoIndex) {
+							try {
+								const ref = videoRefs.current[item.id]
+								if (ref) {
+									await ref.setPositionAsync(0)
+									if (isPlaying[item.id]) {
+										await ref.playAsync()
+									}
+								}
+							} catch (error) {
+								console.error('Error loading video:', error)
+							}
+						}
+					}}
 				/>
 
 				{renderVideoControls(item.id)}
