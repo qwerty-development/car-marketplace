@@ -16,6 +16,7 @@ import { Video, ResizeMode } from 'expo-av'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import CarDetailsModalOSclip from '../CarDetailsModalOSclip'
+import VideoControls from '@/components/VideoControls'
 import CarDetailsModalclip from '../CarDetailsModalclip'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
@@ -73,6 +74,13 @@ export default function AutoClips() {
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
+
+	const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
+		{}
+	)
+	const [videoDuration, setVideoDuration] = useState<{ [key: number]: number }>(
+		{}
+	)
 	// UI states
 	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
 	const [isModalVisible, setIsModalVisible] = useState(false)
@@ -102,6 +110,33 @@ export default function AutoClips() {
 		setRefreshing(true)
 		await fetchData()
 		setRefreshing(false)
+	}, [])
+
+	const handlePlaybackStatusUpdate = useCallback(
+		(status: any, clipId: number) => {
+			if (status.isLoaded) {
+				setVideoProgress(prev => ({
+					...prev,
+					[clipId]: status.positionMillis / 1000
+				}))
+				setVideoDuration(prev => ({
+					...prev,
+					[clipId]: status.durationMillis / 1000
+				}))
+			}
+		},
+		[]
+	)
+
+	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
+		const videoRef = videoRefs.current[clipId]
+		if (videoRef) {
+			try {
+				await videoRef.setPositionAsync(time * 1000)
+			} catch (error) {
+				console.error('Error scrubbing video:', error)
+			}
+		}
 	}, [])
 
 	// Initialize animations
@@ -332,48 +367,18 @@ export default function AutoClips() {
 
 	const renderVideoControls = useCallback(
 		(clipId: number) => (
-			<View className='absolute right-4 bottom-40 items-center z-10'>
-				<TouchableOpacity
-					onPress={e => handleMutePress(clipId, e)}
-					className='bg-black/50 p-3 rounded-full mb-4'>
-					{globalMute ? (
-						<VolumeX color='white' size={24} />
-					) : (
-						<Volume2 color='white' size={24} />
-					)}
-				</TouchableOpacity>
-
-				<View className='flex-row items-center space-x-4'>
-					<TouchableOpacity
-						onPress={() => handleSeek(clipId, 'backward')}
-						className='bg-black/50 p-3 rounded-full'>
-						<SkipBack color='white' size={24} />
-					</TouchableOpacity>
-
-					<TouchableOpacity
-						onPress={() => handleSeek(clipId, 'forward')}
-						className='bg-black/50 p-3 rounded-full'>
-						<SkipForward color='white' size={24} />
-					</TouchableOpacity>
-				</View>
-			</View>
+			<VideoControls
+				clipId={clipId}
+				duration={videoDuration[clipId] || 0}
+				currentTime={videoProgress[clipId] || 0}
+				isPlaying={isPlaying[clipId]}
+				globalMute={globalMute}
+				onMutePress={handleMutePress}
+				onScrub={handleVideoScrub}
+				videoRef={videoRefs}
+			/>
 		),
-		[globalMute]
-	)
-
-	// Render functions
-	const renderClipControls = (clipId: number) => (
-		<View style={styles.controlsContainer}>
-			<TouchableOpacity
-				onPress={e => handleMutePress(clipId, e)}
-				style={styles.controlButton}>
-				{globalMute ? (
-					<VolumeX color='white' size={24} />
-				) : (
-					<Volume2 color='white' size={24} />
-				)}
-			</TouchableOpacity>
-		</View>
+		[videoDuration, videoProgress, isPlaying, globalMute]
 	)
 
 	const renderClipInfo = (item: AutoClip) => {
@@ -459,9 +464,12 @@ export default function AutoClips() {
 					shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
 					isLooping
 					isMuted={globalMute}
+					onPlaybackStatusUpdate={status =>
+						handlePlaybackStatusUpdate(status, item.id)
+					}
 				/>
 
-				{renderClipControls(item.id)}
+				{renderVideoControls(item.id)}
 
 				{/* Play/Pause Icon Animation */}
 				{showPlayPauseIcon[item.id] && (
@@ -620,12 +628,11 @@ const styles = StyleSheet.create({
 
 	infoContainer: {
 		position: 'absolute',
-		bottom: -100, // Changed from 0 to TAB_BAR_HEIGHT
-		paddingBottom: 30,
+		bottom: -80, // Changed from 0 to TAB_BAR_HEIGHT
+		paddingBottom: 0,
 		left: 0,
 		right: 0,
-		backgroundColor: 'rgba(0,0,0,0.3)',
-		zIndex: 20
+		backgroundColor: 'rgba(0,0,0,0.3)'
 	},
 	infoGradient: {
 		justifyContent: 'flex-end', // Align content to bottom
