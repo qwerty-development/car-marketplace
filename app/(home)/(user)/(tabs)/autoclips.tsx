@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -20,6 +20,7 @@ import VideoControls from '@/components/VideoControls'
 import CarDetailsModalclip from '../CarDetailsModalclip'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
+import { formatDistanceToNow } from 'date-fns'
 import {
 	Volume2,
 	VolumeX,
@@ -30,6 +31,7 @@ import {
 	SkipBack,
 	SkipForward
 } from 'lucide-react-native'
+import { Ionicons } from '@expo/vector-icons'
 
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
@@ -59,6 +61,7 @@ interface AutoClip {
 	dealership_id: number
 	car?: Car
 	dealership?: Dealership
+	created_at: Date
 }
 
 interface VideoState {
@@ -405,6 +408,12 @@ export default function AutoClips() {
 		[videoDuration, videoProgress, isPlaying, globalMute]
 	)
 
+	// First, create a memoized function at the component level
+	const getFormattedPostDate = useCallback((createdAt: any) => {
+		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
+	}, [])
+
+	// Then modify the renderClipInfo function
 	const renderClipInfo = (item: AutoClip) => {
 		const animation = infoExpandAnimations.current[item.id]
 		const translateY = animation.interpolate({
@@ -412,22 +421,35 @@ export default function AutoClips() {
 			outputRange: [0, -150]
 		})
 
+		const formattedPostDate = getFormattedPostDate(item.created_at)
+
 		return (
 			<Animated.View
-				style={[styles.infoContainer, { transform: [{ translateY }] }]}>
-				<View style={styles.dealershipBar}>
-					<View style={styles.dealershipInfo}>
+				style={[{ transform: [{ translateY }] }]}
+				className='absolute bottom-0 left-0 right-0 bg-black/30'>
+				{/* Top Bar with Dealership Info and Time */}
+				<View className='flex-row items-center justify-between p-4'>
+					<View className='flex-row items-center flex-1'>
 						{item.dealership?.logo && (
 							<Image
 								source={{ uri: item.dealership.logo }}
-								style={styles.dealershipLogo}
+								className='w-10 h-10 rounded-xl mr-3 bg-white/50'
 							/>
 						)}
-						<Text style={styles.dealershipName}>{item.dealership?.name}</Text>
+						<Text className='text-white text-xl font-semibold flex-1'>
+							{item.dealership?.name}
+						</Text>
 					</View>
+
+					<View className='bg-red/60 rounded-full px-3 py-1 mr-3'>
+						<Text className='text-white text-xs font-medium'>
+							{formattedPostDate}
+						</Text>
+					</View>
+
 					<TouchableOpacity
 						onPress={() => toggleInfoExpand(item.id)}
-						style={styles.expandButton}>
+						className='w-8 h-8 justify-center items-center bg-black/30 rounded-full'>
 						<ChevronUp
 							color='white'
 							size={24}
@@ -442,29 +464,30 @@ export default function AutoClips() {
 					</TouchableOpacity>
 				</View>
 
+				{/* Expandable Content */}
 				<Animated.View
-					style={[
-						styles.expandableContent,
-						{
-							opacity: animation
-						}
-					]}>
-					<Text style={styles.title}>{item.title}</Text>
-					<Text style={styles.description} numberOfLines={2}>
+					style={{ opacity: animation }}
+					className='px-4 pb-4 space-y-3'>
+					<Text className='text-white text-lg font-bold'>{item.title}</Text>
+
+					<Text className='text-white text-base' numberOfLines={2}>
 						{item.description}
 					</Text>
+
 					{item.car && (
-						<View style={styles.carInfo}>
-							<Text style={styles.carName}>
+						<View className='space-y-2'>
+							<Text className='text-red text-lg font-semibold'>
 								{item.car.year} {item.car.make} {item.car.model}
 							</Text>
+
 							<TouchableOpacity
-								style={styles.visitButton}
+								className='bg-red self-start rounded-lg px-5 py-2.5 flex-row items-center space-x-2'
 								onPress={() => {
 									setSelectedCar(item.car!)
 									setIsModalVisible(true)
 								}}>
-								<Text style={styles.visitButtonText}>Visit Car</Text>
+								<Text className='text-white font-semibold'>View Details</Text>
+								<Ionicons name='arrow-forward' size={18} color='white' />
 							</TouchableOpacity>
 						</View>
 					)}
