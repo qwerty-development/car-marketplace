@@ -21,6 +21,8 @@ import CarDetailsModalclip from '../CarDetailsModalclip'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
 import { formatDistanceToNow } from 'date-fns'
+import { debounce } from 'lodash'
+import { useUser } from '@clerk/clerk-expo'
 import {
 	Volume2,
 	VolumeX,
@@ -62,6 +64,7 @@ interface AutoClip {
 	car?: Car
 	dealership?: Dealership
 	created_at: Date
+	views?: number
 }
 
 interface VideoState {
@@ -77,6 +80,29 @@ export default function AutoClips() {
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
+	const { user } = useUser()
+	const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
+	const viewedClips = useRef<Set<number>>(new Set())
+	const trackClipView = async (clipId: number) => {
+		if (!user || viewedClips.current.has(clipId)) return
+
+		try {
+			await supabase.rpc('track_autoclip_view', {
+				clip_id: clipId,
+				user_id: user.id
+			})
+			viewedClips.current.add(clipId)
+
+			// Update local state
+			setAutoClips(prev =>
+				prev.map(clip =>
+					clip.id === clipId ? { ...clip, views: (clip.views || 0) + 1 } : clip
+				)
+			)
+		} catch (error) {
+			console.error('Error tracking view:', error)
+		}
+	}
 
 	const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
 		{}
@@ -225,41 +251,51 @@ export default function AutoClips() {
 	}>({})
 
 	const onViewableItemsChanged = useCallback(
-		async ({ viewableItems }: any) => {
+		({ viewableItems }: any) => {
 			if (viewableItems.length > 0) {
 				const visibleClip = viewableItems[0].item
 				const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id)
 
-				// Only proceed if we're actually changing videos
 				if (newIndex !== currentVideoIndex) {
+					// Clear any existing view timer
+					if (viewTimers.current[currentVideoIndex]) {
+						clearTimeout(viewTimers.current[currentVideoIndex])
+					}
+
 					setCurrentVideoIndex(newIndex)
 
-					// Handle video transitions
-					await Promise.all(
-						Object.entries(videoRefs.current).map(async ([clipId, ref]) => {
-							const shouldPlay = clipId === visibleClip.id.toString()
+					// Set new view timer for current clip
+					viewTimers.current[newIndex] = setTimeout(() => {
+						trackClipView(visibleClip.id)
+					}, 5000)
 
-							try {
-								if (shouldPlay) {
-									// For the new video
-									await ref?.setPositionAsync(0)
-									await ref?.playAsync()
-									setIsPlaying(prev => ({ ...prev, [clipId]: true }))
-								} else {
-									// For other videos
-									await ref?.pauseAsync()
-									setIsPlaying(prev => ({ ...prev, [clipId]: false }))
-								}
-							} catch (error) {
-								console.error('Error transitioning video:', error)
+					// Handle video transitions
+					Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+						const shouldPlay = clipId === visibleClip.id.toString()
+						try {
+							if (shouldPlay) {
+								await ref?.setPositionAsync(0)
+								await ref?.playAsync()
+								setIsPlaying(prev => ({ ...prev, [clipId]: true }))
+							} else {
+								await ref?.pauseAsync()
+								setIsPlaying(prev => ({ ...prev, [clipId]: false }))
 							}
-						})
-					)
+						} catch (error) {
+							console.error('Error transitioning video:', error)
+						}
+					})
 				}
 			}
 		},
-		[autoClips, currentVideoIndex]
+		[autoClips, currentVideoIndex, trackClipView]
 	)
+
+	useEffect(() => {
+		return () => {
+			Object.values(viewTimers.current).forEach(timer => clearTimeout(timer))
+		}
+	}, [])
 
 	useEffect(() => {
 		fetchData()
@@ -303,8 +339,16 @@ export default function AutoClips() {
 		try {
 			if (newPlayingState) {
 				await videoRef.playAsync()
+				// Reset view timer when resuming
+				viewTimers.current[currentVideoIndex] = setTimeout(() => {
+					trackClipView(clipId)
+				}, 5000)
 			} else {
 				await videoRef.pauseAsync()
+				// Clear timer when pausing
+				if (viewTimers.current[currentVideoIndex]) {
+					clearTimeout(viewTimers.current[currentVideoIndex])
+				}
 			}
 
 			// Animate play/pause icon
