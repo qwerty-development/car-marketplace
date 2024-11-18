@@ -10,19 +10,23 @@ import {
 	StyleSheet,
 	ActivityIndicator,
 	RefreshControl,
-	Animated
+	Animated,
+	Alert
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
-import { LinearGradient } from 'expo-linear-gradient'
+
 import { useTheme } from '@/utils/ThemeContext'
 import CarDetailsModalOSclip from '../CarDetailsModalOSclip'
 import VideoControls from '@/components/VideoControls'
 import CarDetailsModalclip from '../CarDetailsModalclip'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
-import { formatDistanceToNow } from 'date-fns'
+
 import { debounce } from 'lodash'
 import { useUser } from '@clerk/clerk-expo'
+import { Share, Linking } from 'react-native'
+import { formatDistanceToNow } from 'date-fns'
+import { LinearGradient } from 'expo-linear-gradient'
 import {
 	Volume2,
 	VolumeX,
@@ -65,6 +69,8 @@ interface AutoClip {
 	dealership?: Dealership
 	created_at: Date
 	views?: number
+	likes?: number
+	liked_users?: string[]
 }
 
 interface VideoState {
@@ -192,7 +198,7 @@ export default function AutoClips() {
 		try {
 			const { data: clipsData, error: clipsError } = await supabase
 				.from('auto_clips')
-				.select('*')
+				.select('*,liked_users')
 				.eq('status', 'published')
 
 			if (clipsError) throw clipsError
@@ -226,7 +232,8 @@ export default function AutoClips() {
 				return {
 					...clip,
 					car: carsById[clip.car_id],
-					dealership: dealershipsById[clip.dealership_id]
+					dealership: dealershipsById[clip.dealership_id],
+					liked_users: clip.liked_users || []
 				}
 			})
 
@@ -397,6 +404,60 @@ export default function AutoClips() {
 		}
 	}
 
+	const handleLikePress = async (clipId: number) => {
+		if (!user) return
+
+		try {
+			const { data: newLikesCount, error } = await supabase.rpc(
+				'toggle_autoclip_like',
+				{
+					clip_id: clipId,
+					user_id: user.id
+				}
+			)
+
+			if (error) throw error
+
+			// Update local state
+			setAutoClips(prev =>
+				prev.map(clip =>
+					clip.id === clipId
+						? {
+								...clip,
+								likes: newLikesCount,
+								liked_users: clip.liked_users?.includes(user.id)
+									? clip.liked_users.filter(id => id !== user.id)
+									: [...(clip.liked_users || []), user.id]
+						  }
+						: clip
+				)
+			)
+
+			// Trigger heart animation
+			const animation = heartAnimations.current[clipId]
+			if (animation) {
+				animation.setValue(0)
+				Animated.sequence([
+					Animated.spring(animation, {
+						toValue: 1,
+						useNativeDriver: true,
+						damping: 15
+					}),
+					Animated.timing(animation, {
+						toValue: 0,
+						duration: 100,
+						delay: 500,
+						useNativeDriver: true
+					})
+				]).start()
+
+				// Haptic feedback
+			}
+		} catch (error) {
+			console.error('Error toggling like:', error)
+		}
+	}
+
 	const handleMutePress = async (clipId: number, event: any) => {
 		event.stopPropagation()
 		const newMuteState = !globalMute
@@ -407,49 +468,53 @@ export default function AutoClips() {
 			ref?.setIsMutedAsync(newMuteState)
 		})
 	}
-
-	const handleDoubleTap = (clipId: number) => {
+	const handleDoubleTap = async (clipId: number) => {
 		const now = Date.now()
 		const lastTapTime = lastTap.current[clipId] || 0
 
 		if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-			setIsLiked(prev => ({ ...prev, [clipId]: !prev[clipId] }))
-
-			// Heart animation
-			const animation = heartAnimations.current[clipId]
-			animation.setValue(0)
-			Animated.sequence([
-				Animated.spring(animation, {
-					toValue: 1,
-					useNativeDriver: true,
-					damping: 15
-				}),
-				Animated.timing(animation, {
-					toValue: 0,
-					duration: 100,
-					delay: 500,
-					useNativeDriver: true
-				})
-			]).start()
+			// Only like if not already liked
+			const clip = autoClips.find(c => c.id === clipId)
+			if (clip && !clip.liked_users?.includes(user?.id || '')) {
+				await handleLikePress(clipId)
+			}
 		}
 
 		lastTap.current[clipId] = now
 	}
 
 	const renderVideoControls = useCallback(
-		(clipId: number) => (
-			<VideoControls
-				clipId={clipId}
-				duration={videoDuration[clipId] || 0}
-				currentTime={videoProgress[clipId] || 0}
-				isPlaying={isPlaying[clipId]}
-				globalMute={globalMute}
-				onMutePress={handleMutePress}
-				onScrub={handleVideoScrub}
-				videoRef={videoRefs}
-			/>
-		),
-		[videoDuration, videoProgress, isPlaying, globalMute]
+		(clipId: number) => {
+			const clip = autoClips.find(c => c.id === clipId)
+			const isLiked = clip?.liked_users?.includes(user?.id || '') || false
+
+			return (
+				<VideoControls
+					clipId={clipId}
+					duration={videoDuration[clipId] || 0}
+					currentTime={videoProgress[clipId] || 0}
+					isPlaying={isPlaying[clipId]}
+					globalMute={globalMute}
+					onMutePress={handleMutePress}
+					onScrub={handleVideoScrub}
+					videoRef={videoRefs}
+					likes={clip?.likes || 0}
+					isLiked={isLiked}
+					onLikePress={handleLikePress}
+				/>
+			)
+		},
+		[
+			autoClips,
+			videoDuration,
+			videoProgress,
+			isPlaying,
+			globalMute,
+			user?.id,
+			handleMutePress,
+			handleVideoScrub,
+			handleLikePress
+		]
 	)
 
 	// First, create a memoized function at the component level
@@ -457,86 +522,113 @@ export default function AutoClips() {
 		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 	}, [])
 
-	// Then modify the renderClipInfo function
-	const renderClipInfo = (item: AutoClip) => {
-		const animation = infoExpandAnimations.current[item.id]
-		const translateY = animation.interpolate({
-			inputRange: [0, 1],
-			outputRange: [0, -150]
-		})
-
+	const renderClipInfo = (item: any) => {
 		const formattedPostDate = getFormattedPostDate(item.created_at)
 
 		return (
-			<Animated.View
-				style={[{ transform: [{ translateY }] }]}
-				className='absolute bottom-0 left-0 right-0 bg-black/30'>
-				{/* Top Bar with Dealership Info and Time */}
-				<View className='flex-row items-center justify-between p-4'>
-					<View className='flex-row items-center flex-1'>
-						{item.dealership?.logo && (
-							<Image
-								source={{ uri: item.dealership.logo }}
-								className='w-10 h-10 rounded-xl mr-3 bg-white/50'
-							/>
-						)}
-						<Text className='text-white text-xl font-semibold flex-1'>
-							{item.dealership?.name}
-						</Text>
+			<View className='absolute bottom-0 left-0 right-0 pb-16 -mb-1 '>
+				{/* Gradient overlay for better text visibility */}
+				<LinearGradient
+					colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
+					className='p-4  rounded-t-3xl'
+					style={{ zIndex: 50 }}>
+					{/* Top Bar - Dealership Info & Time */}
+					<View className='flex-row items-center justify-between mb-1'>
+						<View className='flex-row items-center flex-1'>
+							{item.dealership?.logo && (
+								<Image
+									source={{ uri: item.dealership.logo }}
+									className='w-12 h-12 rounded-xl mr-3 bg-white/50'
+								/>
+							)}
+							<View className='flex-1'>
+								<Text className='text-white text-lg font-bold'>
+									{item.dealership?.name}
+								</Text>
+								<View className='flex-row items-center'>
+									<Text className='text-red text-sm'>{formattedPostDate}</Text>
+								</View>
+							</View>
+						</View>
 					</View>
 
-					<View className='bg-red/60 rounded-full px-3 py-1 mr-3'>
-						<Text className='text-white text-xs font-medium'>
-							{formattedPostDate}
-						</Text>
-					</View>
-
-					<TouchableOpacity
-						onPress={() => toggleInfoExpand(item.id)}
-						className='w-8 h-8 justify-center items-center bg-black/30 rounded-full'>
-						<ChevronUp
-							color='white'
-							size={24}
-							style={{
-								transform: [
-									{
-										rotate: expandedInfo[item.id] ? '180deg' : '0deg'
-									}
-								]
-							}}
-						/>
-					</TouchableOpacity>
-				</View>
-
-				{/* Expandable Content */}
-				<Animated.View
-					style={{ opacity: animation }}
-					className='px-4 pb-4 space-y-3'>
-					<Text className='text-white text-lg font-bold'>{item.title}</Text>
-
-					<Text className='text-white text-base' numberOfLines={2}>
-						{item.description}
-					</Text>
-
+					{/* Car Title & Status */}
 					{item.car && (
-						<View className='space-y-2'>
-							<Text className='text-red text-lg font-semibold'>
+						<View className='mb-1'>
+							<Text className='text-red text-xl font-bold'>
 								{item.car.year} {item.car.make} {item.car.model}
 							</Text>
+							<View className='flex-row items-center mt-1'>
+								<View className='bg-red/20 px-3 py-1 rounded-full'>
+									<Text className='text-red text-sm font-medium'>
+										{item.car.status || 'Available'}
+									</Text>
+								</View>
+							</View>
+						</View>
+					)}
 
+					{/* Description */}
+					{item.description && (
+						<View className='mb-1'>
+							<Text
+								className='text-white/90 text-base leading-6'
+								numberOfLines={2}>
+								{item.description}
+							</Text>
+						</View>
+					)}
+
+					{/* Action Buttons */}
+					{item.car && (
+						<View className='flex-row items-center space-x-3'>
 							<TouchableOpacity
-								className='bg-red self-start rounded-lg px-5 py-2.5 flex-row items-center space-x-2'
+								className='flex-1 bg-red py-2 px-4 rounded-xl flex-row items-center justify-center'
 								onPress={() => {
 									setSelectedCar(item.car!)
 									setIsModalVisible(true)
 								}}>
-								<Text className='text-white font-semibold'>View Details</Text>
+								<Text className='text-white font-semibold mr-2'>
+									View Details
+								</Text>
 								<Ionicons name='arrow-forward' size={18} color='white' />
+							</TouchableOpacity>
+
+							{/* Share Button */}
+							<TouchableOpacity
+								className='bg-white/10 p-2 rounded-xl'
+								onPress={async () => {
+									try {
+										await Share.share({
+											message: `Check out this ${item.car.year} ${
+												item.car.make
+											} ${item.car.model} on [Your App Name]!\n\n${
+												item.description || ''
+											}`
+										})
+									} catch (error) {
+										console.error('Error sharing:', error)
+									}
+								}}>
+								<Ionicons name='share-social' size={24} color='white' />
+							</TouchableOpacity>
+
+							{/* Contact Dealer Button */}
+							<TouchableOpacity
+								className='bg-white/10 p-2 rounded-xl'
+								onPress={() => {
+									if (item.dealership?.phone) {
+										Linking.openURL(`tel:${item.dealership.phone}`)
+									} else {
+										Alert.alert('Contact', 'Phone number not available')
+									}
+								}}>
+								<Ionicons name='call' size={24} color='white' />
 							</TouchableOpacity>
 						</View>
 					)}
-				</Animated.View>
-			</Animated.View>
+				</LinearGradient>
+			</View>
 		)
 	}
 
@@ -568,16 +660,16 @@ export default function AutoClips() {
 	}, [currentVideoIndex, autoClips])
 
 	const renderClip = ({ item, index }: { item: AutoClip; index: number }) => (
-		<View style={styles.clipContainer}>
+		<View className='h-screen w-screen'>
 			<TouchableOpacity
 				activeOpacity={1}
 				onPress={() => handleVideoPress(item.id)}
 				onLongPress={() => handleDoubleTap(item.id)}
-				style={styles.videoContainer}>
+				style={{ flex: 1 }}>
 				<Video
 					ref={ref => (videoRefs.current[item.id] = ref)}
 					source={{ uri: item.video_url }}
-					style={styles.video}
+					style={{ flex: 1 }}
 					resizeMode={ResizeMode.COVER}
 					shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
 					isLooping
@@ -602,9 +694,6 @@ export default function AutoClips() {
 						}
 					}}
 				/>
-
-				{renderVideoControls(item.id)}
-
 				{/* Play/Pause Icon Animation */}
 				{showPlayPauseIcon[item.id] && (
 					<Animated.View
@@ -633,14 +722,16 @@ export default function AutoClips() {
 										outputRange: [0.3, 1.2]
 									})
 								}
-							]
+							],
+							zIndex: 70 // Highest z-index
 						}
 					]}>
 					<Heart size={80} color='#D55004' fill='#D55004' />
 				</Animated.View>
-			</TouchableOpacity>
 
-			{renderClipInfo(item)}
+				{renderVideoControls(item.id)}
+				{renderClipInfo(item)}
+			</TouchableOpacity>
 		</View>
 	)
 

@@ -1,6 +1,13 @@
+// VideoControls.tsx
 import React, { useState, useEffect, useCallback } from 'react'
 import { View, Text, TouchableOpacity, Animated } from 'react-native'
-import { Volume2, VolumeX, SkipBack, SkipForward } from 'lucide-react-native'
+import {
+	Volume2,
+	VolumeX,
+	SkipBack,
+	SkipForward,
+	Heart
+} from 'lucide-react-native'
 
 const VideoControls = ({
 	clipId,
@@ -10,7 +17,10 @@ const VideoControls = ({
 	globalMute,
 	onMutePress,
 	onScrub,
-	videoRef
+	videoRef,
+	likes,
+	isLiked,
+	onLikePress
 }: any) => {
 	const [showControls, setShowControls] = useState(true)
 	const [progressWidth, setProgressWidth] = useState(0)
@@ -54,47 +64,75 @@ const VideoControls = ({
 	}
 
 	return (
-		<Animated.View
-			className='absolute  left-0 right-0 bg-black/50 p-4 z-50'
-			style={{ opacity }}
-			onLayout={e => setProgressWidth(e.nativeEvent.layout.width - 32)}>
-			{/* Progress Bar */}
-			<View className='mb-4'>
-				<TouchableOpacity
-					className='h-8 justify-center -mt-2' // Increased touch target
-					onPress={handleScrubbing}
-					activeOpacity={1}>
-					<View className='h-1 w-full bg-gray-600 rounded-full overflow-hidden'>
-						<View
-							className='h-full bg-red'
-							style={{ width: `${(currentTime / duration) * 100}%` }}
-						/>
-						<View
-							className='absolute top-1/2 -mt-2 h-4 w-4 bg-red rounded-full shadow-lg'
-							style={{ left: `${(currentTime / duration) * 100}%` }}
-						/>
-					</View>
-				</TouchableOpacity>
+		<>
+			{/* Progress bar at bottom */}
+			<Animated.View
+				className='absolute bottom-0 left-0 right-0 p-4'
+				style={{
+					opacity,
+					zIndex: 60
+				}}
+				onLayout={e => setProgressWidth(e.nativeEvent.layout.width - 32)}>
+				<View className='mb-2'>
+					<TouchableOpacity
+						className='h-8 justify-center -mt-2'
+						onPress={handleScrubbing}
+						activeOpacity={1}>
+						<View className='h-1 w-full bg-gray-600 rounded-full overflow-hidden'>
+							<View
+								className='h-full bg-red'
+								style={{ width: `${(currentTime / duration) * 100}%` }}
+							/>
+							<View
+								className='absolute top-1/2 -mt-2 h-4 w-4 bg-red rounded-full shadow-lg'
+								style={{ left: `${(currentTime / duration) * 100}%` }}
+							/>
+						</View>
+					</TouchableOpacity>
 
-				<View className='flex-row justify-between mt-2'>
-					<Text className='text-white text-xs'>{formatTime(currentTime)}</Text>
-					<Text className='text-white text-xs'>{formatTime(duration)}</Text>
+					<View className='flex-row justify-between mt-2'>
+						<Text className='text-white text-xs'>
+							{formatTime(currentTime)}
+						</Text>
+						<Text className='text-white text-xs'>{formatTime(duration)}</Text>
+					</View>
+				</View>
+			</Animated.View>
+
+			{/* Side controls */}
+			<View
+				className='absolute right-4 bottom-32'
+				style={{ zIndex: 60 }} // Increased z-index
+			>
+				<View className='space-y-6'>
+					<TouchableOpacity
+						onPress={e => onMutePress(clipId, e)}
+						className='bg-black/50 p-3 rounded-full'>
+						{globalMute ? (
+							<VolumeX color='white' size={24} />
+						) : (
+							<Volume2 color='white' size={24} />
+						)}
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						onPress={() => onLikePress(clipId)}
+						className='items-center'>
+						<View className='bg-black/50 rounded-full p-3 mb-1'>
+							<Heart
+								size={24}
+								color='white'
+								fill={isLiked ? '#D55004' : 'none'}
+								strokeWidth={isLiked ? 0 : 2}
+							/>
+						</View>
+						<Text className='text-white text-center text-sm font-medium'>
+							{likes || 0}
+						</Text>
+					</TouchableOpacity>
 				</View>
 			</View>
-
-			{/* Control Buttons */}
-			<View className='flex-row items-center justify-between px-4'>
-				<TouchableOpacity
-					onPress={e => onMutePress(clipId, e)}
-					className='bg-red/20 p-3 rounded-full'>
-					{globalMute ? (
-						<VolumeX color='white' size={24} />
-					) : (
-						<Volume2 color='white' size={24} />
-					)}
-				</TouchableOpacity>
-			</View>
-		</Animated.View>
+		</>
 	)
 }
 
