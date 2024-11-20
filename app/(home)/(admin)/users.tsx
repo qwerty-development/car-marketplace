@@ -217,7 +217,6 @@ const DealershipFormModal = React.memo(
 			location: '',
 			phone: '',
 			name: '',
-
 			subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 		})
 		const [errors, setErrors] = useState<Record<string, string>>({})
@@ -244,29 +243,32 @@ const DealershipFormModal = React.memo(
 			}
 		}
 
-		const FloatingInput = ({
-			label,
-			value,
-			onChangeText,
-			error,
-			keyboardType = 'default'
-		}: any) => (
-			<View className='mb-4'>
-				<Text
-					className={`text-sm mb-1 ${isDarkMode ? 'text-red' : 'text-gray'}`}>
-					{label}
-				</Text>
-				<TextInput
-					value={value}
-					onChangeText={onChangeText}
-					keyboardType={keyboardType}
-					className={`p-3 rounded-lg border ${
-						error ? 'border-red' : 'border-gray'
-					} ${isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'}`}
-					placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
-				/>
-				{error && <Text className='text-red text-sm mt-1'>{error}</Text>}
-			</View>
+		const FloatingInput = useCallback(
+			({
+				label,
+				value,
+				onChangeText,
+				error,
+				keyboardType = 'default'
+			}: any) => (
+				<View className='mb-4'>
+					<Text
+						className={`text-sm mb-1 ${isDarkMode ? 'text-red' : 'text-gray'}`}>
+						{label}
+					</Text>
+					<TextInput
+						value={value}
+						onChangeText={onChangeText}
+						keyboardType={keyboardType}
+						className={`p-3 rounded-lg border ${
+							error ? 'border-red' : 'border-gray'
+						} ${isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'}`}
+						placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+					/>
+					{error && <Text className='text-red text-sm mt-1'>{error}</Text>}
+				</View>
+			),
+			[isDarkMode]
 		)
 
 		return (
