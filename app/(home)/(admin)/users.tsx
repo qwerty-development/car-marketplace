@@ -225,7 +225,7 @@ const DealershipFormModal = React.memo(
 
 		const validateForm = () => {
 			const newErrors: Record<string, string> = {}
-			if (!form.name.trim()) newErrors.companyName = 'Company name is required'
+			if (!form.name.trim()) newErrors.name = 'Company name is required'
 			if (!form.location.trim()) newErrors.location = 'Location is required'
 			if (!form.phone.trim()) newErrors.phone = 'Phone is required'
 			if (!/^\d{8,}$/.test(form.phone)) newErrors.phone = 'Invalid phone number'
