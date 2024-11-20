@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -10,12 +10,17 @@ import {
 	ActivityIndicator,
 	RefreshControl,
 	Platform,
-	StyleSheet,
 	StatusBar,
-	Vibration
+	Image,
+	Animated,
+	ScrollView
 } from 'react-native'
 import { useUser } from '@clerk/clerk-expo'
-import { Ionicons } from '@expo/vector-icons'
+import {
+	Ionicons,
+	MaterialCommunityIcons,
+	FontAwesome5
+} from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '@/utils/ThemeContext'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -29,677 +34,923 @@ interface User {
 	lastName: string
 	emailAddresses: { emailAddress: string }[]
 	publicMetadata: { role?: string }
+	imageUrl: string
+	lastSignInAt: number
+	createdAt: number
+	banned: boolean
+	locked: boolean
 }
 
 interface DealershipForm {
 	location: string
 	phone: string
 	subscriptionEndDate: Date
+	name: string // Added field
 }
 
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
-	return (
-		<SafeAreaView
-			edges={['top']}
-			style={[
-				styles.header,
-				isDarkMode ? styles.darkHeader : styles.lightHeader
-			]}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View style={styles.headerContent}>
-				<Text style={styles.headerTitle}>{title}</Text>
-			</View>
-		</SafeAreaView>
-	)
-})
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity)
 
-const UserItem = React.memo(
-	({
-		item,
-		onPress,
-		onRoleChange
-	}: {
-		item: User
-		onPress: () => void
-		onRoleChange: () => void
-	}) => {
+const CustomHeader = React.memo(
+	({ title, userCount }: { title: string; userCount: number }) => {
 		const { isDarkMode } = useTheme()
+
 		return (
-			<TouchableOpacity
-				style={[
-					styles.userItem,
-					isDarkMode ? styles.darkUserItem : styles.lightUserItem
-				]}
-				onPress={onPress}>
-				{item.firstName && (
-					<Text
-						style={[
-							styles.userName,
-							isDarkMode ? styles.darkText : styles.lightText
-						]}>
-						{item.firstName} {item.lastName}
-					</Text>
-				)}
-				<Text
-					style={[
-						styles.userEmail,
-						isDarkMode ? styles.darkSubText : styles.lightSubText
-					]}>
-					{item.emailAddresses[0].emailAddress}
-				</Text>
-				<View style={styles.userRoleContainer}>
-					<Text
-						style={[
-							styles.userRole,
-							{ color: isDarkMode ? '#FF6B6B' : '#D55004' }
-						]}>
-						Role: {item.publicMetadata.role || 'user'}
-					</Text>
-					<TouchableOpacity
-						style={[
-							styles.roleButton,
-							{
-								backgroundColor:
-									item.publicMetadata.role === 'dealer' ? '#4CAF50' : '#2196F3'
-							}
-						]}
-						onPress={onRoleChange}>
-						<Text style={styles.roleButtonText}>
-							{item.publicMetadata.role === 'dealer'
-								? 'Revoke Dealer'
-								: 'Make Dealer'}
+			<SafeAreaView
+				edges={['top']}
+				className={`border-b border-red ${
+					isDarkMode ? 'bg-black' : 'bg-white'
+				}`}>
+				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+				<View className='flex-row justify-between items-center px-4 py-3'>
+					<Text className='text-2xl font-bold text-red'>{title}</Text>
+					<BlurView intensity={50} className='px-3 py-1 rounded-full'>
+						<Text className={isDarkMode ? 'text-white' : 'text-black'}>
+							{userCount} Users
 						</Text>
-					</TouchableOpacity>
+					</BlurView>
 				</View>
-			</TouchableOpacity>
+			</SafeAreaView>
 		)
 	}
 )
 
+const UserStatusBadge = ({ status, isDarkMode }: any) => {
+	const getStatusColor = () => {
+		switch (status) {
+			case 'active':
+				return 'bg-green-500'
+			case 'banned':
+				return 'bg-rose-500'
+			case 'locked':
+				return 'bg-yellow-500'
+			default:
+				return 'bg-gray'
+		}
+	}
+
+	return (
+		<View className={`px-2 py-1 rounded-full ${getStatusColor()} opacity-80`}>
+			<Text className='text-white text-xs font-medium capitalize'>
+				{status}
+			</Text>
+		</View>
+	)
+}
+
+const UserItem = React.memo(
+	({ item, onPress, onRoleChange, isDarkMode }: any) => {
+		const scaleAnim = useRef(new Animated.Value(1)).current
+		const getUserStatus = () => {
+			if (item.banned) return 'banned'
+			if (item.locked) return 'locked'
+			return 'active'
+		}
+
+		const handlePressIn = () => {
+			Animated.spring(scaleAnim, {
+				toValue: 0.95,
+				useNativeDriver: true
+			}).start()
+		}
+
+		const handlePressOut = () => {
+			Animated.spring(scaleAnim, {
+				toValue: 1,
+				useNativeDriver: true
+			}).start()
+		}
+
+		const canPromoteToDealer =
+			!item.banned &&
+			!item.locked &&
+			item.publicMetadata.role !== 'dealer' &&
+			item.publicMetadata.role !== 'admin'
+
+		return (
+			<AnimatedTouchable
+				onPress={onPress}
+				onPressIn={handlePressIn}
+				onPressOut={handlePressOut}
+				style={[{ transform: [{ scale: scaleAnim }] }]}
+				className={`mb-4 rounded-xl overflow-hidden ${
+					isDarkMode ? 'bg-gray/20' : 'bg-white'
+				}`}>
+				<LinearGradient
+					colors={isDarkMode ? ['#1A1A1A', '#2D2D2D'] : ['#FFFFFF', '#F8F9FA']}
+					className='p-4'>
+					<View className='flex-row items-center'>
+						<Image
+							source={{
+								uri: item.imageUrl || 'https://via.placeholder.com/50'
+							}}
+							className='w-12 h-12 rounded-full'
+						/>
+						<View className='flex-1 ml-3'>
+							<Text
+								className={`font-semibold text-lg ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								{item.firstName} {item.lastName}
+							</Text>
+							<Text
+								className={`text-sm ${isDarkMode ? 'text-red' : 'text-gray'}`}>
+								{item.emailAddresses[0].emailAddress}
+							</Text>
+						</View>
+						<UserStatusBadge status={getUserStatus()} isDarkMode={isDarkMode} />
+					</View>
+
+					<View className='mt-4 flex-row justify-between items-center'>
+						<View className='flex-row items-center space-x-4'>
+							<View className='flex-row items-center'>
+								<MaterialCommunityIcons
+									name='shield-account'
+									size={16}
+									color={isDarkMode ? '#D1D5DB' : '#6B7280'}
+								/>
+								<Text
+									className={`ml-1 ${isDarkMode ? 'text-red' : 'text-gray'}`}>
+									{item.publicMetadata.role || 'user'}
+								</Text>
+							</View>
+							<View className='flex-row items-center'>
+								<Ionicons
+									name='time-outline'
+									size={16}
+									color={isDarkMode ? '#D1D5DB' : '#6B7280'}
+								/>
+								<Text
+									className={`ml-1 ${isDarkMode ? 'text-red' : 'text-gray'}`}>
+									{new Date(item.lastSignInAt).toLocaleDateString()}
+								</Text>
+							</View>
+						</View>
+
+						{canPromoteToDealer && (
+							<TouchableOpacity
+								onPress={onRoleChange}
+								className='bg-red px-4 py-2 rounded-lg flex-row items-center'>
+								<FontAwesome5 name='user-tie' size={12} color='white' />
+								<Text className='text-white text-sm font-medium ml-2'>
+									Make Dealer
+								</Text>
+							</TouchableOpacity>
+						)}
+					</View>
+
+					{(item.banned || item.locked) && (
+						<View className='mt-3 bg-red/10 p-3 rounded-lg'>
+							<Text className='text-red text-sm'>
+								{item.banned ? 'Account is banned' : 'Account is locked'}
+							</Text>
+						</View>
+					)}
+				</LinearGradient>
+			</AnimatedTouchable>
+		)
+	}
+)
+// Enhanced DealershipFormModal with better validation and UI
+const DealershipFormModal = React.memo(
+	({ visible, onClose, onSubmit, initialData, isDarkMode }: any) => {
+		const [form, setForm] = useState<DealershipForm>({
+			location: '',
+			phone: '',
+			name: '',
+			subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+		})
+		const [errors, setErrors] = useState<Record<string, string>>({})
+		const [showDatePicker, setShowDatePicker] = useState(false)
+
+		const validateForm = () => {
+			const newErrors: Record<string, string> = {}
+			if (!form.name.trim()) newErrors.name = 'Company name is required'
+			if (!form.location.trim()) newErrors.location = 'Location is required'
+			if (!form.phone.trim()) newErrors.phone = 'Phone is required'
+			if (!/^\d{8,}$/.test(form.phone)) newErrors.phone = 'Invalid phone number'
+			if (form.subscriptionEndDate < new Date())
+				newErrors.subscriptionEndDate = 'Invalid subscription end date'
+			setErrors(newErrors)
+			return Object.keys(newErrors).length === 0
+		}
+
+		const handleSubmit = () => {
+			if (validateForm()) {
+				onSubmit(form)
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+			} else {
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+			}
+		}
+
+		const FloatingInput = useCallback(
+			({
+				label,
+				value,
+				onChangeText,
+				error,
+				keyboardType = 'default'
+			}: any) => (
+				<View className='mb-4'>
+					<Text
+						className={`text-sm mb-1 ${isDarkMode ? 'text-red' : 'text-gray'}`}>
+						{label}
+					</Text>
+					<TextInput
+						value={value}
+						onChangeText={onChangeText}
+						keyboardType={keyboardType}
+						className={`p-3 rounded-lg border ${
+							error ? 'border-red' : 'border-gray'
+						} ${isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'}`}
+						placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+					/>
+					{error && <Text className='text-red text-sm mt-1'>{error}</Text>}
+				</View>
+			),
+			[isDarkMode]
+		)
+
+		return (
+			<Modal visible={visible} animationType='slide' transparent>
+				<BlurView
+					intensity={isDarkMode ? 30 : 50}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className='flex-1 justify-center items-center px-4'>
+					<View
+						className={`w-full max-w-md rounded-3xl p-6 ${
+							isDarkMode ? 'bg-gray' : 'bg-white'
+						}`}>
+						<View className='flex-row justify-between items-center mb-6'>
+							<Text
+								className={`text-xl font-bold ${
+									isDarkMode ? 'text-white' : 'text-gray'
+								}`}>
+								Dealership Information
+							</Text>
+							<TouchableOpacity onPress={onClose}>
+								<Ionicons
+									name='close-circle'
+									size={24}
+									color={isDarkMode ? '#D1D5DB' : '#6B7280'}
+								/>
+							</TouchableOpacity>
+						</View>
+
+						<FloatingInput
+							label='Company Name'
+							value={form.name}
+							onChangeText={(text: string) =>
+								setForm(prev => ({ ...prev, name: text }))
+							}
+							error={errors.name}
+						/>
+
+						<FloatingInput
+							label='Location'
+							value={form.location}
+							onChangeText={(text: string) =>
+								setForm(prev => ({ ...prev, location: text }))
+							}
+							error={errors.location}
+						/>
+
+						<FloatingInput
+							label='Phone'
+							value={form.phone}
+							onChangeText={(text: string) =>
+								setForm(prev => ({ ...prev, phone: text }))
+							}
+							error={errors.phone}
+							keyboardType='phone-pad'
+						/>
+
+						<TouchableOpacity
+							onPress={() => setShowDatePicker(true)}
+							className={`p-3 rounded-lg border border-red mb-4 ${
+								isDarkMode ? 'bg-gray' : 'bg-white'
+							}`}>
+							<Text className={isDarkMode ? 'text-white' : 'text-black'}>
+								Subscription End Date:{' '}
+								{form.subscriptionEndDate.toLocaleDateString()}
+							</Text>
+						</TouchableOpacity>
+
+						{showDatePicker && (
+							<DateTimePicker
+								value={form.subscriptionEndDate}
+								mode='date'
+								display='default'
+								minimumDate={new Date()}
+								onChange={(event, selectedDate) => {
+									setShowDatePicker(Platform.OS === 'ios')
+									if (selectedDate) {
+										setForm(prev => ({
+											...prev,
+											subscriptionEndDate: selectedDate
+										}))
+									}
+								}}
+								textColor={isDarkMode ? 'white' : 'black'}
+							/>
+						)}
+
+						<View className='flex-row justify-end space-x-3 mt-6'>
+							<TouchableOpacity
+								onPress={onClose}
+								className={`px-6 py-3 rounded-xl ${
+									isDarkMode ? 'bg-gray' : 'bg-white'
+								}`}>
+								<Text className={isDarkMode ? 'text-white' : 'text-black'}>
+									Cancel
+								</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								onPress={handleSubmit}
+								className='bg-red px-6 py-3 rounded-xl'>
+								<Text className='text-white font-medium'>
+									Create Dealership
+								</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</BlurView>
+			</Modal>
+		)
+	}
+)
+
+// Enhanced SearchBar with better UX
+const SearchBar = React.memo(
+	({ value, onChangeText, onSubmit, onClear, isDarkMode }: any) => {
+		const inputRef = useRef<TextInput>(null)
+		const [isFocused, setIsFocused] = useState(false)
+
+		return (
+			<BlurView
+				intensity={isDarkMode ? 30 : 50}
+				tint={isDarkMode ? 'dark' : 'light'}
+				className={`mx-4 my-2 rounded-2xl overflow-hidden ${
+					isFocused ? 'border-2 border-red' : ''
+				}`}>
+				<View className='flex-row items-center p-2'>
+					<Ionicons
+						name='search'
+						size={20}
+						color={isDarkMode ? '#D1D5DB' : '#6B7280'}
+						className='ml-2'
+					/>
+					<TextInput
+						ref={inputRef}
+						value={value}
+						onChangeText={onChangeText}
+						onSubmitEditing={onSubmit}
+						placeholder='Search users by name or email...'
+						placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+						onFocus={() => setIsFocused(true)}
+						onBlur={() => setIsFocused(false)}
+						className={`flex-1 px-3 py-2 ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}
+						returnKeyType='search'
+					/>
+					{value ? (
+						<TouchableOpacity
+							onPress={() => {
+								onClear()
+								inputRef.current?.focus()
+							}}
+							className='p-2'>
+							<Ionicons
+								name='close-circle'
+								size={20}
+								color={isDarkMode ? '#D1D5DB' : '#6B7280'}
+							/>
+						</TouchableOpacity>
+					) : null}
+				</View>
+			</BlurView>
+		)
+	}
+)
 export default function AdminUserManagement() {
 	const { isDarkMode } = useTheme()
 	const [users, setUsers] = useState<User[]>([])
+	const [filteredUsers, setFilteredUsers] = useState<User[]>([])
 	const [search, setSearch] = useState('')
 	const [selectedUser, setSelectedUser] = useState<User | null>(null)
-	const [dealershipForm, setDealershipForm] = useState<DealershipForm>({
-		location: '',
-		phone: '',
-		subscriptionEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-	})
-	const [isDealershipFormVisible, setIsDealershipFormVisible] = useState(false)
-	const [isModifyingDealer, setIsModifyingDealer] = useState(false)
 	const [isLoading, setIsLoading] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
-	const [showDatePicker, setShowDatePicker] = useState(false)
+	const [isDealershipFormVisible, setIsDealershipFormVisible] = useState(false)
+	const [sortConfig, setSortConfig] = useState({
+		field: 'createdAt',
+		ascending: false
+	})
+	const [filterConfig, setFilterConfig] = useState({
+		role: 'all',
+		status: 'all'
+	})
 
-	const [debouncedSearch, setDebouncedSearch] = useState(search)
+	// Enhanced error handling with retry mechanism
+	const [error, setError] = useState<{
+		message: string
+		retryCount: number
+	} | null>(null)
+	const maxRetries = 3
+	const retryTimeout = useRef<NodeJS.Timeout>()
 
-	const fetchUsers = useCallback(async () => {
-		setIsLoading(true)
-		try {
-			const response = await fetch(
-				`https://backend-car-marketplace.vercel.app/api/users?query=${debouncedSearch}`
-			)
+	const fetchUsers = useCallback(
+		async (retryCount = 0) => {
+			try {
+				setIsLoading(true)
+				setError(null)
 
-			// Handle no results case without throwing error
-			if (response.status === 404) {
-				setUsers([])
-				return
-			}
-
-			// Handle server errors more gracefully
-			if (!response.ok) {
-				throw new Error(
-					response.status === 500
-						? 'Server is temporarily unavailable'
-						: `Error: ${response.status}`
+				const response = await fetch(
+					`https://backend-car-marketplace.vercel.app/api/users`
 				)
-			}
 
-			const data = await response.json()
-			setUsers(data.data || [])
-		} catch (error: any) {
-			console.warn('Search warning:', error)
-			// Don't show alert for expected cases
-			if (error.message !== 'Server is temporarily unavailable') {
-				Alert.alert(
-					'Notice',
-					'Search results may be incomplete. Please try again later.',
-					[{ text: 'OK' }]
-				)
+				if (!response.ok) {
+					throw new Error(
+						response.status === 500
+							? 'Server is temporarily unavailable'
+							: `Error: ${response.status}`
+					)
+				}
+
+				const data = await response.json()
+				setUsers(data.data || [])
+				applyFiltersAndSort(data.data || [], filterConfig, sortConfig, search)
+			} catch (error: any) {
+				console.error('Error fetching users:', error)
+
+				if (retryCount < maxRetries) {
+					setError({
+						message: `Retrying... (${retryCount + 1}/${maxRetries})`,
+						retryCount
+					})
+					retryTimeout.current = setTimeout(() => {
+						fetchUsers(retryCount + 1)
+					}, 2000 * (retryCount + 1)) // Exponential backoff
+				} else {
+					setError({
+						message: 'Failed to load users. Please try again.',
+						retryCount
+					})
+				}
+			} finally {
+				setIsLoading(false)
+				setRefreshing(false)
 			}
-			// Keep existing results on error
-		} finally {
-			setIsLoading(false)
+		},
+		[filterConfig, sortConfig, search]
+	)
+
+	// Cleanup timeout on unmount
+	useEffect(() => {
+		return () => {
+			if (retryTimeout.current) {
+				clearTimeout(retryTimeout.current)
+			}
 		}
-	}, [debouncedSearch])
+	}, [])
 
 	useEffect(() => {
 		fetchUsers()
 	}, [fetchUsers])
 
-	const onRefresh = useCallback(() => {
-		setRefreshing(true)
-		fetchUsers().then(() => setRefreshing(false))
-	}, [fetchUsers])
+	// Enhanced filtering and sorting
+	const applyFiltersAndSort = useCallback(
+		(
+			users: User[],
+			filters: typeof filterConfig,
+			sort: typeof sortConfig,
+			searchTerm: string
+		) => {
+			let result = [...users]
 
-	const handleSetRole = useCallback(async (userId: string, role: string) => {
-		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-		if (role === 'dealer') {
-			setIsModifyingDealer(false)
-			setIsDealershipFormVisible(true)
-		} else {
-			await updateUserRole(userId, role)
+			// Apply filters
+			if (filters.role !== 'all') {
+				result = result.filter(
+					user => user.publicMetadata.role === filters.role
+				)
+			}
+
+			if (filters.status !== 'all') {
+				result = result.filter(user => {
+					switch (filters.status) {
+						case 'active':
+							return !user.banned && !user.locked
+						case 'banned':
+							return user.banned
+						case 'locked':
+							return user.locked
+						default:
+							return true
+					}
+				})
+			}
+
+			// Apply search
+			if (searchTerm) {
+				const searchLower = searchTerm.toLowerCase()
+				result = result.filter(
+					user =>
+						user.firstName?.toLowerCase().includes(searchLower) ||
+						user.lastName?.toLowerCase().includes(searchLower) ||
+						user.emailAddresses[0].emailAddress
+							.toLowerCase()
+							.includes(searchLower)
+				)
+			}
+
+			// Apply sort
+			result.sort((a, b) => {
+				let compareResult = 0
+				switch (sort.field) {
+					case 'name':
+						compareResult = `${a.firstName} ${a.lastName}`.localeCompare(
+							`${b.firstName} ${b.lastName}`
+						)
+						break
+					case 'email':
+						compareResult = a.emailAddresses[0].emailAddress.localeCompare(
+							b.emailAddresses[0].emailAddress
+						)
+						break
+					case 'createdAt':
+						compareResult = a.createdAt - b.createdAt
+						break
+					case 'lastActive':
+						compareResult = (a.lastSignInAt || 0) - (b.lastSignInAt || 0)
+						break
+				}
+				return sort.ascending ? compareResult : -compareResult
+			})
+
+			setFilteredUsers(result)
+		},
+		[]
+	)
+
+	// Enhanced role update with optimistic update and rollback
+	const handleSetRole = useCallback(async (user: User) => {
+		if (
+			user.publicMetadata.role === 'admin' ||
+			user.publicMetadata.role === 'dealer'
+		) {
+			Alert.alert(
+				'Not Allowed',
+				'Cannot modify admin or existing dealer roles.'
+			)
+			return
 		}
+
+		if (user.banned || user.locked) {
+			Alert.alert(
+				'Not Allowed',
+				'Cannot modify roles for banned or locked accounts.'
+			)
+			return
+		}
+
+		setSelectedUser(user)
+		setIsDealershipFormVisible(true)
 	}, [])
 
-	const updateUserRole = useCallback(
-		async (userId: string, role: string) => {
-			try {
-				const body: any = { userId, role }
-				if (role === 'dealer') {
-					body.location = dealershipForm.location
-					body.phone = dealershipForm.phone
-					body.subscriptionEndDate =
-						dealershipForm.subscriptionEndDate.toISOString()
-				} else {
-					body.subscriptionEndDate = new Date().toISOString()
-				}
+	const handleDealershipSubmit = useCallback(
+		async (formData: DealershipForm) => {
+			if (!selectedUser) return
 
+			// Optimistic update
+			const previousUsers = [...users]
+			setUsers(current =>
+				current.map(u =>
+					u.id === selectedUser.id
+						? { ...u, publicMetadata: { ...u.publicMetadata, role: 'dealer' } }
+						: u
+				)
+			)
+
+			try {
 				const response = await fetch(
-					`https://backend-car-marketplace.vercel.app/api/setRole`,
+					'https://backend-car-marketplace.vercel.app/api/setRole',
 					{
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(body)
+						body: JSON.stringify({
+							userId: selectedUser.id,
+							role: 'dealer',
+							...formData
+						})
 					}
 				)
-				const data = await response.json()
-				if (response.ok) {
-					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-					Alert.alert('Success', 'User role updated successfully')
-					fetchUsers()
-					setSelectedUser(null)
-					setIsDealershipFormVisible(false)
-				} else {
-					console.error('Failed to set role:', data.error)
-					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-					Alert.alert('Error', `Failed to update user role: ${data.error}`)
+
+				if (!response.ok) {
+					throw new Error('Failed to update role')
 				}
+
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+				Alert.alert('Success', 'User has been promoted to dealer successfully.')
+
+				// Refresh data
+				fetchUsers()
 			} catch (error) {
-				console.error('Failed to set role:', error)
+				// Rollback on error
+				setUsers(previousUsers)
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-				Alert.alert('Error', 'An unexpected error occurred. Please try again.')
+				Alert.alert('Error', 'Failed to update user role. Please try again.')
+			} finally {
+				setIsDealershipFormVisible(false)
+				setSelectedUser(null)
 			}
 		},
-		[dealershipForm, fetchUsers]
+		[selectedUser, users, fetchUsers]
 	)
 
-	const handleModifyDealer = useCallback(async () => {
-		if (!selectedUser) return
+	const renderSortButton = ({ label, field }: any) => (
+		<TouchableOpacity
+			onPress={() => {
+				setSortConfig(current => ({
+					field,
+					ascending: current.field === field ? !current.ascending : true
+				}))
+			}}
+			className={`flex-row items-center px-4 py-2 rounded-lg ${
+				sortConfig.field === field
+					? 'bg-red'
+					: isDarkMode
+					? 'bg-gray'
+					: 'bg-white'
+			}`}>
+			<Text
+				className={`${
+					sortConfig.field === field
+						? 'text-white'
+						: isDarkMode
+						? 'text-white'
+						: 'text-black'
+				}`}>
+				{label}
+			</Text>
+			{sortConfig.field === field && (
+				<Ionicons
+					name={sortConfig.ascending ? 'chevron-up' : 'chevron-down'}
+					size={16}
+					color='white'
+					style={{ marginLeft: 4 }}
+				/>
+			)}
+		</TouchableOpacity>
+	)
 
-		try {
-			const body: any = {
-				userId: selectedUser.id,
-				role: 'dealer',
-				location: dealershipForm.location,
-				phone: dealershipForm.phone,
-				subscriptionEndDate: dealershipForm.subscriptionEndDate.toISOString()
-			}
-
-			const response = await fetch(
-				`https://backend-car-marketplace.vercel.app/api/setRole`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(body)
-				}
-			)
-			const data = await response.json()
-			if (response.ok) {
-				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-				Alert.alert('Success', 'Dealership details updated successfully')
-				fetchUsers()
-				setSelectedUser(null)
-				setIsDealershipFormVisible(false)
-			} else {
-				console.error('Failed to update dealership:', data.error)
-				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-				Alert.alert(
-					'Error',
-					`Failed to update dealership details: ${data.error}`
-				)
-			}
-		} catch (error) {
-			console.error('Failed to update dealership:', error)
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-			Alert.alert('Error', 'An unexpected error occurred. Please try again.')
-		}
-	}, [selectedUser, dealershipForm, fetchUsers])
-
-	const renderUserItem = useCallback(
-		({ item }: { item: User }) => (
-			<UserItem
-				item={item}
-				onPress={() => setSelectedUser(item)}
-				onRoleChange={() =>
-					handleSetRole(
-						item.id,
-						item.publicMetadata.role === 'dealer' ? 'user' : 'dealer'
-					)
-				}
+	const renderErrorState = () => (
+		<View className='flex-1 justify-center items-center p-6'>
+			<Ionicons
+				name='alert-circle'
+				size={48}
+				color={isDarkMode ? '#D55004' : '#D55004'}
 			/>
-		),
-		[handleSetRole]
+			<Text
+				className={`text-lg mt-4 mb-6 text-center ${
+					isDarkMode ? 'text-white' : 'text-gray'
+				}`}>
+				{error?.message}
+			</Text>
+			<TouchableOpacity
+				onPress={() => fetchUsers()}
+				className='bg-red px-6 py-3 rounded-xl'>
+				<Text className='text-white font-medium'>Try Again</Text>
+			</TouchableOpacity>
+		</View>
 	)
 
-	const memoizedUserList = useMemo(
+	const renderListHeader = useCallback(
 		() => (
-			<FlatList
-				data={users}
-				renderItem={renderUserItem}
-				keyExtractor={item => item.id}
-				refreshControl={
-					<RefreshControl
-						refreshing={refreshing}
-						onRefresh={onRefresh}
-						colors={['#D55004']}
-					/>
-				}
-				ListEmptyComponent={
-					<Text
-						style={[
-							styles.emptyListText,
-							isDarkMode ? styles.darkText : styles.lightText
-						]}>
-						No users found.
-					</Text>
-				}
-				initialNumToRender={10}
-				maxToRenderPerBatch={5}
-				updateCellsBatchingPeriod={50}
-				windowSize={5}
-				className='mb-14'
-			/>
-		),
-		[users, renderUserItem, refreshing, onRefresh, isDarkMode]
-	)
+			<View className='px-4 py-2'>
+				{/* Filter Pills */}
+				<ScrollView
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					className='mb-4'>
+					<View className='flex-row space-x-2'>
+						{renderSortButton({ label: 'Name', field: 'name' })}
+						{renderSortButton({ label: 'Date Joined', field: 'createdAt' })}
+						{renderSortButton({ label: 'Last Active', field: 'lastActive' })}
+					</View>
+				</ScrollView>
 
-	const SearchBar = useMemo(
-		() => (
-			<View className='flex-row items-center space-x-2 px-4 my-2'>
-				<View className='flex-1 relative'>
-					<TextInput
-						className={`rounded-xl py-3 px-4 ${
-							isDarkMode
-								? 'bg-gray text-white border-gray-700'
-								: 'bg-white text-gray border-gray-200'
-						} border`}
-						placeholder='Search users...'
-						placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
-						value={search}
-						onChangeText={setSearch}
-						returnKeyType='search'
-						onSubmitEditing={() => {
-							setDebouncedSearch(search)
-							fetchUsers()
-						}}
-					/>
-					{search !== '' && (
-						<TouchableOpacity
-							className='absolute right-12 top-3.5'
-							onPress={() => {
-								setSearch('')
-								setDebouncedSearch('')
-								fetchUsers()
-							}}>
-							<Ionicons
-								name='close-circle'
-								size={20}
-								color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-							/>
-						</TouchableOpacity>
-					)}
+				{/* Status Filters */}
+				<View className='flex-row justify-between mb-4'>
+					<TouchableOpacity
+						onPress={() =>
+							setFilterConfig(prev => ({
+								...prev,
+								status: prev.status === 'active' ? 'all' : 'active'
+							}))
+						}
+						className={`flex-row items-center px-4 py-2 rounded-lg ${
+							filterConfig.status === 'active'
+								? 'bg-green-500/20'
+								: isDarkMode
+								? 'bg-gray'
+								: 'bg-white'
+						}`}>
+						<Ionicons
+							name='checkmark-circle'
+							size={16}
+							color={filterConfig.status === 'active' ? '#10B981' : '#6B7280'}
+						/>
+						<Text
+							className={`ml-2 ${
+								filterConfig.status === 'active'
+									? 'text-green-500'
+									: isDarkMode
+									? 'text-white'
+									: 'text-gray'
+							}`}>
+							Active
+						</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						onPress={() =>
+							setFilterConfig(prev => ({
+								...prev,
+								status: prev.status === 'banned' ? 'all' : 'banned'
+							}))
+						}
+						className={`flex-row items-center px-4 py-2 rounded-lg ${
+							filterConfig.status === 'banned'
+								? 'bg-rose-500/20'
+								: isDarkMode
+								? 'bg-gray'
+								: 'bg-white'
+						}`}>
+						<Ionicons
+							name='ban'
+							size={16}
+							color={filterConfig.status === 'banned' ? '#EF4444' : '#6B7280'}
+						/>
+						<Text
+							className={`ml-2 ${
+								filterConfig.status === 'banned'
+									? 'text-rose-500'
+									: isDarkMode
+									? 'text-white'
+									: 'text-gray'
+							}`}>
+							Banned
+						</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						onPress={() =>
+							setFilterConfig(prev => ({
+								...prev,
+								status: prev.status === 'locked' ? 'all' : 'locked'
+							}))
+						}
+						className={`flex-row items-center px-4 py-2 rounded-lg ${
+							filterConfig.status === 'locked'
+								? 'bg-yellow-500/20'
+								: isDarkMode
+								? 'bg-gray'
+								: 'bg-white'
+						}`}>
+						<Ionicons
+							name='lock-closed'
+							size={16}
+							color={filterConfig.status === 'locked' ? '#F59E0B' : '#6B7280'}
+						/>
+						<Text
+							className={`ml-2 ${
+								filterConfig.status === 'locked'
+									? 'text-yellow-500'
+									: isDarkMode
+									? 'text-white'
+									: 'text-gray'
+							}`}>
+							Locked
+						</Text>
+					</TouchableOpacity>
 				</View>
-				<TouchableOpacity
-					className={`p-3 rounded-xl ${isDarkMode ? 'bg-red' : 'bg-red'}`}
-					onPress={() => {
-						setDebouncedSearch(search)
-						fetchUsers()
-						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-					}}>
-					<Ionicons name='search' size={22} color='white' />
-				</TouchableOpacity>
+
+				{/* Stats Summary */}
+				<BlurView
+					intensity={isDarkMode ? 30 : 50}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className='p-4 rounded-xl mb-4'>
+					<View className='flex-row justify-between'>
+						<View className='items-center'>
+							<Text className={isDarkMode ? 'text-white' : 'text-gray'}>
+								Total Users
+							</Text>
+							<Text className='text-red text-lg font-bold'>{users.length}</Text>
+						</View>
+						<View className='items-center'>
+							<Text className={isDarkMode ? 'text-white' : 'text-gray'}>
+								Dealers
+							</Text>
+							<Text className='text-red text-lg font-bold'>
+								{users.filter(u => u.publicMetadata.role === 'dealer').length}
+							</Text>
+						</View>
+						<View className='items-center'>
+							<Text className={isDarkMode ? 'text-white' : 'text-gray'}>
+								Active Today
+							</Text>
+							<Text className='text-red text-lg font-bold'>
+								{
+									users.filter(u => {
+										const lastActive = new Date(u.lastSignInAt)
+										const today = new Date()
+										return lastActive.toDateString() === today.toDateString()
+									}).length
+								}
+							</Text>
+						</View>
+					</View>
+				</BlurView>
 			</View>
 		),
-		[search, isDarkMode, fetchUsers]
+		[isDarkMode, filterConfig, sortConfig, users]
 	)
 
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
-			<CustomHeader title='User Management' />
-			<LinearGradient
-				colors={isDarkMode ? ['#000000', '#2D2D2D'] : ['#F0F0F0', '#FFFFFF']}
-				className='flex-1'>
-				{SearchBar}
-				{isLoading ? (
-					<ActivityIndicator
-						size='large'
-						color='#D55004'
-						style={styles.loadingIndicator}
-					/>
-				) : (
-					memoizedUserList
-				)}
+			<CustomHeader title='User Management' userCount={users.length} />
 
-				<Modal
-					visible={isDealershipFormVisible}
-					animationType='slide'
-					transparent={true}>
-					<BlurView
-						style={styles.modalContainer}
-						intensity={100}
-						tint={isDarkMode ? 'dark' : 'light'}>
-						<View
-							style={[
-								styles.modalContent,
-								isDarkMode ? styles.darkModalContent : styles.lightModalContent
-							]}>
+			<SearchBar
+				value={search}
+				onChangeText={setSearch}
+				onSubmit={() =>
+					applyFiltersAndSort(users, filterConfig, sortConfig, search)
+				}
+				onClear={() => {
+					setSearch('')
+					applyFiltersAndSort(users, filterConfig, sortConfig, '')
+				}}
+				isDarkMode={isDarkMode}
+			/>
+
+			{error ? (
+				renderErrorState()
+			) : (
+				<FlatList
+					data={filteredUsers}
+					renderItem={({ item }) => (
+						<UserItem
+							item={item}
+							onPress={() => setSelectedUser(item)}
+							onRoleChange={() => handleSetRole(item)}
+							isDarkMode={isDarkMode}
+						/>
+					)}
+					keyExtractor={item => item.id}
+					contentContainerStyle={{ padding: 16 }}
+					ListHeaderComponent={renderListHeader}
+					ListEmptyComponent={
+						<View className='flex-1 justify-center items-center p-6'>
 							<Text
-								style={[
-									styles.modalTitle,
-									isDarkMode ? styles.darkText : styles.lightText
-								]}>
-								{isModifyingDealer
-									? 'Modify Dealership Details'
-									: 'Dealership Information'}
+								className={`text-lg ${
+									isDarkMode ? 'text-white' : 'text-gray'
+								}`}>
+								{isLoading ? 'Loading users...' : 'No users found'}
 							</Text>
-							<TextInput
-								style={[
-									styles.modalInput,
-									isDarkMode ? styles.darkInput : styles.lightInput
-								]}
-								placeholder='Location'
-								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-								value={dealershipForm.location}
-								onChangeText={text =>
-									setDealershipForm(prev => ({ ...prev, location: text }))
-								}
-							/>
-							<TextInput
-								style={[
-									styles.modalInput,
-									isDarkMode ? styles.darkInput : styles.lightInput
-								]}
-								placeholder='Phone'
-								placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-								value={dealershipForm.phone}
-								onChangeText={text =>
-									setDealershipForm(prev => ({ ...prev, phone: text }))
-								}
-								keyboardType='phone-pad'
-							/>
-							<TouchableOpacity
-								style={[
-									styles.datePickerButton,
-									isDarkMode ? styles.darkInput : styles.lightInput
-								]}
-								onPress={() => setShowDatePicker(true)}>
-								<Text style={isDarkMode ? styles.darkText : styles.lightText}>
-									Subscription End Date:{' '}
-									{dealershipForm.subscriptionEndDate.toDateString()}
-								</Text>
-							</TouchableOpacity>
-							{showDatePicker && (
-								<DateTimePicker
-									value={dealershipForm.subscriptionEndDate}
-									mode='date'
-									display='default'
-									onChange={(event, selectedDate) => {
-										setShowDatePicker(Platform.OS === 'ios')
-										if (selectedDate) {
-											setDealershipForm(prev => ({
-												...prev,
-												subscriptionEndDate: selectedDate
-											}))
-										}
-									}}
-									textColor={isDarkMode ? 'white' : 'black'}
-								/>
-							)}
-							<TouchableOpacity
-								style={styles.submitButton}
-								onPress={() => {
-									if (selectedUser) {
-										if (isModifyingDealer) {
-											handleModifyDealer()
-										} else {
-											updateUserRole(selectedUser.id, 'dealer')
-										}
-									}
-								}}>
-								<Text style={styles.submitButtonText}>
-									{isModifyingDealer ? 'Update Details' : 'Make Dealer'}
-								</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								style={[
-									styles.cancelButton,
-									isDarkMode
-										? styles.darkCancelButton
-										: styles.lightCancelButton
-								]}
-								onPress={() => setIsDealershipFormVisible(false)}>
-								<Text
-									style={[
-										styles.cancelButtonText,
-										isDarkMode ? styles.darkText : styles.lightText
-									]}>
-									Cancel
-								</Text>
-							</TouchableOpacity>
 						</View>
-					</BlurView>
-				</Modal>
-			</LinearGradient>
+					}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={() => {
+								setRefreshing(true)
+								fetchUsers()
+							}}
+							colors={['#D55004']}
+							tintColor={isDarkMode ? '#FFFFFF' : '#D55004'}
+						/>
+					}
+					ListFooterComponent={
+						isLoading ? (
+							<ActivityIndicator
+								color='#D55004'
+								size='large'
+								style={{ marginVertical: 20 }}
+							/>
+						) : null
+					}
+				/>
+			)}
+
+			<DealershipFormModal
+				visible={isDealershipFormVisible}
+				onClose={() => {
+					setIsDealershipFormVisible(false)
+					setSelectedUser(null)
+				}}
+				onSubmit={handleDealershipSubmit}
+				isDarkMode={isDarkMode}
+			/>
 		</View>
 	)
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1
-	},
-	darkContainer: {
-		backgroundColor: '#121212'
-	},
-	lightContainer: {
-		backgroundColor: '#F7FAFC'
-	},
-	header: {
-		borderBottomWidth: 1,
-		borderBottomColor: '#D55004'
-	},
-	darkHeader: {
-		backgroundColor: '#000'
-	},
-	lightHeader: {
-		backgroundColor: '#fff'
-	},
-	headerContent: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'center',
-		paddingVertical: 12
-	},
-	headerTitle: {
-		fontSize: 22,
-		fontWeight: '600',
-		color: '#D55004'
-	},
-	gradientContainer: {
-		flex: 1,
-		paddingHorizontal: 16,
-		paddingTop: 16,
-		marginBottom: 16
-	},
-	searchContainer: {
-		flexDirection: 'row',
-		marginBottom: 16
-	},
-	searchInput: {
-		flex: 1,
-		height: 48,
-		borderRadius: 24,
-		paddingHorizontal: 16,
-		fontSize: 16
-	},
-	darkInput: {
-		backgroundColor: '#333',
-		color: '#fff'
-	},
-	lightInput: {
-		backgroundColor: '#fff',
-		color: '#000',
-		borderWidth: 1,
-		borderColor: '#E2E8F0'
-	},
-	searchButton: {
-		width: 48,
-		height: 48,
-		borderRadius: 24,
-		backgroundColor: '#D55004',
-		justifyContent: 'center',
-		alignItems: 'center',
-		marginLeft: 8
-	},
-	loadingIndicator: {
-		marginTop: 20
-	},
-	userItem: {
-		padding: 16,
-		marginBottom: 12,
-		borderRadius: 8
-	},
-	darkUserItem: {
-		backgroundColor: '#333'
-	},
-	lightUserItem: {
-		backgroundColor: '#fff',
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.1,
-		shadowRadius: 2,
-		elevation: 2
-	},
-	userName: {
-		fontSize: 18,
-		fontWeight: '600',
-		marginBottom: 4
-	},
-	userEmail: {
-		fontSize: 14,
-		marginBottom: 8
-	},
-	darkText: {
-		color: '#fff'
-	},
-	lightText: {
-		color: '#000'
-	},
-	darkSubText: {
-		color: '#A0AEC0'
-	},
-	lightSubText: {
-		color: '#718096'
-	},
-	userRoleContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center'
-	},
-	userRole: {
-		fontSize: 14,
-		fontStyle: 'italic'
-	},
-	roleButton: {
-		paddingHorizontal: 12,
-		paddingVertical: 6,
-		borderRadius: 16
-	},
-	roleButtonText: {
-		color: '#fff',
-		fontSize: 12,
-		fontWeight: '500'
-	},
-	emptyListText: {
-		textAlign: 'center',
-		marginTop: 20,
-		fontSize: 16
-	},
-	modalContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center'
-	},
-	modalContent: {
-		width: '90%',
-		padding: 20,
-		borderRadius: 12
-	},
-	darkModalContent: {
-		backgroundColor: '#333'
-	},
-	lightModalContent: {
-		backgroundColor: '#fff'
-	},
-	modalTitle: {
-		fontSize: 20,
-		fontWeight: '600',
-		marginBottom: 16,
-		textAlign: 'center'
-	},
-	modalInput: {
-		height: 48,
-		borderRadius: 8,
-		paddingHorizontal: 12,
-		fontSize: 16,
-		marginBottom: 12
-	},
-	datePickerButton: {
-		height: 48,
-		borderRadius: 8,
-		paddingHorizontal: 12,
-		justifyContent: 'center',
-		marginBottom: 12
-	},
-	submitButton: {
-		backgroundColor: '#D55004',
-		paddingVertical: 12,
-		borderRadius: 8,
-		marginTop: 8,
-		marginBottom: 12
-	},
-	submitButtonText: {
-		color: '#fff',
-		textAlign: 'center',
-		fontWeight: '600',
-		fontSize: 16
-	},
-	cancelButton: {
-		paddingVertical: 12,
-		borderRadius: 8
-	},
-	darkCancelButton: {
-		backgroundColor: '#4A5568'
-	},
-	lightCancelButton: {
-		backgroundColor: '#E2E8F0'
-	},
-	cancelButtonText: {
-		textAlign: 'center',
-		fontWeight: '600',
-		fontSize: 16
-	}
-})

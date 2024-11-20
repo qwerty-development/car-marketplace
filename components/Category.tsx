@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, TouchableOpacity, Text, StyleSheet, Image } from 'react-native'
+import { View, TouchableOpacity, Text, Image } from 'react-native'
 import { useTheme } from '@/utils/ThemeContext'
 
 // Import your PNG assets
@@ -12,11 +12,11 @@ import SportsPng from '@/assets/types/sports.png'
 
 const categories = [
 	{ name: 'Sedan', image: SedanPng },
-	{ name: 'SUV', image: SuvPng },
 	{ name: 'Hatchback', image: HatchbackPng },
-	{ name: 'Convertible', image: ConvertiblePng },
 	{ name: 'Coupe', image: CoupePng },
-	{ name: 'Sports', image: SportsPng }
+	{ name: 'Convertible', image: ConvertiblePng },
+	{ name: 'SUV', image: SuvPng },
+	{ name: 'Sports', image: SportsPng, isLarge: true } // Added isLarge flag
 ]
 
 interface CategorySelectorProps {
@@ -31,37 +31,46 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 	const { isDarkMode } = useTheme()
 
 	return (
-		<View>
+		<View className='px-4 py-2'>
 			<Text
-				style={[styles.title, { color: isDarkMode ? '#FFFFFF' : '#000000' }]}>
+				className={`text-xl font-bold mb-4 ${
+					isDarkMode ? 'text-white' : 'text-black'
+				}`}>
 				Explore by Category
 			</Text>
-			<View style={styles.container}>
+
+			<View className='flex flex-row flex-wrap justify-between'>
 				{categories.map(category => (
 					<TouchableOpacity
 						key={category.name}
-						style={[
-							styles.categoryButton,
-							selectedCategories.includes(category.name) &&
-								styles.selectedButton,
-							{ backgroundColor: isDarkMode ? '#FFFFFF' : '#F0F0F0' }
-						]}
+						className={`w-[48%] mb-4 p-4 rounded-2xl flex items-center justify-center ${
+							isDarkMode ? 'bg-gray' : 'bg-white'
+						} ${
+							selectedCategories.includes(category.name)
+								? 'border-2 border-red'
+								: ''
+						}`}
 						onPress={() => onCategoryPress(category.name)}>
-						<Image
-							source={category.image}
-							style={[
-								styles.categoryImage,
-								selectedCategories.includes(category.name) &&
-									!isDarkMode && { tintColor: '#D55004' }
-							]}
-						/>
+						<View className='w-full aspect-square mb-2 flex items-center justify-center'>
+							<Image
+								source={category.image}
+								className={`${category.isLarge ? 'w-28 h-28' : 'w-24 h-24'} ${
+									selectedCategories.includes(category.name) && !isDarkMode
+										? 'tint-red'
+										: ''
+								}`}
+								resizeMode='contain'
+							/>
+						</View>
+
 						<Text
-							style={[
-								styles.categoryText,
-								{ color: isDarkMode ? '#FFFFFF' : '#000000' },
-								selectedCategories.includes(category.name) &&
-									styles.selectedText
-							]}>
+							className={`text-base text-center mt-2 ${
+								isDarkMode ? 'text-white' : 'text-black'
+							} ${
+								selectedCategories.includes(category.name)
+									? 'text-red font-bold'
+									: ''
+							}`}>
 							{category.name}
 						</Text>
 					</TouchableOpacity>
@@ -70,48 +79,5 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 		</View>
 	)
 }
-
-const styles = StyleSheet.create({
-	title: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		marginLeft: 16,
-		marginTop: 8,
-		marginBottom: 8
-	},
-	container: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		justifyContent: 'space-around',
-		padding: 1
-	},
-	categoryButton: {
-		flexDirection: 'column',
-		alignItems: 'center',
-		padding: 12,
-		margin: 8,
-		borderRadius: 16,
-		width: '45%'
-	},
-	selectedButton: {
-		borderColor: '#D55004',
-		borderWidth: 2
-	},
-	categoryImage: {
-		width: 100,
-		height: 100,
-		marginBottom: 8,
-		resizeMode: 'contain'
-	},
-	categoryText: {
-		fontSize: 16,
-		textAlign: 'center',
-		marginTop: 8
-	},
-	selectedText: {
-		color: '#D55004',
-		fontWeight: 'bold'
-	}
-})
 
 export default CategorySelector

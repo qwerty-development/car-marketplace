@@ -104,7 +104,7 @@ export default function AdminAnalyticsDashboard() {
 	const [error, setError] = useState<any>(null)
 	const [refreshing, setRefreshing] = useState<any>(false)
 
-	const pieChartColors = {
+	const pieChartColors: any = {
 		New: '#656D7A', // A deep, cool gray for "New", fitting well with 'night' and 'gray'
 		Used: '#A55443', // A muted, earthy red, related to but less bright than your 'ed' (#D55004)
 		Certified: '#434A54', // A dark, rich gray-blue, conveying trust and blending with 'night'
@@ -245,12 +245,7 @@ export default function AdminAnalyticsDashboard() {
 									icon='cart'
 									color='purple'
 								/>
-								<MetricCard
-									title='Total Revenue'
-									value={`$${analytics.total_revenue.toLocaleString()}`}
-									icon='cash'
-									color='gold'
-								/>
+
 								<MetricCard
 									title='Total Dealerships'
 									value={analytics.total_dealerships}

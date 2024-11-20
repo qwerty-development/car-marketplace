@@ -24,7 +24,8 @@ import { Dropdown } from 'react-native-element-dropdown'
 import * as ImagePicker from 'expo-image-picker'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PieChart } from 'react-native-chart-kit'
-
+import * as FileSystem from 'expo-file-system'
+import { Buffer } from 'buffer'
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
 interface Dealership {
@@ -63,22 +64,23 @@ const useDealershipState = () => {
 const ITEMS_PER_PAGE = 10
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
-		const { isDarkMode } = useTheme();
-	  
-		return (
-		  <SafeAreaView 
-			edges={['top']} 
-			className={`${isDarkMode ? 'bg-black' : 'bg-white'} border-b border-[#D55004]`}
-		  >
+	const { isDarkMode } = useTheme()
+
+	return (
+		<SafeAreaView
+			edges={['top']}
+			className={`${
+				isDarkMode ? 'bg-black' : 'bg-white'
+			} border-b border-[#D55004]`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className="flex flex-row items-center justify-center py-3">
-			  <Text className="text-[22px] font-semibold text-[#D55004]">
-				{title}
-			  </Text>
+			<View className='flex flex-row items-center justify-center py-3'>
+				<Text className='text-[22px] font-semibold text-[#D55004]'>
+					{title}
+				</Text>
 			</View>
-		  </SafeAreaView>
-		);
-	  });
+		</SafeAreaView>
+	)
+})
 
 const InfoRow = React.memo(
 	({ icon, text, color }: { icon: string; text: string; color?: string }) => {
@@ -440,6 +442,7 @@ export default function DealershipManagement() {
 			const [modalDate, setModalDate] = useState(
 				new Date(dealership?.subscription_end_date || new Date())
 			)
+			const [isLoading, setIsLoading] = useState(false)
 
 			useEffect(() => {
 				setModalDealership(dealership)
@@ -448,6 +451,16 @@ export default function DealershipManagement() {
 
 			const pickImage = async () => {
 				try {
+					const { status } =
+						await ImagePicker.requestMediaLibraryPermissionsAsync()
+					if (status !== 'granted') {
+						Alert.alert(
+							'Permission Denied',
+							'Sorry, we need camera roll permissions to update the logo.'
+						)
+						return
+					}
+
 					const result = await ImagePicker.launchImageLibraryAsync({
 						mediaTypes: ImagePicker.MediaTypeOptions.Images,
 						allowsEditing: true,
@@ -456,11 +469,59 @@ export default function DealershipManagement() {
 					})
 
 					if (!result.canceled && result.assets[0].uri) {
-						setModalDealership((prev: any) => ({
-							...prev,
-							logo: result.assets[0].uri
-						}))
-						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+						setIsLoading(true)
+						try {
+							const fileName = `${Date.now()}_${Math.random()
+								.toString(36)
+								.substring(7)}.jpg`
+							const filePath = `${modalDealership.id}/${fileName}`
+
+							// Read image as base64
+							const base64 = await FileSystem.readAsStringAsync(
+								result.assets[0].uri,
+								{
+									encoding: FileSystem.EncodingType.Base64
+								}
+							)
+
+							// Upload to Supabase storage
+							const { data: uploadData, error: uploadError } =
+								await supabase.storage
+									.from('logos')
+									.upload(filePath, Buffer.from(base64, 'base64'), {
+										contentType: 'image/jpeg'
+									})
+
+							if (uploadError) throw uploadError
+
+							// Get public URL
+							const { data: publicURLData } = supabase.storage
+								.from('logos')
+								.getPublicUrl(filePath)
+
+							if (!publicURLData) throw new Error('Error getting public URL')
+
+							const newLogoUrl = publicURLData.publicUrl
+
+							// Update the dealership record in the database with the new logo URL
+
+							// Update modal state with new logo URL
+							setModalDealership((prev: any) => ({
+								...prev,
+								logo: newLogoUrl
+							}))
+
+							Haptics.notificationAsync(
+								Haptics.NotificationFeedbackType.Success
+							)
+							Alert.alert('Success', 'Logo updated successfully')
+						} catch (error) {
+							console.error('Error handling logo update:', error)
+							Alert.alert('Error', 'Failed to update logo. Please try again.')
+							Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+						} finally {
+							setIsLoading(false)
+						}
 					}
 				} catch (error) {
 					console.error('Error picking image:', error)
@@ -474,12 +535,13 @@ export default function DealershipManagement() {
 					subscription_end_date: modalDate.toISOString().split('T')[0]
 				})
 			}
+
 			return (
 				<Modal visible={isVisible} animationType='slide' transparent>
 					<BlurView
 						intensity={80}
 						tint={isDarkMode ? 'dark' : 'light'}
-						style={{ flex: 1 }}>
+						className='flex-1'>
 						<View className='flex-1 justify-end'>
 							<View
 								className={`${
@@ -495,16 +557,32 @@ export default function DealershipManagement() {
 
 									<TouchableOpacity
 										onPress={pickImage}
-										className='items-center mb-4'>
-										<Image
-											source={{
-												uri:
-													modalDealership?.logo ||
-													'https://via.placeholder.com/150'
-											}}
-											className='w-32 h-32 rounded-full'
-										/>
-										<Text className='text-red mt-2'>Change Logo</Text>
+										className='items-center mb-4'
+										disabled={isLoading}>
+										<View className='relative'>
+											<Image
+												source={{
+													uri:
+														modalDealership?.logo ||
+														'https://via.placeholder.com/150'
+												}}
+												className='w-32 h-32 rounded-full'
+											/>
+											{isLoading && (
+												<BlurView
+													intensity={100}
+													tint='dark'
+													className='absolute inset-0 rounded-full items-center justify-center'>
+													<ActivityIndicator size='large' color='#D55004' />
+												</BlurView>
+											)}
+										</View>
+										<Text
+											className={`text-red mt-2 ${
+												isLoading ? 'opacity-50' : ''
+											}`}>
+											{isLoading ? 'Uploading...' : 'Change Logo'}
+										</Text>
 									</TouchableOpacity>
 
 									<TextInput
@@ -522,7 +600,9 @@ export default function DealershipManagement() {
 										}
 										placeholder='Dealership Name'
 										placeholderTextColor={isDarkMode ? '#D55004' : '#D55004'}
+										editable={!isLoading}
 									/>
+
 									<TextInput
 										className={`${
 											isDarkMode
@@ -538,7 +618,9 @@ export default function DealershipManagement() {
 										}
 										placeholder='Location'
 										placeholderTextColor={isDarkMode ? '#D55004' : '#D55004'}
+										editable={!isLoading}
 									/>
+
 									<TextInput
 										className={`${
 											isDarkMode
@@ -555,7 +637,9 @@ export default function DealershipManagement() {
 										placeholder='Phone'
 										keyboardType='phone-pad'
 										placeholderTextColor={isDarkMode ? '#D55004' : '#D55004'}
+										editable={!isLoading}
 									/>
+
 									<TextInput
 										className={`${
 											isDarkMode
@@ -572,7 +656,9 @@ export default function DealershipManagement() {
 										placeholder='Longitude'
 										keyboardType='numeric'
 										placeholderTextColor={isDarkMode ? '#D55004' : '#D55004'}
+										editable={!isLoading}
 									/>
+
 									<TextInput
 										className={`${
 											isDarkMode
@@ -589,24 +675,30 @@ export default function DealershipManagement() {
 										placeholder='Latitude'
 										keyboardType='numeric'
 										placeholderTextColor={isDarkMode ? '#D55004' : '#D55004'}
+										editable={!isLoading}
 									/>
 
 									<TouchableOpacity
-										className='bg-red rounded-lg p-4 items-center mb-2'
-										onPress={handleSubmit}>
+										className={`bg-red rounded-lg p-4 items-center mb-2 ${
+											isLoading ? 'opacity-50' : ''
+										}`}
+										onPress={handleSubmit}
+										disabled={isLoading}>
 										<Text className='text-white font-bold text-lg'>
-											Update Dealership
+											{isLoading ? 'Updating...' : 'Update Dealership'}
 										</Text>
 									</TouchableOpacity>
+
 									<TouchableOpacity
 										className={`${
 											isDarkMode ? 'bg-gray' : 'bg-light-secondary'
-										} rounded-lg p-4 items-center`}
-										onPress={onClose}>
+										} rounded-lg p-4 items-center mb-4`}
+										onPress={onClose}
+										disabled={isLoading}>
 										<Text
 											className={`font-bold text-lg ${
 												isDarkMode ? 'text-white' : 'text-night'
-											}`}>
+											} ${isLoading ? 'opacity-50' : ''}`}>
 											Cancel
 										</Text>
 									</TouchableOpacity>
@@ -617,7 +709,8 @@ export default function DealershipManagement() {
 				</Modal>
 			)
 		}
-	}, [isDarkMode, handleUpdateDealership, showDatePicker])
+	}, [isDarkMode, handleUpdateDealership])
+
 	const SortButton = useCallback(
 		({ title, column }: { title: string; column: string }) => {
 			return (
@@ -901,8 +994,6 @@ export default function DealershipManagement() {
 	)
 }
 
-
-
 const LoadingOverlay = ({ isVisible }: { isVisible: boolean }) => {
 	if (!isVisible) return null
 
@@ -920,5 +1011,3 @@ const LoadingOverlay = ({ isVisible }: { isVisible: boolean }) => {
 		</View>
 	)
 }
-
-
