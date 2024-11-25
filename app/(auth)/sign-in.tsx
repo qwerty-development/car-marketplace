@@ -160,23 +160,21 @@ const SignInWithOAuth = () => {
 				)}
 			</TouchableOpacity>
 
-			{Platform.OS === 'ios' && (
-				<TouchableOpacity
-					onPress={() => onSelectAuth('apple')}
-					disabled={isLoading.apple}
-					className='flex-row items-center justify-center space-x-2 bg-black border border-white/20 p-4 rounded-lg'>
-					{isLoading.apple ? (
-						<ActivityIndicator size='small' color='#FFF' />
-					) : (
-						<>
-							<Ionicons name='logo-apple' size={24} color='#FFF' />
-							<Text className='font-semibold text-white'>
-								Continue with Apple
-							</Text>
-						</>
-					)}
-				</TouchableOpacity>
-			)}
+			<TouchableOpacity
+				onPress={() => onSelectAuth('apple')}
+				disabled={isLoading.apple}
+				className='flex-row items-center justify-center space-x-2 bg-black border border-white/20 p-4 rounded-lg'>
+				{isLoading.apple ? (
+					<ActivityIndicator size='small' color='#FFF' />
+				) : (
+					<>
+						<Ionicons name='logo-apple' size={24} color='#FFF' />
+						<Text className='font-semibold text-white'>
+							Continue with Apple
+						</Text>
+					</>
+				)}
+			</TouchableOpacity>
 		</View>
 	)
 }
