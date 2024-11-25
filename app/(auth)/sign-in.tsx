@@ -9,9 +9,18 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 	Animated,
-	Dimensions
+	Dimensions,
+	ActivityIndicator,
+	Alert
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import * as WebBrowser from 'expo-web-browser'
+import { useOAuth } from '@clerk/clerk-expo'
+import { maybeCompleteAuthSession } from 'expo-web-browser'
+
+// Complete auth session
+maybeCompleteAuthSession()
+
 const { width, height } = Dimensions.get('window')
 
 interface AnimatedLineProps {
@@ -95,27 +104,103 @@ const FadingCircle: React.FC<FadingCircleProps> = ({ position, size }) => {
 	)
 }
 
+const SignInWithOAuth = () => {
+	const [isLoading, setIsLoading] = useState<{
+		google: boolean
+		apple: boolean
+	}>({ google: false, apple: false })
+	const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' })
+	const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' })
+	const router = useRouter()
+
+	const onSelectAuth = async (strategy: 'google' | 'apple') => {
+		try {
+			setIsLoading(prev => ({ ...prev, [strategy]: true }))
+			const selectedAuth = strategy === 'google' ? googleAuth : appleAuth
+			const { createdSessionId, setActive } = await selectedAuth()
+
+			if (createdSessionId) {
+				setActive && (await setActive({ session: createdSessionId }))
+				router.replace('/(home)')
+			}
+		} catch (err) {
+			console.error('OAuth error:', err)
+			Alert.alert(
+				'Authentication Error',
+				'Failed to authenticate with ' +
+					strategy.charAt(0).toUpperCase() +
+					strategy.slice(1)
+			)
+		} finally {
+			setIsLoading(prev => ({ ...prev, [strategy]: false }))
+		}
+	}
+
+	return (
+		<View className='w-full space-y-3'>
+			<View className='flex-row items-center justify-center space-x-2 my-4'>
+				<View className='flex-1 h-[1px] bg-gray-300/20' />
+				<Text className='text-gray-300 px-2'>Or continue with</Text>
+				<View className='flex-1 h-[1px] bg-gray-300/20' />
+			</View>
+
+			<TouchableOpacity
+				onPress={() => onSelectAuth('google')}
+				disabled={isLoading.google}
+				className='flex-row items-center justify-center space-x-2 bg-white p-4 rounded-lg'>
+				{isLoading.google ? (
+					<ActivityIndicator size='small' color='#000' />
+				) : (
+					<>
+						<Ionicons name='logo-google' size={24} color='#000' />
+						<Text className='font-semibold text-black'>
+							Continue with Google
+						</Text>
+					</>
+				)}
+			</TouchableOpacity>
+
+			{Platform.OS === 'ios' && (
+				<TouchableOpacity
+					onPress={() => onSelectAuth('apple')}
+					disabled={isLoading.apple}
+					className='flex-row items-center justify-center space-x-2 bg-black border border-white/20 p-4 rounded-lg'>
+					{isLoading.apple ? (
+						<ActivityIndicator size='small' color='#FFF' />
+					) : (
+						<>
+							<Ionicons name='logo-apple' size={24} color='#FFF' />
+							<Text className='font-semibold text-white'>
+								Continue with Apple
+							</Text>
+						</>
+					)}
+				</TouchableOpacity>
+			)}
+		</View>
+	)
+}
+
 export default function SignInPage() {
 	const { signIn, setActive, isLoaded } = useSignIn()
 	const router = useRouter()
 
-	const [emailAddress, setEmailAddress] = React.useState('')
-	const [password, setPassword] = React.useState('')
-	const [error, setError] = React.useState('')
-	const [emailError, setEmailError] = useState('') //new
-	const [passwordError, setPasswordError] = useState('') //new
+	const [emailAddress, setEmailAddress] = useState('')
+	const [password, setPassword] = useState('')
+	const [error, setError] = useState('')
+	const [emailError, setEmailError] = useState('')
+	const [passwordError, setPasswordError] = useState('')
 	const [showPassword, setShowPassword] = useState(false)
+	const [isLoading, setIsLoading] = useState(false)
 
 	const togglePasswordVisibility = () => setShowPassword(!showPassword)
+
 	const onSignInPress = useCallback(async () => {
 		if (!isLoaded || !signIn) return
 
 		let hasError = false
-
-		// Regular expression to validate email format
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-		// Check if email is entered and valid
 		if (!emailAddress) {
 			setEmailError('Email is required')
 			hasError = true
@@ -126,7 +211,6 @@ export default function SignInPage() {
 			setEmailError('')
 		}
 
-		// Check if password is entered
 		if (!password) {
 			setPasswordError('Password is required')
 			hasError = true
@@ -136,6 +220,7 @@ export default function SignInPage() {
 
 		if (hasError) return
 
+		setIsLoading(true)
 		try {
 			const signInAttempt = await signIn.create({
 				identifier: emailAddress,
@@ -144,7 +229,7 @@ export default function SignInPage() {
 
 			if (signInAttempt.status === 'complete') {
 				await setActive({ session: signInAttempt.createdSessionId })
-				router.replace('/')
+				router.replace('/(home)')
 			} else {
 				setEmailError('Sign in failed. Please try again.')
 			}
@@ -153,6 +238,8 @@ export default function SignInPage() {
 			setEmailError(
 				err.errors?.[0]?.message || 'An error occurred. Please try again.'
 			)
+		} finally {
+			setIsLoading(false)
 		}
 	}, [isLoaded, signIn, emailAddress, password, setActive, router])
 
@@ -168,118 +255,94 @@ export default function SignInPage() {
 			<FadingCircle position={{ x: width * 0.7, y: height * 0.3 }} size={150} />
 			<FadingCircle position={{ x: width * 0.3, y: height * 0.8 }} size={120} />
 
-			<View
-				style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}>
-				<Text
-					style={{
-						fontSize: 36,
-						fontWeight: 'bold',
-						marginBottom: 32,
-						color: '#D55004',
-						textAlign: 'center'
-					}}>
+			<View className='flex-1 justify-center px-8'>
+				<Text className='text-4xl font-bold mb-8 text-[#D55004] text-center'>
 					Sign In
 				</Text>
-				<View style={{ marginBottom: 16 }}>
-					<TextInput
-						style={{
-							width: '100%',
-							height: 48,
-							paddingHorizontal: 16,
-							backgroundColor: '#1F2937',
-							color: 'white',
-							borderRadius: 8,
-							borderWidth: 1,
-							borderColor: '#374151',
-							marginBottom: 16
-						}}
-						autoCapitalize='none'
-						value={emailAddress}
-						placeholder='Email'
-						placeholderTextColor='#6B7280'
-						onChangeText={setEmailAddress}
-						keyboardType='email-address'
-            autoComplete='email'
-					/>
-					{emailError ? (
-						<Text style={{ color: '#D55004', marginBottom: 16 }}>
-							{emailError}
-						</Text>
-					) : null}
 
-					<View className='relative'>
+				<View className='mb-4 space-y-4'>
+					<View>
 						<TextInput
-							style={{
-								width: '100%',
-								height: 48,
-								paddingHorizontal: 16,
-								backgroundColor: '#1F2937',
-								color: 'white',
-								borderRadius: 8,
-								borderWidth: 1,
-								borderColor: '#374151'
-							}}
-							value={password}
-							placeholder='Password'
+							className='w-full h-12 px-4 bg-[#1F2937] text-white rounded-lg border border-[#374151]'
+							autoCapitalize='none'
+							value={emailAddress}
+							placeholder='Email'
 							placeholderTextColor='#6B7280'
-							secureTextEntry={!showPassword}
-							onChangeText={setPassword}
-              autoComplete='password'
+							onChangeText={setEmailAddress}
+							keyboardType='email-address'
+							autoComplete='email'
+							editable={!isLoading}
 						/>
-						<TouchableOpacity
-							className='absolute right-4 top-3'
-							onPress={togglePasswordVisibility}>
-							<Ionicons
-								name={showPassword ? 'eye-off' : 'eye'}
-								size={24}
-								color='#6B7280'
-							/>
-						</TouchableOpacity>
+						{emailError && (
+							<Text className='text-[#D55004] text-sm mt-1'>{emailError}</Text>
+						)}
 					</View>
-					{passwordError ? (
-						<Text style={{ color: '#D55004', marginBottom: 16 }}>
-							{passwordError}
-						</Text>
-					) : null}
+
+					<View>
+						<View className='relative'>
+							<TextInput
+								className='w-full h-12 px-4 bg-[#1F2937] text-white rounded-lg border border-[#374151]'
+								value={password}
+								placeholder='Password'
+								placeholderTextColor='#6B7280'
+								secureTextEntry={!showPassword}
+								onChangeText={setPassword}
+								autoComplete='password'
+								editable={!isLoading}
+							/>
+							<TouchableOpacity
+								className='absolute right-4 top-3'
+								onPress={togglePasswordVisibility}
+								disabled={isLoading}>
+								<Ionicons
+									name={showPassword ? 'eye-off' : 'eye'}
+									size={24}
+									color='#6B7280'
+								/>
+							</TouchableOpacity>
+						</View>
+						{passwordError && (
+							<Text className='text-[#D55004] text-sm mt-1'>
+								{passwordError}
+							</Text>
+						)}
+					</View>
 				</View>
-				{error ? (
-					<Text className='text-[#D55004] mt-4 text-center'>{error}</Text>
-				) : null}
+
+				{error && (
+					<Text className='text-[#D55004] text-center mb-4'>{error}</Text>
+				)}
+
 				<TouchableOpacity
-					style={{
-						backgroundColor: '#D55004',
-						paddingVertical: 12,
-						borderRadius: 8,
-						marginTop: 32
-					}}
-					onPress={onSignInPress}>
-					<Text
-						style={{
-							color: 'white',
-							fontWeight: 'bold',
-							fontSize: 18,
-							textAlign: 'center'
-						}}>
-						Sign In
-					</Text>
-				</TouchableOpacity>
-				<View
-					style={{
-						flexDirection: 'row',
-						justifyContent: 'center',
-						marginTop: 24
-					}}>
-					<Text style={{ color: '#9CA3AF' }}>Don't have an account? </Text>
-					<Link href='/sign-up'>
-						<Text style={{ color: '#D55004', fontWeight: 'bold' }}>
-							Sign up
+					className={`bg-[#D55004] py-4 rounded-lg mb-4 flex-row justify-center items-center ${
+						isLoading ? 'opacity-70' : ''
+					}`}
+					onPress={onSignInPress}
+					disabled={isLoading}>
+					{isLoading ? (
+						<ActivityIndicator color='white' />
+					) : (
+						<Text className='text-white font-bold text-lg text-center'>
+							Sign In
 						</Text>
+					)}
+				</TouchableOpacity>
+
+				<SignInWithOAuth />
+
+				<View className='flex-row justify-center mt-6'>
+					<Text className='text-[#9CA3AF]'>Don't have an account? </Text>
+					<Link href='/sign-up' asChild>
+						<TouchableOpacity>
+							<Text className='text-[#D55004] font-bold'>Sign up</Text>
+						</TouchableOpacity>
 					</Link>
 				</View>
+
 				<TouchableOpacity
 					onPress={() => router.push('/forgot-password')}
-					className='mx-auto'>
-					<Text className={`text-white underline`}>Forgot Password?</Text>
+					className='mx-auto mt-4'>
+					<Text className='text-white underline'>Forgot Password?</Text>
 				</TouchableOpacity>
 			</View>
 		</KeyboardAvoidingView>

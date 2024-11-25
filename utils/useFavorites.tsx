@@ -27,16 +27,26 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
 
 	const fetchFavorites = async () => {
 		if (!user) return
-		const { data, error } = await supabase
-			.from('users')
-			.select('favorite')
-			.eq('id', user.id)
-			.single()
 
-		if (error) {
+		try {
+			const { data, error } = await supabase
+				.from('users')
+				.select('favorite')
+				.eq('id', user.id)
+				.single()
+
+			if (error) {
+				if (error.code === 'PGRST116') {
+					// User doesn't exist yet, initialize with empty favorites
+					setFavorites([])
+				} else {
+					console.error('Error fetching favorites:', error)
+				}
+			} else {
+				setFavorites(data?.favorite || [])
+			}
+		} catch (error) {
 			console.error('Error fetching favorites:', error)
-		} else {
-			setFavorites(data?.favorite || [])
 		}
 	}
 
