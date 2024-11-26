@@ -21,28 +21,16 @@ import VideoControls from '@/components/VideoControls'
 import CarDetailsModalclip from '../CarDetailsModalclip'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
-
-import { debounce } from 'lodash'
 import { useUser } from '@clerk/clerk-expo'
 import { Share, Linking } from 'react-native'
 import { formatDistanceToNow } from 'date-fns'
 import { LinearGradient } from 'expo-linear-gradient'
-import {
-	Volume2,
-	VolumeX,
-	Heart,
-	Pause,
-	Play,
-	ChevronUp,
-	SkipBack,
-	SkipForward
-} from 'lucide-react-native'
+import { Heart, Pause, Play } from 'lucide-react-native'
 import { Ionicons } from '@expo/vector-icons'
 
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
-const PAUSE_DELAY = 200
-const SEEK_INTERVAL = 10000
+const TAB_BAR_HEIGHT = 80
 
 interface Car {
 	id: string
@@ -179,18 +167,6 @@ export default function AutoClips() {
 		heartAnimations.current[clipId] = new Animated.Value(0)
 		playPauseAnimations.current[clipId] = new Animated.Value(0)
 		infoExpandAnimations.current[clipId] = new Animated.Value(0)
-	}
-
-	// Handle info expand toggle
-	const toggleInfoExpand = (clipId: number) => {
-		const newState = !expandedInfo[clipId]
-		setExpandedInfo(prev => ({ ...prev, [clipId]: newState }))
-
-		Animated.timing(infoExpandAnimations.current[clipId], {
-			toValue: newState ? 1 : 0,
-			duration: 300,
-			useNativeDriver: true
-		}).start()
 	}
 
 	// Fetch data
@@ -382,28 +358,6 @@ export default function AutoClips() {
 		}
 	}
 
-	const handleSeek = async (
-		clipId: number,
-		direction: 'forward' | 'backward'
-	) => {
-		const videoRef = videoRefs.current[clipId]
-		if (!videoRef) return
-
-		try {
-			const status: any = await videoRef.getStatusAsync()
-			if (!status.isLoaded) return
-
-			const newPosition =
-				status.positionMillis +
-				(direction === 'forward' ? SEEK_INTERVAL : -SEEK_INTERVAL)
-			await videoRef.setPositionAsync(
-				Math.max(0, Math.min(newPosition, status.durationMillis))
-			)
-		} catch (error) {
-			console.error('Error seeking video:', error)
-		}
-	}
-
 	const handleLikePress = async (clipId: number) => {
 		if (!user) return
 
@@ -526,11 +480,12 @@ export default function AutoClips() {
 		const formattedPostDate = getFormattedPostDate(item.created_at)
 
 		return (
-			<View className='absolute bottom-0 left-0 right-0 pb-16 -mb-1 '>
-				{/* Gradient overlay for better text visibility */}
+			<View className='absolute bottom-0 left-0 right-0 pb-24 -mb-2'>
+				{' '}
+				{/* Increased bottom padding */}
 				<LinearGradient
 					colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
-					className='p-4  rounded-t-3xl'
+					className='p-5 rounded-t-3xl pb-8 -mb-2'
 					style={{ zIndex: 50 }}>
 					{/* Top Bar - Dealership Info & Time */}
 					<View className='flex-row items-center justify-between mb-1'>
@@ -771,6 +726,9 @@ export default function AutoClips() {
 						tintColor={isDarkMode ? '#FFFFFF' : '#D55004'}
 					/>
 				}
+				contentContainerStyle={{
+					paddingBottom: TAB_BAR_HEIGHT // Add padding at bottom
+				}}
 			/>
 
 			{Platform.OS === 'ios' ? (

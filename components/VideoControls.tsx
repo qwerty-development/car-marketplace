@@ -67,7 +67,7 @@ const VideoControls = ({
 		<>
 			{/* Progress bar at bottom */}
 			<Animated.View
-				className='absolute bottom-0 left-0 right-0 p-4'
+				className='absolute bottom-14 left-0 right-0 p-4' // Increased bottom value
 				style={{
 					opacity,
 					zIndex: 60
@@ -90,7 +90,7 @@ const VideoControls = ({
 						</View>
 					</TouchableOpacity>
 
-					<View className='flex-row justify-between mt-2'>
+					<View className='flex-row justify-between -mt-3'>
 						<Text className='text-white text-xs'>
 							{formatTime(currentTime)}
 						</Text>
@@ -101,9 +101,8 @@ const VideoControls = ({
 
 			{/* Side controls */}
 			<View
-				className='absolute right-4 bottom-32'
-				style={{ zIndex: 60 }} // Increased z-index
-			>
+				className='absolute right-4 bottom-40' // Increased bottom value
+				style={{ zIndex: 60 }}>
 				<View className='space-y-6'>
 					<TouchableOpacity
 						onPress={e => onMutePress(clipId, e)}
