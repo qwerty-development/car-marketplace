@@ -138,10 +138,10 @@ const SignInWithOAuth = () => {
 
 	return (
 		<View className='w-full space-y-3'>
-			<View className='flex-row items-center justify-center space-x-2 my-4'>
-				<View className='flex-1 h-[1px] bg-gray-300/20' />
+			<View className='flex-row items-center justify-center space-x-2 mb-4 mt-0'>
+				<View className='flex-1 h-[1px] bg-gray/20' />
 				<Text className='text-gray-300 px-2'>Or continue with</Text>
-				<View className='flex-1 h-[1px] bg-gray-300/20' />
+				<View className='flex-1 h-[1px] bg-gray/20' />
 			</View>
 
 			<TouchableOpacity
@@ -312,7 +312,7 @@ export default function SignInPage() {
 				)}
 
 				<TouchableOpacity
-					className={`bg-[#D55004] py-4 rounded-lg mb-4 flex-row justify-center items-center ${
+					className={`bg-[#D55004] py-4 rounded-lg  flex-row justify-center items-center ${
 						isLoading ? 'opacity-70' : ''
 					}`}
 					onPress={onSignInPress}
@@ -340,7 +340,9 @@ export default function SignInPage() {
 				<TouchableOpacity
 					onPress={() => router.push('/forgot-password')}
 					className='mx-auto mt-4'>
-					<Text className='text-white underline'>Forgot Password?</Text>
+					<Text className='text-white underline text-center'>
+						Forgot Password?
+					</Text>
 				</TouchableOpacity>
 			</View>
 		</KeyboardAvoidingView>

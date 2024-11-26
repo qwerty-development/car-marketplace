@@ -11,10 +11,17 @@ import {
 	Animated,
 	Dimensions,
 	ScrollView,
-	Alert
+	Alert,
+	ActivityIndicator
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { Ionicons } from '@expo/vector-icons'
+import * as WebBrowser from 'expo-web-browser'
+import { useOAuth } from '@clerk/clerk-expo'
+import { maybeCompleteAuthSession } from 'expo-web-browser'
+
+// Complete auth session
+maybeCompleteAuthSession()
 
 const { width, height } = Dimensions.get('window')
 
@@ -95,6 +102,81 @@ const FadingCircle: React.FC<{
 	)
 }
 
+const SignUpWithOAuth = () => {
+	const [isLoading, setIsLoading] = useState<{
+		google: boolean
+		apple: boolean
+	}>({ google: false, apple: false })
+	const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' })
+	const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' })
+	const router = useRouter()
+
+	const onSelectAuth = async (strategy: 'google' | 'apple') => {
+		try {
+			setIsLoading(prev => ({ ...prev, [strategy]: true }))
+			const selectedAuth = strategy === 'google' ? googleAuth : appleAuth
+			const { createdSessionId, setActive } = await selectedAuth()
+
+			if (createdSessionId) {
+				setActive && (await setActive({ session: createdSessionId }))
+				router.replace('/(home)')
+			}
+		} catch (err) {
+			console.error('OAuth error:', err)
+			Alert.alert(
+				'Authentication Error',
+				'Failed to authenticate with ' +
+					strategy.charAt(0).toUpperCase() +
+					strategy.slice(1)
+			)
+		} finally {
+			setIsLoading(prev => ({ ...prev, [strategy]: false }))
+		}
+	}
+
+	return (
+		<View className='w-full space-y-3'>
+			<View className='flex-row items-center justify-center space-x-2 mb-4'>
+				<View className='flex-1 h-[1px] bg-gray/20' />
+				<Text className='text-gray-300 px-2'>Or continue with</Text>
+				<View className='flex-1 h-[1px] bg-gray/20' />
+			</View>
+
+			<TouchableOpacity
+				onPress={() => onSelectAuth('google')}
+				disabled={isLoading.google}
+				className='flex-row items-center justify-center space-x-2 bg-white p-4 rounded-lg'>
+				{isLoading.google ? (
+					<ActivityIndicator size='small' color='#000' />
+				) : (
+					<>
+						<Ionicons name='logo-google' size={24} color='#000' />
+						<Text className='font-semibold text-black'>
+							Continue with Google
+						</Text>
+					</>
+				)}
+			</TouchableOpacity>
+
+			<TouchableOpacity
+				onPress={() => onSelectAuth('apple')}
+				disabled={isLoading.apple}
+				className='flex-row items-center justify-center space-x-2 bg-black border border-white/20 p-4 rounded-lg'>
+				{isLoading.apple ? (
+					<ActivityIndicator size='small' color='#FFF' />
+				) : (
+					<>
+						<Ionicons name='logo-apple' size={24} color='#FFF' />
+						<Text className='font-semibold text-white'>
+							Continue with Apple
+						</Text>
+					</>
+				)}
+			</TouchableOpacity>
+		</View>
+	)
+}
+
 export default function SignUpScreen() {
 	const { isLoaded, signUp, setActive } = useSignUp()
 	const router = useRouter()
@@ -112,6 +194,7 @@ export default function SignUpScreen() {
 		general: ''
 	})
 	const [showPassword, setShowPassword] = useState(false)
+	const [isLoading, setIsLoading] = useState(false)
 
 	const togglePasswordVisibility = () => setShowPassword(!showPassword)
 
@@ -154,6 +237,7 @@ export default function SignUpScreen() {
 		if (!isLoaded) return
 		if (!validateInputs()) return
 
+		setIsLoading(true)
 		try {
 			await signUp.create({
 				emailAddress,
@@ -167,6 +251,8 @@ export default function SignUpScreen() {
 				...prev,
 				general: err.errors?.[0]?.message || 'Sign up failed. Please try again.'
 			}))
+		} finally {
+			setIsLoading(false)
 		}
 	}
 
@@ -177,6 +263,7 @@ export default function SignUpScreen() {
 			return
 		}
 
+		setIsLoading(true)
 		try {
 			const completeSignUp = await signUp.attemptEmailAddressVerification({
 				code
@@ -217,7 +304,7 @@ export default function SignUpScreen() {
 				)
 			}
 
-			router.replace('/')
+			router.replace('/(home)')
 		} catch (err: any) {
 			console.error(JSON.stringify(err, null, 2))
 			setErrors(prev => ({
@@ -225,6 +312,8 @@ export default function SignUpScreen() {
 				general:
 					err.errors?.[0]?.message || 'An error occurred. Please try again.'
 			}))
+		} finally {
+			setIsLoading(false)
 		}
 	}
 
@@ -277,6 +366,7 @@ export default function SignUpScreen() {
 										onChangeText={setName}
 										autoCapitalize='words'
 										autoComplete='name'
+										editable={!isLoading}
 									/>
 									{errors.name && (
 										<Text className='text-red mt-1'>{errors.name}</Text>
@@ -292,6 +382,7 @@ export default function SignUpScreen() {
 										onChangeText={setEmailAddress}
 										keyboardType='email-address'
 										autoComplete='email'
+										editable={!isLoading}
 									/>
 									{errors.email && (
 										<Text className='text-red mt-1'>{errors.email}</Text>
@@ -306,10 +397,12 @@ export default function SignUpScreen() {
 										secureTextEntry={!showPassword}
 										onChangeText={setPassword}
 										autoComplete='password'
+										editable={!isLoading}
 									/>
 									<TouchableOpacity
 										className='absolute right-4 top-3'
-										onPress={togglePasswordVisibility}>
+										onPress={togglePasswordVisibility}
+										disabled={isLoading}>
 										<Ionicons
 											name={showPassword ? 'eye-off' : 'eye'}
 											size={24}
@@ -330,6 +423,7 @@ export default function SignUpScreen() {
 									placeholderTextColor='#6B7280'
 									onChangeText={setCode}
 									keyboardType='number-pad'
+									editable={!isLoading}
 								/>
 								{errors.code && (
 									<Text className='text-red mt-1'>{errors.code}</Text>
@@ -340,20 +434,46 @@ export default function SignUpScreen() {
 					{errors.general ? (
 						<Text className='text-red mt-4 text-center'>{errors.general}</Text>
 					) : null}
-					<TouchableOpacity
-						className='bg-[#D55004] py-3 rounded-lg mt-8'
-						onPress={pendingVerification ? onPressVerify : onSignUpPress}>
-						<Text className='text-white font-bold text-lg text-center'>
-							{pendingVerification ? 'Verify Email' : 'Sign Up'}
-						</Text>
-					</TouchableOpacity>
-					{!pendingVerification && (
-						<View className='flex-row justify-center mt-6'>
-							<Text className='text-gray'>Already have an account? </Text>
-							<TouchableOpacity onPress={() => router.push('/sign-in')}>
-								<Text className='text-[#D55004] font-bold'>Sign in</Text>
+
+					{!pendingVerification ? (
+						<>
+							<TouchableOpacity
+								className={`bg-[#D55004] py-4 rounded-lg mt-8 flex-row justify-center items-center ${
+									isLoading ? 'opacity-70' : ''
+								}`}
+								onPress={onSignUpPress}
+								disabled={isLoading}>
+								{isLoading ? (
+									<ActivityIndicator color='white' />
+								) : (
+									<Text className='text-white font-bold text-lg'>Sign Up</Text>
+								)}
 							</TouchableOpacity>
-						</View>
+
+							<SignUpWithOAuth />
+
+							<View className='flex-row justify-center mt-6'>
+								<Text className='text-gray'>Already have an account? </Text>
+								<TouchableOpacity onPress={() => router.push('/sign-in')}>
+									<Text className='text-[#D55004] font-bold'>Sign in</Text>
+								</TouchableOpacity>
+							</View>
+						</>
+					) : (
+						<TouchableOpacity
+							className={`bg-[#D55004] py-4 rounded-lg mt-8 flex-row justify-center items-center ${
+								isLoading ? 'opacity-70' : ''
+							}`}
+							onPress={onPressVerify}
+							disabled={isLoading}>
+							{isLoading ? (
+								<ActivityIndicator color='white' />
+							) : (
+								<Text className='text-white font-bold text-lg text-center'>
+									Verify Email
+								</Text>
+							)}
+						</TouchableOpacity>
 					)}
 				</View>
 			</ScrollView>
