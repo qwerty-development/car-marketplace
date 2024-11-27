@@ -133,14 +133,14 @@ export default function CarCard({
 
 	const formattedLocation = useMemo(() => {
 		if (car.dealership_location.length > 20) {
-		  return (
-			car.dealership_location.slice(0, 20) +
-			'\n' +
-			car.dealership_location.slice(20)
-		  );
+			return (
+				car.dealership_location.slice(0, 20) +
+				'\n' +
+				car.dealership_location.slice(20)
+			);
 		}
 		return car.dealership_location;
-	  }, [car.dealership_location]);
+	}, [car.dealership_location]);
 
 	const handleWhatsApp = useCallback(() => {
 		if (car.dealership_phone) {
@@ -171,17 +171,18 @@ export default function CarCard({
 				<OptimizedImage
 					source={{ uri: item }}
 					style={{
-						width: SCREEN_WIDTH - 35,
+						width: SCREEN_WIDTH - 30,
 						height: 245,
 					}}
 				/>
-				<StyledView className="w-full p-4 flex flex-row justify-between">
+
+				<StyledView className="w-full mt-2 px-2 flex flex-row justify-between">
 					<StyledView className="rounded-lg py-1">
 						<StyledText className={`text-xl font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}>
 							{car.make} {car.model}
 						</StyledText>
 					</StyledView>
-					<StyledView className="bg-red rounded-full px-3 py-1">
+					<StyledView className=" py-1 px-3 rounded-full bg-red ">
 						<StyledText className="text-white text-xl font-bold">
 							{formattedPrice}
 						</StyledText>
@@ -227,7 +228,7 @@ export default function CarCard({
 
 				<StyledView className=" flex items-center justify-center">
 					<StyledView
-						className={`h-[0.6px] ${isDarkMode ? 'bg-gray' : 'bg-gray'} my-2.5 w-5/6`}
+						className={` ${isDarkMode ? 'bg-gray' : 'bg-gray'} my-2 w-5/6`}
 					/>
 				</StyledView>
 				<StyledView className="flex-row justify-between mt-4 mb-4">
@@ -244,9 +245,9 @@ export default function CarCard({
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
-						title="Transmission"
+						title="Transm."
 						icon="cog-outline"
-						value={car.transmission}
+						value={car.transmission === 'Automatic' ? 'Auto' : car.transmission === 'Manual' ? 'Man' : car.transmission}
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
@@ -262,56 +263,58 @@ export default function CarCard({
 				</View>
 
 				<StyledView className="p-4">
-  <StyledView className="flex-row items-start mb-4">
-    {/* Dealership Logo */}
-    {car.dealership_logo && (
-      <TouchableOpacity onPress={handleDealershipPress}>
-        <OptimizedImage
-          source={{ uri: car.dealership_logo }}
-          style={{ width: 50, height: 48, borderRadius: 24 }}
-        />
-      </TouchableOpacity>
-    )}
+					<StyledView className="flex-row items-start justify-between">
+						{/* Dealership Logo */}
+						{car.dealership_logo && (
+							<TouchableOpacity onPress={handleDealershipPress}>
+								<OptimizedImage
+									source={{ uri: car.dealership_logo }}
+									style={{ width: 50, height: 48, borderRadius: 24 }}
+								/>
+							</TouchableOpacity>
+						)}
 
-    {/* Container for Dealership Info and Action Buttons */}
-    <StyledView className="flex-row ml-2 items-start justify-between">
-      {/* Dealership Info */}
-      <StyledView style={{ maxWidth: '70%' }}>
-        <StyledText
-          className={`text-base font-medium ${
-            isDarkMode ? 'text-white' : 'text-black'
-          }`}
-        >
-          {car.dealership_name}
-        </StyledText>
-        <StyledText
-          className={`text-s ${
-            isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
-          }`}
-          style={{ flexWrap: 'wrap' }}
-        >
-          {formattedLocation}
-        </StyledText>
-      </StyledView>
+						{/* Dealership Info and Action Buttons Container */}
+						<StyledView className="flex-row items-start justify-between flex-1 ml-2">
+							{/* Dealership Info */}
+							<StyledView style={{ flexShrink: 1, marginRight: 10 }}>
+								<StyledText
+									className={`text-base font-medium ${isDarkMode ? 'text-white' : 'text-black'
+										}`}
+									numberOfLines={1}
+									ellipsizeMode="tail"
+								>
+									{car.dealership_name}
+								</StyledText>
+								<StyledText
+									className={`text-xs ${isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+										}`}
+									numberOfLines={2}
+									ellipsizeMode="tail"
+								>
+									{formattedLocation}
+								</StyledText>
+							</StyledView>
 
-      {/* Action Buttons */}
-      <StyledView className="flex-row ml-4">
-        <ActionButton
-          icon="call-outline"
-          onPress={handleCall}
-          text="Call"
-          isDarkMode={isDarkMode}
-        />
-        <ActionButton
-          icon="chatbubble-outline"
-          onPress={handleChat}
-          text="Chat"
-          isDarkMode={isDarkMode}
-        />
-      </StyledView>
-    </StyledView>
-  </StyledView>
-</StyledView>
+							{/* Action Buttons */}
+							<StyledView style={{ flexShrink: 0, flexDirection: 'row' }}>
+								<ActionButton
+									icon="call-outline"
+									onPress={handleCall}
+									text="Call"
+									isDarkMode={isDarkMode}
+								/>
+								<ActionButton
+									icon="chatbubble-outline"
+									onPress={handleChat}
+									text="Chat"
+									isDarkMode={isDarkMode}
+								/>
+							</StyledView>
+						</StyledView>
+					</StyledView>
+				</StyledView>
+
 
 
 			</StyledTouchableOpacity>
