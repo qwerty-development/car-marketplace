@@ -67,7 +67,7 @@ const VideoControls = ({
 		<>
 			{/* Progress bar at bottom */}
 			<Animated.View
-				className='absolute bottom-14 left-0 right-0 p-4' // Increased bottom value
+				className='absolute bottom-0 left-0 right-0 p-4' // Increased bottom value
 				style={{
 					opacity,
 					zIndex: 60

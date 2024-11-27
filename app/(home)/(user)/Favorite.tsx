@@ -14,23 +14,38 @@ import { router } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
-import CarDetailModalIOS from '../CarDetailModalIOS'
+import CarDetailModalIOS from './CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
+import { Ionicons } from '@expo/vector-icons'
 
-	return (
-		<SafeAreaView
-			className={`bg-${isDarkMode ? 'black' : 'white'} border-b border-red`}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center justify-center'>
-				<Text className='text-xl font-semibold text-red'>{title}</Text>
-			</View>
-		</SafeAreaView>
-	)
-})
+
+const CustomHeader = React.memo(
+	({ title, onBack }: { title: string; onBack: () => void }) => {
+		const { isDarkMode } = useTheme()
+		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+
+		return (
+			<SafeAreaView
+				edges={['top']}
+				className={`bg-${isDarkMode ? 'black' : 'white'}`}>
+				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+				<View className='flex-row items-center pb-4 px-4'>
+					<TouchableOpacity onPress={() => router.back()}>
+						<Ionicons name='arrow-back' size={24} color={iconColor} />
+					</TouchableOpacity>
+					<Text
+						className={`ml-4 text-lg font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						{title}
+					</Text>
+				</View>
+			</SafeAreaView>
+		)
+	}
+)
 
 interface Car {
 	id: number
@@ -48,7 +63,9 @@ interface Car {
 	}
 }
 
-export default function FavoritesPage() {
+
+
+export default function Favorite() {
 	const { isDarkMode } = useTheme()
 	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [favoriteCars, setFavoriteCars] = useState<Car[]>([])

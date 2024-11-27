@@ -13,7 +13,7 @@ export default function TabLayout() {
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: isDarkMode ? '#1A1A1A' : 'white',
-          height: 80,
+          height: 60,
           paddingBottom: 20,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 5 },
@@ -37,11 +37,11 @@ export default function TabLayout() {
         headerShown: route.name !== 'index',
         tabBarIcon: ({ color, size, focused }) => {
           let iconName = 'home-outline'
-          
+
           if (route.name === 'index') iconName = 'home-outline'
           else if (route.name === 'autoclips') iconName = 'film-outline'
           else if (route.name === 'dealerships') iconName = 'business-outline'
-          else if (route.name === 'favorites') iconName = 'heart-outline'
+          else if (route.name === 'chat') iconName = 'chatbubbles-outline'
           else if (route.name === 'profile') iconName = 'person-outline'
 
           if (route.name === 'autoclips') {
@@ -77,11 +77,15 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name='autoclips'
-        options={{ headerTitle: 'Autoclips', headerShown: false }}
+        options={{
+          headerTitle: 'Autoclips',
+          headerShown: false,
+          tabBarStyle: { display: 'none' },
+        }}
       />
       <Tabs.Screen
-        name='favorites'
-        options={{ headerTitle: 'Favorites', headerShown: false }}
+        name='chat'
+        options={{ headerTitle: 'Chat', headerShown: false }}
       />
       <Tabs.Screen
         name='profile'

@@ -414,58 +414,67 @@ export default function BrowseCarsPage() {
 					isDarkMode && styles.darkContainer,
 					{ backgroundColor: 'transparent' }
 				]}>
+				// In the SearchContainer View, update the layout:
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
-						<TouchableOpacity
-							style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
-							onPress={openFilterPage}>
+						{/* Main Search Bar with magnifying glass icon */}
+						<View style={[styles.searchBar, isDarkMode && styles.darkSearchBar, { flex: 1 }]}>
 							<FontAwesome
-								name='filter'
+								name='search'
 								size={20}
-								color={isDarkMode ? 'white' : 'black'}
+								color={isDarkMode ? '#FFFFFF' : '#666666'}
+								style={{ marginLeft: 12 }}
 							/>
-						</TouchableOpacity>
-						<View
-							style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
-							<TouchableOpacity
-								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
-								onPress={handleSearch}>
-								<FontAwesome
-									name='search'
-									size={20}
-									color={isDarkMode ? 'white' : 'black'}
-								/>
-							</TouchableOpacity>
 							<TextInput
-								style={[
-									styles.searchInput,
-									isDarkMode && styles.darkSearchInput
-								]}
+								style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
 								placeholder='Search cars...'
-								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
+								placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
 								value={searchQuery}
 								onChangeText={setSearchQuery}
 								onSubmitEditing={handleSearch}
 							/>
+
+							{/* Filter Icon inside search bar */}
+							<TouchableOpacity
+								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
+								onPress={openFilterPage}
+							>
+								<FontAwesome
+									name='sliders'
+									size={20}
+									color={isDarkMode ? '#000000' : '#ffffff'}
+								/>
+							</TouchableOpacity>
+
+							{/* Clear button (only show when there's text) */}
 							{searchQuery.length > 0 && (
 								<TouchableOpacity
 									style={styles.clearButton}
 									onPress={() => {
 										setSearchQuery('')
 										fetchCars(1, {}, '', '')
-									}}>
+									}}
+								>
 									<FontAwesome
 										name='times-circle'
 										size={20}
-										color={isDarkMode ? 'white' : 'black'}
+										color={isDarkMode ? '#FFFFFF' : '#666666'}
 									/>
 								</TouchableOpacity>
 							)}
 						</View>
-						<SortPicker
-							onValueChange={handleSortChange}
-							initialValue={{ label: 'Sort', value: null }}
-						/>
+
+						{/* Favorites Button */}
+						<TouchableOpacity
+							style={styles.favoriteButton}
+							onPress={() => router.push('/(home)/(user)/Favorite')}
+						>
+							<FontAwesome
+								name='heart'
+								size={30}
+								color={isDarkMode ? '#ffffff' : '#000000'}
+							/>
+						</TouchableOpacity>
 					</View>
 				</View>
 
@@ -568,10 +577,10 @@ const styles = StyleSheet.create({
 	iconButton: {
 		padding: 10,
 		borderRadius: 20,
-		backgroundColor: '#f0f0f0'
+		backgroundColor: '#000000',
 	},
 	darkIconButton: {
-		backgroundColor: '#333'
+		backgroundColor: '#ffffff'
 	},
 	searchBar: {
 		flex: 1,
@@ -620,5 +629,12 @@ const styles = StyleSheet.create({
 	resetButtonText: {
 		color: 'white',
 		fontWeight: 'bold'
-	}
+	},
+	favoriteButton: {
+		padding: 12,
+		borderRadius: 20,
+		aspectRatio: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+	  },
 })

@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 
+
 import { useTheme } from '@/utils/ThemeContext'
 import CarDetailsModalOSclip from '../CarDetailsModalOSclip'
 import VideoControls from '@/components/VideoControls'
@@ -27,6 +28,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Heart, Pause, Play } from 'lucide-react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { router } from 'expo-router'
 
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
@@ -65,7 +67,7 @@ interface VideoState {
 	[key: number]: boolean
 }
 
-export default function AutoClips() {
+export default function AutoClips({ navigation }: any) {
 	const { isDarkMode } = useTheme()
 	const isFocused = useIsFocused()
 
@@ -377,12 +379,12 @@ export default function AutoClips() {
 				prev.map(clip =>
 					clip.id === clipId
 						? {
-								...clip,
-								likes: newLikesCount,
-								liked_users: clip.liked_users?.includes(user.id)
-									? clip.liked_users.filter(id => id !== user.id)
-									: [...(clip.liked_users || []), user.id]
-						  }
+							...clip,
+							likes: newLikesCount,
+							liked_users: clip.liked_users?.includes(user.id)
+								? clip.liked_users.filter(id => id !== user.id)
+								: [...(clip.liked_users || []), user.id]
+						}
 						: clip
 				)
 			)
@@ -480,12 +482,12 @@ export default function AutoClips() {
 		const formattedPostDate = getFormattedPostDate(item.created_at)
 
 		return (
-			<View className='absolute bottom-0 left-0 right-0 pb-24 -mb-2'>
+			<View className='absolute bottom-0 left-0 right-0 mb-8'>
 				{' '}
 				{/* Increased bottom padding */}
 				<LinearGradient
 					colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
-					className='p-5 rounded-t-3xl pb-8 -mb-2'
+					className='p-5 rounded-t-3xl pb-16 -mb-8'
 					style={{ zIndex: 50 }}>
 					{/* Top Bar - Dealership Info & Time */}
 					<View className='flex-row items-center justify-between mb-1'>
@@ -509,16 +511,11 @@ export default function AutoClips() {
 
 					{/* Car Title & Status */}
 					{item.car && (
-						<View className='mb-1'>
+						<View className='mb-1 flex'>
 							<Text className='text-red text-xl font-bold'>
 								{item.car.year} {item.car.make} {item.car.model}
 							</Text>
 							<View className='flex-row items-center mt-1'>
-								<View className='bg-red/20 px-3 py-1 rounded-full'>
-									<Text className='text-red text-sm font-medium'>
-										{item.car.status || 'Available'}
-									</Text>
-								</View>
 							</View>
 						</View>
 					)}
@@ -555,11 +552,9 @@ export default function AutoClips() {
 								onPress={async () => {
 									try {
 										await Share.share({
-											message: `Check out this ${item.car.year} ${
-												item.car.make
-											} ${item.car.model} on [Your App Name]!\n\n${
-												item.description || ''
-											}`
+											message: `Check out this ${item.car.year} ${item.car.make
+												} ${item.car.model} on [Your App Name]!\n\n${item.description || ''
+												}`
 										})
 									} catch (error) {
 										console.error('Error sharing:', error)
@@ -710,6 +705,13 @@ export default function AutoClips() {
 	// Main render
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+			<TouchableOpacity
+				className="absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full backdrop-blur-md"
+				onPress={() => router.back()}
+				style={{ elevation: 5 }}
+			>
+				<Ionicons name="chevron-back" size={24} color="white" />
+			</TouchableOpacity>
 			<FlatList
 				ref={flatListRef}
 				data={autoClips}
@@ -720,6 +722,7 @@ export default function AutoClips() {
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={viewabilityConfig}
 				refreshControl={
+
 					<RefreshControl
 						refreshing={refreshing}
 						onRefresh={onRefresh}
