@@ -22,6 +22,8 @@ const StyledTouchableOpacity = styled(TouchableOpacity)
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
+
+
 const OptimizedImage = ({ source, style, onLoad }: any) => {
 	const [loaded, setLoaded] = useState(false)
 	const { isDarkMode } = useTheme()
@@ -79,18 +81,23 @@ const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
 const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 	<StyledTouchableOpacity
 		onPress={onPress}
-		className="items-center justify-center flex-1">
+		className="items-center justify-center px-4"
+	>
 		<Ionicons
 			name={icon}
-			size={24}
+			size={22}
 			color={isDarkMode ? '#FFFFFF' : '#000000'}
 		/>
-		<StyledText
-			className={`text-xs mt-1 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-			{text}
-		</StyledText>
+		{text && (
+			<StyledText
+				className={`text-xs mt-0.5 ${isDarkMode ? 'text-white' : 'text-black'}`}
+			>
+				{text}
+			</StyledText>
+		)}
 	</StyledTouchableOpacity>
 )
+
 
 export default function CarCard({
 	car,
@@ -123,6 +130,17 @@ export default function CarCard({
 			params: { dealershipId: car.dealership_id }
 		})
 	}, [isDealer, router, car.dealership_id])
+
+	const formattedLocation = useMemo(() => {
+		if (car.dealership_location.length > 20) {
+		  return (
+			car.dealership_location.slice(0, 20) +
+			'\n' +
+			car.dealership_location.slice(20)
+		  );
+		}
+		return car.dealership_location;
+	  }, [car.dealership_location]);
 
 	const handleWhatsApp = useCallback(() => {
 		if (car.dealership_phone) {
@@ -188,7 +206,7 @@ export default function CarCard({
 
 	return (
 		<StyledView
-			className={`m-4 mb-4 ${isDarkMode ? 'bg-gray' : 'bg-[#e6e6e6]'
+			className={`m-4 mb-4 ${isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
 				} rounded-3xl overflow-hidden shadow-xl`}>
 			<StyledTouchableOpacity onPress={onPress} activeOpacity={0.9}>
 				<FlatList
@@ -239,45 +257,63 @@ export default function CarCard({
 					/>
 				</StyledView>
 
-				<StyledView className="p-4">
-					<StyledView className="flex-row items-center mb-4">
-						{car.dealership_logo && (
-							<TouchableOpacity onPress={handleDealershipPress}>
-								<OptimizedImage
-									source={{ uri: car.dealership_logo }}
-									style={{ width: 48, height: 48, borderRadius: 24 }}
-								/>
-							</TouchableOpacity>
-						)}
-						<StyledView className="ml-3 flex-1">
-							<StyledText
-								className={`text-base font-medium ${isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-								{car.dealership_name}
-							</StyledText>
-							<StyledText
-								className={`text-sm ${isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
-									}`}>
-								{car.dealership_location}
-							</StyledText>
-						</StyledView>
-					</StyledView>
+				<View className="w-full px-4">
+					<View className="h-[0.5px] mt-2 bg-textgray opacity-30" />
+				</View>
 
-					<StyledView className="flex-row justify-between">
-						<ActionButton
-							icon="call-outline"
-							text="Call"
-							onPress={handleCall}
-							isDarkMode={isDarkMode}
-						/>
-						<ActionButton
-							icon="chatbubble-outline"
-							text="Chat"
-							onPress={handleChat}
-							isDarkMode={isDarkMode}
-						/>
-					</StyledView>
-				</StyledView>
+				<StyledView className="p-4">
+  <StyledView className="flex-row items-start mb-4">
+    {/* Dealership Logo */}
+    {car.dealership_logo && (
+      <TouchableOpacity onPress={handleDealershipPress}>
+        <OptimizedImage
+          source={{ uri: car.dealership_logo }}
+          style={{ width: 50, height: 48, borderRadius: 24 }}
+        />
+      </TouchableOpacity>
+    )}
+
+    {/* Container for Dealership Info and Action Buttons */}
+    <StyledView className="flex-row ml-2 items-start justify-between">
+      {/* Dealership Info */}
+      <StyledView style={{ maxWidth: '70%' }}>
+        <StyledText
+          className={`text-base font-medium ${
+            isDarkMode ? 'text-white' : 'text-black'
+          }`}
+        >
+          {car.dealership_name}
+        </StyledText>
+        <StyledText
+          className={`text-s ${
+            isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+          }`}
+          style={{ flexWrap: 'wrap' }}
+        >
+          {formattedLocation}
+        </StyledText>
+      </StyledView>
+
+      {/* Action Buttons */}
+      <StyledView className="flex-row ml-4">
+        <ActionButton
+          icon="call-outline"
+          onPress={handleCall}
+          text="Call"
+          isDarkMode={isDarkMode}
+        />
+        <ActionButton
+          icon="chatbubble-outline"
+          onPress={handleChat}
+          text="Chat"
+          isDarkMode={isDarkMode}
+        />
+      </StyledView>
+    </StyledView>
+  </StyledView>
+</StyledView>
+
+
 			</StyledTouchableOpacity>
 		</StyledView>
 	)

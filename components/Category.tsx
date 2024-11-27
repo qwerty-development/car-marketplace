@@ -43,18 +43,18 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 				{categories.map(category => (
 					<TouchableOpacity
 						key={category.name}
-						className={`w-[48%] mb-4 p-4 rounded-2xl flex items-center justify-center ${
-							isDarkMode ? 'bg-gray' : 'bg-white'
+						className={`w-[48%] mb-4 p-4  border-[#ccc] border-2 rounded-2xl flex items-center justify-center ${
+							isDarkMode ? 'bg-textgray' : 'bg-white'
 						} ${
 							selectedCategories.includes(category.name)
 								? 'border-2 border-red'
 								: ''
 						}`}
 						onPress={() => onCategoryPress(category.name)}>
-						<View className='w-full aspect-square mb-2 flex items-center justify-center'>
+						<View className='w-full aspect-square flex items-center justify-center'>
 							<Image
 								source={category.image}
-								className={`${category.isLarge ? 'w-28 h-28' : 'w-24 h-24'} ${
+								className={`${category.isLarge ? 'w-20 h-20' : 'w-20 h-20'} ${
 									selectedCategories.includes(category.name) && !isDarkMode
 										? 'tint-red'
 										: ''
@@ -64,7 +64,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 						</View>
 
 						<Text
-							className={`text-base text-center mt-2 ${
+							className={`text-base text-center${
 								isDarkMode ? 'text-white' : 'text-black'
 							} ${
 								selectedCategories.includes(category.name)
