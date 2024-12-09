@@ -67,7 +67,7 @@ export default function CarsByBrand() {
 			const { data, error } = await supabase
 				.from('cars')
 				.select(`*, dealerships (name,logo,phone,location,latitude,longitude)`)
-        .eq('status','available')
+				.eq('status', 'available')
 				.eq('make', brandName)
 
 			if (error) throw error

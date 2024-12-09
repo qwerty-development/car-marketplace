@@ -89,7 +89,7 @@ export default function DealershipProfilePage() {
 	}, [dealership])
 
 	const getDaysUntilExpiration = useCallback(() => {
-		if (!dealership || !dealership.subscription_end_date) return 0
+		if (!dealership || !dealership.subscription_end_date) return
 		const endDate = new Date(dealership.subscription_end_date)
 		const today = new Date()
 		const diffTime = endDate.getTime() - today.getTime()
