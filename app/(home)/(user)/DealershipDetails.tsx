@@ -239,7 +239,7 @@ export default function DealershipDetails() {
 	const [models, setModels] = useState<string[]>([])
 	const scrollY = new Animated.Value(0)
 
-	const bgGradient = isDarkMode
+	const bgGradient: [string, string] = isDarkMode
 		? ['#000000', '#1c1c1c']
 		: ['#FFFFFF', '#F0F0F0']
 	const textColor = isDarkMode ? 'text-white' : 'text-black'
@@ -276,7 +276,10 @@ export default function DealershipDetails() {
 			try {
 				let query = supabase
 					.from('cars')
-					.select('*', { count: 'exact' })
+					.select(
+						`*, dealerships (name,logo,phone,location,latitude,longitude)`,
+						{ count: 'exact' }
+					)
 					.eq('status', 'available')
 					.eq('dealership_id', dealershipId)
 
@@ -289,17 +292,47 @@ export default function DealershipDetails() {
 				if (filterModel) query = query.eq('model', filterModel)
 				if (filterCondition) query = query.eq('condition', filterCondition)
 
-				query = query
-					.order(sortBy, { ascending: sortOrder === 'asc' })
-					.range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
+				// Get total count for pagination
+				const { count } = await query
+				const totalItems = count || 0
+				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+				const safePageNumber = Math.min(page, totalPages)
+				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
+				const endRange = Math.min(
+					safePageNumber * ITEMS_PER_PAGE - 1,
+					totalItems - 1
+				)
 
-				const { data, count, error } = await query
+				// Get paginated data with sorting
+				const { data, error } = await query
+					.order(sortBy, { ascending: sortOrder === 'asc' })
+					.range(startRange, endRange)
 
 				if (error) throw error
 
-				setCars(prevCars => (page === 1 ? data : [...prevCars, ...data]))
-				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
-				setCurrentPage(page)
+				// Process the data to include dealership information
+				const processedCars =
+					data?.map(item => ({
+						...item,
+						dealership_name: item.dealerships.name,
+						dealership_logo: item.dealerships.logo,
+						dealership_phone: item.dealerships.phone,
+						dealership_location: item.dealerships.location,
+						dealership_latitude: item.dealerships.latitude,
+						dealership_longitude: item.dealerships.longitude
+					})) || []
+
+				// Remove duplicates
+				const uniqueCars = Array.from(
+					new Set(processedCars.map(car => car.id))
+				).map(id => processedCars.find(car => car.id === id))
+
+				// Update state
+				setCars(prevCars =>
+					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
+				)
+				setTotalPages(totalPages)
+				setCurrentPage(safePageNumber)
 			} catch (error) {
 				console.error('Error fetching dealership cars:', error)
 			} finally {
@@ -693,7 +726,7 @@ export default function DealershipDetails() {
 				)}
 				<FilterSection />
 				<Text className={`text-xl font-bold ${textColor} mb-4`}>
-					Available Cars ({cars.length})
+					Available Cars ({cars?.length})
 				</Text>
 			</>
 		),
@@ -716,11 +749,11 @@ export default function DealershipDetails() {
 			handleModelFilter,
 			handleConditionFilter,
 			handleSort,
-			cars.length
+			cars?.length
 		]
 	)
 
-	if (isDealershipLoading || (isCarsLoading && cars.length === 0)) {
+	if (isDealershipLoading || (isCarsLoading && cars?.length === 0)) {
 		return (
 			<View
 				className={`flex-1 justify-center items-center ${
@@ -761,7 +794,7 @@ export default function DealershipDetails() {
 					) : null
 				}
 				contentContainerStyle={{
-					paddingHorizontal: 16
+					paddingHorizontal: 0
 				}}
 				onScroll={Animated.event(
 					[{ nativeEvent: { contentOffset: { y: scrollY } } }],

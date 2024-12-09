@@ -22,8 +22,6 @@ const StyledTouchableOpacity = styled(TouchableOpacity)
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
-
-
 const OptimizedImage = ({ source, style, onLoad }: any) => {
 	const [loaded, setLoaded] = useState(false)
 	const { isDarkMode } = useTheme()
@@ -36,31 +34,36 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 	return (
 		<View style={[style, { overflow: 'hidden' }]}>
 			{!loaded && (
-				<View style={[style, {
-					backgroundColor: isDarkMode ? '#2D2D2D' : '#E0E0E0',
-					position: 'absolute',
-					justifyContent: 'center',
-					alignItems: 'center'
-				}]}>
-					<ActivityIndicator size="large" color="#D55004" />
+				<View
+					style={[
+						style,
+						{
+							backgroundColor: isDarkMode ? '#2D2D2D' : '#E0E0E0',
+							position: 'absolute',
+							justifyContent: 'center',
+							alignItems: 'center'
+						}
+					]}>
+					<ActivityIndicator size='large' color='#D55004' />
 				</View>
 			)}
 			<StyledImage
 				source={source}
 				style={[style, { opacity: loaded ? 1 : 0 }]}
 				onLoad={handleLoad}
-				resizeMode="cover"
+				resizeMode='cover'
 			/>
 		</View>
 	)
 }
 
 const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
-	<StyledView className="flex-1 items-center justify-center">
+	<StyledView className='flex-1 items-center justify-center'>
 		<StyledText
-			className={`text-xs mb-3 ${isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'}`}
-			style={{ textAlign: 'center' }}
-		>
+			className={`text-xs mb-3 ${
+				isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+			}`}
+			style={{ textAlign: 'center' }}>
 			{title}
 		</StyledText>
 		<Ionicons
@@ -70,9 +73,10 @@ const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
 			style={{ marginVertical: 3 }}
 		/>
 		<StyledText
-			className={`text-sm font-bold mt-3 ${isDarkMode ? 'text-white' : 'text-black'}`}
-			style={{ textAlign: 'center' }}
-		>
+			className={`text-sm font-bold mt-3 ${
+				isDarkMode ? 'text-white' : 'text-black'
+			}`}
+			style={{ textAlign: 'center' }}>
 			{value}
 		</StyledText>
 	</StyledView>
@@ -81,8 +85,7 @@ const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
 const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 	<StyledTouchableOpacity
 		onPress={onPress}
-		className="items-center justify-center px-4"
-	>
+		className='items-center justify-center px-4'>
 		<Ionicons
 			name={icon}
 			size={22}
@@ -90,14 +93,14 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 		/>
 		{text && (
 			<StyledText
-				className={`text-xs mt-0.5 ${isDarkMode ? 'text-white' : 'text-black'}`}
-			>
+				className={`text-xs mt-0.5 ${
+					isDarkMode ? 'text-white' : 'text-black'
+				}`}>
 				{text}
 			</StyledText>
 		)}
 	</StyledTouchableOpacity>
 )
-
 
 export default function CarCard({
 	car,
@@ -124,7 +127,9 @@ export default function CarCard({
 	}, [car.dealership_phone])
 
 	const handleDealershipPress = useCallback(() => {
-		const route = isDealer ? '/(home)/(dealer)/DealershipDetails' : '/(home)/(user)/DealershipDetails'
+		const route = isDealer
+			? '/(home)/(dealer)/DealershipDetails'
+			: '/(home)/(user)/DealershipDetails'
 		router.push({
 			pathname: route,
 			params: { dealershipId: car.dealership_id }
@@ -132,20 +137,24 @@ export default function CarCard({
 	}, [isDealer, router, car.dealership_id])
 
 	const formattedLocation = useMemo(() => {
-		if (car.dealership_location.length > 20) {
+		if (car.dealership_location?.length > 20) {
 			return (
 				car.dealership_location.slice(0, 20) +
 				'\n' +
 				car.dealership_location.slice(20)
-			);
+			)
 		}
-		return car.dealership_location;
-	}, [car.dealership_location]);
+		return car.dealership_location
+	}, [car.dealership_location])
 
 	const handleWhatsApp = useCallback(() => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model}.`
-			Linking.openURL(`https://wa.me/${car.dealership_phone}?text=${encodeURIComponent(message)}`)
+			Linking.openURL(
+				`https://wa.me/${car.dealership_phone}?text=${encodeURIComponent(
+					message
+				)}`
+			)
 		} else {
 			Alert.alert('WhatsApp number not available')
 		}
@@ -156,7 +165,7 @@ export default function CarCard({
 	}, [])
 
 	const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-		if (viewableItems.length > 0) {
+		if (viewableItems?.length > 0) {
 			setCurrentImageIndex(viewableItems[0].index)
 		}
 	}).current
@@ -167,23 +176,26 @@ export default function CarCard({
 
 	const renderImage = useCallback(
 		({ item }: any) => (
-			<View className="relative">
+			<View className='relative'>
 				<OptimizedImage
 					source={{ uri: item }}
 					style={{
 						width: SCREEN_WIDTH - 30,
-						height: 245,
+						height: 245
 					}}
 				/>
 
-				<StyledView className="w-full mt-2 px-2 flex flex-row justify-between">
-					<StyledView className="rounded-lg py-1">
-						<StyledText className={`text-xl font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}>
+				<StyledView className='w-full mt-2 px-2 flex flex-row justify-between'>
+					<StyledView className='rounded-lg py-1'>
+						<StyledText
+							className={`text-xl font-medium ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
 							{car.make} {car.model}
 						</StyledText>
 					</StyledView>
-					<StyledView className=" py-1 px-3 rounded-full bg-red ">
-						<StyledText className="text-white text-xl font-bold">
+					<StyledView className=' py-1 px-3 rounded-full bg-red '>
+						<StyledText className='text-white text-xl font-bold'>
 							{formattedPrice}
 						</StyledText>
 					</StyledView>
@@ -191,7 +203,9 @@ export default function CarCard({
 				{!isDealer && (
 					<StyledTouchableOpacity
 						onPress={onFavoritePress}
-						className={`absolute top-4 right-4 ${isDarkMode ? 'bg-black/60' : 'bg-black/40'} rounded-full p-2`}>
+						className={`absolute top-4 right-4 ${
+							isDarkMode ? 'bg-black/60' : 'bg-black/40'
+						} rounded-full p-2`}>
 						<Ionicons
 							name={isFavorite ? 'heart' : 'heart-outline'}
 							size={24}
@@ -200,15 +214,15 @@ export default function CarCard({
 					</StyledTouchableOpacity>
 				)}
 			</View>
-
 		),
 		[formattedPrice, isFavorite, isDealer, onFavoritePress, isDarkMode]
 	)
 
 	return (
 		<StyledView
-			className={`m-4 mb-4 ${isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
-				} rounded-3xl overflow-hidden shadow-xl`}>
+			className={`m-4 mb-4 ${
+				isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
+			} rounded-3xl overflow-hidden shadow-xl`}>
 			<StyledTouchableOpacity onPress={onPress} activeOpacity={0.9}>
 				<FlatList
 					ref={flatListRef}
@@ -226,44 +240,50 @@ export default function CarCard({
 					removeClippedSubviews={true}
 				/>
 
-				<StyledView className=" flex items-center justify-center">
+				<StyledView className=' flex items-center justify-center'>
 					<StyledView
 						className={` ${isDarkMode ? 'bg-gray' : 'bg-gray'} my-2 w-5/6`}
 					/>
 				</StyledView>
-				<StyledView className="flex-row justify-between mt-4 mb-4">
+				<StyledView className='flex-row justify-between mt-4 mb-4'>
 					<SpecItem
-						title="Year"
-						icon="calendar-outline"
+						title='Year'
+						icon='calendar-outline'
 						value={car.year}
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
-						title="Mileage"
-						icon="speedometer-outline"
+						title='Mileage'
+						icon='speedometer-outline'
 						value={`${(car.mileage / 1000).toFixed(1)}k`}
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
-						title="Transm."
-						icon="cog-outline"
-						value={car.transmission === 'Automatic' ? 'Auto' : car.transmission === 'Manual' ? 'Man' : car.transmission}
+						title='Transm.'
+						icon='cog-outline'
+						value={
+							car.transmission === 'Automatic'
+								? 'Auto'
+								: car.transmission === 'Manual'
+								? 'Man'
+								: car.transmission
+						}
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
-						title="Condition"
-						icon="car-sport-outline"
+						title='Condition'
+						icon='car-sport-outline'
 						value={car.condition}
 						isDarkMode={isDarkMode}
 					/>
 				</StyledView>
 
-				<View className="w-full px-4">
-					<View className="h-[0.5px] mt-2 bg-textgray opacity-30" />
+				<View className='w-full px-4'>
+					<View className='h-[0.5px] mt-2 bg-textgray opacity-30' />
 				</View>
 
-				<StyledView className="p-4">
-					<StyledView className="flex-row items-start justify-between">
+				<StyledView className='p-4'>
+					<StyledView className='flex-row items-start justify-between'>
 						{/* Dealership Logo */}
 						{car.dealership_logo && (
 							<TouchableOpacity onPress={handleDealershipPress}>
@@ -275,23 +295,23 @@ export default function CarCard({
 						)}
 
 						{/* Dealership Info and Action Buttons Container */}
-						<StyledView className="flex-row items-start justify-between flex-1 ml-2">
+						<StyledView className='flex-row items-start justify-between flex-1 ml-2'>
 							{/* Dealership Info */}
 							<StyledView style={{ flexShrink: 1, marginRight: 10 }}>
 								<StyledText
-									className={`text-base font-medium ${isDarkMode ? 'text-white' : 'text-black'
-										}`}
+									className={`text-base font-medium ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}
 									numberOfLines={1}
-									ellipsizeMode="tail"
-								>
+									ellipsizeMode='tail'>
 									{car.dealership_name}
 								</StyledText>
 								<StyledText
-									className={`text-xs ${isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
-										}`}
+									className={`text-xs ${
+										isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+									}`}
 									numberOfLines={2}
-									ellipsizeMode="tail"
-								>
+									ellipsizeMode='tail'>
 									{formattedLocation}
 								</StyledText>
 							</StyledView>
@@ -299,24 +319,21 @@ export default function CarCard({
 							{/* Action Buttons */}
 							<StyledView style={{ flexShrink: 0, flexDirection: 'row' }}>
 								<ActionButton
-									icon="call-outline"
+									icon='call-outline'
 									onPress={handleCall}
-									text="Call"
+									text='Call'
 									isDarkMode={isDarkMode}
 								/>
 								<ActionButton
-									icon="chatbubble-outline"
+									icon='chatbubble-outline'
 									onPress={handleChat}
-									text="Chat"
+									text='Chat'
 									isDarkMode={isDarkMode}
 								/>
 							</StyledView>
 						</StyledView>
 					</StyledView>
 				</StyledView>
-
-
-
 			</StyledTouchableOpacity>
 		</StyledView>
 	)
