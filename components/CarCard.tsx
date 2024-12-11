@@ -68,7 +68,7 @@ const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
 		</StyledText>
 		<Ionicons
 			name={icon}
-			size={20}
+			size={30}
 			color={isDarkMode ? '#FFFFFF' : '#000000'}
 			style={{ marginVertical: 3 }}
 		/>
@@ -88,7 +88,7 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 		className='items-center justify-center px-4'>
 		<Ionicons
 			name={icon}
-			size={22}
+			size={25}
 			color={isDarkMode ? '#FFFFFF' : '#000000'}
 		/>
 		{text && (

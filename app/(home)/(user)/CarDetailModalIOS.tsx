@@ -624,14 +624,14 @@ const CarDetailModalIOS = memo(
 const styles = StyleSheet.create({
 	modalOverlay: {
 		position: 'absolute',
-		top: 20,
+		top: 0,
 		left: 0,
 		right: 0,
 		bottom: 0,
 		justifyContent: 'flex-end'
 	},
 	gradientContainer: {
-		height: '90%',
+		height: '100%',
 		width: '100%'
 	},
 	scrollView: {
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
 	},
 	closeButton: {
 		position: 'absolute',
-		top: 10,
+		top: 30,
 		right: 10,
 		zIndex: 2
 	},
