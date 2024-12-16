@@ -330,6 +330,17 @@ export default function CarCard({
 									text='Chat'
 									isDarkMode={isDarkMode}
 								/>
+								<TouchableOpacity
+									onPress={() =>
+										router.push({
+											pathname: '/(home)/(user)/chat',
+											params: { dealershipId: car.dealership_id, carId: car.id }
+										})
+									}
+									className='flex-row items-center space-x-2 bg-red px-4 py-2 rounded-full'>
+									<Ionicons name='chatbubble-outline' size={20} color='white' />
+									<Text className='text-white font-semibold'>Chat</Text>
+								</TouchableOpacity>
 							</StyledView>
 						</StyledView>
 					</StyledView>

@@ -380,7 +380,6 @@ const DealershipFormModal = React.memo(
 	}
 )
 
-// Enhanced SearchBar with better UX
 const SearchBar = React.memo(
 	({ value, onChangeText, onSubmit, onClear, isDarkMode }: any) => {
 		const inputRef = useRef<TextInput>(null)
