@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
+import NotificationTester from '@/components/NotificationTester'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
@@ -183,7 +184,6 @@ export default function UserProfileAndSupportPage() {
 								placeholder='Current Password'
 								placeholderTextColor='gray'
 								secureTextEntry
-
 								cursorColor='#D55004'
 								autoComplete='password'
 							/>
@@ -196,7 +196,6 @@ export default function UserProfileAndSupportPage() {
 								placeholder='New Password'
 								placeholderTextColor='gray'
 								secureTextEntry
-
 								cursorColor='#D55004'
 								autoComplete='password'
 							/>
@@ -209,7 +208,6 @@ export default function UserProfileAndSupportPage() {
 								placeholder='Confirm New Password'
 								placeholderTextColor='gray'
 								secureTextEntry
-
 								cursorColor='#D55004'
 								autoComplete='password'
 							/>
@@ -242,7 +240,6 @@ export default function UserProfileAndSupportPage() {
 								onChangeText={setFirstName}
 								placeholder='First Name'
 								placeholderTextColor='gray'
-
 								cursorColor='#D55004'
 								autoComplete='name'
 								autoCapitalize='words'
@@ -261,7 +258,6 @@ export default function UserProfileAndSupportPage() {
 								onChangeText={setLastName}
 								placeholder='Last Name'
 								placeholderTextColor='gray'
-
 								cursorColor='#D55004'
 								autoComplete='name'
 								autoCapitalize='words'
@@ -281,7 +277,6 @@ export default function UserProfileAndSupportPage() {
 								keyboardType='email-address'
 								editable={false}
 								placeholderTextColor='gray'
-
 								cursorColor='#D55004'
 								autoComplete='email'
 							/>
@@ -384,6 +379,7 @@ export default function UserProfileAndSupportPage() {
 					<Text className='text-white font-bold text-xl'>Sign Out</Text>
 				</TouchableOpacity>
 			</View>
+			<NotificationTester userId={user?.id} />
 		</ScrollView>
 	)
 }

@@ -12,10 +12,20 @@
 			"resizeMode": "contain",
 			"backgroundColor": "#ffffff"
 		},
+		"notification": {
+			"icon": "./assets/images/icon.png",
+			"color": "#D55004",
+			"iosDisplayInForeground": true,
+			"androidMode": "default",
+			"androidCollapsedTitle": "New Cars Available!"
+		},
 		"ios": {
 			"supportsTablet": true,
 			"config": {
 				"googleMapsApiKey": "AIzaSyCe8nbmSQBR9KmZG5AP3yYZeKogvjQbwX4"
+			},
+			"infoPlist": {
+				"UIBackgroundModes": ["remote-notification"]
 			}
 		},
 		"android": {
@@ -27,8 +37,22 @@
 				"android.permission.RECORD_AUDIO",
 				"android.permission.READ_EXTERNAL_STORAGE",
 				"android.permission.WRITE_EXTERNAL_STORAGE",
-				"android.permission.INTERNET"
-			]
+				"android.permission.INTERNET",
+				"android.permission.RECEIVE_BOOT_COMPLETED",
+				"android.permission.VIBRATE",
+				"android.permission.SCHEDULE_EXACT_ALARM",
+				"android.permission.POST_NOTIFICATIONS",
+				"android.permission.RECORD_AUDIO",
+				"android.permission.READ_EXTERNAL_STORAGE",
+				"android.permission.WRITE_EXTERNAL_STORAGE",
+				"android.permission.INTERNET",
+				"android.permission.RECEIVE_BOOT_COMPLETED",
+				"android.permission.VIBRATE",
+				"android.permission.SCHEDULE_EXACT_ALARM",
+				"android.permission.POST_NOTIFICATIONS"
+			],
+			"useNextNotificationsApi": true,
+			"package": "com.qwertyapp.clerkexpoquickstart"
 		},
 		"web": {
 			"bundler": "metro",
@@ -50,7 +74,16 @@
 					"filePermission": "The app needs access to files for image uploads."
 				}
 			],
-			"expo-font"
+			"expo-font",
+			[
+				"expo-notifications",
+				{
+					"icon": "./assets/images/icon.png",
+					"color": "#D55004",
+					"sounds": ["./assets/notification.wav"],
+					"mode": "production"
+				}
+			]
 		],
 		"experiments": {
 			"typedRoutes": true
@@ -63,9 +96,7 @@
 				"projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
 			}
 		},
-		"runtimeVersion": {
-			"policy": "appVersion"
-		},
+		"runtimeVersion": "1.0.0",
 		"updates": {
 			"url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
 		},

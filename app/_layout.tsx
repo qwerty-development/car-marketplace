@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/utils/ThemeContext'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import { LogBox } from 'react-native'
 import 'react-native-get-random-values'
+import { useNotifications } from '@/hooks/useNotifications'
 
 LogBox.ignoreLogs([
 	'Encountered two children with the same key' // This will ignore the specific warning about duplicate keys
@@ -52,6 +53,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+	// useNotifications()
 	useEffect(() => {
 		SplashScreen.hideAsync()
 	}, [])
