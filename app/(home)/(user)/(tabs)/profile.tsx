@@ -18,6 +18,7 @@ import { Feather, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
 import NotificationTester from '@/components/NotificationTester'
+import { NotificationBell } from '@/components/NotificationBell'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
@@ -145,18 +146,27 @@ export default function UserProfileAndSupportPage() {
 				/>
 			}>
 			<View
-				className={`items-center ${
+				className={`${
 					isDarkMode ? 'bg-red' : 'bg-red'
-				} pt-16 pb-8 rounded-b-3xl shadow-lg`}>
-				<Image
-					source={{ uri: user?.imageUrl }}
-					className='w-36 h-36 rounded-full border-4 border-white mb-6'
-				/>
-				<TouchableOpacity
-					className='bg-white px-6 py-3 rounded-full shadow-md'
-					onPress={onPickImage}>
-					<Text className='text-red font-semibold text-lg'>Change Picture</Text>
-				</TouchableOpacity>
+				} pt-12 pb-8 rounded-b-3xl shadow-lg`}>
+				<View className='flex-row justify-end px-4 mb-4'>
+					<NotificationBell />
+				</View>
+
+				{/* Profile image section */}
+				<View className='items-center'>
+					<Image
+						source={{ uri: user?.imageUrl }}
+						className='w-36 h-36 rounded-full border-4 border-white mb-6'
+					/>
+					<TouchableOpacity
+						className='bg-white px-6 py-3 rounded-full shadow-md'
+						onPress={onPickImage}>
+						<Text className='text-red font-semibold text-lg'>
+							Change Picture
+						</Text>
+					</TouchableOpacity>
+				</View>
 			</View>
 
 			<View className='px-6 mt-8'>
@@ -379,6 +389,9 @@ export default function UserProfileAndSupportPage() {
 					<Text className='text-white font-bold text-xl'>Sign Out</Text>
 				</TouchableOpacity>
 			</View>
+
+			<NotificationBell />
+
 			<NotificationTester userId={user?.id} />
 		</ScrollView>
 	)
