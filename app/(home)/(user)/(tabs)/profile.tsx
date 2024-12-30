@@ -390,9 +390,7 @@ export default function UserProfileAndSupportPage() {
 				</TouchableOpacity>
 			</View>
 
-			<NotificationBell />
-
-			<NotificationTester userId={user?.id} />
+			<NotificationTester userId={user!.id} />
 		</ScrollView>
 	)
 }
