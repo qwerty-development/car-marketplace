@@ -3,19 +3,17 @@ import {
 	View,
 	Text,
 	Image,
-	FlatList,
 	ActivityIndicator,
 	TouchableOpacity,
 	TextInput,
 	RefreshControl,
 	Animated,
-	Dimensions,
 	StatusBar,
 	Platform,
 	StyleSheet,
 	TouchableWithoutFeedback,
-  AppState,
-  InteractionManager
+	AppState,
+	InteractionManager
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -29,11 +27,9 @@ import { useTheme } from '@/utils/ThemeContext'
 import RNPickerSelect from 'react-native-picker-select'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps'
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
-import StreetViewPanorama from 'react-native-maps'
 const ITEMS_PER_PAGE = 10
-const { width } = Dimensions.get('window')
 
 const OptimizedImage = React.memo(({ source, style, className }: any) => {
 	const [isLoading, setIsLoading] = useState(true)

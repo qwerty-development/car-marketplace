@@ -22,7 +22,7 @@
 		"ios": {
 			"supportsTablet": true,
 			"config": {
-				"googleMapsApiKey": "AIzaSyCe8nbmSQBR9KmZG5AP3yYZeKogvjQbwX4"
+				"googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
 			},
 			"infoPlist": {
 				"UIBackgroundModes": ["remote-notification"]
