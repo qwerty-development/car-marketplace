@@ -113,36 +113,31 @@ const CustomHeader = React.memo(
 	}
 )
 
-const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
+const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 	const mapRef = useRef<MapView | null>(null)
+	const [isMapReady, setIsMapReady] = useState(false)
+	const [mapError, setMapError] = useState(false)
 	const [showCallout, setShowCallout] = useState(false)
-	const [mapReady, setMapReady] = useState(false)
 	const [isMapVisible, setIsMapVisible] = useState(false)
 	const appStateRef = useRef(AppState.currentState)
-	const [isMapError, setIsMapError] = useState(false)
 
-	// Wait for interactions to complete before showing map
-	useEffect(() => {
-		InteractionManager.runAfterInteractions(() => {
-			setIsMapVisible(true)
-		})
-	}, [])
+	// Platform specific configs
+	const isIOS = Platform.OS === 'ios'
+	const mapProvider = isIOS ? null : PROVIDER_GOOGLE
 
-	// Handle app state changes
+	// Handle app state changes and map visibility
 	useEffect(() => {
 		const subscription = AppState.addEventListener('change', nextAppState => {
 			if (
 				appStateRef.current.match(/inactive|background/) &&
 				nextAppState === 'active'
 			) {
-				// App has come to foreground
-				setMapReady(false)
-				setTimeout(() => {
-					setIsMapVisible(false)
-					InteractionManager.runAfterInteractions(() => {
-						setIsMapVisible(true)
-					})
-				}, 100)
+				// App has come to foreground - reset map
+				setIsMapReady(false)
+				setIsMapVisible(false)
+				InteractionManager.runAfterInteractions(() => {
+					setIsMapVisible(true)
+				})
 			}
 			appStateRef.current = nextAppState
 		})
@@ -152,32 +147,50 @@ const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
 		}
 	}, [])
 
-	const MAP_TYPE = {
-		light: Platform.select({
-			ios: 'standard',
-			android: 'standard'
-		}),
-		dark: Platform.select({
-			ios: 'mutedStandard',
-			android: 'standard'
+	// Initialize map after component mounts
+	useEffect(() => {
+		InteractionManager.runAfterInteractions(() => {
+			setIsMapVisible(true)
 		})
-	} as const
+	}, [])
 
-	const mapType = isDarkMode === true ? MAP_TYPE.dark : MAP_TYPE.light
+	// Validate dealership coordinates
+	if (!dealership?.latitude || !dealership?.longitude || mapError) {
+		return (
+			<View className='h-64 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800 items-center justify-center'>
+				<Ionicons
+					name='map-outline'
+					size={48}
+					color={isDarkMode ? '#666' : '#999'}
+				/>
+				<Text className='text-gray-500 dark:text-gray-400 mt-4 text-center px-4'>
+					{mapError ? 'Unable to load map' : 'Location not available'}
+				</Text>
+				{mapError && (
+					<TouchableOpacity
+						className='mt-4 bg-red px-4 py-2 rounded-full'
+						onPress={() => {
+							setMapError(false)
+							setIsMapVisible(false)
+							setTimeout(() => setIsMapVisible(true), 500)
+						}}>
+						<Text className='text-white font-medium'>Retry</Text>
+					</TouchableOpacity>
+				)}
+			</View>
+		)
+	}
 
-	const initialRegion = useMemo(
-		() => ({
-			latitude: dealership?.latitude || 33.8547,
-			longitude: dealership?.longitude || 35.8623,
-			latitudeDelta: 0.02,
-			longitudeDelta: 0.02
-		}),
-		[dealership?.latitude, dealership?.longitude]
-	)
+	const initialRegion = {
+		latitude: dealership.latitude,
+		longitude: dealership.longitude,
+		latitudeDelta: 0.02,
+		longitudeDelta: 0.02
+	}
 
-	const handleMapReady = useCallback(() => {
-		setMapReady(true)
-		if (mapRef.current && dealership?.latitude && dealership?.longitude) {
+	const handleMapReady = () => {
+		setIsMapReady(true)
+		if (mapRef.current) {
 			setTimeout(() => {
 				mapRef.current?.fitToSuppliedMarkers(['dealershipMarker'], {
 					edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
@@ -185,16 +198,9 @@ const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
 				})
 			}, 500)
 		}
-	}, [dealership?.latitude, dealership?.longitude])
+	}
 
-	const handleMapError = useCallback(() => {
-		setIsMapError(true)
-		setMapReady(false)
-	}, [])
-
-	const openInMaps = useCallback(() => {
-		if (!dealership?.latitude || !dealership?.longitude) return
-
+	const openInMaps = () => {
 		const scheme = Platform.select({
 			ios: 'maps:0,0?q=',
 			android: 'geo:0,0?q='
@@ -206,33 +212,9 @@ const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
 			android: `${scheme}${latLng}(${label})`
 		})
 
-		if (url) Linking.openURL(url)
-	}, [dealership])
-
-	if (!dealership?.latitude || !dealership?.longitude || isMapError) {
-		return (
-			<View className='h-64 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800 items-center justify-center'>
-				<Ionicons
-					name='location-outline'
-					size={24}
-					color={isDarkMode ? '#666' : '#999'}
-				/>
-				<Text className='text-gray-500 dark:text-gray-400 mt-2 text-center px-4'>
-					{isMapError ? 'Unable to load map' : 'Location not available'}
-				</Text>
-				{isMapError && (
-					<TouchableOpacity
-						className='mt-2 bg-red px-4 py-2 rounded-full'
-						onPress={() => {
-							setIsMapError(false)
-							setIsMapVisible(false)
-							setTimeout(() => setIsMapVisible(true), 100)
-						}}>
-						<Text className='text-white'>Retry</Text>
-					</TouchableOpacity>
-				)}
-			</View>
-		)
+		if (url) {
+			Linking.openURL(url)
+		}
 	}
 
 	return (
@@ -241,16 +223,22 @@ const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
 				{isMapVisible ? (
 					<MapView
 						ref={mapRef}
-						provider={PROVIDER_GOOGLE}
+						provider={mapProvider}
 						style={{ flex: 1 }}
 						initialRegion={initialRegion}
 						onMapReady={handleMapReady}
-						onError={handleMapError}
+						onError={() => setMapError(true)}
 						showsUserLocation={true}
 						showsMyLocationButton={true}
 						showsCompass={true}
 						zoomControlEnabled={true}
-						mapType={mapType}
+						mapType={
+							Platform.OS === 'ios'
+								? 'standard'
+								: isDarkMode
+								? 'mutedStandard'
+								: 'standard'
+						}
 						cacheEnabled={Platform.OS === 'android'}
 						loadingEnabled={true}
 						loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
@@ -259,7 +247,7 @@ const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
 						maxZoomLevel={20}
 						rotateEnabled={false}
 						pitchEnabled={false}>
-						{mapReady && (
+						{isMapReady && (
 							<Marker
 								identifier='dealershipMarker'
 								coordinate={{
