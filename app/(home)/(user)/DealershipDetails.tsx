@@ -13,7 +13,9 @@ import {
 	StatusBar,
 	Platform,
 	StyleSheet,
-	TouchableWithoutFeedback
+	TouchableWithoutFeedback,
+  AppState,
+  InteractionManager
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -30,7 +32,6 @@ import { BlurView } from 'expo-blur'
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import StreetViewPanorama from 'react-native-maps'
-
 const ITEMS_PER_PAGE = 10
 const { width } = Dimensions.get('window')
 
@@ -116,99 +117,208 @@ const CustomHeader = React.memo(
 	}
 )
 
-const DealershipMapView = ({ dealership, isDarkMode }: any) => {
-	const mapRef = useRef<any>(null)
+const DealershipMapView: any = ({ dealership, isDarkMode }: any) => {
+	const mapRef = useRef<MapView | null>(null)
 	const [showCallout, setShowCallout] = useState(false)
+	const [mapReady, setMapReady] = useState(false)
+	const [isMapVisible, setIsMapVisible] = useState(false)
+	const appStateRef = useRef(AppState.currentState)
+	const [isMapError, setIsMapError] = useState(false)
 
-	const zoomToFit = () => {
-		if (mapRef.current) {
-			mapRef.current.fitToSuppliedMarkers(['dealershipMarker'], {
-				edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-				animated: true
-			})
+	// Wait for interactions to complete before showing map
+	useEffect(() => {
+		InteractionManager.runAfterInteractions(() => {
+			setIsMapVisible(true)
+		})
+	}, [])
+
+	// Handle app state changes
+	useEffect(() => {
+		const subscription = AppState.addEventListener('change', nextAppState => {
+			if (
+				appStateRef.current.match(/inactive|background/) &&
+				nextAppState === 'active'
+			) {
+				// App has come to foreground
+				setMapReady(false)
+				setTimeout(() => {
+					setIsMapVisible(false)
+					InteractionManager.runAfterInteractions(() => {
+						setIsMapVisible(true)
+					})
+				}, 100)
+			}
+			appStateRef.current = nextAppState
+		})
+
+		return () => {
+			subscription.remove()
 		}
-	}
+	}, [])
 
-	const openInMaps = () => {
+	const MAP_TYPE = {
+		light: Platform.select({
+			ios: 'standard',
+			android: 'standard'
+		}),
+		dark: Platform.select({
+			ios: 'mutedStandard',
+			android: 'standard'
+		})
+	} as const
+
+	const mapType = isDarkMode === true ? MAP_TYPE.dark : MAP_TYPE.light
+
+	const initialRegion = useMemo(
+		() => ({
+			latitude: dealership?.latitude || 33.8547,
+			longitude: dealership?.longitude || 35.8623,
+			latitudeDelta: 0.02,
+			longitudeDelta: 0.02
+		}),
+		[dealership?.latitude, dealership?.longitude]
+	)
+
+	const handleMapReady = useCallback(() => {
+		setMapReady(true)
+		if (mapRef.current && dealership?.latitude && dealership?.longitude) {
+			setTimeout(() => {
+				mapRef.current?.fitToSuppliedMarkers(['dealershipMarker'], {
+					edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+					animated: true
+				})
+			}, 500)
+		}
+	}, [dealership?.latitude, dealership?.longitude])
+
+	const handleMapError = useCallback(() => {
+		setIsMapError(true)
+		setMapReady(false)
+	}, [])
+
+	const openInMaps = useCallback(() => {
+		if (!dealership?.latitude || !dealership?.longitude) return
+
 		const scheme = Platform.select({
 			ios: 'maps:0,0?q=',
 			android: 'geo:0,0?q='
 		})
 		const latLng = `${dealership.latitude},${dealership.longitude}`
 		const label = encodeURIComponent(dealership.name)
-		const url: any = Platform.select({
+		const url = Platform.select({
 			ios: `${scheme}${label}@${latLng}`,
 			android: `${scheme}${latLng}(${label})`
 		})
-		Linking.openURL(url)
-	}
 
-	const handleMarkerPress = () => {
-		setShowCallout(true)
-	}
+		if (url) Linking.openURL(url)
+	}, [dealership])
 
-	const handleMapPress = () => {
-		setShowCallout(false)
+	if (!dealership?.latitude || !dealership?.longitude || isMapError) {
+		return (
+			<View className='h-64 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800 items-center justify-center'>
+				<Ionicons
+					name='location-outline'
+					size={24}
+					color={isDarkMode ? '#666' : '#999'}
+				/>
+				<Text className='text-gray-500 dark:text-gray-400 mt-2 text-center px-4'>
+					{isMapError ? 'Unable to load map' : 'Location not available'}
+				</Text>
+				{isMapError && (
+					<TouchableOpacity
+						className='mt-2 bg-red px-4 py-2 rounded-full'
+						onPress={() => {
+							setIsMapError(false)
+							setIsMapVisible(false)
+							setTimeout(() => setIsMapVisible(true), 100)
+						}}>
+						<Text className='text-white'>Retry</Text>
+					</TouchableOpacity>
+				)}
+			</View>
+		)
 	}
 
 	return (
-		<TouchableWithoutFeedback onPress={handleMapPress}>
-			<View className='h-64 rounded-lg overflow-hidden'>
-				<MapView
-					ref={mapRef}
-					provider={PROVIDER_GOOGLE}
-					style={{ flex: 1 }}
-					initialRegion={{
-						latitude: dealership.latitude || 37.7749,
-						longitude: dealership.longitude || -122.4194,
-						latitudeDelta: 0.02,
-						longitudeDelta: 0.02
-					}}
-					onMapReady={zoomToFit}
-					showsUserLocation={true}
-					showsMyLocationButton={true}
-					showsCompass={true}
-					zoomControlEnabled={true}
-					mapType={isDarkMode ? 'mutedStandard' : 'standard'}
-					cacheEnabled={Platform.OS === 'android'}
-					loadingEnabled
-					loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
-					loadingIndicatorColor='#D55004'
-					onPress={handleMapPress}>
-					<Marker
-						identifier='dealershipMarker'
-						coordinate={{
-							latitude: dealership.latitude || 37.7749,
-							longitude: dealership.longitude || -122.4194
-						}}
-						onPress={handleMarkerPress}>
-						<TouchableWithoutFeedback onPress={handleMarkerPress}>
-							<Image
-								source={{ uri: dealership.logo }}
-								style={{ width: 40, height: 40, borderRadius: 20 }}
-							/>
-						</TouchableWithoutFeedback>
-					</Marker>
-				</MapView>
+		<TouchableWithoutFeedback onPress={() => setShowCallout(false)}>
+			<View className='h-64 rounded-lg overflow-hidden relative'>
+				{isMapVisible ? (
+					<MapView
+						ref={mapRef}
+						provider={PROVIDER_GOOGLE}
+						style={{ flex: 1 }}
+						initialRegion={initialRegion}
+						onMapReady={handleMapReady}
+						onError={handleMapError}
+						showsUserLocation={true}
+						showsMyLocationButton={true}
+						showsCompass={true}
+						zoomControlEnabled={true}
+						mapType={mapType}
+						cacheEnabled={Platform.OS === 'android'}
+						loadingEnabled={true}
+						loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
+						loadingIndicatorColor='#D55004'
+						minZoomLevel={2}
+						maxZoomLevel={20}
+						rotateEnabled={false}
+						pitchEnabled={false}>
+						{mapReady && (
+							<Marker
+								identifier='dealershipMarker'
+								coordinate={{
+									latitude: dealership.latitude,
+									longitude: dealership.longitude
+								}}
+								onPress={() => setShowCallout(true)}>
+								<View className='overflow-hidden rounded-full border-2 border-white shadow-lg'>
+									<OptimizedImage
+										source={{ uri: dealership.logo }}
+										className='w-10 h-10 rounded-full'
+										style={{ backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }}
+									/>
+								</View>
+							</Marker>
+						)}
+					</MapView>
+				) : (
+					<View className='flex-1 items-center justify-center bg-gray-200 dark:bg-gray-800'>
+						<ActivityIndicator size='large' color='#D55004' />
+					</View>
+				)}
+
 				{showCallout && (
-					<TouchableWithoutFeedback>
-						<View className='absolute bottom-4 left-4 right-4 bg-white dark:bg-gray rounded-lg p-3 shadow-lg flex-1'>
-							<Text className='font-bold text-sm text-black dark:text-white mx-auto'>
+					<BlurView
+						intensity={80}
+						tint={isDarkMode ? 'dark' : 'light'}
+						className='absolute bottom-4 left-4 right-4 rounded-lg overflow-hidden'>
+						<View className='p-4'>
+							<Text className='font-bold text-base text-black dark:text-white text-center'>
 								{dealership.name}
 							</Text>
-							<Text className='text-xs mt-1 text-gray dark:text-light-secondary mx-auto'>
+							<Text className='text-sm mt-1 text-gray-600 dark:text-gray-300 text-center'>
 								{dealership.location}
 							</Text>
-							<View className='flex-row justify-center items-center mt-2'>
+							<View className='flex-row justify-center items-center mt-3 space-x-2'>
 								<TouchableOpacity
-									className='bg-red py-2 px-3 rounded-full flex-row items-center'
+									className='bg-red py-2 px-4 rounded-full flex-row items-center'
 									onPress={openInMaps}>
-									<Ionicons name='map' size={16} color='white' />
-									<Text className='text-white text-xs ml-1'>View on Map</Text>
+									<Ionicons name='navigate' size={16} color='white' />
+									<Text className='text-white text-sm ml-2 font-medium'>
+										Navigate
+									</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									className='bg-blue-500 py-2 px-4 rounded-full flex-row items-center'
+									onPress={() => setShowCallout(false)}>
+									<Ionicons name='close' size={16} color='white' />
+									<Text className='text-white text-sm ml-2 font-medium'>
+										Close
+									</Text>
 								</TouchableOpacity>
 							</View>
 						</View>
-					</TouchableWithoutFeedback>
+					</BlurView>
 				)}
 			</View>
 		</TouchableWithoutFeedback>
