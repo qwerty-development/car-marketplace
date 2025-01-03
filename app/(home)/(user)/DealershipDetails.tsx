@@ -121,18 +121,39 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 	const [isMapVisible, setIsMapVisible] = useState(false)
 	const appStateRef = useRef(AppState.currentState)
 
-	// Platform specific configs
+	// Platform specific configurations
 	const isIOS = Platform.OS === 'ios'
+
+	// Define proper map types for each platform
+	const MAP_TYPES = {
+		ios: {
+			default: 'standard',
+			dark: 'mutedStandard'
+		},
+		android: {
+			default: 'standard',
+			dark: 'standard' // Android doesn't support dark mode map type natively
+		}
+	}
+
+	const mapType = isIOS
+		? isDarkMode
+			? MAP_TYPES.ios.dark
+			: MAP_TYPES.ios.default
+		: MAP_TYPES.android.default
+
 	const mapProvider = isIOS ? null : PROVIDER_GOOGLE
 
-	// Handle app state changes and map visibility
 	useEffect(() => {
+		InteractionManager.runAfterInteractions(() => {
+			setIsMapVisible(true)
+		})
+
 		const subscription = AppState.addEventListener('change', nextAppState => {
 			if (
 				appStateRef.current.match(/inactive|background/) &&
 				nextAppState === 'active'
 			) {
-				// App has come to foreground - reset map
 				setIsMapReady(false)
 				setIsMapVisible(false)
 				InteractionManager.runAfterInteractions(() => {
@@ -147,14 +168,7 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 		}
 	}, [])
 
-	// Initialize map after component mounts
-	useEffect(() => {
-		InteractionManager.runAfterInteractions(() => {
-			setIsMapVisible(true)
-		})
-	}, [])
-
-	// Validate dealership coordinates
+	// Error state UI
 	if (!dealership?.latitude || !dealership?.longitude || mapError) {
 		return (
 			<View className='h-64 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800 items-center justify-center'>
@@ -232,13 +246,7 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 						showsMyLocationButton={true}
 						showsCompass={true}
 						zoomControlEnabled={true}
-						mapType={
-							Platform.OS === 'ios'
-								? 'standard'
-								: isDarkMode
-								? 'mutedStandard'
-								: 'standard'
-						}
+						mapType={mapType}
 						cacheEnabled={Platform.OS === 'android'}
 						loadingEnabled={true}
 						loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
@@ -246,7 +254,8 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 						minZoomLevel={2}
 						maxZoomLevel={20}
 						rotateEnabled={false}
-						pitchEnabled={false}>
+						pitchEnabled={false}
+						moveOnMarkerPress={false}>
 						{isMapReady && (
 							<Marker
 								identifier='dealershipMarker'
@@ -254,7 +263,8 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 									latitude: dealership.latitude,
 									longitude: dealership.longitude
 								}}
-								onPress={() => setShowCallout(true)}>
+								onPress={() => setShowCallout(true)}
+								tracksViewChanges={false}>
 								<View className='overflow-hidden rounded-full border-2 border-white shadow-lg'>
 									<OptimizedImage
 										source={{ uri: dealership.logo }}
