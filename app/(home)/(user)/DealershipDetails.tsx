@@ -13,7 +13,8 @@ import {
 	StyleSheet,
 	TouchableWithoutFeedback,
 	AppState,
-	InteractionManager
+	InteractionManager,
+	Alert
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -102,9 +103,8 @@ const CustomHeader = React.memo(
 						<Ionicons name='arrow-back' size={24} color={iconColor} />
 					</TouchableOpacity>
 					<Text
-						className={`ml-4 text-lg font-bold mx-auto ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
+						className={`ml-4 text-lg font-bold mx-auto ${isDarkMode ? 'text-white' : 'text-black'
+							}`}>
 						{title}
 					</Text>
 				</View>
@@ -119,205 +119,111 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 	const [mapError, setMapError] = useState(false)
 	const [showCallout, setShowCallout] = useState(false)
 	const [isMapVisible, setIsMapVisible] = useState(false)
-	const appStateRef = useRef(AppState.currentState)
-
-	// Platform specific configurations
-	const isIOS = Platform.OS === 'ios'
-
-	// Define proper map types for each platform
-	const MAP_TYPES = {
-		ios: {
-			default: 'standard',
-			dark: 'mutedStandard'
-		},
-		android: {
-			default: 'standard',
-			dark: 'standard' // Android doesn't support dark mode map type natively
-		}
-	}
-
-	const mapType = isIOS
-		? isDarkMode
-			? MAP_TYPES.ios.dark
-			: MAP_TYPES.ios.default
-		: MAP_TYPES.android.default
-
-	const mapProvider = isIOS ? null : PROVIDER_GOOGLE
-
+  
 	useEffect(() => {
-		InteractionManager.runAfterInteractions(() => {
-			setIsMapVisible(true)
-		})
-
-		const subscription = AppState.addEventListener('change', nextAppState => {
-			if (
-				appStateRef.current.match(/inactive|background/) &&
-				nextAppState === 'active'
-			) {
-				setIsMapReady(false)
-				setIsMapVisible(false)
-				InteractionManager.runAfterInteractions(() => {
-					setIsMapVisible(true)
-				})
-			}
-			appStateRef.current = nextAppState
-		})
-
-		return () => {
-			subscription.remove()
-		}
+	  const timeout = setTimeout(() => setIsMapVisible(true), 100)
+	  return () => clearTimeout(timeout)
 	}, [])
-
-	// Error state UI
+  
 	if (!dealership?.latitude || !dealership?.longitude || mapError) {
-		return (
-			<View className='h-64 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800 items-center justify-center'>
-				<Ionicons
-					name='map-outline'
-					size={48}
-					color={isDarkMode ? '#666' : '#999'}
-				/>
-				<Text className='text-gray-500 dark:text-gray-400 mt-4 text-center px-4'>
-					{mapError ? 'Unable to load map' : 'Location not available'}
-				</Text>
-				{mapError && (
-					<TouchableOpacity
-						className='mt-4 bg-red px-4 py-2 rounded-full'
-						onPress={() => {
-							setMapError(false)
-							setIsMapVisible(false)
-							setTimeout(() => setIsMapVisible(true), 500)
-						}}>
-						<Text className='text-white font-medium'>Retry</Text>
-					</TouchableOpacity>
-				)}
-			</View>
-		)
+	  return (
+		<View className='h-64 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-800 items-center justify-center'>
+		  <Ionicons name='map-outline' size={48} color={isDarkMode ? '#666' : '#999'} />
+		  <Text className='text-gray-500 dark:text-gray-400 mt-4 text-center px-4'>
+			{mapError ? 'Unable to load map' : 'Location not available'}
+		  </Text>
+		</View>
+	  )
 	}
-
-	const initialRegion = {
-		latitude: dealership.latitude,
-		longitude: dealership.longitude,
-		latitudeDelta: 0.02,
-		longitudeDelta: 0.02
-	}
-
-	const handleMapReady = () => {
-		setIsMapReady(true)
-		if (mapRef.current) {
-			setTimeout(() => {
-				mapRef.current?.fitToSuppliedMarkers(['dealershipMarker'], {
-					edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-					animated: true
-				})
-			}, 500)
-		}
+  
+	const region = {
+	  latitude: Number(dealership.latitude),
+	  longitude: Number(dealership.longitude),
+	  latitudeDelta: 0.01,
+	  longitudeDelta: 0.01
 	}
 
 	const openInMaps = () => {
-		const scheme = Platform.select({
-			ios: 'maps:0,0?q=',
-			android: 'geo:0,0?q='
-		})
-		const latLng = `${dealership.latitude},${dealership.longitude}`
-		const label = encodeURIComponent(dealership.name)
-		const url = Platform.select({
-			ios: `${scheme}${label}@${latLng}`,
-			android: `${scheme}${latLng}(${label})`
-		})
-
-		if (url) {
-			Linking.openURL(url)
+		if (Platform.OS === 'ios') {
+		  Alert.alert(
+			'Open Maps',
+			'Choose your preferred maps application',
+			[
+			  {
+				text: 'Apple Maps',
+				onPress: () => {
+				  const appleMapsUrl = `maps:0,0?q=${dealership.latitude},${dealership.longitude}`
+				  Linking.openURL(appleMapsUrl)
+				}
+			  },
+			  {
+				text: 'Google Maps',
+				onPress: () => {
+				  const googleMapsUrl = `comgooglemaps://?q=${dealership.latitude},${dealership.longitude}&zoom=14`
+				  Linking.openURL(googleMapsUrl).catch(() => {
+					// If Google Maps is not installed, open in browser
+					Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${dealership.latitude},${dealership.longitude}`)
+				  })
+				}
+			  },
+			  {
+				text: 'Cancel',
+				style: 'cancel'
+			  }
+			]
+		  )
+		} else {
+		  // For Android, directly open Google Maps
+		  const googleMapsUrl = `geo:${dealership.latitude},${dealership.longitude}?q=${dealership.latitude},${dealership.longitude}`
+		  Linking.openURL(googleMapsUrl).catch(() => {
+			// Fallback to browser if Google Maps app is not installed
+			Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${dealership.latitude},${dealership.longitude}`)
+		  })
 		}
+	  }
+  
+	const handleMapReady = () => {
+	  setIsMapReady(true)
 	}
-
+  
 	return (
-		<TouchableWithoutFeedback onPress={() => setShowCallout(false)}>
-			<View className='h-64 rounded-lg overflow-hidden relative'>
-				{isMapVisible ? (
-					<MapView
-						ref={mapRef}
-						provider={mapProvider}
-						style={{ flex: 1 }}
-						initialRegion={initialRegion}
-						onMapReady={handleMapReady}
-						onError={() => setMapError(true)}
-						showsUserLocation={true}
-						showsMyLocationButton={true}
-						showsCompass={true}
-						zoomControlEnabled={true}
-						mapType={mapType}
-						cacheEnabled={Platform.OS === 'android'}
-						loadingEnabled={true}
-						loadingBackgroundColor={isDarkMode ? '#333' : '#f0f0f0'}
-						loadingIndicatorColor='#D55004'
-						minZoomLevel={2}
-						maxZoomLevel={20}
-						rotateEnabled={false}
-						pitchEnabled={false}
-						moveOnMarkerPress={false}>
-						{isMapReady && (
-							<Marker
-								identifier='dealershipMarker'
-								coordinate={{
-									latitude: dealership.latitude,
-									longitude: dealership.longitude
-								}}
-								onPress={() => setShowCallout(true)}
-								tracksViewChanges={false}>
-								<View className='overflow-hidden rounded-full border-2 border-white shadow-lg'>
-									<OptimizedImage
-										source={{ uri: dealership.logo }}
-										className='w-10 h-10 rounded-full'
-										style={{ backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }}
-									/>
-								</View>
-							</Marker>
-						)}
-					</MapView>
-				) : (
-					<View className='flex-1 items-center justify-center bg-gray-200 dark:bg-gray-800'>
-						<ActivityIndicator size='large' color='#D55004' />
-					</View>
-				)}
-
-				{showCallout && (
-					<BlurView
-						intensity={80}
-						tint={isDarkMode ? 'dark' : 'light'}
-						className='absolute bottom-4 left-4 right-4 rounded-lg overflow-hidden'>
-						<View className='p-4'>
-							<Text className='font-bold text-base text-black dark:text-white text-center'>
-								{dealership.name}
-							</Text>
-							<Text className='text-sm mt-1 text-gray-600 dark:text-gray-300 text-center'>
-								{dealership.location}
-							</Text>
-							<View className='flex-row justify-center items-center mt-3 space-x-2'>
-								<TouchableOpacity
-									className='bg-red py-2 px-4 rounded-full flex-row items-center'
-									onPress={openInMaps}>
-									<Ionicons name='navigate' size={16} color='white' />
-									<Text className='text-white text-sm ml-2 font-medium'>
-										Navigate
-									</Text>
-								</TouchableOpacity>
-								<TouchableOpacity
-									className='bg-blue-500 py-2 px-4 rounded-full flex-row items-center'
-									onPress={() => setShowCallout(false)}>
-									<Ionicons name='close' size={16} color='white' />
-									<Text className='text-white text-sm ml-2 font-medium'>
-										Close
-									</Text>
-								</TouchableOpacity>
+	  <View className='h-64 rounded-lg overflow-hidden'>
+		{isMapVisible && (
+		  <><MapView
+					ref={mapRef}
+					style={{ flex: 1 }}
+					initialRegion={region}
+					onMapReady={handleMapReady}
+					onError={() => setMapError(true)}
+				>
+					{isMapReady && (
+						<Marker
+							coordinate={{
+								latitude: Number(dealership.latitude),
+								longitude: Number(dealership.longitude)
+							}}
+							onPress={() => setShowCallout(true)}
+						>
+							<View className='overflow-hidden rounded-full border-2 border-white shadow-lg'>
+								<OptimizedImage
+									source={{ uri: dealership.logo }}
+									className='w-10 h-10 rounded-full'
+									style={{ backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }} />
 							</View>
-						</View>
-					</BlurView>
-				)}
-			</View>
-		</TouchableWithoutFeedback>
+						</Marker>
+					)}
+				</MapView><TouchableOpacity
+					onPress={openInMaps}
+					className='absolute bottom-4 right-4 bg-red px-4 py-2 rounded-full flex-row items-center'
+				>
+						<Ionicons name='navigate' size={16} color='white' />
+						<Text className='text-white ml-2'>Take Me There</Text>
+					</TouchableOpacity></>
+		  
+		)}
+	  </View>
 	)
-}
+  }
 
 export default function DealershipDetails() {
 	const { isDarkMode } = useTheme()
@@ -784,9 +690,8 @@ export default function DealershipDetails() {
 			<>
 				{dealership && (
 					<View
-						className={`${
-							isDarkMode ? 'bg-light-text' : 'bg-white'
-						} rounded-lg shadow-md p-4 mb-4 border border-red`}>
+						className={`${isDarkMode ? 'bg-light-text' : 'bg-white'
+							} rounded-lg shadow-md p-4 mb-4 border border-red`}>
 						<OptimizedImage
 							source={{
 								uri: dealership.logo || 'https://via.placeholder.com/150'
@@ -860,9 +765,8 @@ export default function DealershipDetails() {
 	if (isDealershipLoading || (isCarsLoading && cars?.length === 0)) {
 		return (
 			<View
-				className={`flex-1 justify-center items-center ${
-					isDarkMode ? 'bg-night' : 'bg-white'
-				}`}>
+				className={`flex-1 justify-center items-center ${isDarkMode ? 'bg-night' : 'bg-white'
+					}`}>
 				<ActivityIndicator size='large' color='#D55004' />
 			</View>
 		)
