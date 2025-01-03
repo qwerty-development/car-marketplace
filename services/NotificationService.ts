@@ -14,7 +14,7 @@ Notifications.setNotificationHandler({
 });
 
 // Define view milestones and notification types
-const VIEWS_MILESTONES = [50, 100, 500, 1000];
+// const VIEWS_MILESTONES = [50, 100, 500, 1000]; // Not needed anymore since triggers handle this
 
 export type NotificationType =
   | 'car_like'
@@ -35,72 +35,70 @@ interface NotificationData {
 
 export class NotificationService {
   // Push notification registration
-static async registerForPushNotificationsAsync(userId: string) {  // Add userId parameter
-  let token;
+  static async registerForPushNotificationsAsync(userId: string) {
+    let token;
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.warn('Failed to get push token for push notification!');
-      return;
-    }
-
-    try {
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#D55004',
-          sound: 'default',
-        });
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
       }
 
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PUBLIC_PROJECT_ID
-      })).data;
-
-      // Pass userId to updatePushToken
-      if (token) {
-        await this.updatePushToken(token, userId);
+      if (finalStatus !== 'granted') {
+        console.warn('Failed to get push token for push notification!');
+        return;
       }
-    } catch (error) {
-      console.error('Error getting push token:', error);
+
+      try {
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#D55004',
+            sound: 'default',
+          });
+        }
+
+        token = (await Notifications.getExpoPushTokenAsync({
+          projectId: process.env.EXPO_PUBLIC_PROJECT_ID
+        })).data;
+
+        if (token) {
+          await this.updatePushToken(token, userId);
+        }
+      } catch (error) {
+        console.error('Error getting push token:', error);
+      }
     }
+
+    return token;
   }
-
-  return token;
-}
 
   // Update push token in database
-// services/NotificationService.ts
-static async updatePushToken(token: string, userId: string) {  // Add userId parameter
-  try {
-    const { error } = await supabase
-      .from('user_push_tokens')
-      .upsert({
-        user_id: userId,  // Add this
-        token,
-        device_type: Platform.OS,
-        last_updated: new Date().toISOString()
-      }, {
-        onConflict: 'token',  // Change this to handle token conflicts
-      });
+  static async updatePushToken(token: string, userId: string) {
+    try {
+      const { error } = await supabase
+        .from('user_push_tokens')
+        .upsert({
+          user_id: userId,
+          token,
+          device_type: Platform.OS,
+          last_updated: new Date().toISOString()
+        }, {
+          onConflict: 'token',
+        });
 
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error updating push token:', error);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating push token:', error);
+    }
   }
-}
 
-  // Create and store notification
+  // Create and store notification - Modified to only store in the database
   static async createNotification({
     userId,
     type,
@@ -115,7 +113,7 @@ static async updatePushToken(token: string, userId: string) {  // Add userId par
     data?: NotificationData;
   }) {
     try {
-      // Store in database
+      // Store in database (no local scheduling)
       const { error } = await supabase
         .from('notifications')
         .insert([{
@@ -129,18 +127,6 @@ static async updatePushToken(token: string, userId: string) {  // Add userId par
 
       if (error) throw error;
 
-      // Schedule local notification
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body: message,
-          data,
-          sound: true,
-          badge: 1
-        },
-        trigger: null
-      });
-
       return true;
     } catch (error) {
       console.error('Error creating notification:', error);
@@ -148,7 +134,7 @@ static async updatePushToken(token: string, userId: string) {  // Add userId par
     }
   }
 
-  // Daily reminder notifications
+  // Daily reminder notifications - Keep this for daily reminders
   static async scheduleDailyNotifications() {
     try {
       // Cancel existing notifications first
@@ -186,117 +172,11 @@ static async updatePushToken(token: string, userId: string) {  // Add userId par
     }
   }
 
-static async checkViewsMilestones(userId: string) {
-  try {
-    // Get user's favorited cars
-    const { data: favorites } = await supabase
-      .from('users')
-      .select('favorite')
-      .eq('id', userId)
-      .single();
+  // Remove checkViewsMilestones and checkSoldFavorites - Handled by triggers now
+  // static async checkViewsMilestones(userId: string) { ... }
+  // static async checkSoldFavorites(userId: string) { ... }
 
-    if (!favorites?.favorite?.length) return;
-
-    // Get cars with their view counts
-    const { data: cars } = await supabase
-      .from('cars')
-      .select('id, make, model, year, views')
-      .in('id', favorites.favorite);
-
-    if (!cars?.length) return;
-
-    // Get already notified milestones
-    const { data: existingNotifications } = await supabase
-      .from('notifications')
-      .select('data')
-      .eq('user_id', userId)
-      .eq('type', 'view_milestone')
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
-
-    const notifiedMilestones = new Set(
-      existingNotifications?.map(n => `${n.data.carId}-${n.data.milestone}`) || []
-    );
-
-    // Check each car's views against milestones
-    for (const car of cars) {
-      const milestone = VIEWS_MILESTONES.find(m => car.views >= m && car.views < m + 50);
-
-      if (milestone && !notifiedMilestones.has(`${car.id}-${milestone}`)) {
-        await this.createNotification({
-          userId,
-          type: 'view_milestone',
-          title: "🎯 Popular Car Alert!",
-          message: `Your favorite ${car.year} ${car.make} ${car.model} has reached ${milestone}+ views!`,
-          data: {
-            screen: '/(home)/(user)/Favorite',
-            params: { carId: car.id },
-            carId: car.id,
-            milestone
-          }
-        });
-      }
-    }
-  } catch (error) {
-    console.error('Error checking views milestones:', error);
-  }
-}
-
-static async checkSoldFavorites(userId: string) {
-  try {
-    // Get user's favorited cars
-    const { data: favorites } = await supabase
-      .from('users')
-      .select('favorite')
-      .eq('id', userId)
-      .single();
-
-    if (!favorites?.favorite?.length) return;
-
-    // Get recently sold cars that haven't been notified about
-    const { data: soldCars } = await supabase
-      .from('cars')
-      .select('id, make, model, year')
-      .in('id', favorites.favorite)
-      .eq('status', 'sold')
-      .gt('date_sold', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-    if (!soldCars?.length) return;
-
-    // Check for existing notifications for these cars
-    const { data: existingNotifications } = await supabase
-      .from('notifications')
-      .select('data')
-      .eq('user_id', userId)
-      .eq('type', 'car_sold')
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-    const notifiedCarIds = new Set(
-      existingNotifications?.flatMap(n => n.data.soldCarIds || []) || []
-    );
-
-    // Filter out cars that have already been notified about
-    const newSoldCars = soldCars.filter(car => !notifiedCarIds.has(car.id));
-
-    if (newSoldCars.length > 0) {
-      await this.createNotification({
-        userId,
-        type: 'car_sold',
-        title: "💫 Car Sold Update",
-        message: `${newSoldCars.length === 1
-          ? `The ${newSoldCars[0].year} ${newSoldCars[0].make} ${newSoldCars[0].model} you liked has been sold!`
-          : `${newSoldCars.length} cars you liked have been sold!`}`,
-        data: {
-          screen: '/(home)/(user)/Favorite',
-          soldCarIds: newSoldCars.map(car => car.id)
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error checking sold favorites:', error);
-  }
-}
-
-  // Subscribe to real-time notifications
+  // Subscribe to real-time notifications - Keep this
   static subscribeToRealtime(userId: string, onNotification: (notification: any) => void) {
     return supabase
       .channel('notifications')
@@ -315,7 +195,7 @@ static async checkSoldFavorites(userId: string) {
       .subscribe();
   }
 
-  // Handle notification response (when user taps notification)
+  // Handle notification response (when user taps notification) - Keep this
   static async handleNotificationResponse(response: Notifications.NotificationResponse) {
     const data = response.notification.request.content.data as NotificationData;
     if (data?.screen) {
@@ -327,7 +207,7 @@ static async checkSoldFavorites(userId: string) {
     return null;
   }
 
-  // Badge management
+  // Badge management - Keep these
   static async getBadgeCount() {
     try {
       return await Notifications.getBadgeCountAsync();
@@ -347,7 +227,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
-  // Permissions management
+  // Permissions management - Keep these
   static async getPermissions() {
     try {
       return await Notifications.getPermissionsAsync();
@@ -366,7 +246,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
-  // Notification management
+  // Notification management - Keep this
   static async cancelAllNotifications() {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
@@ -377,7 +257,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
-  // Fetch notifications
+  // Fetch notifications - Keep this
   static async fetchNotifications(userId: string, { page = 1, limit = 20 } = {}) {
     try {
       const { data, error, count } = await supabase
@@ -404,7 +284,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
-  // Mark notifications as read
+  // Mark notifications as read - Keep this
   static async markAsRead(notificationId: string) {
     try {
       const { error } = await supabase
@@ -420,6 +300,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
+  // Mark all notifications as read - Keep this
   static async markAllAsRead(userId: string) {
     try {
       const { error } = await supabase
@@ -436,7 +317,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
-  // Delete notification
+  // Delete notification - Keep this
   static async deleteNotification(notificationId: string) {
     try {
       const { error } = await supabase
@@ -452,7 +333,7 @@ static async checkSoldFavorites(userId: string) {
     }
   }
 
-  // Get unread count
+  // Get unread count - Keep this
   static async getUnreadCount(userId: string) {
     try {
       const { data, error, count } = await supabase
