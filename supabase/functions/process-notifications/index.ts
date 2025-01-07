@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
       messages.push({
         to: tokenData.token,
-        sound: 'default',
+        sound: 'notification',
         title: record.data.title,
         body: record.data.message,
         data: {
