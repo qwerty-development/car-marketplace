@@ -1,8 +1,4 @@
-// supabase/functions/process-notifications/index.ts
-
-import { Expo } from 'https://esm.sh/expo-server-sdk@3.13.0 ';
-
-// Initialize Supabase client
+import { Expo } from 'https://esm.sh/expo-server-sdk@3.13.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabase = createClient(
@@ -10,11 +6,13 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-// Initialize Expo SDK client
 const expo = new Expo();
 
 // Helper function to handle receipts
-async function handlePushNotificationReceipts(tickets: Expo.ExpoPushTicket[], record: any) {
+async function handlePushNotificationReceipts(
+  tickets: Expo.ExpoPushTicket[],
+  record: any
+) {
   const receiptIds = [];
 
   for (const ticket of tickets) {
@@ -70,13 +68,13 @@ Deno.serve(async (req) => {
     try {
       const body = await req.json();
       record = body.record;
-      console.log("Processing notification for record:", record);
+      console.log('Processing notification for record:', record);
     } catch (error) {
-      console.error("JSON parsing error:", error);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON payload" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      console.error('JSON parsing error:', error);
+      return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Check if already processed
@@ -87,87 +85,83 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get user's push token
-    const { data: userTokenData, error: userTokenError } = await supabase
+    // Get all user's push tokens
+    const { data: userTokensData, error: userTokenError } = await supabase
       .from('user_push_tokens')
       .select('token')
-      .eq('user_id', record.user_id)
-      .single();
+      .eq('user_id', record.user_id);
 
-    if (userTokenError || !userTokenData?.token) {
-      console.error('Push token not found:', userTokenError);
+    if (userTokenError || !userTokensData?.length) {
+      console.error('Push tokens not found:', userTokenError);
       return new Response(
-        JSON.stringify({ error: 'Push token not found' }),
+        JSON.stringify({ error: 'No push tokens found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate push token
-    if (!Expo.isExpoPushToken(userTokenData.token)) {
-      console.error('Invalid push token:', userTokenData.token);
+    // Create messages for all valid tokens
+    const notificationId = crypto.randomUUID();
+    const messages = [];
 
-      await supabase
-        .from('user_push_tokens')
-        .delete()
-        .eq('token', userTokenData.token);
+    for (const tokenData of userTokensData) {
+      if (!Expo.isExpoPushToken(tokenData.token)) {
+        console.error('Invalid push token:', tokenData.token);
 
+        // Delete invalid token immediately
+        await supabase
+          .from('user_push_tokens')
+          .delete()
+          .eq('token', tokenData.token);
+
+        continue; // Skip to the next token
+      }
+
+      messages.push({
+        to: tokenData.token,
+        sound: 'default',
+        title: record.data.title,
+        body: record.data.message,
+        data: {
+          ...record.data,
+          notificationId,
+        },
+        badge: 1,
+        channelId: 'default',
+        priority: 'high',
+        categoryId: record.type,
+      });
+    }
+
+    // Check if there are any valid messages to send
+    if (messages.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Invalid Expo push token' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ message: 'No valid push tokens found' }),
+        { headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Prepare notification message
-    const notificationId = crypto.randomUUID();
-    const messages = [{
-      to: userTokenData.token,
-      sound: 'default',
-      title: record.data.title,
-      body: record.data.message,
-      data: {
-        ...record.data,
-        notificationId
-      },
-      badge: 1,
-      channelId: 'default',
-      priority: 'high',
-      categoryId: record.type
-    }];
-
-    // Chunk the messages (even though we have only one)
-    const chunks = expo.chunkPushNotifications(messages);
+    // Send notifications to all devices
     const tickets = [];
+    const chunks = expo.chunkPushNotifications(messages);
 
-    // Send notifications
     for (const chunk of chunks) {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
       } catch (error) {
         console.error('Error sending notification chunk:', error);
-        throw error;
-      }
-    }
-
-    // Process all tickets
-    for (const ticket of tickets) {
-      if ((ticket as any).status === "error") {
-        const error = (ticket as any).details?.error;
+        // Continue with other chunks even if one fails
         await supabase.from('notification_errors').insert({
-          error_details: ticket,
-          record: record
+          error_details: {
+            message: error.message,
+            stack: error.stack,
+          },
+          record: record,
         });
-
-        if (error === "DeviceNotRegistered") {
-          await supabase
-            .from('user_push_tokens')
-            .delete()
-            .eq('token', userTokenData.token);
-        }
       }
     }
 
-    // Store notification in database
+    // Store notification in database (only once, not per device)
     const { error: insertError } = await supabase
       .from('notifications')
       .insert({
@@ -179,9 +173,9 @@ Deno.serve(async (req) => {
         data: {
           ...record.data,
           notificationId,
-          tickets: tickets
+          tickets: tickets // You might not need to store all tickets, adjust as needed
         },
-        is_read: false
+        is_read: false,
       });
 
     if (insertError) throw insertError;
@@ -194,38 +188,61 @@ Deno.serve(async (req) => {
 
     if (updateError) throw updateError;
 
+    // Process all tickets (check for errors and handle DeviceNotRegistered)
+    for (const ticket of tickets) {
+      if ((ticket as any).status === 'error') {
+        const error = (ticket as any).details?.error;
+
+        // Log the error (consider more detailed logging)
+        await supabase.from('notification_errors').insert({
+          error_details: ticket,
+          record: record,
+        });
+
+        // Handle DeviceNotRegistered error
+        if (error === 'DeviceNotRegistered') {
+          const tokenToDelete = messages.find((m) => m.to === (ticket as any).to)?.to
+          if (tokenToDelete) {
+              await supabase
+              .from('user_push_tokens')
+              .delete()
+              .eq('token', tokenToDelete)
+          }
+        }
+      }
+    }
+
     // Schedule receipt check
     setTimeout(() => {
       handlePushNotificationReceipts(tickets, record).catch(console.error);
-    }, 5000);
+    }, 5000); // Adjust the delay as needed
 
     return new Response(
       JSON.stringify({
         success: true,
         tickets,
-        notificationId
+        notificationId,
       }),
       { headers: { 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error processing notification:', error);
 
-    // Log the error
+    // Log the error (consider more detailed logging)
     if (record) {
       await supabase.from('notification_errors').insert({
         error_details: {
           message: error.message,
-          stack: error.stack
+          stack: error.stack,
         },
-        record: record
+        record: record,
       });
     }
 
     return new Response(
       JSON.stringify({
         error: 'Failed to process notification',
-        details: error.message
+        details: error.message,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
