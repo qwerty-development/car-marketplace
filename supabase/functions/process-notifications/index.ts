@@ -180,6 +180,21 @@ Deno.serve(async (req) => {
           priority: 'high',
           categoryId: record.type
         };
+      } else if (record.type === 'inactive_reminder') {
+        message = {
+          to: tokenData.token,
+          sound: 'notification.wav', // Customize sound as needed
+          title: "👋 We Miss You!",
+          body: record.data.message, // Customize the message
+          data: {
+            ...record.data,
+            notificationId
+          },
+          badge: 1,
+          channelId: 'default', // Customize channel ID as needed
+          priority: 'high',
+          categoryId: record.type
+        };
       } else {
         // Handle unknown notification type
         console.error('Unknown notification type:', record.type);
@@ -273,7 +288,6 @@ Deno.serve(async (req) => {
     setTimeout(() => {
       handlePushNotificationReceipts(tickets, record).catch(console.error);
     }, 5000); // Adjust the delay as needed
-
 
     // Log successful delivery
     try {
