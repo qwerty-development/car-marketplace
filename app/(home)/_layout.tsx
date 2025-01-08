@@ -1,3 +1,4 @@
+// app/(home)/_layout.tsx
 import React, { useEffect, useState } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
@@ -12,7 +13,7 @@ export default function HomeLayout() {
 	const [shouldNavigate, setShouldNavigate] = useState(false)
 	const [isCheckingUser, setIsCheckingUser] = useState(true)
 
-	// Check/Create Supabase User
+	// Check/Create Supabase User and Update Last Active
 	useEffect(() => {
 		const checkAndCreateUser = async () => {
 			if (!user) return
@@ -44,6 +45,15 @@ export default function HomeLayout() {
 					if (insertError) throw insertError
 					console.log('Created new user in Supabase')
 				}
+
+				// Update last_active timestamp
+				const { error: updateError } = await supabase
+					.from('users')
+					.update({ last_active: new Date().toISOString() })
+					.eq('id', user.id)
+
+				if (updateError) throw updateError
+				console.log('Updated last_active for user in Supabase')
 			} catch (error) {
 				console.error('Error in user sync:', error)
 				Alert.alert(
