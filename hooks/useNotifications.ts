@@ -25,7 +25,6 @@ export function useNotifications(): UseNotificationsReturn {
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
   const lastNotificationResponse = useRef<Notifications.NotificationResponse>();
-  const checkInterval = useRef<NodeJS.Timeout>(); // Not used anymore
   const realtimeSubscription = useRef<RealtimeChannel>();
   const initialCheckDone = useRef(false);
   const lastHandledNotification = useRef<string>();
@@ -42,18 +41,14 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user]);
 
-  // Modified to only handle received push notifications, not local ones
   const handleNotification = useCallback(async (notification: Notifications.Notification) => {
-      if (!user) return;
+    if (!user) return;
 
     // Prevent duplicate handling
     if (lastHandledNotification.current === notification.request.identifier) {
       return;
     }
     lastHandledNotification.current = notification.request.identifier;
-
-    // Since the badge count is handled by the push notification itself now,
-    // we don't need to manually increment it here.
 
     try {
       // Update unread count
@@ -64,7 +59,6 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user]);
 
-  // Kept the same
   const handleNotificationResponse = useCallback(async (response: Notifications.NotificationResponse) => {
     if (!user) return;
 
@@ -101,7 +95,6 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user]);
 
-  // Modified to only update unread count from real-time updates
   const setupRealtimeSubscription = useCallback(() => {
     if (!user) return;
 
@@ -114,16 +107,18 @@ export function useNotifications(): UseNotificationsReturn {
     realtimeSubscription.current = NotificationService.subscribeToRealtime(
       user.id,
       async (notification) => {
-        // Update unread count
-        const newUnreadCount = await NotificationService.getUnreadCount(user.id);
-        setUnreadCount(newUnreadCount);
+        // Check if the notification is a daily reminder using metadata
+        const isDailyReminder = notification.data && notification.data.metadata && notification.data.metadata.scheduledFor;
 
-        // We are removing local notification scheduling as push notifications are handled by the backend
+        // If it's a daily reminder, do not update the unread count
+        if (!isDailyReminder) {
+          const newUnreadCount = await NotificationService.getUnreadCount(user.id);
+          setUnreadCount(newUnreadCount);
+        }
       }
     );
   }, [user]);
 
-  // Kept the same
   const registerForNotifications = useCallback(async () => {
     if (!user) return;
 
@@ -151,31 +146,6 @@ export function useNotifications(): UseNotificationsReturn {
       setIsPermissionGranted(false);
     }
   }, [user, handleTokenRefresh]);
-
-  // Remove setupPeriodicChecks
-
-  // Modified to only handle daily reminder notifications
-  const setupInitialNotifications = useCallback(async () => {
-    if (!user?.id || initialCheckDone.current) return;
-
-    setLoading(true);
-    try {
-      await NotificationService.cancelAllNotifications();
-      await NotificationService.setBadgeCount(0);
-
-      // Schedule only daily notifications, other notifications are handled by triggers
-      await NotificationService.scheduleDailyNotifications();
-
-      const count = await NotificationService.getUnreadCount(user.id);
-      setUnreadCount(count);
-
-      initialCheckDone.current = true;
-    } catch (error) {
-      console.error('Error setting up notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
 
   // Notification management functions - Kept the same
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -233,8 +203,6 @@ export function useNotifications(): UseNotificationsReturn {
       responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
       setupRealtimeSubscription();
-      await setupInitialNotifications();
-      // Removed setupPeriodicChecks call
     };
 
     initialize();
@@ -251,9 +219,6 @@ export function useNotifications(): UseNotificationsReturn {
       if (pushTokenListener.current) {
         pushTokenListener.current.remove();
       }
-      // if (checkInterval.current) { // Removed checkInterval
-      //   clearInterval(checkInterval.current);
-      // }
       if (realtimeSubscription.current) {
         realtimeSubscription.current.unsubscribe();
       }

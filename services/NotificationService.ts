@@ -13,9 +13,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Define view milestones and notification types
-// const VIEWS_MILESTONES = [50, 100, 500, 1000]; // Not needed anymore since triggers handle this
-
 export type NotificationType =
   | 'car_like'
   | 'price_drop'
@@ -59,7 +56,7 @@ export class NotificationService {
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#D55004',
-            sound: 'default',
+            sound: 'notification.wav', // Make sure to add a sound file named 'notification.wav' to the root directory of your project, also added it in app.json under expo.android.notification
           });
         }
 
@@ -98,85 +95,13 @@ export class NotificationService {
     }
   }
 
-  // Create and store notification - Modified to only store in the database
-  static async createNotification({
-    userId,
-    type,
-    title,
-    message,
-    data
-  }: {
-    userId: string;
-    type: NotificationType;
-    title: string;
-    message: string;
-    data?: NotificationData;
-  }) {
-    try {
-      // Store in database (no local scheduling)
-      const { error } = await supabase
-        .from('notifications')
-        .insert([{
-          user_id: userId,
-          type,
-          title,
-          message,
-          data,
-          is_read: false
-        }]);
+  // No longer needed since server handles creation and storing of notifications
+  // static async createNotification({ ... }) { ... }
 
-      if (error) throw error;
+  // No longer needed since server handles scheduling
+  // static async scheduleDailyNotifications() { ... }
 
-      return true;
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      return false;
-    }
-  }
-
-  // Daily reminder notifications - Keep this for daily reminders
-  static async scheduleDailyNotifications() {
-    try {
-      // Cancel existing notifications first
-      await this.cancelAllNotifications();
-
-      const notificationTimes = [
-        { hour: 9, minute: 0, message: "🚗 Start your day with fresh car listings!" },
-        { hour: 14, minute: 0, message: "🚙 New cars added! Take an afternoon browse" },
-        { hour: 19, minute: 0, message: "🏎 End your day by finding your dream car" }
-      ];
-
-      for (const { hour, minute, message } of notificationTimes) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "New Cars Available! 🚗",
-            body: message,
-            data: {
-              screen: '/(home)/(user)',
-              type: 'daily_reminder'
-            }
-          },
-          trigger: {
-            hour,
-            minute,
-            repeats: true,
-            channelId: 'default',
-          },
-        });
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error scheduling daily notifications:', error);
-      return false;
-    }
-  }
-
-  // Remove checkViewsMilestones and checkSoldFavorites - Handled by triggers now
-  // static async checkViewsMilestones(userId: string) { ... }
-  // static async checkSoldFavorites(userId: string) { ... }
-
-  // Subscribe to real-time notifications - Keep this
+  // Subscribe to real-time notifications
   static subscribeToRealtime(userId: string, onNotification: (notification: any) => void) {
     return supabase
       .channel('notifications')
@@ -195,7 +120,7 @@ export class NotificationService {
       .subscribe();
   }
 
-  // Handle notification response (when user taps notification) - Keep this
+  // Handle notification response (when user taps notification)
   static async handleNotificationResponse(response: Notifications.NotificationResponse) {
     const data = response.notification.request.content.data as NotificationData;
     if (data?.screen) {
@@ -207,7 +132,7 @@ export class NotificationService {
     return null;
   }
 
-  // Badge management - Keep these
+  // Badge management
   static async getBadgeCount() {
     try {
       return await Notifications.getBadgeCountAsync();
@@ -227,7 +152,7 @@ export class NotificationService {
     }
   }
 
-  // Permissions management - Keep these
+  // Permissions management
   static async getPermissions() {
     try {
       return await Notifications.getPermissionsAsync();
@@ -257,7 +182,7 @@ export class NotificationService {
     }
   }
 
-  // Fetch notifications - Keep this
+  // Fetch notifications
   static async fetchNotifications(userId: string, { page = 1, limit = 20 } = {}) {
     try {
       const { data, error, count } = await supabase
@@ -284,7 +209,7 @@ export class NotificationService {
     }
   }
 
-  // Mark notifications as read - Keep this
+  // Mark notifications as read
   static async markAsRead(notificationId: string) {
     try {
       const { error } = await supabase
@@ -300,7 +225,7 @@ export class NotificationService {
     }
   }
 
-  // Mark all notifications as read - Keep this
+  // Mark all notifications as read
   static async markAllAsRead(userId: string) {
     try {
       const { error } = await supabase
@@ -317,7 +242,7 @@ export class NotificationService {
     }
   }
 
-  // Delete notification - Keep this
+  // Delete notification
   static async deleteNotification(notificationId: string) {
     try {
       const { error } = await supabase
@@ -333,7 +258,7 @@ export class NotificationService {
     }
   }
 
-  // Get unread count - Keep this
+  // Get unread count
   static async getUnreadCount(userId: string) {
     try {
       const { data, error, count } = await supabase

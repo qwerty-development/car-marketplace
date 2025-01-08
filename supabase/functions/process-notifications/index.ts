@@ -1,3 +1,4 @@
+// supabase/functions/process-notifications/index.ts
 import { Expo } from 'https://esm.sh/expo-server-sdk@3.13.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -8,7 +9,7 @@ const supabase = createClient(
 
 const expo = new Expo();
 
-// Helper function to handle receipts
+// Helper function to handle receipts (remains the same)
 async function handlePushNotificationReceipts(
   tickets: Expo.ExpoPushTicket[],
   record: any
@@ -85,11 +86,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Handle different notification types
     // Get all user's push tokens
     const { data: userTokensData, error: userTokenError } = await supabase
-      .from('user_push_tokens')
-      .select('token')
-      .eq('user_id', record.user_id);
+        .from('user_push_tokens')
+        .select('token')
+        .eq('user_id', record.user_id);
 
     if (userTokenError || !userTokensData?.length) {
       console.error('Push tokens not found:', userTokenError);
@@ -116,26 +118,81 @@ Deno.serve(async (req) => {
         continue; // Skip to the next token
       }
 
-      messages.push({
-        to: tokenData.token,
-        sound: 'notification.wav',
-        title: record.data.title,
-        body: record.data.message,
-        data: {
-          ...record.data,
-          notificationId,
-        },
-        badge: 1,
-        channelId: 'default',
-        priority: 'high',
-        categoryId: record.type,
-      });
+      // Construct the message based on the notification type
+      let message;
+      if (record.type === 'daily_reminder') {
+        message = {
+          to: tokenData.token,
+          sound: 'notification.wav',
+          title: record.data.title,
+          body: record.data.message,
+          data: {
+            ...record.data,
+            notificationId,
+          },
+          badge: 1,
+          channelId: 'default',
+          priority: 'high',
+          categoryId: record.type,
+        };
+      } else if (record.type === 'price_drop') {
+        message = {
+          to: tokenData.token,
+          sound: 'notification.wav', // Customize sound as needed
+          title: "Price Drop Alert! 💲",
+          body: record.data.message, // Customize the message
+          data: {
+            ...record.data,
+            notificationId
+          },
+          badge: 1,
+          channelId: 'default', // Customize channel ID as needed
+          priority: 'high',
+          categoryId: record.type
+        };
+      } else if (record.type === 'car_sold') {
+        message = {
+          to: tokenData.token,
+          sound: 'notification.wav', // Customize sound as needed
+          title: "Car Sold! 🚗",
+          body: record.data.message, // Customize the message
+          data: {
+            ...record.data,
+            notificationId
+          },
+          badge: 1,
+          channelId: 'default', // Customize channel ID as needed
+          priority: 'high',
+          categoryId: record.type
+        };
+      } else if (record.type === 'view_milestone') {
+        message = {
+          to: tokenData.token,
+          sound: 'notification.wav', // Customize sound as needed
+          title: "Popular Car Alert! 🎉",
+          body: record.data.message, // Customize the message
+          data: {
+            ...record.data,
+            notificationId
+          },
+          badge: 1,
+          channelId: 'default', // Customize channel ID as needed
+          priority: 'high',
+          categoryId: record.type
+        };
+      } else {
+        // Handle unknown notification type
+        console.error('Unknown notification type:', record.type);
+        continue; // Skip to the next token
+      }
+
+      messages.push(message);
     }
 
     // Check if there are any valid messages to send
     if (messages.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No valid push tokens found' }),
+        JSON.stringify({ message: 'No valid push tokens found or unknown notification type' }),
         { headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -217,6 +274,25 @@ Deno.serve(async (req) => {
       handlePushNotificationReceipts(tickets, record).catch(console.error);
     }, 5000); // Adjust the delay as needed
 
+
+    // Log successful delivery
+    try {
+      await supabase.from('notification_metrics').insert({
+        notification_id: notificationId,
+        type: record.type,
+        user_id: record.user_id,
+        delivery_status: 'sent',
+        platform: Deno.env.get("OS") || "unknown",
+        metadata: {
+          scheduledTime: record.data.metadata?.scheduledFor,
+          actualDeliveryTime: new Date().toISOString(),
+          timeZone: record.data.metadata?.userTimezone
+        }
+      });
+    } catch (error) {
+      console.error('Error logging metrics:', error);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -225,6 +301,7 @@ Deno.serve(async (req) => {
       }),
       { headers: { 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
     console.error('Error processing notification:', error);
 
