@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import { FontAwesome5, Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { PieChart, LineChart } from 'react-native-chart-kit'
+import { PieChart, LineChart, BarChart } from 'react-native-chart-kit'
 import { BlurView } from 'expo-blur'
 import { Alert } from 'react-native'
 
@@ -37,6 +37,10 @@ interface SaleRecord {
 	listed_at: string
 	images: string[]
 	description: string
+	buyer_name: string | null
+	bought_price: number // Added bought_price
+	date_bought: string // Added date_bought
+	seller_name: string | null // Added seller_name
 }
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
@@ -59,7 +63,14 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 		(new Date(sale.date_sold).getTime() - new Date(sale.listed_at).getTime()) /
 			(1000 * 60 * 60 * 24)
 	)
+	const daysInStock = Math.ceil(
+		(new Date(sale.date_sold).getTime() -
+			new Date(sale.date_bought).getTime()) /
+			(1000 * 60 * 60 * 24)
+	)
 	const priceDifference = sale.sold_price - sale.price
+	const actualProfit = sale.sold_price - sale.bought_price
+	const expectedProfit = sale.price - sale.bought_price
 	const priceDifferencePercentage = (
 		(priceDifference / sale.price) *
 		100
@@ -78,7 +89,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 					<View
 						className={`${
 							isDarkMode ? 'bg-gray' : 'bg-white'
-						} rounded-t-3xl p-6 pt-3 h-5/6`}>
+						} rounded-t-3xl p-6 pt-3 h-5/6 overflow-y-scroll`}>
 						<TouchableOpacity onPress={onClose} className='self-end'>
 							<Ionicons
 								name='close'
@@ -139,12 +150,82 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 								${sale.sold_price?.toLocaleString()}
 							</Text>
 						</View>
+						{sale.buyer_name && (
+							<View className='flex-row justify-between items-center mb-2'>
+								<Text
+									className={`font-semibold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									Buyer Name:
+								</Text>
+								<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+									{sale.buyer_name}
+								</Text>
+							</View>
+						)}
 						<View className='flex-row justify-between items-center mb-2'>
 							<Text
 								className={`font-semibold ${
 									isDarkMode ? 'text-white' : 'text-black'
 								}`}>
-								Price Difference:
+								Bought Price:
+							</Text>
+							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+								${sale.bought_price?.toLocaleString()}
+							</Text>
+						</View>
+						{sale.seller_name && (
+							<View className='flex-row justify-between items-center mb-2'>
+								<Text
+									className={`font-semibold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									Bought From:
+								</Text>
+								<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+									{sale.seller_name}
+								</Text>
+							</View>
+						)}
+						<View className='flex-row justify-between items-center mb-2'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Date Bought:
+							</Text>
+							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+								{new Date(sale.date_bought).toLocaleDateString()}
+							</Text>
+						</View>
+						<View className='flex-row justify-between items-center mb-2'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Date Sold:
+							</Text>
+							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+								{new Date(sale.date_sold).toLocaleDateString()}
+							</Text>
+						</View>
+						<View className='flex-row justify-between items-center mb-2'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Days in Stock:
+							</Text>
+							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+								{daysInStock}
+							</Text>
+						</View>
+						<View className='flex-row justify-between items-center mb-2'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Price Difference (Sold - Listed):
 							</Text>
 							<Text
 								className={
@@ -160,36 +241,57 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 								className={`font-semibold ${
 									isDarkMode ? 'text-white' : 'text-black'
 								}`}>
-								Days Listed:
+								Actual Profit:
 							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								{daysListed}
+							<Text
+								className={
+									actualProfit >= 0 ? 'text-green-500' : 'text-pink-600'
+								}>
+								{actualProfit >= 0 ? '+' : '-'}$
+								{Math.abs(actualProfit)?.toLocaleString()}
 							</Text>
 						</View>
-						<PieChart
-							data={[
-								{
-									name: 'Listed Price',
-									population: sale.price,
-									color: '#3b82f6',
-									legendFontColor: isDarkMode ? '#FFFFFF' : '#7F7F7F'
-								},
-								{
-									name: 'Difference',
-									population: Math.abs(priceDifference),
-									color: priceDifference >= 0 ? '#4CAF50' : '#F44336',
-									legendFontColor: isDarkMode ? '#FFFFFF' : '#7F7F7F'
-								}
-							]}
-							width={SCREEN_WIDTH - 48}
-							height={200}
-							chartConfig={{
-								color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`
+						<View className='flex-row justify-between items-center mb-4'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Expected Profit:
+							</Text>
+							<Text
+								className={
+									expectedProfit >= 0 ? 'text-green-500' : 'text-pink-600'
+								}>
+								{expectedProfit >= 0 ? '+' : '-'}$
+								{Math.abs(expectedProfit)?.toLocaleString()}
+							</Text>
+						</View>
+						<BarChart
+							data={{
+								labels: ['Listed', 'Sold', 'Bought'],
+								datasets: [
+									{
+										data: [sale.price, sale.sold_price, sale.bought_price]
+									}
+								]
 							}}
-							accessor='population'
-							backgroundColor='transparent'
-							paddingLeft='-5'
-							absolute
+							width={SCREEN_WIDTH - 48}
+							height={220}
+							yAxisLabel='$'
+							chartConfig={{
+								backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+								backgroundGradientFrom: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+								backgroundGradientTo: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+								decimalPlaces: 0,
+								color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+								labelColor: (opacity = 1) =>
+									isDarkMode
+										? `rgba(255, 255, 255, ${opacity})`
+										: `rgba(0, 0, 0, ${opacity})`,
+								style: { borderRadius: 16 },
+								propsForLabels: { fontSize: 12 }
+							}}
+							verticalLabelRotation={0}
 						/>
 					</View>
 				</View>
@@ -231,21 +333,28 @@ export default function SalesHistoryPage() {
 	}, [fetchDealershipDetails])
 
 	const isSubscriptionValid = useCallback(() => {
-		if (!dealership || !dealership.subscription_end_date) return false
+		if (!dealership) {
+			console.log('Dealership data is not loaded yet.')
+			return false
+		}
+
+		if (!dealership.subscription_end_date) {
+			console.log(
+				'Subscription end date is not set. Assuming subscription is not valid.'
+			)
+			return false
+		}
 
 		const endDate = new Date(dealership.subscription_end_date)
 		const today = new Date()
 
-		// Normalize dates by setting time to start of day
 		endDate.setHours(0, 0, 0, 0)
 		today.setHours(0, 0, 0, 0)
 
-		// Add debug logging
 		console.log('End Date:', endDate)
 		console.log('Today:', today)
 		console.log('Is Valid:', endDate >= today)
 
-		// Compare dates including the end date
 		return endDate >= today
 	}, [dealership])
 
@@ -271,7 +380,7 @@ export default function SalesHistoryPage() {
 				const { data, error } = await supabase
 					.from('cars')
 					.select(
-						'id, make, model, year, sold_price, date_sold, price, listed_at, images, description'
+						'id, make, model, year, sold_price, date_sold, price, listed_at, images, description, buyer_name, bought_price, date_bought, seller_name'
 					)
 					.eq('dealership_id', dealershipData.id)
 					.eq('status', 'sold')
@@ -318,19 +427,22 @@ export default function SalesHistoryPage() {
 
 	const salesData = useMemo(() => {
 		const monthlyData: { [key: string]: number } = {}
-		// Sort the sales chronologically for the chart, regardless of the list sort order
 		const chronologicalSales = [...salesHistory].sort(
 			(a, b) =>
 				new Date(a.date_sold).getTime() - new Date(b.date_sold).getTime()
 		)
+
 		chronologicalSales.forEach(sale => {
-			const month = new Date(sale.date_sold).toLocaleString('default', {
-				month: 'short'
-			})
-			monthlyData[month] = (monthlyData[month] || 0) + sale.sold_price
+			const saleDate = new Date(sale.date_sold)
+			const month = saleDate.toLocaleString('default', { month: 'short' })
+			const year = saleDate.getFullYear() // Get the year
+			const monthYear = `${month} ${year}` // Combine month and year
+
+			monthlyData[monthYear] = (monthlyData[monthYear] || 0) + sale.sold_price
 		})
-		return Object.entries(monthlyData).map(([month, total]) => ({
-			month,
+
+		return Object.entries(monthlyData).map(([monthYear, total]) => ({
+			month: monthYear, // Use the combined month and year
 			total
 		}))
 	}, [salesHistory])
@@ -338,10 +450,17 @@ export default function SalesHistoryPage() {
 	const renderSaleItem = useCallback(
 		(item: SaleRecord) => {
 			const priceDifference = item.sold_price - item.price
+			const actualProfit = item.sold_price - item.bought_price
+			const expectedProfit = item.price - item.bought_price
 			const priceDifferencePercentage = (
 				(priceDifference / item.price) *
 				100
 			).toFixed(2)
+			const daysInStock = Math.ceil(
+				(new Date(item.date_sold).getTime() -
+					new Date(item.date_bought).getTime()) /
+					(1000 * 60 * 60 * 24)
+			)
 
 			return (
 				<TouchableOpacity
@@ -350,7 +469,6 @@ export default function SalesHistoryPage() {
 						isDarkMode ? 'bg-gray' : 'bg-white'
 					} p-4 rounded-lg mb-5 shadow-lg`}
 					onPress={() => {
-						// Add debug logging
 						console.log('Subscription Status:', isSubscriptionValid())
 						console.log('Current Dealership:', dealership)
 
@@ -384,30 +502,62 @@ export default function SalesHistoryPage() {
 						</Text>
 						<Text
 							className={`text-lg font-bold ${
-								priceDifference >= 0 ? 'text-green-500' : 'text-pink-600'
+								actualProfit >= 0 ? 'text-green-500' : 'text-pink-600'
 							}`}>
-							${item.sold_price?.toLocaleString()}
+							{actualProfit >= 0 ? '+' : '-'}$
+							{Math.abs(actualProfit)?.toLocaleString()}
+						</Text>
+					</View>
+					{item.buyer_name && (
+						<View className='flex-row justify-between items-center mb-2'>
+							<Text
+								className={`text-sm ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Buyer:
+							</Text>
+							<Text
+								className={`text-sm ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								{item.buyer_name}
+							</Text>
+						</View>
+					)}
+					{item.seller_name && (
+						<View className='flex-row justify-between items-center mb-2'>
+							<Text
+								className={`text-sm ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Bought From:
+							</Text>
+							<Text
+								className={`text-sm ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								{item.seller_name}
+							</Text>
+						</View>
+					)}
+					<View className='flex-row justify-between items-center mb-2'>
+						<Text
+							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+							Bought: {new Date(item.date_bought).toLocaleDateString()}
+						</Text>
+						<Text
+							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+							Sold: {new Date(item.date_sold).toLocaleDateString()}
 						</Text>
 					</View>
 					<View className='flex-row justify-between items-center'>
-						<View className='flex-row items-center'>
-							<FontAwesome5
-								name='calendar-alt'
-								size={14}
-								color={isDarkMode ? '#BBBBBB' : '#666666'}
-							/>
-							<Text
-								className={`ml-2 ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-								{new Date(item.date_sold).toLocaleDateString()}
-							</Text>
-						</View>
 						<Text
-							className={
-								priceDifference >= 0 ? 'text-green-500' : 'text-pink-600'
-							}>
-							{priceDifference >= 0 ? '+' : '-'}$
-							{Math.abs(priceDifference).toLocaleString()} (
-							{priceDifferencePercentage}%)
+							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+							Days in Stock: {daysInStock}
+						</Text>
+						<Text
+							className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+							Listed Price: ${item.price?.toLocaleString()}
 						</Text>
 					</View>
 				</TouchableOpacity>
@@ -421,6 +571,7 @@ export default function SalesHistoryPage() {
 			colors={isDarkMode ? ['#1E1E1E', '#2D2D2D'] : ['#F5F5F5', '#E0E0E0']}
 			className='flex-1'>
 			<CustomHeader title='Sales History' />
+			{/* Subscription Status Messages */}
 			{!isSubscriptionValid() && (
 				<View className='bg-rose-700 p-4'>
 					<Text className='text-white text-center font-bold'>
@@ -485,7 +636,7 @@ export default function SalesHistoryPage() {
 						<>
 							<View
 								className={`${
-									isDarkMode ? 'bg-gray-800' : 'bg-white'
+									isDarkMode ? 'bg-gray' : 'bg-white'
 								} rounded-lg py-4 mb-4`}>
 								<Text
 									className={`text-lg font-bold ${
@@ -528,6 +679,7 @@ export default function SalesHistoryPage() {
 									/>
 								</ScrollView>
 							</View>
+							{/* Enhanced Empty Sales Message */}
 							{filteredAndSortedSales.length > 0 ? (
 								filteredAndSortedSales.map(renderSaleItem)
 							) : (
@@ -541,7 +693,9 @@ export default function SalesHistoryPage() {
 										className={`text-center mt-4 ${
 											isDarkMode ? 'text-white' : 'text-gray'
 										}`}>
-										No sales history available.
+										{isLoading
+											? 'Loading sales history...'
+											: 'No sales history available.'}
 									</Text>
 								</View>
 							)}

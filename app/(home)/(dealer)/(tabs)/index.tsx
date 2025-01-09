@@ -680,7 +680,7 @@ export default function DealerListings() {
 						visible={isSoldModalVisible}
 						animationType='slide'
 						transparent={true}>
-						<View className='flex-1 justify-center items-center bg-black/50'>
+						<View className='flex-1 justify-center items-center bg-black'>
 							<View
 								className={`bg-${
 									isDarkMode ? 'gray' : 'white'
