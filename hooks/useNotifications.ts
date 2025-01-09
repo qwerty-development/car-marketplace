@@ -6,6 +6,8 @@ import { NotificationService, NotificationType } from '@/services/NotificationSe
 import { router } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
+import { supabase } from '@/utils/supabase';
 
 interface UseNotificationsReturn {
   unreadCount: number;
@@ -15,6 +17,8 @@ interface UseNotificationsReturn {
   deleteNotification: (notificationId: string) => Promise<void>;
   refreshNotifications: () => Promise<void>;
   loading: boolean;
+  cleanupPushToken: () => Promise<void>;
+  registerForPushNotifications: () => Promise<void>;
 }
 
 export function useNotifications(): UseNotificationsReturn {
@@ -107,14 +111,9 @@ export function useNotifications(): UseNotificationsReturn {
     realtimeSubscription.current = NotificationService.subscribeToRealtime(
       user.id,
       async (notification) => {
-        // Check if the notification is a daily reminder using metadata
-        const isDailyReminder = notification.data && notification.data.metadata && notification.data.metadata.scheduledFor;
-
-        // If it's a daily reminder, do not update the unread count
-        if (!isDailyReminder) {
-          const newUnreadCount = await NotificationService.getUnreadCount(user.id);
-          setUnreadCount(newUnreadCount);
-        }
+        // Update unread count
+        const newUnreadCount = await NotificationService.getUnreadCount(user.id);
+        setUnreadCount(newUnreadCount);
       }
     );
   }, [user]);
@@ -136,16 +135,66 @@ export function useNotifications(): UseNotificationsReturn {
         setIsPermissionGranted(true);
       }
 
-      const token = await NotificationService.registerForPushNotificationsAsync(user.id);
-      if (token) {
-        console.log('Expo push token:', token);
-        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+      const storedToken = await SecureStore.getItemAsync('expoPushToken');
+      let tokenData;
+
+      if (storedToken) {
+        // Check if the stored token exists in the database
+        const { data: existingTokenData, error: existingTokenError } = await supabase
+          .from('user_push_tokens')
+          .select('token')
+          .eq('user_id', user.id)
+          .eq('token', storedToken)
+          .single();
+
+        if (existingTokenError) {
+          console.error('Error checking existing token:', existingTokenError);
+        }
+
+        tokenData = existingTokenData;
+      }
+
+      // Only register if token doesn't exist or if it has changed
+      if (!tokenData) {
+        const token = await NotificationService.registerForPushNotificationsAsync(user.id);
+
+        if (token) {
+          console.log('Expo push token:', token);
+          await SecureStore.setItemAsync('expoPushToken', token);
+          pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+        }
       }
     } catch (error) {
       console.error('Error registering for notifications:', error);
       setIsPermissionGranted(false);
     }
-  }, [user, handleTokenRefresh]);
+  }, [user]);
+
+
+  const cleanupPushToken = useCallback(async () => {
+    if (!user) return;
+    try {
+      // Get token from secure storage
+      const token = await SecureStore.getItemAsync('expoPushToken');
+
+      if (token) {
+        // Delete token from database
+        await supabase
+          .from('user_push_tokens')
+          .delete()
+          .match({ user_id: user.id, token });
+
+        // Remove token from secure storage
+        await SecureStore.deleteItemAsync('expoPushToken');
+
+        console.log('Push token cleaned up successfully');
+      } else {
+        console.warn('No push token found in secure storage to cleanup.');
+      }
+    } catch (error) {
+      console.error('Error cleaning up push token:', error);
+    }
+  }, [user]);
 
   // Notification management functions - Kept the same
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -196,7 +245,6 @@ export function useNotifications(): UseNotificationsReturn {
     let mounted = true;
 
     const initialize = async () => {
-      await registerForNotifications();
       if (!mounted) return;
 
       notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
@@ -232,6 +280,8 @@ export function useNotifications(): UseNotificationsReturn {
     markAllAsRead,
     deleteNotification,
     refreshNotifications,
-    loading
+    loading,
+    cleanupPushToken,
+    registerForPushNotifications: registerForNotifications
   };
 }

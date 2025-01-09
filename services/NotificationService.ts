@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
+import { isSigningOut } from '../app/(home)/_layout';
 
 // Set up notification handler
 Notifications.setNotificationHandler({
@@ -32,7 +33,7 @@ interface NotificationData {
 
 export class NotificationService {
   // Push notification registration
-  static async registerForPushNotificationsAsync(userId: string) {
+ static async registerForPushNotificationsAsync(userId: string) {
     let token;
 
     if (Device.isDevice) {
@@ -56,16 +57,19 @@ export class NotificationService {
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#D55004',
-            sound: 'notification.wav', // Make sure to add a sound file named 'notification.wav' to the root directory of your project, also added it in app.json under expo.android.notification
+            sound: 'notification.wav',
           });
         }
 
-        token = (await Notifications.getExpoPushTokenAsync({
-          projectId: process.env.EXPO_PUBLIC_PROJECT_ID
-        })).data;
+        // Only get a new token if not signing out
+        if (!isSigningOut) {
+          token = (await Notifications.getExpoPushTokenAsync({
+            projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+          })).data;
 
-        if (token) {
-          await this.updatePushToken(token, userId);
+          if (token) {
+            await this.updatePushToken(token, userId);
+          }
         }
       } catch (error) {
         console.error('Error getting push token:', error);
@@ -95,13 +99,7 @@ export class NotificationService {
     }
   }
 
-  // No longer needed since server handles creation and storing of notifications
-  // static async createNotification({ ... }) { ... }
-
-  // No longer needed since server handles scheduling
-  // static async scheduleDailyNotifications() { ... }
-
-  // Subscribe to real-time notifications
+  // Subscribe to realtime notifications
   static subscribeToRealtime(userId: string, onNotification: (notification: any) => void) {
     return supabase
       .channel('notifications')

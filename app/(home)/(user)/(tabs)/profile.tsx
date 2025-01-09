@@ -17,8 +17,9 @@ import * as ImagePicker from 'expo-image-picker'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import ThemeSwitch from '@/components/ThemeSwitch'
-import NotificationTester from '@/components/NotificationTester'
 import { NotificationBell } from '@/components/NotificationBell'
+import { useNotifications } from '@/hooks/useNotifications'
+import { setIsSigningOut } from '@/app/(home)/_layout'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
@@ -36,6 +37,7 @@ export default function UserProfileAndSupportPage() {
 	const [currentPassword, setCurrentPassword] = useState('')
 	const [newPassword, setNewPassword] = useState('')
 	const [confirmPassword, setConfirmPassword] = useState('')
+	const { cleanupPushToken } = useNotifications()
 
 	useEffect(() => {
 		if (user) {
@@ -131,6 +133,24 @@ export default function UserProfileAndSupportPage() {
 		} catch (error) {
 			console.error('Error changing password:', error)
 			Alert.alert('Error', 'Failed to change password')
+		}
+	}
+
+	const handleSignOut = async () => {
+		try {
+			setIsSigningOut(true)
+
+			// Clean up the push token
+			await cleanupPushToken()
+
+			// Sign out from Clerk
+			await signOut()
+		} catch (error) {
+			console.error('Error during sign out:', error)
+			Alert.alert('Error', 'Failed to sign out properly')
+		} finally {
+			// Ensure the flag is reset even if sign out fails
+			setIsSigningOut(false)
 		}
 	}
 
@@ -385,12 +405,10 @@ export default function UserProfileAndSupportPage() {
 
 				<TouchableOpacity
 					className='bg-rose-600  p-5 mb-24 rounded-xl items-center '
-					onPress={() => signOut()}>
+					onPress={handleSignOut}>
 					<Text className='text-white font-bold text-xl'>Sign Out</Text>
 				</TouchableOpacity>
 			</View>
-
-			<NotificationTester userId={user!.id} />
 		</ScrollView>
 	)
 }

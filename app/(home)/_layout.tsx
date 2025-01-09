@@ -4,6 +4,10 @@ import { Slot, useRouter, useSegments } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { Alert } from 'react-native'
+import { useNotifications } from '@/hooks/useNotifications'
+
+// Add a global state to track if the sign-out process has started
+let isSigningOut = false
 
 export default function HomeLayout() {
 	const { isLoaded, isSignedIn } = useAuth()
@@ -12,11 +16,12 @@ export default function HomeLayout() {
 	const segments = useSegments()
 	const [shouldNavigate, setShouldNavigate] = useState(false)
 	const [isCheckingUser, setIsCheckingUser] = useState(true)
+	const { registerForPushNotifications } = useNotifications()
 
 	// Check/Create Supabase User and Update Last Active
 	useEffect(() => {
 		const checkAndCreateUser = async () => {
-			if (!user) return
+			if (!user || isSigningOut) return
 
 			try {
 				// Check if user exists in Supabase
@@ -54,6 +59,7 @@ export default function HomeLayout() {
 
 				if (updateError) throw updateError
 				console.log('Updated last_active for user in Supabase')
+				await registerForPushNotifications()
 			} catch (error) {
 				console.error('Error in user sync:', error)
 				Alert.alert(
@@ -98,4 +104,9 @@ export default function HomeLayout() {
 	}
 
 	return <Slot />
+}
+
+// Export a function to set the signing out flag
+export function setIsSigningOut(value: boolean) {
+	isSigningOut = value
 }
