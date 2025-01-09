@@ -21,6 +21,69 @@ import DraggableFlatList from 'react-native-draggable-flatlist'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useTheme } from '@/utils/ThemeContext'
 import { Dropdown } from 'react-native-element-dropdown'
+import DateTimePicker from '@react-native-community/datetimepicker'
+
+const colors = [
+	{ id: 1, name: 'Red' },
+	{ id: 2, name: 'Blue' },
+	{ id: 3, name: 'Green' },
+	{ id: 4, name: 'Yellow' },
+	{ id: 5, name: 'Black' },
+	{ id: 6, name: 'White' },
+	{ id: 7, name: 'Silver' },
+	{ id: 8, name: 'Orange' },
+	{ id: 9, name: 'Purple' },
+	{ id: 10, name: 'Brown' },
+	{ id: 11, name: 'Pink' },
+	{ id: 12, name: 'Gold' },
+	{ id: 13, name: 'Grey' },
+	{ id: 14, name: 'Beige' },
+	{ id: 15, name: 'Burgundy' },
+	{ id: 16, name: 'Turquoise' },
+	{ id: 17, name: 'Maroon' },
+	{ id: 18, name: 'Teal' },
+	{ id: 19, name: 'Navy Blue' },
+	{ id: 20, name: 'Charcoal' },
+	{ id: 21, name: 'Ivory' },
+	{ id: 22, name: 'Lavender' },
+	{ id: 23, name: 'Magenta' },
+	{ id: 24, name: 'Champagne' },
+	{ id: 25, name: 'Bronze' },
+	{ id: 26, name: 'Cyan' },
+	{ id: 27, name: 'Copper' },
+	{ id: 28, name: 'Coral' },
+	{ id: 29, name: 'Mint Green' },
+	{ id: 30, name: 'Peach' },
+	{ id: 31, name: 'Sand' },
+	{ id: 32, name: 'Sky Blue' },
+	{ id: 33, name: 'Violet' },
+	{ id: 34, name: 'Lime Green' },
+	{ id: 35, name: 'Saffron' },
+	{ id: 36, name: 'Indigo' },
+	{ id: 37, name: 'Olive' },
+	{ id: 38, name: 'Mustard' },
+	{ id: 39, name: 'Sea Green' },
+	{ id: 40, name: 'Graphite' },
+	{ id: 41, name: 'Electric Blue' },
+	{ id: 42, name: 'Matte Black' },
+	{ id: 43, name: 'Pearl White' },
+	{ id: 44, name: 'Aqua' },
+	{ id: 45, name: 'Crimson' },
+	{ id: 46, name: 'Rose Gold' },
+	{ id: 47, name: 'Titanium' },
+	{ id: 48, name: 'Gunmetal' },
+	{ id: 49, name: 'Lemon Yellow' },
+	{ id: 50, name: 'Rust' },
+	{ id: 51, name: 'Tan' },
+	{ id: 52, name: 'Slate' },
+	{ id: 53, name: 'Khaki' },
+	{ id: 54, name: 'Fuchsia' },
+	{ id: 55, name: 'Mint' },
+	{ id: 56, name: 'Lilac' },
+	{ id: 57, name: 'Plum' },
+	{ id: 58, name: 'Cerulean' },
+	{ id: 59, name: 'Tangerine' }
+]
 
 const ListingModal = ({
 	isVisible,
@@ -30,78 +93,29 @@ const ListingModal = ({
 	dealership
 }: any) => {
 	const { isDarkMode } = useTheme()
-	const [formData, setFormData] = useState<any>(initialData || {})
+	const [formData, setFormData] = useState<any>(
+		initialData || {
+			bought_price: null,
+			date_bought: new Date(),
+			seller_name: null
+		}
+	)
+	const [showDatePicker, setShowDatePicker] = useState(false)
 	const [modalImages, setModalImages] = useState<any>(initialData?.images || [])
 	const [isUploading, setIsUploading] = useState<any>(false)
 	const [makes, setMakes] = useState<any>([])
 	const [models, setModels] = useState<any>([])
 	const [uploadProgress, setUploadProgress] = useState<any>({})
 
-	const colors = [
-		{ id: 1, name: 'Red' },
-		{ id: 2, name: 'Blue' },
-		{ id: 3, name: 'Green' },
-		{ id: 4, name: 'Yellow' },
-		{ id: 5, name: 'Black' },
-		{ id: 6, name: 'White' },
-		{ id: 7, name: 'Silver' },
-		{ id: 8, name: 'Orange' },
-		{ id: 9, name: 'Purple' },
-		{ id: 10, name: 'Brown' },
-		{ id: 11, name: 'Pink' },
-		{ id: 12, name: 'Gold' },
-		{ id: 13, name: 'Grey' },
-		{ id: 14, name: 'Beige' },
-		{ id: 15, name: 'Burgundy' },
-		{ id: 16, name: 'Turquoise' },
-		{ id: 17, name: 'Maroon' },
-		{ id: 18, name: 'Teal' },
-		{ id: 19, name: 'Navy Blue' },
-		{ id: 20, name: 'Charcoal' },
-		{ id: 21, name: 'Ivory' },
-		{ id: 22, name: 'Lavender' },
-		{ id: 23, name: 'Magenta' },
-		{ id: 24, name: 'Champagne' },
-		{ id: 25, name: 'Bronze' },
-		{ id: 26, name: 'Cyan' },
-		{ id: 27, name: 'Copper' },
-		{ id: 28, name: 'Coral' },
-		{ id: 29, name: 'Mint Green' },
-		{ id: 30, name: 'Peach' },
-		{ id: 31, name: 'Sand' },
-		{ id: 32, name: 'Sky Blue' },
-		{ id: 33, name: 'Violet' },
-		{ id: 34, name: 'Lime Green' },
-		{ id: 35, name: 'Saffron' },
-		{ id: 36, name: 'Indigo' },
-		{ id: 37, name: 'Olive' },
-		{ id: 38, name: 'Mustard' },
-		{ id: 39, name: 'Sea Green' },
-		{ id: 40, name: 'Graphite' },
-		{ id: 41, name: 'Electric Blue' },
-		{ id: 42, name: 'Matte Black' },
-		{ id: 43, name: 'Pearl White' },
-		{ id: 44, name: 'Aqua' },
-		{ id: 45, name: 'Crimson' },
-		{ id: 46, name: 'Rose Gold' },
-		{ id: 47, name: 'Titanium' },
-		{ id: 48, name: 'Gunmetal' },
-		{ id: 49, name: 'Lemon Yellow' },
-		{ id: 50, name: 'Rust' },
-		{ id: 51, name: 'Tan' },
-		{ id: 52, name: 'Slate' },
-		{ id: 53, name: 'Khaki' },
-		{ id: 54, name: 'Fuchsia' },
-		{ id: 55, name: 'Mint' },
-		{ id: 56, name: 'Lilac' },
-		{ id: 57, name: 'Plum' },
-		{ id: 58, name: 'Cerulean' },
-		{ id: 59, name: 'Tangerine' }
-	]
-
 	useEffect(() => {
 		if (isVisible) {
-			setFormData(initialData || {})
+			setFormData((prevData: any) => ({
+				...prevData,
+				...(initialData || {}),
+				date_bought: initialData?.date_bought
+					? new Date(initialData.date_bought)
+					: new Date()
+			}))
 			setModalImages(initialData?.images || [])
 			fetchMakes()
 		}
@@ -156,6 +170,11 @@ const ListingModal = ({
 				if (key === 'color' && value === 'Other' && customValue) {
 					newData.color = customValue
 				}
+
+				if (key === 'mileage') {
+					newData[key] = value === '' ? null : parseInt(value)
+				}
+
 				return newData
 			})
 		},
@@ -303,7 +322,13 @@ const ListingModal = ({
 			Alert.alert('Incomplete Form', 'Please fill in all required fields.')
 			return
 		}
-		onSubmit({ ...formData, images: modalImages })
+		onSubmit({
+			...formData,
+			images: modalImages,
+			date_bought: formData.date_bought
+				? formData.date_bought.toISOString()
+				: new Date().toISOString()
+		})
 	}, [formData, modalImages, onSubmit])
 
 	return (
@@ -577,11 +602,77 @@ const ListingModal = ({
 									} rounded-lg p-4 mb-4`}
 									placeholder='Mileage'
 									placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
-									value={formData.mileage ? formData.mileage.toString() : ''}
+									value={
+										formData.mileage !== null
+											? formData?.mileage?.toString()
+											: ''
+									}
+									onChangeText={text => handleInputChange('mileage', text)}
+									keyboardType='numeric'
+								/>
+
+								<TextInput
+									className={`border ${
+										isDarkMode
+											? 'border-red bg-gray text-white'
+											: 'border-red bg-white text-night'
+									} rounded-lg p-4 mb-4`}
+									placeholder='Bought Price'
+									placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+									value={
+										formData.bought_price
+											? formData.bought_price.toString()
+											: ''
+									}
 									onChangeText={text =>
-										handleInputChange('mileage', parseInt(text) || '')
+										handleInputChange('bought_price', parseInt(text) || '')
 									}
 									keyboardType='numeric'
+								/>
+
+								<TouchableOpacity
+									onPress={() => setShowDatePicker(true)}
+									className={`border ${
+										isDarkMode ? 'border-red bg-gray' : 'border-red bg-white'
+									} rounded-lg p-4 mb-4 flex-row justify-between items-center`}>
+									<Text
+										style={{ color: isDarkMode ? 'white' : 'black' }}
+										className='text-base'>
+										{formData.date_bought
+											? formData.date_bought.toDateString()
+											: 'Select Date Bought'}
+									</Text>
+									<Ionicons
+										name='calendar'
+										size={24}
+										color={isDarkMode ? 'white' : 'black'}
+									/>
+								</TouchableOpacity>
+
+								{showDatePicker && (
+									<DateTimePicker
+										value={formData.date_bought || new Date()}
+										mode='date'
+										display='default'
+										onChange={(event: any, selectedDate: any) => {
+											setShowDatePicker(Platform.OS === 'ios')
+											if (selectedDate) {
+												handleInputChange('date_bought', selectedDate)
+											}
+										}}
+									/>
+								)}
+
+								<TextInput
+									className={`border ${
+										isDarkMode
+											? 'border-red bg-gray text-white'
+											: 'border-red bg-white text-night'
+									} rounded-lg p-4 mb-4`}
+									placeholder='Seller Name'
+									placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+									value={formData.seller_name || ''}
+									onChangeText={text => handleInputChange('seller_name', text)}
 								/>
 
 								<Text

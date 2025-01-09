@@ -286,7 +286,7 @@ export default function DealerListings() {
 	)
 
 	const handleMarkAsSold = useCallback(
-		async (soldInfo: { price: string; date: string }) => {
+		async (soldInfo: { price: string; date: string; buyer_name: string }) => {
 			if (!selectedListing || !dealership || !isSubscriptionValid()) return
 			try {
 				const { error } = await supabase
@@ -294,7 +294,8 @@ export default function DealerListings() {
 					.update({
 						status: 'sold',
 						sold_price: parseInt(soldInfo.price),
-						date_sold: soldInfo.date
+						date_sold: soldInfo.date,
+						buyer_name: soldInfo.buyer_name
 					})
 					.eq('id', selectedListing.id)
 					.eq('dealership_id', dealership.id)
@@ -659,11 +660,19 @@ export default function DealerListings() {
 			React.memo(() => {
 				const [localSoldInfo, setLocalSoldInfo] = useState({
 					price: '',
-					date: ''
+					date: '',
+					buyer_name: ''
 				})
 
 				const handleConfirm = () => {
-					handleMarkAsSold(localSoldInfo)
+					if (!localSoldInfo.price || !localSoldInfo.date) {
+						Alert.alert('Error', 'Please enter both sold price and date.')
+						return
+					}
+
+					const isoDate = new Date(localSoldInfo.date).toISOString()
+
+					handleMarkAsSold({ ...localSoldInfo, date: isoDate })
 				}
 
 				return (
@@ -703,6 +712,17 @@ export default function DealerListings() {
 									value={localSoldInfo.date}
 									onChangeText={text =>
 										setLocalSoldInfo(prev => ({ ...prev, date: text }))
+									}
+								/>
+								<TextInput
+									className={`border border-red rounded p-2 mb-4 ${
+										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									}`}
+									placeholder='Buyer Name'
+									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+									value={localSoldInfo.buyer_name}
+									onChangeText={text =>
+										setLocalSoldInfo(prev => ({ ...prev, buyer_name: text }))
 									}
 								/>
 								<View className='flex-row justify-end mt-4'>
