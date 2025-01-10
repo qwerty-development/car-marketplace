@@ -37,9 +37,9 @@ async function handlePushNotificationReceipts(
             error_details: {
               receipt,
               message: receipt.message,
-              details: receipt.details
+              details: receipt.details,
             },
-            record: record
+            record: record,
           });
 
           // Handle DeviceNotRegistered error
@@ -56,6 +56,26 @@ async function handlePushNotificationReceipts(
     }
   }
 }
+
+// Function to check for duplicate notifications (remains the same)
+const checkDuplicateNotification = async (
+  userId: string,
+  type: string,
+  hour: number
+) => {
+  // Check for notifications sent in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+  const { data } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .gte('created_at', oneHourAgo.toISOString())
+    .maybeSingle();
+
+  return !!data;
+};
 
 Deno.serve(async (req) => {
   try {
@@ -78,27 +98,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if already processed
-    if (record.processed) {
-      return new Response(
-        JSON.stringify({ message: 'Notification already processed' }),
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // **Removed processed check** (as it is now handled by the trigger)
 
     // Handle different notification types
     // Get all user's push tokens
     const { data: userTokensData, error: userTokenError } = await supabase
-        .from('user_push_tokens')
-        .select('token')
-        .eq('user_id', record.user_id);
+      .from('user_push_tokens')
+      .select('token')
+      .eq('user_id', record.user_id);
 
     if (userTokenError || !userTokensData?.length) {
       console.error('Push tokens not found:', userTokenError);
-      return new Response(
-        JSON.stringify({ error: 'No push tokens found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      return new Response(JSON.stringify({ error: 'No push tokens found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // **Add the Daily Reminder Duplicate Check BEFORE Creating Messages**
+    if (record.type === 'daily_reminder') {
+      const hour = record.data.metadata?.hour; // Get the scheduled hour
+      const isDuplicate = await checkDuplicateNotification(
+        record.user_id,
+        'daily_reminder',
+        hour
       );
+
+      if (isDuplicate) {
+        // Log the duplicate attempt instead of marking as processed
+        console.warn(
+          'Duplicate daily_reminder notification detected and skipped:',
+          record
+        );
+        return new Response(
+          JSON.stringify({
+            message: 'Duplicate notification skipped (logged)',
+          }),
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Create messages for all valid tokens
@@ -139,61 +177,61 @@ Deno.serve(async (req) => {
         message = {
           to: tokenData.token,
           sound: 'notification.wav', // Customize sound as needed
-          title: "Price Drop Alert! 💲",
+          title: 'Price Drop Alert! 💲',
           body: record.data.message, // Customize the message
           data: {
             ...record.data,
-            notificationId
+            notificationId,
           },
           badge: 1,
           channelId: 'default', // Customize channel ID as needed
           priority: 'high',
-          categoryId: record.type
+          categoryId: record.type,
         };
       } else if (record.type === 'car_sold') {
         message = {
           to: tokenData.token,
           sound: 'notification.wav', // Customize sound as needed
-          title: "Car Sold! 🚗",
+          title: 'Car Sold! 🚗',
           body: record.data.message, // Customize the message
           data: {
             ...record.data,
-            notificationId
+            notificationId,
           },
           badge: 1,
           channelId: 'default', // Customize channel ID as needed
           priority: 'high',
-          categoryId: record.type
+          categoryId: record.type,
         };
       } else if (record.type === 'view_milestone') {
         message = {
           to: tokenData.token,
           sound: 'notification.wav', // Customize sound as needed
-          title: "Popular Car Alert! 🎉",
+          title: 'Popular Car Alert! 🎉',
           body: record.data.message, // Customize the message
           data: {
             ...record.data,
-            notificationId
+            notificationId,
           },
           badge: 1,
           channelId: 'default', // Customize channel ID as needed
           priority: 'high',
-          categoryId: record.type
+          categoryId: record.type,
         };
       } else if (record.type === 'inactive_reminder') {
         message = {
           to: tokenData.token,
           sound: 'notification.wav', // Customize sound as needed
-          title: "👋 We Miss You!",
+          title: '👋 We Miss You!',
           body: record.data.message, // Customize the message
           data: {
             ...record.data,
-            notificationId
+            notificationId,
           },
           badge: 1,
           channelId: 'default', // Customize channel ID as needed
           priority: 'high',
-          categoryId: record.type
+          categoryId: record.type,
         };
       } else {
         // Handle unknown notification type
@@ -207,7 +245,9 @@ Deno.serve(async (req) => {
     // Check if there are any valid messages to send
     if (messages.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No valid push tokens found or unknown notification type' }),
+        JSON.stringify({
+          message: 'No valid push tokens found or unknown notification type',
+        }),
         { headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -245,14 +285,14 @@ Deno.serve(async (req) => {
         data: {
           ...record.data,
           notificationId,
-          tickets: tickets // You might not need to store all tickets, adjust as needed
+          tickets: tickets, // You might not need to store all tickets, adjust as needed
         },
         is_read: false,
       });
 
     if (insertError) throw insertError;
 
-    // Mark as processed
+    // Mark as processed **immediately after insertion**
     const { error: updateError } = await supabase
       .from('pending_notifications')
       .update({ processed: true })
@@ -273,12 +313,13 @@ Deno.serve(async (req) => {
 
         // Handle DeviceNotRegistered error
         if (error === 'DeviceNotRegistered') {
-          const tokenToDelete = messages.find((m) => m.to === (ticket as any).to)?.to
+          const tokenToDelete = messages.find((m) => m.to === (ticket as any).to)
+            ?.to;
           if (tokenToDelete) {
-              await supabase
+            await supabase
               .from('user_push_tokens')
               .delete()
-              .eq('token', tokenToDelete)
+              .eq('token', tokenToDelete);
           }
         }
       }
@@ -296,12 +337,12 @@ Deno.serve(async (req) => {
         type: record.type,
         user_id: record.user_id,
         delivery_status: 'sent',
-        platform: Deno.env.get("OS") || "unknown",
+        platform: Deno.env.get('OS') || 'unknown',
         metadata: {
           scheduledTime: record.data.metadata?.scheduledFor,
           actualDeliveryTime: new Date().toISOString(),
-          timeZone: record.data.metadata?.userTimezone
-        }
+          timeZone: record.data.metadata?.userTimezone,
+        },
       });
     } catch (error) {
       console.error('Error logging metrics:', error);
@@ -315,7 +356,6 @@ Deno.serve(async (req) => {
       }),
       { headers: { 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error processing notification:', error);
 

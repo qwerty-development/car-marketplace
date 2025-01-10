@@ -47,6 +47,21 @@ const notificationSchedules: NotificationSchedule[] = [
   }
 ];
 
+const checkPreviousNotifications = async (userId: string, hour: number) => {
+  // Check for notifications sent in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+  const { data } = await supabase
+    .from('pending_notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', 'daily_reminder')
+    .gte('created_at', oneHourAgo.toISOString())
+    .maybeSingle();
+
+  return !!data;
+};
+
 Deno.serve(async (req) => {
   try {
     // Determine the current hour in UTC
@@ -64,6 +79,7 @@ Deno.serve(async (req) => {
         { headers: { 'Content-Type': 'application/json' }, status: 200 }
       );
     }
+
     // Fetch users with their timezones and valid push tokens
     const { data: users, error: usersError } = await supabase
       .from('users')
@@ -76,28 +92,42 @@ Deno.serve(async (req) => {
 
     if (usersError) throw usersError;
 
-    const notificationsToInsert = users.flatMap(user => {
-      const userTimezone = user.timezone || 'UTC';
-      const userCurrentTime = new Date().toLocaleString('en-US', { timeZone: userTimezone });
-      const userCurrentHour = new Date(userCurrentTime).getHours();
+    // Modify the notificationsToInsert creation:
+    const notificationsToInsert = await Promise.all(
+      users.flatMap(async (user) => {
+        const userTimezone = user.timezone || 'UTC';
+        const userCurrentTime = new Date().toLocaleString('en-US', { timeZone: userTimezone });
+        const userCurrentHour = new Date(userCurrentTime).getHours();
 
-      return relevantSchedules
-        .filter(schedule => Math.abs(schedule.hour - userCurrentHour) < 1)
-        .map(schedule => ({
-          user_id: user.id,
-          type: 'daily_reminder',
-          data: {
-            title: schedule.title,
-            message: schedule.message,
-            ...schedule.data,
-            metadata: {
-              scheduledFor: new Date().toISOString(),
-              userTimezone: user.timezone
+        const notifications = [];
+
+        for (const schedule of relevantSchedules) {
+          if (Math.abs(schedule.hour - userCurrentHour) < 1) {
+            // Check if notification already sent
+            const alreadySent = await checkPreviousNotifications(user.id, schedule.hour);
+            if (!alreadySent) {
+              notifications.push({
+                user_id: user.id,
+                type: 'daily_reminder',
+                data: {
+                  title: schedule.title,
+                  message: schedule.message,
+                  ...schedule.data,
+                  metadata: {
+                    scheduledFor: new Date().toISOString(),
+                    userTimezone: user.timezone,
+                    hour: schedule.hour // Store the hour for potential constraint (optional)
+                  }
+                },
+                processed: false
+              });
             }
-          },
-          processed: false
-        }));
-    });
+          }
+        }
+
+        return notifications;
+      })
+    ).then(results => results.flat());
 
     if (notificationsToInsert.length === 0) {
       return new Response(
