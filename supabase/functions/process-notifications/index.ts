@@ -1,4 +1,3 @@
-// supabase/functions/process-notifications/index.ts
 import { Expo } from 'https://esm.sh/expo-server-sdk@3.13.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -84,12 +83,11 @@ Deno.serve(async (req) => {
       return new Response('Method Not Allowed', { status: 405 });
     }
 
-    // Parse request body
-    let record;
+    let originalRecord;
     try {
       const body = await req.json();
-      record = body.record;
-      console.log('Processing notification for record:', record);
+      originalRecord = body.record;
+      console.log('Processing notification for record:', originalRecord);
     } catch (error) {
       console.error('JSON parsing error:', error);
       return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
@@ -98,7 +96,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // **Removed processed check** (as it is now handled by the trigger)
+    const { data: record, error } = await supabase
+      .from('pending_notifications')
+      .update({ processed: true })
+      .eq('id', originalRecord.id)
+      .eq('processed', false)
+      .select()
+      .single();
+
+    if (error || !record) {
+      console.error('Error updating or already processed:', error);
+      return new Response(
+        JSON.stringify({
+          message: 'Record not found, might be already processed',
+        }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Handle different notification types
     // Get all user's push tokens
@@ -115,7 +129,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // **Add the Daily Reminder Duplicate Check BEFORE Creating Messages**
     if (record.type === 'daily_reminder') {
       const hour = record.data.metadata?.hour; // Get the scheduled hour
       const isDuplicate = await checkDuplicateNotification(
@@ -291,14 +304,6 @@ Deno.serve(async (req) => {
       });
 
     if (insertError) throw insertError;
-
-    // Mark as processed **immediately after insertion**
-    const { error: updateError } = await supabase
-      .from('pending_notifications')
-      .update({ processed: true })
-      .eq('id', record.id);
-
-    if (updateError) throw updateError;
 
     // Process all tickets (check for errors and handle DeviceNotRegistered)
     for (const ticket of tickets) {
