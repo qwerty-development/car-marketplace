@@ -150,7 +150,8 @@ export default function NotificationsScreen() {
 
 			// Navigate if there's a destination
 			if (notification.data?.screen) {
-				router.push({
+				router.replace({
+					// Use router.replace()
 					pathname: notification.data.screen,
 					params: notification.data.params
 				})
