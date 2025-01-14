@@ -46,7 +46,7 @@ export default function DealerLayout() {
 				<Stack.Screen
 					name='analytics'
 					options={{
-						animation: 'slide_from_right',
+						animation: 'slide_from_left',
 						headerShown: false
 					}}
 				/>
