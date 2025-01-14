@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { PieChart, LineChart, BarChart } from 'react-native-chart-kit'
 import { BlurView } from 'expo-blur'
 import { Alert } from 'react-native'
+import ExportSalesModal from '@/components/ExportSalesModal'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -362,6 +363,7 @@ export default function SalesHistoryPage() {
 	const [selectedSale, setSelectedSale] = useState<SaleRecord | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
+	const [isExportModalVisible, setIsExportModalVisible] = useState(false)
 
 	const [dealership, setDealership] = useState<any>(null)
 
@@ -673,15 +675,23 @@ export default function SalesHistoryPage() {
 							value={searchQuery}
 							onChangeText={setSearchQuery}
 						/>
-						<TouchableOpacity onPress={toggleSortOrder} className='ml-2 p-2'>
-							<FontAwesome5
-								name={
-									sortOrder === 'asc' ? 'sort-amount-up' : 'sort-amount-down'
-								}
-								size={20}
-								color={isDarkMode ? '#FFFFFF' : '#000000'}
-							/>
-						</TouchableOpacity>
+
+						<View className='flex-row ml-3'>
+							<TouchableOpacity
+								onPress={() => setIsExportModalVisible(true)}
+								className='mr-2 p-2 bg-red rounded-full'>
+								<Ionicons name='download-outline' size={20} color='white' />
+							</TouchableOpacity>
+							<TouchableOpacity onPress={toggleSortOrder} className='p-2'>
+								<FontAwesome5
+									name={
+										sortOrder === 'asc' ? 'sort-amount-up' : 'sort-amount-down'
+									}
+									size={20}
+									color={isDarkMode ? '#FFFFFF' : '#000000'}
+								/>
+							</TouchableOpacity>
+						</View>
 					</View>
 					{isLoading ? (
 						<ActivityIndicator size='large' color='#D55004' />
@@ -764,6 +774,12 @@ export default function SalesHistoryPage() {
 					isDarkMode={isDarkMode}
 				/>
 			)}
+			<ExportSalesModal
+				isVisible={isExportModalVisible}
+				onClose={() => setIsExportModalVisible(false)}
+				salesData={salesHistory}
+				isDarkMode={isDarkMode}
+			/>
 		</LinearGradient>
 	)
 }
