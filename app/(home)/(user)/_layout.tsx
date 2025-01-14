@@ -50,13 +50,6 @@ export default function RootLayout() {
 							headerShown: false
 						}}
 					/>
-					<Stack.Screen
-						name='Favorite'
-						options={{
-							animation: 'slide_from_right',
-							headerShown: false
-						}}
-					/>
 
 					<Stack.Screen
 						name='CarDetailModalIOS'

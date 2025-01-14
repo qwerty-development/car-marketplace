@@ -400,11 +400,7 @@ export default function BrowseCarsPage() {
 
 	return (
 		<LinearGradient
-			colors={
-				isDarkMode
-					? ['#000000', '#000000']
-					: ['#FFFFFF', '#FFFFFF']
-			}
+			colors={isDarkMode ? ['#000000', '#000000'] : ['#FFFFFF', '#FFFFFF']}
 			style={{ flex: 1 }}
 			start={{ x: 0, y: 0 }}
 			end={{ x: 1, y: 1 }}>
@@ -418,7 +414,12 @@ export default function BrowseCarsPage() {
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
 						{/* Main Search Bar with magnifying glass icon */}
-						<View style={[styles.searchBar, isDarkMode && styles.darkSearchBar, { flex: 1 }]}>
+						<View
+							style={[
+								styles.searchBar,
+								isDarkMode && styles.darkSearchBar,
+								{ flex: 1 }
+							]}>
 							<FontAwesome
 								name='search'
 								size={20}
@@ -426,7 +427,10 @@ export default function BrowseCarsPage() {
 								style={{ marginLeft: 12 }}
 							/>
 							<TextInput
-								style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
+								style={[
+									styles.searchInput,
+									isDarkMode && styles.darkSearchInput
+								]}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
 								value={searchQuery}
@@ -437,8 +441,7 @@ export default function BrowseCarsPage() {
 							{/* Filter Icon inside search bar */}
 							<TouchableOpacity
 								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
-								onPress={openFilterPage}
-							>
+								onPress={openFilterPage}>
 								<FontAwesome
 									name='sliders'
 									size={20}
@@ -453,8 +456,7 @@ export default function BrowseCarsPage() {
 									onPress={() => {
 										setSearchQuery('')
 										fetchCars(1, {}, '', '')
-									}}
-								>
+									}}>
 									<FontAwesome
 										name='times-circle'
 										size={20}
@@ -465,19 +467,8 @@ export default function BrowseCarsPage() {
 						</View>
 
 						{/* Favorites Button */}
-						<TouchableOpacity
-							style={styles.favoriteButton}
-							onPress={() => router.push('/(home)/(user)/Favorite')}
-						>
-							<FontAwesome
-								name='heart'
-								size={30}
-								color={isDarkMode ? '#ffffff' : '#000000'}
-							/>
-						</TouchableOpacity>
 					</View>
 				</View>
-
 				<FlatList
 					refreshControl={
 						<RefreshControl
@@ -537,7 +528,6 @@ export default function BrowseCarsPage() {
 						/>
 					</TouchableOpacity>
 				)}
-
 				{renderModal()}
 			</SafeAreaView>
 		</LinearGradient>
@@ -577,7 +567,7 @@ const styles = StyleSheet.create({
 	iconButton: {
 		padding: 10,
 		borderRadius: 20,
-		backgroundColor: '#000000',
+		backgroundColor: '#000000'
 	},
 	darkIconButton: {
 		backgroundColor: '#ffffff'
@@ -635,6 +625,6 @@ const styles = StyleSheet.create({
 		borderRadius: 20,
 		aspectRatio: 1,
 		justifyContent: 'center',
-		alignItems: 'center',
-	  },
+		alignItems: 'center'
+	}
 })
