@@ -480,7 +480,7 @@ export default function DealerListings() {
 		]
 	)
 
-	const FilterModal = useMemo(
+	const FilterModalContent = useMemo(
 		() =>
 			React.memo(() => {
 				const [localFilters, setLocalFilters] = useState(filters)
@@ -501,155 +501,150 @@ export default function DealerListings() {
 
 				const handleClearFilters = () => {
 					setLocalFilters({})
+					setIsFilterModalVisible(false)
 				}
 
 				return (
-					<Modal
-						visible={isFilterModalVisible}
-						animationType='slide'
-						transparent={true}
-						onRequestClose={() => setIsFilterModalVisible(false)}>
-						<View className='flex-1 justify-end bg-black/50'>
-							<View
-								className={`bg-${
-									isDarkMode ? 'gray' : 'white'
-								} rounded-t-3xl p-6`}>
-								<View className='flex-row justify-between items-center mb-4'>
-									<Text
-										className={`text-xl font-bold ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										Filters
-									</Text>
-									<TouchableOpacity
-										onPress={() => setIsFilterModalVisible(false)}>
-										<Ionicons
-											name='close'
-											size={24}
-											color={isDarkMode ? 'white' : 'black'}
-										/>
-									</TouchableOpacity>
-								</View>
-
+					<View className='flex-1 mt-5 justify-top bg-black'>
+						<View
+							className={`bg-${
+								isDarkMode ? 'gray' : 'white'
+							} rounded-t-3xl p-6`}>
+							<View className='flex-row justify-between items-center mb-4'>
 								<Text
-									className={`font-semibold mb-2 ${
+									className={`text-xl font-bold ${
 										isDarkMode ? 'text-white' : 'text-black'
 									}`}>
-									Status
+									Filters
 								</Text>
-								<RNPickerSelect
-									onValueChange={value =>
-										handleLocalFilterChange('status', value)
+								<TouchableOpacity
+									onPress={() => setIsFilterModalVisible(false)}>
+									<Ionicons
+										name='close'
+										size={24}
+										color={isDarkMode ? 'white' : 'black'}
+									/>
+								</TouchableOpacity>
+							</View>
+
+							<Text
+								className={`font-semibold mb-2 ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Status
+							</Text>
+							<RNPickerSelect
+								onValueChange={value =>
+									handleLocalFilterChange('status', value)
+								}
+								items={[
+									{ label: 'All', value: '' },
+									{ label: 'Available', value: 'available' },
+									{ label: 'Pending', value: 'pending' },
+									{ label: 'Sold', value: 'sold' }
+								]}
+								value={localFilters.status || ''}
+								style={pickerSelectStyles(isDarkMode)}
+							/>
+							<Text
+								className={`font-semibold mb-2 mt-4 ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Condition
+							</Text>
+							<RNPickerSelect
+								onValueChange={value =>
+									handleLocalFilterChange('condition', value)
+								}
+								items={[
+									{ label: 'All', value: '' },
+									{ label: 'New', value: 'New' },
+									{ label: 'Used', value: 'Used' }
+								]}
+								value={localFilters.condition}
+								style={pickerSelectStyles(isDarkMode)}
+							/>
+
+							<Text
+								className={`font-semibold mb-2 mt-4 ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Price Range
+							</Text>
+							<View className='flex-row justify-between'>
+								<TextInput
+									className={`w-[48%] p-2 rounded-md border-red border-2 ${
+										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									}`}
+									placeholder='Min Price'
+									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+									value={localFilters.minPrice}
+									onChangeText={value =>
+										handleLocalFilterChange('minPrice', value)
 									}
-									items={[
-										{ label: 'All', value: '' },
-										{ label: 'Available', value: 'available' },
-										{ label: 'Pending', value: 'pending' },
-										{ label: 'Sold', value: 'sold' }
-									]}
-									value={localFilters.status || ''}
-									style={pickerSelectStyles(isDarkMode)}
+									keyboardType='numeric'
 								/>
-								<Text
-									className={`font-semibold mb-2 mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Condition
-								</Text>
-								<RNPickerSelect
-									onValueChange={value =>
-										handleLocalFilterChange('condition', value)
+								<TextInput
+									className={`w-[48%] p-2 rounded-md border-red border-2 ${
+										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									}`}
+									placeholder='Max Price'
+									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+									value={localFilters.maxPrice}
+									onChangeText={value =>
+										handleLocalFilterChange('maxPrice', value)
 									}
-									items={[
-										{ label: 'All', value: '' },
-										{ label: 'New', value: 'New' },
-										{ label: 'Used', value: 'Used' }
-									]}
-									value={localFilters.condition}
-									style={pickerSelectStyles(isDarkMode)}
+									keyboardType='numeric'
 								/>
+							</View>
 
-								<Text
-									className={`font-semibold mb-2 mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Price Range
-								</Text>
-								<View className='flex-row justify-between'>
-									<TextInput
-										className={`w-[48%] p-2 rounded-md border-red border-2 ${
-											isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-										}`}
-										placeholder='Min Price'
-										placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-										value={localFilters.minPrice}
-										onChangeText={value =>
-											handleLocalFilterChange('minPrice', value)
-										}
-										keyboardType='numeric'
-									/>
-									<TextInput
-										className={`w-[48%] p-2 rounded-md border-red border-2 ${
-											isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-										}`}
-										placeholder='Max Price'
-										placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-										value={localFilters.maxPrice}
-										onChangeText={value =>
-											handleLocalFilterChange('maxPrice', value)
-										}
-										keyboardType='numeric'
-									/>
-								</View>
+							<Text
+								className={`font-semibold mb-2 mt-4 ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Year Range
+							</Text>
+							<View className='flex-row justify-between'>
+								<TextInput
+									className={`w-[48%] p-2 rounded-md border-red border-2 ${
+										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									}`}
+									placeholder='Min Year'
+									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+									value={localFilters.minYear}
+									onChangeText={value =>
+										handleLocalFilterChange('minYear', value)
+									}
+									keyboardType='numeric'
+								/>
+								<TextInput
+									className={`w-[48%] p-2 rounded-md border-red border-2 ${
+										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+									}`}
+									placeholder='Max Year'
+									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
+									value={localFilters.maxYear}
+									onChangeText={value =>
+										handleLocalFilterChange('maxYear', value)
+									}
+									keyboardType='numeric'
+								/>
+							</View>
 
-								<Text
-									className={`font-semibold mb-2 mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Year Range
-								</Text>
-								<View className='flex-row justify-between'>
-									<TextInput
-										className={`w-[48%] p-2 rounded-md border-red border-2 ${
-											isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-										}`}
-										placeholder='Min Year'
-										placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-										value={localFilters.minYear}
-										onChangeText={value =>
-											handleLocalFilterChange('minYear', value)
-										}
-										keyboardType='numeric'
-									/>
-									<TextInput
-										className={`w-[48%] p-2 rounded-md border-red border-2 ${
-											isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-										}`}
-										placeholder='Max Year'
-										placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-										value={localFilters.maxYear}
-										onChangeText={value =>
-											handleLocalFilterChange('maxYear', value)
-										}
-										keyboardType='numeric'
-									/>
-								</View>
-
-								<View className='flex-row justify-between mt-6'>
-									<TouchableOpacity
-										className='bg-black py-2 px-4 rounded-full'
-										onPress={handleClearFilters}>
-										<Text className='text-white font-bold'>Clear Filters</Text>
-									</TouchableOpacity>
-									<TouchableOpacity
-										className='bg-red py-2 px-4 rounded-full'
-										onPress={handleApplyFilters}>
-										<Text className='text-white font-bold'>Apply Filters</Text>
-									</TouchableOpacity>
-								</View>
+							<View className='flex-row justify-between mt-6'>
+								<TouchableOpacity
+									className='bg-black py-2 px-4 rounded-full'
+									onPress={handleClearFilters}>
+									<Text className='text-white font-bold'>Clear Filters</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									className='bg-red py-2 px-4 rounded-full'
+									onPress={handleApplyFilters}>
+									<Text className='text-white font-bold'>Apply Filters</Text>
+								</TouchableOpacity>
 							</View>
 						</View>
-					</Modal>
+					</View>
 				)
 			}),
 		[isDarkMode, filters, setFilters, setIsFilterModalVisible, fetchListings]
@@ -872,6 +867,15 @@ export default function DealerListings() {
 				}
 			/>
 
+			{/* Wrap FilterModalContent with Modal */}
+			<Modal
+				visible={isFilterModalVisible}
+				animationType='slide'
+				transparent={true}
+				onRequestClose={() => setIsFilterModalVisible(false)}>
+				<FilterModalContent />
+			</Modal>
+
 			{!subscriptionExpired && (
 				<>
 					<ListingModal
@@ -884,7 +888,7 @@ export default function DealerListings() {
 						initialData={selectedListing}
 						dealership={dealership}
 					/>
-					<FilterModal />
+					{/* <FilterModal /> */}
 					<SoldModal />
 				</>
 			)}
