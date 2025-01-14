@@ -58,7 +58,6 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 })
 
 const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
-	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const daysListed = Math.ceil(
 		(new Date(sale.date_sold).getTime() - new Date(sale.listed_at).getTime()) /
 			(1000 * 60 * 60 * 24)
@@ -76,6 +75,84 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 		100
 	).toFixed(2)
 
+	const StatCard = ({ title, value, trend = null, subValue = null }: any) => (
+		<View
+			className={`${
+				isDarkMode ? 'bg-gray' : 'bg-white'
+			} p-4 rounded-2xl flex-1 mx-1`}>
+			<Text
+				className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray'} mb-2`}>
+				{title}
+			</Text>
+			<View className='flex-row items-baseline'>
+				<Text
+					className={`text-lg font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
+					{typeof value === 'number' ? `$${value.toLocaleString()}` : value}
+				</Text>
+				{trend && (
+					<View
+						className={`ml-2 px-2 py-1 rounded-full ${
+							trend >= 0 ? 'bg-green-100' : 'bg-rose-100'
+						}`}>
+						<Text
+							className={`text-xs ${
+								trend >= 0 ? 'text-green-600' : 'text-rose-600'
+							}`}>
+							{trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
+						</Text>
+					</View>
+				)}
+			</View>
+			{subValue && (
+				<Text
+					className={`text-xs mt-1 ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+					{subValue}
+				</Text>
+			)}
+		</View>
+	)
+
+	const StatCard2 = ({ title, value, trend = null, subValue = null }: any) => (
+		<View
+			className={`${
+				isDarkMode ? 'bg-gray' : 'bg-white'
+			} p-4 rounded-2xl flex-1 mx-1`}>
+			<Text
+				className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray'} mb-2`}>
+				{title}
+			</Text>
+			<View className='flex-row items-baseline'>
+				<Text
+					className={`text-lg font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
+					{typeof value === 'number' ? `${value.toLocaleString()}` : value}
+				</Text>
+				{trend && (
+					<View
+						className={`ml-2 px-2 py-1 rounded-full ${
+							trend >= 0 ? 'bg-green-100' : 'bg-rose-100'
+						}`}>
+						<Text
+							className={`text-xs ${
+								trend >= 0 ? 'text-green-600' : 'text-rose-600'
+							}`}>
+							{trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
+						</Text>
+					</View>
+				)}
+			</View>
+			{subValue && (
+				<Text
+					className={`text-xs mt-1 ${isDarkMode ? 'text-white' : 'text-gray'}`}>
+					{subValue}
+				</Text>
+			)}
+		</View>
+	)
+
 	return (
 		<Modal visible={isVisible} animationType='slide' transparent={true}>
 			<BlurView
@@ -84,215 +161,191 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 				className='flex-1'>
 				<View
 					className={`flex-1 justify-end ${
-						isDarkMode ? 'bg-black/50' : 'bg-gray/50'
+						isDarkMode ? 'bg-black/50' : 'bg-white/50'
 					}`}>
 					<View
-						className={`${
-							isDarkMode ? 'bg-gray' : 'bg-white'
-						} rounded-t-3xl p-6 pt-3 h-5/6 overflow-y-scroll`}>
-						<TouchableOpacity onPress={onClose} className='self-end'>
-							<Ionicons
-								name='close'
-								size={24}
-								color={isDarkMode ? '#D55004' : '#FF8C00'}
-							/>
-						</TouchableOpacity>
-						<Text
-							className={`text-2xl font-bold mb-4 ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}>
-							{sale.year} {sale.make} {sale.model}
-						</Text>
-						{sale.images && sale.images.length > 0 && (
-							<FlatList
-								data={sale.images}
-								horizontal
-								pagingEnabled
-								showsHorizontalScrollIndicator={false}
-								onMomentumScrollEnd={event => {
-									const newIndex = Math.round(
-										event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-									)
-									setCurrentImageIndex(newIndex)
-								}}
-								renderItem={({ item, index }) => (
-									<Image
-										key={index}
-										source={{ uri: item }}
-										className='w-full h-48 rounded-lg mb-4'
-										style={{ width: SCREEN_WIDTH - 48 }}
+						className={`${isDarkMode ? 'bg-gray' : 'bg-white'} rounded-t-3xl`}>
+						{/* Header */}
+						<View className='p-4 border-b border-gray-200 flex-row justify-between items-center'>
+							<View>
+								<Text
+									className={`text-2xl font-bold ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									Sale Details
+								</Text>
+								<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
+									{sale.year} {sale.make} {sale.model}
+								</Text>
+							</View>
+							<TouchableOpacity
+								onPress={onClose}
+								className={`${
+									isDarkMode ? 'bg-gray' : 'bg-white'
+								} p-2 rounded-full`}>
+								<Ionicons
+									name='close'
+									size={24}
+									color={isDarkMode ? '#D55004' : '#FF8C00'}
+								/>
+							</TouchableOpacity>
+						</View>
+
+						<ScrollView className='h-[85%]'>
+							{/* Key Stats Grid */}
+							<View className='p-4'>
+								<View className='flex-row mb-4'>
+									<StatCard title='Listed Price' value={sale.price} />
+									<StatCard
+										title='Sold Price'
+										value={sale.sold_price}
+										trend={parseFloat(priceDifferencePercentage)}
 									/>
-								)}
-							/>
-						)}
-						<Text className={`mb-2 ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-							{sale.description}
-						</Text>
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
+								</View>
+
+								<View className='flex-row mb-4'>
+									<StatCard
+										title='Actual Profit'
+										value={actualProfit}
+										trend={((actualProfit / sale.bought_price) * 100).toFixed(
+											1
+										)}
+									/>
+									<StatCard title='Expected Profit' value={expectedProfit} />
+								</View>
+
+								<View className='flex-row mb-4'>
+									<StatCard2
+										title='Days Listed'
+										value={daysListed}
+										subValue='Until Sale'
+									/>
+									<StatCard2
+										title='Days in Stock'
+										value={daysInStock}
+										subValue='Total Duration'
+									/>
+								</View>
+							</View>
+
+							{/* Transaction Details */}
+							<View
+								className={`mx-4 p-4 rounded-2xl ${
+									isDarkMode ? 'bg-gray' : 'bg-white'
 								}`}>
-								Listed Price:
-							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								${sale.price?.toLocaleString()}
-							</Text>
-						</View>
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Sold Price:
-							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								${sale.sold_price?.toLocaleString()}
-							</Text>
-						</View>
-						{sale.buyer_name && (
-							<View className='flex-row justify-between items-center mb-2'>
 								<Text
-									className={`font-semibold ${
+									className={`text-lg font-bold mb-4 ${
 										isDarkMode ? 'text-white' : 'text-black'
 									}`}>
-									Buyer Name:
+									Transaction Details
 								</Text>
-								<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-									{sale.buyer_name}
-								</Text>
+
+								<View className='space-y-3'>
+									{sale.buyer_name && (
+										<View className='flex-row justify-between'>
+											<Text
+												className={`${
+													isDarkMode ? 'text-white' : 'text-gray'
+												}`}>
+												Buyer
+											</Text>
+											<Text
+												className={`font-medium ${
+													isDarkMode ? 'text-white' : 'text-black'
+												}`}>
+												{sale.buyer_name}
+											</Text>
+										</View>
+									)}
+
+									{sale.seller_name && (
+										<View className='flex-row justify-between'>
+											<Text
+												className={`${
+													isDarkMode ? 'text-white' : 'text-gray'
+												}`}>
+												Seller
+											</Text>
+											<Text
+												className={`font-medium ${
+													isDarkMode ? 'text-white' : 'text-black'
+												}`}>
+												{sale.seller_name}
+											</Text>
+										</View>
+									)}
+
+									<View className='flex-row justify-between'>
+										<Text
+											className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
+											Purchase Date
+										</Text>
+										<Text
+											className={`font-medium ${
+												isDarkMode ? 'text-white' : 'text-black'
+											}`}>
+											{new Date(sale.date_bought).toLocaleDateString()}
+										</Text>
+									</View>
+
+									<View className='flex-row justify-between'>
+										<Text
+											className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
+											Sale Date
+										</Text>
+										<Text
+											className={`font-medium ${
+												isDarkMode ? 'text-white' : 'text-black'
+											}`}>
+											{new Date(sale.date_sold).toLocaleDateString()}
+										</Text>
+									</View>
+								</View>
 							</View>
-						)}
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Bought Price:
-							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								${sale.bought_price?.toLocaleString()}
-							</Text>
-						</View>
-						{sale.seller_name && (
-							<View className='flex-row justify-between items-center mb-2'>
+
+							{/* Price Chart */}
+							<View className='p-4 mt-2'>
 								<Text
-									className={`font-semibold ${
+									className={`text-lg font-bold mb-4 ${
 										isDarkMode ? 'text-white' : 'text-black'
 									}`}>
-									Bought From:
+									Price Breakdown
 								</Text>
-								<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-									{sale.seller_name}
-								</Text>
+								<BarChart
+									data={{
+										labels: ['Bought', 'Listed', 'Sold'],
+										datasets: [
+											{
+												data: [sale.bought_price, sale.price, sale.sold_price]
+											}
+										]
+									}}
+									width={SCREEN_WIDTH - 48}
+									height={220}
+									yAxisLabel='$'
+									chartConfig={{
+										backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+										backgroundGradientFrom: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+										backgroundGradientTo: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+										decimalPlaces: 0,
+										color: (opacity = 1) => `rgba(213, 80, 4, ${opacity})`,
+										labelColor: (opacity = 1) =>
+											isDarkMode
+												? `rgba(255, 255, 255, ${opacity})`
+												: `rgba(0, 0, 0, ${opacity})`,
+										style: { borderRadius: 16, paddingVertical: 8 },
+										propsForLabels: { fontSize: 12 },
+										barPercentage: 0.7
+									}}
+									showValuesOnTopOfBars={true}
+									fromZero={true}
+									style={{
+										marginVertical: 8,
+										borderRadius: 16
+									}}
+								/>
 							</View>
-						)}
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Date Bought:
-							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								{new Date(sale.date_bought).toLocaleDateString()}
-							</Text>
-						</View>
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Date Sold:
-							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								{new Date(sale.date_sold).toLocaleDateString()}
-							</Text>
-						</View>
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Days in Stock:
-							</Text>
-							<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-								{daysInStock}
-							</Text>
-						</View>
-						<View className='flex-row justify-between items-center mb-2'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Price Difference (Sold - Listed):
-							</Text>
-							<Text
-								className={
-									priceDifference >= 0 ? 'text-green-500' : 'text-pink-600'
-								}>
-								{priceDifference >= 0 ? '+' : '-'}$
-								{Math.abs(priceDifference)?.toLocaleString()} (
-								{priceDifferencePercentage}%)
-							</Text>
-						</View>
-						<View className='flex-row justify-between items-center mb-4'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Actual Profit:
-							</Text>
-							<Text
-								className={
-									actualProfit >= 0 ? 'text-green-500' : 'text-pink-600'
-								}>
-								{actualProfit >= 0 ? '+' : '-'}$
-								{Math.abs(actualProfit)?.toLocaleString()}
-							</Text>
-						</View>
-						<View className='flex-row justify-between items-center mb-4'>
-							<Text
-								className={`font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Expected Profit:
-							</Text>
-							<Text
-								className={
-									expectedProfit >= 0 ? 'text-green-500' : 'text-pink-600'
-								}>
-								{expectedProfit >= 0 ? '+' : '-'}$
-								{Math.abs(expectedProfit)?.toLocaleString()}
-							</Text>
-						</View>
-						<BarChart
-							data={{
-								labels: ['Listed', 'Sold', 'Bought'],
-								datasets: [
-									{
-										data: [sale.price, sale.sold_price, sale.bought_price]
-									}
-								]
-							}}
-							width={SCREEN_WIDTH - 48}
-							height={220}
-							yAxisLabel='$'
-							chartConfig={{
-								backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-								backgroundGradientFrom: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-								backgroundGradientTo: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-								decimalPlaces: 0,
-								color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-								labelColor: (opacity = 1) =>
-									isDarkMode
-										? `rgba(255, 255, 255, ${opacity})`
-										: `rgba(0, 0, 0, ${opacity})`,
-								style: { borderRadius: 16 },
-								propsForLabels: { fontSize: 12 }
-							}}
-							verticalLabelRotation={0}
-						/>
+						</ScrollView>
 					</View>
 				</View>
 			</BlurView>
