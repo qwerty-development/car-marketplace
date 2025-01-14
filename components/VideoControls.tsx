@@ -120,9 +120,9 @@ const VideoControls = ({
 						<View className='bg-black/50 rounded-full p-3 mb-1'>
 							<Heart
 								size={24}
-								color='white'
-								fill={isLiked ? '#D55004' : 'none'}
-								strokeWidth={isLiked ? 0 : 2}
+								color={isLiked ? '#D55004' : 'white'}
+								fill={isLiked ? '#D55004' : 'transparent'}
+								strokeWidth={isLiked ? 0.5 : 2}
 							/>
 						</View>
 						<Text className='text-white text-center text-sm font-medium'>

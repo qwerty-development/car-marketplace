@@ -15,7 +15,6 @@ import {
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 
-
 import { useTheme } from '@/utils/ThemeContext'
 import CarDetailsModalOSclip from '../CarDetailsModalOSclip'
 import VideoControls from '@/components/VideoControls'
@@ -376,17 +375,21 @@ export default function AutoClips({ navigation }: any) {
 
 			// Update local state
 			setAutoClips(prev =>
-				prev.map(clip =>
-					clip.id === clipId
-						? {
+				prev.map((clip: any) => {
+					if (clip.id === clipId) {
+						const isCurrentlyLiked = clip.liked_users?.includes(user.id)
+						const updatedLikedUsers = isCurrentlyLiked
+							? clip.liked_users.filter((id: any) => id !== user.id)
+							: [...(clip.liked_users || []), user.id]
+
+						return {
 							...clip,
 							likes: newLikesCount,
-							liked_users: clip.liked_users?.includes(user.id)
-								? clip.liked_users.filter(id => id !== user.id)
-								: [...(clip.liked_users || []), user.id]
+							liked_users: updatedLikedUsers
 						}
-						: clip
-				)
+					}
+					return clip
+				})
 			)
 
 			// Trigger heart animation
@@ -406,8 +409,6 @@ export default function AutoClips({ navigation }: any) {
 						useNativeDriver: true
 					})
 				]).start()
-
-				// Haptic feedback
 			}
 		} catch (error) {
 			console.error('Error toggling like:', error)
@@ -515,8 +516,7 @@ export default function AutoClips({ navigation }: any) {
 							<Text className='text-red text-xl font-bold'>
 								{item.car.year} {item.car.make} {item.car.model}
 							</Text>
-							<View className='flex-row items-center mt-1'>
-							</View>
+							<View className='flex-row items-center mt-1'></View>
 						</View>
 					)}
 
@@ -552,9 +552,11 @@ export default function AutoClips({ navigation }: any) {
 								onPress={async () => {
 									try {
 										await Share.share({
-											message: `Check out this ${item.car.year} ${item.car.make
-												} ${item.car.model} on [Your App Name]!\n\n${item.description || ''
-												}`
+											message: `Check out this ${item.car.year} ${
+												item.car.make
+											} ${item.car.model} on [Your App Name]!\n\n${
+												item.description || ''
+											}`
 										})
 									} catch (error) {
 										console.error('Error sharing:', error)
@@ -706,11 +708,10 @@ export default function AutoClips({ navigation }: any) {
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<TouchableOpacity
-				className="absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full backdrop-blur-md"
+				className='absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full backdrop-blur-md'
 				onPress={() => router.back()}
-				style={{ elevation: 5 }}
-			>
-				<Ionicons name="chevron-back" size={24} color="white" />
+				style={{ elevation: 5 }}>
+				<Ionicons name='chevron-back' size={24} color='white' />
 			</TouchableOpacity>
 			<FlatList
 				ref={flatListRef}
@@ -722,7 +723,6 @@ export default function AutoClips({ navigation }: any) {
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={viewabilityConfig}
 				refreshControl={
-
 					<RefreshControl
 						refreshing={refreshing}
 						onRefresh={onRefresh}
