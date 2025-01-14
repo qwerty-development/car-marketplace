@@ -25,9 +25,9 @@ import * as Haptics from 'expo-haptics'
 import * as FileSystem from 'expo-file-system'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024 // 100MB
-const MAX_VIDEO_DURATION = 60 // seconds
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 100MB
 const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime']
+const MAX_VIDEO_DURATION = 20 // seconds
 
 interface CreateAutoClipModalProps {
 	isVisible: boolean
@@ -43,6 +43,7 @@ interface VideoAsset {
 	duration: number
 	type?: string
 	fileSize?: number
+	originalDuration?: number
 }
 
 interface Car {
@@ -160,6 +161,15 @@ export default function CreateAutoClipModal({
 			const fileExtension = videoAsset.uri.split('.').pop()?.toLowerCase()
 			if (!fileExtension || !ALLOWED_VIDEO_TYPES.includes(fileExtension)) {
 				throw new Error('Invalid video format. Please use MP4 or MOV files')
+			}
+
+			if (
+				videoAsset.originalDuration &&
+				videoAsset.originalDuration > MAX_VIDEO_DURATION * 1000
+			) {
+				throw new Error(
+					`Video duration must be ${MAX_VIDEO_DURATION} seconds or less`
+				)
 			}
 
 			setVideo(videoAsset)
@@ -287,6 +297,9 @@ export default function CreateAutoClipModal({
 
 	const renderVideo = useMemo(() => {
 		if (!video) return null
+		const displayDuration = video.originalDuration
+			? video.originalDuration / 1000
+			: video.duration
 
 		return (
 			<View className='mt-4 relative'>
@@ -319,7 +332,7 @@ export default function CreateAutoClipModal({
 					</Text>
 					<Text
 						className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-						Duration: {Math.round(video.duration)}s
+						Duration: {Math.round(displayDuration)}s
 					</Text>
 				</View>
 				{videoError && (
@@ -525,28 +538,6 @@ export default function CreateAutoClipModal({
 
 							{Platform.OS === 'ios' && <View className='h-8' />}
 						</ScrollView>
-
-						{isLoading && (
-							<BlurView
-								intensity={70}
-								tint={isDarkMode ? 'dark' : 'light'}
-								className='absolute inset-0 items-center justify-center'>
-								<View
-									className={`p-6 rounded-2xl ${
-										isDarkMode ? 'bg-gray/80' : 'bg-white/80'
-									}`}>
-									<ActivityIndicator size='large' color='#D55004' />
-									<Text
-										className={`mt-4 font-medium ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										{uploadProgress > 0
-											? 'Uploading video...'
-											: 'Creating AutoClip...'}
-									</Text>
-								</View>
-							</BlurView>
-						)}
 					</SafeAreaView>
 				</KeyboardAvoidingView>
 			</LinearGradient>

@@ -22,12 +22,13 @@ interface VideoAsset {
 	duration: number
 	type?: string
 	fileSize?: number
+	originalDuration?: number // Should be in milliseconds
 }
 
 interface VideoPickerButtonProps {
 	onVideoSelect: (video: VideoAsset) => void
 	videoUri?: string
-
+	maxDuration?: number
 	maxSize?: number
 	error?: string
 	disabled?: boolean
@@ -36,7 +37,8 @@ interface VideoPickerButtonProps {
 export default function VideoPickerButton({
 	onVideoSelect,
 	videoUri,
-	maxSize = 100 * 1024 * 1024, // 100MB
+	maxSize = 50 * 1024 * 1024, // 100MB
+	maxDuration = 20,
 	error,
 	disabled
 }: VideoPickerButtonProps) {
@@ -48,7 +50,9 @@ export default function VideoPickerButton({
 	const validateVideo = useCallback(
 		async (uri: string, duration: number, fileSize?: number) => {
 			// Check duration
-
+			if (duration > maxDuration * 1000) {
+				throw new Error(`Video must be ${maxDuration} seconds or shorter`)
+			}
 
 			// Check file size
 			if (!fileSize) {
@@ -68,7 +72,7 @@ export default function VideoPickerButton({
 				throw new Error('Video must be in MP4 or MOV format')
 			}
 		},
-		[ maxSize]
+		[maxDuration, maxSize]
 	)
 
 	const pickVideo = async () => {
@@ -85,26 +89,25 @@ export default function VideoPickerButton({
 			const result = await ImagePicker.launchImageLibraryAsync({
 				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 				allowsEditing: true,
-				quality: 1,
+				quality: 1
 			})
 
-			if (!result.canceled && result.assets[0]) {
+			if (!result.canceled && result.assets.length > 0) {
 				const videoAsset = result.assets[0]
+				const videoDuration = videoAsset.duration ?? 0 // Duration from expo-image-picker is in milliseconds
 
 				if (!videoAsset.uri) {
 					throw new Error('No video URI received')
 				}
 
-				await validateVideo(
-					videoAsset.uri,
-					videoAsset.duration || 0,
-					videoAsset.fileSize
-				)
+				// Validate video
+				await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
 
 				const isMovFile = videoAsset.uri.toLowerCase().endsWith('.mov')
 				const assetWithType: any = {
 					...videoAsset,
-					type: isMovFile ? 'video/quicktime' : 'video/mp4'
+					type: isMovFile ? 'video/quicktime' : 'video/mp4',
+					originalDuration: videoDuration // Pass the duration in milliseconds
 				}
 
 				onVideoSelect(assetWithType)
@@ -181,7 +184,7 @@ export default function VideoPickerButton({
 									isDarkMode ? 'text-gray' : 'text-gray'
 								}`}>
 								MP4 or MOV • Max {maxSize / (1024 * 1024)}
-								MB
+								MB • Max {maxDuration}s
 							</Text>
 						</>
 					)}
