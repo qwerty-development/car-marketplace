@@ -12,12 +12,12 @@ import {
 	StatusBar,
 	Platform,
 	StyleSheet,
-	TouchableWithoutFeedback
+	FlatList
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/app/(home)/(dealer)/CarDetailModal'
+import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import CarDetailModalIOS from './CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
@@ -28,6 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
+import { Video, ResizeMode } from 'expo-av'
+import { formatDistanceToNow } from 'date-fns'
 
 const ITEMS_PER_PAGE = 10
 const { width } = Dimensions.get('window')
@@ -55,6 +57,21 @@ interface Car {
 	color: string
 	transmission: 'Manual' | 'Automatic'
 	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
+}
+interface AutoClip {
+	id: number
+	title: string
+	description: string
+	video_url: string
+	status: 'published' | 'draft'
+	car_id: number
+	dealership_id: number
+	created_at: Date
+	car: {
+		year: number
+		make: string
+		model: string
+	}
 }
 
 const CustomHeader = React.memo(
@@ -224,6 +241,111 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 					Directions
 				</Text>
 			</TouchableOpacity>
+		</View>
+	)
+}
+
+const DealershipAutoClips = ({ dealershipId }: { dealershipId: string }) => {
+	const [autoClips, setAutoClips] = useState<AutoClip[]>([])
+	const [isPlaying, setIsPlaying] = useState<{ [key: number]: boolean }>({})
+	const videoRefs = useRef<{ [key: number]: any }>({})
+	const isFocused = useLocalSearchParams()
+	const getFormattedPostDate = useCallback((createdAt: any) => {
+		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
+	}, [])
+
+	useEffect(() => {
+		const fetchDealershipClips = async () => {
+			try {
+				const { data: clipsData, error: clipsError } = await supabase
+					.from('auto_clips')
+					.select('*,cars(year,make,model)')
+					.eq('dealership_id', dealershipId)
+					.eq('status', 'published')
+					.limit(5) // Limit to 5 clips
+
+				if (clipsError) throw clipsError
+
+				setAutoClips(clipsData || [])
+			} catch (error) {
+				console.error('Error fetching dealership clips:', error)
+			}
+		}
+
+		if (dealershipId) {
+			fetchDealershipClips()
+		}
+	}, [dealershipId])
+
+	useEffect(() => {
+		// Pause all videos when the screen is not focused
+		if (!isFocused) {
+			Object.values(videoRefs.current).forEach(async ref => {
+				try {
+					await ref?.pauseAsync()
+				} catch (error) {
+					console.error('Error pausing video:', error)
+				}
+			})
+		}
+	}, [isFocused])
+
+	const handleVideoPress = async (clipId: number) => {
+		const videoRef = videoRefs.current[clipId]
+		if (!videoRef) return
+
+		const newPlayingState = !isPlaying[clipId]
+		setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
+
+		try {
+			if (newPlayingState) {
+				await videoRef.playAsync()
+			} else {
+				await videoRef.pauseAsync()
+			}
+		} catch (error) {
+			console.error('Error handling video playback:', error)
+		}
+	}
+
+	const renderItem = ({ item, index }: { item: AutoClip; index: number }) => {
+		const formattedPostDate = getFormattedPostDate(item.created_at)
+
+		return (
+			<TouchableOpacity
+				activeOpacity={1}
+				onPress={() => handleVideoPress(item.id)}
+				style={styles.clipContainer}>
+				<Video
+					ref={ref => (videoRefs.current[item.id] = ref)}
+					source={{ uri: item.video_url }}
+					style={styles.video}
+					resizeMode={ResizeMode.COVER}
+					shouldPlay={isPlaying[item.id]}
+					isLooping
+					isMuted={false} // Or manage mute state as needed
+				/>
+				<View style={styles.infoContainer}>
+					<Text style={styles.title}>
+						{item?.car?.year} {item?.car?.make} {item?.car?.model}
+					</Text>
+					<Text style={styles.description}>{item.description}</Text>
+					<Text style={styles.postDate}>{formattedPostDate}</Text>
+				</View>
+			</TouchableOpacity>
+		)
+	}
+
+	return (
+		<View style={styles.container}>
+			<Text style={styles.header}>AutoClips</Text>
+			<FlatList
+				data={autoClips}
+				renderItem={renderItem}
+				keyExtractor={item => item.id.toString()}
+				horizontal
+				showsHorizontalScrollIndicator={false}
+			/>
 		</View>
 	)
 }
@@ -718,6 +840,7 @@ export default function DealershipDetails() {
 						/>
 					</View>
 				)}
+				<DealershipAutoClips dealershipId={dealershipId} />
 				<FilterSection />
 				<Text className={`text-xl font-bold ${textColor} mb-4`}>
 					Available Cars ({cars.length})
@@ -743,20 +866,10 @@ export default function DealershipDetails() {
 			handleModelFilter,
 			handleConditionFilter,
 			handleSort,
-			cars.length
+			cars.length,
+			dealershipId
 		]
 	)
-
-	if (isDealershipLoading || (isCarsLoading && cars.length === 0)) {
-		return (
-			<View
-				className={`flex-1 justify-center items-center ${
-					isDarkMode ? 'bg-night' : 'bg-white'
-				}`}>
-				<ActivityIndicator size='large' color='#D55004' />
-			</View>
-		)
-	}
 
 	return (
 		<LinearGradient colors={bgGradient} className='flex-1'>
@@ -788,7 +901,7 @@ export default function DealershipDetails() {
 					) : null
 				}
 				contentContainerStyle={{
-					paddingHorizontal: 16
+					paddingHorizontal: 0
 				}}
 				onScroll={Animated.event(
 					[{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -892,5 +1005,44 @@ const styles = StyleSheet.create({
 	},
 	darkText: {
 		color: '#fff'
+	},
+	header: {
+		fontSize: 18,
+		fontWeight: 'bold',
+		marginBottom: 10,
+		marginLeft: 10
+	},
+	clipContainer: {
+		width: width * 0.6, // Adjust width as needed
+		height: 200, // Adjust height as needed
+		marginRight: 10,
+		borderRadius: 10,
+		overflow: 'hidden'
+	},
+	video: {
+		width: '100%',
+		height: '100%'
+	},
+	infoContainer: {
+		position: 'absolute',
+		bottom: 0,
+		left: 0,
+		right: 0,
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		padding: 10
+	},
+	title: {
+		color: '#D55004',
+		fontSize: 16,
+		fontWeight: 'bold'
+	},
+	description: {
+		color: 'white',
+		fontSize: 14
+	},
+	postDate: {
+		color: 'white',
+		fontSize: 12,
+		marginTop: 5
 	}
 })
