@@ -17,13 +17,6 @@ import ErrorBoundary from 'react-native-error-boundary'
 import CustomSplashScreen from './CustomSplashScreen'
 
 // Configure notifications
-Notifications.setNotificationHandler({
-	handleNotification: async () => ({
-		shouldShowAlert: true,
-		shouldPlaySound: true,
-		shouldSetBadge: true
-	})
-})
 
 LogBox.ignoreLogs([
 	'Encountered two children with the same key',

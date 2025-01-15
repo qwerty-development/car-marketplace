@@ -9,6 +9,8 @@ import { useNotifications } from '@/hooks/useNotifications'
 // Add a global state to track if the sign-out process has started
 let isSigningOut = false
 
+export { isSigningOut }
+
 export default function HomeLayout() {
 	const { isLoaded, isSignedIn } = useAuth()
 	const { user } = useUser()

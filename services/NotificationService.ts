@@ -1,14 +1,14 @@
 // services/NotificationService.ts
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { isSigningOut } from '../app/(home)/_layout';
 
 // Set up notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowAlert: AppState.currentState !== 'active', // Only show alert when not in foreground
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

@@ -24,7 +24,7 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import { FlashList } from '@shopify/flash-list'
 import { formatDistanceToNow } from 'date-fns'
 import * as Haptics from 'expo-haptics'
-import { useRouter } from 'expo-router'
+import { useRouter, useNavigation } from 'expo-router'
 
 interface Notification {
 	id: string
@@ -45,6 +45,7 @@ export default function NotificationsScreen() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
 	const router = useRouter()
+	const navigation = useNavigation()
 	const [notifications, setNotifications] = useState<Notification[]>([])
 	const [loading, setLoading] = useState(true)
 	const [refreshing, setRefreshing] = useState(false)
@@ -53,6 +54,23 @@ export default function NotificationsScreen() {
 	const [hasMore, setHasMore] = useState(true)
 	const swipeableRefs = useRef<{ [key: string]: Swipeable }>({})
 	const mounted = useRef(true)
+	const [notificationsScreenKey, setNotificationsScreenKey] = useState(0)
+
+	// Force remount on blur/focus
+	useEffect(() => {
+		const unsubscribeFocus = navigation.addListener('focus', () => {
+			setNotificationsScreenKey(prevKey => prevKey + 1)
+		})
+
+		const unsubscribeBlur = navigation.addListener('blur', () => {
+			setNotificationsScreenKey(0) // Reset key to unmount
+		})
+
+		return () => {
+			unsubscribeFocus()
+			unsubscribeBlur()
+		}
+	}, [navigation])
 
 	const fetchNotifications = useCallback(
 		async (pageNum = 1, shouldRefresh = false) => {
@@ -197,8 +215,10 @@ export default function NotificationsScreen() {
 
 			return (
 				<Animated.View
-					entering={FadeInDown}
-					exiting={FadeOutUp}
+					key={notification.id} // Use key for better list item management
+					// Consider simplifying or removing these animations for testing:
+					// entering={FadeInDown}
+					// exiting={FadeOutUp}
 					className='mx-4 mb-4'>
 					<Swipeable
 						ref={ref => ref && (swipeableRefs.current[notification.id] = ref)}
@@ -207,6 +227,7 @@ export default function NotificationsScreen() {
 						<TouchableOpacity
 							onPress={() => handleNotificationPress(notification)}
 							className='overflow-hidden'>
+							{/* Consider conditional BlurView rendering */}
 							<BlurView
 								intensity={isDarkMode ? 40 : 60}
 								tint={isDarkMode ? 'dark' : 'light'}
@@ -222,17 +243,19 @@ export default function NotificationsScreen() {
 											{notification.title}
 										</Text>
 										<Text
-											className={`${isDarkMode ? 'text-gray' : 'text-gray'}`}>
+											className={`${
+												isDarkMode ? 'text-gray-400' : 'text-gray-600'
+											}`}>
 											{notification.message}
 										</Text>
-										<Text className='text-red text-xs mt-2'>
+										<Text className='text-red-400 text-xs mt-2'>
 											{formatDistanceToNow(new Date(notification.created_at), {
 												addSuffix: true
 											})}
 										</Text>
 									</View>
 									{!notification.is_read && (
-										<View className='w-3 h-3 rounded-full bg-red' />
+										<View className='w-3 h-3 rounded-full bg-red-500' />
 									)}
 								</View>
 							</BlurView>
@@ -253,7 +276,7 @@ export default function NotificationsScreen() {
 				className='flex-row justify-end px-4 py-2'>
 				<TouchableOpacity
 					onPress={handleMarkAllAsRead}
-					className='flex-row items-center bg-red px-4 py-2 rounded-full'>
+					className='flex-row items-center bg-red-500 px-4 py-2 rounded-full'>
 					<Ionicons name='checkmark-done-outline' size={20} color='white' />
 					<Text className='text-white ml-2 font-medium'>Mark all as read</Text>
 				</TouchableOpacity>
@@ -277,7 +300,7 @@ export default function NotificationsScreen() {
 						{error}
 					</Text>
 					<TouchableOpacity
-						className='mt-4 bg-red px-4 py-2 rounded-full'
+						className='mt-4 bg-red-500 px-4 py-2 rounded-full'
 						onPress={() => fetchNotifications(1, true)}>
 						<Text className='text-white'>Try Again</Text>
 					</TouchableOpacity>
@@ -309,11 +332,11 @@ export default function NotificationsScreen() {
 	const showLoading = loading && notifications.length === 0
 
 	return (
-		<GestureHandlerRootView className='flex-1'>
+		<GestureHandlerRootView key={notificationsScreenKey} className='flex-1'>
 			<SafeAreaView
 				className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
 				edges={['top']}>
-				<View className='flex-row justify-between items-center px-4 py-2 border-b border-red'>
+				<View className='flex-row justify-between items-center px-4 py-2 border-b border-red-500'>
 					<TouchableOpacity onPress={() => router.back()}>
 						<Ionicons
 							name='arrow-back'
