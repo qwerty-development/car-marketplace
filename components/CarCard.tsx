@@ -8,7 +8,9 @@ import {
 	Alert,
 	FlatList,
 	Image,
-	ActivityIndicator
+	ActivityIndicator,
+	TouchableWithoutFeedback,
+	Pressable
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
@@ -165,94 +167,103 @@ export default function CarCard({
 		Alert.alert('Chat feature coming soon!')
 	}, [])
 
-	const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-		if (viewableItems?.length > 0) {
+	const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+		if (viewableItems.length > 0) {
 			setCurrentImageIndex(viewableItems[0].index)
 		}
-	}).current
+	}, [])
 
 	const viewabilityConfig = useRef({
 		itemVisiblePercentThreshold: 50
 	}).current
 
 	const renderImage = useCallback(
-		({ item }: any) => (
-			<View className='relative'>
-				<OptimizedImage
-					source={{ uri: item }}
-					style={{
-						width: SCREEN_WIDTH - 30,
-						height: 245
-					}}
-				/>
+		({ item, index }: any) => (
+			<Pressable onPress={onPress}>
+				<View className='relative'>
+					<OptimizedImage
+						source={{ uri: item }}
+						style={{
+							width: SCREEN_WIDTH - 30,
+							height: 245
+						}}
+					/>
 
-				<LinearGradient
-					colors={['transparent', 'rgba(0,0,0,0.7)']}
-					className='absolute bottom-0 left-0 right-0 h-32'
-				/>
+					<LinearGradient
+						colors={['transparent', 'rgba(0,0,0,0.7)']}
+						className='absolute bottom-0 left-0 right-0 h-32'
+					/>
 
-				<StyledView className='absolute bottom-0 w-full p-4 flex-row justify-between items-center'>
-					<StyledView className='flex-1'>
-						<StyledText className='text-white text-2xl font-bold mb-1'>
-							{car.make} {car.model}
-						</StyledText>
+					<StyledView className='absolute bottom-0 w-full p-4 flex-row justify-between items-center'>
+						<StyledView className='flex-1'>
+							<StyledText className='text-white text-2xl font-bold mb-1'>
+								{car.make} {car.model}
+							</StyledText>
 
-						{/* Stats Row */}
-						<View className='flex-row items-center'>
-							{/* Views */}
-							<View className='flex-row items-center mr-4'>
-								<Ionicons name='eye-outline' size={16} color='#FFF' />
-								<StyledText className='text-zinc-200 text-sm ml-1'>
-									{car.views || 0}
-								</StyledText>
-							</View>
-
-							{/* Likes */}
-							<View className='flex-row items-center mr-4'>
-								<Ionicons name='heart-outline' size={16} color='#FFF' />
-								<StyledText className='text-zinc-200 text-sm ml-1'>
-									{car.likes || 0}
-								</StyledText>
-							</View>
-
-							{/* Category Badge */}
-							{car.category && (
-								<View className='bg-white/20 px-2 py-1 rounded-full'>
-									<StyledText className='text-white text-xs'>
-										{car.category}
+							{/* Stats Row */}
+							<View className='flex-row items-center'>
+								{/* Views */}
+								<View className='flex-row items-center mr-4'>
+									<Ionicons name='eye-outline' size={16} color='#FFF' />
+									<StyledText className='text-zinc-200 text-sm ml-1'>
+										{car.views || 0}
 									</StyledText>
 								</View>
-							)}
+
+								{/* Likes */}
+								<View className='flex-row items-center mr-4'>
+									<Ionicons name='heart-outline' size={16} color='#FFF' />
+									<StyledText className='text-zinc-200 text-sm ml-1'>
+										{car.likes || 0}
+									</StyledText>
+								</View>
+
+								{/* Category Badge */}
+								{car.category && (
+									<View className='bg-slate-700/70 px-2 py-1 rounded-full'>
+										<StyledText className='text-white text-xs'>
+											{car.category}
+										</StyledText>
+									</View>
+								)}
+							</View>
+						</StyledView>
+
+						{/* Price Tag */}
+						<StyledView className='bg-red/90 px-4 py-2 rounded-2xl backdrop-blur-sm'>
+							<StyledText className='text-white text-lg font-extrabold'>
+								${car.price.toLocaleString()}
+							</StyledText>
+						</StyledView>
+					</StyledView>
+
+					{car.images.length > 1 && (
+						<View className='absolute top-4 left-4 bg-black/60 px-2 py-1 rounded-lg backdrop-blur-sm flex-row items-center'>
+							<Ionicons name='images-outline' size={16} color='#FFF' />
+							<Text className='text-white text-xs ml-1 font-medium'>
+								{index + 1}/{car.images.length}
+							</Text>
 						</View>
-					</StyledView>
+					)}
+					{!isDealer && (
+						<StyledTouchableOpacity
+							onPress={onFavoritePress}
+							className={`absolute top-4 right-4 ${
+								isDarkMode ? 'bg-black/60' : 'bg-black/40'
+							} rounded-full p-3 backdrop-blur-sm`}>
+							<Ionicons
+								name={isFavorite ? 'heart' : 'heart-outline'}
+								size={24}
+								color={isFavorite ? '#EF4444' : '#FFFFFF'}
+							/>
+						</StyledTouchableOpacity>
+					)}
 
-					{/* Price Tag */}
-					<StyledView className='bg-red/90 px-4 py-2 rounded-2xl backdrop-blur-sm'>
-						<StyledText className='text-white text-lg font-extrabold'>
-							${car.price.toLocaleString()}
-						</StyledText>
-					</StyledView>
-				</StyledView>
-
-				{/* Favorite Button */}
-				{!isDealer && (
-					<StyledTouchableOpacity
-						onPress={onFavoritePress}
-						className={`absolute top-4 right-4 ${
-							isDarkMode ? 'bg-black/60' : 'bg-black/40'
-						} rounded-full p-3 backdrop-blur-sm`}>
-						<Ionicons
-							name={isFavorite ? 'heart' : 'heart-outline'}
-							size={24}
-							color={isFavorite ? '#EF4444' : '#FFFFFF'}
-						/>
-					</StyledTouchableOpacity>
-				)}
-
-				{/* Color Indicator */}
-			</View>
+					{/* Color Indicator */}
+				</View>
+			</Pressable>
 		),
-		[car, isFavorite, isDealer, onFavoritePress, isDarkMode]
+		[car, isFavorite, isDealer, onFavoritePress, isDarkMode, currentImageIndex]
 	)
 
 	return (
@@ -260,23 +271,26 @@ export default function CarCard({
 			className={`m-4 mb-4 ${
 				isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
 			} rounded-3xl overflow-hidden shadow-xl`}>
+			<FlatList
+				ref={flatListRef}
+				data={car.images}
+				renderItem={renderImage}
+				keyExtractor={(item, index) => index.toString()}
+				horizontal
+				pagingEnabled
+				showsHorizontalScrollIndicator={false}
+				onViewableItemsChanged={onViewableItemsChanged}
+				viewabilityConfig={viewabilityConfig}
+				initialNumToRender={1}
+				maxToRenderPerBatch={2}
+				windowSize={3}
+				removeClippedSubviews={true}
+				decelerationRate='fast'
+				snapToInterval={SCREEN_WIDTH - 30}
+				snapToAlignment='center'
+				bounces={false}
+			/>
 			<StyledTouchableOpacity onPress={onPress} activeOpacity={0.9}>
-				<FlatList
-					ref={flatListRef}
-					data={car.images}
-					renderItem={renderImage}
-					keyExtractor={(item, index) => index.toString()}
-					horizontal
-					pagingEnabled
-					showsHorizontalScrollIndicator={false}
-					onViewableItemsChanged={onViewableItemsChanged}
-					viewabilityConfig={viewabilityConfig}
-					initialNumToRender={1}
-					maxToRenderPerBatch={2}
-					windowSize={3}
-					removeClippedSubviews={true}
-				/>
-
 				<StyledView className=' flex items-center justify-center'>
 					<StyledView
 						className={` ${isDarkMode ? 'bg-gray' : 'bg-gray'} my-2 w-5/6`}
