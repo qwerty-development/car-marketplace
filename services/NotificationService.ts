@@ -8,7 +8,7 @@ import { isSigningOut } from '../app/(home)/_layout';
 // Set up notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: AppState.currentState !== 'active', // Only show alert when not in foreground
+    shouldShowAlert:true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

@@ -243,19 +243,17 @@ export default function NotificationsScreen() {
 											{notification.title}
 										</Text>
 										<Text
-											className={`${
-												isDarkMode ? 'text-gray-400' : 'text-gray-600'
-											}`}>
+											className={`${isDarkMode ? 'text-gray' : 'text-gray'}`}>
 											{notification.message}
 										</Text>
-										<Text className='text-red-400 text-xs mt-2'>
+										<Text className='text-red text-xs mt-2'>
 											{formatDistanceToNow(new Date(notification.created_at), {
 												addSuffix: true
 											})}
 										</Text>
 									</View>
 									{!notification.is_read && (
-										<View className='w-3 h-3 rounded-full bg-red-500' />
+										<View className='w-3 h-3 rounded-full bg-rose-500' />
 									)}
 								</View>
 							</BlurView>
@@ -276,7 +274,7 @@ export default function NotificationsScreen() {
 				className='flex-row justify-end px-4 py-2'>
 				<TouchableOpacity
 					onPress={handleMarkAllAsRead}
-					className='flex-row items-center bg-red-500 px-4 py-2 rounded-full'>
+					className='flex-row items-center bg-red px-4 py-2 rounded-full'>
 					<Ionicons name='checkmark-done-outline' size={20} color='white' />
 					<Text className='text-white ml-2 font-medium'>Mark all as read</Text>
 				</TouchableOpacity>
@@ -295,12 +293,12 @@ export default function NotificationsScreen() {
 					/>
 					<Text
 						className={`mt-4 text-lg ${
-							isDarkMode ? 'text-gray-400' : 'text-gray-600'
+							isDarkMode ? 'text-gray' : 'text-gray'
 						}`}>
 						{error}
 					</Text>
 					<TouchableOpacity
-						className='mt-4 bg-red-500 px-4 py-2 rounded-full'
+						className='mt-4 bg-rose-500 px-4 py-2 rounded-full'
 						onPress={() => fetchNotifications(1, true)}>
 						<Text className='text-white'>Try Again</Text>
 					</TouchableOpacity>
@@ -320,9 +318,7 @@ export default function NotificationsScreen() {
 					color={isDarkMode ? '#666' : '#999'}
 				/>
 				<Text
-					className={`mt-4 text-lg ${
-						isDarkMode ? 'text-gray-400' : 'text-gray-600'
-					}`}>
+					className={`mt-4 text-lg ${isDarkMode ? 'text-gray' : 'text-gray'}`}>
 					No notifications yet
 				</Text>
 			</View>
@@ -336,7 +332,7 @@ export default function NotificationsScreen() {
 			<SafeAreaView
 				className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
 				edges={['top']}>
-				<View className='flex-row justify-between items-center px-4 py-2 border-b border-red-500'>
+				<View className='flex-row justify-between items-center px-4 py-2 border-b border-red'>
 					<TouchableOpacity onPress={() => router.back()}>
 						<Ionicons
 							name='arrow-back'
