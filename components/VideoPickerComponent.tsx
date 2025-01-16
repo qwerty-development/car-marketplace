@@ -89,7 +89,19 @@ export default function VideoPickerButton({
 			const result = await ImagePicker.launchImageLibraryAsync({
 				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 				allowsEditing: true,
-				quality: 1
+				allowsMultipleSelection: false,
+				quality: 0.8,
+				videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
+				videoQuality:
+					ImagePicker.UIImagePickerControllerQualityType.IFrame960x540,
+				videoMaxDuration: maxDuration,
+				base64: false,
+				exif: false,
+				presentationStyle:
+					ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+				selectionLimit: 1,
+				preferredAssetRepresentationMode:
+					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
 			})
 
 			if (!result.canceled && result.assets.length > 0) {
