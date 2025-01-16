@@ -101,7 +101,7 @@ export default function VideoPickerButton({
 					ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
 				selectionLimit: 1,
 				preferredAssetRepresentationMode:
-					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible
 			})
 
 			if (!result.canceled && result.assets.length > 0) {
