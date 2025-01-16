@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -185,27 +186,61 @@ export default function CarCard({
 					}}
 				/>
 
-				<StyledView className='w-full mt-2 px-2 flex flex-row justify-between'>
-					<StyledView className='rounded-lg py-1'>
-						<StyledText
-							className={`text-xl font-medium ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}>
+				<LinearGradient
+					colors={['transparent', 'rgba(0,0,0,0.7)']}
+					className='absolute bottom-0 left-0 right-0 h-32'
+				/>
+
+				<StyledView className='absolute bottom-0 w-full p-4 flex-row justify-between items-center'>
+					<StyledView className='flex-1'>
+						<StyledText className='text-white text-2xl font-bold mb-1'>
 							{car.make} {car.model}
 						</StyledText>
+
+						{/* Stats Row */}
+						<View className='flex-row items-center'>
+							{/* Views */}
+							<View className='flex-row items-center mr-4'>
+								<Ionicons name='eye-outline' size={16} color='#FFF' />
+								<StyledText className='text-zinc-200 text-sm ml-1'>
+									{car.views || 0}
+								</StyledText>
+							</View>
+
+							{/* Likes */}
+							<View className='flex-row items-center mr-4'>
+								<Ionicons name='heart-outline' size={16} color='#FFF' />
+								<StyledText className='text-zinc-200 text-sm ml-1'>
+									{car.likes || 0}
+								</StyledText>
+							</View>
+
+							{/* Category Badge */}
+							{car.category && (
+								<View className='bg-white/20 px-2 py-1 rounded-full'>
+									<StyledText className='text-white text-xs'>
+										{car.category}
+									</StyledText>
+								</View>
+							)}
+						</View>
 					</StyledView>
-					<StyledView className=' py-1 px-3 rounded-full bg-red '>
-						<StyledText className='text-white text-xl font-bold'>
-							{formattedPrice}
+
+					{/* Price Tag */}
+					<StyledView className='bg-red/90 px-4 py-2 rounded-2xl backdrop-blur-sm'>
+						<StyledText className='text-white text-lg font-extrabold'>
+							${car.price.toLocaleString()}
 						</StyledText>
 					</StyledView>
 				</StyledView>
+
+				{/* Favorite Button */}
 				{!isDealer && (
 					<StyledTouchableOpacity
 						onPress={onFavoritePress}
 						className={`absolute top-4 right-4 ${
 							isDarkMode ? 'bg-black/60' : 'bg-black/40'
-						} rounded-full p-2`}>
+						} rounded-full p-3 backdrop-blur-sm`}>
 						<Ionicons
 							name={isFavorite ? 'heart' : 'heart-outline'}
 							size={24}
@@ -213,9 +248,11 @@ export default function CarCard({
 						/>
 					</StyledTouchableOpacity>
 				)}
+
+				{/* Color Indicator */}
 			</View>
 		),
-		[formattedPrice, isFavorite, isDealer, onFavoritePress, isDarkMode]
+		[car, isFavorite, isDealer, onFavoritePress, isDarkMode]
 	)
 
 	return (

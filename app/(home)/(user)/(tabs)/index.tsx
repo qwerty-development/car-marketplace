@@ -227,6 +227,7 @@ export default function BrowseCarsPage() {
 				setCars(prevCars =>
 					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
 				)
+
 				setTotalPages(totalPages)
 				setCurrentPage(safePageNumber)
 			} catch (error) {
@@ -257,23 +258,16 @@ export default function BrowseCarsPage() {
 		[toggleFavorite]
 	)
 
-	const handleSortChange = useCallback(
-		(value: string) => {
-			setSortOption(value)
-			fetchCars(1, filters, value, searchQuery)
-		},
-		[filters, searchQuery, fetchCars]
-	)
-
 	const handleCarPress = useCallback((car: Car) => {
 		setSelectedCar(car)
 		setIsModalVisible(true)
 	}, [])
 
 	const renderCarItem = useCallback(
-		({ item }: { item: Car }) => (
+		({ item, index }: { item: Car; index: number }) => (
 			<CarCard
 				car={item}
+				index={index}
 				onPress={() => handleCarPress(item)}
 				onFavoritePress={() => handleFavoritePress(item.id)}
 				isFavorite={isFavorite(Number(item.id))}
