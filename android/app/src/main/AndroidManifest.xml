@@ -39,6 +39,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
         <data android:scheme="com.qwertyapp.clerkexpoquickstart"/>
+        <data android:scheme="exp+clerk-expo-quickstart"/>
       </intent-filter>
     </activity>
   </application>

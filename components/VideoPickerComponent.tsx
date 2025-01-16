@@ -1,4 +1,3 @@
-// VideoPickerButton.tsx
 import React, { useCallback, useState } from 'react'
 import {
 	TouchableOpacity,
@@ -7,13 +6,13 @@ import {
 	Alert,
 	ActivityIndicator
 } from 'react-native'
-import { FontAwesome, Ionicons } from '@expo/vector-icons'
+import { FontAwesome } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
-import { Video, AVPlaybackStatus } from 'expo-av'
 import { useTheme } from '@/utils/ThemeContext'
-import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
 import * as FileSystem from 'expo-file-system'
+import { Video } from 'react-native-compressor'
+import { BlurView } from 'expo-blur'
 
 interface VideoAsset {
 	uri: string
@@ -36,16 +35,14 @@ interface VideoPickerButtonProps {
 
 export default function VideoPickerButton({
 	onVideoSelect,
-	videoUri,
-	maxSize = 50 * 1024 * 1024, // 100MB
+	maxSize = 50 * 1024 * 1024, // 50MB
 	maxDuration = 20,
 	error,
 	disabled
 }: VideoPickerButtonProps) {
 	const { isDarkMode } = useTheme()
 	const [isLoading, setIsLoading] = useState(false)
-	const [isPlaying, setIsPlaying] = useState(false)
-	const [videoRef, setVideoRef] = useState<Video | null>(null)
+	const [isCompressing, setIsCompressing] = useState(false)
 
 	const validateVideo = useCallback(
 		async (uri: string, duration: number, fileSize?: number) => {
@@ -54,15 +51,17 @@ export default function VideoPickerButton({
 				throw new Error(`Video must be ${maxDuration} seconds or shorter`)
 			}
 
-			// Check file size
+			// Check file size (before compression)
 			if (!fileSize) {
 				const fileInfo: any = await FileSystem.getInfoAsync(uri)
 				fileSize = fileInfo.size
 			}
 
 			if (fileSize && fileSize > maxSize) {
-				throw new Error(
-					`Video must be smaller than ${maxSize / (1024 * 1024)}MB`
+				console.warn(
+					`Video is larger than ${
+						maxSize / (1024 * 1024)
+					}MB, compression is recommended.`
 				)
 			}
 
@@ -94,51 +93,61 @@ export default function VideoPickerButton({
 
 			if (!result.canceled && result.assets.length > 0) {
 				const videoAsset = result.assets[0]
-				const videoDuration = videoAsset.duration ?? 0 // Duration from expo-image-picker is in milliseconds
+				const videoDuration = videoAsset.duration ?? 0
 
 				if (!videoAsset.uri) {
 					throw new Error('No video URI received')
 				}
 
-				// Validate video
 				await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
 
-				const isMovFile = videoAsset.uri.toLowerCase().endsWith('.mov')
+				setIsCompressing(true)
+
+				const compressedUri = await Video.compress(
+					videoAsset.uri,
+					{
+						compressionMethod: 'auto'
+					},
+					(progress: number) => {
+						console.log('Compression Progress:', progress)
+						// Update UI with progress (optional)
+					}
+				)
+
+				console.log('Compressed URI:', compressedUri)
+
+				const fileInfo: any = await FileSystem.getInfoAsync(compressedUri)
+				if (!fileInfo.exists) {
+					throw new Error('Compression failed: Output file not found')
+				}
+				const compressedFileSize = fileInfo.size
+
+				if (compressedFileSize && compressedFileSize > maxSize) {
+					throw new Error(
+						`Compressed video size must be less than ${
+							maxSize / (1024 * 1024)
+						}MB`
+					)
+				}
+
+				const isMovFile = compressedUri.toLowerCase().endsWith('.mov')
 				const assetWithType: any = {
 					...videoAsset,
+					uri: compressedUri, // Use compressed URI
 					type: isMovFile ? 'video/quicktime' : 'video/mp4',
-					originalDuration: videoDuration // Pass the duration in milliseconds
+					originalDuration: videoDuration,
+					fileSize: compressedFileSize
 				}
 
 				onVideoSelect(assetWithType)
-				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 			}
 		} catch (error: any) {
 			console.error('Error picking video:', error)
 			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
 			Alert.alert('Error', error.message || 'Failed to select video')
 		} finally {
+			setIsCompressing(false)
 			setIsLoading(false)
-		}
-	}
-
-	const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-		if (!status.isLoaded) return
-		setIsPlaying(status.isPlaying)
-	}
-
-	const togglePlayback = async () => {
-		if (!videoRef) return
-
-		try {
-			if (isPlaying) {
-				await videoRef.pauseAsync()
-			} else {
-				await videoRef.playAsync()
-			}
-			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-		} catch (error) {
-			console.error('Playback error:', error)
 		}
 	}
 
@@ -157,19 +166,31 @@ export default function VideoPickerButton({
 
 				<TouchableOpacity
 					onPress={pickVideo}
-					disabled={disabled || isLoading}
+					disabled={disabled || isLoading || isCompressing}
 					className={`
             border-2 border-dashed rounded-xl p-6 items-center justify-center
             ${error ? 'border-rose-500' : 'border-red'}
             ${isDarkMode ? 'bg-gray/50' : 'bg-white/50'}
-            ${disabled ? 'opacity-50' : ''}
+            ${disabled || isCompressing ? 'opacity-50' : ''}
           `}>
 					{isLoading ? (
-						<ActivityIndicator color='#D55004' />
+						isCompressing ? (
+							<View className='items-center justify-center'>
+								<ActivityIndicator color='#D55004' />
+								<Text
+									className={`mt-2 font-medium ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									Compressing...
+								</Text>
+							</View>
+						) : (
+							<ActivityIndicator color='#D55004' />
+						)
 					) : (
 						<>
 							<FontAwesome
-								name={videoUri ? 'play' : 'video-camera'}
+								name={'video-camera'}
 								size={32}
 								color={isDarkMode ? '#FFFFFF' : '#000000'}
 							/>
@@ -177,44 +198,20 @@ export default function VideoPickerButton({
 								className={`mt-2 font-medium ${
 									isDarkMode ? 'text-white' : 'text-black'
 								}`}>
-								{videoUri ? 'Change Video' : 'Select Video'}
+								Select Video
 							</Text>
 							<Text
 								className={`mt-1 text-xs ${
 									isDarkMode ? 'text-gray' : 'text-gray'
 								}`}>
-								MP4 or MOV • Max {maxSize / (1024 * 1024)}
-								MB • Max {maxDuration}s
+								MP4 or MOV • Max {maxSize / (1024 * 1024)}MB • Max {maxDuration}
+								s
 							</Text>
 						</>
 					)}
 				</TouchableOpacity>
 
 				{error && <Text className='text-rose-500 text-sm mt-1'>{error}</Text>}
-
-				{videoUri && (
-					<View className='mt-4 rounded-xl overflow-hidden relative'>
-						<Video
-							ref={setVideoRef}
-							source={{ uri: videoUri }}
-							className='w-full h-48 rounded-xl'
-							useNativeControls={false}
-							isLooping
-							onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-						/>
-						<TouchableOpacity
-							onPress={togglePlayback}
-							className='absolute inset-0 items-center justify-center'>
-							<BlurView intensity={30} tint='dark' className='p-4 rounded-full'>
-								<Ionicons
-									name={isPlaying ? 'pause' : 'play'}
-									size={30}
-									color='white'
-								/>
-							</BlurView>
-						</TouchableOpacity>
-					</View>
-				)}
 			</View>
 		</BlurView>
 	)

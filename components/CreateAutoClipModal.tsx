@@ -23,9 +23,10 @@ import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
 import * as FileSystem from 'expo-file-system'
+import { getRealPath } from 'react-native-compressor'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 100MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB
 const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime']
 const MAX_VIDEO_DURATION = 20 // seconds
 
@@ -152,9 +153,13 @@ export default function CreateAutoClipModal({
 		try {
 			setVideoError(null)
 
-			// Validate video size
+			// Validate video size after compression
 			if (videoAsset.fileSize && videoAsset.fileSize > MAX_VIDEO_SIZE) {
-				throw new Error('Video size must be less than 100MB')
+				throw new Error(
+					`Compressed video size must be less than ${
+						MAX_VIDEO_SIZE / (1024 * 1024)
+					}MB`
+				)
 			}
 
 			// Validate video type
@@ -201,25 +206,19 @@ export default function CreateAutoClipModal({
 			const fileName = `${timestamp}_${random}.${fileExtension}`
 			const filePath = `${dealership!.id}/${fileName}`
 
-			// Upload progress handler
-			const progressHandler = (progress: number) => {
-				setUploadProgress(Math.round(progress * 100))
-			}
+			const realPath = await getRealPath(fileUri, 'video')
 
-			// Upload video
+			const fileContent = await FileSystem.readAsStringAsync(realPath, {
+				encoding: FileSystem.EncodingType.Base64
+			})
+
 			const { error: uploadError } = await supabase.storage
 				.from('autoclips')
-				.upload(
-					filePath,
-					{
-						uri: fileUri,
-						type: isMovFile ? 'video/quicktime' : 'video/mp4',
-						name: fileName
-					},
-					{
-						onProgress: progressHandler
-					}
-				)
+				.upload(filePath, fileContent, {
+					contentType: isMovFile ? 'video/quicktime' : 'video/mp4',
+					cacheControl: '3600',
+					upsert: false
+				})
 
 			if (uploadError) throw uploadError
 
@@ -227,7 +226,6 @@ export default function CreateAutoClipModal({
 				data: { publicUrl }
 			} = supabase.storage.from('autoclips').getPublicUrl(filePath)
 
-			// Create database entry
 			const { error: dbError } = await supabase.from('auto_clips').insert({
 				dealership_id: dealership!.id,
 				car_id: selectedCarId,
@@ -256,7 +254,6 @@ export default function CreateAutoClipModal({
 			Alert.alert('Error', error.message || 'Failed to create AutoClip')
 		} finally {
 			setIsLoading(false)
-			setUploadProgress(0)
 		}
 	}
 
@@ -513,7 +510,7 @@ export default function CreateAutoClipModal({
 										className={`text-xs ${
 											isDarkMode ? 'text-gray' : 'text-gray'
 										}`}>
-										• Maximum duration: 60 seconds
+										• Maximum duration: 20 seconds
 									</Text>
 									<Text
 										className={`text-xs ${
