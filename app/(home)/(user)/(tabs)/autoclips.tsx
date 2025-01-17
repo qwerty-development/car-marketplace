@@ -6,7 +6,6 @@ import {
 	Dimensions,
 	FlatList,
 	Platform,
-	Image,
 	StyleSheet,
 	ActivityIndicator,
 	RefreshControl,
@@ -28,11 +27,14 @@ import { Heart, Pause, Play } from 'lucide-react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as Network from 'expo-network'
+import { Image } from 'expo-image'
 
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
 const TAB_BAR_HEIGHT = 80
 const MAX_VIDEO_BUFFER = 3
+// Estimated average video chunk size (adjust based on your video data)
+const AVG_VIDEO_CHUNK_SIZE_BYTES = 5 * 1024 * 1024 // e.g., 5MB
 
 interface Car {
 	id: string
@@ -76,10 +78,36 @@ export default function AutoClips({ navigation }: any) {
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
-	const [networkType, setNetworkType] = useState<string | null>(null)
+	const [networkType, setNetworkType] =
+		useState<Network.NetworkStateType | null>(null)
 	const { user } = useUser()
 	const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
 	const viewedClips = useRef<Set<number>>(new Set())
+
+	// UI states
+	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
+	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
+
+	// Video control states
+	const [isPlaying, setIsPlaying] = useState<VideoState>({})
+	const [isMuted, setIsMuted] = useState<VideoState>({})
+	const [globalMute, setGlobalMute] = useState(false)
+	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({})
+
+	// Refs and animations
+	const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({})
+	const lastTap = useRef<{ [key: number]: number }>({})
+	const flatListRef = useRef<FlatList>(null)
+	const heartAnimations = useRef<{ [key: number]: Animated.Value }>({})
+	const playPauseAnimations = useRef<{ [key: number]: Animated.Value }>({})
+
+	const viewabilityConfig = useRef({
+		itemVisiblePercentThreshold: 50,
+		waitForInteraction: true,
+		minimumViewTime: 500
+	}).current
+
 	const trackClipView = useCallback(
 		async (clipId: number) => {
 			if (!user || viewedClips.current.has(clipId)) return
@@ -105,90 +133,11 @@ export default function AutoClips({ navigation }: any) {
 		[user]
 	)
 
-	const [videoProgress, setVideoProgress] = useState<{
-		[key: number]: number
-	}>({})
-	const [videoDuration, setVideoDuration] = useState<{
-		[key: number]: number
-	}>({})
-
-	// UI states
-	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
-	const [isModalVisible, setIsModalVisible] = useState(false)
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-	const [expandedInfo, setExpandedInfo] = useState<VideoState>({})
-
-	// Video control states
-	const [isPlaying, setIsPlaying] = useState<VideoState>({})
-	const [isMuted, setIsMuted] = useState<VideoState>({})
-	const [globalMute, setGlobalMute] = useState(false)
-	const [isLiked, setIsLiked] = useState<VideoState>({})
-	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({})
-
-	// Refs and animations
-	const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({})
-	const lastTap = useRef<{ [key: number]: number }>({})
-	const flatListRef = useRef<FlatList>(null)
-	const heartAnimations = useRef<{ [key: number]: Animated.Value }>({})
-	const playPauseAnimations = useRef<{ [key: number]: Animated.Value }>({})
-	const infoExpandAnimations = useRef<{ [key: number]: Animated.Value }>({})
-
-	const viewabilityConfig = useRef({
-		itemVisiblePercentThreshold: 50,
-		waitForInteraction: true,
-		minimumViewTime: 500
-	}).current
-
-	const onRefresh = useCallback(async () => {
-		setRefreshing(true)
-		await fetchData()
-		setRefreshing(false)
-	}, [])
-
-	const handlePlaybackStatusUpdate = useCallback(
-		(status: any, clipId: number) => {
-			if (status.isLoaded) {
-				setVideoProgress(prev => ({
-					...prev,
-					[clipId]: status.positionMillis / 1000
-				}))
-				setVideoDuration(prev => ({
-					...prev,
-					[clipId]: status.durationMillis / 1000
-				}))
-				if (
-					status.didJustFinish &&
-					!status.isLooping &&
-					currentVideoIndex < autoClips.length - 1
-				) {
-					flatListRef.current?.scrollToIndex({
-						index: currentVideoIndex + 1,
-						animated: true
-					})
-				}
-			}
-		},
-		[currentVideoIndex, autoClips.length]
-	)
-
-	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
-		const videoRef = videoRefs.current[clipId]?.current
-		if (videoRef) {
-			try {
-				await videoRef.setPositionAsync(time * 1000)
-			} catch (error) {
-				console.error('Error scrubbing video:', error)
-			}
-		}
-	}, [])
-
 	const initializeClipAnimations = useCallback((clipId: number) => {
 		heartAnimations.current[clipId] = new Animated.Value(0)
 		playPauseAnimations.current[clipId] = new Animated.Value(0)
-		infoExpandAnimations.current[clipId] = new Animated.Value(0)
 	}, [])
 
-	// Fetch data
 	const fetchData = useCallback(async () => {
 		setIsLoading(true)
 		try {
@@ -251,47 +200,56 @@ export default function AutoClips({ navigation }: any) {
 		}
 	}, [initializeClipAnimations])
 
-	const [videoPositions, setVideoPositions] = useState<{
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true)
+		await fetchData()
+		setRefreshing(false)
+	}, [fetchData])
+
+	const [videoProgress, setVideoProgress] = useState<{
+		[key: number]: number
+	}>({})
+	const [videoDuration, setVideoDuration] = useState<{
 		[key: number]: number
 	}>({})
 
-	const onViewableItemsChanged = useCallback(
-		({ viewableItems }: any) => {
-			if (viewableItems.length > 0) {
-				const visibleClip = viewableItems[0].item
-				const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id)
+	const handlePlaybackStatusUpdate = useCallback(
+		(status: any, clipId: number) => {
+			if (status.isLoaded) {
+				setVideoProgress(prev => ({
+					...prev,
+					[clipId]: status.positionMillis / 1000
+				}))
+				setVideoDuration(prev => ({
+					...prev,
+					[clipId]: status.durationMillis / 1000
+				}))
 
-				if (newIndex !== currentVideoIndex) {
-					if (viewTimers.current[currentVideoIndex]) {
-						clearTimeout(viewTimers.current[currentVideoIndex])
-					}
-
-					setCurrentVideoIndex(newIndex)
-
-					viewTimers.current[newIndex] = setTimeout(() => {
-						trackClipView(visibleClip.id)
-					}, 5000)
-
-					Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-						const shouldPlay = clipId === visibleClip.id.toString()
-						try {
-							if (shouldPlay) {
-								await ref?.current?.setPositionAsync(0)
-								await ref?.current?.playAsync()
-								setIsPlaying(prev => ({ ...prev, [clipId]: true }))
-							} else {
-								await ref?.current?.pauseAsync()
-								setIsPlaying(prev => ({ ...prev, [clipId]: false }))
-							}
-						} catch (error) {
-							console.error('Error transitioning video:', error)
-						}
+				if (
+					status.didJustFinish &&
+					!status.isLooping &&
+					currentVideoIndex < autoClips.length - 1
+				) {
+					flatListRef.current?.scrollToIndex({
+						index: currentVideoIndex + 1,
+						animated: true
 					})
 				}
 			}
 		},
-		[autoClips, currentVideoIndex, trackClipView]
+		[currentVideoIndex, autoClips.length]
 	)
+
+	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
+		const videoRef = videoRefs.current[clipId]?.current
+		if (videoRef) {
+			try {
+				await videoRef.setPositionAsync(time * 1000)
+			} catch (error) {
+				console.error('Error scrubbing video:', error)
+			}
+		}
+	}, [])
 
 	useEffect(() => {
 		const getType = async () => {
@@ -309,31 +267,27 @@ export default function AutoClips({ navigation }: any) {
 
 	useEffect(() => {
 		fetchData()
-	}, [fetchData])
+	}, [fetchData, user])
 
 	useEffect(() => {
+		const resetVideoPlayback = async (ref: React.RefObject<Video>) => {
+			try {
+				await ref?.current?.pauseAsync()
+				await ref?.current?.setPositionAsync(0)
+			} catch (error) {
+				console.error('Error resetting video playback:', error)
+			}
+		}
 		if (!isFocused) {
-			Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-				try {
-					await ref?.current?.pauseAsync()
-					await ref?.current?.setPositionAsync(0)
-					setVideoPositions(prev => ({ ...prev, [clipId]: 0 }))
-				} catch (error) {
-					console.error('Error cleaning up video:', error)
-				}
-			})
+			Object.values(videoRefs.current).forEach(resetVideoPlayback)
+			setVideoProgress({})
+			setVideoDuration({})
 		}
 
 		return () => {
-			Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-				try {
-					await ref?.current?.pauseAsync()
-					await ref?.current?.setPositionAsync(0)
-					setVideoPositions(prev => ({ ...prev, [clipId]: 0 }))
-				} catch (error) {
-					console.error('Error cleaning up video:', error)
-				}
-			})
+			Object.values(videoRefs.current).forEach(resetVideoPlayback)
+			setVideoProgress({})
+			setVideoDuration({})
 		}
 	}, [isFocused])
 
@@ -611,7 +565,22 @@ export default function AutoClips({ navigation }: any) {
 		},
 		[getFormattedPostDate]
 	)
-
+	// Function to estimate buffer size based on network type
+	const getEstimatedBufferSize = useCallback(
+		(networkType: Network.NetworkStateType | null) => {
+			switch (networkType) {
+				case Network.NetworkStateType.WIFI:
+				case Network.NetworkStateType.ETHERNET:
+					return 3 * AVG_VIDEO_CHUNK_SIZE_BYTES // Buffer more on fast connections
+				case Network.NetworkStateType.CELLULAR:
+					return 1.5 * AVG_VIDEO_CHUNK_SIZE_BYTES // Buffer less on cellular
+				default:
+					return 2 * AVG_VIDEO_CHUNK_SIZE_BYTES // Default buffer size
+			}
+		},
+		[]
+	)
+	// Preload adjacent videos (optimized with useEffect)
 	useEffect(() => {
 		const preloadAdjacentVideos = async () => {
 			if (autoClips.length > 0) {
@@ -620,6 +589,7 @@ export default function AutoClips({ navigation }: any) {
 					currentVideoIndex,
 					Math.min(autoClips.length - 1, currentVideoIndex + 1)
 				]
+				const estimatedBufferSize = getEstimatedBufferSize(networkType)
 
 				for (const index of visibleIndexes) {
 					const clip = autoClips[index]
@@ -629,9 +599,20 @@ export default function AutoClips({ navigation }: any) {
 							try {
 								const status = await ref.current.getStatusAsync()
 								if (!status.isLoaded) {
+									console.log(
+										`Preloading video ${clip.id} with estimated buffer size: ${estimatedBufferSize}`
+									)
 									await ref.current.loadAsync(
 										{ uri: clip.video_url },
-										{ shouldPlay: false, isMuted: globalMute },
+										{
+											shouldPlay: false,
+											isMuted: globalMute,
+											progressUpdateIntervalMillis:
+												networkType === Network.NetworkStateType.CELLULAR
+													? 1000
+													: 250
+											// Add a buffer configuration here if `expo-av` supports it in the future
+										},
 										false
 									)
 								}
@@ -645,14 +626,61 @@ export default function AutoClips({ navigation }: any) {
 		}
 
 		preloadAdjacentVideos()
-	}, [currentVideoIndex, autoClips, globalMute])
+	}, [
+		currentVideoIndex,
+		autoClips,
+		globalMute,
+		networkType,
+		getEstimatedBufferSize
+	])
 
+	const onViewableItemsChanged = useCallback(
+		({ viewableItems }: any) => {
+			if (viewableItems.length > 0) {
+				const visibleClip = viewableItems[0].item
+				const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id)
+
+				if (newIndex !== currentVideoIndex) {
+					// Clear any existing view timer for the old index
+					if (viewTimers.current[currentVideoIndex]) {
+						clearTimeout(viewTimers.current[currentVideoIndex])
+					}
+
+					setCurrentVideoIndex(newIndex)
+
+					// Set new view timer for the new index
+					viewTimers.current[newIndex] = setTimeout(() => {
+						trackClipView(visibleClip.id)
+					}, 5000)
+
+					// Handle video transitions
+					Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+						const shouldPlay = clipId === visibleClip.id.toString()
+						try {
+							if (shouldPlay) {
+								await ref?.current?.setPositionAsync(0)
+								await ref?.current?.playAsync()
+								setIsPlaying(prev => ({ ...prev, [clipId]: true }))
+							} else {
+								await ref?.current?.pauseAsync()
+								setIsPlaying(prev => ({ ...prev, [clipId]: false }))
+							}
+						} catch (error) {
+							console.error('Error transitioning video:', error)
+						}
+					})
+				}
+			}
+		},
+		[autoClips, currentVideoIndex, trackClipView]
+	)
+
+	// Render clip item (optimized with useCallback)
 	const renderClip = useCallback(
 		({ item, index }: { item: AutoClip; index: number }) => {
 			if (!videoRefs.current[item.id]) {
 				videoRefs.current[item.id] = React.createRef()
 			}
-
 			return (
 				<View className='h-screen w-screen' key={`clip-${item.id}`}>
 					<TouchableOpacity
@@ -674,18 +702,30 @@ export default function AutoClips({ navigation }: any) {
 							progressUpdateIntervalMillis={
 								networkType === Network.NetworkStateType.CELLULAR ? 1000 : 250
 							}
-							onLoad={async () => {
+							onLoadStart={async () => {
 								if (index === currentVideoIndex) {
 									try {
 										const ref = videoRefs.current[item.id]?.current
 										if (ref) {
 											await ref.setPositionAsync(0)
-											if (isPlaying[item.id]) {
-												await ref.playAsync()
-											}
 										}
 									} catch (error) {
-										console.error('Error loading video:', error)
+										console.error(
+											'Error setting video position on load start:',
+											error
+										)
+									}
+								}
+							}}
+							onLoad={async () => {
+								if (index === currentVideoIndex) {
+									try {
+										const ref = videoRefs.current[item.id]?.current
+										if (ref && isPlaying[item.id]) {
+											await ref.playAsync()
+										}
+									} catch (error) {
+										console.error('Error playing video on load:', error)
 									}
 								}
 							}}
@@ -696,6 +736,7 @@ export default function AutoClips({ navigation }: any) {
 							volume={1.0}
 						/>
 
+						{/* Play/Pause Icon Animation */}
 						{showPlayPauseIcon[item.id] && (
 							<Animated.View
 								style={[
@@ -710,6 +751,7 @@ export default function AutoClips({ navigation }: any) {
 							</Animated.View>
 						)}
 
+						{/* Heart Animation */}
 						<Animated.View
 							style={[
 								styles.heartAnimation,
@@ -744,10 +786,12 @@ export default function AutoClips({ navigation }: any) {
 			networkType,
 			showPlayPauseIcon,
 			renderVideoControls,
-			renderClipInfo
+			renderClipInfo,
+			handlePlaybackStatusUpdate
 		]
 	)
 
+	// Loading and error states
 	if (isLoading) {
 		return (
 			<View style={styles.centerContainer}>
@@ -796,6 +840,7 @@ export default function AutoClips({ navigation }: any) {
 				windowSize={MAX_VIDEO_BUFFER * 2 + 1}
 			/>
 
+			{/* Modal for car details */}
 			{Platform.OS === 'ios' ? (
 				<CarDetailsModalOSclip
 					isVisible={isModalVisible}
@@ -940,7 +985,7 @@ const styles = StyleSheet.create({
 		color: '#D55004',
 		fontSize: 16,
 		fontWeight: '600',
-		marginBottom: 8
+		marginBottom: 10
 	},
 	visitButton: {
 		backgroundColor: '#D55004',
