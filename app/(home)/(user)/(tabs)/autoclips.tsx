@@ -14,7 +14,6 @@ import {
 	Alert
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
-
 import { useTheme } from '@/utils/ThemeContext'
 import CarDetailsModalOSclip from '../CarDetailsModalOSclip'
 import VideoControls from '@/components/VideoControls'
@@ -28,10 +27,12 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Heart, Pause, Play } from 'lucide-react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
+import * as Network from 'expo-network'
 
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
 const TAB_BAR_HEIGHT = 80
+const MAX_VIDEO_BUFFER = 3
 
 interface Car {
 	id: string
@@ -75,36 +76,42 @@ export default function AutoClips({ navigation }: any) {
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
+	const [networkType, setNetworkType] = useState<string | null>(null)
 	const { user } = useUser()
 	const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
 	const viewedClips = useRef<Set<number>>(new Set())
-	const trackClipView = async (clipId: number) => {
-		if (!user || viewedClips.current.has(clipId)) return
+	const trackClipView = useCallback(
+		async (clipId: number) => {
+			if (!user || viewedClips.current.has(clipId)) return
 
-		try {
-			await supabase.rpc('track_autoclip_view', {
-				clip_id: clipId,
-				user_id: user.id
-			})
-			viewedClips.current.add(clipId)
+			try {
+				await supabase.rpc('track_autoclip_view', {
+					clip_id: clipId,
+					user_id: user.id
+				})
+				viewedClips.current.add(clipId)
 
-			// Update local state
-			setAutoClips(prev =>
-				prev.map(clip =>
-					clip.id === clipId ? { ...clip, views: (clip.views || 0) + 1 } : clip
+				setAutoClips(prev =>
+					prev.map(clip =>
+						clip.id === clipId
+							? { ...clip, views: (clip.views || 0) + 1 }
+							: clip
+					)
 				)
-			)
-		} catch (error) {
-			console.error('Error tracking view:', error)
-		}
-	}
+			} catch (error) {
+				console.error('Error tracking view:', error)
+			}
+		},
+		[user]
+	)
 
-	const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
-		{}
-	)
-	const [videoDuration, setVideoDuration] = useState<{ [key: number]: number }>(
-		{}
-	)
+	const [videoProgress, setVideoProgress] = useState<{
+		[key: number]: number
+	}>({})
+	const [videoDuration, setVideoDuration] = useState<{
+		[key: number]: number
+	}>({})
+
 	// UI states
 	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
 	const [isModalVisible, setIsModalVisible] = useState(false)
@@ -119,7 +126,7 @@ export default function AutoClips({ navigation }: any) {
 	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({})
 
 	// Refs and animations
-	const videoRefs = useRef<{ [key: number]: any }>({})
+	const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({})
 	const lastTap = useRef<{ [key: number]: number }>({})
 	const flatListRef = useRef<FlatList>(null)
 	const heartAnimations = useRef<{ [key: number]: Animated.Value }>({})
@@ -127,7 +134,9 @@ export default function AutoClips({ navigation }: any) {
 	const infoExpandAnimations = useRef<{ [key: number]: Animated.Value }>({})
 
 	const viewabilityConfig = useRef({
-		itemVisiblePercentThreshold: 50
+		itemVisiblePercentThreshold: 50,
+		waitForInteraction: true,
+		minimumViewTime: 500
 	}).current
 
 	const onRefresh = useCallback(async () => {
@@ -147,13 +156,23 @@ export default function AutoClips({ navigation }: any) {
 					...prev,
 					[clipId]: status.durationMillis / 1000
 				}))
+				if (
+					status.didJustFinish &&
+					!status.isLooping &&
+					currentVideoIndex < autoClips.length - 1
+				) {
+					flatListRef.current?.scrollToIndex({
+						index: currentVideoIndex + 1,
+						animated: true
+					})
+				}
 			}
 		},
-		[]
+		[currentVideoIndex, autoClips.length]
 	)
 
 	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
-		const videoRef = videoRefs.current[clipId]
+		const videoRef = videoRefs.current[clipId]?.current
 		if (videoRef) {
 			try {
 				await videoRef.setPositionAsync(time * 1000)
@@ -163,20 +182,21 @@ export default function AutoClips({ navigation }: any) {
 		}
 	}, [])
 
-	// Initialize animations
-	const initializeClipAnimations = (clipId: number) => {
+	const initializeClipAnimations = useCallback((clipId: number) => {
 		heartAnimations.current[clipId] = new Animated.Value(0)
 		playPauseAnimations.current[clipId] = new Animated.Value(0)
 		infoExpandAnimations.current[clipId] = new Animated.Value(0)
-	}
+	}, [])
 
 	// Fetch data
-	const fetchData = async () => {
+	const fetchData = useCallback(async () => {
+		setIsLoading(true)
 		try {
 			const { data: clipsData, error: clipsError } = await supabase
 				.from('auto_clips')
 				.select('*,liked_users')
 				.eq('status', 'published')
+				.order('created_at', { ascending: false })
 
 			if (clipsError) throw clipsError
 
@@ -229,7 +249,8 @@ export default function AutoClips({ navigation }: any) {
 		} finally {
 			setIsLoading(false)
 		}
-	}
+	}, [initializeClipAnimations])
+
 	const [videoPositions, setVideoPositions] = useState<{
 		[key: number]: number
 	}>({})
@@ -241,28 +262,25 @@ export default function AutoClips({ navigation }: any) {
 				const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id)
 
 				if (newIndex !== currentVideoIndex) {
-					// Clear any existing view timer
 					if (viewTimers.current[currentVideoIndex]) {
 						clearTimeout(viewTimers.current[currentVideoIndex])
 					}
 
 					setCurrentVideoIndex(newIndex)
 
-					// Set new view timer for current clip
 					viewTimers.current[newIndex] = setTimeout(() => {
 						trackClipView(visibleClip.id)
 					}, 5000)
 
-					// Handle video transitions
 					Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
 						const shouldPlay = clipId === visibleClip.id.toString()
 						try {
 							if (shouldPlay) {
-								await ref?.setPositionAsync(0)
-								await ref?.playAsync()
+								await ref?.current?.setPositionAsync(0)
+								await ref?.current?.playAsync()
 								setIsPlaying(prev => ({ ...prev, [clipId]: true }))
 							} else {
-								await ref?.pauseAsync()
+								await ref?.current?.pauseAsync()
 								setIsPlaying(prev => ({ ...prev, [clipId]: false }))
 							}
 						} catch (error) {
@@ -276,6 +294,14 @@ export default function AutoClips({ navigation }: any) {
 	)
 
 	useEffect(() => {
+		const getType = async () => {
+			const type: any = await Network.getNetworkStateAsync()
+			setNetworkType(type.type)
+		}
+		getType()
+	}, [])
+
+	useEffect(() => {
 		return () => {
 			Object.values(viewTimers.current).forEach(timer => clearTimeout(timer))
 		}
@@ -283,15 +309,14 @@ export default function AutoClips({ navigation }: any) {
 
 	useEffect(() => {
 		fetchData()
-	}, [])
+	}, [fetchData])
 
-	// Video playback management
 	useEffect(() => {
 		if (!isFocused) {
 			Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
 				try {
-					await ref?.pauseAsync()
-					await ref?.setPositionAsync(0)
+					await ref?.current?.pauseAsync()
+					await ref?.current?.setPositionAsync(0)
 					setVideoPositions(prev => ({ ...prev, [clipId]: 0 }))
 				} catch (error) {
 					console.error('Error cleaning up video:', error)
@@ -302,8 +327,8 @@ export default function AutoClips({ navigation }: any) {
 		return () => {
 			Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
 				try {
-					await ref?.pauseAsync()
-					await ref?.setPositionAsync(0)
+					await ref?.current?.pauseAsync()
+					await ref?.current?.setPositionAsync(0)
 					setVideoPositions(prev => ({ ...prev, [clipId]: 0 }))
 				} catch (error) {
 					console.error('Error cleaning up video:', error)
@@ -312,133 +337,138 @@ export default function AutoClips({ navigation }: any) {
 		}
 	}, [isFocused])
 
-	// Video interactions
-	const handleVideoPress = async (clipId: number) => {
-		const videoRef = videoRefs.current[clipId]
-		if (!videoRef) return
+	const handleVideoPress = useCallback(
+		async (clipId: number) => {
+			const videoRef = videoRefs.current[clipId]?.current
+			if (!videoRef) return
 
-		const newPlayingState = !isPlaying[clipId]
-		setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
+			const newPlayingState = !isPlaying[clipId]
+			setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
 
-		try {
-			if (newPlayingState) {
-				await videoRef.playAsync()
-				// Reset view timer when resuming
-				viewTimers.current[currentVideoIndex] = setTimeout(() => {
-					trackClipView(clipId)
-				}, 5000)
-			} else {
-				await videoRef.pauseAsync()
-				// Clear timer when pausing
-				if (viewTimers.current[currentVideoIndex]) {
-					clearTimeout(viewTimers.current[currentVideoIndex])
-				}
-			}
-
-			// Animate play/pause icon
-			const animation = playPauseAnimations.current[clipId]
-			setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: true }))
-
-			Animated.sequence([
-				Animated.timing(animation, {
-					toValue: 1,
-					duration: 200,
-					useNativeDriver: true
-				}),
-				Animated.timing(animation, {
-					toValue: 0,
-					duration: 200,
-					delay: 500,
-					useNativeDriver: true
-				})
-			]).start(() => {
-				setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: false }))
-			})
-		} catch (error) {
-			console.error('Error handling video playback:', error)
-		}
-	}
-
-	const handleLikePress = async (clipId: number) => {
-		if (!user) return
-
-		try {
-			const { data: newLikesCount, error } = await supabase.rpc(
-				'toggle_autoclip_like',
-				{
-					clip_id: clipId,
-					user_id: user.id
-				}
-			)
-
-			if (error) throw error
-
-			// Update local state
-			setAutoClips(prev =>
-				prev.map((clip: any) => {
-					if (clip.id === clipId) {
-						const isCurrentlyLiked = clip.liked_users?.includes(user.id)
-						const updatedLikedUsers = isCurrentlyLiked
-							? clip.liked_users.filter((id: any) => id !== user.id)
-							: [...(clip.liked_users || []), user.id]
-
-						return {
-							...clip,
-							likes: newLikesCount,
-							liked_users: updatedLikedUsers
-						}
+			try {
+				if (newPlayingState) {
+					await videoRef.playAsync()
+					viewTimers.current[currentVideoIndex] = setTimeout(() => {
+						trackClipView(clipId)
+					}, 5000)
+				} else {
+					await videoRef.pauseAsync()
+					if (viewTimers.current[currentVideoIndex]) {
+						clearTimeout(viewTimers.current[currentVideoIndex])
 					}
-					return clip
-				})
-			)
+				}
 
-			// Trigger heart animation
-			const animation = heartAnimations.current[clipId]
-			if (animation) {
-				animation.setValue(0)
+				const animation = playPauseAnimations.current[clipId]
+				setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: true }))
+
 				Animated.sequence([
-					Animated.spring(animation, {
+					Animated.timing(animation, {
 						toValue: 1,
-						useNativeDriver: true,
-						damping: 15
+						duration: 200,
+						useNativeDriver: true
 					}),
 					Animated.timing(animation, {
 						toValue: 0,
-						duration: 100,
+						duration: 200,
 						delay: 500,
 						useNativeDriver: true
 					})
-				]).start()
+				]).start(() => {
+					setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: false }))
+				})
+			} catch (error) {
+				console.error('Error handling video playback:', error)
 			}
-		} catch (error) {
-			console.error('Error toggling like:', error)
-		}
-	}
+		},
+		[currentVideoIndex, isPlaying, trackClipView]
+	)
 
-	const handleMutePress = async (clipId: number, event: any) => {
-		event.stopPropagation()
-		const newMuteState = !globalMute
-		setGlobalMute(newMuteState)
+	const handleLikePress = useCallback(
+		async (clipId: number) => {
+			if (!user) return
 
-		// Update all videos' mute state
-		Object.values(videoRefs.current).forEach(ref => {
-			ref?.setIsMutedAsync(newMuteState)
-		})
-	}
-	const handleDoubleTap = async (clipId: number) => {
-		const now = Date.now()
-		const lastTapTime = lastTap.current[clipId] || 0
+			try {
+				const { data: newLikesCount, error } = await supabase.rpc(
+					'toggle_autoclip_like',
+					{
+						clip_id: clipId,
+						user_id: user.id
+					}
+				)
 
-		if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-			// Only like if not already liked
-			const clip = autoClips.find(c => c.id === clipId)
-			if (clip && !clip.liked_users?.includes(user?.id || '')) {
-				await handleLikePress(clipId)
+				if (error) throw error
+
+				setAutoClips(prev =>
+					prev.map((clip: any) => {
+						if (clip.id === clipId) {
+							const isCurrentlyLiked = clip.liked_users?.includes(user.id)
+							const updatedLikedUsers = isCurrentlyLiked
+								? clip.liked_users.filter((id: any) => id !== user.id)
+								: [...(clip.liked_users || []), user.id]
+
+							return {
+								...clip,
+								likes: newLikesCount,
+								liked_users: updatedLikedUsers
+							}
+						}
+						return clip
+					})
+				)
+
+				const animation = heartAnimations.current[clipId]
+				if (animation) {
+					animation.setValue(0)
+					Animated.sequence([
+						Animated.spring(animation, {
+							toValue: 1,
+							useNativeDriver: true,
+							damping: 15
+						}),
+						Animated.timing(animation, {
+							toValue: 0,
+							duration: 100,
+							delay: 500,
+							useNativeDriver: true
+						})
+					]).start()
+				}
+			} catch (error) {
+				console.error('Error toggling like:', error)
 			}
-		}
+		},
+		[user]
+	)
 
-		lastTap.current[clipId] = now
-	}
+	const handleMutePress = useCallback(
+		async (clipId: number, event: any) => {
+			event.stopPropagation()
+			const newMuteState = !globalMute
+			setGlobalMute(newMuteState)
+
+			Object.values(videoRefs.current).forEach(ref => {
+				ref?.current?.setIsMutedAsync(newMuteState)
+			})
+		},
+		[globalMute]
+	)
+
+	const handleDoubleTap = useCallback(
+		async (clipId: number) => {
+			const now = Date.now()
+			const lastTapTime = lastTap.current[clipId] || 0
+
+			if (now - lastTapTime < DOUBLE_TAP_DELAY) {
+				const clip = autoClips.find(c => c.id === clipId)
+				if (clip && !clip.liked_users?.includes(user?.id || '')) {
+					await handleLikePress(clipId)
+				}
+			}
+
+			lastTap.current[clipId] = now
+		},
+		[autoClips, handleLikePress, user?.id]
+	)
 
 	const renderVideoControls = useCallback(
 		(clipId: number) => {
@@ -474,130 +504,136 @@ export default function AutoClips({ navigation }: any) {
 		]
 	)
 
-	// First, create a memoized function at the component level
 	const getFormattedPostDate = useCallback((createdAt: any) => {
 		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 	}, [])
 
-	const renderClipInfo = (item: any) => {
-		const formattedPostDate = getFormattedPostDate(item.created_at)
+	const renderClipInfo = useMemo(
+		() => (item: any) => {
+			const formattedPostDate = getFormattedPostDate(item.created_at)
 
-		return (
-			<View className='absolute bottom-0 left-0 right-0 mb-8'>
-				{' '}
-				{/* Increased bottom padding */}
-				<LinearGradient
-					colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
-					className='p-5 rounded-t-3xl pb-16 -mb-8'
-					style={{ zIndex: 50 }}>
-					{/* Top Bar - Dealership Info & Time */}
-					<View className='flex-row items-center justify-between mb-1'>
-						<View className='flex-row items-center flex-1'>
-							{item.dealership?.logo && (
-								<Image
-									source={{ uri: item.dealership.logo }}
-									className='w-12 h-12 rounded-xl mr-3 bg-white/50'
-								/>
-							)}
-							<View className='flex-1'>
-								<Text className='text-white text-lg font-bold'>
-									{item.dealership?.name}
-								</Text>
-								<View className='flex-row items-center'>
-									<Text className='text-red text-sm'>{formattedPostDate}</Text>
+			return (
+				<View className='absolute bottom-0 left-0 right-0 mb-8'>
+					<LinearGradient
+						colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
+						className='p-5 rounded-t-3xl pb-16 -mb-8'
+						style={{ zIndex: 50 }}>
+						<View className='flex-row items-center justify-between mb-1'>
+							<View className='flex-row items-center flex-1'>
+								{item.dealership?.logo && (
+									<Image
+										source={{
+											uri: item.dealership.logo
+										}}
+										className='w-12 h-12 rounded-xl mr-3 bg-white/50'
+									/>
+								)}
+								<View className='flex-1'>
+									<Text className='text-white text-lg font-bold'>
+										{item.dealership?.name}
+									</Text>
+									<View className='flex-row items-center'>
+										<Text className='text-red text-sm'>
+											{formattedPostDate}
+										</Text>
+									</View>
 								</View>
 							</View>
 						</View>
-					</View>
 
-					{/* Car Title & Status */}
-					{item.car && (
-						<View className='mb-1 flex'>
-							<Text className='text-red text-xl font-bold'>
-								{item.car.year} {item.car.make} {item.car.model}
-							</Text>
-							<View className='flex-row items-center mt-1'></View>
-						</View>
-					)}
-
-					{/* Description */}
-					{item.description && (
-						<View className='mb-1'>
-							<Text
-								className='text-white/90 text-base leading-6'
-								numberOfLines={2}>
-								{item.description}
-							</Text>
-						</View>
-					)}
-
-					{/* Action Buttons */}
-					{item.car && (
-						<View className='flex-row items-center space-x-3'>
-							<TouchableOpacity
-								className='flex-1 bg-red py-2 px-4 rounded-xl flex-row items-center justify-center'
-								onPress={() => {
-									setSelectedCar(item.car!)
-									setIsModalVisible(true)
-								}}>
-								<Text className='text-white font-semibold mr-2'>
-									View Details
+						{item.car && (
+							<View className='mb-1 flex'>
+								<Text className='text-red text-xl font-bold'>
+									{item.car.year} {item.car.make} {item.car.model}
 								</Text>
-								<Ionicons name='arrow-forward' size={18} color='white' />
-							</TouchableOpacity>
+								<View className='flex-row items-center mt-1'></View>
+							</View>
+						)}
 
-							{/* Share Button */}
-							<TouchableOpacity
-								className='bg-white/10 p-2 rounded-xl'
-								onPress={async () => {
-									try {
-										await Share.share({
-											message: `Check out this ${item.car.year} ${
-												item.car.make
-											} ${item.car.model} on [Your App Name]!\n\n${
-												item.description || ''
-											}`
-										})
-									} catch (error) {
-										console.error('Error sharing:', error)
-									}
-								}}>
-								<Ionicons name='share-social' size={24} color='white' />
-							</TouchableOpacity>
+						{item.description && (
+							<View className='mb-1'>
+								<Text
+									className='text-white/90 text-base leading-6'
+									numberOfLines={2}>
+									{item.description}
+								</Text>
+							</View>
+						)}
 
-							{/* Contact Dealer Button */}
-							<TouchableOpacity
-								className='bg-white/10 p-2 rounded-xl'
-								onPress={() => {
-									if (item.dealership?.phone) {
-										Linking.openURL(`tel:${item.dealership.phone}`)
-									} else {
-										Alert.alert('Contact', 'Phone number not available')
-									}
-								}}>
-								<Ionicons name='call' size={24} color='white' />
-							</TouchableOpacity>
-						</View>
-					)}
-				</LinearGradient>
-			</View>
-		)
-	}
+						{item.car && (
+							<View className='flex-row items-center space-x-3'>
+								<TouchableOpacity
+									className='flex-1 bg-red py-2 px-4 rounded-xl flex-row items-center justify-center'
+									onPress={() => {
+										setSelectedCar(item.car!)
+										setIsModalVisible(true)
+									}}>
+									<Text className='text-white font-semibold mr-2'>
+										View Details
+									</Text>
+									<Ionicons name='arrow-forward' size={18} color='white' />
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									className='bg-white/10 p-2 rounded-xl'
+									onPress={async () => {
+										try {
+											await Share.share({
+												message: `Check out this ${item.car.year} ${
+													item.car.make
+												} ${item.car.model} on [Your App Name]!\n\n${
+													item.description || ''
+												}`
+											})
+										} catch (error) {
+											console.error('Error sharing:', error)
+										}
+									}}>
+									<Ionicons name='share-social' size={24} color='white' />
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									className='bg-white/10 p-2 rounded-xl'
+									onPress={() => {
+										if (item.dealership?.phone) {
+											Linking.openURL(`tel:${item.dealership.phone}`)
+										} else {
+											Alert.alert('Contact', 'Phone number not available')
+										}
+									}}>
+									<Ionicons name='call' size={24} color='white' />
+								</TouchableOpacity>
+							</View>
+						)}
+					</LinearGradient>
+				</View>
+			)
+		},
+		[getFormattedPostDate]
+	)
 
 	useEffect(() => {
 		const preloadAdjacentVideos = async () => {
 			if (autoClips.length > 0) {
-				const prevIndex = Math.max(0, currentVideoIndex - 1)
-				const nextIndex = Math.min(autoClips.length - 1, currentVideoIndex + 1)
+				const visibleIndexes = [
+					Math.max(0, currentVideoIndex - 1),
+					currentVideoIndex,
+					Math.min(autoClips.length - 1, currentVideoIndex + 1)
+				]
 
-				for (const index of [prevIndex, nextIndex]) {
-					if (index !== currentVideoIndex) {
-						const clip = autoClips[index]
-						if (clip) {
+				for (const index of visibleIndexes) {
+					const clip = autoClips[index]
+					if (clip) {
+						const ref = videoRefs.current[clip.id]
+						if (ref && ref.current) {
 							try {
-								const ref = videoRefs.current[clip.id]
-								if (ref) {
-									await ref.loadAsync({ uri: clip.video_url }, {}, false)
+								const status = await ref.current.getStatusAsync()
+								if (!status.isLoaded) {
+									await ref.current.loadAsync(
+										{ uri: clip.video_url },
+										{ shouldPlay: false, isMuted: globalMute },
+										false
+									)
 								}
 							} catch (error) {
 								console.error('Error preloading video:', error)
@@ -609,85 +645,109 @@ export default function AutoClips({ navigation }: any) {
 		}
 
 		preloadAdjacentVideos()
-	}, [currentVideoIndex, autoClips])
+	}, [currentVideoIndex, autoClips, globalMute])
 
-	const renderClip = ({ item, index }: { item: AutoClip; index: number }) => (
-		<View className='h-screen w-screen'>
-			<TouchableOpacity
-				activeOpacity={1}
-				onPress={() => handleVideoPress(item.id)}
-				onLongPress={() => handleDoubleTap(item.id)}
-				style={{ flex: 1 }}>
-				<Video
-					ref={ref => (videoRefs.current[item.id] = ref)}
-					source={{ uri: item.video_url }}
-					style={{ flex: 1 }}
-					resizeMode={ResizeMode.COVER}
-					shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
-					isLooping
-					isMuted={globalMute}
-					onPlaybackStatusUpdate={status =>
-						handlePlaybackStatusUpdate(status, item.id)
-					}
-					progressUpdateIntervalMillis={500} // Reduce update frequency
-					onLoad={async () => {
-						if (index === currentVideoIndex) {
-							try {
-								const ref = videoRefs.current[item.id]
-								if (ref) {
-									await ref.setPositionAsync(0)
-									if (isPlaying[item.id]) {
-										await ref.playAsync()
+	const renderClip = useCallback(
+		({ item, index }: { item: AutoClip; index: number }) => {
+			if (!videoRefs.current[item.id]) {
+				videoRefs.current[item.id] = React.createRef()
+			}
+
+			return (
+				<View className='h-screen w-screen' key={`clip-${item.id}`}>
+					<TouchableOpacity
+						activeOpacity={1}
+						onPress={() => handleVideoPress(item.id)}
+						onLongPress={() => handleDoubleTap(item.id)}
+						style={{ flex: 1 }}>
+						<Video
+							ref={videoRefs.current[item.id]}
+							source={{ uri: item.video_url }}
+							style={{ flex: 1 }}
+							resizeMode={ResizeMode.COVER}
+							shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
+							isLooping
+							isMuted={globalMute}
+							onPlaybackStatusUpdate={status =>
+								handlePlaybackStatusUpdate(status, item.id)
+							}
+							progressUpdateIntervalMillis={
+								networkType === Network.NetworkStateType.CELLULAR ? 1000 : 250
+							}
+							onLoad={async () => {
+								if (index === currentVideoIndex) {
+									try {
+										const ref = videoRefs.current[item.id]?.current
+										if (ref) {
+											await ref.setPositionAsync(0)
+											if (isPlaying[item.id]) {
+												await ref.playAsync()
+											}
+										}
+									} catch (error) {
+										console.error('Error loading video:', error)
 									}
 								}
-							} catch (error) {
-								console.error('Error loading video:', error)
-							}
-						}
-					}}
-				/>
-				{/* Play/Pause Icon Animation */}
-				{showPlayPauseIcon[item.id] && (
-					<Animated.View
-						style={[
-							styles.playPauseIcon,
-							{ opacity: playPauseAnimations.current[item.id] }
-						]}>
-						{isPlaying[item.id] ? (
-							<Play color='white' size={50} />
-						) : (
-							<Pause color='white' size={50} />
+							}}
+							videoStyle={{
+								objectFit: 'cover'
+							}}
+							rate={1.0}
+							volume={1.0}
+						/>
+
+						{showPlayPauseIcon[item.id] && (
+							<Animated.View
+								style={[
+									styles.playPauseIcon,
+									{ opacity: playPauseAnimations.current[item.id] }
+								]}>
+								{isPlaying[item.id] ? (
+									<Play color='white' size={50} />
+								) : (
+									<Pause color='white' size={50} />
+								)}
+							</Animated.View>
 						)}
-					</Animated.View>
-				)}
 
-				{/* Heart Animation */}
-				<Animated.View
-					style={[
-						styles.heartAnimation,
-						{
-							opacity: heartAnimations.current[item.id],
-							transform: [
+						<Animated.View
+							style={[
+								styles.heartAnimation,
 								{
-									scale: heartAnimations.current[item.id].interpolate({
-										inputRange: [0, 1],
-										outputRange: [0.3, 1.2]
-									})
+									opacity: heartAnimations.current[item.id],
+									transform: [
+										{
+											scale: heartAnimations.current[item.id]?.interpolate({
+												inputRange: [0, 1],
+												outputRange: [0.3, 1.2]
+											})
+										}
+									],
+									zIndex: 70
 								}
-							],
-							zIndex: 70 // Highest z-index
-						}
-					]}>
-					<Heart size={80} color='#D55004' fill='#D55004' />
-				</Animated.View>
+							]}>
+							<Heart size={80} color='#D55004' fill='#D55004' />
+						</Animated.View>
 
-				{renderVideoControls(item.id)}
-				{renderClipInfo(item)}
-			</TouchableOpacity>
-		</View>
+						{renderVideoControls(item.id)}
+						{renderClipInfo(item)}
+					</TouchableOpacity>
+				</View>
+			)
+		},
+		[
+			handleVideoPress,
+			handleDoubleTap,
+			isPlaying,
+			currentVideoIndex,
+			globalMute,
+			networkType,
+			showPlayPauseIcon,
+			renderVideoControls,
+			renderClipInfo
+		]
 	)
 
-	// Loading and error states
 	if (isLoading) {
 		return (
 			<View style={styles.centerContainer}>
@@ -704,7 +764,6 @@ export default function AutoClips({ navigation }: any) {
 		)
 	}
 
-	// Main render
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<TouchableOpacity
@@ -730,8 +789,11 @@ export default function AutoClips({ navigation }: any) {
 					/>
 				}
 				contentContainerStyle={{
-					paddingBottom: TAB_BAR_HEIGHT // Add padding at bottom
+					paddingBottom: TAB_BAR_HEIGHT
 				}}
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={MAX_VIDEO_BUFFER}
+				windowSize={MAX_VIDEO_BUFFER * 2 + 1}
 			/>
 
 			{Platform.OS === 'ios' ? (
@@ -814,15 +876,15 @@ const styles = StyleSheet.create({
 
 	infoContainer: {
 		position: 'absolute',
-		bottom: -80, // Changed from 0 to TAB_BAR_HEIGHT
+		bottom: -80,
 		paddingBottom: 0,
 		left: 0,
 		right: 0,
 		backgroundColor: 'rgba(0,0,0,0.3)'
 	},
 	infoGradient: {
-		justifyContent: 'flex-end', // Align content to bottom
-		paddingBottom: 10 // Reduced padding
+		justifyContent: 'flex-end',
+		paddingBottom: 10
 	},
 	dealershipBar: {
 		flexDirection: 'row',
