@@ -335,7 +335,7 @@ export default function NotificationsScreen() {
 				<View className='flex-row justify-between items-center px-4 py-2 border-b border-red'>
 					<TouchableOpacity onPress={() => router.back()}>
 						<Ionicons
-							name='arrow-back'
+							name='arrow-down'
 							size={24}
 							color={isDarkMode ? 'white' : 'black'}
 						/>

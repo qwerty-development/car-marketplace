@@ -104,76 +104,65 @@ const FadingCircle: React.FC<{
 
 const SignUpWithOAuth = () => {
 	const [isLoading, setIsLoading] = useState<{
-		google: boolean
-		apple: boolean
-	}>({ google: false, apple: false })
-	const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' })
-	const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' })
-	const router = useRouter()
-
+	  google: boolean;
+	  apple: boolean;
+	}>({ google: false, apple: false });
+	const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' });
+	const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' });
+	const router = useRouter();
+  
 	const onSelectAuth = async (strategy: 'google' | 'apple') => {
-		try {
-			setIsLoading(prev => ({ ...prev, [strategy]: true }))
-			const selectedAuth = strategy === 'google' ? googleAuth : appleAuth
-			const { createdSessionId, setActive } = await selectedAuth()
-
-			if (createdSessionId) {
-				setActive && (await setActive({ session: createdSessionId }))
-				router.replace('/(home)')
-			}
-		} catch (err) {
-			console.error('OAuth error:', err)
-			Alert.alert(
-				'Authentication Error',
-				'Failed to authenticate with ' +
-					strategy.charAt(0).toUpperCase() +
-					strategy.slice(1)
-			)
-		} finally {
-			setIsLoading(prev => ({ ...prev, [strategy]: false }))
+	  try {
+		setIsLoading(prev => ({ ...prev, [strategy]: true }));
+		const selectedAuth = strategy === 'google' ? googleAuth : appleAuth;
+		const { createdSessionId, setActive } = await selectedAuth();
+  
+		if (createdSessionId) {
+		  setActive && (await setActive({ session: createdSessionId }));
+		  router.replace('/(home)');
 		}
-	}
+	  } catch (err) {
+		console.error('OAuth error:', err);
+		Alert.alert(
+		  'Authentication Error',
+		  'Failed to authenticate with ' +
+			strategy.charAt(0).toUpperCase() +
+			strategy.slice(1)
+		);
+	  } finally {
+		setIsLoading(prev => ({ ...prev, [strategy]: false }));
+	  }
+	};
+  
 
 	return (
-		<View className='w-full space-y-3'>
-			<View className='flex-row items-center justify-center space-x-2 mb-4'>
-				<View className='flex-1 h-[1px] bg-gray/20' />
-				<Text className='text-gray-300 px-2'>Or continue with</Text>
-				<View className='flex-1 h-[1px] bg-gray/20' />
-			</View>
-
-			<TouchableOpacity
-				onPress={() => onSelectAuth('google')}
-				disabled={isLoading.google}
-				className='flex-row items-center justify-center space-x-2 bg-white p-4 rounded-lg'>
-				{isLoading.google ? (
-					<ActivityIndicator size='small' color='#000' />
-				) : (
-					<>
-						<Ionicons name='logo-google' size={24} color='#000' />
-						<Text className='font-semibold text-black'>
-							Continue with Google
-						</Text>
-					</>
-				)}
-			</TouchableOpacity>
-
-			<TouchableOpacity
-				onPress={() => onSelectAuth('apple')}
-				disabled={isLoading.apple}
-				className='flex-row items-center justify-center space-x-2 bg-black border border-white/20 p-4 rounded-lg'>
-				{isLoading.apple ? (
-					<ActivityIndicator size='small' color='#FFF' />
-				) : (
-					<>
-						<Ionicons name='logo-apple' size={24} color='#FFF' />
-						<Text className='font-semibold text-white'>
-							Continue with Apple
-						</Text>
-					</>
-				)}
-			</TouchableOpacity>
+		<View className="w-full flex mt-8 items-center justify-center">
+		<View className="flex-row space-x-4">
+		  <TouchableOpacity
+			onPress={() => onSelectAuth('google')}
+			disabled={isLoading.google}
+			className="items-center justify-center bg-black border-white/20 border w-14 h-14 rounded-full"
+		  >
+			{isLoading.google ? (
+			  <ActivityIndicator size="small" color="#fff" />
+			) : (
+			  <Ionicons name="logo-google" size={24} color="#fff" />
+			)}
+		  </TouchableOpacity>
+  
+		  <TouchableOpacity
+			onPress={() => onSelectAuth('apple')}
+			disabled={isLoading.apple}
+			className="items-center justify-center bg-black border border-white/20 w-14 h-14 rounded-full"
+		  >
+			{isLoading.apple ? (
+			  <ActivityIndicator size="small" color="#FFF" />
+			) : (
+			  <Ionicons name="logo-apple" size={24} color="#FFF" />
+			)}
+		  </TouchableOpacity>
 		</View>
+	  </View>
 	)
 }
 
@@ -438,7 +427,7 @@ export default function SignUpScreen() {
 					{!pendingVerification ? (
 						<>
 							<TouchableOpacity
-								className={`bg-[#D55004] py-4 rounded-lg mt-8 flex-row justify-center items-center ${
+								className={`bg-[#D55004] py-2 rounded-full mt- flex-row justify-center items-center ${
 									isLoading ? 'opacity-70' : ''
 								}`}
 								onPress={onSignUpPress}
@@ -453,7 +442,7 @@ export default function SignUpScreen() {
 							<SignUpWithOAuth />
 
 							<View className='flex-row justify-center mt-6'>
-								<Text className='text-gray'>Already have an account? </Text>
+								<Text className='text-[#9CA3AF]'>Already have an account? </Text>
 								<TouchableOpacity onPress={() => router.push('/sign-in')}>
 									<Text className='text-[#D55004] font-bold'>Sign in</Text>
 								</TouchableOpacity>
