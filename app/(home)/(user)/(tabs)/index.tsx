@@ -126,44 +126,55 @@ export default function BrowseCarsPage() {
 					)
 					.eq('status', 'available')
 
-				// Apply filters
-				if (currentFilters.dealership)
+				if (currentFilters.categories && currentFilters.categories.length > 0) {
+					queryBuilder = queryBuilder.in('category', currentFilters.categories)
+				}
+
+				if (currentFilters.dealership) {
 					queryBuilder = queryBuilder.eq(
 						'dealership_id',
 						currentFilters.dealership
 					)
-				if (currentFilters.make)
+				}
+				if (currentFilters.make) {
 					queryBuilder = queryBuilder.eq('make', currentFilters.make)
-				if (currentFilters.model)
+				}
+				if (currentFilters.model) {
 					queryBuilder = queryBuilder.eq('model', currentFilters.model)
-				if (currentFilters.condition)
+				}
+				if (currentFilters.condition) {
 					queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
-				if (currentFilters.yearRange)
+				}
+				if (currentFilters.yearRange) {
 					queryBuilder = queryBuilder
 						.gte('year', currentFilters.yearRange[0])
 						.lte('year', currentFilters.yearRange[1])
-				if (currentFilters.color)
+				}
+				if (currentFilters.color) {
 					queryBuilder = queryBuilder.eq('color', currentFilters.color)
-				if (currentFilters.transmission)
+				}
+				if (currentFilters.transmission) {
 					queryBuilder = queryBuilder.eq(
 						'transmission',
 						currentFilters.transmission
 					)
-				if (currentFilters.drivetrain)
+				}
+				if (currentFilters.drivetrain) {
 					queryBuilder = queryBuilder.eq(
 						'drivetrain',
 						currentFilters.drivetrain
 					)
-				if (currentFilters.priceRange)
+				}
+				if (currentFilters.priceRange) {
 					queryBuilder = queryBuilder
 						.gte('price', currentFilters.priceRange[0])
 						.lte('price', currentFilters.priceRange[1])
-				if (currentFilters.mileageRange)
+				}
+				if (currentFilters.mileageRange) {
 					queryBuilder = queryBuilder
 						.gte('mileage', currentFilters.mileageRange[0])
 						.lte('mileage', currentFilters.mileageRange[1])
-				if (currentFilters.categories && currentFilters.categories.length > 0)
-					queryBuilder = queryBuilder.in('category', currentFilters.categories)
+				}
 
 				if (query) {
 					queryBuilder = queryBuilder.or(
@@ -196,7 +207,16 @@ export default function BrowseCarsPage() {
 				}
 
 				const { count } = await queryBuilder
-				const totalItems = count || 0
+
+				if (!count) {
+					setCars([])
+					setTotalPages(0)
+					setCurrentPage(1)
+					setIsLoading(false)
+					return
+				}
+
+				const totalItems = count
 				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 				const safePageNumber = Math.min(page, totalPages)
 				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
@@ -227,11 +247,13 @@ export default function BrowseCarsPage() {
 				setCars(prevCars =>
 					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
 				)
-
 				setTotalPages(totalPages)
 				setCurrentPage(safePageNumber)
 			} catch (error) {
 				console.error('Error fetching cars:', error)
+				setCars([])
+				setTotalPages(0)
+				setCurrentPage(1)
 			} finally {
 				setIsLoading(false)
 			}
@@ -306,6 +328,7 @@ export default function BrowseCarsPage() {
 
 	const handleCategoryPress = useCallback(
 		(category: string) => {
+			setIsLoading(true)
 			setFilters(prevFilters => {
 				const updatedCategories = prevFilters.categories
 					? prevFilters.categories.includes(category)
@@ -350,7 +373,11 @@ export default function BrowseCarsPage() {
 			!isLoading && (
 				<View style={styles.emptyContainer}>
 					<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-						No cars available.
+						{filters.categories && filters.categories.length > 0
+							? `No cars available for the selected ${
+									filters.categories.length === 1 ? 'category' : 'categories'
+							  }:\n${filters.categories.join(', ')}`
+							: 'No cars available.'}
 					</Text>
 					{(Object.keys(filters).length > 0 || searchQuery) && (
 						<TouchableOpacity
