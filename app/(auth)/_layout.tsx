@@ -1,3 +1,4 @@
+// app/(auth)/_layout.tsx
 import { Redirect, Stack } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 
@@ -11,8 +12,10 @@ export default function UnAuthenticatedLayout() {
 	return (
 		<Stack
 			screenOptions={{
-				headerShown: false
+				headerShown: false,
+				animation: 'slide_from_right'
 			}}>
+			<Stack.Screen name='index' options={{ headerShown: false }} />
 			<Stack.Screen name='forgot-password' options={{ headerShown: false }} />
 			<Stack.Screen name='sign-in' options={{ headerShown: false }} />
 			<Stack.Screen name='sign-up' options={{ headerShown: false }} />
