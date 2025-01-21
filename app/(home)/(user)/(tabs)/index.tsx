@@ -177,9 +177,36 @@ export default function BrowseCarsPage() {
 				}
 
 				if (query) {
-					queryBuilder = queryBuilder.or(
-						`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%`
-					)
+					const cleanQuery = query.trim().toLowerCase()
+					const searchTerms = cleanQuery.split(/\s+/)
+
+					// Apply each search term with AND logic
+					searchTerms.forEach(term => {
+						const numericTerm = parseInt(term)
+						let searchConditions = [
+							`make.ilike.%${term}%`,
+							`model.ilike.%${term}%`,
+							`description.ilike.%${term}%`,
+							`color.ilike.%${term}%`,
+							`category.ilike.%${term}%`,
+							`transmission.ilike.%${term}%`,
+							`drivetrain.ilike.%${term}%`,
+							`type.ilike.%${term}%`,
+							`condition.ilike.%${term}%`
+						]
+
+						// Add numeric conditions if the term is a number
+						if (!isNaN(numericTerm)) {
+							searchConditions = searchConditions.concat([
+								`year::text.eq.${numericTerm}`,
+								`price::text.ilike.%${numericTerm}%`,
+								`mileage::text.ilike.%${numericTerm}%`
+							])
+						}
+
+						// Apply OR conditions for this term
+						queryBuilder = queryBuilder.or(searchConditions.join(','))
+					})
 				}
 
 				// Apply sorting
