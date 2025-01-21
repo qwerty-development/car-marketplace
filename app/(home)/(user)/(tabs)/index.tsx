@@ -308,23 +308,31 @@ export default function BrowseCarsPage() {
 	)
 
 	const handleCarPress = useCallback((car: Car) => {
-		setSelectedCar(car)
-		setIsModalVisible(true)
-	}, [])
-
-	const renderCarItem = useCallback(
+		router.push({
+		  pathname: '/(home)/(user)/CarDetails',
+		  params: {
+			carId: car.id,
+			// Pass minimal data needed for initial render
+			make: car.make,
+			model: car.model,
+			year: car.year,
+			price: car.price,
+			isDealerView: false
+		  }
+		});
+	  }, [router]);
+	  const renderCarItem = useCallback(
 		({ item, index }: { item: Car; index: number }) => (
-			<CarCard
-				car={item}
-				index={index}
-				onPress={() => handleCarPress(item)}
-				onFavoritePress={() => handleFavoritePress(item.id)}
-				isFavorite={isFavorite(Number(item.id))}
-				isDealer={false}
-			/>
+		  <CarCard
+			car={item}
+			index={index}
+			onFavoritePress={() => handleFavoritePress(item.id)}
+			isFavorite={isFavorite(Number(item.id))}
+			isDealer={false}
+		  />
 		),
-		[handleCarPress, handleFavoritePress, isFavorite]
-	)
+		[handleFavoritePress, isFavorite]
+	  );
 
 	const openFilterPage = useCallback(() => {
 		router.push({
@@ -418,33 +426,7 @@ export default function BrowseCarsPage() {
 		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
 	)
 
-	const renderModal = useCallback(() => {
-		const ModalComponent =
-			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
-		return (
-			<ModalComponent
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => {
-					setIsModalVisible(false)
-					setSelectedCar(null)
-				}}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={!!selectedCar && isFavorite(Number(selectedCar.id))}
-				onViewUpdate={handleViewUpdate}
-			/>
-		)
-	}, [
-		isModalVisible,
-		selectedCar,
-		handleFavoritePress,
-		isFavorite,
-		handleViewUpdate
-	])
+
 
 	return (
 		<LinearGradient
@@ -576,7 +558,7 @@ export default function BrowseCarsPage() {
 						/>
 					</TouchableOpacity>
 				)}
-				{renderModal()}
+				
 			</SafeAreaView>
 		</LinearGradient>
 	)
