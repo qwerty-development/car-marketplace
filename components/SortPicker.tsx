@@ -94,7 +94,8 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 			<TouchableOpacity
 				style={[
 					styles.option,
-					selectedOption.value === item.value && styles.selectedOption
+					selectedOption.value === item.value && styles.selectedOption,
+					isDarkMode && styles.optionDark
 				]}
 				onPress={() => handleSelect(item)}>
 				<Ionicons
@@ -112,7 +113,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 					style={[
 						styles.optionText,
 						selectedOption.value === item.value && styles.selectedOptionText,
-						isDarkMode && { color: '#FFFFFF' }
+						isDarkMode && styles.optionTextDark
 					]}>
 					{item.label}
 				</Text>
@@ -134,20 +135,9 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 				onPress={openModal}
 				style={[styles.picker, isDarkMode && styles.pickerDark]}>
 				<Ionicons
-					name={selectedOption.icon}
-					size={16}
-					color={isDarkMode ? '#FFFFFF' : '#D55004'}
-					style={styles.pickerIcon}
-				/>
-				<Text
-					style={[styles.pickerText, isDarkMode && { color: '#FFFFFF' }]}
-					numberOfLines={1}>
-					{selectedOption.label}
-				</Text>
-				<Ionicons
-					name='chevron-down'
-					size={16}
-					color={isDarkMode ? '#FFFFFF' : '#D55004'}
+					name='chevron-down-outline'
+					size={20}
+					color={isDarkMode ? '#FFFFFF' : '#000000'}
 				/>
 			</TouchableOpacity>
 
@@ -159,11 +149,9 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 				<View style={styles.modalOverlay}>
 					<TouchableWithoutFeedback onPress={closeModal}>
 						<BlurView
-							intensity={100}
-							style={[
-								StyleSheet.absoluteFill,
-								{ backgroundColor: `rgba(0, 0, 0, ${backdropOpacity})` }
-							]}
+							intensity={isDarkMode ? 50 : 80}
+							tint={isDarkMode ? 'dark' : 'light'}
+							style={StyleSheet.absoluteFill}
 						/>
 					</TouchableWithoutFeedback>
 					<Animated.View
@@ -171,23 +159,18 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 							styles.modalContent,
 							{
 								transform: [{ translateY: modalTranslateY }],
-								backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF'
+								backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF'
 							}
 						]}>
 						<View style={styles.modalHeader}>
+							<View style={styles.dragIndicator} />
 							<Text
-								style={[styles.modalTitle, isDarkMode && { color: '#FFFFFF' }]}>
+								style={[
+									styles.modalTitle,
+									isDarkMode && styles.modalTitleDark
+								]}>
 								Sort By
 							</Text>
-							<TouchableOpacity
-								onPress={closeModal}
-								hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-								<Ionicons
-									name='close'
-									size={24}
-									color={isDarkMode ? '#FFFFFF' : '#333333'}
-								/>
-							</TouchableOpacity>
 						</View>
 						<FlatList
 							data={sortOptions}
@@ -195,6 +178,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 							keyExtractor={item => item.value}
 							showsVerticalScrollIndicator={false}
 							style={styles.flatList}
+							bounces={false}
 						/>
 					</Animated.View>
 				</View>
@@ -205,36 +189,19 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 
 const styles = StyleSheet.create({
 	container: {
-		alignItems: 'flex-start' // Aligns the picker to the left
+		alignItems: 'flex-start'
 	},
 	picker: {
-		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: 'rgba(213, 80, 4, 0.1)',
-		paddingHorizontal: 12,
-		paddingVertical: 8, // Reduced vertical padding
-		borderRadius: 8,
-		borderWidth: 1,
-		borderColor: 'rgba(213, 80, 4, 0.2)',
-		maxHeight: 36 // Fixed height
+		justifyContent: 'center',
+		width: 40,
+		height: 40,
+		borderRadius: 20
 	},
-	pickerDark: {
-		backgroundColor: 'rgba(255, 255, 255, 0.1)',
-		borderColor: 'rgba(255, 255, 255, 0.2)'
-	},
-	pickerIcon: {
-		marginRight: 8
-	},
-	pickerText: {
-		flex: 1,
-		fontSize: 14, // Reduced font size
-		fontWeight: '500',
-		color: '#333333',
-		marginRight: 8
-	},
+	pickerDark: {},
 	modalOverlay: {
 		flex: 1,
-		justifyContent: 'flex-end', // This ensures the modal stays at the bottom
+		justifyContent: 'flex-end',
 		backgroundColor: 'transparent'
 	},
 	modalContent: {
@@ -252,37 +219,50 @@ const styles = StyleSheet.create({
 		shadowRadius: 8,
 		elevation: 5
 	},
-	flatList: {
-		maxHeight: SCREEN_HEIGHT * 0.6 // Limits the height of the list to 60% of screen height
-	},
 	modalHeader: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginBottom: 12
+		marginBottom: 20
+	},
+	dragIndicator: {
+		width: 40,
+		height: 4,
+		backgroundColor: '#E0E0E0',
+		borderRadius: 2,
+		marginBottom: 16
 	},
 	modalTitle: {
 		fontSize: 18,
 		fontWeight: 'bold',
 		color: '#333333'
 	},
+	modalTitleDark: {
+		color: '#FFFFFF'
+	},
+	flatList: {
+		maxHeight: SCREEN_HEIGHT * 0.6
+	},
 	option: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		paddingVertical: 12, // Reduced padding
-		paddingHorizontal: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: 'rgba(0, 0, 0, 0.1)'
+		paddingVertical: 16,
+		paddingHorizontal: 16,
+		borderRadius: 12,
+		marginBottom: 8
+	},
+	optionDark: {
+		backgroundColor: 'rgba(255, 255, 255, 0.05)'
 	},
 	optionText: {
 		marginLeft: 12,
-		fontSize: 15, // Reduced font size
+		fontSize: 16,
 		color: '#333333',
 		flex: 1
 	},
+	optionTextDark: {
+		color: '#FFFFFF'
+	},
 	selectedOption: {
-		backgroundColor: 'rgba(213, 80, 4, 0.1)',
-		borderRadius: 8
+		backgroundColor: 'rgba(213, 80, 4, 0.1)'
 	},
 	selectedOptionText: {
 		color: '#D55004',
