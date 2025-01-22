@@ -44,13 +44,13 @@ interface Car {
 
 interface Filters {
 	dealership?: string
-	make?: string
-	model?: string
+	makes?: string[]
+	models?: string[]
 	condition?: string
 	yearRange?: [number, number]
-	color?: string
-	transmission?: string
-	drivetrain?: string
+	colors?: string[]
+	transmission?: string[]
+	drivetrain?: string[]
 	priceRange?: [number, number]
 	mileageRange?: [number, number]
 	categories?: string[]
@@ -80,7 +80,13 @@ export default function BrowseCarsPage() {
 	const [isLoading, setIsLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState('')
-	const [filters, setFilters] = useState<Filters>({})
+	const [filters, setFilters] = useState<Filters>({
+		makes: [],
+		models: [],
+		colors: [],
+		transmission: [],
+		drivetrain: []
+	})
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
@@ -156,58 +162,72 @@ export default function BrowseCarsPage() {
 					}
 				}
 
-				// Apply standard filters
+				// Apply multi-select filters
+				if (currentFilters.makes && currentFilters.makes.length > 0) {
+					queryBuilder = queryBuilder.in('make', currentFilters.makes)
+				}
+
+				if (currentFilters.models && currentFilters.models.length > 0) {
+					queryBuilder = queryBuilder.in('model', currentFilters.models)
+				}
+
+				if (currentFilters.colors && currentFilters.colors.length > 0) {
+					queryBuilder = queryBuilder.in('color', currentFilters.colors)
+				}
+
+				if (
+					currentFilters.transmission &&
+					currentFilters.transmission.length > 0
+				) {
+					queryBuilder = queryBuilder.in(
+						'transmission',
+						currentFilters.transmission
+					)
+				}
+
+				if (currentFilters.drivetrain && currentFilters.drivetrain.length > 0) {
+					queryBuilder = queryBuilder.in(
+						'drivetrain',
+						currentFilters.drivetrain
+					)
+				}
+
+				// Apply array-based category filter
 				if (currentFilters.categories && currentFilters.categories.length > 0) {
 					queryBuilder = queryBuilder.in('category', currentFilters.categories)
 				}
 
+				// Apply single-value and range filters
 				if (currentFilters.dealership) {
 					queryBuilder = queryBuilder.eq(
 						'dealership_id',
 						currentFilters.dealership
 					)
 				}
-				if (currentFilters.make) {
-					queryBuilder = queryBuilder.eq('make', currentFilters.make)
-				}
-				if (currentFilters.model) {
-					queryBuilder = queryBuilder.eq('model', currentFilters.model)
-				}
+
 				if (currentFilters.condition) {
 					queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
 				}
+
 				if (currentFilters.yearRange) {
 					queryBuilder = queryBuilder
 						.gte('year', currentFilters.yearRange[0])
 						.lte('year', currentFilters.yearRange[1])
 				}
-				if (currentFilters.color) {
-					queryBuilder = queryBuilder.eq('color', currentFilters.color)
-				}
-				if (currentFilters.transmission) {
-					queryBuilder = queryBuilder.eq(
-						'transmission',
-						currentFilters.transmission
-					)
-				}
-				if (currentFilters.drivetrain) {
-					queryBuilder = queryBuilder.eq(
-						'drivetrain',
-						currentFilters.drivetrain
-					)
-				}
+
 				if (currentFilters.priceRange) {
 					queryBuilder = queryBuilder
 						.gte('price', currentFilters.priceRange[0])
 						.lte('price', currentFilters.priceRange[1])
 				}
+
 				if (currentFilters.mileageRange) {
 					queryBuilder = queryBuilder
 						.gte('mileage', currentFilters.mileageRange[0])
 						.lte('mileage', currentFilters.mileageRange[1])
 				}
 
-				// Handle search query
+				// Handle search query with improved term handling
 				if (query) {
 					const cleanQuery = query.trim().toLowerCase()
 					const searchTerms = cleanQuery.split(/\s+/)
@@ -265,6 +285,7 @@ export default function BrowseCarsPage() {
 						queryBuilder = queryBuilder.order('listed_at', { ascending: false })
 				}
 
+				// Get total count
 				const { count } = await queryBuilder
 
 				if (!count) {
@@ -275,6 +296,7 @@ export default function BrowseCarsPage() {
 					return
 				}
 
+				// Calculate pagination values
 				const totalItems = count
 				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 				const safePageNumber = Math.min(page, totalPages)
@@ -284,10 +306,12 @@ export default function BrowseCarsPage() {
 					totalItems - 1
 				)
 
+				// Fetch paginated data
 				const { data, error } = await queryBuilder.range(startRange, endRange)
 
 				if (error) throw error
 
+				// Transform the data
 				const newCars =
 					data?.map(item => ({
 						...item,
@@ -299,10 +323,12 @@ export default function BrowseCarsPage() {
 						dealership_longitude: item.dealerships.longitude
 					})) || []
 
+				// Ensure uniqueness
 				const uniqueCars = Array.from(new Set(newCars.map(car => car.id))).map(
 					id => newCars.find(car => car.id === id)
 				)
 
+				// Update state
 				setCars(prevCars =>
 					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
 				)

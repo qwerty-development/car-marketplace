@@ -16,6 +16,21 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import CategorySelector from '@/components/Category'
 import { supabase } from '@/utils/supabase'
 
+interface FilterState {
+	dealership?: string
+	dealershipName?: string
+	makes?: string[]
+	models?: string[]
+	colors?: string[]
+	transmissions?: string[]
+	drivetrains?: string[]
+	categories?: string[]
+	condition?: string
+	priceRange?: [number, number]
+	mileageRange?: [number, number]
+	yearRange?: [number, number]
+	specialFilter?: 'newArrivals' | 'mostPopular' | 'bestDeals'
+}
 const CustomHeader = ({ title, onBack }: any) => {
 	const { isDarkMode } = useTheme()
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
@@ -140,19 +155,45 @@ const RangeInput = ({ label, min, max, value, onChange, step = 1 }: any) => {
 	)
 }
 
+interface SearchableSelectProps {
+	label: string
+	items: string[]
+	values: string[] // Changed from single value to array
+	onChange: (values: string[]) => void
+	placeholder: string
+	multiSelect?: boolean
+}
+
 const SearchableSelect = ({
 	label,
 	items,
-	value,
+	values = [],
 	onChange,
-	placeholder
-}: any) => {
+	placeholder,
+	multiSelect = true
+}: SearchableSelectProps) => {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 	const { isDarkMode } = useTheme()
-	const filteredItems = items.filter((item: string) =>
-		item?.toLowerCase()?.includes(searchQuery?.toLowerCase())
-	)
+
+	const handleSelect = (item: string) => {
+		if (!multiSelect) {
+			onChange([item])
+			setIsDropdownOpen(false)
+			return
+		}
+
+		const newValues = values.includes(item)
+			? values.filter(v => v !== item)
+			: [...values, item]
+		onChange(newValues)
+	}
+
+	const getDisplayText = () => {
+		if (values.length === 0) return `Select ${placeholder}`
+		if (values.length === 1) return values[0]
+		return `${values.length} ${label} selected`
+	}
 
 	return (
 		<View className='mb-4'>
@@ -163,8 +204,8 @@ const SearchableSelect = ({
 					}`}>
 					{label}
 				</Text>
-				{value && (
-					<TouchableOpacity onPress={() => onChange('')}>
+				{values.length > 0 && (
+					<TouchableOpacity onPress={() => onChange([])}>
 						<Ionicons name='close-circle' size={24} color='#D55004' />
 					</TouchableOpacity>
 				)}
@@ -173,13 +214,13 @@ const SearchableSelect = ({
 				<TouchableOpacity
 					onPress={() => setIsDropdownOpen(!isDropdownOpen)}
 					className={`p-3 flex-row justify-between items-center ${
-						value ? 'bg-red' : isDarkMode ? 'bg-gray' : 'bg-white'
+						values.length > 0 ? 'bg-red' : isDarkMode ? 'bg-gray' : 'bg-white'
 					}`}>
 					<Text
 						className={`${isDarkMode ? 'text-white' : 'text-gray'} ${
-							value ? 'font-semibold' : ''
+							values.length > 0 ? 'font-semibold' : ''
 						}`}>
-						{value || `Select ${placeholder}`}
+						{getDisplayText()}
 					</Text>
 					<Ionicons
 						name={isDropdownOpen ? 'chevron-up' : 'chevron-down'}
@@ -199,25 +240,28 @@ const SearchableSelect = ({
 							onChangeText={setSearchQuery}
 						/>
 						<FlatList
-							data={filteredItems}
+							data={items.filter(item =>
+								item?.toLowerCase()?.includes(searchQuery?.toLowerCase())
+							)}
 							keyExtractor={(item, index) => index.toString()}
 							renderItem={({ item }) => (
 								<TouchableOpacity
-									onPress={() => {
-										onChange(item)
-										setIsDropdownOpen(false)
-										setSearchQuery('')
-									}}
+									onPress={() => handleSelect(item)}
 									className={`p-3 ${
-										item === value
+										values.includes(item)
 											? 'bg-red'
 											: isDarkMode
 											? 'bg-gray'
 											: 'bg-white'
 									}`}>
-									<Text className={isDarkMode ? 'text-white' : 'text-gray'}>
-										{item}
-									</Text>
+									<View className='flex-row justify-between items-center'>
+										<Text className={isDarkMode ? 'text-white' : 'text-gray'}>
+											{item}
+										</Text>
+										{values.includes(item) && (
+											<Ionicons name='checkmark' size={24} color='white' />
+										)}
+									</View>
 								</TouchableOpacity>
 							)}
 							style={{ maxHeight: 200 }}
@@ -397,38 +441,38 @@ const FilterPage = () => {
 	const params: any = useLocalSearchParams()
 	const [activeFilter, setActiveFilter] = useState<any>(null)
 
-	const [filters, setFilters] = useState<any>(() => {
+	const [filters, setFilters] = useState<FilterState>(() => {
 		try {
 			return (
 				JSON.parse(params.filters) || {
 					dealership: '',
 					dealershipName: '',
-					make: '',
-					model: '',
+					makes: [],
+					models: [],
+					colors: [],
+					transmissions: [],
+					drivetrains: [],
+					categories: [],
 					condition: '',
 					priceRange: [0, 1000000],
 					mileageRange: [0, 500000],
-					yearRange: [1900, new Date().getFullYear()],
-					color: '',
-					transmission: '',
-					drivetrain: '',
-					categories: []
+					yearRange: [1900, new Date().getFullYear()]
 				}
 			)
 		} catch {
 			return {
 				dealership: '',
 				dealershipName: '',
-				make: '',
-				model: '',
+				makes: [],
+				models: [],
+				colors: [],
+				transmissions: [],
+				drivetrains: [],
+				categories: [],
 				condition: '',
 				priceRange: [0, 1000000],
 				mileageRange: [0, 500000],
-				yearRange: [1900, new Date().getFullYear()],
-				color: '',
-				transmission: '',
-				drivetrain: '',
-				categories: []
+				yearRange: [1900, new Date().getFullYear()]
 			}
 		}
 	})
@@ -461,13 +505,21 @@ const FilterPage = () => {
 		if (!error) setMakes([...new Set(data?.map(item => item.make))])
 	}
 
-	const fetchModels = async (make: any) => {
+	const fetchModels = async (makes: string[]) => {
+		if (makes.length === 0) {
+			setModels([])
+			return
+		}
+
 		const { data, error } = await supabase
 			.from('cars')
 			.select('model')
-			.eq('make', make)
+			.in('make', makes)
 			.order('model')
-		if (!error) setModels([...new Set(data?.map(item => item.model))])
+
+		if (!error) {
+			setModels([...new Set(data?.map(item => item.model))])
+		}
 	}
 
 	const fetchColors = async () => {
@@ -508,7 +560,7 @@ const FilterPage = () => {
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
-			<ScrollView className='flex-1  px-4 py-6'>
+			<ScrollView className='flex-1 px-4 py-6'>
 				<PopularFilters
 					onApply={handlePopularFilterApply}
 					activeFilter={activeFilter}
@@ -519,8 +571,9 @@ const FilterPage = () => {
 						label='Dealership'
 						items={dealerships.map((d: any) => d.name)}
 						value={filters.dealershipName}
+						multiSelect={false}
 						onChange={(value: any) => {
-							const selectedDealership: any = dealerships.find(
+							const selectedDealership = dealerships.find(
 								(d: any) => d.name === value
 							)
 							setFilters({
@@ -531,34 +584,39 @@ const FilterPage = () => {
 						}}
 						placeholder='dealerships'
 					/>
+
 					<SearchableSelect
 						label='Make'
 						items={makes}
-						value={filters.make}
-						onChange={(value: any) => {
-							setFilters({ ...filters, make: value, model: '' })
-							fetchModels(value)
+						values={filters.makes || []}
+						multiSelect={true}
+						onChange={(values: string[]) => {
+							setFilters({ ...filters, makes: values, models: [] })
+							fetchModels(values)
 						}}
 						placeholder='makes'
 					/>
-					{filters.make && (
+
+					{filters.makes && filters.makes.length > 0 && (
 						<SearchableSelect
 							label='Model'
 							items={models}
-							value={filters.model}
-							onChange={(value: any) =>
-								setFilters({ ...filters, model: value })
+							values={filters.models || []}
+							multiSelect={true}
+							onChange={(values: string[]) =>
+								setFilters({ ...filters, models: values })
 							}
 							placeholder='models'
 						/>
 					)}
+
 					<RangeInput
 						label='Price Range'
 						min={0}
 						max={1000000}
 						step={1000}
 						value={filters.priceRange || [0, 1000000]}
-						onChange={(value: any) =>
+						onChange={(value: [number, number]) =>
 							setFilters({ ...filters, priceRange: value })
 						}
 					/>
@@ -571,42 +629,51 @@ const FilterPage = () => {
 						max={500000}
 						step={1000}
 						value={filters.mileageRange || [0, 500000]}
-						onChange={(value: any) =>
+						onChange={(value: [number, number]) =>
 							setFilters({ ...filters, mileageRange: value })
 						}
 					/>
+
 					<RangeInput
 						label='Year Range'
 						min={1900}
 						max={new Date().getFullYear() + 1}
 						step={1}
 						value={filters.yearRange || [1900, new Date().getFullYear()]}
-						onChange={(value: any) =>
+						onChange={(value: [number, number]) =>
 							setFilters({ ...filters, yearRange: value })
 						}
 					/>
+
 					<SearchableSelect
 						label='Color'
 						items={colors}
-						value={filters.color}
-						onChange={(value: any) => setFilters({ ...filters, color: value })}
+						values={filters.colors || []}
+						multiSelect={true}
+						onChange={(values: string[]) =>
+							setFilters({ ...filters, colors: values })
+						}
 						placeholder='colors'
 					/>
+
 					<SearchableSelect
 						label='Transmission'
 						items={['Automatic', 'Manual']}
-						value={filters.transmission}
-						onChange={(value: any) =>
-							setFilters({ ...filters, transmission: value })
+						values={filters.transmissions || []}
+						multiSelect={true}
+						onChange={(values: string[]) =>
+							setFilters({ ...filters, transmissions: values })
 						}
 						placeholder='transmission types'
 					/>
+
 					<SearchableSelect
 						label='Drivetrain'
 						items={['FWD', 'RWD', 'AWD', '4WD', '4x4']}
-						value={filters.drivetrain}
-						onChange={(value: any) =>
-							setFilters({ ...filters, drivetrain: value })
+						values={filters.drivetrains || []}
+						multiSelect={true}
+						onChange={(values: string[]) =>
+							setFilters({ ...filters, drivetrains: values })
 						}
 						placeholder='drivetrain types'
 					/>
@@ -628,35 +695,37 @@ const FilterPage = () => {
 			<View
 				className={`flex-row justify-between p-4 ${
 					isDarkMode ? 'bg-gray' : 'bg-white'
-				} border-t  ${isDarkMode ? 'border-night' : 'border-white'}`}>
+				} border-t ${isDarkMode ? 'border-night' : 'border-white'}`}>
 				<TouchableOpacity
 					className={`py-3 px-6 rounded-full ${
 						isDarkMode ? 'bg-night' : 'bg-night'
 					}`}
 					onPress={() => {
-						setFilters({
+						const emptyFilters: FilterState = {
 							dealership: '',
 							dealershipName: '',
-							make: '',
-							model: '',
+							makes: [],
+							models: [],
+							colors: [],
+							transmissions: [],
+							drivetrains: [],
+							categories: [],
 							condition: '',
 							priceRange: [0, 1000000],
 							mileageRange: [0, 500000],
-							yearRange: [1900, new Date().getFullYear()],
-							color: '',
-							transmission: '',
-							drivetrain: '',
-							categories: []
-						})
+							yearRange: [1900, new Date().getFullYear()]
+						}
+						setFilters(emptyFilters)
 						router.replace({
 							pathname: '/(home)/(user)',
-							params: { filters: JSON.stringify({}) }
+							params: { filters: JSON.stringify(emptyFilters) }
 						})
 					}}>
 					<Text className={isDarkMode ? 'text-white' : 'text-white'}>
 						Clear All
 					</Text>
 				</TouchableOpacity>
+
 				<TouchableOpacity
 					className='bg-red py-3 px-6 rounded-full'
 					onPress={() => {
@@ -671,5 +740,4 @@ const FilterPage = () => {
 		</View>
 	)
 }
-
 export default FilterPage
