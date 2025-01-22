@@ -46,17 +46,17 @@ interface SaleRecord {
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
+  
 	return (
-		<SafeAreaView
-			edges={['top']}
-			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center border-b border-red justify-center pb-2'>
-				<Text className='text-xl font-semibold text-red'>{title}</Text>
-			</View>
-		</SafeAreaView>
+	  <SafeAreaView
+		className={`bg-${isDarkMode ? 'black' : 'white'} `}>
+		<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+		<View className='flex-row ml-6'>
+		  <Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>{title}</Text>
+		</View>
+	  </SafeAreaView>
 	)
-})
+  })
 
 const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 	const daysListed = Math.ceil(

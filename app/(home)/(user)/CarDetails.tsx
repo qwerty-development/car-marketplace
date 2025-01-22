@@ -6,6 +6,7 @@ import CarDetailScreen from './CarDetailModalIOS';
 
 export default function CarDetailsPage() {
   const params = useLocalSearchParams();
+  console.log(params)
   const [car, setCar] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +51,7 @@ export default function CarDetailsPage() {
         <CarDetailScreen
           car={car}
           isDealer={params.isDealerView === 'true'}
+          onFavoritePress={params.onFavoritePress}
         />
       )}
     </View>

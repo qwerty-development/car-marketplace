@@ -29,17 +29,17 @@ const SUBSCRIPTION_WARNING_DAYS = 7
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
+  
 	return (
-		<SafeAreaView
-			edges={['top']}
-			className={`bg-${isDarkMode ? 'black' : 'white'}`}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center border-b border-red justify-center pb-2'>
-				<Text className='text-xl font-semibold text-red'>{title}</Text>
-			</View>
-		</SafeAreaView>
+	  <SafeAreaView
+		className={`bg-${isDarkMode ? 'black' : 'white'} `}>
+		<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+		<View className='flex-row ml-6'>
+		  <Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>{title}</Text>
+		</View>
+	  </SafeAreaView>
 	)
-})
+  })
 
 interface CarListing {
 	id: number
@@ -285,6 +285,33 @@ export default function DealerListings() {
 		[fetchListings]
 	)
 
+	const SpecItem = ({ title, icon, value, isDarkMode }) => (
+		<View className="flex-1 items-center justify-center">
+		  <Text
+			className={`text-xs mb-3 ${
+			  isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+			}`}
+			style={{ textAlign: 'center' }}
+		  >
+			{title}
+		  </Text>
+		  <Ionicons
+			name={icon}
+			size={30}
+			color={isDarkMode ? '#FFFFFF' : '#000000'}
+			style={{ marginVertical: 3 }}
+		  />
+		  <Text
+			className={`text-sm font-bold mt-3 ${
+			  isDarkMode ? 'text-white' : 'text-black'
+			}`}
+			style={{ textAlign: 'center' }}
+		  >
+			{value}
+		  </Text>
+		</View>
+	  );
+
 	const handleMarkAsSold = useCallback(
 		async (soldInfo: { price: string; date: string; buyer_name: string }) => {
 			if (!selectedListing || !dealership || !isSubscriptionValid()) return
@@ -327,147 +354,146 @@ export default function DealerListings() {
 
 				return (
 					<Animated.View
-						entering={FadeInDown}
-						exiting={FadeOutUp}
-						className={`border border-red rounded-lg overflow-hidden mb-4 ${
-							isDarkMode ? '' : 'bg-white'
-						}`}>
-						<Image source={{ uri: item.images[0] }} className='w-full h-48' />
-						<LinearGradient
-							colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.6)']}
-							className='absolute inset-0'
-						/>
-						<View className='absolute top-2 right-2 bg-red/60 rounded-full px-2 py-1'>
-							<Text className='text-white text-xs font-bold uppercase'>
-								{item.status}
-							</Text>
-						</View>
-						<View className='absolute top-2 left-2 flex-row'>
-							<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1 mr-2'>
-								<FontAwesome name='eye' size={12} color='#FFFFFF' />
-								<Text className='text-white text-xs ml-1'>
-									{item.views || 0}
-								</Text>
-							</View>
-							<View className='flex-row items-center bg-black/50 rounded-full px-2 py-1'>
-								<FontAwesome name='heart' size={12} color='#FFFFFF' />
-								<Text className='text-white text-xs ml-1'>
-									{item.likes || 0}
-								</Text>
-							</View>
-						</View>
-						<View className='p-4'>
-							<Text
-								className={`text-lg font-bold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								{item.year} {item.make} {item.model}
-							</Text>
-							<Text className='text-red text-xl font-semibold mt-1'>
-								${item.price.toLocaleString()}
-							</Text>
-							<View className='flex-row justify-between mt-2'>
-								<View className='flex-row items-center'>
-									<FontAwesome
-										name='car'
-										size={14}
-										color={isDarkMode ? '#FFFFFF' : '#000000'}
-									/>
-									<Text
-										className={`ml-1 ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										{item.condition}
-									</Text>
-								</View>
-								<View className='flex-row items-center'>
-									<FontAwesome
-										name='tachometer'
-										size={14}
-										color={isDarkMode ? '#FFFFFF' : '#000000'}
-									/>
-									<Text
-										className={`ml-1 ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										{item.mileage.toLocaleString()} mi
-									</Text>
-								</View>
-								<View className='flex-row items-center'>
-									<FontAwesome
-										name='gears'
-										size={14}
-										color={isDarkMode ? '#FFFFFF' : '#000000'}
-									/>
-									<Text
-										className={`ml-1 ${
-											isDarkMode ? 'text-white' : 'text-black'
-										}`}>
-										{item.transmission}
-									</Text>
-								</View>
-							</View>
-						</View>
-						<View className='flex-row justify-between p-4 border-t border-red'>
-							<TouchableOpacity
-								className={`flex-row items-center justify-center ${
-									subscriptionValid ? 'bg-red' : 'bg-light-text'
-								} py-2 px-4 rounded-full`}
-								onPress={() => {
-									if (subscriptionValid) {
-										setSelectedListing(item)
-										setIsListingModalVisible(true)
-									} else {
-										Alert.alert(
-											'Subscription Expired',
-											'Please renew your subscription to edit listings.'
-										)
-									}
-								}}>
-								<FontAwesome name='edit' size={14} color='#FFFFFF' />
-								<Text className='text-white font-bold ml-2'>Edit</Text>
-							</TouchableOpacity>
-							{item.status !== 'sold' && (
-								<TouchableOpacity
-									className={`flex-row items-center justify-center ${
-										subscriptionValid ? 'bg-green-500' : 'bg-light-text'
-									} py-2 px-4 rounded-full`}
-									onPress={() => {
-										if (subscriptionValid) {
-											setSelectedListing(item)
-											setIsSoldModalVisible(true)
-										} else {
-											Alert.alert(
-												'Subscription Expired',
-												'Please renew your subscription to mark listings as sold.'
-											)
-										}
-									}}>
-									<FontAwesome name='check' size={14} color='#FFFFFF' />
-									<Text className='text-white font-bold ml-2'>
-										Mark as Sold
-									</Text>
-								</TouchableOpacity>
-							)}
-							<TouchableOpacity
-								className={`flex-row items-center justify-center ${
-									subscriptionValid ? 'bg-red' : 'bg-light-text'
-								} py-2 px-4 rounded-full`}
-								onPress={() => {
-									if (subscriptionValid) {
-										handleDeleteListing(item.id)
-									} else {
-										Alert.alert(
-											'Subscription Expired',
-											'Please renew your subscription to delete listings.'
-										)
-									}
-								}}>
-								<FontAwesome name='trash' size={14} color='#FFFFFF' />
-								<Text className='text-white font-bold ml-2'>Delete</Text>
-							</TouchableOpacity>
-						</View>
-					</Animated.View>
+  entering={FadeInDown}
+  exiting={FadeOutUp}
+  className={`m-4 mb-4 ${isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'} rounded-3xl overflow-hidden shadow-xl`}
+>
+  {/* Image and Overlays */}
+  <View className="relative">
+    <Image source={{ uri: item.images[0] }} className="w-full h-[245px]" />
+    
+    {/* Gradient Overlay */}
+    <LinearGradient
+      colors={['transparent', 'rgba(0,0,0,0.7)']}
+      className="absolute bottom-0 left-0 right-0 h-32"
+    />
+
+    {/* Top Actions Row */}
+    <View className="absolute top-4 w-full px-4 flex-row justify-between items-center">
+      <View className="flex-row items-center">
+        {/* Status Badge */}
+        <View className="bg-red/80 rounded-full px-3 py-1 mr-2">
+          <Text className="text-white text-xs font-bold uppercase">
+            {item.status}
+          </Text>
+        </View>
+
+        {/* Views Counter */}
+        <View className="flex-row items-center bg-black/50 rounded-full px-2 py-1 mr-2">
+          <FontAwesome name="eye" size={12} color="#FFFFFF" />
+          <Text className="text-white text-xs ml-1">
+            {item.views || 0}
+          </Text>
+        </View>
+        
+        {/* Likes Counter */}
+        <View className="flex-row items-center bg-black/50 rounded-full px-2 py-1">
+          <FontAwesome name="heart" size={12} color="#FFFFFF" />
+          <Text className="text-white text-xs ml-1">
+            {item.likes || 0}
+          </Text>
+        </View>
+      </View>
+
+      {/* Three Dots Menu */}
+      <TouchableOpacity 
+        className="bg-black/50 rounded-full p-2"
+        onPress={() => {
+          if (!subscriptionValid) {
+            Alert.alert(
+              'Subscription Expired',
+              'Please renew your subscription to manage listings.'
+            );
+            return;
+          }
+          Alert.alert(
+            'Manage Listing',
+            'Choose an action',
+            [
+              {
+                text: 'Edit',
+                onPress: () => {
+                  setSelectedListing(item);
+                  setIsListingModalVisible(true);
+                }
+              },
+              {
+                text: item.status !== 'sold' ? 'Mark as Sold' : 'Mark as Available',
+                onPress: () => {
+                  setSelectedListing(item);
+                  setIsSoldModalVisible(true);
+                }
+              },
+              {
+                text: 'Delete',
+                onPress: () => handleDeleteListing(item.id),
+                style: 'destructive'
+              },
+              {
+                text: 'Cancel',
+                style: 'cancel'
+              }
+            ]
+          );
+        }}
+      >
+        <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+
+    {/* Bottom Content */}
+    <View className="absolute bottom-0 w-full p-4">
+      <View className="flex-row justify-between items-center">
+        <View className="flex-1">
+          <Text className="text-white text-xl font-bold">
+            {item.year} {item.make} {item.model}
+          </Text>
+          <Text className="text-white text-2xl font-bold mt-1">
+            ${item.price.toLocaleString()}
+          </Text>
+        </View>
+      </View>
+    </View>
+  </View>
+
+  {/* Car Specs - Matching User Card Style */}
+  <View className="flex-row justify-between mt-4 mb-4">
+    <SpecItem
+      title="Year"
+      icon="calendar-outline"
+      value={item.year}
+      isDarkMode={isDarkMode}
+    />
+    <SpecItem
+      title="Mileage"
+      icon="speedometer-outline"
+      value={`${(item.mileage / 1000).toFixed(1)}k`}
+      isDarkMode={isDarkMode}
+    />
+    <SpecItem
+      title="Transm."
+      icon="cog-outline"
+      value={
+        item.transmission === 'Automatic'
+          ? 'Auto'
+          : item.transmission === 'Manual'
+          ? 'Man'
+          : item.transmission
+      }
+      isDarkMode={isDarkMode}
+    />
+    <SpecItem
+      title="Condition"
+      icon="car-sport-outline"
+      value={item.condition}
+      isDarkMode={isDarkMode}
+    />
+  </View>
+
+  <View className="w-full px-4">
+    <View className="h-[0.5px] bg-textgray opacity-30" />
+  </View>
+</Animated.View>
 				)
 			}),
 		[

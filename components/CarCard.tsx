@@ -124,7 +124,8 @@ export default function CarCard({
       params: { 
         carId: car.id,
         car: JSON.stringify(car),
-        isDealerView: isDealer 
+        isDealerView: isDealer ,
+        onFavoritePress:onFavoritePress
       }
     })
   }, [router, car, isDealer])

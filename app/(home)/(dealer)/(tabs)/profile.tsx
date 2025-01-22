@@ -29,19 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { BlurView } from 'expo-blur'
 
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
-	return (
-		<SafeAreaView
-			edges={['top']}
-			className={`${isDarkMode ? 'bg-black' : 'bg-white'} border-b border-red`}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row items-center justify-center py-4'>
-				<Text className='text-xl font-bold text-red'>{title}</Text>
-			</View>
-		</SafeAreaView>
-	)
-})
+
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 
@@ -536,7 +524,6 @@ export default function DealershipProfilePage() {
 		<KeyboardAvoidingView
 			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
-			<CustomHeader title='Dealership Profile' />
 			{subscriptionExpired && (
 				<View className='bg-rose-700 p-4'>
 					<Text className='text-white text-center font-bold'>
@@ -552,6 +539,7 @@ export default function DealershipProfilePage() {
 					</Text>
 				</View>
 			)}
+			<SafeAreaView>
 			<ScrollView
 				refreshControl={
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -674,6 +662,7 @@ export default function DealershipProfilePage() {
 					</TouchableOpacity>
 				</View>
 			</ScrollView>
+			</SafeAreaView>
 
 			<Modal visible={mapVisible} animationType='slide'>
 				<View style={{ flex: 1 }}>
