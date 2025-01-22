@@ -22,6 +22,7 @@ import CategorySelector from '@/components/Category'
 import { RefreshControl } from 'react-native'
 import { Animated } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import SortPicker from '@/components/SortPicker'
 
 const ITEMS_PER_PAGE = 7
 
@@ -56,6 +57,19 @@ interface Filters {
 	specialFilter?: 'newArrivals' | 'mostPopular' | 'bestDeals'
 	sortBy?: string
 }
+const sortOptions = [
+	{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
+	{ label: 'Price: Low to High', value: 'price_asc', icon: 'trending-up' },
+	{ label: 'Price: High to Low', value: 'price_desc', icon: 'trending-down' },
+	{ label: 'Year: New to Old', value: 'year_desc', icon: 'calendar' },
+	{ label: 'Year: Old to New', value: 'year_asc', icon: 'calendar-outline' },
+	{ label: 'Mileage: Low to High', value: 'mileage_asc', icon: 'speedometer' },
+	{
+		label: 'Mileage: High to Low',
+		value: 'mileage_desc',
+		icon: 'speedometer-outline'
+	}
+]
 
 export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
@@ -442,10 +456,8 @@ export default function BrowseCarsPage() {
 					isDarkMode && styles.darkContainer,
 					{ backgroundColor: 'transparent' }
 				]}>
-				// In the SearchContainer View, update the layout:
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
-						{/* Main Search Bar with magnifying glass icon */}
 						<View
 							style={[
 								styles.searchBar,
@@ -497,8 +509,17 @@ export default function BrowseCarsPage() {
 								</TouchableOpacity>
 							)}
 						</View>
-
-						{/* Favorites Button */}
+						<View style={styles.sortPickerContainer}>
+							<SortPicker
+								onValueChange={(value: any) => {
+									setSortOption(value)
+									fetchCars(1, filters, value, searchQuery)
+								}}
+								initialValue={sortOptions.find(
+									(option: { value: string }) => option.value === sortOption
+								)}
+							/>
+						</View>
 					</View>
 				</View>
 				<FlatList
@@ -657,5 +678,8 @@ const styles = StyleSheet.create({
 		aspectRatio: 1,
 		justifyContent: 'center',
 		alignItems: 'center'
+	},
+	sortPickerContainer: {
+		paddingHorizontal: 10
 	}
 })
