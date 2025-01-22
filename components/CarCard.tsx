@@ -10,7 +10,8 @@ import {
 	Image,
 	ActivityIndicator,
 	TouchableWithoutFeedback,
-	Pressable
+	Pressable,
+	Share
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
@@ -130,10 +131,6 @@ export default function CarCard({
 		})
 	}, [router, car, isDealer])
 
-	const formattedPrice = useMemo(() => {
-		return `$${car.price.toLocaleString()}`
-	}, [car.price])
-
 	const handleCall = useCallback(() => {
 		if (car.dealership_phone) {
 			Linking.openURL(`tel:${car.dealership_phone}`)
@@ -141,6 +138,27 @@ export default function CarCard({
 			Alert.alert('Phone number not available')
 		}
 	}, [car.dealership_phone])
+
+	const handleShare = useCallback(async () => {
+		try {
+			const message =
+				`Check out this ${car.year} ${car.make} ${car.model}\n` +
+				`Price: $${car.price.toLocaleString()}\n` +
+				`Mileage: ${(car.mileage / 1000).toFixed(1)}k miles\n` +
+				`Condition: ${car.condition}\n` +
+				`At: ${car.dealership_name}\n` +
+				`Contact: ${
+					car.dealership_phone || 'Contact dealer for more information'
+				}`
+
+			await Share.share({
+				message,
+				title: `${car.year} ${car.make} ${car.model}`
+			})
+		} catch (error) {
+			Alert.alert('Error', 'Failed to share car details')
+		}
+	}, [car])
 
 	const handleDealershipPress = useCallback(() => {
 		const route = isDealer
@@ -163,23 +181,6 @@ export default function CarCard({
 		return car.dealership_location
 	}, [car.dealership_location])
 
-	const handleWhatsApp = useCallback(() => {
-		if (car.dealership_phone) {
-			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model}.`
-			Linking.openURL(
-				`https://wa.me/${car.dealership_phone}?text=${encodeURIComponent(
-					message
-				)}`
-			)
-		} else {
-			Alert.alert('WhatsApp number not available')
-		}
-	}, [car])
-
-	const handleChat = useCallback(() => {
-		Alert.alert('Chat feature coming soon!')
-	}, [])
-
 	const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
 		if (viewableItems.length > 0) {
 			setCurrentImageIndex(viewableItems[0].index)
@@ -191,7 +192,7 @@ export default function CarCard({
 	}).current
 
 	const renderImage = useCallback(
-		({ item, index }: any) => (
+		({ item }: any) => (
 			<Pressable onPress={handleCardPress}>
 				<View className='relative'>
 					<OptimizedImage
@@ -207,13 +208,27 @@ export default function CarCard({
 						className='absolute bottom-0 left-0 right-0 h-32'
 					/>
 
-					<StyledView className='absolute bottom-0 w-full p-4 flex-row justify-between items-center'>
-						<StyledView className='flex-1'>
-							<StyledText className='text-white text-2xl font-bold mb-1'>
+					{/* Updated layout for car info and price */}
+					<View className='absolute bottom-0 w-full p-4'>
+						{/* Price section - Now positioned absolutely */}
+						<View className='absolute top-4 right-4 z-10'>
+							<StyledView className='bg-red/90 px-4 py-2 rounded-2xl backdrop-blur-sm'>
+								<StyledText className='text-white text-lg font-extrabold'>
+									${car.price.toLocaleString()}
+								</StyledText>
+							</StyledView>
+						</View>
+
+						{/* Car details section with flex-1 to take remaining space */}
+						<View className='pr-32'>
+							{' '}
+							{/* Added right padding to prevent overlap with price */}
+							<StyledText
+								className='text-white text-xl font-bold mb-1'
+								numberOfLines={1}>
 								{car.make} {car.model}
 							</StyledText>
-
-							<View className='flex-row items-center'>
+							<View className='flex-row items-center flex-wrap'>
 								<View className='flex-row items-center mr-4'>
 									<Ionicons name='eye-outline' size={16} color='#FFF' />
 									<StyledText className='text-zinc-200 text-sm ml-1'>
@@ -236,14 +251,8 @@ export default function CarCard({
 									</View>
 								)}
 							</View>
-						</StyledView>
-
-						<StyledView className='bg-red/90 px-4 py-2 rounded-2xl backdrop-blur-sm'>
-							<StyledText className='text-white text-lg font-extrabold'>
-								${car.price.toLocaleString()}
-							</StyledText>
-						</StyledView>
-					</StyledView>
+						</View>
+					</View>
 
 					{!isDealer && (
 						<StyledTouchableOpacity
@@ -261,15 +270,7 @@ export default function CarCard({
 				</View>
 			</Pressable>
 		),
-		[
-			car,
-			isFavorite,
-			isDealer,
-			onFavoritePress,
-			isDarkMode,
-			currentImageIndex,
-			handleCardPress
-		]
+		[car, isFavorite, isDealer, onFavoritePress, isDarkMode, handleCardPress]
 	)
 
 	return (
@@ -380,9 +381,9 @@ export default function CarCard({
 									isDarkMode={isDarkMode}
 								/>
 								<ActionButton
-									icon='chatbubble-outline'
-									onPress={handleChat}
-									text='Chat'
+									icon='share-outline'
+									onPress={handleShare}
+									text='Share'
 									isDarkMode={isDarkMode}
 								/>
 							</StyledView>
