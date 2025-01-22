@@ -7,17 +7,13 @@ import {
 	ActivityIndicator,
 	StyleSheet,
 	Text,
-	Platform,
 	Keyboard
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '../CarDetailModal'
-import CarDetailModalIOS from '../CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
-import SortPicker from '@/components/SortPicker'
 import ByBrands from '@/components/ByBrands'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -57,6 +53,8 @@ interface Filters {
 	priceRange?: [number, number]
 	mileageRange?: [number, number]
 	categories?: string[]
+	specialFilter?: 'newArrivals' | 'mostPopular' | 'bestDeals'
+	sortBy?: string
 }
 
 export default function BrowseCarsPage() {
@@ -126,6 +124,25 @@ export default function BrowseCarsPage() {
 					)
 					.eq('status', 'available')
 
+				// Handle special filters first
+				if (currentFilters.specialFilter) {
+					switch (currentFilters.specialFilter) {
+						case 'newArrivals':
+							const sevenDaysAgo = new Date()
+							sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+							queryBuilder = queryBuilder.gte(
+								'listed_at',
+								sevenDaysAgo.toISOString()
+							)
+							break
+
+						case 'mostPopular':
+							currentSortOption = 'views_desc'
+							break
+					}
+				}
+
+				// Apply standard filters
 				if (currentFilters.categories && currentFilters.categories.length > 0) {
 					queryBuilder = queryBuilder.in('category', currentFilters.categories)
 				}
@@ -176,11 +193,11 @@ export default function BrowseCarsPage() {
 						.lte('mileage', currentFilters.mileageRange[1])
 				}
 
+				// Handle search query
 				if (query) {
 					const cleanQuery = query.trim().toLowerCase()
 					const searchTerms = cleanQuery.split(/\s+/)
 
-					// Apply each search term with AND logic
 					searchTerms.forEach(term => {
 						const numericTerm = parseInt(term)
 						let searchConditions = [
@@ -195,7 +212,6 @@ export default function BrowseCarsPage() {
 							`condition.ilike.%${term}%`
 						]
 
-						// Add numeric conditions if the term is a number
 						if (!isNaN(numericTerm)) {
 							searchConditions = searchConditions.concat([
 								`year::text.eq.${numericTerm}`,
@@ -204,7 +220,6 @@ export default function BrowseCarsPage() {
 							])
 						}
 
-						// Apply OR conditions for this term
 						queryBuilder = queryBuilder.or(searchConditions.join(','))
 					})
 				}
@@ -228,6 +243,9 @@ export default function BrowseCarsPage() {
 						break
 					case 'mileage_desc':
 						queryBuilder = queryBuilder.order('mileage', { ascending: false })
+						break
+					case 'views_desc':
+						queryBuilder = queryBuilder.order('views', { ascending: false })
 						break
 					default:
 						queryBuilder = queryBuilder.order('listed_at', { ascending: false })
@@ -307,32 +325,18 @@ export default function BrowseCarsPage() {
 		[toggleFavorite]
 	)
 
-	const handleCarPress = useCallback((car: Car) => {
-		router.push({
-		  pathname: '/(home)/(user)/CarDetails',
-		  params: {
-			carId: car.id,
-			// Pass minimal data needed for initial render
-			make: car.make,
-			model: car.model,
-			year: car.year,
-			price: car.price,
-			isDealerView: false
-		  }
-		});
-	  }, [router]);
-	  const renderCarItem = useCallback(
+	const renderCarItem = useCallback(
 		({ item, index }: { item: Car; index: number }) => (
-		  <CarCard
-			car={item}
-			index={index}
-			onFavoritePress={() => handleFavoritePress(item.id)}
-			isFavorite={isFavorite(Number(item.id))}
-			isDealer={false}
-		  />
+			<CarCard
+				car={item}
+				index={index}
+				onFavoritePress={() => handleFavoritePress(item.id)}
+				isFavorite={isFavorite(Number(item.id))}
+				isDealer={false}
+			/>
 		),
 		[handleFavoritePress, isFavorite]
-	  );
+	)
 
 	const openFilterPage = useCallback(() => {
 		router.push({
@@ -425,8 +429,6 @@ export default function BrowseCarsPage() {
 			),
 		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
 	)
-
-
 
 	return (
 		<LinearGradient
@@ -558,7 +560,6 @@ export default function BrowseCarsPage() {
 						/>
 					</TouchableOpacity>
 				)}
-				
 			</SafeAreaView>
 		</LinearGradient>
 	)
