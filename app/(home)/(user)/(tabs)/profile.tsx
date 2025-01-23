@@ -20,6 +20,7 @@ import ThemeSwitch from '@/components/ThemeSwitch'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useNotifications } from '@/hooks/useNotifications'
 import { setIsSigningOut } from '@/app/(home)/_layout'
+import { LinearGradient } from 'expo-linear-gradient'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
@@ -156,7 +157,7 @@ export default function UserProfileAndSupportPage() {
 
 	return (
 		<ScrollView
-			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
+			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'} mb-10`}
 			refreshControl={
 				<RefreshControl
 					refreshing={refreshing}
@@ -165,92 +166,110 @@ export default function UserProfileAndSupportPage() {
 					colors={['#D55004']}
 				/>
 			}>
-			<View
-				className={`${
-					isDarkMode ? 'bg-red' : 'bg-red'
-				} pt-12 pb-8 rounded-b-3xl shadow-lg`}>
-				<View className='flex-row justify-end px-4 mb-4'>
-					<NotificationBell />
-				</View>
+			<View className='relative'>
+				<LinearGradient
+					colors={isDarkMode ? ['#D55004', '#1a1a1a'] : ['#D55004', '#ff8c00']}
+					className='pt-12 pb-24 rounded-b-[40px]'>
+					<View className='flex-row justify-end px-6'>
+						<NotificationBell />
+					</View>
 
-				{/* Profile image section */}
-				<View className='items-center'>
-					<Image
-						source={{ uri: user?.imageUrl }}
-						className='w-36 h-36 rounded-full border-4 border-white mb-6'
-					/>
-					<TouchableOpacity
-						className='bg-white px-6 py-3 rounded-full shadow-md'
-						onPress={onPickImage}>
-						<Text className='text-red font-semibold text-lg'>
-							Change Picture
+					<View className='items-center mt-6'>
+						<View className='relative'>
+							<Image
+								source={{ uri: user?.imageUrl }}
+								className='w-32 h-32 rounded-full border-4 border-white/20'
+							/>
+							<TouchableOpacity
+								onPress={onPickImage}
+								className='absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg'>
+								<Ionicons name='camera' size={20} color='#D55004' />
+							</TouchableOpacity>
+						</View>
+
+						<Text className='text-white text-xl font-semibold mt-4'>
+							{firstName} {lastName}
 						</Text>
-					</TouchableOpacity>
+						<Text className='text-white/80 text-sm'>{email}</Text>
+					</View>
+				</LinearGradient>
+
+				{/* Theme Toggle */}
+				<View className='absolute top-14 left-6'>
+					<ThemeSwitch />
 				</View>
 			</View>
 
-			<View className='px-6 mt-8'>
-				<View className='flex-row justify-between items-center mb-6'>
-					<Text
-						className={`text-3xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Profile Information
-					</Text>
-					<ThemeSwitch />
-				</View>
+			{/* Content Section */}
+			<View className='px-6 -mt-12'>
+				{/* Profile Information Card */}
 				<View
 					className={`${
-						isDarkMode ? 'bg-gray' : 'bg-white'
-					} rounded-2xl shadow-md p-6 mb-8`}>
+						isDarkMode ? 'bg-neutral-800 ' : 'bg-white'
+					} rounded-3xl p-6 shadow-sm`}>
 					{isChangePasswordMode ? (
 						<>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4 border border-red`}
-								value={currentPassword}
-								onChangeText={setCurrentPassword}
-								placeholder='Current Password'
-								placeholderTextColor='gray'
-								secureTextEntry
-								cursorColor='#D55004'
-								autoComplete='password'
-							/>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4 border border-red`}
-								value={newPassword}
-								onChangeText={setNewPassword}
-								placeholder='New Password'
-								placeholderTextColor='gray'
-								secureTextEntry
-								cursorColor='#D55004'
-								autoComplete='password'
-							/>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4 border border-red`}
-								value={confirmPassword}
-								onChangeText={setConfirmPassword}
-								placeholder='Confirm New Password'
-								placeholderTextColor='gray'
-								secureTextEntry
-								cursorColor='#D55004'
-								autoComplete='password'
-							/>
-							<View className='flex-row justify-between mt-4'>
+							<View className='space-y-4'>
+								<TextInput
+									className={`${
+										isDarkMode
+											? 'bg-neutral-800/50 text-white'
+											: 'bg-neutral-800/5 text-black'
+									}
+                  p-4 rounded-2xl border border-red`}
+									value={currentPassword}
+									onChangeText={setCurrentPassword}
+									placeholder='Current Password'
+									placeholderTextColor={isDarkMode ? '#999' : '#666'}
+									secureTextEntry
+									cursorColor='#D55004'
+								/>
+								<TextInput
+									className={`${
+										isDarkMode
+											? 'bg-neutral-700/50 text-white'
+											: 'bg-neutral-700/5 text-black'
+									}
+                  p-4 rounded-2xl border border-red`}
+									value={newPassword}
+									onChangeText={setNewPassword}
+									placeholder='New Password'
+									placeholderTextColor={isDarkMode ? '#999' : '#666'}
+									secureTextEntry
+									cursorColor='#D55004'
+								/>
+								<TextInput
+									className={`${
+										isDarkMode
+											? 'bg-neutral-700/50 text-white'
+											: 'bg-neutral-700/5 text-black'
+									}
+                  p-4 rounded-2xl border border-red`}
+									value={confirmPassword}
+									onChangeText={setConfirmPassword}
+									placeholder='Confirm New Password'
+									placeholderTextColor={isDarkMode ? '#999' : '#666'}
+									secureTextEntry
+									cursorColor='#D55004'
+								/>
+							</View>
+							<View className='flex-row space-x-4 mt-6'>
 								<TouchableOpacity
-									className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
+									className='flex-1 bg-neutral-600/10 p-4 rounded-2xl'
 									onPress={() => setIsChangePasswordMode(false)}>
-									<Text className='text-white font-bold text-lg'>Cancel</Text>
+									<Text
+										className={`text-center font-semibold ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										Cancel
+									</Text>
 								</TouchableOpacity>
 								<TouchableOpacity
-									className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
+									className='flex-1 bg-red p-4 rounded-2xl'
 									onPress={handleChangePassword}>
-									<Text className='text-white font-bold text-lg'>Confirm</Text>
+									<Text className='text-center text-white font-semibold'>
+										Update
+									</Text>
 								</TouchableOpacity>
 							</View>
 						</>
@@ -258,155 +277,159 @@ export default function UserProfileAndSupportPage() {
 						<>
 							<Text
 								className={`${
-									isDarkMode ? 'text-white' : 'text-gray'
-								} text-sm font-semibold mb-2`}>
-								First Name
+									isDarkMode ? 'text-white/60' : 'text-textgray'
+								} text-xs uppercase tracking-wider mb-6`}>
+								Personal Information
 							</Text>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4 border border-red`}
-								value={firstName}
-								onChangeText={setFirstName}
-								placeholder='First Name'
-								placeholderTextColor='gray'
-								cursorColor='#D55004'
-								autoComplete='name'
-								autoCapitalize='words'
-							/>
-							<Text
-								className={`${
-									isDarkMode ? 'text-white' : 'text-gray'
-								} text-sm font-semibold mb-2`}>
-								Last Name
-							</Text>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4 border border-red`}
-								value={lastName}
-								onChangeText={setLastName}
-								placeholder='Last Name'
-								placeholderTextColor='gray'
-								cursorColor='#D55004'
-								autoComplete='name'
-								autoCapitalize='words'
-							/>
-							<Text
-								className={`${
-									isDarkMode ? 'text-white' : 'text-gray'
-								} text-sm font-semibold mb-2`}>
-								Email
-							</Text>
-							<TextInput
-								className={`${
-									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-								} p-4 rounded-xl mb-4 border border-red`}
-								value={email}
-								placeholder='Email'
-								keyboardType='email-address'
-								editable={false}
-								placeholderTextColor='gray'
-								cursorColor='#D55004'
-								autoComplete='email'
-							/>
-							<TouchableOpacity
-								className='bg-red p-4 rounded-xl items-center mt-4'
-								onPress={updateProfile}>
-								<Text className='text-white font-bold text-xl'>
-									Update Profile
-								</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								className='bg-yellow-600 p-4 rounded-xl items-center mt-4 flex-row justify-center'
-								onPress={() => setIsChangePasswordMode(true)}>
-								<Ionicons
-									name='key-outline'
-									size={24}
-									color='white'
-									style={{ marginRight: 8 }}
+							<View className='space-y-4'>
+								<TextInput
+									className={`${
+										isDarkMode
+											? 'bg-neutral-700/50 text-white'
+											: 'bg-neutral-700/5 text-black'
+									}
+                  p-4 rounded-2xl border border-red`}
+									value={firstName}
+									onChangeText={setFirstName}
+									placeholder='First Name'
+									placeholderTextColor={isDarkMode ? '#999' : '#666'}
+									cursorColor='#D55004'
 								/>
-								<Text className='text-white font-bold text-xl'>
-									Change Password
-								</Text>
-							</TouchableOpacity>
+								<TextInput
+									className={`${
+										isDarkMode
+											? 'bg-neutral-700/50 text-white'
+											: 'bg-neutral-700/5 text-black'
+									}
+                  p-4 rounded-2xl border border-red`}
+									value={lastName}
+									onChangeText={setLastName}
+									placeholder='Last Name'
+									placeholderTextColor={isDarkMode ? '#999' : '#666'}
+									cursorColor='#D55004'
+								/>
+								<TextInput
+									className={`${
+										isDarkMode
+											? 'bg-neutral-700/50 text-white'
+											: 'bg-neutral-700/5 text-black'
+									}
+                  p-4 rounded-2xl border border-red`}
+									value={email}
+									editable={false}
+									placeholder='Email'
+									placeholderTextColor={isDarkMode ? '#999' : '#666'}
+								/>
+							</View>
+
+							<View className='space-y-3 mt-6'>
+								<TouchableOpacity
+									className='bg-red p-4 rounded-2xl'
+									onPress={updateProfile}>
+									<Text className='text-center text-white font-semibold'>
+										Update Profile
+									</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									className='flex-row items-center justify-center p-4 rounded-2xl border border-red/30'
+									onPress={() => setIsChangePasswordMode(true)}>
+									<Ionicons
+										name='key-outline'
+										size={20}
+										color={isDarkMode ? '#fff' : '#000'}
+										className='mr-2'
+									/>
+									<Text
+										className={`font-semibold ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}>
+										Change Password
+									</Text>
+								</TouchableOpacity>
+							</View>
 						</>
 					)}
 				</View>
 
-				<Text
-					className={`text-3xl font-bold ${
-						isDarkMode ? 'text-white' : 'text-black'
-					} mb-6`}>
-					Contact Support
-				</Text>
-				<View
-					className={`${
-						isDarkMode ? 'bg-gray' : 'bg-white'
-					} rounded-2xl shadow-md p-6 mb-8`}>
-					<TouchableOpacity
-						className='flex-row items-center mb-6'
-						onPress={openWhatsApp}>
-						<View className='bg-green-500 p-4 rounded-full mr-5'>
-							<Feather name='message-circle' size={28} color='white' />
-						</View>
-						<View>
-							<Text
-								className={`text-xl font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Chat on WhatsApp
-							</Text>
-							<Text className='text-blue-500'>
-								Quick responses, 24/7 support
-							</Text>
-						</View>
-					</TouchableOpacity>
-					<TouchableOpacity
-						className='flex-row items-center'
-						onPress={openEmail}>
-						<View className='bg-[#ff4343] p-4 rounded-full mr-5'>
-							<Feather name='mail' size={28} color='white' />
-						</View>
-						<View>
-							<Text
-								className={`text-xl font-semibold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Send an Email
-							</Text>
-							<Text className='text-blue-500'>
-								Detailed inquiries and feedback
-							</Text>
-						</View>
-					</TouchableOpacity>
-				</View>
-
-				<View
-					className={`border border-red rounded-2xl shadow-md p-6 mb-8 ${
-						isDarkMode ? 'bg-gray' : 'bg-white'
-					}`}>
+				{/* Support Section */}
+				<View className='mt-8 space-y-4'>
 					<Text
-						className={`text-xl font-semibold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mb-4`}>
-						Support Hours
+						className={`${
+							isDarkMode ? 'text-white/60' : 'text-textgray'
+						} text-xs uppercase tracking-wider`}>
+						Support & Help
 					</Text>
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
-						Monday - Friday: 9AM - 6PM
-					</Text>
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
-						Saturday: 10AM - 4PM
-					</Text>
-					<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
-						Sunday: Closed
-					</Text>
+
+					<TouchableOpacity
+						onPress={openWhatsApp}
+						className={`${
+							isDarkMode ? 'bg-neutral-800/50' : 'bg-neutral-100'
+						} p-4 rounded-2xl flex-row items-center`}>
+						<View className='bg-green-500/10 p-3 rounded-xl'>
+							<Feather name='message-circle' size={22} color='#22c55e' />
+						</View>
+						<View className='ml-4'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								WhatsApp Support
+							</Text>
+							<Text
+								className={`text-xs ${
+									isDarkMode ? 'text-white/60' : 'text-textgray'
+								}`}>
+								Available 24/7
+							</Text>
+						</View>
+						<Ionicons
+							name='chevron-forward'
+							size={20}
+							color={isDarkMode ? '#fff' : '#000'}
+							style={{ marginLeft: 'auto' }}
+						/>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						onPress={openEmail}
+						className={`${
+							isDarkMode ? 'bg-neutral-800/50' : 'bg-neutral-100'
+						} p-4 rounded-2xl flex-row items-center`}>
+						<View className='bg-blue-500/10 p-3 rounded-xl'>
+							<Feather name='mail' size={22} color='#3b82f6' />
+						</View>
+						<View className='ml-4'>
+							<Text
+								className={`font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Email Support
+							</Text>
+							<Text
+								className={`text-xs ${
+									isDarkMode ? 'text-white/60' : 'text-gray'
+								}`}>
+								Detailed inquiries
+							</Text>
+						</View>
+						<Ionicons
+							name='chevron-forward'
+							size={20}
+							color={isDarkMode ? '#fff' : '#000'}
+							style={{ marginLeft: 'auto' }}
+						/>
+					</TouchableOpacity>
 				</View>
 
-				<TouchableOpacity
-					className='bg-rose-600  p-5 mb-24 rounded-xl items-center '
-					onPress={handleSignOut}>
-					<Text className='text-white font-bold text-xl'>Sign Out</Text>
+				{/* Sign Out Button */}
+				<TouchableOpacity className='mt-8 mb-12' onPress={handleSignOut}>
+					<Text
+						className={`text-center ${
+							isDarkMode ? 'text-red' : 'text-red'
+						} font-semibold border border-red p-4 rounded-2xl`}>
+						Sign Out
+					</Text>
 				</TouchableOpacity>
 			</View>
 		</ScrollView>
