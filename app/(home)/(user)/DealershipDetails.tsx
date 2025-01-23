@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import MapView, { Marker } from 'react-native-maps'
 import * as Linking from 'expo-linking'
+import DealershipAutoClips from '@/components/DealershipAutoClips'
 const ITEMS_PER_PAGE = 10
 
 const OptimizedImage = React.memo(({ source, style, className }: any) => {
@@ -229,6 +230,10 @@ export default function DealershipDetails() {
 			setIsDealershipLoading(false)
 		}
 	}, [dealershipId])
+
+	useEffect(() => {
+		fetchDealershipDetails()
+	}, [])
 
 	const fetchDealershipCars = useCallback(
 		async (page = 1, refresh = false) => {
