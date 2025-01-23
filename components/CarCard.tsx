@@ -9,7 +9,6 @@ import {
 	FlatList,
 	Image,
 	ActivityIndicator,
-	TouchableWithoutFeedback,
 	Pressable,
 	Share
 } from 'react-native'
@@ -22,9 +21,10 @@ import { LinearGradient } from 'expo-linear-gradient'
 const StyledView = styled(View)
 const StyledText = styled(Text)
 const StyledImage = styled(Image)
-const StyledTouchableOpacity = styled(TouchableOpacity)
+const StyledPressable = styled(Pressable)
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
+const MAX_IMAGES = 3
 
 const OptimizedImage = ({ source, style, onLoad }: any) => {
 	const [loaded, setLoaded] = useState(false)
@@ -36,24 +36,19 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 	}, [onLoad])
 
 	return (
-		<View style={[style, { overflow: 'hidden' }]}>
+		<View style={[style, { overflow: 'hidden' }]} className='bg-neutral-800'>
 			{!loaded && (
 				<View
-					style={[
-						style,
-						{
-							backgroundColor: isDarkMode ? '#2D2D2D' : '#E0E0E0',
-							position: 'absolute',
-							justifyContent: 'center',
-							alignItems: 'center'
-						}
-					]}>
+					className={`absolute inset-0 justify-center items-center ${
+						isDarkMode ? 'bg-night' : 'bg-gray '
+					}`}>
 					<ActivityIndicator size='large' color='#D55004' />
 				</View>
 			)}
 			<StyledImage
 				source={source}
-				style={[style, { opacity: loaded ? 1 : 0 }]}
+				className='w-full h-full bg-neutral-800'
+				style={{ opacity: loaded ? 1 : 0 }}
 				onLoad={handleLoad}
 				resizeMode='cover'
 			/>
@@ -62,48 +57,49 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 }
 
 const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
-	<StyledView className='flex-1 items-center justify-center'>
-		<StyledText
-			className={`text-xs mb-1 ${
-				isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
-			}`}
-			style={{ textAlign: 'center' }}>
-			{title}
-		</StyledText>
+	<StyledView className='flex-1 items-center justify-center p-2'>
 		<Ionicons
 			name={icon}
-			size={30}
-			color={isDarkMode ? '#FFFFFF' : '#000000'}
-			style={{ marginVertical: 1 }}
+			size={28}
+			color={isDarkMode ? '#FFFFFF' : '#4C4C4C'}
+			className='mb-1.5'
 		/>
 		<StyledText
-			className={`text-sm font-bold mt-1 ${
-				isDarkMode ? 'text-white' : 'text-black'
+			className={`text-xs font-medium ${
+				isDarkMode ? 'text-white' : 'text-textgray'
+			} mb-0.5`}
+			numberOfLines={1}>
+			{title}
+		</StyledText>
+		<StyledText
+			className={`text-sm font-semibold ${
+				isDarkMode ? 'text-white' : 'text-light-text'
 			}`}
-			style={{ textAlign: 'center' }}>
+			numberOfLines={1}>
 			{value}
 		</StyledText>
 	</StyledView>
 )
 
 const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
-	<StyledTouchableOpacity
+	<StyledPressable
 		onPress={onPress}
-		className='items-center justify-center px-4'>
+		className='items-center justify-center p-2.5 active:opacity-70'>
 		<Ionicons
 			name={icon}
-			size={25}
-			color={isDarkMode ? '#FFFFFF' : '#000000'}
+			size={24}
+			color={isDarkMode ? '#FFFFFF' : '#4C4C4C'}
+			className='mb-0.5'
 		/>
 		{text && (
 			<StyledText
-				className={`text-xs mt-0.5 ${
-					isDarkMode ? 'text-white' : 'text-black'
+				className={`text-xs font-medium ${
+					isDarkMode ? 'text-white' : 'text-textgray'
 				}`}>
 				{text}
 			</StyledText>
 		)}
-	</StyledTouchableOpacity>
+	</StyledPressable>
 )
 
 export default function CarCard({
@@ -190,96 +186,105 @@ export default function CarCard({
 		itemVisiblePercentThreshold: 50
 	}).current
 
+	const displayedImages = useMemo(
+		() => car.images.slice(0, MAX_IMAGES),
+		[car.images]
+	)
+
 	const renderImage = useCallback(
 		({ item }: any) => (
-			<Pressable onPress={handleCardPress}>
-				<View className='relative'>
+			<Pressable onPress={handleCardPress} className='bg-neutral-800'>
+				<View className='relative bg-neutral-800 '>
 					<OptimizedImage
 						source={{ uri: item }}
-						style={{
-							width: SCREEN_WIDTH - 30,
-							height: 245
-						}}
+						style={{ width: SCREEN_WIDTH - 32, height: 260 }}
 					/>
 
 					<LinearGradient
-						colors={['transparent', 'rgba(0,0,0,0.7)']}
-						className='absolute bottom-0 left-0 right-0 h-32'
+						colors={['transparent', 'rgba(0,0,0,0.8)']}
+						className='absolute bottom-0 left-0 right-0 h-40'
 					/>
 
-					{/* Updated layout for car info and price */}
-					<View className='absolute bottom-0 w-full p-4'>
-						{/* Price section - Now positioned absolutely */}
-						<View className='absolute top-4 right-4 z-10'>
-							<StyledView className='bg-red/90 px-4 py-2 rounded-2xl backdrop-blur-sm'>
-								<StyledText className='text-white text-lg font-extrabold'>
-									${car.price.toLocaleString()}
-								</StyledText>
-							</StyledView>
-						</View>
-
-						{/* Car details section with flex-1 to take remaining space */}
-						<View className='pr-32'>
-							{' '}
-							{/* Added right padding to prevent overlap with price */}
-							<StyledText
-								className='text-white text-xl font-bold mb-1'
-								numberOfLines={1}>
-								{car.make} {car.model}
+					{/* Price Badge */}
+					<View className='absolute top-4 right-4 z-10'>
+						<StyledView className='bg-red/90 px-4 py-2.5 rounded-2xl shadow-lg'>
+							<StyledText className='text-white text-lg font-extrabold'>
+								${car.price.toLocaleString()}
 							</StyledText>
-							<View className='flex-row items-center flex-wrap'>
-								<View className='flex-row items-center mr-4'>
-									<Ionicons name='eye-outline' size={16} color='#FFF' />
-									<StyledText className='text-zinc-200 text-sm ml-1'>
+						</StyledView>
+					</View>
+
+					{/* Image Counter */}
+					{displayedImages.length > 1 && (
+						<View className='absolute bottom-4 right-4 z-10 bg-night/60 px-3 py-1 rounded-full'>
+							<StyledText className='text-white text-sm font-medium'>
+								{currentImageIndex + 1}/{displayedImages.length}
+							</StyledText>
+						</View>
+					)}
+
+					{/* Car Info */}
+					<View className='absolute bottom-0 w-full p-5'>
+						<View className='pr-28'>
+							<StyledText
+								className='text-white text-2xl font-bold mb-1.5'
+								numberOfLines={1}>
+								{car.year} {car.make} {car.model}
+							</StyledText>
+							<View className='flex-row items-center space-x-4'>
+								<View className='flex-row items-center'>
+									<Ionicons name='eye-outline' size={18} color='#FFFFFF' />
+									<StyledText className='text-blue-200 text-sm ml-1.5'>
 										{car.views || 0}
 									</StyledText>
 								</View>
-
-								<View className='flex-row items-center mr-4'>
-									<Ionicons name='heart-outline' size={16} color='#FFF' />
-									<StyledText className='text-zinc-200 text-sm ml-1'>
+								<View className='flex-row items-center'>
+									<Ionicons name='heart-outline' size={18} color='#FFFFFF' />
+									<StyledText className='text-rose-300 text-sm ml-1.5'>
 										{car.likes || 0}
 									</StyledText>
 								</View>
-
-								{car.category && (
-									<View className='bg-slate-700/70 px-2 py-1 rounded-full'>
-										<StyledText className='text-white text-xs'>
-											{car.category}
-										</StyledText>
-									</View>
-								)}
 							</View>
 						</View>
 					</View>
 
+					{/* Favorite Button */}
 					{!isDealer && (
-						<StyledTouchableOpacity
+						<StyledPressable
 							onPress={() => onFavoritePress(car.id)}
-							className={`absolute top-4 right-4 ${
-								isDarkMode ? 'bg-black/60' : 'bg-black/40'
-							} rounded-full p-3 backdrop-blur-sm`}>
+							className={`absolute top-4 left-4   active:opacity-70  `}>
 							<Ionicons
 								name={isFavorite ? 'heart' : 'heart-outline'}
 								size={24}
-								color={isFavorite ? '#EF4444' : '#FFFFFF'}
+								color={
+									isFavorite ? '#D55004' : isDarkMode ? '#fb7185' : '#fb7185'
+								}
 							/>
-						</StyledTouchableOpacity>
+						</StyledPressable>
 					)}
 				</View>
 			</Pressable>
 		),
-		[car, isFavorite, isDealer, onFavoritePress, isDarkMode, handleCardPress]
+		[
+			car,
+			isFavorite,
+			isDealer,
+			onFavoritePress,
+			isDarkMode,
+			handleCardPress,
+			displayedImages.length,
+			currentImageIndex
+		]
 	)
 
 	return (
 		<StyledView
-			className={`m-4 mb-4 ${
-				isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
+			className={`mx-4 my-3 ${
+				isDarkMode ? 'bg-[#242424]' : 'bg-neutral-800 '
 			} rounded-3xl overflow-hidden shadow-xl`}>
 			<FlatList
 				ref={flatListRef}
-				data={car.images}
+				data={displayedImages}
 				renderItem={renderImage}
 				keyExtractor={(item, index) => index.toString()}
 				horizontal
@@ -292,19 +297,14 @@ export default function CarCard({
 				windowSize={3}
 				removeClippedSubviews={true}
 				decelerationRate='fast'
-				snapToInterval={SCREEN_WIDTH - 30}
+				snapToInterval={SCREEN_WIDTH - 32}
 				snapToAlignment='center'
 				bounces={false}
 			/>
 
-			<StyledTouchableOpacity onPress={handleCardPress} activeOpacity={0.9}>
-				<StyledView className='flex items-center justify-center'>
-					<StyledView
-						className={`${isDarkMode ? 'bg-gray' : 'bg-gray'} my-2 w-5/6`}
-					/>
-				</StyledView>
-
-				<StyledView className='flex-row justify-between mt-4 mb-4'>
+			<StyledPressable onPress={handleCardPress} className='active:opacity-90'>
+				{/* Specs Grid */}
+				<StyledView className='flex-row justify-between mt-4 mb-2 px-2 '>
 					<SpecItem
 						title='Year'
 						icon='calendar-outline'
@@ -318,7 +318,7 @@ export default function CarCard({
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
-						title='Transm.'
+						title='Transmission'
 						icon='cog-outline'
 						value={
 							car.transmission === 'Automatic'
@@ -337,59 +337,53 @@ export default function CarCard({
 					/>
 				</StyledView>
 
-				<View className='w-full px-4'>
-					<View className='h-[0.5px] mt-2 bg-textgray opacity-30' />
-				</View>
-
-				<StyledView className='p-4'>
-					<StyledView className='flex-row items-start justify-between'>
+				{/* Dealership Info */}
+				<StyledView className='p-4 pt-2 bg-[#2B2B2B] rounded-t-3xl '>
+					<StyledView className='flex-row items-center justify-between'>
 						{car.dealership_logo && (
-							<TouchableOpacity onPress={handleDealershipPress}>
+							<Pressable onPress={handleDealershipPress} className='mr-3'>
 								<OptimizedImage
 									source={{ uri: car.dealership_logo }}
-									style={{ width: 50, height: 48, borderRadius: 24 }}
+									style={{ width: 48, height: 48 }}
+									className='rounded-full border border-textgray/20'
 								/>
-							</TouchableOpacity>
+							</Pressable>
 						)}
 
-						<StyledView className='flex-row items-start justify-between flex-1 ml-2'>
-							<StyledView style={{ flexShrink: 1, marginRight: 10 }}>
-								<StyledText
-									className={`text-base font-medium ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}
-									numberOfLines={1}
-									ellipsizeMode='tail'>
-									{car.dealership_name}
-								</StyledText>
-								<StyledText
-									className={`text-xs ${
-										isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
-									}`}
-									numberOfLines={2}
-									ellipsizeMode='tail'>
-									{formattedLocation}
-								</StyledText>
-							</StyledView>
+						<StyledView className='flex-1 ml-2 '>
+							<StyledText
+								className={`text-base font-semibold ${
+									isDarkMode ? 'text-white' : 'text-light-text'
+								} mb-0.5`}
+								numberOfLines={1}>
+								{car.dealership_name}
+							</StyledText>
+							<StyledText
+								className={`text-sm ${
+									isDarkMode ? 'text-white/80' : 'text-textgray'
+								}`}
+								numberOfLines={2}>
+								{formattedLocation}
+							</StyledText>
+						</StyledView>
 
-							<StyledView style={{ flexShrink: 0, flexDirection: 'row' }}>
-								<ActionButton
-									icon='call-outline'
-									onPress={handleCall}
-									text='Call'
-									isDarkMode={isDarkMode}
-								/>
-								<ActionButton
-									icon='share-outline'
-									onPress={handleShare}
-									text='Share'
-									isDarkMode={isDarkMode}
-								/>
-							</StyledView>
+						<StyledView className='flex-row ml-3'>
+							<ActionButton
+								icon='call-outline'
+								onPress={handleCall}
+								text='Call'
+								isDarkMode={isDarkMode}
+							/>
+							<ActionButton
+								icon='share-outline'
+								onPress={handleShare}
+								text='Share'
+								isDarkMode={isDarkMode}
+							/>
 						</StyledView>
 					</StyledView>
 				</StyledView>
-			</StyledTouchableOpacity>
+			</StyledPressable>
 		</StyledView>
 	)
 }
