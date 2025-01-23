@@ -325,11 +325,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				<Text className='text-white font-bold ml-1'>{car.views || 0}</Text>
 			</View>
 			<TouchableOpacity
-				className='absolute top-12 right-2 flex-row items-center bg-black/50 rounded-full px-3 py-1 z-50'
+				className='absolute top-12 right-2 flex-row items-center px-3 py-1 z-50'
 				onPress={() => onFavoritePress(car.id)}>
 				<Ionicons
 					name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
-					size={20}
+					size={25}
 					color={isFavorite(car.id) ? 'red' : 'white'}
 				/>
 			</TouchableOpacity>

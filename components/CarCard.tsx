@@ -53,19 +53,19 @@ const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
 		<Ionicons
 			name={icon}
 			size={28}
-			color={isDarkMode ? '#FFFFFF' : '#4C4C4C'}
+			color={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
 			className='mb-1.5'
 		/>
 		<StyledText
 			className={`text-xs font-medium ${
-				isDarkMode ? 'text-white' : 'text-textgray'
+				isDarkMode ? 'text-white' : 'text-white'
 			} mb-0.5`}
 			numberOfLines={1}>
 			{title}
 		</StyledText>
 		<StyledText
 			className={`text-sm font-semibold ${
-				isDarkMode ? 'text-white' : 'text-light-text'
+				isDarkMode ? 'text-white' : 'text-white'
 			}`}
 			numberOfLines={1}>
 			{value}
@@ -80,13 +80,13 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 		<Ionicons
 			name={icon}
 			size={24}
-			color={isDarkMode ? '#FFFFFF' : '#4C4C4C'}
+			color={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
 			className='mb-0.5'
 		/>
 		{text && (
 			<StyledText
 				className={`text-xs font-medium ${
-					isDarkMode ? 'text-white' : 'text-textgray'
+					isDarkMode ? 'text-white' : 'text-white'
 				}`}>
 				{text}
 			</StyledText>
@@ -345,14 +345,14 @@ export default function CarCard({
 						<StyledView className='flex-1 ml-2 '>
 							<StyledText
 								className={`text-base font-semibold ${
-									isDarkMode ? 'text-white' : 'text-light-text'
+									isDarkMode ? 'text-white' : 'text-white'
 								} mb-0.5`}
 								numberOfLines={1}>
 								{car.dealership_name}
 							</StyledText>
 							<StyledText
 								className={`text-sm ${
-									isDarkMode ? 'text-white/80' : 'text-textgray'
+									isDarkMode ? 'text-white/80' : 'text-white/80'
 								}`}
 								numberOfLines={2}>
 								{formattedLocation}
