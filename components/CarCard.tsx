@@ -37,14 +37,6 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 
 	return (
 		<View style={[style, { overflow: 'hidden' }]} className='bg-neutral-800'>
-			{!loaded && (
-				<View
-					className={`absolute inset-0 justify-center items-center ${
-						isDarkMode ? 'bg-night' : 'bg-gray '
-					}`}>
-					<ActivityIndicator size='large' color='#D55004' />
-				</View>
-			)}
 			<StyledImage
 				source={source}
 				className='w-full h-full bg-neutral-800'
@@ -254,10 +246,10 @@ export default function CarCard({
 							onPress={() => onFavoritePress(car.id)}
 							className={`absolute top-4 left-4   active:opacity-70  `}>
 							<Ionicons
-								name={isFavorite ? 'heart' : 'heart-outline'}
-								size={24}
+								name={isFavorite ? 'heart-sharp' : 'heart-outline'}
+								size={30}
 								color={
-									isFavorite ? '#D55004' : isDarkMode ? '#fb7185' : '#fb7185'
+									isFavorite ? '#D55004' : isDarkMode ? '#9d174d' : '#f43f5e'
 								}
 							/>
 						</StyledPressable>
