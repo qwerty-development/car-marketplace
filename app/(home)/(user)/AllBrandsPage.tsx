@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { router, useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -22,31 +22,20 @@ interface Brand {
 	logoUrl: string
 }
 
-const CustomHeader = React.memo(
-	({ title, onBack }: { title: string; onBack: () => void }) => {
-		const { isDarkMode } = useTheme()
-		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+const CustomHeader = React.memo(({ title }: { title: string }) => {
+	const { isDarkMode } = useTheme()
 
-		return (
-			<SafeAreaView
-				edges={['top']}
-				className={`bg-${isDarkMode ? 'black' : 'white'}`}>
-				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-				<View className='flex-row items-center pb-4 px-4'>
-					<TouchableOpacity onPress={onBack}>
-						<Ionicons name='arrow-back' size={24} color={iconColor} />
-					</TouchableOpacity>
-					<Text
-						className={`ml-4 text-lg font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						{title}
-					</Text>
-				</View>
-			</SafeAreaView>
-		)
-	}
-)
+	return (
+		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View className='flex-row ml-6'>
+				<Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+})
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
