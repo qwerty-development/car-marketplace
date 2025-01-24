@@ -64,7 +64,6 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
 	const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
 
 	const handleSearchPress = () => {
-		// Trigger the parent callback only when the user presses the search button
 		onSearchChange(localSearchQuery)
 	}
 
@@ -112,7 +111,11 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
 					className={`p-2 rounded-full border border-emerald-300 ${
 						subscriptionExpired ? 'opacity-50' : ''
 					}`}>
-					<Ionicons name='add' size={24} color='#FFFFFF' />
+					<Ionicons
+						name='add'
+						size={24}
+						color={isDarkMode ? '#FFFFFF' : '#000000'}
+					/>
 				</TouchableOpacity>
 			</View>
 		</View>
