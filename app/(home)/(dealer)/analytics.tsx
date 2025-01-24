@@ -650,7 +650,7 @@ const OverviewMetric = ({ title, value, icon, color }: any) => (
 		<Text className='text-2xl font-bold mt-2 text-red' style={{ color }}>
 			{value}
 		</Text>
-		<Text className='text-xs text-gray'>{title}</Text>
+		<Text className='text-xs text-neutral-200'>{title}</Text>
 	</View>
 )
 
