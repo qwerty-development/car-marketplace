@@ -7,18 +7,14 @@ import {
 	ActivityIndicator,
 	StyleSheet,
 	Text,
-	Keyboard,
-	Platform,
-	Alert
+	Keyboard
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModalIOS from '../CarDetailModalIOS'
-import CarDetailModal from '../CarDetailModal'
 import { useFavorites } from '@/utils/useFavorites'
 import { FontAwesome } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
-import SortPicker from '@/components/SortPicker'
+
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
@@ -26,7 +22,7 @@ import CategorySelector from '@/components/Category'
 import { RefreshControl } from 'react-native'
 import { Animated } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useUser } from '@clerk/clerk-expo'
+import SortPicker from '@/components/SortPicker'
 
 const ITEMS_PER_PAGE = 7
 
@@ -58,11 +54,26 @@ interface Filters {
 	priceRange?: [number, number]
 	mileageRange?: [number, number]
 	categories?: string[]
+	specialFilter?: 'newArrivals' | 'mostPopular' | 'bestDeals'
+	sortBy?: string
 }
+const sortOptions = [
+	{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
+	{ label: 'Price: Low to High', value: 'price_asc', icon: 'trending-up' },
+	{ label: 'Price: High to Low', value: 'price_desc', icon: 'trending-down' },
+	{ label: 'Year: New to Old', value: 'year_desc', icon: 'calendar' },
+	{ label: 'Year: Old to New', value: 'year_asc', icon: 'calendar-outline' },
+	{ label: 'Mileage: Low to High', value: 'mileage_asc', icon: 'speedometer' },
+	{
+		label: 'Mileage: High to Low',
+		value: 'mileage_desc',
+		icon: 'speedometer-outline'
+	}
+]
 
 export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
-	const { toggleFavorite, isFavorite } = useFavorites()
+	const { favorites, toggleFavorite, isFavorite } = useFavorites()
 	const [cars, setCars] = useState<Car[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
@@ -76,46 +87,9 @@ export default function BrowseCarsPage() {
 	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 	const scrollY = useRef<any>(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
-	const { user } = useUser()
-	const [dealership, setDealership] = useState<any>(null)
-
-	const fetchDealershipDetails = useCallback(async () => {
-		if (!user) return
-		try {
-			const { data, error } = await supabase
-				.from('dealerships')
-				.select('*')
-				.eq('user_id', user.id)
-				.single()
-
-			if (error) throw error
-			setDealership(data)
-		} catch (error) {
-			console.error('Error fetching dealership details:', error)
-		}
-	}, [user])
-
-	useEffect(() => {
-		fetchDealershipDetails()
-	}, [fetchDealershipDetails])
-
-	const isSubscriptionValid = useCallback(() => {
-		if (!dealership || !dealership.subscription_end_date) return false
-		const endDate = new Date(dealership.subscription_end_date)
-		return endDate > new Date()
-	}, [dealership])
-
-	const getDaysUntilExpiration = useCallback(() => {
-		if (!dealership || !dealership.subscription_end_date) return 0
-		const endDate = new Date(dealership.subscription_end_date)
-		const today = new Date()
-		const diffTime = endDate.getTime() - today.getTime()
-		return Math.ceil(diffTime / (1000 * 3600 * 24))
-	}, [dealership])
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
-
 	const [isKeyboardVisible, setKeyboardVisible] = useState(false)
 	useEffect(() => {
 		const keyboardDidShowListener = Keyboard.addListener(
@@ -162,51 +136,106 @@ export default function BrowseCarsPage() {
 						`*, dealerships (name,logo,phone,location,latitude,longitude)`,
 						{ count: 'exact' }
 					)
-					.neq('status', 'sold')
+					.eq('status', 'available')
 
-				// Apply filters
-				if (currentFilters.dealership)
+				// Handle special filters first
+				if (currentFilters.specialFilter) {
+					switch (currentFilters.specialFilter) {
+						case 'newArrivals':
+							const sevenDaysAgo = new Date()
+							sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+							queryBuilder = queryBuilder.gte(
+								'listed_at',
+								sevenDaysAgo.toISOString()
+							)
+							break
+
+						case 'mostPopular':
+							currentSortOption = 'views_desc'
+							break
+					}
+				}
+
+				// Apply standard filters
+				if (currentFilters.categories && currentFilters.categories.length > 0) {
+					queryBuilder = queryBuilder.in('category', currentFilters.categories)
+				}
+
+				if (currentFilters.dealership) {
 					queryBuilder = queryBuilder.eq(
 						'dealership_id',
 						currentFilters.dealership
 					)
-				if (currentFilters.make)
+				}
+				if (currentFilters.make) {
 					queryBuilder = queryBuilder.eq('make', currentFilters.make)
-				if (currentFilters.model)
+				}
+				if (currentFilters.model) {
 					queryBuilder = queryBuilder.eq('model', currentFilters.model)
-				if (currentFilters.condition)
+				}
+				if (currentFilters.condition) {
 					queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
-				if (currentFilters.yearRange)
+				}
+				if (currentFilters.yearRange) {
 					queryBuilder = queryBuilder
 						.gte('year', currentFilters.yearRange[0])
 						.lte('year', currentFilters.yearRange[1])
-				if (currentFilters.color)
+				}
+				if (currentFilters.color) {
 					queryBuilder = queryBuilder.eq('color', currentFilters.color)
-				if (currentFilters.transmission)
+				}
+				if (currentFilters.transmission) {
 					queryBuilder = queryBuilder.eq(
 						'transmission',
 						currentFilters.transmission
 					)
-				if (currentFilters.drivetrain)
+				}
+				if (currentFilters.drivetrain) {
 					queryBuilder = queryBuilder.eq(
 						'drivetrain',
 						currentFilters.drivetrain
 					)
-				if (currentFilters.priceRange)
+				}
+				if (currentFilters.priceRange) {
 					queryBuilder = queryBuilder
 						.gte('price', currentFilters.priceRange[0])
 						.lte('price', currentFilters.priceRange[1])
-				if (currentFilters.mileageRange)
+				}
+				if (currentFilters.mileageRange) {
 					queryBuilder = queryBuilder
 						.gte('mileage', currentFilters.mileageRange[0])
 						.lte('mileage', currentFilters.mileageRange[1])
-				if (currentFilters.categories && currentFilters.categories.length > 0)
-					queryBuilder = queryBuilder.in('category', currentFilters.categories)
+				}
 
+				// Handle search query
 				if (query) {
-					queryBuilder = queryBuilder.or(
-						`make.ilike.%${query}%,model.ilike.%${query}%,description.ilike.%${query}%,color.ilike.%${query}%`
-					)
+					const cleanQuery = query.trim().toLowerCase()
+					const searchTerms = cleanQuery.split(/\s+/)
+
+					searchTerms.forEach(term => {
+						const numericTerm = parseInt(term)
+						let searchConditions = [
+							`make.ilike.%${term}%`,
+							`model.ilike.%${term}%`,
+							`description.ilike.%${term}%`,
+							`color.ilike.%${term}%`,
+							`category.ilike.%${term}%`,
+							`transmission.ilike.%${term}%`,
+							`drivetrain.ilike.%${term}%`,
+							`type.ilike.%${term}%`,
+							`condition.ilike.%${term}%`
+						]
+
+						if (!isNaN(numericTerm)) {
+							searchConditions = searchConditions.concat([
+								`year::text.eq.${numericTerm}`,
+								`price::text.ilike.%${numericTerm}%`,
+								`mileage::text.ilike.%${numericTerm}%`
+							])
+						}
+
+						queryBuilder = queryBuilder.or(searchConditions.join(','))
+					})
 				}
 
 				// Apply sorting
@@ -229,12 +258,24 @@ export default function BrowseCarsPage() {
 					case 'mileage_desc':
 						queryBuilder = queryBuilder.order('mileage', { ascending: false })
 						break
+					case 'views_desc':
+						queryBuilder = queryBuilder.order('views', { ascending: false })
+						break
 					default:
 						queryBuilder = queryBuilder.order('listed_at', { ascending: false })
 				}
 
 				const { count } = await queryBuilder
-				const totalItems = count || 0
+
+				if (!count) {
+					setCars([])
+					setTotalPages(0)
+					setCurrentPage(1)
+					setIsLoading(false)
+					return
+				}
+
+				const totalItems = count
 				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 				const safePageNumber = Math.min(page, totalPages)
 				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
@@ -269,6 +310,9 @@ export default function BrowseCarsPage() {
 				setCurrentPage(safePageNumber)
 			} catch (error) {
 				console.error('Error fetching cars:', error)
+				setCars([])
+				setTotalPages(0)
+				setCurrentPage(1)
 			} finally {
 				setIsLoading(false)
 			}
@@ -294,42 +338,18 @@ export default function BrowseCarsPage() {
 		},
 		[toggleFavorite]
 	)
-	const handleSortChange = useCallback(
-		(value: string) => {
-			setSortOption(value)
-			fetchCars(1, filters, value, searchQuery)
-		},
-		[filters, searchQuery, fetchCars]
-	)
-
-	const handleCarPress = useCallback(
-		(car: Car) => {
-			if (!isSubscriptionValid()) {
-				Alert.alert(
-					'Subscription Expired',
-					'Please renew your subscription to view car details.'
-				)
-				return
-			}
-			setSelectedCar(car)
-			setIsModalVisible(true)
-		},
-		[isSubscriptionValid]
-	)
-
-	const SUBSCRIPTION_WARNING_DAYS = 7
 
 	const renderCarItem = useCallback(
-		({ item }: { item: Car }) => (
+		({ item, index }: { item: Car; index: number }) => (
 			<CarCard
 				car={item}
-				onPress={() => handleCarPress(item)}
+				index={index}
 				onFavoritePress={() => handleFavoritePress(item.id)}
 				isFavorite={isFavorite(Number(item.id))}
-				isDealer
+				isDealer={true}
 			/>
 		),
-		[handleCarPress, handleFavoritePress, isFavorite]
+		[handleFavoritePress, isFavorite]
 	)
 
 	const openFilterPage = useCallback(() => {
@@ -351,7 +371,7 @@ export default function BrowseCarsPage() {
 	)
 
 	const keyExtractor = useCallback(
-		(item: any) => `${item.id}-${item.make}-${item.model}`,
+		(item: Car) => `${item.id}-${item.make}-${item.model}`,
 		[]
 	)
 
@@ -361,6 +381,7 @@ export default function BrowseCarsPage() {
 
 	const handleCategoryPress = useCallback(
 		(category: string) => {
+			setIsLoading(true)
 			setFilters(prevFilters => {
 				const updatedCategories = prevFilters.categories
 					? prevFilters.categories.includes(category)
@@ -404,7 +425,11 @@ export default function BrowseCarsPage() {
 			!isLoading && (
 				<View style={styles.emptyContainer}>
 					<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-						No cars available.
+						{filters.categories && filters.categories.length > 0
+							? `No cars available for the selected ${
+									filters.categories.length === 1 ? 'category' : 'categories'
+							  }:\n${filters.categories.join(', ')}`
+							: 'No cars available.'}
 					</Text>
 					{(Object.keys(filters).length > 0 || searchQuery) && (
 						<TouchableOpacity
@@ -418,41 +443,9 @@ export default function BrowseCarsPage() {
 		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
 	)
 
-	const renderModal = useCallback(() => {
-		const ModalComponent =
-			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
-		return (
-			<ModalComponent
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => {
-					setIsModalVisible(false)
-					setSelectedCar(null)
-				}}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={!!selectedCar && isFavorite(Number(selectedCar.id))}
-				onViewUpdate={handleViewUpdate}
-			/>
-		)
-	}, [
-		isModalVisible,
-		selectedCar,
-		handleFavoritePress,
-		isFavorite,
-		handleViewUpdate
-	])
-
 	return (
 		<LinearGradient
-			colors={
-				isDarkMode
-					? ['#000000', '#0D0D0D', '#0D0D0D', '#0D0D0D', '#D55004']
-					: ['#FFFFFF', '#FFFFFF', '#F2F2F2', '#FFA07A', '#D55004']
-			}
+			colors={isDarkMode ? ['#000000', '#000000'] : ['#FFFFFF', '#FFFFFF']}
 			style={{ flex: 1 }}
 			start={{ x: 0, y: 0 }}
 			end={{ x: 1, y: 1 }}>
@@ -462,55 +455,44 @@ export default function BrowseCarsPage() {
 					isDarkMode && styles.darkContainer,
 					{ backgroundColor: 'transparent' }
 				]}>
-				{!isSubscriptionValid() && (
-					<View className='bg-rose-700 p-4'>
-						<Text className='text-white text-center font-bold'>
-							Your subscription has expired. Some features may be limited.
-						</Text>
-					</View>
-				)}
-				{isSubscriptionValid() &&
-					getDaysUntilExpiration() <= SUBSCRIPTION_WARNING_DAYS && (
-						<View className='bg-yellow-500 p-4'>
-							<Text className='text-white text-center font-bold'>
-								Your subscription will expire in {getDaysUntilExpiration()}{' '}
-								day(s). Please renew soon.
-							</Text>
-						</View>
-					)}
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
-						<TouchableOpacity
-							style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
-							onPress={openFilterPage}>
-							<FontAwesome
-								name='filter'
-								size={20}
-								color={isDarkMode ? 'white' : 'black'}
-							/>
-						</TouchableOpacity>
 						<View
-							style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}>
-							<TouchableOpacity
-								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
-								onPress={handleSearch}>
-								<FontAwesome
-									name='search'
-									size={20}
-									color={isDarkMode ? 'white' : 'black'}
-								/>
-							</TouchableOpacity>
+							style={[
+								styles.searchBar,
+								isDarkMode && styles.darkSearchBar,
+								{ flex: 1 }
+							]}>
+							<FontAwesome
+								name='search'
+								size={20}
+								color={isDarkMode ? '#FFFFFF' : '#666666'}
+								style={{ marginLeft: 12 }}
+							/>
 							<TextInput
 								style={[
 									styles.searchInput,
 									isDarkMode && styles.darkSearchInput
 								]}
 								placeholder='Search cars...'
-								placeholderTextColor={isDarkMode ? 'white' : 'gray'}
+								placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
 								value={searchQuery}
 								onChangeText={setSearchQuery}
 								onSubmitEditing={handleSearch}
 							/>
+
+							{/* Filter Icon inside search bar */}
+							<TouchableOpacity
+								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
+								onPress={openFilterPage}>
+								<FontAwesome
+									name='sliders'
+									size={20}
+									color={isDarkMode ? '#000000' : '#ffffff'}
+								/>
+							</TouchableOpacity>
+
+							{/* Clear button (only show when there's text) */}
 							{searchQuery.length > 0 && (
 								<TouchableOpacity
 									style={styles.clearButton}
@@ -521,18 +503,24 @@ export default function BrowseCarsPage() {
 									<FontAwesome
 										name='times-circle'
 										size={20}
-										color={isDarkMode ? 'white' : 'black'}
+										color={isDarkMode ? '#FFFFFF' : '#666666'}
 									/>
 								</TouchableOpacity>
 							)}
 						</View>
-						<SortPicker
-							onValueChange={handleSortChange}
-							initialValue={{ label: 'Sort', value: null }}
-						/>
+						<View style={styles.sortPickerContainer}>
+							<SortPicker
+								onValueChange={(value: any) => {
+									setSortOption(value)
+									fetchCars(1, filters, value, searchQuery)
+								}}
+								initialValue={sortOptions.find(
+									(option: { value: string }) => option.value === sortOption
+								)}
+							/>
+						</View>
 					</View>
 				</View>
-
 				<FlatList
 					refreshControl={
 						<RefreshControl
@@ -592,8 +580,6 @@ export default function BrowseCarsPage() {
 						/>
 					</TouchableOpacity>
 				)}
-
-				{renderModal()}
 			</SafeAreaView>
 		</LinearGradient>
 	)
@@ -632,10 +618,10 @@ const styles = StyleSheet.create({
 	iconButton: {
 		padding: 10,
 		borderRadius: 20,
-		backgroundColor: '#f0f0f0'
+		backgroundColor: '#000000'
 	},
 	darkIconButton: {
-		backgroundColor: '#333'
+		backgroundColor: '#ffffff'
 	},
 	searchBar: {
 		flex: 1,
@@ -684,5 +670,15 @@ const styles = StyleSheet.create({
 	resetButtonText: {
 		color: 'white',
 		fontWeight: 'bold'
+	},
+	favoriteButton: {
+		padding: 12,
+		borderRadius: 20,
+		aspectRatio: 1,
+		justifyContent: 'center',
+		alignItems: 'center'
+	},
+	sortPickerContainer: {
+		paddingHorizontal: 10
 	}
 })

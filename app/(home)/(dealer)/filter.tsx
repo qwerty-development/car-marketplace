@@ -21,7 +21,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 
 	return (
-		<View className={`${isDarkMode ? 'bg-black' : 'bg-white'} top-0 mt-0 pt-0`}>
+		<View className={`${isDarkMode ? 'bg-black' : 'bg-white'} top-0 mt-0 p-3`}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View className='flex-row items-center justify-between py-0 px-4 -mb-1 top-0 '>
 				<TouchableOpacity onPress={onBack} className='p-2'>
@@ -169,10 +169,7 @@ const SearchableSelect = ({
 					</TouchableOpacity>
 				)}
 			</View>
-			<View
-				className={`border rounded-md ${
-					isDarkMode ? 'border-red' : 'border-gray'
-				}`}>
+			<View className={`border ${isDarkMode ? 'border-red' : 'border-gray'}`}>
 				<TouchableOpacity
 					onPress={() => setIsDropdownOpen(!isDropdownOpen)}
 					className={`p-3 flex-row justify-between items-center ${
@@ -233,13 +230,79 @@ const SearchableSelect = ({
 	)
 }
 
-const PopularFilters = ({ onApply }: any) => {
+const PopularFilters = ({ onApply, activeFilter }: any) => {
 	const { isDarkMode } = useTheme()
+	const currentYear = new Date().getFullYear()
+
 	const popularFilters = [
-		{ label: 'SUVs', filter: { categories: ['SUV'] } },
-		{ label: 'Under $30,000', filter: { priceRange: [0, 30000] } },
-		{ label: 'Low Mileage', filter: { mileageRange: [0, 50000] } }
+		// Price Range Filters
+		{
+			id: 'under15k',
+			label: 'Under $15k',
+			filter: { priceRange: [0, 15000] }
+		},
+		{
+			id: '15k-30k',
+			label: '$15k-30k',
+			filter: { priceRange: [15000, 30000] }
+		},
+		{
+			id: '30k-50k',
+			label: '$30k-50k',
+			filter: { priceRange: [30000, 50000] }
+		},
+		{
+			id: '50kplus',
+			label: '$50k+',
+			filter: { priceRange: [50000, 1000000] }
+		},
+
+		{
+			id: '1-3-years',
+			label: '1-3 Years',
+			filter: { yearRange: [currentYear - 3, currentYear - 1] }
+		},
+		{
+			id: '3-5-years',
+			label: '3-5 Years',
+			filter: { yearRange: [currentYear - 5, currentYear - 3] }
+		},
+		{
+			id: '5plus-years',
+			label: '5+ Years',
+			filter: { yearRange: [1900, currentYear - 5] }
+		},
+
+		// Body Style Combinations
+
+		{
+			id: 'most-popular',
+			label: 'Most Popular',
+			filter: {
+				specialFilter: 'mostPopular',
+				sortBy: 'views'
+			}
+		},
+		{
+			id: 'budget-friendly',
+			label: 'Budget Friendly',
+			filter: { priceRange: [0, 20000] }
+		},
+		{
+			id: 'luxury',
+			label: 'Luxury',
+			filter: { priceRange: [50000, Number.MAX_SAFE_INTEGER] }
+		}
 	]
+
+	const isFilterActive = (filter: any) => {
+		if (!activeFilter) return false
+		return JSON.stringify(filter) === JSON.stringify(activeFilter)
+	}
+
+	const handleFilterPress = (filter: any) => {
+		onApply(filter)
+	}
 
 	return (
 		<View className='mb-6'>
@@ -247,21 +310,82 @@ const PopularFilters = ({ onApply }: any) => {
 				className={`text-lg font-semibold mb-3 ${
 					isDarkMode ? 'text-white' : 'text-gray'
 				}`}>
-				Popular Filters
+				Quick Filters
 			</Text>
+
+			{/* Price Range Filters - Horizontal Scroll */}
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				className='mb-4'>
+				<View className='flex-row'>
+					{popularFilters.slice(0, 4).map(item => {
+						const isActive = isFilterActive(item.filter)
+						return (
+							<TouchableOpacity
+								key={item.id}
+								onPress={() => handleFilterPress(item.filter)}
+								className={`mr-2 mb-2 px-4 py-2 rounded-full
+                  ${
+										isActive
+											? 'bg-red'
+											: isDarkMode
+											? 'bg-light-text '
+											: 'bg-light-text '
+									}
+                  ${isActive ? 'border border-white' : ''}
+                  active:opacity-80
+                `}>
+								<View className='flex-row items-center'>
+									<Text className='text-white font-medium'>{item.label}</Text>
+									{isActive && (
+										<Ionicons
+											name='close-circle'
+											size={16}
+											color='white'
+											style={{ marginLeft: 4 }}
+										/>
+									)}
+								</View>
+							</TouchableOpacity>
+						)
+					})}
+				</View>
+			</ScrollView>
+
+			{/* Other Filters - Grid Layout */}
 			<View className='flex-row flex-wrap'>
-				{popularFilters.map((item, index) => (
-					<TouchableOpacity
-						key={index}
-						onPress={() => onApply(item.filter)}
-						className={`mr-2 mb-2 px-4 py-2 rounded-full ${
-							isDarkMode ? 'bg-gray' : 'bg-gray'
-						}`}>
-						<Text className={isDarkMode ? 'text-white' : 'text-white'}>
-							{item.label}
-						</Text>
-					</TouchableOpacity>
-				))}
+				{popularFilters.slice(4).map(item => {
+					const isActive = isFilterActive(item.filter)
+					return (
+						<TouchableOpacity
+							key={item.id}
+							onPress={() => handleFilterPress(item.filter)}
+							className={`mr-2 mb-2 px-4 py-2 rounded-full
+                ${
+									isActive
+										? 'bg-red'
+										: isDarkMode
+										? 'bg-light-text '
+										: 'bg-light-text  '
+								}
+                ${isActive ? 'border border-white' : ''}
+                active:opacity-80
+              `}>
+							<View className='flex-row items-center'>
+								<Text className='text-white font-medium'>{item.label}</Text>
+								{isActive && (
+									<Ionicons
+										name='close-circle'
+										size={16}
+										color='white'
+										style={{ marginLeft: 4 }}
+									/>
+								)}
+							</View>
+						</TouchableOpacity>
+					)
+				})}
 			</View>
 		</View>
 	)
@@ -271,6 +395,8 @@ const FilterPage = () => {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
 	const params: any = useLocalSearchParams()
+	const [activeFilter, setActiveFilter] = useState<any>(null)
+
 	const [filters, setFilters] = useState<any>(() => {
 		try {
 			return (
@@ -353,14 +479,40 @@ const FilterPage = () => {
 	}
 
 	const handlePopularFilterApply = (newFilter: any) => {
-		setFilters((prev: any) => ({ ...prev, ...newFilter }))
+		// If clicking the same filter, clear it
+		if (JSON.stringify(activeFilter) === JSON.stringify(newFilter)) {
+			setActiveFilter(null)
+			// Clear the specific filter properties
+			setFilters((prev: any) => {
+				const updatedFilters = { ...prev }
+				// Remove the specific filter properties
+				if (newFilter.priceRange) delete updatedFilters.priceRange
+				if (newFilter.yearRange) delete updatedFilters.yearRange
+				if (newFilter.categories) delete updatedFilters.categories
+				if (newFilter.specialFilter) {
+					delete updatedFilters.specialFilter
+					delete updatedFilters.sortBy
+					delete updatedFilters.listingDate
+				}
+				if (newFilter.condition) delete updatedFilters.condition
+				if (newFilter.mileageRange) delete updatedFilters.mileageRange
+				return updatedFilters
+			})
+		} else {
+			// Apply new filter
+			setActiveFilter(newFilter)
+			setFilters((prev: any) => ({ ...prev, ...newFilter }))
+		}
 	}
 
 	return (
-		<SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
 			<CustomHeader title='Filters' onBack={() => router.back()} />
-			<ScrollView className='flex-1 px-4 py-6'>
-				<PopularFilters onApply={handlePopularFilterApply} />
+			<ScrollView className='flex-1  px-4 py-6'>
+				<PopularFilters
+					onApply={handlePopularFilterApply}
+					activeFilter={activeFilter}
+				/>
 
 				<CollapsibleSection title='Basic Filters'>
 					<SearchableSelect
@@ -476,7 +628,7 @@ const FilterPage = () => {
 			<View
 				className={`flex-row justify-between p-4 ${
 					isDarkMode ? 'bg-gray' : 'bg-white'
-				} border-t ${isDarkMode ? 'border-night' : 'border-white'}`}>
+				} border-t  ${isDarkMode ? 'border-night' : 'border-white'}`}>
 				<TouchableOpacity
 					className={`py-3 px-6 rounded-full ${
 						isDarkMode ? 'bg-night' : 'bg-night'
@@ -516,7 +668,7 @@ const FilterPage = () => {
 					<Text className='text-white font-semibold'>Apply Filters</Text>
 				</TouchableOpacity>
 			</View>
-		</SafeAreaView>
+		</View>
 	)
 }
 
