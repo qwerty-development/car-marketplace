@@ -226,13 +226,13 @@ export default function CarCard({
 							<View className='flex-row items-center space-x-4'>
 								<View className='flex-row items-center'>
 									<Ionicons name='eye-outline' size={18} color='#FFFFFF' />
-									<StyledText className='text-blue-200 text-sm ml-1.5'>
+									<StyledText className='text-neutral-200 text-sm ml-1.5'>
 										{car.views || 0}
 									</StyledText>
 								</View>
 								<View className='flex-row items-center'>
 									<Ionicons name='heart-outline' size={18} color='#FFFFFF' />
-									<StyledText className='text-rose-300 text-sm ml-1.5'>
+									<StyledText className='text-neutral-200 text-sm ml-1.5'>
 										{car.likes || 0}
 									</StyledText>
 								</View>
@@ -347,7 +347,7 @@ export default function CarCard({
 								className={`text-base font-semibold ${
 									isDarkMode ? 'text-white' : 'text-white'
 								} mb-0.5`}
-								numberOfLines={1}>
+								numberOfLines={2}>
 								{car.dealership_name}
 							</StyledText>
 							<StyledText

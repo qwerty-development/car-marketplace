@@ -555,7 +555,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 								<Text
 									className={`text-sm ${
 										isDarkMode ? 'text-white' : 'text-black'
-									}`}
+									} mr-7`}
 									numberOfLines={2}>
 									<Ionicons name='location' size={12} />
 									{car.dealership_location}
