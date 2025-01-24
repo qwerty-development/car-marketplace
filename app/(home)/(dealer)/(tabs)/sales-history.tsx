@@ -23,6 +23,7 @@ import { BlurView } from 'expo-blur'
 import { Alert } from 'react-native'
 import ExportSalesModal from '@/components/ExportSalesModal'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import MonthlyBarChart from '@/components/FuturisticSalesChart'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -789,26 +790,36 @@ export default function SalesHistoryPage() {
 			})
 	}, [salesHistory, searchQuery, sortOrder])
 
+	// Update your salesData calculation in the main component:
 	const salesData = useMemo(() => {
-		const monthlyData: { [key: string]: number } = {}
-		const chronologicalSales = [...salesHistory].sort(
-			(a, b) =>
-				new Date(a.date_sold).getTime() - new Date(b.date_sold).getTime()
-		)
+		const monthlyData = {}
 
-		chronologicalSales.forEach(sale => {
+		salesHistory.forEach(sale => {
 			const saleDate = new Date(sale.date_sold)
-			const month = saleDate?.toLocaleString('default', { month: 'short' })
-			const year = saleDate.getFullYear() // Get the year
-			const monthYear = `${month} ${year}` // Combine month and year
+			const monthYear = saleDate.toLocaleString('default', {
+				month: 'short',
+				year: '2-digit'
+			})
 
-			monthlyData[monthYear] = (monthlyData[monthYear] || 0) + sale.sold_price
+			monthlyData[monthYear] = {
+				count: (monthlyData[monthYear]?.count || 0) + 1,
+				total: (monthlyData[monthYear]?.total || 0) + sale.sold_price
+			}
 		})
 
-		return Object.entries(monthlyData).map(([monthYear, total]) => ({
-			month: monthYear, // Use the combined month and year
-			total
-		}))
+		return Object.entries(monthlyData)
+			.map(([month, data]) => ({
+				month,
+				count: data.count,
+				total: data.total
+			}))
+			.sort((a, b) => {
+				const [aMonth, aYear] = a.month.split(' ')
+				const [bMonth, bYear] = b.month.split(' ')
+				return (
+					new Date(`${aMonth} 20${aYear}`) - new Date(`${bMonth} 20${bYear}`)
+				)
+			})
 	}, [salesHistory])
 
 	interface VehicleCardProps {
@@ -870,49 +881,7 @@ export default function SalesHistoryPage() {
 						</View>
 
 						{/* Chart Section */}
-						<View
-							className={`${
-								isDarkMode ? 'bg-neutral-700/30' : 'bg-white'
-							} rounded-2xl p-4 mb-6`}>
-							<Text
-								className={`text-lg font-bold mb-4 ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Monthly Sales Trend
-							</Text>
-							<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-								<LineChart
-									data={{
-										labels: salesData.map(d => d.month),
-										datasets: [{ data: salesData.map(d => d.total) }]
-									}}
-									width={SCREEN_WIDTH * 1.5}
-									height={220}
-									chartConfig={{
-										backgroundColor: 'transparent',
-										backgroundGradientFrom: isDarkMode ? '#2D2D2D' : '#FFFFFF',
-										backgroundGradientTo: isDarkMode ? '#2D2D2D' : '#FFFFFF',
-										decimalPlaces: 0,
-										color: (opacity = 1) => `rgba(213, 80, 4, ${opacity})`,
-										labelColor: (opacity = 1) =>
-											isDarkMode
-												? `rgba(255, 255, 255, ${opacity})`
-												: `rgba(0, 0, 0, ${opacity})`,
-										style: { borderRadius: 16 },
-										propsForDots: {
-											r: '6',
-											strokeWidth: '2',
-											stroke: '#D55004'
-										}
-									}}
-									bezier
-									style={{
-										marginVertical: 8,
-										borderRadius: 16
-									}}
-								/>
-							</ScrollView>
-						</View>
+						<MonthlyBarChart salesData={salesData} isDarkMode={isDarkMode} />
 
 						{/* Sales List */}
 						<View className='mb-6'>
