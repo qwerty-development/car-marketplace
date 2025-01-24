@@ -10,7 +10,8 @@ import {
 	ActivityIndicator,
 	RefreshControl,
 	StatusBar,
-	Modal
+	Modal,
+	ScrollView
 } from 'react-native'
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
@@ -23,24 +24,537 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import SortPicker from '@/components/SortPicker'
 import RNPickerSelect from 'react-native-picker-select'
 import { debounce } from 'lodash'
+import { BlurView } from 'expo-blur'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
-  
-	return (
-	  <SafeAreaView
-		className={`bg-${isDarkMode ? 'black' : 'white'} `}>
-		<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-		<View className='flex-row ml-6'>
-		  <Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>{title}</Text>
-		</View>
-	  </SafeAreaView>
-	)
-  })
 
+	return (
+		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
+			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+			<View className='flex-row ml-6'>
+				<Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>
+					{title}
+				</Text>
+			</View>
+		</SafeAreaView>
+	)
+})
+
+interface SearchBarProps {
+	searchQuery: string
+	onSearchChange: (text: string) => void
+	onFilterPress: () => void
+	onAddPress: () => void
+	isDarkMode: boolean
+	subscriptionExpired: boolean
+}
+
+const ModernSearchBar: React.FC<SearchBarProps> = ({
+	searchQuery,
+	onSearchChange,
+	onFilterPress,
+	onAddPress,
+	isDarkMode,
+	subscriptionExpired
+}) => {
+	const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+
+	const handleSearchPress = () => {
+		// Trigger the parent callback only when the user presses the search button
+		onSearchChange(localSearchQuery)
+	}
+
+	return (
+		<View className='flex-row items-center justify-between px-4 py-2'>
+			<View className='flex-1 flex-row  items-center px-4 py-2 mr-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800'>
+				<TouchableOpacity
+					onPress={handleSearchPress}
+					style={{ marginRight: 8 }}>
+					<Ionicons
+						name='search'
+						size={24}
+						color={isDarkMode ? '#a3a3a3' : '#666666'}
+					/>
+				</TouchableOpacity>
+
+				<TextInput
+					placeholder='Search inventory...'
+					value={localSearchQuery}
+					onChangeText={setLocalSearchQuery} // no debouncing here
+					placeholderTextColor={isDarkMode ? '#a3a3a3' : '#666666'}
+					className={`flex-1 text-base bottom-1 ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}
+				/>
+			</View>
+
+			<View className='flex-row gap-2'>
+				<TouchableOpacity
+					onPress={onFilterPress}
+					disabled={subscriptionExpired}
+					className={`p-2 rounded-xl ${
+						subscriptionExpired ? 'opacity-50' : ''
+					}`}>
+					<Ionicons
+						name='filter'
+						size={24}
+						color={isDarkMode ? '#FFFFFF' : '#000000'}
+					/>
+				</TouchableOpacity>
+
+				<TouchableOpacity
+					onPress={onAddPress}
+					disabled={subscriptionExpired}
+					className={`p-2 rounded-full border border-emerald-300 ${
+						subscriptionExpired ? 'opacity-50' : ''
+					}`}>
+					<Ionicons name='add' size={24} color='#FFFFFF' />
+				</TouchableOpacity>
+			</View>
+		</View>
+	)
+}
+
+interface SoldModalProps {
+	visible: boolean
+	onClose: () => void
+	onConfirm: (data: any) => void
+	isDarkMode: boolean
+}
+
+const ModernSoldModal: React.FC<SoldModalProps> = ({
+	visible,
+	onClose,
+	onConfirm,
+	isDarkMode
+}) => {
+	const [soldInfo, setSoldInfo] = useState({
+		price: '',
+		date: '',
+		buyer_name: ''
+	})
+
+	const handleConfirm = () => {
+		if (!soldInfo.price || !soldInfo.date) {
+			Alert.alert('Error', 'Please enter both sold price and date.')
+			return
+		}
+		onConfirm(soldInfo)
+	}
+
+	const inputStyle = `w-full px-4 py-3.5 rounded-xl border mb-4 ${
+		isDarkMode
+			? 'border-neutral-700 bg-neutral-800 text-white'
+			: 'border-neutral-200 bg-neutral-50 text-black'
+	}`
+
+	return (
+		<Modal
+			visible={visible}
+			animationType='slide'
+			transparent
+			onRequestClose={onClose}>
+			<View className='flex-1 justify-center items-center'>
+				<BlurView
+					intensity={isDarkMode ? 30 : 20}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className='absolute inset-0'
+				/>
+
+				<View
+					className={`w-[90%] rounded-3xl ${
+						isDarkMode ? 'bg-neutral-900' : 'bg-white'
+					} p-6`}>
+					{/* Header */}
+					<View className='flex-row justify-between items-center mb-6'>
+						<Text
+							className={`text-xl font-semibold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Mark as Sold
+						</Text>
+						<TouchableOpacity onPress={onClose} className='p-2'>
+							<Ionicons
+								name='close'
+								size={24}
+								color={isDarkMode ? '#FFFFFF' : '#000000'}
+							/>
+						</TouchableOpacity>
+					</View>
+
+					{/* Form Fields */}
+					<View className='mb-6'>
+						<Text
+							className={`text-sm font-medium mb-2 ${
+								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+							}`}>
+							Sold Price
+						</Text>
+						<TextInput
+							placeholder='Enter sold price'
+							value={soldInfo.price}
+							onChangeText={text =>
+								setSoldInfo(prev => ({ ...prev, price: text }))
+							}
+							keyboardType='numeric'
+							className={inputStyle}
+							placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+						/>
+
+						<Text
+							className={`text-sm font-medium mb-2 ${
+								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+							}`}>
+							Date Sold
+						</Text>
+						<TextInput
+							placeholder='YYYY-MM-DD'
+							value={soldInfo.date}
+							onChangeText={text =>
+								setSoldInfo(prev => ({ ...prev, date: text }))
+							}
+							className={inputStyle}
+							placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+						/>
+
+						<Text
+							className={`text-sm font-medium mb-2 ${
+								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+							}`}>
+							Buyer Name
+						</Text>
+						<TextInput
+							placeholder='Enter buyer name'
+							value={soldInfo.buyer_name}
+							onChangeText={text =>
+								setSoldInfo(prev => ({ ...prev, buyer_name: text }))
+							}
+							className={inputStyle}
+							placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+						/>
+					</View>
+
+					{/* Action Buttons */}
+					<View className='flex-row space-x-4'>
+						<TouchableOpacity
+							onPress={onClose}
+							className='flex-1 py-4 rounded-xl bg-neutral-200 dark:bg-neutral-800'>
+							<Text
+								className={`text-center font-semibold ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								Cancel
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={handleConfirm}
+							className='flex-1 py-4 rounded-xl bg-red'>
+							<Text className='text-white text-center font-semibold'>
+								Confirm
+							</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</View>
+		</Modal>
+	)
+}
+
+interface FilterModalProps {
+	visible: boolean
+	onClose: () => void
+	onApply: (filters: FilterState) => void
+	currentFilters: FilterState
+	isDarkMode: boolean
+}
+
+interface FilterState {
+	status: string
+	condition: string
+	minPrice: string
+	maxPrice: string
+	minYear: string
+	maxYear: string
+	transmission: string
+}
+
+const ModernFilterModal: React.FC<FilterModalProps> = ({
+	visible,
+	onClose,
+	onApply,
+	currentFilters,
+	isDarkMode
+}) => {
+	const [localFilters, setLocalFilters] = useState<FilterState>(currentFilters)
+
+	useEffect(() => {
+		setLocalFilters(currentFilters)
+	}, [currentFilters, visible])
+
+	const handleChange = (key: keyof FilterState, value: string) => {
+		setLocalFilters(prev => ({ ...prev, [key]: value }))
+	}
+
+	const validateFilters = () => {
+		const numericFields = [
+			{ key: 'minPrice', max: 'maxPrice', label: 'Price' },
+			{ key: 'minYear', max: 'maxYear', label: 'Year' }
+		]
+
+		for (const field of numericFields) {
+			const min = Number(localFilters[field.key])
+			const max = Number(localFilters[field.max])
+
+			if (min && max && min > max) {
+				Alert.alert(
+					'Invalid Range',
+					`${field.label} minimum cannot be greater than maximum.`
+				)
+				return false
+			}
+		}
+
+		return true
+	}
+
+	const handleApply = () => {
+		if (validateFilters()) {
+			onApply(localFilters)
+			onClose()
+		}
+	}
+
+	const handleReset = () => {
+		const emptyFilters = {
+			status: '',
+			condition: '',
+			minPrice: '',
+			maxPrice: '',
+			minYear: '',
+			maxYear: '',
+			transmission: ''
+		}
+		setLocalFilters(emptyFilters)
+		onApply(emptyFilters)
+		onClose()
+	}
+
+	const pickerSelectStyles = {
+		inputIOS: {
+			fontSize: 16,
+			paddingVertical: 12,
+			paddingHorizontal: 12,
+			borderWidth: 1,
+			borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+			borderRadius: 12,
+			color: isDarkMode ? 'white' : 'black',
+			backgroundColor: isDarkMode ? '#1F2937' : '#F9FAFB'
+		},
+		inputAndroid: {
+			fontSize: 16,
+			paddingHorizontal: 12,
+			paddingVertical: 8,
+			borderWidth: 1,
+			borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+			borderRadius: 12,
+			color: isDarkMode ? 'white' : 'black',
+			backgroundColor: isDarkMode ? '#1F2937' : '#F9FAFB'
+		}
+	}
+
+	return (
+		<Modal
+			visible={visible}
+			animationType='slide'
+			transparent
+			onRequestClose={onClose}>
+			<View className='flex-1 justify-end'>
+				<BlurView
+					intensity={isDarkMode ? 30 : 20}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className='absolute inset-0'
+				/>
+
+				<View
+					className={`rounded-t-3xl ${
+						isDarkMode ? 'bg-neutral-900' : 'bg-white'
+					} max-h-[85%]`}>
+					{/* Header */}
+					<View className='flex-row justify-between items-center p-4 border-b border-neutral-200 dark:border-neutral-800'>
+						<TouchableOpacity onPress={onClose} className='p-2'>
+							<Ionicons
+								name='close'
+								size={24}
+								color={isDarkMode ? '#FFFFFF' : '#000000'}
+							/>
+						</TouchableOpacity>
+						<Text
+							className={`text-lg font-semibold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							Filters
+						</Text>
+						<TouchableOpacity onPress={handleReset}>
+							<Text className='text-red font-medium'>Reset</Text>
+						</TouchableOpacity>
+					</View>
+
+					<ScrollView className='p-4'>
+						<View className='space-y-6'>
+							{/* Status Filter */}
+							<View>
+								<Text
+									className={`text-sm font-medium mb-2 ${
+										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+									}`}>
+									Status
+								</Text>
+								<RNPickerSelect
+									onValueChange={value => handleChange('status', value)}
+									items={[
+										{ label: 'All', value: '' },
+										{ label: 'Available', value: 'available' },
+										{ label: 'Pending', value: 'pending' },
+										{ label: 'Sold', value: 'sold' }
+									]}
+									value={localFilters.status}
+									style={pickerSelectStyles}
+								/>
+							</View>
+
+							{/* Condition Filter */}
+							<View>
+								<Text
+									className={`text-sm font-medium mb-2 ${
+										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+									}`}>
+									Condition
+								</Text>
+								<RNPickerSelect
+									onValueChange={value => handleChange('condition', value)}
+									items={[
+										{ label: 'All', value: '' },
+										{ label: 'New', value: 'New' },
+										{ label: 'Used', value: 'Used' }
+									]}
+									value={localFilters.condition}
+									style={pickerSelectStyles}
+								/>
+							</View>
+
+							{/* Price Range */}
+							<View>
+								<Text
+									className={`text-sm font-medium mb-2 ${
+										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+									}`}>
+									Price Range
+								</Text>
+								<View className='flex-row space-x-4'>
+									<TextInput
+										placeholder='Min Price'
+										value={localFilters.minPrice}
+										onChangeText={value => handleChange('minPrice', value)}
+										keyboardType='numeric'
+										className={`flex-1 px-4 py-3 rounded-xl border ${
+											isDarkMode
+												? 'border-neutral-700 bg-neutral-800 text-white'
+												: 'border-neutral-200 bg-neutral-50 text-black'
+										}`}
+										placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+									/>
+									<TextInput
+										placeholder='Max Price'
+										value={localFilters.maxPrice}
+										onChangeText={value => handleChange('maxPrice', value)}
+										keyboardType='numeric'
+										className={`flex-1 px-4 py-3 rounded-xl border ${
+											isDarkMode
+												? 'border-neutral-700 bg-neutral-800 text-white'
+												: 'border-neutral-200 bg-neutral-50 text-black'
+										}`}
+										placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+									/>
+								</View>
+							</View>
+
+							{/* Year Range */}
+							<View>
+								<Text
+									className={`text-sm font-medium mb-2 ${
+										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+									}`}>
+									Year Range
+								</Text>
+								<View className='flex-row space-x-4'>
+									<TextInput
+										placeholder='Min Year'
+										value={localFilters.minYear}
+										onChangeText={value => handleChange('minYear', value)}
+										keyboardType='numeric'
+										className={`flex-1 px-4 py-3 rounded-xl border ${
+											isDarkMode
+												? 'border-neutral-700 bg-neutral-800 text-white'
+												: 'border-neutral-200 bg-neutral-50 text-black'
+										}`}
+										placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+									/>
+									<TextInput
+										placeholder='Max Year'
+										value={localFilters.maxYear}
+										onChangeText={value => handleChange('maxYear', value)}
+										keyboardType='numeric'
+										className={`flex-1 px-4 py-3 rounded-xl border ${
+											isDarkMode
+												? 'border-neutral-700 bg-neutral-800 text-white'
+												: 'border-neutral-200 bg-neutral-50 text-black'
+										}`}
+										placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+									/>
+								</View>
+							</View>
+
+							{/* Transmission Filter */}
+							<View>
+								<Text
+									className={`text-sm font-medium mb-2 ${
+										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+									}`}>
+									Transmission
+								</Text>
+								<RNPickerSelect
+									onValueChange={value => handleChange('transmission', value)}
+									items={[
+										{ label: 'All', value: '' },
+										{ label: 'Automatic', value: 'Automatic' },
+										{ label: 'Manual', value: 'Manual' }
+									]}
+									value={localFilters.transmission}
+									style={pickerSelectStyles}
+								/>
+							</View>
+						</View>
+					</ScrollView>
+
+					{/* Footer */}
+					<View className='p-4 border-t border-neutral-200 dark:border-neutral-800'>
+						<TouchableOpacity
+							onPress={handleApply}
+							className='bg-red py-4 rounded-xl'>
+							<Text className='text-white text-center font-semibold'>
+								Apply Filters
+							</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			</View>
+		</Modal>
+	)
+}
 interface CarListing {
 	id: number
 	make: string
@@ -73,7 +587,6 @@ export default function DealerListings() {
 	const [isRefreshing, setIsRefreshing] = useState(false)
 	const [sortBy, setSortBy] = useState('listed_at')
 	const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-	const [searchQuery, setSearchQuery] = useState('')
 	const [selectedListing, setSelectedListing] = useState<CarListing | null>(
 		null
 	)
@@ -82,8 +595,17 @@ export default function DealerListings() {
 	const [hasMoreListings, setHasMoreListings] = useState(true)
 	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
-	const [filters, setFilters] = useState<any>({})
-
+	const [searchQuery, setSearchQuery] = useState('')
+	const [totalListings, setTotalListings] = useState(0)
+	const [filters, setFilters] = useState({
+		status: '',
+		condition: '',
+		minPrice: '',
+		maxPrice: '',
+		minYear: '',
+		maxYear: '',
+		transmission: ''
+	})
 	const isSubscriptionValid = useCallback(() => {
 		if (!dealership || !dealership.subscription_end_date) return false
 		const endDate = new Date(dealership.subscription_end_date)
@@ -116,56 +638,91 @@ export default function DealerListings() {
 		}
 	}, [user])
 
+	const applyFiltersToQuery = (query: any) => {
+		if (filters.status) {
+			query = query.eq('status', filters.status)
+		}
+		if (filters.condition) {
+			query = query.eq('condition', filters.condition)
+		}
+		if (filters.minPrice) {
+			query = query.gte('price', parseInt(filters.minPrice))
+		}
+		if (filters.maxPrice) {
+			query = query.lte('price', parseInt(filters.maxPrice))
+		}
+		if (filters.minYear) {
+			query = query.gte('year', parseInt(filters.minYear))
+		}
+		if (filters.maxYear) {
+			query = query.lte('year', parseInt(filters.maxYear))
+		}
+		if (filters.transmission) {
+			query = query.eq('transmission', filters.transmission)
+		}
+
+		return query
+	}
+
 	const fetchListings = useCallback(
-		async (page: number, refresh: boolean = false) => {
+		async (page = 1, refresh = false) => {
 			if (!dealership) return
 			setIsLoading(true)
 			try {
 				let query = supabase
 					.from('cars')
-					.select('*', { count: 'exact' })
+					.select(
+						'*, dealerships!inner(name,logo,phone,location,latitude,longitude)',
+						{
+							count: 'exact'
+						}
+					)
 					.eq('dealership_id', dealership.id)
 					.order(sortBy, { ascending: sortOrder === 'asc' })
 
+				// Apply search
 				if (searchQuery) {
 					query = query.or(
-						`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
+						`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
 					)
 				}
 
 				// Apply filters
-				if (filters.status) query = query.eq('status', filters.status)
-				if (filters.condition) query = query.eq('condition', filters.condition)
-				if (filters.minPrice)
-					query = query.gte('price', parseInt(filters.minPrice))
-				if (filters.maxPrice)
-					query = query.lte('price', parseInt(filters.maxPrice))
-				if (filters.minYear)
-					query = query.gte('year', parseInt(filters.minYear))
-				if (filters.maxYear)
-					query = query.lte('year', parseInt(filters.maxYear))
+				query = applyFiltersToQuery(query)
 
-				const { data, error, count } = await query.range(
-					(page - 1) * ITEMS_PER_PAGE,
-					page * ITEMS_PER_PAGE - 1
-				)
+				const from = (page - 1) * ITEMS_PER_PAGE
+				const to = from + ITEMS_PER_PAGE - 1
+
+				const { data, error, count } = await query.range(from, to)
 
 				if (error) throw error
 
-				setListings(prevListings =>
-					refresh ? data || [] : [...prevListings, ...(data || [])]
+				const formattedData =
+					data?.map(item => ({
+						...item,
+						dealership_name: item.dealerships.name,
+						dealership_logo: item.dealerships.logo,
+						dealership_phone: item.dealerships.phone,
+						dealership_location: item.dealerships.location,
+						dealership_latitude: item.dealerships.latitude,
+						dealership_longitude: item.dealerships.longitude
+					})) || []
+
+				setListings(prev =>
+					refresh ? formattedData : [...prev, ...formattedData]
 				)
 				setCurrentPage(page)
 				setHasMoreListings((count || 0) > page * ITEMS_PER_PAGE)
+				setTotalListings(count || 0)
 			} catch (error) {
-				setError('Failed to fetch car listings')
 				console.error('Error fetching listings:', error)
+				Alert.alert('Error', 'Failed to fetch listings')
 			} finally {
 				setIsLoading(false)
 				setIsRefreshing(false)
 			}
 		},
-		[dealership, sortBy, sortOrder, searchQuery, filters]
+		[dealership, searchQuery, filters, sortBy, sortOrder]
 	)
 
 	useEffect(() => {
@@ -179,12 +736,31 @@ export default function DealerListings() {
 		}
 	}, [dealership, filters, sortBy, sortOrder, searchQuery, fetchListings])
 
+	const handleSearchChange = useCallback(
+		(text: string) => {
+			setSearchQuery(text)
+			setCurrentPage(1)
+			fetchListings(1, true)
+		},
+		[fetchListings]
+	)
+
+	// Handle filter changes
+	const handleFilterChange = useCallback(
+		(newFilters: any) => {
+			setFilters(newFilters)
+			setCurrentPage(1)
+			fetchListings(1, true)
+		},
+		[fetchListings]
+	)
+
+	// Handle refresh
 	const handleRefresh = useCallback(() => {
 		setIsRefreshing(true)
 		setCurrentPage(1)
 		fetchListings(1, true)
 	}, [fetchListings])
-
 	const handleLoadMore = useCallback(() => {
 		if (!isLoading && hasMoreListings) {
 			fetchListings(currentPage + 1)
@@ -286,31 +862,29 @@ export default function DealerListings() {
 	)
 
 	const SpecItem = ({ title, icon, value, isDarkMode }) => (
-		<View className="flex-1 items-center justify-center">
-		  <Text
-			className={`text-xs mb-3 ${
-			  isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
-			}`}
-			style={{ textAlign: 'center' }}
-		  >
-			{title}
-		  </Text>
-		  <Ionicons
-			name={icon}
-			size={30}
-			color={isDarkMode ? '#FFFFFF' : '#000000'}
-			style={{ marginVertical: 3 }}
-		  />
-		  <Text
-			className={`text-sm font-bold mt-3 ${
-			  isDarkMode ? 'text-white' : 'text-black'
-			}`}
-			style={{ textAlign: 'center' }}
-		  >
-			{value}
-		  </Text>
+		<View className='flex-1 items-center justify-center'>
+			<Text
+				className={`text-xs mb-3 ${
+					isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+				}`}
+				style={{ textAlign: 'center' }}>
+				{title}
+			</Text>
+			<Ionicons
+				name={icon}
+				size={30}
+				color={isDarkMode ? '#FFFFFF' : '#000000'}
+				style={{ marginVertical: 3 }}
+			/>
+			<Text
+				className={`text-sm font-bold mt-3 ${
+					isDarkMode ? 'text-white' : 'text-black'
+				}`}
+				style={{ textAlign: 'center' }}>
+				{value}
+			</Text>
 		</View>
-	  );
+	)
 
 	const handleMarkAsSold = useCallback(
 		async (soldInfo: { price: string; date: string; buyer_name: string }) => {
@@ -347,153 +921,184 @@ export default function DealerListings() {
 		[selectedListing, dealership, isSubscriptionValid]
 	)
 
+	// Add this helper function outside the component
+	const getStatusConfig = (status: string) => {
+		switch (status.toLowerCase()) {
+			case 'available':
+				return { color: '#22C55E', dotColor: '#4ADE80' } // Green
+			case 'pending':
+				return { color: '#EAB308', dotColor: '#FDE047' } // Yellow
+			case 'sold':
+				return { color: '#EF4444', dotColor: '#FCA5A5' } // Red
+			default:
+				return { color: '#6B7280', dotColor: '#9CA3AF' } // Gray
+		}
+	}
+
 	const ListingCard = useMemo(
 		() =>
 			React.memo(({ item }: { item: CarListing }) => {
 				const subscriptionValid = isSubscriptionValid()
+				const statusConfig = getStatusConfig(item.status)
 
 				return (
 					<Animated.View
-  entering={FadeInDown}
-  exiting={FadeOutUp}
-  className={`m-4 mb-4 ${isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'} rounded-3xl overflow-hidden shadow-xl`}
->
-  {/* Image and Overlays */}
-  <View className="relative">
-    <Image source={{ uri: item.images[0] }} className="w-full h-[245px]" />
-    
-    {/* Gradient Overlay */}
-    <LinearGradient
-      colors={['transparent', 'rgba(0,0,0,0.7)']}
-      className="absolute bottom-0 left-0 right-0 h-32"
-    />
+						entering={FadeInDown}
+						exiting={FadeOutUp}
+						className={`m-4 mb-4 ${
+							isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
+						} rounded-3xl overflow-hidden shadow-xl`}>
+						{/* Image and Overlays */}
+						<View className='relative'>
+							<Image
+								source={{ uri: item.images[0] }}
+								className='w-full h-[245px]'
+							/>
 
-    {/* Top Actions Row */}
-    <View className="absolute top-4 w-full px-4 flex-row justify-between items-center">
-      <View className="flex-row items-center">
-        {/* Status Badge */}
-        <View className="bg-red/80 rounded-full px-3 py-1 mr-2">
-          <Text className="text-white text-xs font-bold uppercase">
-            {item.status}
-          </Text>
-        </View>
+							{/* Gradient Overlay - Enhanced opacity */}
+							<LinearGradient
+								colors={['transparent', 'rgba(0,0,0,0.85)']}
+								className='absolute bottom-0 left-0 right-0 h-40'
+							/>
 
-        {/* Views Counter */}
-        <View className="flex-row items-center bg-black/50 rounded-full px-2 py-1 mr-2">
-          <FontAwesome name="eye" size={12} color="#FFFFFF" />
-          <Text className="text-white text-xs ml-1">
-            {item.views || 0}
-          </Text>
-        </View>
-        
-        {/* Likes Counter */}
-        <View className="flex-row items-center bg-black/50 rounded-full px-2 py-1">
-          <FontAwesome name="heart" size={12} color="#FFFFFF" />
-          <Text className="text-white text-xs ml-1">
-            {item.likes || 0}
-          </Text>
-        </View>
-      </View>
+							{/* Top Actions Row */}
+							<View className='absolute top-4 w-full px-4 flex-row justify-between items-center'>
+								<View className='flex-row items-center'>
+									{/* Enhanced Status Badge with dot indicator */}
+									<View
+										style={{ backgroundColor: statusConfig.color }}
+										className='rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
+										<View
+											style={{ backgroundColor: statusConfig.dotColor }}
+											className='w-2 h-2 rounded-full mr-2 animate-pulse'
+										/>
+										<Text className='text-white text-xs font-bold uppercase tracking-wider'>
+											{item.status}
+										</Text>
+									</View>
 
-      {/* Three Dots Menu */}
-      <TouchableOpacity 
-        className="bg-black/50 rounded-full p-2"
-        onPress={() => {
-          if (!subscriptionValid) {
-            Alert.alert(
-              'Subscription Expired',
-              'Please renew your subscription to manage listings.'
-            );
-            return;
-          }
-          Alert.alert(
-            'Manage Listing',
-            'Choose an action',
-            [
-              {
-                text: 'Edit',
-                onPress: () => {
-                  setSelectedListing(item);
-                  setIsListingModalVisible(true);
-                }
-              },
-              {
-                text: item.status !== 'sold' ? 'Mark as Sold' : 'Mark as Available',
-                onPress: () => {
-                  setSelectedListing(item);
-                  setIsSoldModalVisible(true);
-                }
-              },
-              {
-                text: 'Delete',
-                onPress: () => handleDeleteListing(item.id),
-                style: 'destructive'
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel'
-              }
-            ]
-          );
-        }}
-      >
-        <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
-      </TouchableOpacity>
-    </View>
+									{/* Enhanced Stats Container */}
+									<View className='flex-row space-x-2'>
+										{/* Views Counter */}
+										<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
+											<FontAwesome name='eye' size={12} color='#FFFFFF' />
+											<Text className='text-white text-xs font-medium ml-1.5'>
+												{item.views || 0}
+											</Text>
+										</View>
 
-    {/* Bottom Content */}
-    <View className="absolute bottom-0 w-full p-4">
-      <View className="flex-row justify-between items-center">
-        <View className="flex-1">
-          <Text className="text-white text-xl font-bold">
-            {item.year} {item.make} {item.model}
-          </Text>
-          <Text className="text-white text-2xl font-bold mt-1">
-            ${item.price.toLocaleString()}
-          </Text>
-        </View>
-      </View>
-    </View>
-  </View>
+										{/* Likes Counter */}
+										<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
+											<FontAwesome name='heart' size={12} color='#FFFFFF' />
+											<Text className='text-white text-xs font-medium ml-1.5'>
+												{item.likes || 0}
+											</Text>
+										</View>
+									</View>
+								</View>
 
-  {/* Car Specs - Matching User Card Style */}
-  <View className="flex-row justify-between mt-4 mb-4">
-    <SpecItem
-      title="Year"
-      icon="calendar-outline"
-      value={item.year}
-      isDarkMode={isDarkMode}
-    />
-    <SpecItem
-      title="Mileage"
-      icon="speedometer-outline"
-      value={`${(item.mileage / 1000).toFixed(1)}k`}
-      isDarkMode={isDarkMode}
-    />
-    <SpecItem
-      title="Transm."
-      icon="cog-outline"
-      value={
-        item.transmission === 'Automatic'
-          ? 'Auto'
-          : item.transmission === 'Manual'
-          ? 'Man'
-          : item.transmission
-      }
-      isDarkMode={isDarkMode}
-    />
-    <SpecItem
-      title="Condition"
-      icon="car-sport-outline"
-      value={item.condition}
-      isDarkMode={isDarkMode}
-    />
-  </View>
+								{/* Enhanced Menu Button */}
+								<TouchableOpacity
+									className='bg-black/60 backdrop-blur-lg rounded-full p-2.5'
+									onPress={() => {
+										if (!subscriptionValid) {
+											Alert.alert(
+												'Subscription Expired',
+												'Please renew your subscription to manage listings.'
+											)
+											return
+										}
+										Alert.alert('Manage Listing', 'Choose an action', [
+											{
+												text: 'Edit',
+												onPress: () => {
+													setSelectedListing(item)
+													setIsListingModalVisible(true)
+												}
+											},
+											{
+												text:
+													item.status !== 'sold'
+														? 'Mark as Sold'
+														: 'Mark as Available',
+												onPress: () => {
+													setSelectedListing(item)
+													setIsSoldModalVisible(true)
+												}
+											},
+											{
+												text: 'Delete',
+												onPress: () => handleDeleteListing(item.id),
+												style: 'destructive'
+											},
+											{
+												text: 'Cancel',
+												style: 'cancel'
+											}
+										])
+									}}>
+									<Ionicons
+										name='ellipsis-horizontal'
+										size={20}
+										color='#FFFFFF'
+									/>
+								</TouchableOpacity>
+							</View>
 
-  <View className="w-full px-4">
-    <View className="h-[0.5px] bg-textgray opacity-30" />
-  </View>
-</Animated.View>
+							{/* Enhanced Bottom Content */}
+							<View className='absolute bottom-0 w-full p-5'>
+								<View className='flex-row justify-between items-end'>
+									<View className='flex-1'>
+										<Text className='text-white/90 text-sm font-medium mb-1'>
+											{item.year}
+										</Text>
+										<Text className='text-white text-2xl font-bold tracking-tight mb-1'>
+											{item.make} {item.model}
+										</Text>
+										<Text className='text-white text-3xl font-extrabold'>
+											${item.price.toLocaleString()}
+										</Text>
+									</View>
+								</View>
+							</View>
+						</View>
+
+						{/* Enhanced Car Specs Section */}
+						<View className='px-5 py-4'>
+							<View className='flex-row justify-between'>
+								<SpecItem
+									title='Year'
+									icon='calendar-outline'
+									value={item.year}
+									isDarkMode={isDarkMode}
+								/>
+								<SpecItem
+									title='Mileage'
+									icon='speedometer-outline'
+									value={`${(item.mileage / 1000).toFixed(1)}k`}
+									isDarkMode={isDarkMode}
+								/>
+								<SpecItem
+									title='Transm.'
+									icon='cog-outline'
+									value={
+										item.transmission === 'Automatic'
+											? 'Auto'
+											: item.transmission === 'Manual'
+											? 'Man'
+											: item.transmission
+									}
+									isDarkMode={isDarkMode}
+								/>
+								<SpecItem
+									title='Condition'
+									icon='car-sport-outline'
+									value={item.condition}
+									isDarkMode={isDarkMode}
+								/>
+							</View>
+						</View>
+					</Animated.View>
 				)
 			}),
 		[
@@ -506,274 +1111,13 @@ export default function DealerListings() {
 		]
 	)
 
-	const FilterModalContent = useMemo(
-		() =>
-			React.memo(() => {
-				const [localFilters, setLocalFilters] = useState(filters)
-
-				const handleLocalFilterChange = (key: string, value: string) => {
-					setLocalFilters((prev: any) => ({
-						...prev,
-						[key]: value === '' ? undefined : value
-					}))
-				}
-
-				const handleApplyFilters = () => {
-					setFilters(localFilters)
-					setIsFilterModalVisible(false)
-					setCurrentPage(1)
-					fetchListings(1, true)
-				}
-
-				const handleClearFilters = () => {
-					setLocalFilters({})
-					setIsFilterModalVisible(false)
-				}
-
-				return (
-					<View className='flex-1 mt-5 justify-top bg-black'>
-						<View
-							className={`bg-${
-								isDarkMode ? 'gray' : 'white'
-							} rounded-t-3xl p-6`}>
-							<View className='flex-row justify-between items-center mb-4'>
-								<Text
-									className={`text-xl font-bold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Filters
-								</Text>
-								<TouchableOpacity
-									onPress={() => setIsFilterModalVisible(false)}>
-									<Ionicons
-										name='close'
-										size={24}
-										color={isDarkMode ? 'white' : 'black'}
-									/>
-								</TouchableOpacity>
-							</View>
-
-							<Text
-								className={`font-semibold mb-2 ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Status
-							</Text>
-							<RNPickerSelect
-								onValueChange={value =>
-									handleLocalFilterChange('status', value)
-								}
-								items={[
-									{ label: 'All', value: '' },
-									{ label: 'Available', value: 'available' },
-									{ label: 'Pending', value: 'pending' },
-									{ label: 'Sold', value: 'sold' }
-								]}
-								value={localFilters.status || ''}
-								style={pickerSelectStyles(isDarkMode)}
-							/>
-							<Text
-								className={`font-semibold mb-2 mt-4 ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Condition
-							</Text>
-							<RNPickerSelect
-								onValueChange={value =>
-									handleLocalFilterChange('condition', value)
-								}
-								items={[
-									{ label: 'All', value: '' },
-									{ label: 'New', value: 'New' },
-									{ label: 'Used', value: 'Used' }
-								]}
-								value={localFilters.condition}
-								style={pickerSelectStyles(isDarkMode)}
-							/>
-
-							<Text
-								className={`font-semibold mb-2 mt-4 ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Price Range
-							</Text>
-							<View className='flex-row justify-between'>
-								<TextInput
-									className={`w-[48%] p-2 rounded-md border-red border-2 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Min Price'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localFilters.minPrice}
-									onChangeText={value =>
-										handleLocalFilterChange('minPrice', value)
-									}
-									keyboardType='numeric'
-								/>
-								<TextInput
-									className={`w-[48%] p-2 rounded-md border-red border-2 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Max Price'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localFilters.maxPrice}
-									onChangeText={value =>
-										handleLocalFilterChange('maxPrice', value)
-									}
-									keyboardType='numeric'
-								/>
-							</View>
-
-							<Text
-								className={`font-semibold mb-2 mt-4 ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Year Range
-							</Text>
-							<View className='flex-row justify-between'>
-								<TextInput
-									className={`w-[48%] p-2 rounded-md border-red border-2 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Min Year'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localFilters.minYear}
-									onChangeText={value =>
-										handleLocalFilterChange('minYear', value)
-									}
-									keyboardType='numeric'
-								/>
-								<TextInput
-									className={`w-[48%] p-2 rounded-md border-red border-2 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Max Year'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localFilters.maxYear}
-									onChangeText={value =>
-										handleLocalFilterChange('maxYear', value)
-									}
-									keyboardType='numeric'
-								/>
-							</View>
-
-							<View className='flex-row justify-between mt-6'>
-								<TouchableOpacity
-									className='bg-black py-2 px-4 rounded-full'
-									onPress={handleClearFilters}>
-									<Text className='text-white font-bold'>Clear Filters</Text>
-								</TouchableOpacity>
-								<TouchableOpacity
-									className='bg-red py-2 px-4 rounded-full'
-									onPress={handleApplyFilters}>
-									<Text className='text-white font-bold'>Apply Filters</Text>
-								</TouchableOpacity>
-							</View>
-						</View>
-					</View>
-				)
-			}),
-		[isDarkMode, filters, setFilters, setIsFilterModalVisible, fetchListings]
-	)
-
-	const SoldModal = useMemo(
-		() =>
-			React.memo(() => {
-				const [localSoldInfo, setLocalSoldInfo] = useState({
-					price: '',
-					date: '',
-					buyer_name: ''
-				})
-
-				const handleConfirm = () => {
-					if (!localSoldInfo.price || !localSoldInfo.date) {
-						Alert.alert('Error', 'Please enter both sold price and date.')
-						return
-					}
-
-					const isoDate = new Date(localSoldInfo.date).toISOString()
-
-					handleMarkAsSold({ ...localSoldInfo, date: isoDate })
-				}
-
-				return (
-					<Modal
-						visible={isSoldModalVisible}
-						animationType='slide'
-						transparent={true}>
-						<View className='flex-1 justify-center items-center bg-black'>
-							<View
-								className={`bg-${
-									isDarkMode ? 'gray' : 'white'
-								} p-6 rounded-lg w-5/6`}>
-								<Text
-									className={`text-2xl font-bold mb-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Mark as Sold
-								</Text>
-								<TextInput
-									className={`border border-red rounded p-2 mb-4 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Sold Price'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localSoldInfo.price}
-									onChangeText={text =>
-										setLocalSoldInfo(prev => ({ ...prev, price: text }))
-									}
-									keyboardType='numeric'
-								/>
-								<TextInput
-									className={`border border-red rounded p-2 mb-4 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Date Sold (YYYY-MM-DD)'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localSoldInfo.date}
-									onChangeText={text =>
-										setLocalSoldInfo(prev => ({ ...prev, date: text }))
-									}
-								/>
-								<TextInput
-									className={`border border-red rounded p-2 mb-4 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-									}`}
-									placeholder='Buyer Name'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									value={localSoldInfo.buyer_name}
-									onChangeText={text =>
-										setLocalSoldInfo(prev => ({ ...prev, buyer_name: text }))
-									}
-								/>
-								<View className='flex-row justify-end mt-4'>
-									<TouchableOpacity
-										className='bg-black text-white py-2 px-4 rounded mr-2'
-										onPress={() => setIsSoldModalVisible(false)}>
-										<Text className='text-white'>Cancel</Text>
-									</TouchableOpacity>
-									<TouchableOpacity
-										className='bg-red py-2 px-4 rounded'
-										onPress={handleConfirm}>
-										<Text className='text-white'>Confirm</Text>
-									</TouchableOpacity>
-								</View>
-							</View>
-						</View>
-					</Modal>
-				)
-			}),
-		[isSoldModalVisible, isDarkMode, handleMarkAsSold]
-	)
-
 	if (!dealership) {
 		return (
-			<View className='flex-1 justify-center items-center'>
+			<LinearGradient
+				colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+				className='flex-1 justify-center items-center'>
 				<ActivityIndicator size='large' color='#D55004' />
-				<Text className='text-lg text-gray mt-4'>
-					Loading dealership information...
-				</Text>
-			</View>
+			</LinearGradient>
 		)
 	}
 
@@ -784,97 +1128,63 @@ export default function DealerListings() {
 
 	return (
 		<LinearGradient
-			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
-			className='flex-1 mb-10'>
+			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+			className='flex-1'>
 			<CustomHeader title='My Cars' />
-			{error && <Text className='text-red text-center py-2'>{error}</Text>}
-			{subscriptionExpired && (
-				<View className='bg-rose-600 p-4'>
-					<Text className='text-white text-center font-bold'>
-						Your subscription has expired. Please renew to manage your listings.
-					</Text>
-				</View>
-			)}
-			{showWarning && (
-				<View className='bg-yellow-500 p-4 '>
-					<Text className='text-white text-center font-bold'>
-						Your subscription will expire in {daysUntilExpiration} day
-						{daysUntilExpiration !== 1 ? 's' : ''}. Please renew soon.
-					</Text>
-				</View>
-			)}
-			<View className='px-4 py-2'>
-				<View className='flex-row items-center justify-between mb-2'>
-					<View className='flex-1 flex-row items-center bg-white dark:bg-gray rounded-full mr-2'>
-						<TextInput
-							className='flex-1 py-2 px-4 text-black dark:text-white'
-							placeholder='Search listings...'
-							placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-							value={searchQuery}
-							onChangeText={setSearchQuery}
-							onSubmitEditing={handleSearch}
-						/>
-						<TouchableOpacity className='pr-3' onPress={handleSearch}>
-							<FontAwesome
-								name='search'
-								size={20}
-								color={isDarkMode ? '#FFFFFF' : '#000000'}
-							/>
-						</TouchableOpacity>
-					</View>
-					<TouchableOpacity
-						className={`${
-							subscriptionExpired ? 'bg-light-text' : 'bg-red'
-						} w-12 h-12 rounded-full items-center justify-center`}
-						onPress={() => {
-							if (subscriptionExpired) {
-								Alert.alert(
-									'Subscription Expired',
-									'Please renew your subscription to use filters.'
-								)
-							} else {
-								setIsFilterModalVisible(true)
-							}
-						}}>
-						<FontAwesome name='filter' size={20} color='white' />
-					</TouchableOpacity>
-				</View>
 
-				<View className='flex-row items-center justify-between'>
-					<View className='flex-1 mr-2'>
-						<SortPicker
-							onValueChange={handleSortChange}
-							initialValue={{ label: 'Sort By', value: null }}
-						/>
-					</View>
-					<TouchableOpacity
-						className={`${
-							subscriptionExpired ? 'bg-light-text' : 'bg-red'
-						} w-12 h-12 rounded-full items-center justify-center`}
-						onPress={() => {
-							if (subscriptionExpired) {
-								Alert.alert(
-									'Subscription Expired',
-									'Please renew your subscription to add new listings.'
-								)
-							} else {
-								setSelectedListing(null)
-								setIsListingModalVisible(true)
-							}
-						}}>
-						<Ionicons name='add' size={24} color='white' />
-					</TouchableOpacity>
-				</View>
-			</View>
+			{/* Modern Header */}
 
+			{/* Subscription Warning */}
+			{(subscriptionExpired || showWarning) && (
+				<BlurView
+					intensity={isDarkMode ? 30 : 50}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className={`mx-6 mb-4 rounded-xl overflow-hidden ${
+						subscriptionExpired ? 'bg-rose-500/20' : 'bg-amber-500/20'
+					}`}>
+					<View className='p-4'>
+						<Text className='text-center font-medium text-white'>
+							{subscriptionExpired
+								? 'Your subscription has expired. Please renew to manage listings.'
+								: `Your subscription will expire in ${daysUntilExpiration} days. Please renew soon.`}
+						</Text>
+					</View>
+				</BlurView>
+			)}
+
+			{/* Search and Filter Bar */}
+			<ModernSearchBar
+				searchQuery={searchQuery}
+				onSearchChange={handleSearchChange}
+				onFilterPress={() => setIsFilterModalVisible(true)}
+				onAddPress={() => {
+					if (subscriptionExpired) {
+						Alert.alert(
+							'Subscription Expired',
+							'Please renew your subscription to add new listings.'
+						)
+						return
+					}
+					setSelectedListing(null)
+					setIsListingModalVisible(true)
+				}}
+				isDarkMode={isDarkMode}
+				subscriptionExpired={subscriptionExpired}
+			/>
+			{/* Listings */}
 			<FlatList
 				data={listings}
 				renderItem={({ item }) => <ListingCard item={item} />}
 				keyExtractor={item => item.id.toString()}
+				showsVerticalScrollIndicator={false}
 				onEndReached={handleLoadMore}
-				onEndReachedThreshold={0.1}
+				onEndReachedThreshold={0.5}
 				refreshControl={
-					<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+					<RefreshControl
+						refreshing={isRefreshing}
+						onRefresh={handleRefresh}
+						tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+					/>
 				}
 				ListEmptyComponent={
 					<View className='flex-1 justify-center items-center py-20'>
@@ -887,20 +1197,15 @@ export default function DealerListings() {
 					</View>
 				}
 				ListFooterComponent={
-					isLoading && hasMoreListings ? (
-						<ActivityIndicator size='large' color='#D55004' />
-					) : null
+					isLoading && (
+						<ActivityIndicator
+							size='large'
+							color='#D55004'
+							style={{ marginVertical: 20 }}
+						/>
+					)
 				}
 			/>
-
-			{/* Wrap FilterModalContent with Modal */}
-			<Modal
-				visible={isFilterModalVisible}
-				animationType='slide'
-				transparent={true}
-				onRequestClose={() => setIsFilterModalVisible(false)}>
-				<FilterModalContent />
-			</Modal>
 
 			{!subscriptionExpired && (
 				<>
@@ -914,8 +1219,21 @@ export default function DealerListings() {
 						initialData={selectedListing}
 						dealership={dealership}
 					/>
-					{/* <FilterModal /> */}
-					<SoldModal />
+
+					<ModernFilterModal
+						visible={isFilterModalVisible}
+						onClose={() => setIsFilterModalVisible(false)}
+						onApply={handleFilterChange}
+						currentFilters={filters}
+						isDarkMode={isDarkMode}
+					/>
+
+					<ModernSoldModal
+						visible={isSoldModalVisible}
+						onClose={() => setIsSoldModalVisible(false)}
+						onConfirm={handleMarkAsSold}
+						isDarkMode={isDarkMode}
+					/>
 				</>
 			)}
 		</LinearGradient>
