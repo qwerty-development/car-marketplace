@@ -21,6 +21,33 @@ import Animated, {
 const AnimatedTouchableOpacity =
 	Animated.createAnimatedComponent(TouchableOpacity)
 
+const NotificationBadge = ({ count }: { count: number }) => {
+	// Convert count to display text, handling large numbers
+	const displayText = count > 99 ? '99+' : count.toString()
+
+	// Determine badge width based on number of digits
+	const badgeWidth = displayText.length > 2 ? 24 : 20
+
+	return (
+		<Animated.View
+			entering={FadeInDown}
+			exiting={FadeOutUp}
+			className='absolute -top-2 -right-2 bg-red rounded-full items-center justify-center'
+			style={{
+				minWidth: badgeWidth,
+				height: 20,
+				paddingHorizontal: 4
+			}}>
+			<Text
+				className='text-white text-xs font-bold'
+				numberOfLines={1}
+				adjustsFontSizeToFit>
+				{displayText}
+			</Text>
+		</Animated.View>
+	)
+}
+
 export const NotificationBell = () => {
 	const { isDarkMode } = useTheme()
 	const [unreadCount, setUnreadCount] = useState(0)
@@ -100,7 +127,7 @@ export const NotificationBell = () => {
 
 	return (
 		<AnimatedTouchableOpacity
-			style={animatedStyle}
+			style={[animatedStyle, { marginRight: 4 }]}
 			onPress={() => {
 				Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 				router.push('/(home)/(user)/notifications')
@@ -111,16 +138,7 @@ export const NotificationBell = () => {
 				size={24}
 				color={isDarkMode ? '#FFFFFF' : '#000000'}
 			/>
-			{unreadCount > 0 && (
-				<Animated.View
-					entering={FadeInDown}
-					exiting={FadeOutUp}
-					className='absolute -top-1 -right-1 bg-red rounded-full min-w-[18px] h-[18px] items-center justify-center'>
-					<Text className='text-white text-xs font-bold px-1'>
-						{unreadCount > 99 ? '99+' : unreadCount}
-					</Text>
-				</Animated.View>
-			)}
+			{unreadCount > 0 && <NotificationBadge count={unreadCount} />}
 		</AnimatedTouchableOpacity>
 	)
 }
