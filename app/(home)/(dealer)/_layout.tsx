@@ -57,6 +57,14 @@ export default function DealerLayout() {
 						headerShown: false
 					}}
 				/>
+				<Stack.Screen
+					name='CarDetails'
+					options={{
+						presentation: 'card',
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
 			</Stack>
 		</GestureHandlerRootView>
 	)
