@@ -65,7 +65,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 						<TouchableOpacity
 							key={item.name}
 							onPress={() => onCategoryPress(item.name)}
-							className={`mr-3 rounded-2xl overflow-hidden`}
+							className={`mr-3 bg-black rounded-2xl overflow-hidden`}
 							style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}>
 							<BlurView
 								intensity={isDarkMode ? 30 : 50}

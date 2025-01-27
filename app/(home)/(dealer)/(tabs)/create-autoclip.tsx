@@ -65,11 +65,11 @@ const CustomHeader = React.memo(({ title, dealership }: any) => {
 		<SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View className='ml-3'>
-				<Text className='text-3xl font-bold mb-1 text-black dark:text-white'>
+				<Text className={`text-2xl -mb-5 font-bold ${isDarkMode ? 'text-white' : 'text-black'} `}>
 					{title}
 				</Text>
 				{dealership && (
-					<View className='flex-row items-center'>
+					<View className='flex-row mt-12 items-center'>
 						{dealership.logo && (
 							<Image
 								source={{ uri: dealership.logo }}

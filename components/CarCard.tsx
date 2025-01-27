@@ -53,19 +53,19 @@ const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
 		<Ionicons
 			name={icon}
 			size={28}
-			color={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
+			color={isDarkMode ? '#FFFFFF' : '#000000'}
 			className='mb-1.5'
 		/>
 		<StyledText
 			className={`text-xs font-medium ${
-				isDarkMode ? 'text-white' : 'text-white'
+				isDarkMode ? 'text-white' : 'text-black'
 			} mb-0.5`}
 			numberOfLines={1}>
 			{title}
 		</StyledText>
 		<StyledText
 			className={`text-sm font-semibold ${
-				isDarkMode ? 'text-white' : 'text-white'
+				isDarkMode ? 'text-white' : 'text-black'
 			}`}
 			numberOfLines={1}>
 			{value}
@@ -80,13 +80,13 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 		<Ionicons
 			name={icon}
 			size={24}
-			color={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
+			color={isDarkMode ? '#FFFFFF' : '#000000'}
 			className='mb-0.5'
 		/>
 		{text && (
 			<StyledText
 				className={`text-xs font-medium ${
-					isDarkMode ? 'text-white' : 'text-white'
+					isDarkMode ? 'text-white' : 'text-black'
 				}`}>
 				{text}
 			</StyledText>
@@ -108,7 +108,7 @@ export default function CarCard({
 	const handleCardPress = useCallback(() => {
 		router.push({
 			pathname: isDealer
-				? '/(home)/(dealer)/CarDetailModalIOS'
+				? '/(home)/(dealer)/CarDetails'
 				: '/(home)/(user)/CarDetails',
 			params: {
 				carId: car.id,
@@ -272,7 +272,7 @@ export default function CarCard({
 	return (
 		<StyledView
 			className={`mx-4 my-3 ${
-				isDarkMode ? 'bg-[#242424]' : 'bg-neutral-800 '
+				isDarkMode ? 'bg-[#242424]' : 'bg-[#e1e1e1] '
 			} rounded-3xl overflow-hidden shadow-xl`}>
 			<FlatList
 				ref={flatListRef}
@@ -330,7 +330,7 @@ export default function CarCard({
 				</StyledView>
 
 				{/* Dealership Info */}
-				<StyledView className='p-4 pt-2 bg-[#2B2B2B] rounded-t-3xl '>
+				<StyledView className={`p-4 pt-2 ${isDarkMode ? 'bg-[#2b2b2b]': 'bg-[#d1d1d1]'}  rounded-t-3xl`}>
 					<StyledView className='flex-row items-center justify-between'>
 						{car.dealership_logo && (
 							<Pressable onPress={handleDealershipPress} className='mr-3'>
@@ -345,14 +345,14 @@ export default function CarCard({
 						<StyledView className='flex-1 ml-2 '>
 							<StyledText
 								className={`text-base font-semibold ${
-									isDarkMode ? 'text-white' : 'text-white'
+									isDarkMode ? 'text-white' : 'text-black'
 								} mb-0.5`}
 								numberOfLines={2}>
 								{car.dealership_name}
 							</StyledText>
 							<StyledText
 								className={`text-sm ${
-									isDarkMode ? 'text-white/80' : 'text-white/80'
+									isDarkMode ? 'text-white/80' : 'text-black'
 								}`}
 								numberOfLines={2}>
 								{formattedLocation}

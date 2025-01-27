@@ -25,7 +25,7 @@ const CustomHeader = ({ title, onBack }: any) => {
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View className='flex-row items-center justify-between py-0 px-4 -mb-1 top-0 '>
 				<TouchableOpacity onPress={onBack} className='p-2'>
-					<Ionicons name='arrow-back' size={24} color={iconColor} />
+					<Ionicons name='close' size={24} color={iconColor} />
 				</TouchableOpacity>
 				<Text
 					className={`text-xl font-bold ${

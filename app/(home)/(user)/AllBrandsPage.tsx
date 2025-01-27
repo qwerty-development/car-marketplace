@@ -29,7 +29,8 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View className='flex-row ml-6'>
-				<Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>
+				<Text className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'
+				} -mb-5 font-bold`}>
 					{title}
 				</Text>
 			</View>
@@ -166,7 +167,7 @@ export default function AllBrandsPage() {
 			<CustomHeader title='All Brands' onBack={() => router.back()} />
 			<View
 				className={`border mx-4 pl-2 mt-3 border-red rounded-full z-50 flex-row items-center ${
-					isDarkMode ? 'bg-gray' : 'bg-light-secondary'
+					isDarkMode ? 'bg-black' : 'bg-light-secondary'
 				}`}>
 				<FontAwesome
 					name='search'
