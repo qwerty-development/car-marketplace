@@ -132,7 +132,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 	const handleDealershipPress = useCallback(() => {
 		router.push({
-			pathname: '/(home)/(user)/DealershipDetails',
+			pathname: '/(home)/(dealer)/DealershipDetails',
 			params: { dealershipId: car.dealership_id }
 		})
 	}, [router, car.dealership_id])
@@ -268,7 +268,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				} rounded-lg p-2 mr-4 w-48`}
 				onPress={() => {
 					router.push({
-						pathname: '/(home)/(user)/CarDetails',
+						pathname: '/(home)/(dealer)/CarDetails',
 						params: { carId: item.id }
 					})
 				}}>
@@ -324,15 +324,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				/>
 				<Text className='text-white font-bold ml-1'>{car.views || 0}</Text>
 			</View>
-			<TouchableOpacity
-				className='absolute top-12 right-2 flex-row items-center px-3 py-1 z-50'
-				onPress={() => onFavoritePress(car.id)}>
-				<Ionicons
-					name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
-					size={25}
-					color={isFavorite(car.id) ? 'red' : 'white'}
-				/>
-			</TouchableOpacity>
 
 			<ScrollView ref={scrollViewRef} className='rounded-b-lg'>
 				{/* Image Carousel  */}
