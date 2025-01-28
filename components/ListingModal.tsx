@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, memo } from 'react'
+import React, { useState, useCallback, useEffect, memo, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -25,6 +25,7 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
+import * as Haptics from 'expo-haptics'
 import Animated, {
 	FadeIn,
 	FadeOut,
@@ -528,31 +529,54 @@ const SelectionCard = memo(
 
 const FuturisticGallery = memo(
 	({ images, onRemove, onReorder, onAdd, isDarkMode, isUploading }: any) => {
-		// 1. State for gesture handling
-		const [isDragging, setIsDragging] = useState(false)
+		// 1. Enhanced animation configuration
+		const activationDistance = 20
+		const animationConfig = {
+			damping: 20,
+			mass: 0.2,
+			stiffness: 100
+		}
 
-		// 2. Render individual image item
+		// 2. Optimized drag state management
+		const [isDragging, setIsDragging] = useState(false)
+		const dragTimeout = useRef<any>(null)
+
+		// 3. Enhanced scale animation
+		const getAnimatedStyle = useCallback((isActive: boolean) => {
+			return {
+				opacity: withSpring(isActive ? 0.8 : 1, animationConfig),
+				shadowOpacity: withSpring(isActive ? 0.2 : 0, animationConfig),
+				shadowRadius: withSpring(isActive ? 10 : 0, animationConfig),
+				elevation: isActive ? 5 : 0
+			}
+		}, [])
+
+		// 4. Optimized item rendering
 		const renderImageItem = useCallback(
 			({ item, drag, isActive, getIndex }: any) => {
 				const index = getIndex()
 
 				return (
-					<Animated.View
-						style={{
-							opacity: isActive ? 0.5 : 1
-						}}>
+					<Animated.View style={getAnimatedStyle(isActive)}>
 						<TouchableOpacity
 							onLongPress={() => {
+								hapticFeedback()
 								setIsDragging(true)
 								drag()
 							}}
+							onPressOut={() => {
+								if (dragTimeout.current) {
+									clearTimeout(dragTimeout.current)
+								}
+							}}
 							className='mr-4'
-							delayLongPress={150}>
-							<View className='rounded-2xl overflow-hidden'>
-								<BlurView
-									intensity={isDarkMode ? 20 : 40}
-									tint={isDarkMode ? 'dark' : 'light'}
-									className='p-1'>
+							delayLongPress={150}
+							activeOpacity={0.9}>
+							<BlurView
+								intensity={isDarkMode ? 20 : 40}
+								tint={isDarkMode ? 'dark' : 'light'}
+								className='rounded-2xl overflow-hidden'>
+								<View className='relative'>
 									<Image
 										source={{ uri: item }}
 										style={{
@@ -563,120 +587,169 @@ const FuturisticGallery = memo(
 										contentFit='cover'
 									/>
 
+									{/* Gradient overlay */}
 									<LinearGradient
 										colors={['transparent', 'rgba(0,0,0,0.7)']}
 										className='absolute inset-0 rounded-2xl'
+										start={{ x: 0, y: 0 }}
+										end={{ x: 0, y: 1 }}
 									/>
 
-									{/* Image number indicator */}
-									<View className='absolute bottom-2 left-2 bg-black/50 rounded-full px-3 py-1'>
-										<Text className='text-white text-xs'>
-											Image {index + 1}
-										</Text>
-									</View>
+									{/* Image counter badge */}
 
-									{/* Remove button */}
+									{/* Delete button */}
 									<TouchableOpacity
-										onPress={() => onRemove(item)}
-										className='absolute top-2 right-2 p-2 rounded-full bg-black/50'>
+										onPress={() => {
+											hapticFeedback('light')
+											onRemove(item)
+										}}
+										className='absolute top-2 right-2 bg-black/50 rounded-full p-2'
+										style={{
+											shadowColor: '#000',
+											shadowOffset: { width: 0, height: 2 },
+											shadowOpacity: 0.25,
+											shadowRadius: 3.84,
+											elevation: 5
+										}}>
 										<Ionicons name='close' size={20} color='white' />
 									</TouchableOpacity>
 
 									{/* Drag handle */}
-									<View className='absolute bottom-2 right-2 bg-black/50 rounded-full p-2'>
-										<Ionicons name='menu' size={20} color='white' />
+									<View
+										className={`
+                absolute bottom-2 right-2
+                bg-black/50 rounded-full p-2
+                ${isActive ? 'bg-red/50' : ''}
+              `}>
+										<MaterialCommunityIcons
+											name={isActive ? 'drag' : 'drag-horizontal-variant'}
+											size={20}
+											color='white'
+										/>
 									</View>
-								</BlurView>
-							</View>
+								</View>
+							</BlurView>
 						</TouchableOpacity>
 					</Animated.View>
 				)
 			},
-			[isDarkMode, onRemove]
+			[isDarkMode, onRemove, images.length, getAnimatedStyle]
 		)
 
-		// 3. Custom scroll handling
-		const scrollEnabled = !isDragging
+		// 5. Enhanced drag event handlers
+		const handleDragStart = useCallback(() => {
+			hapticFeedback('medium')
+			setIsDragging(true)
+		}, [])
 
-		// 4. Main gallery content
-		const galleryContent =
-			images.length > 0 ? (
-				<View className='mb-4'>
-					<DraggableFlatList
-						data={images}
-						horizontal
-						scrollEnabled={scrollEnabled}
-						showsHorizontalScrollIndicator={false}
-						renderItem={renderImageItem}
-						keyExtractor={(item, index) => `${item}-${index}`}
-						onDragBegin={() => setIsDragging(true)}
-						onDragEnd={({ data }) => {
-							setIsDragging(false)
-							onReorder(data)
-						}}
-						autoscrollSpeed={100}
-						containerStyle={{ flexGrow: 0 }}
-					/>
-				</View>
-			) : null
-
-		// 5. Upload button component
-		const uploadButton = (
-			<TouchableOpacity
-				onPress={onAdd}
-				disabled={isUploading}
-				className={`
-        rounded-2xl overflow-hidden
-        ${isUploading ? 'opacity-50' : ''}
-      `}>
-				<BlurView
-					intensity={isDarkMode ? 20 : 40}
-					tint={isDarkMode ? 'dark' : 'light'}
-					className='p-1'>
-					<LinearGradient
-						colors={
-							isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']
-						}
-						className='p-8 items-center justify-center rounded-xl'
-						start={{ x: 0, y: 0 }}
-						end={{ x: 1, y: 1 }}>
-						{isUploading ? (
-							<ActivityIndicator color='#D55004' />
-						) : (
-							<>
-								<View className='bg-red/10 rounded-full p-4 mb-3'>
-									<MaterialCommunityIcons
-										name='camera-plus'
-										size={32}
-										color='#D55004'
-									/>
-								</View>
-								<Text
-									className={`
-                font-medium text-base
-                ${isDarkMode ? 'text-white' : 'text-black'}
-              `}>
-									Add Vehicle Photos
-								</Text>
-								<Text
-									className={`
-                mt-1 text-xs
-                ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}
-              `}>
-									Drag to reorder • Up to 10 photos
-								</Text>
-							</>
-						)}
-					</LinearGradient>
-				</BlurView>
-			</TouchableOpacity>
+		const handleDragEnd = useCallback(
+			({ data }: any) => {
+				hapticFeedback('light')
+				setIsDragging(false)
+				onReorder(data)
+			},
+			[onReorder]
 		)
 
-		// 6. Return combined components
+		// 6. Optimized list configuration
+		const listProps = {
+			data: images,
+			horizontal: true,
+			scrollEnabled: !isDragging,
+			showsHorizontalScrollIndicator: false,
+			renderItem: renderImageItem,
+			keyExtractor: (item: string) => item,
+			onDragBegin: handleDragStart,
+			onDragEnd: handleDragEnd,
+			activationDistance,
+			autoscrollSpeed: 150,
+			autoscrollThreshold: 50,
+			containerStyle: { flexGrow: 0 },
+			dragItemOverflow: true,
+			dragHitSlop: {
+				top: 10,
+				bottom: 10,
+				left: 10,
+				right: 10
+			}
+		}
+
+		// 7. Haptic feedback utility
+		const hapticFeedback = useCallback(
+			(style: 'light' | 'medium' | 'heavy' = 'medium') => {
+				switch (style) {
+					case 'light':
+						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+						break
+					case 'medium':
+						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+						break
+					case 'heavy':
+						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+						break
+				}
+			},
+			[]
+		)
+
 		return (
 			<View className='mb-6'>
-				{galleryContent}
-				{uploadButton}
+				{images.length > 0 && (
+					<View className='mb-4'>
+						<DraggableFlatList {...listProps} />
+					</View>
+				)}
+
+				<TouchableOpacity
+					onPress={() => {
+						hapticFeedback('light')
+						onAdd()
+					}}
+					disabled={isUploading}
+					className={`rounded-2xl overflow-hidden ${
+						isUploading ? 'opacity-50' : ''
+					}`}>
+					<BlurView
+						intensity={isDarkMode ? 20 : 40}
+						tint={isDarkMode ? 'dark' : 'light'}
+						className='p-1'>
+						<LinearGradient
+							colors={
+								isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']
+							}
+							className='p-8 items-center justify-center rounded-xl'
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 1 }}>
+							{isUploading ? (
+								<ActivityIndicator color='#D55004' />
+							) : (
+								<>
+									<View className='bg-red/10 rounded-full p-4 mb-3'>
+										<MaterialCommunityIcons
+											name='camera-plus'
+											size={32}
+											color='#D55004'
+										/>
+									</View>
+									<Text
+										className={`
+                  font-medium text-base
+                  ${isDarkMode ? 'text-white' : 'text-black'}
+                `}>
+										Add Vehicle Photos
+									</Text>
+									<Text
+										className={`
+                  mt-1 text-xs
+                  ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}
+                `}>
+										Drag to reorder • Up to 10 photos
+									</Text>
+								</>
+							)}
+						</LinearGradient>
+					</BlurView>
+				</TouchableOpacity>
 			</View>
 		)
 	}
@@ -748,6 +821,43 @@ const ListingModal = ({
 		},
 		[]
 	)
+
+	useEffect(() => {
+		if (isVisible && initialData) {
+			setFormData({
+				...initialData,
+				date_bought: initialData.date_bought
+					? new Date(initialData.date_bought)
+					: new Date()
+			})
+			setModalImages(initialData.images || [])
+		}
+	}, [isVisible, initialData])
+
+	const handleClose = useCallback(() => {
+		if (!initialData) {
+			setFormData({
+				bought_price: null,
+				date_bought: new Date(),
+				seller_name: null,
+				make: '',
+				model: '',
+				price: '',
+				year: '',
+				description: '',
+				images: [],
+				condition: '',
+				transmission: '',
+				color: '',
+				mileage: '',
+				drivetrain: '',
+				type: '',
+				category: ''
+			})
+			setModalImages([])
+		}
+		onClose()
+	}, [initialData, onClose])
 
 	const [isUploading, setIsUploading] = useState(false)
 	const [modalImages, setModalImages] = useState<string[]>(
@@ -865,16 +975,36 @@ const ListingModal = ({
 		}))
 	}, [])
 
-	const handleSubmit = useCallback(() => {
-		if (
-			!formData.make ||
-			!formData.model ||
-			!formData.year ||
-			!formData.price
-		) {
-			Alert.alert('Incomplete Form', 'Please fill in all required fields.')
-			return
+	const validateFormData = (data: any) => {
+		const requiredFields = [
+			'make',
+			'model',
+			'price',
+			'year',
+			'condition',
+			'transmission',
+			'mileage',
+			'drivetrain',
+			'type',
+			'category'
+		]
+
+		const missingFields = requiredFields.filter(field => !data[field])
+
+		if (missingFields.length > 0) {
+			Alert.alert(
+				'Missing Fields',
+				`Please fill in: ${missingFields.join(', ')}`
+			)
+			return false
 		}
+
+		return true
+	}
+
+	const handleSubmit = useCallback(() => {
+		if (!validateFormData(formData)) return
+
 		onSubmit({
 			...formData,
 			images: modalImages,
@@ -911,7 +1041,7 @@ const ListingModal = ({
                 `}>
 								{/* Modal content structure */}
 								<View className='flex-row items-center justify-between px-6 py-4'>
-									<TouchableOpacity onPress={onClose} className='p-2 -ml-2'>
+									<TouchableOpacity onPress={handleClose} className='p-2 -ml-2'>
 										<Ionicons
 											name='close'
 											size={24}
