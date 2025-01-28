@@ -101,7 +101,7 @@ export default function VideoPickerButton({
 					ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
 				selectionLimit: 1,
 				preferredAssetRepresentationMode:
-					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible
 			})
 
 			if (!result.canceled && result.assets.length > 0) {
@@ -173,7 +173,7 @@ export default function VideoPickerButton({
 					className={`
             border-2 border-dashed rounded-xl p-6 items-center justify-center
             ${error ? 'border-rose-500' : 'border-red'}
-            ${isDarkMode ? 'bg-gray/50' : 'bg-white/50'}
+            ${isDarkMode ? 'bg-neutral-700/50' : 'bg-white/50'}
             ${disabled ? 'opacity-50' : ''}
           `}>
 					{isLoading ? (
@@ -193,7 +193,7 @@ export default function VideoPickerButton({
 							</Text>
 							<Text
 								className={`mt-1 text-xs ${
-									isDarkMode ? 'text-gray' : 'text-gray'
+									isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
 								}`}>
 								MP4 or MOV • Max {maxSize / (1024 * 1024)}
 								MB • Max {maxDuration}s

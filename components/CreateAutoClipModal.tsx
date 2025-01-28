@@ -295,60 +295,6 @@ export default function CreateAutoClipModal({
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 	}, [isVideoPlaying])
 
-	const renderVideo = useMemo(() => {
-		if (!video) return null
-		const displayDuration = video.originalDuration
-			? video.originalDuration / 1000
-			: video.duration
-
-		return (
-			<View className='mt-4 relative'>
-				<Video
-					ref={videoRef}
-					source={{ uri: video.uri }}
-					style={{ width: '100%', height: 200 }}
-					useNativeControls
-					resizeMode={ResizeMode.CONTAIN}
-					isLooping
-					shouldPlay={false}
-					onPlaybackStatusUpdate={handleVideoPlaybackStatusUpdate}
-					className='rounded-lg'
-				/>
-				<TouchableOpacity
-					onPress={toggleVideoPlayback}
-					className='absolute inset-0 items-center justify-center'>
-					<BlurView intensity={30} className='p-4 rounded-full'>
-						<Ionicons
-							name={isVideoPlaying ? 'pause' : 'play'}
-							size={30}
-							color='white'
-						/>
-					</BlurView>
-				</TouchableOpacity>
-				<View className='mt-2 flex-row justify-between items-center'>
-					<Text
-						className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-						Size: {(video.fileSize! / (1024 * 1024)).toFixed(2)} MB
-					</Text>
-					<Text
-						className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray'}`}>
-						Duration: {Math.round(displayDuration)}s
-					</Text>
-				</View>
-				{videoError && (
-					<Text className='text-rose-500 mt-1 text-sm'>{videoError}</Text>
-				)}
-			</View>
-		)
-	}, [
-		video,
-		videoError,
-		isVideoPlaying,
-		isDarkMode,
-		handleVideoPlaybackStatusUpdate,
-		toggleVideoPlayback
-	])
-
 	return (
 		<Modal
 			visible={isVisible}
@@ -407,7 +353,9 @@ export default function CreateAutoClipModal({
 									className={`border ${
 										titleError ? 'border-rose-500' : 'border-red'
 									} rounded-lg p-3 ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+										isDarkMode
+											? 'bg-neutral-700 text-white'
+											: 'bg-white text-black'
 									}`}
 									maxLength={100}
 								/>
@@ -436,7 +384,9 @@ export default function CreateAutoClipModal({
 									className={`border ${
 										descriptionError ? 'border-rose-500' : 'border-red'
 									} rounded-lg p-3 min-h-[100px] ${
-										isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
+										isDarkMode
+											? 'bg-neutral-700 text-white'
+											: 'bg-white text-black'
 									}`}
 									textAlignVertical='top'
 								/>
@@ -447,7 +397,7 @@ export default function CreateAutoClipModal({
 								)}
 								<Text
 									className={`text-right mt-1 text-xs ${
-										isDarkMode ? 'text-gray' : 'text-black'
+										isDarkMode ? 'text-neutral-700' : 'text-black'
 									}`}>
 									{description.length}/500
 								</Text>
@@ -471,8 +421,6 @@ export default function CreateAutoClipModal({
 									videoUri={video?.uri}
 								/>
 							</View>
-
-							{renderVideo}
 
 							{isLoading && uploadProgress > 0 && (
 								<View className='mt-4'>
@@ -498,38 +446,38 @@ export default function CreateAutoClipModal({
 							<View className='mt-6 mb-8'>
 								<Text
 									className={`text-sm mb-4 ${
-										isDarkMode ? 'text-white' : 'text-gray'
+										isDarkMode ? 'text-white' : 'text-neutral-700'
 									}`}>
 									Guidelines:
 								</Text>
 								<View className='space-y-2'>
 									<Text
 										className={`text-xs ${
-											isDarkMode ? 'text-gray' : 'text-gray'
+											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
 										}`}>
 										• Video must be less than 50MB
 									</Text>
 									<Text
 										className={`text-xs ${
-											isDarkMode ? 'text-gray' : 'text-gray'
+											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
 										}`}>
 										• Maximum duration: 60 seconds
 									</Text>
 									<Text
 										className={`text-xs ${
-											isDarkMode ? 'text-gray' : 'text-gray'
+											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
 										}`}>
 										• Supported formats: MP4, MOV
 									</Text>
 									<Text
 										className={`text-xs ${
-											isDarkMode ? 'text-gray' : 'text-gray'
+											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
 										}`}>
 										• Title must be at least 3 characters
 									</Text>
 									<Text
 										className={`text-xs ${
-											isDarkMode ? 'text-gray' : 'text-gray'
+											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
 										}`}>
 										• Description must be at least 10 characters if provided
 									</Text>
