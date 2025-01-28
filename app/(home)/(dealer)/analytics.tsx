@@ -27,7 +27,7 @@ import CarAnalyticsCard from '@/components/CarAnalyticsCard'
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const SUBSCRIPTION_WARNING_DAYS = 7
 
-const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading }) => (
+const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading }: any) => (
 	<LinearGradient
 		colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F8F8F8']}
 		className='px-4 py-6 rounded-b-3xl shadow-lg'>
@@ -68,7 +68,7 @@ const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading }) => (
 	</LinearGradient>
 )
 
-const MetricCard = ({ title, value, icon, trend, color, isDarkMode }) => (
+const MetricCard = ({ title, value, icon, trend, color, isDarkMode }: any) => (
 	<LinearGradient
 		colors={
 			isDarkMode
@@ -116,7 +116,7 @@ const MetricCard = ({ title, value, icon, trend, color, isDarkMode }) => (
 	</LinearGradient>
 )
 
-const ChartContainer = ({ title, subtitle, children, isDarkMode }) => (
+const ChartContainer = ({ title, subtitle, children, isDarkMode }: any) => (
 	<View className='mb-6 p-4'>
 		<LinearGradient
 			colors={
@@ -153,7 +153,7 @@ const ChartContainer = ({ title, subtitle, children, isDarkMode }) => (
 	</View>
 )
 
-const MetricSection = ({ title, metrics, isDarkMode }) => (
+const MetricSection = ({ title, metrics, isDarkMode }: any) => (
 	<View className='mb-6 mx-4'>
 		<LinearGradient
 			colors={
@@ -235,7 +235,7 @@ const MetricSection = ({ title, metrics, isDarkMode }) => (
 	</View>
 )
 
-const SubscriptionWarning = ({ daysLeft, isDarkMode }) => (
+const SubscriptionWarning = ({ daysLeft, isDarkMode }: any) => (
 	<LinearGradient
 		colors={['#FEF3C7', '#FDE68A']}
 		className='mx-4 mt-4 rounded-2xl p-4'>
@@ -259,7 +259,7 @@ export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useUser()
 	const router = useRouter()
-	const [dealership, setDealership] = useState(null)
+	const [dealership, setDealership] = useState<any>(null)
 	const [analytics, setAnalytics] = useState(null)
 	const [timeRange, setTimeRange] = useState('month')
 	const [isLoading, setIsLoading] = useState(true)
