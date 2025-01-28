@@ -186,7 +186,7 @@ const VEHICLE_COLORS = [
 	{ name: 'Black', gradient: ['#000000', '#1a1a1a'] },
 	{ name: 'White', gradient: ['#ffffff', '#f5f5f5'] },
 	{ name: 'Silver', gradient: ['#C0C0C0', '#A8A8A8'] },
-	{ name: 'Gray', gradient: ['#808080', '#666666'] },
+	{ name: 'neutral', gradient: ['#808080', '#666666'] },
 	{ name: 'Red', gradient: ['#FF0000', '#CC0000'] },
 	{ name: 'Blue', gradient: ['#0000FF', '#0000CC'] },
 	{ name: 'Green', gradient: ['#008000', '#006600'] },
@@ -233,7 +233,7 @@ const ModelDropdown = memo(
 			<View className='mb-6'>
 				<Text
 					className={`text-sm font-medium mb-2 ${
-						isDarkMode ? 'text-gray-300' : 'text-gray-700'
+						isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 					}`}>
 					Model {error && <Text className='text-red'>*</Text>}
 				</Text>
@@ -294,7 +294,7 @@ const ModelDropdown = memo(
                 mt-auto rounded-t-3xl overflow-hidden
                 ${isDarkMode ? 'bg-black' : 'bg-white'}
               `}>
-								<View className='p-4 border-b border-gray-200/10'>
+								<View className='p-4 border-b border-neutral-200/10'>
 									<Text
 										className={`
                   text-xl font-bold text-center
@@ -358,10 +358,7 @@ const EnhancedColorSelector = memo(({ value, onChange, isDarkMode }: any) => {
 				<TouchableOpacity
 					key={color.name}
 					onPress={() => onChange(color.name)}
-					className={`mr-4 ${value === color.name ? 'scale-110' : ''}`}
-					style={{
-						transform: [{ scale: value === color.name ? 1.1 : 1 }]
-					}}>
+					className={`mr-4 ${value === color.name ? 'scale-110' : ''}`}>
 					<BlurView
 						intensity={isDarkMode ? 20 : 40}
 						tint={isDarkMode ? 'dark' : 'light'}
@@ -529,65 +526,102 @@ const SelectionCard = memo(
 	)
 )
 
-// Image Gallery with Effects
 const FuturisticGallery = memo(
-	({ images, onRemove, onReorder, onAdd, isDarkMode, isUploading }: any) => (
-		<View className='mb-8'>
-			{images?.length > 0 && (
-				<ScrollView
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					className='mb-4'>
+	({ images, onRemove, onReorder, onAdd, isDarkMode, isUploading }: any) => {
+		// 1. State for gesture handling
+		const [isDragging, setIsDragging] = useState(false)
+
+		// 2. Render individual image item
+		const renderImageItem = useCallback(
+			({ item, drag, isActive, getIndex }: any) => {
+				const index = getIndex()
+
+				return (
+					<Animated.View
+						style={{
+							opacity: isActive ? 0.5 : 1
+						}}>
+						<TouchableOpacity
+							onLongPress={() => {
+								setIsDragging(true)
+								drag()
+							}}
+							className='mr-4'
+							delayLongPress={150}>
+							<View className='rounded-2xl overflow-hidden'>
+								<BlurView
+									intensity={isDarkMode ? 20 : 40}
+									tint={isDarkMode ? 'dark' : 'light'}
+									className='p-1'>
+									<Image
+										source={{ uri: item }}
+										style={{
+											width: width * 0.6,
+											height: width * 0.4,
+											borderRadius: 16
+										}}
+										contentFit='cover'
+									/>
+
+									<LinearGradient
+										colors={['transparent', 'rgba(0,0,0,0.7)']}
+										className='absolute inset-0 rounded-2xl'
+									/>
+
+									{/* Image number indicator */}
+									<View className='absolute bottom-2 left-2 bg-black/50 rounded-full px-3 py-1'>
+										<Text className='text-white text-xs'>
+											Image {index + 1}
+										</Text>
+									</View>
+
+									{/* Remove button */}
+									<TouchableOpacity
+										onPress={() => onRemove(item)}
+										className='absolute top-2 right-2 p-2 rounded-full bg-black/50'>
+										<Ionicons name='close' size={20} color='white' />
+									</TouchableOpacity>
+
+									{/* Drag handle */}
+									<View className='absolute bottom-2 right-2 bg-black/50 rounded-full p-2'>
+										<Ionicons name='menu' size={20} color='white' />
+									</View>
+								</BlurView>
+							</View>
+						</TouchableOpacity>
+					</Animated.View>
+				)
+			},
+			[isDarkMode, onRemove]
+		)
+
+		// 3. Custom scroll handling
+		const scrollEnabled = !isDragging
+
+		// 4. Main gallery content
+		const galleryContent =
+			images.length > 0 ? (
+				<View className='mb-4'>
 					<DraggableFlatList
 						data={images}
 						horizontal
-						renderItem={({ item, drag, isActive }) => (
-							<Animated.View
-								style={{
-									opacity: isActive ? 0.5 : 1,
-									transform: [
-										{
-											scale: withSpring(isActive ? 1.05 : 1)
-										}
-									]
-								}}>
-								<TouchableOpacity onLongPress={drag} className='mr-4'>
-									<View className='rounded-2xl overflow-hidden'>
-										<BlurView
-											intensity={isDarkMode ? 20 : 40}
-											tint={isDarkMode ? 'dark' : 'light'}
-											className='p-1'>
-											<Image
-												source={{ uri: item }}
-												style={{
-													width: width * 0.6,
-													height: width * 0.4,
-													borderRadius: 16
-												}}
-												contentFit='cover'
-											/>
-
-											<LinearGradient
-												colors={['transparent', 'rgba(0,0,0,0.7)']}
-												className='absolute inset-0 rounded-2xl'
-											/>
-
-											<TouchableOpacity
-												onPress={() => onRemove(item)}
-												className='absolute top-2 right-2 p-2 rounded-full bg-black/50'>
-												<Ionicons name='close' size={20} color='white' />
-											</TouchableOpacity>
-										</BlurView>
-									</View>
-								</TouchableOpacity>
-							</Animated.View>
-						)}
-						keyExtractor={item => item}
-						onDragEnd={({ data }) => onReorder(data)}
+						scrollEnabled={scrollEnabled}
+						showsHorizontalScrollIndicator={false}
+						renderItem={renderImageItem}
+						keyExtractor={(item, index) => `${item}-${index}`}
+						onDragBegin={() => setIsDragging(true)}
+						onDragEnd={({ data }) => {
+							setIsDragging(false)
+							onReorder(data)
+						}}
+						autoscrollSpeed={100}
+						containerStyle={{ flexGrow: 0 }}
 					/>
-				</ScrollView>
-			)}
+				</View>
+			) : null
 
+		// 5. Upload button component
+		const uploadButton = (
 			<TouchableOpacity
 				onPress={onAdd}
 				disabled={isUploading}
@@ -636,8 +670,16 @@ const FuturisticGallery = memo(
 					</LinearGradient>
 				</BlurView>
 			</TouchableOpacity>
-		</View>
-	)
+		)
+
+		// 6. Return combined components
+		return (
+			<View className='mb-6'>
+				{galleryContent}
+				{uploadButton}
+			</View>
+		)
+	}
 )
 
 // Section Header Component
@@ -685,64 +727,6 @@ const ListingModal = ({
 		}
 	)
 	const [showDatePicker, setShowDatePicker] = useState(false)
-	const [modalImages, setModalImages] = useState<any>(initialData?.images || [])
-	const [isUploading, setIsUploading] = useState<any>(false)
-	const [makes, setMakes] = useState<any>([])
-	const [models, setModels] = useState<any>([])
-	const [uploadProgress, setUploadProgress] = useState<any>({})
-
-	useEffect(() => {
-		if (isVisible) {
-			setFormData((prevData: any) => ({
-				...prevData,
-				...(initialData || {}),
-				date_bought: initialData?.date_bought
-					? new Date(initialData.date_bought)
-					: new Date()
-			}))
-			setModalImages(initialData?.images || [])
-			fetchMakes()
-		}
-	}, [isVisible, initialData])
-
-	useEffect(() => {
-		if (formData.make) {
-			fetchModels(formData.make)
-		} else {
-			setModels([])
-		}
-	}, [formData.make])
-
-	const fetchMakes = useCallback(async () => {
-		try {
-			const { data, error } = await supabase
-				.from('allcars')
-				.select('make')
-				.order('make')
-			if (error) throw error
-			const uniqueMakes = Array.from(new Set(data.map(item => item.make)))
-			setMakes(uniqueMakes.map(make => ({ id: make, name: make })))
-		} catch (error) {
-			console.error('Error fetching makes:', error)
-			Alert.alert('Error', 'Failed to fetch car makes. Please try again.')
-		}
-	}, [])
-
-	const fetchModels = useCallback(async (make: any) => {
-		try {
-			const { data, error } = await supabase
-				.from('allcars')
-				.select('model')
-				.eq('make', make)
-				.order('model')
-			if (error) throw error
-			const uniqueModels = Array.from(new Set(data.map(item => item.model)))
-			setModels(uniqueModels.map(model => ({ id: model, name: model })))
-		} catch (error) {
-			console.error('Error fetching models:', error)
-			Alert.alert('Error', 'Failed to fetch car models. Please try again.')
-		}
-	}, [])
 
 	const handleInputChange = useCallback(
 		(key: string, value: any, customValue?: any) => {
@@ -765,7 +749,13 @@ const ListingModal = ({
 		[]
 	)
 
-	const pickImages = useCallback(async () => {
+	const [isUploading, setIsUploading] = useState(false)
+	const [modalImages, setModalImages] = useState<string[]>(
+		initialData?.images || []
+	)
+
+	// Image handling functions
+	const handleImagePick = useCallback(async () => {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 		if (status !== 'granted') {
 			Alert.alert(
@@ -775,13 +765,13 @@ const ListingModal = ({
 			return
 		}
 
-		let result = await ImagePicker.launchImageLibraryAsync({
+		const result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsMultipleSelection: true,
 			quality: 0.8
 		})
 
-		if (!result?.canceled && result?.assets && result?.assets?.length > 0) {
+		if (!result.canceled && result.assets && result.assets.length > 0) {
 			setIsUploading(true)
 			try {
 				await handleMultipleImageUpload(result.assets)
@@ -793,7 +783,6 @@ const ListingModal = ({
 				)
 			} finally {
 				setIsUploading(false)
-				setUploadProgress({})
 			}
 		}
 	}, [dealership])
@@ -803,12 +792,13 @@ const ListingModal = ({
 			if (!dealership) return
 
 			const uploadPromises = assets.map(
-				async (asset: { uri: string }, index: any) => {
+				async (asset: { uri: string }, index: number) => {
 					try {
 						const fileName = `${Date.now()}_${Math.random()
-							?.toString(36)
-							?.substring(7)}_${index}.jpg`
+							.toString(36)
+							.substring(7)}_${index}.jpg`
 						const filePath = `${dealership.id}/${fileName}`
+
 						const base64 = await FileSystem.readAsStringAsync(asset.uri, {
 							encoding: FileSystem.EncodingType.Base64
 						})
@@ -827,12 +817,9 @@ const ListingModal = ({
 
 						if (!publicURLData) throw new Error('Error getting public URL')
 
-						setUploadProgress((prev: any) => ({ ...prev, [asset.uri]: 100 }))
-
 						return publicURLData.publicUrl
 					} catch (error) {
 						console.error('Error uploading image:', error)
-						setUploadProgress((prev: any) => ({ ...prev, [asset.uri]: -1 }))
 						return null
 					}
 				}
@@ -841,7 +828,7 @@ const ListingModal = ({
 			const uploadedUrls = await Promise.all(uploadPromises)
 			const successfulUploads = uploadedUrls.filter(url => url !== null)
 
-			setModalImages((prev: any) => [...successfulUploads, ...prev])
+			setModalImages(prev => [...successfulUploads, ...prev])
 			setFormData((prev: { images: any }) => ({
 				...prev,
 				images: [...successfulUploads, ...(prev.images || [])]
@@ -850,7 +837,7 @@ const ListingModal = ({
 		[dealership]
 	)
 
-	const handleRemoveImage = useCallback(async (imageUrl: string) => {
+	const handleImageRemove = useCallback(async (imageUrl: string) => {
 		try {
 			const urlParts = imageUrl.split('/')
 			const filePath = urlParts.slice(urlParts.indexOf('cars') + 1).join('/')
@@ -859,12 +846,10 @@ const ListingModal = ({
 
 			if (error) throw error
 
-			setModalImages((prevImages: any[]) =>
-				prevImages.filter((url: any) => url !== imageUrl)
-			)
+			setModalImages(prevImages => prevImages.filter(url => url !== imageUrl))
 			setFormData((prev: { images: any[] }) => ({
 				...prev,
-				images: prev.images?.filter((url: any) => url !== imageUrl) || []
+				images: prev.images?.filter((url: string) => url !== imageUrl) || []
 			}))
 		} catch (error) {
 			console.error('Error removing image:', error)
@@ -872,29 +857,13 @@ const ListingModal = ({
 		}
 	}, [])
 
-	const renderDraggableItem = useCallback(
-		({ item, drag, isActive }: any) => (
-			<TouchableOpacity
-				onLongPress={drag}
-				disabled={isActive}
-				className={`flex-row items-center mb-4 ${
-					isActive ? 'opacity-50' : 'opacity-100'
-				}`}>
-				<Image source={{ uri: item }} className='w-24 h-24 rounded-lg mr-4' />
-				<View className='flex-1 flex-row justify-between items-center'>
-					<Ionicons
-						name='reorder-two'
-						size={24}
-						color={isDarkMode ? 'white' : 'black'}
-					/>
-					<TouchableOpacity onPress={() => handleRemoveImage(item)}>
-						<Ionicons name='trash-outline' size={24} color='#D55004' />
-					</TouchableOpacity>
-				</View>
-			</TouchableOpacity>
-		),
-		[isDarkMode, handleRemoveImage]
-	)
+	const handleImageReorder = useCallback((newOrder: string[]) => {
+		setModalImages(newOrder)
+		setFormData((prev: any) => ({
+			...prev,
+			images: newOrder
+		}))
+	}, [])
 
 	const handleSubmit = useCallback(() => {
 		if (
@@ -967,15 +936,17 @@ const ListingModal = ({
 								<ScrollView
 									className='flex-1 px-6'
 									showsVerticalScrollIndicator={false}>
-									{/* Vehicle Images */}
 									<View className='py-4'>
 										<SectionHeader
 											title='Vehicle Images'
-											subtitle='High-quality photos help your listing stand out'
+											subtitle='Add up to 10 high-quality photos of your vehicle'
 											isDarkMode={isDarkMode}
 										/>
 										<FuturisticGallery
-											images={formData.images}
+											images={modalImages}
+											onAdd={handleImagePick}
+											onRemove={handleImageRemove}
+											onReorder={handleImageReorder}
 											isDarkMode={isDarkMode}
 											isUploading={isUploading}
 										/>
@@ -991,7 +962,7 @@ const ListingModal = ({
 
 										<Text
 											className={`text-sm font-medium mb-3 ${
-												isDarkMode ? 'text-gray-300' : 'text-gray-700'
+												isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 											}`}>
 											Brand
 										</Text>
