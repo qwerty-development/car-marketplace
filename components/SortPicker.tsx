@@ -86,11 +86,6 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 		outputRange: [SCREEN_HEIGHT, 0]
 	})
 
-	const backdropOpacity = animation.interpolate({
-		inputRange: [0, 1],
-		outputRange: [0, 0.5]
-	})
-
 	const renderOption = ({ item }: any) => (
 		<Animated.View
 			style={{
