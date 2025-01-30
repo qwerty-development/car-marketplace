@@ -708,7 +708,7 @@ export default function DealerListings() {
 
 				if (error) throw error
 
-				// 7. Format response data
+				// 7. Format response data (no changes here)
 				const formattedData =
 					data?.map(item => ({
 						...item,
@@ -725,7 +725,9 @@ export default function DealerListings() {
 					refresh ? formattedData : [...prev, ...formattedData]
 				)
 				setCurrentPage(page)
-				setHasMoreListings((count || 0) > page * ITEMS_PER_PAGE)
+
+				// **Update hasMoreListings based on the CURRENT page, not the next one**
+				setHasMoreListings(count! > page * ITEMS_PER_PAGE)
 				setTotalListings(count || 0)
 			} catch (error) {
 				console.error('Error fetching listings:', error)
@@ -735,7 +737,7 @@ export default function DealerListings() {
 				setIsRefreshing(false)
 			}
 		},
-		[dealership]
+		[dealership, hasMoreListings] // Add hasMoreListings as a dependency
 	)
 
 	useEffect(() => {
@@ -1214,6 +1216,7 @@ export default function DealerListings() {
 				showsVerticalScrollIndicator={false}
 				onEndReached={handleLoadMore}
 				onEndReachedThreshold={0.5}
+				className='mb-12'
 				refreshControl={
 					<RefreshControl
 						refreshing={isRefreshing}
@@ -1230,15 +1233,6 @@ export default function DealerListings() {
 								: 'No listings available.'}
 						</Text>
 					</View>
-				}
-				ListFooterComponent={
-					isLoading && (
-						<ActivityIndicator
-							size='large'
-							color='#D55004'
-							style={{ marginVertical: 20 }}
-						/>
-					)
 				}
 			/>
 
