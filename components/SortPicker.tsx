@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
 	View,
 	Text,
@@ -34,14 +34,27 @@ const sortOptions = [
 const SortPicker = ({ onValueChange, initialValue }: any) => {
 	const { isDarkMode } = useTheme()
 	const [modalVisible, setModalVisible] = useState(false)
-	const [selectedOption, setSelectedOption] = useState(
-		initialValue &&
-			sortOptions.find(option => option.value === initialValue.value)
-			? initialValue
-			: sortOptions[0]
-	)
+	const [selectedOption, setSelectedOption] = useState<any>(() => {
+		if (initialValue) {
+			return sortOptions.find(option => option.value === initialValue)
+		}
+		return null
+	})
 
 	const animation = useRef(new Animated.Value(0)).current
+
+	useEffect(() => {
+		if (
+			!initialValue ||
+			!sortOptions.find(option => option.value === initialValue)
+		) {
+			setSelectedOption(null)
+		} else {
+			setSelectedOption(
+				sortOptions.find(option => option.value === initialValue)
+			)
+		}
+	}, [initialValue])
 
 	const handleSelect = (option: { value: any }) => {
 		setSelectedOption(option)
@@ -94,7 +107,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 			<TouchableOpacity
 				style={[
 					styles.option,
-					selectedOption.value === item.value && styles.selectedOption,
+					selectedOption?.value === item.value && styles.selectedOption,
 					isDarkMode && styles.optionDark
 				]}
 				onPress={() => handleSelect(item)}>
@@ -102,7 +115,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 					name={item.icon}
 					size={20}
 					color={
-						selectedOption.value === item.value
+						selectedOption?.value === item.value
 							? '#D55004'
 							: isDarkMode
 							? '#FFFFFF'
@@ -112,12 +125,12 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 				<Text
 					style={[
 						styles.optionText,
-						selectedOption.value === item.value && styles.selectedOptionText,
+						selectedOption?.value === item.value && styles.selectedOptionText,
 						isDarkMode && styles.optionTextDark
 					]}>
 					{item.label}
 				</Text>
-				{selectedOption.value === item.value && (
+				{selectedOption?.value === item.value && (
 					<Ionicons
 						name='checkmark'
 						size={20}

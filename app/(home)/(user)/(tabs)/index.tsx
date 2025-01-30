@@ -79,7 +79,7 @@ export default function BrowseCarsPage() {
 	const [totalPages, setTotalPages] = useState(1)
 	const [isLoading, setIsLoading] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
-	const [sortOption, setSortOption] = useState('')
+	const [sortOption, setSortOption] = useState<string | null>(null)
 	const [filters, setFilters] = useState<Filters>({})
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
@@ -284,9 +284,20 @@ export default function BrowseCarsPage() {
 					totalItems - 1
 				)
 
-				const { data, error } = await queryBuilder.range(startRange, endRange)
+				let { data, error } = await queryBuilder.range(startRange, endRange)
 
 				if (error) throw error
+
+				if (
+					Object.keys(currentFilters).length === 0 &&
+					!currentSortOption &&
+					!query
+				) {
+					for (let i = data!.length - 1; i > 0; i--) {
+						const j = Math.floor(Math.random() * (i + 1))
+						;[data![i], data![j]] = [data![j], data![i]]
+					}
+				}
 
 				const newCars =
 					data?.map(item => ({
@@ -515,9 +526,7 @@ export default function BrowseCarsPage() {
 									setSortOption(value)
 									fetchCars(1, filters, value, searchQuery)
 								}}
-								initialValue={sortOptions.find(
-									(option: { value: string }) => option.value === sortOption
-								)}
+								initialValue={sortOption} // Pass sortOption directly
 							/>
 						</View>
 					</View>
