@@ -14,9 +14,9 @@ import {
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 import { useTheme } from '@/utils/ThemeContext'
-import CarDetailsModalOSclip from '../CarDetailsModalOSclip'
+
 import VideoControls from '@/components/VideoControls'
-import CarDetailsModalclip from '../CarDetailsModalclip'
+
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
 import { useUser } from '@clerk/clerk-expo'
@@ -69,7 +69,7 @@ interface VideoState {
 	[key: number]: boolean
 }
 
-export default function AutoClips({ navigation }: any) {
+export default function AutoClips() {
 	const { isDarkMode } = useTheme()
 	const isFocused = useIsFocused()
 
@@ -86,12 +86,9 @@ export default function AutoClips({ navigation }: any) {
 
 	// UI states
 	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
-	const [isModalVisible, setIsModalVisible] = useState(false)
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 
 	// Video control states
 	const [isPlaying, setIsPlaying] = useState<VideoState>({})
-	const [isMuted, setIsMuted] = useState<VideoState>({})
 	const [globalMute, setGlobalMute] = useState(false)
 	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({})
 
@@ -519,8 +516,12 @@ export default function AutoClips({ navigation }: any) {
 								<TouchableOpacity
 									className='flex-1 bg-red py-2 px-4 rounded-xl flex-row items-center justify-center'
 									onPress={() => {
-										setSelectedCar(item.car!)
-										setIsModalVisible(true)
+										router.push({
+											pathname: '/(home)/(user)/CarDetails',
+											params: {
+												carId: item.car.id
+											}
+										})
 									}}>
 									<Text className='text-white font-semibold mr-2'>
 										View Details
@@ -729,9 +730,6 @@ export default function AutoClips({ navigation }: any) {
 									}
 								}
 							}}
-							videoStyle={{
-								objectFit: 'cover'
-							}}
 							rate={1.0}
 							volume={1.0}
 						/>
@@ -839,31 +837,6 @@ export default function AutoClips({ navigation }: any) {
 				maxToRenderPerBatch={MAX_VIDEO_BUFFER}
 				windowSize={MAX_VIDEO_BUFFER * 2 + 1}
 			/>
-
-			{/* Modal for car details */}
-			{Platform.OS === 'ios' ? (
-				<CarDetailsModalOSclip
-					isVisible={isModalVisible}
-					car={selectedCar}
-					onClose={() => {
-						setIsModalVisible(false)
-						setSelectedCar(null)
-					}}
-					setSelectedCar={setSelectedCar}
-					setIsModalVisible={setIsModalVisible}
-				/>
-			) : (
-				<CarDetailsModalclip
-					isVisible={isModalVisible}
-					car={selectedCar}
-					onClose={() => {
-						setIsModalVisible(false)
-						setSelectedCar(null)
-					}}
-					setSelectedCar={setSelectedCar}
-					setIsModalVisible={setIsModalVisible}
-				/>
-			)}
 		</View>
 	)
 }

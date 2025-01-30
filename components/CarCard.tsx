@@ -112,7 +112,6 @@ export default function CarCard({
 				: '/(home)/(user)/CarDetails',
 			params: {
 				carId: car.id,
-				car: JSON.stringify(car),
 				isDealerView: isDealer
 			}
 		})
@@ -330,7 +329,10 @@ export default function CarCard({
 				</StyledView>
 
 				{/* Dealership Info */}
-				<StyledView className={`p-4 pt-2 ${isDarkMode ? 'bg-[#2b2b2b]': 'bg-[#d1d1d1]'}  rounded-t-3xl`}>
+				<StyledView
+					className={`p-4 pt-2 ${
+						isDarkMode ? 'bg-[#2b2b2b]' : 'bg-[#d1d1d1]'
+					}  rounded-t-3xl`}>
 					<StyledView className='flex-row items-center justify-between'>
 						{car.dealership_logo && (
 							<Pressable onPress={handleDealershipPress} className='mr-3'>
