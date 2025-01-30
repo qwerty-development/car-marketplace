@@ -4,10 +4,10 @@ import {
 	Text,
 	Image,
 	TouchableOpacity,
-	RefreshControl,
 	Animated,
 	Platform,
-	Alert
+	Alert,
+	TextInput
 } from 'react-native'
 import { router, useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -15,16 +15,23 @@ import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import CarDetailModalIOS from './CarDetailModalIOS'
 import { useFavorites } from '@/utils/useFavorites'
-import { Ionicons } from '@expo/vector-icons'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
-
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import MapView, { Marker } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import DealershipAutoClips from '@/components/DealershipAutoClips'
+import SortPicker from '@/components/SortPicker'
 const ITEMS_PER_PAGE = 10
+
+interface FilterState {
+	searchQuery: string
+	sortOption: string
+	priceRange?: [number, number]
+	yearRange?: [number, number]
+}
 
 const OptimizedImage = React.memo(({ source, style, className }: any) => {
 	const [isLoading, setIsLoading] = useState(true)
@@ -207,6 +214,19 @@ export default function DealershipDetails() {
 	const [totalPages, setTotalPages] = useState(1)
 	const { toggleFavorite, isFavorite } = useFavorites()
 	const scrollY = new Animated.Value(0)
+	const [filters, setFilters] = useState<FilterState>({
+		searchQuery: '',
+		sortOption: ''
+	})
+	const [filteredCars, setFilteredCars] = useState<Car[]>([])
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedSearchTerm(filters.searchQuery)
+		}, 300)
+
+		return () => clearTimeout(timer)
+	}, [filters.searchQuery])
 
 	const bgGradient: [string, string] = isDarkMode
 		? ['#000000', '#1c1c1c']
@@ -236,7 +256,8 @@ export default function DealershipDetails() {
 	}, [])
 
 	const fetchDealershipCars = useCallback(
-		async (page = 1, refresh = false) => {
+		async (page = 1, refresh = false, preserveSort = false) => {
+			const currentSort = preserveSort ? filters.sortOption : ''
 			if (refresh) {
 				setIsRefreshing(true)
 			} else {
@@ -252,7 +273,31 @@ export default function DealershipDetails() {
 					)
 					.eq('status', 'available')
 					.eq('dealership_id', dealershipId)
-					.order('listed_at', { ascending: false })
+
+				// Apply sorting
+				switch (filters.sortOption) {
+					case 'price_asc':
+						query = query.order('price', { ascending: true })
+						break
+					case 'price_desc':
+						query = query.order('price', { ascending: false })
+						break
+					case 'year_asc':
+						query = query.order('year', { ascending: true })
+						break
+					case 'year_desc':
+						query = query.order('year', { ascending: false })
+						break
+					case 'mileage_asc':
+						query = query.order('mileage', { ascending: true })
+						break
+					case 'mileage_desc':
+						query = query.order('mileage', { ascending: false })
+						break
+					default:
+						query = query.order('listed_at', { ascending: false })
+				}
+
 				const { count } = await query
 				const totalItems = count || 0
 				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
@@ -290,12 +335,60 @@ export default function DealershipDetails() {
 				setIsRefreshing(false)
 			}
 		},
-		[dealershipId]
+		[dealershipId, filters.sortOption]
 	)
 
 	useEffect(() => {
+		let result = [...cars]
+
+		// Apply search filter
+		if (debouncedSearchTerm) {
+			const searchTerms = debouncedSearchTerm.toLowerCase().split(' ')
+			result = result.filter(car => {
+				const searchableFields = [
+					car.make,
+					car.model,
+					car.year.toString(),
+					car.condition,
+					car.transmission,
+					car.color
+				]
+				return searchTerms.every(term =>
+					searchableFields.some(field => field.toLowerCase().includes(term))
+				)
+			})
+		}
+
+		// Apply local sorting if needed
+		if (filters.sortOption && result.length > 0) {
+			result.sort((a, b) => {
+				switch (filters.sortOption) {
+					case 'price_asc':
+						return a.price - b.price
+					case 'price_desc':
+						return b.price - a.price
+					case 'year_asc':
+						return a.year - b.year
+					case 'year_desc':
+						return b.year - a.year
+					case 'mileage_asc':
+						return a.mileage - b.mileage
+					case 'mileage_desc':
+						return b.mileage - a.mileage
+					default:
+						return (
+							new Date(b.listed_at).getTime() - new Date(a.listed_at).getTime()
+						)
+				}
+			})
+		}
+
+		setFilteredCars(result)
+	}, [cars, debouncedSearchTerm, filters.sortOption])
+
+	useEffect(() => {
 		fetchDealershipCars(1, true)
-	}, [fetchDealershipCars])
+	}, [])
 
 	const handleCarPress = useCallback((car: Car) => {
 		setSelectedCar(car)
@@ -390,6 +483,157 @@ export default function DealershipDetails() {
 		}
 	}, [dealership])
 
+	const renderHeader = useCallback(
+		() => (
+			<>
+				{dealership && (
+					<View className='mb-6'>
+						{/* Dealership Info Card */}
+						<View className='px-6 pt-24 pb-6 mt-7'>
+							<View className='items-center'>
+								<View className='relative'>
+									<Image
+										source={{ uri: dealership.logo }}
+										className='w-24 h-24 rounded-2xl'
+										style={{
+											shadowColor: isDarkMode ? '#000' : '#D55004',
+											shadowOffset: { width: 0, height: 8 },
+											shadowOpacity: 0.3,
+											shadowRadius: 12
+										}}
+									/>
+									<LinearGradient
+										colors={
+											isDarkMode
+												? ['rgba(0,0,0,0.8)', 'transparent']
+												: ['rgba(255,255,255,0.8)', 'transparent']
+										}
+										className='absolute inset-0 rounded-2xl opacity-30'
+									/>
+								</View>
+
+								<Text
+									className={`text-2xl font-bold mt-4 ${
+										isDarkMode ? 'text-white' : 'text-black'
+									}`}>
+									{dealership.name}
+								</Text>
+
+								<View className='flex-row items-center mt-2'>
+									<Ionicons
+										name='location-outline'
+										size={16}
+										color={isDarkMode ? '#fff' : '#000'}
+									/>
+									<Text
+										className={`ml-1 ${
+											isDarkMode ? 'text-white/70' : 'text-black/70'
+										}`}>
+										{dealership.location}
+									</Text>
+								</View>
+							</View>
+
+							{/* Quick Actions */}
+							<View className='flex-row justify-center space-x-3 mt-8'>
+								<TouchableOpacity
+									onPress={handleCall}
+									className='flex-1 flex-row items-center justify-center space-x-2 bg-neutral-200 dark:bg-neutral-400 rounded-2xl py-4 px-6'>
+									<Ionicons
+										name='call-outline'
+										size={20}
+										color={isDarkMode ? '#fff' : '#000'}
+									/>
+									<Text className={isDarkMode ? 'text-white' : 'text-black'}>
+										Call
+									</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									onPress={handleWhatsApp}
+									className='flex-1 flex-row items-center justify-center space-x-2 bg-red rounded-2xl py-4 px-6'>
+									<Ionicons name='logo-whatsapp' size={20} color='white' />
+									<Text className='text-white'>WhatsApp</Text>
+								</TouchableOpacity>
+							</View>
+						</View>
+
+						{/* Map View */}
+						<View className='px-6 mb-8'>
+							<DealershipMapView
+								dealership={dealership}
+								isDarkMode={isDarkMode}
+							/>
+						</View>
+
+						{/* AutoClips Section */}
+						<DealershipAutoClips dealershipId={dealershipId} />
+					</View>
+				)}
+
+				{/* Search and Sort Section */}
+				<View className='px-6 mb-4'>
+					<View className='flex-row items-center space-x-2 mb-4'>
+						<View className='flex-1 flex-row items-center bg-neutral-100 dark:bg-neutral-800 rounded-full border border-neutral-200 dark:border-neutral-700'>
+							<FontAwesome
+								name='search'
+								size={20}
+								color={isDarkMode ? '#FFFFFF' : '#666666'}
+								style={{ marginLeft: 12 }}
+							/>
+							<TextInput
+								className='flex-1 py-2 px-3 text-base'
+								placeholder='Search cars...'
+								placeholderTextColor={isDarkMode ? '#999999' : '#666666'}
+								value={filters.searchQuery}
+								onChangeText={text =>
+									setFilters(prev => ({ ...prev, searchQuery: text }))
+								}
+								style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
+							/>
+							{filters.searchQuery ? (
+								<TouchableOpacity
+									className='px-3'
+									onPress={() =>
+										setFilters(prev => ({ ...prev, searchQuery: '' }))
+									}>
+									<Ionicons
+										name='close-circle'
+										size={20}
+										color={isDarkMode ? '#FFFFFF' : '#666666'}
+									/>
+								</TouchableOpacity>
+							) : null}
+						</View>
+						<View style={{ width: 120 }}>
+							<SortPicker
+								onValueChange={(value: any) => {
+									setFilters(prev => ({ ...prev, sortOption: value }))
+									// Don't trigger a new fetch - let the useEffect handle sorting
+								}}
+								initialValue={filters.sortOption}
+							/>
+						</View>
+					</View>
+				</View>
+
+				{/* Available Cars Header */}
+				<View className='px-6 mb-4 flex-row items-center justify-between'>
+					<Text
+						className={`text-xl font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Available Cars
+					</Text>
+					<Text className={`${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>
+						{filteredCars.length} vehicles
+					</Text>
+				</View>
+			</>
+		),
+		[dealership, isDarkMode, filters, filteredCars.length, fetchDealershipCars]
+	)
+
 	return (
 		<LinearGradient colors={bgGradient} className='flex-1'>
 			{/* Modernized Header */}
@@ -420,123 +664,12 @@ export default function DealershipDetails() {
 			</BlurView>
 
 			<Animated.FlatList
-				data={cars}
+				data={filteredCars}
 				renderItem={renderCarItem}
 				keyExtractor={item => `${item.id}-${item.make}-${item.model}`}
 				onEndReached={handleLoadMore}
 				onEndReachedThreshold={0.5}
-				refreshControl={
-					<RefreshControl
-						refreshing={isRefreshing}
-						onRefresh={handleRefresh}
-						tintColor={isDarkMode ? '#fff' : '#000'}
-						colors={['#D55004']}
-					/>
-				}
-				ListHeaderComponent={() => (
-					<>
-						{/* Hero Section */}
-						{dealership && (
-							<View className='mb-6'>
-								{/* Dealership Info Card */}
-								<View className='px-6 pt-24 pb-6 mt-7'>
-									<View className='items-center'>
-										<View className='relative'>
-											<Image
-												source={{ uri: dealership.logo }}
-												className='w-24 h-24 rounded-2xl'
-												style={{
-													shadowColor: isDarkMode ? '#000' : '#D55004',
-													shadowOffset: { width: 0, height: 8 },
-													shadowOpacity: 0.3,
-													shadowRadius: 12
-												}}
-											/>
-											<LinearGradient
-												colors={
-													isDarkMode
-														? ['rgba(0,0,0,0.8)', 'transparent']
-														: ['rgba(255,255,255,0.8)', 'transparent']
-												}
-												className='absolute inset-0 rounded-2xl opacity-30'
-											/>
-										</View>
-
-										<Text
-											className={`text-2xl font-bold mt-4 ${
-												isDarkMode ? 'text-white' : 'text-black'
-											}`}>
-											{dealership.name}
-										</Text>
-
-										<View className='flex-row items-center mt-2'>
-											<Ionicons
-												name='location-outline'
-												size={16}
-												color={isDarkMode ? '#fff' : '#000'}
-											/>
-											<Text
-												className={`ml-1 ${
-													isDarkMode ? 'text-white/70' : 'text-black/70'
-												}`}>
-												{dealership.location}
-											</Text>
-										</View>
-									</View>
-
-									{/* Quick Actions */}
-									<View className='flex-row justify-center space-x-3 mt-8'>
-										<TouchableOpacity
-											onPress={handleCall}
-											className='flex-1 flex-row items-center justify-center space-x-2 bg-neutral-200 dark:bg-neutral-400 rounded-2xl py-4 px-6'>
-											<Ionicons
-												name='call-outline'
-												size={20}
-												color={isDarkMode ? '#fff' : '#000'}
-											/>
-											<Text
-												className={isDarkMode ? 'text-white' : 'text-black'}>
-												Call
-											</Text>
-										</TouchableOpacity>
-
-										<TouchableOpacity
-											onPress={handleWhatsApp}
-											className='flex-1 flex-row items-center justify-center space-x-2 bg-red rounded-2xl py-4 px-6'>
-											<Ionicons name='logo-whatsapp' size={20} color='white' />
-											<Text className='text-white'>WhatsApp</Text>
-										</TouchableOpacity>
-									</View>
-								</View>
-
-								{/* Map View */}
-								<View className='px-6 mb-8'>
-									<DealershipMapView
-										dealership={dealership}
-										isDarkMode={isDarkMode}
-									/>
-								</View>
-
-								{/* AutoClips Section */}
-								<DealershipAutoClips dealershipId={dealershipId} />
-							</View>
-						)}
-
-						{/* Available Cars Header */}
-						<View className='px-6 mb-4 flex-row items-center justify-between'>
-							<Text
-								className={`text-xl font-bold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Available Cars
-							</Text>
-							<Text
-								className={`${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>
-								{cars.length} vehicles
-							</Text>
-						</View>
-					</>
-				)}
+				ListHeaderComponent={renderHeader}
 				contentContainerStyle={{ paddingBottom: 20 }}
 				onScroll={Animated.event(
 					[{ nativeEvent: { contentOffset: { y: scrollY } } }],
