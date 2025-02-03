@@ -52,7 +52,7 @@ export default function PreviewAutoClipModal({
     const [isStatusLoading, setIsStatusLoading] = useState(false)
     const [currentClip, setCurrentClip] = useState<AutoClip | null>(null)
     const [cars, setCars] = useState<Car[]>([])
-    
+
     // Edit form state
     const [editTitle, setEditTitle] = useState('')
     const [editDescription, setEditDescription] = useState('')
@@ -146,7 +146,7 @@ export default function PreviewAutoClipModal({
         setIsLoading(true)
         try {
             const updates: Partial<AutoClip> = {}
-            
+
             // Only include changed fields
             if (editTitle.trim() !== currentClip.title) {
                 updates.title = editTitle.trim()
@@ -188,7 +188,7 @@ export default function PreviewAutoClipModal({
                 }
                 Alert.alert('Success', 'AutoClip updated successfully')
             }
-            
+
             setIsEditing(false)
         } catch (error) {
             console.error('Error:', error)
@@ -271,7 +271,7 @@ export default function PreviewAutoClipModal({
                         </Text>
                         {currentClip.description && (
                             <Text
-                                className="text-gray-300"
+                                className="text-neutral-300"
                                 numberOfLines={isDescriptionExpanded ? undefined : 2}
                             >
                                 {currentClip.description}
@@ -336,16 +336,16 @@ export default function PreviewAutoClipModal({
         <ScrollView className="flex-1">
             <View className={`flex-row justify-between items-center p-4 mt-12 border-b border-red ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
                 <TouchableOpacity onPress={() => setIsEditing(false)}>
-                    <FontAwesome 
-                        name="arrow-left" 
-                        size={24} 
-                        color={isDarkMode ? 'white' : 'black'} 
+                    <FontAwesome
+                        name="arrow-left"
+                        size={24}
+                        color={isDarkMode ? 'white' : 'black'}
                     />
                 </TouchableOpacity>
                 <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
                     Edit AutoClip
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                     onPress={handleSaveEdit}
                     disabled={isLoading}
                 >
@@ -364,9 +364,9 @@ export default function PreviewAutoClipModal({
                         value={editTitle}
                         onChangeText={setEditTitle}
                         className={`p-3 rounded-lg ${
-                            isDarkMode 
-                                ? 'bg-gray-800 text-white' 
-                                : 'bg-gray-100 text-black'
+                            isDarkMode
+                                ? 'bg-neutral-800 text-white'
+                                : 'bg-neutral-100 text-black'
                         }`}
                         placeholderTextColor={isDarkMode ? '#666' : '#999'}
                     />
@@ -382,9 +382,9 @@ export default function PreviewAutoClipModal({
                         multiline
                         numberOfLines={4}
                         className={`p-3 rounded-lg ${
-                            isDarkMode 
-                                ? 'bg-gray-800 text-white' 
-                                : 'bg-gray-100 text-black'
+                            isDarkMode
+                                ? 'bg-neutral-800 text-white'
+                                : 'bg-neutral-100 text-black'
                         }`}
                         placeholderTextColor={isDarkMode ? '#666' : '#999'}
                         textAlignVertical="top"
@@ -414,8 +414,8 @@ export default function PreviewAutoClipModal({
                         useNativeControls
                         className="rounded-lg mb-2"
                     />
-                    <VideoPickerButton 
-                        onVideoSelected={(uri: React.SetStateAction<string>) => setEditVideoUri(uri)} 
+                    <VideoPickerButton
+                        onVideoSelected={(uri: React.SetStateAction<string>) => setEditVideoUri(uri)}
                     />
                 </View>
             </View>
@@ -436,8 +436,8 @@ export default function PreviewAutoClipModal({
                     className="flex-1"
                 >
                     <PanGestureHandler onGestureEvent={panGestureEvent}>
-                        <Animated.View 
-                            style={[{ flex: 1 }, animatedStyle]} 
+                        <Animated.View
+                            style={[{ flex: 1 }, animatedStyle]}
                             className={isDarkMode ? 'bg-black' : 'bg-white'}
                         >
                             {!isEditing ? renderPreviewMode() : renderEditMode()}

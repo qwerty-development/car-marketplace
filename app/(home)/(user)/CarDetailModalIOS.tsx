@@ -372,7 +372,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 					{/* Price Badge */}
 					<View className='absolute -bottom-6 left-1/2 -translate-x-16 dark:bg-black bg-white rounded-full w-32 h-12 items-center justify-center shadow-lg z-20'>
-						<Text className='text-red text-lg font-bold'>${car.price}</Text>
+						<Text className='text-red text-lg font-bold'>
+							${car.price.toLocaleString()}
+						</Text>
 					</View>
 				</View>
 
