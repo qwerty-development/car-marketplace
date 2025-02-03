@@ -7,9 +7,6 @@ import {
 	Alert,
 	ActivityIndicator,
 	Dimensions,
-	Modal,
-	ScrollView,
-	TextInput,
 	StatusBar,
 	Platform
 } from 'react-native'
@@ -25,6 +22,7 @@ import { Image } from 'expo-image'
 import CreateAutoClipModal from '@/components/CreateAutoClipModal'
 import PreviewAutoClipModal from '@/components/PreviewAutoClipModal'
 import { BlurView } from 'expo-blur'
+import EditAutoClipModal from '@/components/EditAutoClipModal'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const VIDEO_WIDTH = (SCREEN_WIDTH - 32) / 2
@@ -65,7 +63,10 @@ const CustomHeader = React.memo(({ title, dealership }: any) => {
 		<SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
 			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 			<View className='ml-3'>
-				<Text className={`text-2xl -mb-5 font-bold ${isDarkMode ? 'text-white' : 'text-black'} `}>
+				<Text
+					className={`text-2xl -mb-5 font-bold ${
+						isDarkMode ? 'text-white' : 'text-black'
+					} `}>
 					{title}
 				</Text>
 				{dealership && (
@@ -92,18 +93,24 @@ const CustomHeader = React.memo(({ title, dealership }: any) => {
 const VideoItem = ({
 	item,
 	onPress,
-	isDarkMode
+	isDarkMode,
+	onDelete,
+	onToggleStatus,
+	onEdit
 }: {
 	item: AutoClip
 	onPress: () => void
 	isDarkMode: boolean
+	onDelete: (id: number) => void
+	onToggleStatus: (clip: AutoClip) => void
+	onEdit: (clip: AutoClip) => void
 }) => {
 	const [isHovered, setIsHovered] = useState(false)
 
 	return (
 		<TouchableOpacity
 			onPress={onPress}
-			className='relative mb-4 mx-1 '
+			className='relative mb-4 mx-1'
 			style={{ width: VIDEO_WIDTH }}
 			onPressIn={() => setIsHovered(true)}
 			onPressOut={() => setIsHovered(false)}>
@@ -164,22 +171,16 @@ const VideoItem = ({
 							Alert.alert('Manage AutoClip', 'Choose an action', [
 								{
 									text: 'Edit',
-									onPress: () => {
-										// Handle edit
-									}
+									onPress: () => onEdit(item)
 								},
 								{
 									text: item.status === 'published' ? 'Unpublish' : 'Publish',
-									onPress: () => {
-										// Handle status toggle
-									}
+									onPress: () => onToggleStatus(item)
 								},
 								{
 									text: 'Delete',
 									style: 'destructive',
-									onPress: () => {
-										// Handle delete
-									}
+									onPress: () => onDelete(item.id)
 								},
 								{
 									text: 'Cancel',
@@ -232,6 +233,8 @@ export default function AutoClips() {
 	const [selectedClip, setSelectedClip] = useState<AutoClip | null>(null)
 	const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
 	const [previewVisible, setPreviewVisible] = useState(false)
+	const [isEditModalVisible, setIsEditModalVisible] = useState(false)
+	const [clipToEdit, setClipToEdit] = useState<AutoClip | null>(null)
 
 	useEffect(() => {
 		if (user) {
@@ -352,6 +355,12 @@ export default function AutoClips() {
 								setPreviewVisible(true)
 							}}
 							isDarkMode={isDarkMode}
+							onDelete={handleDelete}
+							onToggleStatus={toggleStatus}
+							onEdit={clip => {
+								setClipToEdit(clip)
+								setIsEditModalVisible(true)
+							}}
 						/>
 					)}
 					keyExtractor={item => item.id.toString()}
@@ -364,7 +373,6 @@ export default function AutoClips() {
 					refreshing={refreshing}
 					ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
 				/>
-
 				<BlurView
 					intensity={80}
 					tint={isDarkMode ? 'dark' : 'light'}
@@ -375,14 +383,12 @@ export default function AutoClips() {
 						<FontAwesome name='plus' size={24} color='white' />
 					</TouchableOpacity>
 				</BlurView>
-
 				<CreateAutoClipModal
 					isVisible={isCreateModalVisible}
 					onClose={() => setIsCreateModalVisible(false)}
 					dealership={dealership}
 					onSuccess={handleRefresh}
 				/>
-
 				<PreviewAutoClipModal
 					clip={selectedClip}
 					isVisible={previewVisible}
@@ -393,6 +399,15 @@ export default function AutoClips() {
 					onDelete={handleDelete}
 					onToggleStatus={toggleStatus}
 					onEdit={handleRefresh}
+				/>
+				<EditAutoClipModal
+					isVisible={isEditModalVisible}
+					onClose={() => {
+						setIsEditModalVisible(false)
+						setClipToEdit(null)
+					}}
+					clip={clipToEdit}
+					onSuccess={handleRefresh}
 				/>
 			</View>
 		</LinearGradient>
