@@ -113,9 +113,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const router = useRouter()
 	const { user } = useUser()
 	const { isFavorite } = useFavorites()
-	const [similarCars, setSimilarCars] = useState([])
-	const [dealerCars, setDealerCars] = useState([])
-	const scrollViewRef = useRef(null)
+	const [similarCars, setSimilarCars] = useState<any>([])
+	const [dealerCars, setDealerCars] = useState<any>([])
+	const scrollViewRef = useRef<any>(null)
 	const [activeImageIndex, setActiveImageIndex] = useState(0)
 
 	useEffect(() => {
@@ -138,29 +138,67 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	}, [router, car.dealership_id])
 
 	const fetchSimilarCars = useCallback(async () => {
-		const { data, error } = await supabase
-			.from('cars')
-			.select('*, dealerships (name,logo,phone,location,latitude,longitude)')
-			.neq('id', car.id)
-			.gte('price', Math.floor(car.price * 0.8))
-			.lte('price', Math.floor(car.price * 1.2))
-			.limit(5)
+		try {
+			// First, try to find cars with same make, model, and year
+			let { data: exactMatches, error: exactMatchError } = await supabase
+				.from('cars')
+				.select('*, dealerships (name,logo,phone,location,latitude,longitude)')
+				.eq('make', car.make)
+				.eq('model', car.model)
+				.eq('year', car.year)
+				.neq('id', car.id)
+				.eq('status', 'available')
+				.limit(5)
 
-		if (data) {
-			const newCars = data.map(item => ({
-				...item,
-				dealership_name: item.dealerships.name,
-				dealership_logo: item.dealerships.logo,
-				dealership_phone: item.dealerships.phone,
-				dealership_location: item.dealerships.location,
-				dealership_latitude: item.dealerships.latitude,
-				dealership_longitude: item.dealerships.longitude,
-				listed_at: item.listed_at
-			}))
-			setSimilarCars(newCars)
+			if (exactMatchError) throw exactMatchError
+
+			if (exactMatches && exactMatches.length > 0) {
+				const newCars = exactMatches.map(item => ({
+					...item,
+					dealership_name: item.dealerships.name,
+					dealership_logo: item.dealerships.logo,
+					dealership_phone: item.dealerships.phone,
+					dealership_location: item.dealerships.location,
+					dealership_latitude: item.dealerships.latitude,
+					dealership_longitude: item.dealerships.longitude,
+					listed_at: item.listed_at
+				}))
+				setSimilarCars(newCars)
+				return
+			}
+
+			// If no exact matches, fall back to similarly priced cars
+			const { data: priceMatches, error: priceMatchError } = await supabase
+				.from('cars')
+				.select('*, dealerships (name,logo,phone,location,latitude,longitude)')
+				.neq('id', car.id)
+				.eq('status', 'available')
+				.gte('price', Math.floor(car.price * 0.8))
+				.lte('price', Math.floor(car.price * 1.2))
+				.limit(5)
+
+			if (priceMatchError) throw priceMatchError
+
+			if (priceMatches && priceMatches.length > 0) {
+				const newCars = priceMatches.map(item => ({
+					...item,
+					dealership_name: item.dealerships.name,
+					dealership_logo: item.dealerships.logo,
+					dealership_phone: item.dealerships.phone,
+					dealership_location: item.dealerships.location,
+					dealership_latitude: item.dealerships.latitude,
+					dealership_longitude: item.dealerships.longitude,
+					listed_at: item.listed_at
+				}))
+				setSimilarCars(newCars)
+			} else {
+				setSimilarCars([])
+			}
+		} catch (error) {
+			console.error('Error fetching similar cars:', error)
+			setSimilarCars([])
 		}
-		if (error) console.error('Error fetching similar cars:', error)
-	}, [car.id, car.price])
+	}, [car.id, car.make, car.model, car.year, car.price])
 
 	const fetchDealerCars = useCallback(async () => {
 		const { data, error } = await supabase
@@ -221,18 +259,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 		}
 	}, [car.dealership_phone])
 
-	const handleWhatsApp = useCallback(() => {
-		if (car.dealership_phone) {
-			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-			const url = `https://wa.me/${
-				car.dealership_phone
-			}?text=${encodeURIComponent(message)}`
-			Linking.openURL(url)
-		} else {
-			Alert.alert('WhatsApp number not available')
-		}
-	}, [car.dealership_phone, car.make, car.model])
-
 	const handleChat = useCallback(() => {
 		Alert.alert('Chat feature coming soon!')
 	}, [])
@@ -245,7 +271,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				} for $${car.price.toLocaleString()}!`,
 				url: car.images[0]
 			})
-		} catch (error) {
+		} catch (error: any) {
 			Alert.alert(error.message)
 		}
 	}, [car])
@@ -493,23 +519,29 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				</View>
 
 				{/* Similar Cars Section */}
-				<View className='mt-8 px-4'>
-					<Text
-						className={`text-xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mb-4`}>
-						Similarly Priced Cars
-					</Text>
-					<FlatList
-						data={similarCars}
-						renderItem={renderCarItem}
-						keyExtractor={item =>
-							`${item.id}-${item.make}-${item.model}-${Math.random()}`
-						}
-						horizontal
-						showsHorizontalScrollIndicator={false}
-					/>
-				</View>
+				{similarCars.length > 0 && (
+					<View className='mt-8 px-4'>
+						<Text
+							className={`text-xl font-bold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							} mb-4`}>
+							{similarCars[0].make === car.make &&
+							similarCars[0].model === car.model &&
+							similarCars[0].year === car.year
+								? 'Explore Similar Cars'
+								: 'Similarly Priced Cars'}
+						</Text>
+						<FlatList
+							data={similarCars}
+							renderItem={renderCarItem}
+							keyExtractor={item =>
+								`${item.id}-${item.make}-${item.model}-${Math.random()}`
+							}
+							horizontal
+							showsHorizontalScrollIndicator={false}
+						/>
+					</View>
+				)}
 
 				{/* Dealer Cars Section */}
 				<View className='mt-8 px-4 mb-40'>
@@ -522,7 +554,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 					<FlatList
 						data={dealerCars}
 						renderItem={renderCarItem}
-						keyExtractor={item =>
+						keyExtractor={(item: any) =>
 							`${item.id}-${item.make}-${item.model}-${Math.random()}`
 						}
 						horizontal
