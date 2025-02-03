@@ -1005,14 +1005,20 @@ const ListingModal = ({
 	const handleSubmit = useCallback(() => {
 		if (!validateFormData(formData)) return
 
-		onSubmit({
+		// Preserve id and dealership_id when editing an existing car
+		const submissionData = {
 			...formData,
 			images: modalImages,
 			date_bought: formData.date_bought
 				? formData.date_bought.toISOString()
-				: new Date().toISOString()
-		})
-	}, [formData, modalImages, onSubmit])
+				: new Date().toISOString(),
+			// Keep the original id and dealership_id if this is an edit
+			id: initialData?.id,
+			dealership_id: initialData?.dealership_id
+		}
+
+		onSubmit(submissionData)
+	}, [formData, modalImages, onSubmit, initialData])
 
 	return (
 		<Modal
