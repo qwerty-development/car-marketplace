@@ -13,8 +13,8 @@ export default function TabLayout() {
 				tabBarStyle: {
 					position: 'absolute',
 					backgroundColor: isDarkMode ? '#1A1A1A' : 'white',
-					height: 60,
-					paddingBottom: 20,
+					height: 65,
+					paddingBottom: 10,
 					shadowColor: '#000',
 					shadowOffset: { width: 0, height: 5 },
 					shadowOpacity: 0.3,
@@ -27,7 +27,7 @@ export default function TabLayout() {
 				tabBarItemStyle:
 					route.name === 'autoclips'
 						? {
-								marginBottom: 30
+								marginBottom: 10
 						  }
 						: {
 								paddingTop: 5
