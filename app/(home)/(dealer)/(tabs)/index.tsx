@@ -21,8 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import ListingModal from '@/components/ListingModal'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import SortPicker from '@/components/SortPicker'
-import RNPickerSelect from 'react-native-picker-select'
+
 import { debounce } from 'lodash'
 import { BlurView } from 'expo-blur'
 import ModernPicker from '@/components/ModernPicker'
@@ -671,44 +670,72 @@ export default function DealerListings() {
 			if (!dealership) return
 			setIsLoading(true)
 			try {
-				// 1. Get current values from refs
 				const currentFilters = filtersRef.current
 				const currentSortBy = sortByRef.current
 				const currentSortOrder = sortOrderRef.current
 				const currentSearchQuery = searchQueryRef.current
 
-				// 2. Build base query
-				let query = supabase
+				let queryBuilder = supabase
 					.from('cars')
 					.select(
 						'*, dealerships!inner(name,logo,phone,location,latitude,longitude)',
-						{
-							count: 'exact'
-						}
+						{ count: 'exact' }
 					)
 					.eq('dealership_id', dealership.id)
 					.order(currentSortBy, { ascending: currentSortOrder === 'asc' })
 
-				// 3. Apply search if exists
 				if (currentSearchQuery) {
-					query = query.or(
-						`make.ilike.%${currentSearchQuery}%,model.ilike.%${currentSearchQuery}%,description.ilike.%${currentSearchQuery}%`
-					)
+					const cleanQuery = currentSearchQuery.trim().toLowerCase()
+					const searchTerms = cleanQuery.split(/\s+/)
+
+					searchTerms.forEach(term => {
+						const numericTerm = parseInt(term)
+						let searchConditions = [
+							`make.ilike.%${term}%`,
+							`model.ilike.%${term}%`,
+							`description.ilike.%${term}%`
+						]
+
+						if (!isNaN(numericTerm)) {
+							searchConditions = searchConditions.concat([
+								`year::text.eq.${numericTerm}`,
+								`price::text.ilike.%${numericTerm}%`,
+								`mileage::text.ilike.%${numericTerm}%`
+							])
+						}
+
+						queryBuilder = queryBuilder.or(searchConditions.join(','))
+					})
 				}
 
-				// 4. Apply filters
-				query = applyFiltersToQuery(query, currentFilters)
+				queryBuilder = applyFiltersToQuery(queryBuilder, currentFilters)
 
-				// 5. Calculate pagination
-				const from = (page - 1) * ITEMS_PER_PAGE
-				const to = from + ITEMS_PER_PAGE - 1
+				// First get the count
+				const { count } = await queryBuilder
 
-				// 6. Execute query
-				const { data, error, count } = await query.range(from, to)
+				if (!count) {
+					setListings([])
+					setTotalPages(0)
+					setCurrentPage(1)
+					setHasMoreListings(false)
+					setIsLoading(false)
+					return
+				}
+
+				const totalItems = count
+				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+				const safePageNumber = Math.min(page, totalPages)
+				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
+				const endRange = Math.min(
+					safePageNumber * ITEMS_PER_PAGE - 1,
+					totalItems - 1
+				)
+
+				// Execute the actual query with range
+				const { data, error } = await queryBuilder.range(startRange, endRange)
 
 				if (error) throw error
 
-				// 7. Format response data (no changes here)
 				const formattedData =
 					data?.map(item => ({
 						...item,
@@ -720,15 +747,16 @@ export default function DealerListings() {
 						dealership_longitude: item.dealerships.longitude
 					})) || []
 
-				// 8. Update state
-				setListings(prev =>
-					refresh ? formattedData : [...prev, ...formattedData]
-				)
-				setCurrentPage(page)
+				const uniqueListings = Array.from(
+					new Set(formattedData.map(car => car.id))
+				).map(id => formattedData.find(car => car.id === id))
 
-				// **Update hasMoreListings based on the CURRENT page, not the next one**
-				setHasMoreListings(count! > page * ITEMS_PER_PAGE)
-				setTotalListings(count || 0)
+				setListings(prev =>
+					refresh ? uniqueListings : [...prev, ...uniqueListings]
+				)
+				setTotalListings(totalItems)
+				setCurrentPage(safePageNumber)
+				setHasMoreListings(totalItems > safePageNumber * ITEMS_PER_PAGE)
 			} catch (error) {
 				console.error('Error fetching listings:', error)
 				Alert.alert('Error', 'Failed to fetch listings')
@@ -737,8 +765,21 @@ export default function DealerListings() {
 				setIsRefreshing(false)
 			}
 		},
-		[dealership, hasMoreListings] // Add hasMoreListings as a dependency
+		[dealership]
 	)
+
+	const handleLoadMore = useCallback(() => {
+		if (!isLoading && hasMoreListings && !isRefreshing) {
+			const nextPage = currentPage + 1
+			fetchListings(nextPage, false)
+		}
+	}, [currentPage, isLoading, hasMoreListings, isRefreshing, fetchListings])
+
+	const handleRefresh = useCallback(() => {
+		setIsRefreshing(true)
+		setCurrentPage(1)
+		fetchListings(1, true)
+	}, [fetchListings])
 
 	useEffect(() => {
 		fetchDealership()
@@ -789,17 +830,6 @@ export default function DealerListings() {
 		// 5. Close filter modal
 		setIsFilterModalVisible(false)
 	}, [])
-
-	const handleRefresh = useCallback(() => {
-		setIsRefreshing(true)
-		setCurrentPage(1)
-		setFetchTrigger(prev => prev + 1)
-	}, [])
-	const handleLoadMore = useCallback(() => {
-		if (!isLoading && hasMoreListings) {
-			fetchListings(currentPage + 1, false)
-		}
-	}, [currentPage, isLoading, hasMoreListings, fetchListings])
 
 	const handleDeleteListing = useCallback(
 		async (id: number) => {
@@ -874,25 +904,6 @@ export default function DealerListings() {
 		},
 		[dealership, selectedListing, isSubscriptionValid]
 	)
-
-	const handleSortChange = useCallback((value: string) => {
-		// 1. Split sort value into components
-		const [newSortBy, newSortOrder] = value.split('_')
-
-		// 2. Update refs immediately
-		sortByRef.current = newSortBy
-		sortOrderRef.current = newSortOrder as 'asc' | 'desc'
-
-		// 3. Update state for UI
-		setSortBy(newSortBy)
-		setSortOrder(newSortOrder as 'asc' | 'desc')
-
-		// 4. Reset to first page
-		setCurrentPage(1)
-
-		// 5. Trigger fetch with new sort
-		setFetchTrigger(prev => prev + 1)
-	}, [])
 
 	const SpecItem = ({ title, icon, value, isDarkMode }) => (
 		<View className='flex-1 items-center justify-center'>
@@ -976,9 +987,8 @@ export default function DealerListings() {
 				return (
 					<Animated.View
 						entering={FadeInDown}
-						exiting={FadeOutUp}
 						className={`m-4 mb-4 ${
-							isDarkMode ? 'bg-textgray' : 'bg-[#e6e6e6]'
+							isDarkMode ? 'bg-textgray' : 'bg-[#e1e1e1]'
 						} rounded-3xl overflow-hidden shadow-xl`}>
 						{/* Image and Overlays */}
 						<View className='relative'>
@@ -1215,12 +1225,12 @@ export default function DealerListings() {
 				keyExtractor={item => item.id.toString()}
 				showsVerticalScrollIndicator={false}
 				onEndReached={handleLoadMore}
-				onEndReachedThreshold={0.5}
-				className='mb-12'
+				onEndReachedThreshold={0.3}
 				refreshControl={
 					<RefreshControl
 						refreshing={isRefreshing}
 						onRefresh={handleRefresh}
+						colors={['#D55004']}
 						tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
 					/>
 				}
@@ -1234,6 +1244,28 @@ export default function DealerListings() {
 						</Text>
 					</View>
 				}
+				ListFooterComponent={() =>
+					isLoading && !isRefreshing ? (
+						<ActivityIndicator
+							size='large'
+							color='#D55004'
+							style={{ padding: 20 }}
+						/>
+					) : null
+				}
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={5}
+				windowSize={10}
+				updateCellsBatchingPeriod={100}
+				initialNumToRender={5}
+				maintainVisibleContentPosition={{
+					minIndexForVisible: 0,
+					autoscrollToTopThreshold: 10
+				}}
+				contentContainerStyle={{
+					paddingBottom: 100,
+					flexGrow: listings.length === 0 ? 1 : undefined
+				}}
 			/>
 
 			{!subscriptionExpired && (

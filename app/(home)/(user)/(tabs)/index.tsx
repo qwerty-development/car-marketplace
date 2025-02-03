@@ -57,19 +57,6 @@ interface Filters {
 	specialFilter?: 'newArrivals' | 'mostPopular' | 'bestDeals'
 	sortBy?: string
 }
-const sortOptions = [
-	{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
-	{ label: 'Price: Low to High', value: 'price_asc', icon: 'trending-up' },
-	{ label: 'Price: High to Low', value: 'price_desc', icon: 'trending-down' },
-	{ label: 'Year: New to Old', value: 'year_desc', icon: 'calendar' },
-	{ label: 'Year: Old to New', value: 'year_asc', icon: 'calendar-outline' },
-	{ label: 'Mileage: Low to High', value: 'mileage_asc', icon: 'speedometer' },
-	{
-		label: 'Mileage: High to Low',
-		value: 'mileage_desc',
-		icon: 'speedometer-outline'
-	}
-]
 
 export default function BrowseCarsPage() {
 	const { isDarkMode } = useTheme()
