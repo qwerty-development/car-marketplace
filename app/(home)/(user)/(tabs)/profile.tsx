@@ -158,14 +158,9 @@ export default function UserProfileAndSupportPage() {
 	return (
 		<ScrollView
 			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'} mb-10`}
-			refreshControl={
-				<RefreshControl
-					refreshing={refreshing}
-					onRefresh={onRefresh}
-					tintColor={isDarkMode ? '#ffffff' : '#000000'}
-					colors={['#D55004']}
-				/>
-			}>
+			bounces={false}
+			overScrollMode='never'
+			showsVerticalScrollIndicator={false}>
 			<View className='relative'>
 				<LinearGradient
 					colors={isDarkMode ? ['#D55004', '#1a1a1a'] : ['#D55004', '#ff8c00']}
