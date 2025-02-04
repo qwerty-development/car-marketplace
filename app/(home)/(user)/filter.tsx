@@ -267,46 +267,120 @@ const ModelSelector = memo(
 
 // Range Selector Component
 const RangeSelector = memo(
-	({ title, min, max, value, onChange, prefix = '', isDarkMode }) => {
-		const formatValue = val => {
-			if (prefix === '$') {
-				return `${prefix}${val.toLocaleString()}`
-			}
-			return `${val.toLocaleString()}${prefix}`
-		}
+	({ title, min, max, value, onChange, prefix = '', isDarkMode, step = 1 }) => {
+		// Format value with prefix and localization
+		const formatValue = useCallback(
+			(val: number) => {
+				const formattedNumber = Math.round(val).toLocaleString()
+				return prefix === '$'
+					? `${prefix}${formattedNumber}`
+					: `${formattedNumber}${prefix}`
+			},
+			[prefix]
+		)
+
+		// Clean and validate input
+		const handleTextChange = useCallback(
+			(text: string, index: number) => {
+				// 1. Remove non-numeric characters
+				const cleanText = text.replace(/[^0-9]/g, '')
+
+				// 2. Parse to number, default to min/max if invalid
+				const newValue = parseInt(cleanText) || (index === 0 ? min : max)
+
+				// 3. Clamp value to valid range
+				const clampedValue = Math.min(Math.max(newValue, min), max)
+
+				// 4. Create new range array
+				const newRange = [...value]
+				newRange[index] = clampedValue
+
+				// 5. Ensure min <= max
+				if (index === 0 && clampedValue > value[1]) {
+					newRange[1] = clampedValue
+				} else if (index === 1 && clampedValue < value[0]) {
+					newRange[0] = clampedValue
+				}
+
+				// 6. Update parent state
+				onChange(newRange)
+			},
+			[value, min, max, onChange]
+		)
 
 		return (
 			<View className='mb-6'>
-				<View className='flex-row justify-between mb-2'>
-					<Text
-						className={`font-medium ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						{title}
-					</Text>
-					<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-						{formatValue(value[0])} - {formatValue(value[1])}
-					</Text>
-				</View>
-				<View className='mb-4'>
-					<Slider
-						minimumValue={min}
-						maximumValue={max}
-						value={value[0]}
-						onValueChange={val => onChange([val, value[1]])}
-						minimumTrackTintColor='#D55004'
-						maximumTrackTintColor={isDarkMode ? '#666' : '#ccc'}
-						thumbTintColor='#D55004'
-					/>
-					<Slider
-						minimumValue={min}
-						maximumValue={max}
-						value={value[1]}
-						onValueChange={val => onChange([value[0], val])}
-						minimumTrackTintColor='#D55004'
-						maximumTrackTintColor={isDarkMode ? '#666' : '#ccc'}
-						thumbTintColor='#D55004'
-					/>
+				{/* Title */}
+				<Text
+					className={`text-base font-medium mb-4
+        ${isDarkMode ? 'text-white' : 'text-black'}`}>
+					{title}
+				</Text>
+
+				{/* Input Container */}
+				<View className='flex-row items-center space-x-4'>
+					{/* Min Input */}
+					<BlurView
+						intensity={isDarkMode ? 20 : 40}
+						tint={isDarkMode ? 'dark' : 'light'}
+						className='flex-1 rounded-2xl overflow-hidden'>
+						<LinearGradient
+							colors={
+								isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']
+							}
+							className='p-4'
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 1 }}>
+							<Text
+								className={`text-xs mb-1
+              ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+								Min {title}
+							</Text>
+							<TextInput
+								value={formatValue(value[0])}
+								onChangeText={text => handleTextChange(text, 0)}
+								keyboardType='numeric'
+								className={`text-lg font-medium
+                ${isDarkMode ? 'text-white' : 'text-black'}`}
+								style={{ height: 40 }}
+								placeholder={`Min ${formatValue(min)}`}
+								placeholderTextColor={isDarkMode ? '#666' : '#999'}
+							/>
+						</LinearGradient>
+					</BlurView>
+
+					{/* Separator */}
+					<View className='w-8 h-0.5 bg-neutral-400' />
+
+					{/* Max Input */}
+					<BlurView
+						intensity={isDarkMode ? 20 : 40}
+						tint={isDarkMode ? 'dark' : 'light'}
+						className='flex-1 rounded-2xl overflow-hidden'>
+						<LinearGradient
+							colors={
+								isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']
+							}
+							className='p-4'
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 1 }}>
+							<Text
+								className={`text-xs mb-1
+              ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+								Max {title}
+							</Text>
+							<TextInput
+								value={formatValue(value[1])}
+								onChangeText={text => handleTextChange(text, 1)}
+								keyboardType='numeric'
+								className={`text-lg font-medium
+                ${isDarkMode ? 'text-white' : 'text-black'}`}
+								style={{ height: 40 }}
+								placeholder={`Max ${formatValue(max)}`}
+								placeholderTextColor={isDarkMode ? '#666' : '#999'}
+							/>
+						</LinearGradient>
+					</BlurView>
 				</View>
 			</View>
 		)
@@ -623,9 +697,10 @@ const FilterPage = () => {
 						isDarkMode={isDarkMode}
 					/>
 					<RangeSelector
-						title='Price Range'
+						title='Price'
 						min={0}
 						max={1000000}
+						step={1000}
 						value={filters.priceRange}
 						onChange={range =>
 							setFilters(prev => ({
@@ -647,6 +722,7 @@ const FilterPage = () => {
 						title='Mileage'
 						min={0}
 						max={500000}
+						step={1000}
 						value={filters.mileageRange}
 						onChange={range =>
 							setFilters(prev => ({
@@ -668,6 +744,7 @@ const FilterPage = () => {
 						title='Year'
 						min={1900}
 						max={new Date().getFullYear()}
+						step={1}
 						value={filters.yearRange}
 						onChange={range =>
 							setFilters(prev => ({
