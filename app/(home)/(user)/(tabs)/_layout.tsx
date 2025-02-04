@@ -71,7 +71,7 @@ export default function TabLayout() {
 					return <Ionicons name={iconName} size={size} color={color} />
 				}
 			})}>
-			<Tabs.Screen name='index' options={{ headerTitle: 'Home' }} />
+			<Tabs.Screen name='index' options={{ headerTitle: 'Home', }} />
 			<Tabs.Screen
 				name='dealerships'
 				options={{ headerTitle: 'Dealerships', headerShown: false }}

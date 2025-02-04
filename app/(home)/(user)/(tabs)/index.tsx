@@ -7,7 +7,8 @@ import {
 	ActivityIndicator,
 	StyleSheet,
 	Text,
-	Keyboard
+	Keyboard,
+	StatusBar
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
@@ -109,6 +110,27 @@ export default function BrowseCarsPage() {
 			fetchCars(1, {}, sortOption, searchQuery)
 		}
 	}, [params.filters])
+
+	const CustomHeader = React.memo(
+		({ title, onBack }: { title: string; onBack?: () => void }) => {
+		  const { isDarkMode } = useTheme();
+	  
+		  return (
+			<SafeAreaView className={`bg-${isDarkMode ? "black" : "white"}`}>
+			  <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+			  <View className="flex-row items-center ml-2 -mb-6">
+				<Text
+				  className={`text-2xl ${
+					isDarkMode ? "text-white" : "text-black"
+				  }  font-bold ml-2`}
+				>
+				  {title}
+				</Text>
+			  </View>
+			</SafeAreaView>
+		  );
+		}
+	  );
 
 	const fetchCars = useCallback(
 		async (

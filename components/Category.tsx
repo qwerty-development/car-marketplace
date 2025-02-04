@@ -46,7 +46,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 	return (
 		<View className=''>
 			<Text
-				className={`text-xl font-bold mb-4  ${
+				className={`text-xl font-bold mb-4 ml-3  ${
 					isDarkMode ? 'text-white' : 'text-black'
 				}`}>
 				Explore by Category

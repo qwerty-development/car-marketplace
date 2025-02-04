@@ -971,17 +971,8 @@ const FilterPage = () => {
             isDarkMode={isDarkMode}
           />
 
-          <LinearGradient
-            colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
-          />
 
-          <CategorySelector
-            selectedCategories={filters.categories || []}
-            onCategoryPress={handleCategorySelect}
-          />
+
 
           {/* Bottom Spacing */}
           <View style={{ height: 100 }} />
