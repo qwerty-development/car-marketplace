@@ -23,6 +23,7 @@ import { RefreshControl } from 'react-native'
 import { Animated } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
+import { useScrollToTop } from '@react-navigation/native'
 
 const ITEMS_PER_PAGE = 7
 
@@ -74,6 +75,7 @@ export default function BrowseCarsPage() {
 	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 	const scrollY = useRef<any>(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
+	useScrollToTop(flatListRef)
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()

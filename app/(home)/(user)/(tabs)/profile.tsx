@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -7,9 +7,7 @@ import {
 	Image,
 	ScrollView,
 	Alert,
-	Linking,
-	Switch,
-	RefreshControl
+	Linking
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser, useAuth } from '@clerk/clerk-expo'
@@ -21,6 +19,7 @@ import { NotificationBell } from '@/components/NotificationBell'
 import { useNotifications } from '@/hooks/useNotifications'
 import { setIsSigningOut } from '@/app/(home)/_layout'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useScrollToTop } from '@react-navigation/native'
 
 const WHATSAPP_NUMBER = '+1234567890'
 const SUPPORT_EMAIL = 'support@example.com'
@@ -39,6 +38,10 @@ export default function UserProfileAndSupportPage() {
 	const [newPassword, setNewPassword] = useState('')
 	const [confirmPassword, setConfirmPassword] = useState('')
 	const { cleanupPushToken } = useNotifications()
+
+	const scrollRef = useRef(null)
+
+	useScrollToTop(scrollRef)
 
 	useEffect(() => {
 		if (user) {
@@ -63,16 +66,6 @@ export default function UserProfileAndSupportPage() {
 			Alert.alert('Error', 'Failed to update profile')
 		}
 	}
-
-	const onRefresh = useCallback(() => {
-		setRefreshing(true)
-		if (user) {
-			setFirstName(user.firstName || '')
-			setLastName(user.lastName || '')
-			setEmail(user.emailAddresses[0].emailAddress || '')
-		}
-		setRefreshing(false)
-	}, [user])
 
 	const onPickImage = async () => {
 		try {
@@ -160,7 +153,8 @@ export default function UserProfileAndSupportPage() {
 			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'} mb-10`}
 			bounces={false}
 			overScrollMode='never'
-			showsVerticalScrollIndicator={false}>
+			showsVerticalScrollIndicator={false}
+			ref={scrollRef}>
 			<View className='relative'>
 				<LinearGradient
 					colors={isDarkMode ? ['#D55004', '#1a1a1a'] : ['#D55004', '#ff8c00']}

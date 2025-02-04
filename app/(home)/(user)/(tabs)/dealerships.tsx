@@ -22,6 +22,7 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RefreshControl } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useScrollToTop } from '@react-navigation/native'
 
 import * as Location from 'expo-location'
 import { BlurView } from 'expo-blur'
@@ -228,7 +229,10 @@ export default function DealershipListPage() {
 	const [userLocation, setUserLocation] =
 		useState<Location.LocationObject | null>(null)
 	const router = useRouter()
+	const scrollRef = useRef(null)
 
+	// This hook will listen for tab re-press events and scroll the ref to top.
+	useScrollToTop(scrollRef)
 	// Get user location
 	const getUserLocation = async () => {
 		try {
@@ -411,6 +415,7 @@ export default function DealershipListPage() {
 			</View>
 
 			<FlatList
+				ref={scrollRef}
 				data={sortedAndFilteredDealerships}
 				renderItem={({ item }) => (
 					<DealershipCard

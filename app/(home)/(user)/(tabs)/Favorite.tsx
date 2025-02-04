@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	FlatList,
@@ -22,7 +22,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { FontAwesome } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
-
+import { useScrollToTop } from '@react-navigation/native'
 // Original CustomHeader (Reverted)
 const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
@@ -72,24 +72,8 @@ export default function Favorite() {
 	const [error, setError] = useState<string | null>(null)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState('')
-	const sortOptions = [
-		{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
-		{ label: 'Price: Low to High', value: 'price_asc', icon: 'trending-up' },
-		{ label: 'Price: High to Low', value: 'price_desc', icon: 'trending-down' },
-		{ label: 'Year: New to Old', value: 'year_desc', icon: 'calendar' },
-		{ label: 'Year: Old to New', value: 'year_asc', icon: 'calendar-outline' },
-		{
-			label: 'Mileage: Low to High',
-			value: 'mileage_asc',
-			icon: 'speedometer'
-		},
-		{
-			label: 'Mileage: High to Low',
-			value: 'mileage_desc',
-			icon: 'speedometer-outline'
-		}
-	]
-
+	const scrollRef = useRef(null)
+	useScrollToTop(scrollRef)
 	const fetchFavoriteCars = useCallback(async () => {
 		setError(null)
 		if (favorites.length === 0) {
@@ -326,6 +310,7 @@ export default function Favorite() {
 
 		return (
 			<FlatList
+				ref={scrollRef}
 				data={sortedCars}
 				renderItem={renderCarItem}
 				keyExtractor={keyExtractor}
