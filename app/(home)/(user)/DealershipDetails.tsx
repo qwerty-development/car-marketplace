@@ -7,7 +7,9 @@ import {
 	Animated,
 	Platform,
 	Alert,
-	TextInput
+	TextInput,
+	StatusBar,
+	Pressable
 } from 'react-native'
 import { router, useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -24,6 +26,7 @@ import MapView, { Marker } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import DealershipAutoClips from '@/components/DealershipAutoClips'
 import SortPicker from '@/components/SortPicker'
+import { ChevronLeft } from 'lucide-react-native'
 const ITEMS_PER_PAGE = 10
 
 interface FilterState {
@@ -36,6 +39,8 @@ interface FilterState {
 const OptimizedImage = React.memo(({ source, style, className }: any) => {
 	const [isLoading, setIsLoading] = useState(true)
 	const [hasError, setHasError] = useState(false)
+
+	
 
 	return (
 		<View className={`relative ${className}`}>
@@ -58,6 +63,35 @@ const OptimizedImage = React.memo(({ source, style, className }: any) => {
 		</View>
 	)
 })
+
+const CustomHeader = React.memo(
+	({ title, onBack }: { title: string; onBack?: () => void }) => {
+	  const { isDarkMode } = useTheme();
+  
+	  return (
+		<SafeAreaView className={`bg-${isDarkMode ? "black" : "white"}`}>
+		  <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+		  <View className="flex-row items-center ml-2 -mb-6">
+			{onBack && (
+			  <Pressable onPress={onBack} className="p-2">
+				<ChevronLeft
+				  size={24}
+				  className={isDarkMode ? "text-white" : "text-black"}
+				/>
+			  </Pressable>
+			)}
+			<Text
+			  className={`text-2xl ${
+				isDarkMode ? "text-white" : "text-black"
+			  }  font-bold ml-2`}
+			>
+			  {title}
+			</Text>
+		  </View>
+		</SafeAreaView>
+	  );
+	}
+  );
 
 interface Dealership {
 	id: number
@@ -489,7 +523,7 @@ export default function DealershipDetails() {
 				{dealership && (
 					<View className='mb-6'>
 						{/* Dealership Info Card */}
-						<View className='px-6 pt-24 pb-6 mt-7'>
+						<View className='px-6  pb-6 mt-7'>
 							<View className='items-center'>
 								<View className='relative'>
 									<Image
@@ -572,17 +606,21 @@ export default function DealershipDetails() {
 				)}
 
 				{/* Search and Sort Section */}
-				<View className='px-6 mb-4'>
+				<View className='px-5 mb-4'>
 					<View className='flex-row items-center space-x-2 mb-4'>
-						<View className='flex-1 flex-row items-center bg-neutral-100 dark:bg-neutral-800 rounded-full border border-neutral-200 dark:border-neutral-700'>
-							<FontAwesome
-								name='search'
-								size={20}
-								color={isDarkMode ? '#FFFFFF' : '#666666'}
-								style={{ marginLeft: 12 }}
-							/>
-							<TextInput
-								className='flex-1 py-2 px-3 text-base'
+		  <View
+			className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 
+								`}
+		  >
+			<FontAwesome
+			  name="search"
+			  size={20}
+			  color={isDarkMode ? "white" : "black"}
+			/>
+			<TextInput
+			  className={`flex-1 p-3 ${
+				isDarkMode ? "text-white" : "text-black"
+			  }`}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? '#999999' : '#666666'}
 								value={filters.searchQuery}
@@ -605,8 +643,9 @@ export default function DealershipDetails() {
 								</TouchableOpacity>
 							) : null}
 						</View>
-						<View style={{ width: 120 }}>
+								  <View className={`items-center justify-center w-12 h-12`}>
 							<SortPicker
+							
 								onValueChange={(value: any) => {
 									setFilters(prev => ({ ...prev, sortOption: value }))
 									// Don't trigger a new fetch - let the useEffect handle sorting
@@ -637,31 +676,7 @@ export default function DealershipDetails() {
 	return (
 		<LinearGradient colors={bgGradient} className='flex-1'>
 			{/* Modernized Header */}
-			<BlurView
-				intensity={80}
-				tint={isDarkMode ? 'dark' : 'light'}
-				className='absolute top-0 left-0 right-0 z-50 '>
-				<SafeAreaView edges={['top']}>
-					<View className='flex-row items-center justify-between px-6 py-4'>
-						<TouchableOpacity
-							onPress={() => router.back()}
-							className='w-10 h-10 items-center justify-center rounded-full bg-white/10'>
-							<Ionicons
-								name='arrow-back'
-								size={24}
-								color={isDarkMode ? '#fff' : '#000'}
-							/>
-						</TouchableOpacity>
-						<Text
-							className={`${
-								isDarkMode ? 'text-white' : 'text-black'
-							} text-lg font-semibold`}>
-							{dealership?.name || 'Dealership'}
-						</Text>
-						<View className='w-10' /> {/* Spacer for alignment */}
-					</View>
-				</SafeAreaView>
-			</BlurView>
+			<CustomHeader title={dealership?.name} onBack={()=>router.back()}/>
 
 			<Animated.FlatList
 				data={filteredCars}

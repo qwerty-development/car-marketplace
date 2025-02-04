@@ -327,8 +327,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				className='absolute top-12 left-4 z-50 rounded-full p-2'
 				style={{
 					backgroundColor: isDarkMode
-						? 'rgba(0,0,0,0.5)'
-						: 'rgba(255,255,255,0.5)',
+						? 'rgba(255,255,255,0.5)'
+						: 'rgba(0,0,0,0.5)',
 					shadowColor: '#000',
 					shadowOffset: { width: 0, height: 2 },
 					shadowOpacity: 0.25,
@@ -337,28 +337,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				}}>
 				<Ionicons
 					name='arrow-back'
-					size={28}
-					color={isDarkMode ? '#FFFFFF' : '#000000'}
+					size={20}
+					color={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
 				/>
 			</TouchableOpacity>
 
-			<View className='absolute top-12 right-12 flex-row items-center rounded-full px-3 py-1 z-50'>
-				<Ionicons
-					name='eye'
-					size={20}
-					color={isDarkMode ? '#FFFFFF' : '#000000'}
-				/>
-				<Text className='text-white font-bold ml-1'>{car.views || 0}</Text>
-			</View>
-			<TouchableOpacity
-				className='absolute top-12 right-2 flex-row items-center px-3 py-1 z-50'
-				onPress={() => onFavoritePress(car.id)}>
-				<Ionicons
-					name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
-					size={25}
-					color={isFavorite(car.id) ? 'red' : 'white'}
-				/>
-			</TouchableOpacity>
+
 
 			<ScrollView ref={scrollViewRef} className='rounded-b-lg'>
 				{/* Image Carousel  */}
@@ -367,22 +351,39 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 						<FlatList
 							data={car.images}
 							renderItem={({ item }) => (
-								<OptimizedImage
+								<View className='relative'>
+								  <OptimizedImage
 									source={{ uri: item }}
 									style={{ width: width, height: 350 }}
-								/>
-							)}
-							horizontal
-							pagingEnabled
-							showsHorizontalScrollIndicator={false}
-							onMomentumScrollEnd={event => {
+								  />
+								  {/* Eye and heart icons positioned within the image */}
+								  <View className='absolute    top-12 right-0 flex-row items-center z-10'>
+									<View className='flex-row items-center px-3 py-1 '>
+									  <Ionicons name='eye' size={20} color='#FFFFFF' />
+									  <Text className='text-white font-bold ml-1'>{car.views || 0}</Text>
+									</View>
+									<TouchableOpacity
+									  className='mr-3 '
+									  onPress={() => onFavoritePress(car.id)}>
+									  <Ionicons
+										name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
+										size={20}
+										color={isFavorite(car.id) ? 'red' : 'white'}
+									  />
+									</TouchableOpacity>
+								  </View>
+								</View>
+							  )}
+							  horizontal
+							  pagingEnabled
+							  showsHorizontalScrollIndicator={false}
+							  onMomentumScrollEnd={event => {
 								const newIndex = Math.round(
-									event.nativeEvent.contentOffset.x / width
+								  event.nativeEvent.contentOffset.x / width
 								)
 								setActiveImageIndex(newIndex)
-							}}
-						/>
-
+							  }}
+							/>
 						{/* Pagination Dots */}
 						<View className='absolute bottom-8 left-0 right-0 flex-row justify-center z-10'>
 							{car.images.map((_: any, index: React.Key | null | undefined) => (

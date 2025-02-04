@@ -547,16 +547,14 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 
 	return (
 		<View style={{ marginTop: 20 }}>
-			<Text
-				style={{
-					fontSize: 18,
-					fontWeight: 'bold',
-					marginBottom: 10,
-					marginLeft: 10,
-					color: isDarkMode ? 'white' : 'black'
-				}}>
-				AutoClips
-			</Text>
+			<View className='px-6 mb-4 flex-row items-center justify-between'>
+					<Text
+						className={`text-xl font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}>
+						Auto Clips
+					</Text>
+					</View>
 			{isLoading ? (
 				<ActivityIndicator
 					size='small'
@@ -570,17 +568,18 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 					keyExtractor={item => item.id.toString()}
 					horizontal
 					showsHorizontalScrollIndicator={false}
-					contentContainerStyle={{ paddingLeft: 10 }}
+					contentContainerStyle={{ paddingLeft: 15 }}
 				/>
 			) : (
+				<View className='px-6 mb-4 flex-row items-center justify-between'>
 				<Text
 					style={{
-						marginLeft: 10,
 						color: isDarkMode ? '#E0E0E0' : '#555',
 						fontStyle: 'italic'
 					}}>
 					No autoclips available.
 				</Text>
+				</View>
 			)}
 
 			<Modal
