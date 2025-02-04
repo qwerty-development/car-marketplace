@@ -11,7 +11,7 @@ import {
 	Easing,
 	Dimensions
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { BlurView } from 'expo-blur'
 
@@ -142,11 +142,11 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 			<TouchableOpacity
 				onPress={openModal}
 				style={[styles.picker, isDarkMode && styles.pickerDark]}>
-				<Ionicons
-					name='chevron-down-outline'
-					size={20}
-					color={isDarkMode ? '#FFFFFF' : '#000000'}
-				/>
+						<FontAwesome
+							name='sort'
+							size={20}
+							color={isDarkMode ? 'white' : 'black'}
+						/>
 			</TouchableOpacity>
 
 			<Modal

@@ -527,7 +527,6 @@ export default function BrowseCarsPage() {
 							onRefresh={onRefresh}
 							colors={['#D55004']}
 							tintColor={isDarkMode ? '#FFFFFF' : '#D55004'}
-							title='Pull to refresh'
 							titleColor={isDarkMode ? '#FFFFFF' : '#000000'}
 						/>
 					}
@@ -563,22 +562,6 @@ export default function BrowseCarsPage() {
 						) : null
 					}
 				/>
-				{showScrollTopButton && !isKeyboardVisible && (
-					<TouchableOpacity
-						style={[
-							styles.scrollTopButton,
-							{ backgroundColor: isDarkMode ? '#696969' : '#FFFFFF' }
-						]}
-						onPress={() =>
-							flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
-						}>
-						<Ionicons
-							name='chevron-up'
-							size={24}
-							color={isDarkMode ? '#FFFFFF' : '#000000'}
-						/>
-					</TouchableOpacity>
-				)}
 			</SafeAreaView>
 		</LinearGradient>
 	)

@@ -381,9 +381,8 @@ export default function DealershipListPage() {
 			<View className='px-4 pb-3'>
 				<View className='flex-row gap-2'>
 					<View
-						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] px-4 ${
-							isDarkMode ? 'bg-[#1A1A1A]' : 'bg-white'
-						}`}>
+						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 
+						`}>
 						<FontAwesome
 							name='search'
 							size={20}
@@ -402,9 +401,7 @@ export default function DealershipListPage() {
 
 					<TouchableOpacity
 						onPress={() => setShowSortModal(true)}
-						className={`items-center justify-center w-12 h-12 rounded-full border border-[#ccc] ${
-							isDarkMode ? 'bg-[#1A1A1A]' : 'bg-white'
-						}`}>
+						className={`items-center justify-center w-12 h-12`}>
 						<FontAwesome
 							name='sort'
 							size={20}
