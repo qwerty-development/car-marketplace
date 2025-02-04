@@ -354,7 +354,7 @@ export default function Favorite() {
               className={`flex-1 p-3 ${
                 isDarkMode ? "text-white" : "text-black"
               }`}
-              placeholder="Search dealerships..."
+              placeholder="Search Favorites..."
               placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
               value={searchQuery}
               onChangeText={setSearchQuery}

@@ -392,7 +392,7 @@ export default function DealershipListPage() {
 							className={`flex-1 p-3 ${
 								isDarkMode ? 'text-white' : 'text-black'
 							}`}
-							placeholder='Search dealerships...'
+							placeholder='Search Dealerships...'
 							placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
 							value={searchQuery}
 							onChangeText={setSearchQuery}

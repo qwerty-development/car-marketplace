@@ -202,7 +202,7 @@ export default function AllBrandsPage() {
               className={`flex-1 p-3 ${
                 isDarkMode ? "text-white" : "text-black"
               }`}
-              placeholder="Search dealerships..."
+              placeholder="Search Brands..."
               placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
               value={searchQuery}
               onChangeText={setSearchQuery}
