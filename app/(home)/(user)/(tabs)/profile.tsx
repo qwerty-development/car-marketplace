@@ -159,9 +159,6 @@ export default function UserProfileAndSupportPage() {
 				<LinearGradient
 					colors={isDarkMode ? ['#D55004', '#1a1a1a'] : ['#D55004', '#ff8c00']}
 					className='pt-12 pb-24 rounded-b-[40px]'>
-					<View className='flex-row justify-end px-6'>
-						<NotificationBell />
-					</View>
 
 					<View className='items-center mt-6'>
 						<View className='relative'>
@@ -184,9 +181,7 @@ export default function UserProfileAndSupportPage() {
 				</LinearGradient>
 
 				{/* Theme Toggle */}
-				<View className='absolute top-14 left-6'>
-					<ThemeSwitch />
-				</View>
+
 			</View>
 
 			{/* Content Section */}

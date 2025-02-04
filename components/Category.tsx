@@ -44,9 +44,9 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 	const { isDarkMode } = useTheme()
 
 	return (
-		<View className='py-6'>
+		<View className=''>
 			<Text
-				className={`text-xl font-bold mb-4 px-4 ${
+				className={`text-xl font-bold mb-4  ${
 					isDarkMode ? 'text-white' : 'text-black'
 				}`}>
 				Explore by Category
