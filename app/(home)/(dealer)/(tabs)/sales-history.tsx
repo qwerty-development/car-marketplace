@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -24,6 +24,7 @@ import { Alert } from 'react-native'
 import ExportSalesModal from '@/components/ExportSalesModal'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import MonthlyBarChart from '@/components/FuturisticSalesChart'
+import { useScrollToTop } from '@react-navigation/native'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -662,6 +663,8 @@ export default function SalesHistoryPage() {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false)
+	const scrollRef = useRef(null)
+	useScrollToTop(scrollRef)
 	const [kpis, setKpis] = useState({
 		totalSold: 0,
 		totalViews: 0,
@@ -807,7 +810,7 @@ export default function SalesHistoryPage() {
 				</View>
 
 				{/* KPI Section */}
-				<ScrollView className='flex-1'>
+				<ScrollView className='flex-1' ref={scrollRef}>
 					<View className='px-4'>
 						<View className='flex-row mb-4'>
 							<KPICard

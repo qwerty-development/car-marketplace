@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import ListingModal from '@/components/ListingModal'
 import { SafeAreaView } from 'react-native-safe-area-context'
-
+import { useScrollToTop } from '@react-navigation/native'
 import { debounce } from 'lodash'
 import { BlurView } from 'expo-blur'
 import ModernPicker from '@/components/ModernPicker'
@@ -601,6 +601,10 @@ export default function DealerListings() {
 		maxYear: '',
 		transmission: ''
 	})
+	const scrollRef = useRef(null)
+
+	useScrollToTop(scrollRef)
+
 	const isSubscriptionValid = useCallback(() => {
 		if (!dealership || !dealership.subscription_end_date) return false
 		const endDate = new Date(dealership.subscription_end_date)
@@ -1372,6 +1376,7 @@ export default function DealerListings() {
 			/>
 			{/* Listings */}
 			<FlatList
+				ref={scrollRef}
 				data={listings}
 				renderItem={({ item }) => <ListingCard item={item} />}
 				keyExtractor={item => item.id.toString()}

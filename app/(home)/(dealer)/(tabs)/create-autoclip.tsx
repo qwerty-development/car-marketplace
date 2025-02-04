@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -23,6 +23,7 @@ import CreateAutoClipModal from '@/components/CreateAutoClipModal'
 import PreviewAutoClipModal from '@/components/PreviewAutoClipModal'
 import { BlurView } from 'expo-blur'
 import EditAutoClipModal from '@/components/EditAutoClipModal'
+import { useScrollToTop } from '@react-navigation/native'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const VIDEO_WIDTH = (SCREEN_WIDTH - 32) / 2
@@ -221,9 +222,12 @@ const EmptyState = ({ isDarkMode }) => (
 )
 
 export default function AutoClips() {
-	const navigation = useNavigation()
 	const { user } = useUser()
 	const { isDarkMode } = useTheme()
+	const scrollRef = useRef(null)
+
+	// This hook will listen for tab re-press events and scroll the ref to top.
+	useScrollToTop(scrollRef)
 
 	const [clips, setClips] = useState<AutoClip[]>([])
 	const [dealershipData, setDealershipData] = useState<Dealership | null>(null)
@@ -346,6 +350,7 @@ export default function AutoClips() {
 
 			<View className='flex-1'>
 				<FlatList
+					ref={scrollRef}
 					data={clips}
 					renderItem={({ item }) => (
 						<VideoItem

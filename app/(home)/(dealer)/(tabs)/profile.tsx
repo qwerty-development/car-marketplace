@@ -1,5 +1,5 @@
 import 'react-native-get-random-values'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -27,6 +27,7 @@ import { useRouter } from 'expo-router'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BlurView } from 'expo-blur'
+import { useScrollToTop } from '@react-navigation/native'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 
@@ -36,6 +37,10 @@ export default function DealershipProfilePage() {
 	const { signOut } = useAuth()
 	const router = useRouter()
 	const mapRef = React.useRef(null)
+	const scrollRef = useRef(null)
+
+	// This hook will listen for tab re-press events and scroll the ref to top.
+	useScrollToTop(scrollRef)
 
 	const [dealership, setDealership] = useState(null)
 	const [formData, setFormData] = useState({
@@ -276,6 +281,7 @@ export default function DealershipProfilePage() {
 
 	return (
 		<ScrollView
+			ref={scrollRef}
 			className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
 			refreshControl={
 				<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
