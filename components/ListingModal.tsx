@@ -1351,10 +1351,12 @@ const ListingModal = ({
       transparent
       statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-      >
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1"
+      keyboardVerticalOffset={Platform.OS === "ios" ? -64 : 0}
+      style={{ zIndex: 999 }} // Ensure highest z-index
+    >
         <GestureHandlerRootView className="flex-1">
           <Animated.View
             entering={FadeIn}
@@ -1367,7 +1369,7 @@ const ListingModal = ({
               className="flex-1"
             >
               <Animated.View
-                entering={SlideInUp}
+                entering={SlideInDown}
                 exiting={SlideOutDown}
                 className={`
                   flex-1 mt-12 rounded-t-3xl overflow-hidden
