@@ -8,9 +8,14 @@ import {
   Platform,
   StatusBar,
   Dimensions,
+  Modal,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  FontAwesome,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { useTheme } from "@/utils/ThemeContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -19,6 +24,7 @@ import { Image } from "expo-image";
 import Animated, {
   FadeIn,
   FadeOut,
+  SlideInDown,
   SlideInUp,
   SlideOutDown,
 } from "react-native-reanimated";
@@ -113,8 +119,10 @@ const SectionHeader = memo(({ title, subtitle, isDarkMode }) => (
   </View>
 ));
 
-const BrandSelector = memo(({ selectedBrand, onSelectBrand, isDarkMode }:any) => {
+const BrandSelector = memo(({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
   const [brands, setBrands] = useState([]);
+  const [showAllBrands, setShowAllBrands] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const getLogoUrl = useCallback((make: string, isLightMode: any) => {
     const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
@@ -153,46 +161,148 @@ const BrandSelector = memo(({ selectedBrand, onSelectBrand, isDarkMode }:any) =>
     fetchBrands();
   }, [isDarkMode]);
 
+  const filteredBrands = brands.filter((brand) =>
+    brand.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      className="mb-6"
-    >
-      {brands.map((brand, index) => (
+    <View>
+      <View className="flex-row items-center justify-between mb-4">
         <TouchableOpacity
-          key={index}
-          onPress={() =>
-            onSelectBrand(selectedBrand === brand.name ? "" : brand.name)
-          }
-          className={`mr-4 ${selectedBrand === brand.name ? "scale-110" : ""}`}
+          onPress={() => setShowAllBrands(true)}
+          className="ml-auto bg-red px-3 py-1 rounded-full"
         >
-          <BlurView
-            intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? "dark" : "light"}
-            className="rounded-2xl p-4"
-          >
-            <Image
-              source={{ uri: brand.logoUrl }}
-              style={{ width: 60, height: 60 }}
-              contentFit="contain"
-            />
-            <Text
-              className={`mt-2 text-center text-sm font-medium
-              ${
-                selectedBrand === brand.name
-                  ? "text-red"
-                  : isDarkMode
-                  ? "text-white"
-                  : "text-black"
-              }`}
-            >
-              {brand.name}
-            </Text>
-          </BlurView>
+          <Text className="text-white">View All</Text>
         </TouchableOpacity>
-      ))}
-    </ScrollView>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
+        {brands.map((brand, index) => (
+          <TouchableOpacity
+            key={index}
+            onPress={() => onSelectBrand(selectedBrand === brand.name ? "" : brand.name)}
+            className={`mr-3 ${selectedBrand === brand.name ? "scale-110" : ""}`}
+          >
+            <BlurView
+              intensity={isDarkMode ? 20 : 40}
+              tint={isDarkMode ? "dark" : "light"}
+              className="rounded-2xl p-4 w-[110px] h-[150px] justify-between items-center"
+            >
+              <View className="w-[60px] h-[60px] justify-center items-center">
+                <Image
+                  source={{ uri: brand.logoUrl }}
+                  style={{ width: 60, height: 60 }}
+                  contentFit="contain"
+                />
+              </View>
+              <Text
+                className={`text-center text-sm font-medium
+                ${
+                  selectedBrand === brand.name
+                    ? "text-red"
+                    : isDarkMode
+                    ? "text-white"
+                    : "text-black"
+                }`}
+                numberOfLines={2}
+              >
+                {brand.name}
+              </Text>
+            </BlurView>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <Modal
+        visible={showAllBrands}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAllBrands(false)}
+      >
+        <BlurView
+          intensity={isDarkMode ? 20 : 40}
+          tint={isDarkMode ? "dark" : "light"}
+          className="flex-1"
+        >
+          <TouchableOpacity
+            className="flex-1"
+            activeOpacity={1}
+            onPress={() => setShowAllBrands(false)}
+          />
+          <Animated.View
+            entering={SlideInDown}
+            exiting={SlideOutDown}
+            className={`h-[60%] rounded-t-3xl ${isDarkMode ? "bg-black" : "bg-white"}`}
+          >
+            <View className="p-4">
+              <View className="items-center mb-2">
+                <View className="w-16 h-1 rounded-full bg-gray-300" />
+              </View>
+
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-black"}`}>
+                  All Brands
+                </Text>
+                <TouchableOpacity onPress={() => setShowAllBrands(false)} className="p-2">
+                  <Ionicons name="close" size={24} color={isDarkMode ? "white" : "black"} />
+                </TouchableOpacity>
+              </View>
+
+              <View className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}>
+                <FontAwesome name="search" size={20} color={isDarkMode ? "white" : "black"} />
+                <TextInput
+                  className={`flex-1 px-3 h-full ${isDarkMode ? "text-white" : "text-black"}`}
+                  style={{ textAlignVertical: "center" }}
+                  placeholder="Search brands..."
+                  placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+
+              <ScrollView className="pt-2" showsVerticalScrollIndicator={false}>
+                {filteredBrands.map((brand, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => {
+                      onSelectBrand(selectedBrand === brand.name ? "" : brand.name);
+                      setShowAllBrands(false);
+                    }}
+                    className={`flex-row items-center p-4 mb-2 rounded-xl ${
+                      selectedBrand === brand.name
+                        ? "bg-red/10"
+                        : isDarkMode
+                        ? "bg-gray-800"
+                        : "bg-gray-100"
+                    }`}
+                  >
+                    <View className="w-12 h-12 justify-center items-center mr-3">
+                      <Image
+                        source={{ uri: brand.logoUrl }}
+                        style={{ width: 40, height: 40 }}
+                        contentFit="contain"
+                      />
+                    </View>
+                    <Text
+                      className={`flex-1 font-medium ${
+                        selectedBrand === brand.name
+                          ? "text-red"
+                          : isDarkMode
+                          ? "text-white"
+                          : "text-black"
+                      }`}
+                    >
+                      {brand.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <View className="h-32" />
+              </ScrollView>
+            </View>
+          </Animated.View>
+        </BlurView>
+      </Modal>
+    </View>
   );
 });
 
@@ -545,6 +655,236 @@ const SelectionCard = memo(
   )
 );
 
+// First, add this new component above your FilterPage component:
+const DealershipSelector = memo(
+  ({ dealerships, filters, setFilters, isDarkMode }) => {
+    const [showAllDealers, setShowAllDealers] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredDealerships = dealerships.filter((dealer: { name: string }) =>
+      dealer.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+      <View>
+        <View className="flex-row items-center justify-between mb-4">
+          <TouchableOpacity
+            onPress={() => setShowAllDealers(true)}
+            className="ml-auto bg-red px-3 py-1 rounded-full"
+          >
+            <Text className="text-white">View All</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-6"
+        >
+          {dealerships.map(
+            (dealer: {
+              id: React.Key | null | undefined;
+              name:
+                | string
+                | number
+                | boolean
+                | React.ReactElement<
+                    any,
+                    string | React.JSXElementConstructor<any>
+                  >
+                | Iterable<React.ReactNode>
+                | React.ReactPortal
+                | null
+                | undefined;
+              logo: any;
+            }) => (
+              <TouchableOpacity
+                key={dealer.id}
+                onPress={() =>
+                  setFilters((prev: { dealership: any }) => ({
+                    ...prev,
+                    dealership: prev.dealership === dealer.id ? "" : dealer.id,
+                    dealershipName:
+                      prev.dealership === dealer.id ? "" : dealer.name,
+                  }))
+                }
+                className={`mr-3 ${
+                  filters.dealership === dealer.id ? "scale-110" : ""
+                }`}
+              >
+                <BlurView
+                  intensity={isDarkMode ? 20 : 40}
+                  tint={isDarkMode ? "dark" : "light"}
+                  className="rounded-2xl p-4 w-[110px] h-[150px] justify-between items-center"
+                >
+                  <View className="w-[60px] h-[60px] justify-center items-center">
+                    {dealer.logo ? (
+                      <Image
+                        source={{ uri: dealer.logo }}
+                        style={{ width: 60, height: 60 }}
+                        contentFit="contain"
+                      />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="car-estate"
+                        size={40}
+                        color={isDarkMode ? "#666" : "#999"}
+                      />
+                    )}
+                  </View>
+                  <Text
+                    className={`text-center text-sm font-medium
+                ${
+                  filters.dealership === dealer.id
+                    ? "text-red"
+                    : isDarkMode
+                    ? "text-white"
+                    : "text-black"
+                }`}
+                    numberOfLines={2}
+                  >
+                    {dealer.name}
+                  </Text>
+                </BlurView>
+              </TouchableOpacity>
+            )
+          )}
+        </ScrollView>
+        // Modify the Modal section in the DealershipSelector component:
+        <Modal
+          visible={showAllDealers}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowAllDealers(false)}
+        >
+          <BlurView
+            intensity={isDarkMode ? 20 : 40}
+            tint={isDarkMode ? "dark" : "light"}
+            className="flex-1"
+          >
+            <TouchableOpacity
+              className="flex-1"
+              activeOpacity={1}
+              onPress={() => setShowAllDealers(false)}
+            />
+            <Animated.View
+              entering={SlideInDown}
+              exiting={SlideOutDown}
+              className={`h-[60%] rounded-t-3xl ${
+                isDarkMode ? "bg-black" : "bg-white"
+              }`}
+            >
+              <View className="p-4">
+                <View className="items-center mb-2">
+                  <View className="w-16 h-1 rounded-full bg-gray-300" />
+                </View>
+
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text
+                    className={`text-xl font-bold ${
+                      isDarkMode ? "text-white" : "text-black"
+                    }`}
+                  >
+                    All Dealerships
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowAllDealers(false)}
+                    className="p-2"
+                  >
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      color={isDarkMode ? "white" : "black"}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View
+                  className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}
+                >
+                  <FontAwesome
+                    name="search"
+                    size={20}
+                    color={isDarkMode ? "white" : "black"}
+                  />
+                  <TextInput
+                    className={`flex-1 px-3 h-full ${
+                      isDarkMode ? "text-white" : "text-black"
+                    }`}
+                    style={{ textAlignVertical: "center" }}
+                    placeholder="Search dealerships..."
+                    placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                </View>
+
+                <ScrollView
+                  className="pt-2"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {filteredDealerships.map((dealer) => (
+                    <TouchableOpacity
+                      key={dealer.id}
+                      onPress={() => {
+                        setFilters((prev) => ({
+                          ...prev,
+                          dealership: dealer.id,
+                          dealershipName: dealer.name,
+                        }));
+                        setShowAllDealers(false);
+                      }}
+                      className={`flex-row items-center p-4 mb-2 rounded-xl ${
+                        filters.dealership === dealer.id
+                          ? "bg-red/10"
+                          : isDarkMode
+                          ? "bg-gray-800"
+                          : "bg-gray-100"
+                      }`}
+                    >
+                      <View className="w-12 h-12 justify-center items-center mr-3">
+                        {dealer.logo ? (
+                          <Image
+                            source={{ uri: dealer.logo }}
+                            style={{ width: 40, height: 40 }}
+                            contentFit="contain"
+                          />
+                        ) : (
+                          <MaterialCommunityIcons
+                            name="car-estate"
+                            size={24}
+                            color={isDarkMode ? "#666" : "#999"}
+                          />
+                        )}
+                      </View>
+                      <Text
+                        className={`flex-1 font-medium ${
+                          filters.dealership === dealer.id
+                            ? "text-red"
+                            : isDarkMode
+                            ? "text-white"
+                            : "text-black"
+                        }`}
+                      >
+                        {dealer.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  <View className="h-32" />
+                </ScrollView>
+              </View>
+            </Animated.View>
+          </BlurView>
+        </Modal>
+      </View>
+    );
+  }
+);
+
+// Then in your FilterPage component, replace the dealership section with:
+{
+  /* Dealership Section */
+}
+
 // Main Filter Page Component
 const FilterPage = () => {
   const { isDarkMode } = useTheme();
@@ -591,15 +931,57 @@ const FilterPage = () => {
     fetchDealerships();
   }, []);
 
-  const handleQuickFilterSelect = (quickFilter) => {
+  const handleQuickFilterSelect = (
+    quickFilter:
+      | {
+          id: string;
+          label: string;
+          icon: string;
+          filter: {
+            specialFilter: string;
+            sortBy: string;
+            priceRange?: undefined;
+          };
+        }
+      | {
+          id: string;
+          label: string;
+          filter: {
+            priceRange: number[];
+            specialFilter?: undefined;
+            sortBy?: undefined;
+          };
+          icon?: undefined;
+        }
+      | {
+          id: string;
+          label: string;
+          icon: string;
+          filter: {
+            priceRange: number[];
+            specialFilter?: undefined;
+            sortBy?: undefined;
+          };
+        }
+      | {
+          id: string;
+          label: string;
+          icon: string;
+          filter: {
+            specialFilter: string;
+            sortBy?: undefined;
+            priceRange?: undefined;
+          };
+        }
+  ) => {
     if (filters.quickFilter?.id === quickFilter.id) {
       // Deselect if already selected
-      setFilters((prev) => ({
+      setFilters((prev: { categories: any }) => ({
         ...defaultFilters,
         categories: prev.categories, // Preserve categories
       }));
     } else {
-      setFilters((prev) => ({
+      setFilters((prev: { categories: any }) => ({
         ...defaultFilters,
         ...quickFilter.filter,
         quickFilter,
@@ -608,11 +990,11 @@ const FilterPage = () => {
     }
   };
 
-  const handleCategorySelect = (category) => {
-    setFilters((prev) => ({
+  const handleCategorySelect = (category: any) => {
+    setFilters((prev: { categories: any[] }) => ({
       ...prev,
       categories: prev.categories?.includes(category)
-        ? prev.categories.filter((c) => c !== category)
+        ? prev.categories.filter((c: any) => c !== category)
         : [...(prev.categories || []), category],
     }));
   };
@@ -682,7 +1064,7 @@ const FilterPage = () => {
                   JSON.stringify(range.value)
                 }
                 onSelect={() =>
-                  setFilters((prev) => ({
+                  setFilters((prev: { priceRange: any }) => ({
                     ...prev,
                     priceRange:
                       JSON.stringify(prev.priceRange) ===
@@ -710,8 +1092,8 @@ const FilterPage = () => {
           />
           <BrandSelector
             selectedBrand={filters.make}
-            onSelectBrand={(make) => {
-              setFilters((prev) => ({
+            onSelectBrand={(make: any) => {
+              setFilters((prev: any) => ({
                 ...prev,
                 make,
                 model: "", // Clear model when brand changes or is deselected
@@ -723,7 +1105,7 @@ const FilterPage = () => {
           <ModelSelector
             make={filters.make}
             selectedModel={filters.model}
-            onSelectModel={(model) => setFilters({ ...filters, model })}
+            onSelectModel={(model: any) => setFilters({ ...filters, model })}
             isDarkMode={isDarkMode}
           />
 
@@ -746,8 +1128,8 @@ const FilterPage = () => {
             max={1000000}
             step={1000}
             value={filters.priceRange}
-            onChange={(range) =>
-              setFilters((prev) => ({
+            onChange={(range: any) =>
+              setFilters((prev: any) => ({
                 ...prev,
                 priceRange: range,
               }))
@@ -775,8 +1157,8 @@ const FilterPage = () => {
             max={500000}
             step={1000}
             value={filters.mileageRange}
-            onChange={(range) =>
-              setFilters((prev) => ({
+            onChange={(range: any) =>
+              setFilters((prev: any) => ({
                 ...prev,
                 mileageRange: range,
               }))
@@ -804,8 +1186,8 @@ const FilterPage = () => {
             max={new Date().getFullYear()}
             step={1}
             value={filters.yearRange}
-            onChange={(range) =>
-              setFilters((prev) => ({
+            onChange={(range: number[]) =>
+              setFilters((prev: any) => ({
                 ...prev,
                 yearRange: range.map(Math.floor),
               }))
@@ -826,55 +1208,12 @@ const FilterPage = () => {
             subtitle="Filter by dealership"
             isDarkMode={isDarkMode}
           />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
-            {dealerships.map((dealer) => (
-              <TouchableOpacity
-                key={dealer.id}
-                onPress={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    dealership: prev.dealership === dealer.id ? "" : dealer.id,
-                    dealershipName:
-                      prev.dealership === dealer.id ? "" : dealer.name,
-                  }))
-                }
-                className={`mr-3 ${
-                  filters.dealership === dealer.id ? "scale-110" : ""
-                }`}
-              >
-                <BlurView
-                  intensity={isDarkMode ? 20 : 40}
-                  tint={isDarkMode ? "dark" : "light"}
-                  className="rounded-2xl p-4"
-                >
-                  {dealer.logo && (
-                    <Image
-                      source={{ uri: dealer.logo }}
-                      style={{ width: 60, height: 60 }}
-                      contentFit="contain"
-                      className="mb-2"
-                    />
-                  )}
-                  <Text
-                    className={`text-center text-sm font-medium
-                    ${
-                      filters.dealership === dealer.id
-                        ? "text-red"
-                        : isDarkMode
-                        ? "text-white"
-                        : "text-black"
-                    }`}
-                  >
-                    {dealer.name}
-                  </Text>
-                </BlurView>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <DealershipSelector
+            dealerships={dealerships}
+            filters={filters}
+            setFilters={setFilters}
+            isDarkMode={isDarkMode}
+          />
 
           <LinearGradient
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
@@ -901,7 +1240,7 @@ const FilterPage = () => {
                 icon={option.icon}
                 isSelected={filters.transmission === option.value}
                 onSelect={() =>
-                  setFilters((prev) => ({
+                  setFilters((prev: { transmission: string }) => ({
                     ...prev,
                     transmission:
                       prev.transmission === option.value ? "" : option.value,
@@ -936,7 +1275,7 @@ const FilterPage = () => {
                 label={option.label}
                 isSelected={filters.drivetrain === option.value}
                 onSelect={() =>
-                  setFilters((prev) => ({
+                  setFilters((prev: { drivetrain: string }) => ({
                     ...prev,
                     drivetrain:
                       prev.drivetrain === option.value ? "" : option.value,
@@ -962,17 +1301,14 @@ const FilterPage = () => {
           />
           <ColorSelector
             selectedColor={filters.color}
-            onSelectColor={(color) =>
-              setFilters((prev) => ({
+            onSelectColor={(color: any) =>
+              setFilters((prev: any) => ({
                 ...prev,
                 color,
               }))
             }
             isDarkMode={isDarkMode}
           />
-
-
-
 
           {/* Bottom Spacing */}
           <View style={{ height: 100 }} />

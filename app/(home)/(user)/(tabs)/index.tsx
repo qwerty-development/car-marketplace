@@ -434,10 +434,14 @@ export default function BrowseCarsPage() {
 		() => (
 			<>
 				<ByBrands />
-				<CategorySelector
+				<View className='mb-3 mt-3'>
+
+				
+				<CategorySelector 
 					selectedCategories={filters.categories || []}
 					onCategoryPress={handleCategoryPress}
 				/>
+				</View>
 			</>
 		),
 		[filters.categories, handleCategoryPress]

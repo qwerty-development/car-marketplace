@@ -17,6 +17,7 @@ import { styled } from 'nativewind'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
+import SimpleLineIcons from '@expo/vector-icons/SimpleLineIcons';
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -297,9 +298,9 @@ export default function CarCard({
 				{/* Specs Grid */}
 				<StyledView className='flex-row justify-between mt-4 mb-2 px-2 '>
 					<SpecItem
-						title='Year'
-						icon='calendar-outline'
-						value={car.year}
+						title='Drivetrain'
+						icon='git-commit-outline'
+						value={car.drivetrain}
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem

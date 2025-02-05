@@ -58,14 +58,17 @@ export default function RootLayout() {
             }}
           />
 
-          <Stack.Screen
-            name="CarDetails"
-            options={{
-              presentation: "card",
-              animation: "slide_from_right",
-			  headerShown:false
-            }}
-          />
+<Stack.Screen
+  name="CarDetails"
+  options={{
+    presentation: "card",
+
+    headerShown: false,
+    contentStyle: {
+      backgroundColor: 'transparent'
+    },
+  }}
+/>
           <Stack.Screen
             name="notifications"
             options={{

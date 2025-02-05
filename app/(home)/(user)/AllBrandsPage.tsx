@@ -161,18 +161,35 @@ export default function AllBrandsPage() {
   const renderBrandItem = useCallback(
     ({ item }: { item: Brand }) => (
       <TouchableOpacity
-        className={`flex-row mx-3 items-center py-4 border-b border-gray`}
+        className={`mx-3 mb-3`}
         onPress={() => handleBrandPress(item.name)}
       >
-        <Image
-          source={{ uri: item.logoUrl }}
-          style={{ width: 50, height: 50 }}
-          resizeMode="contain"
-        />
-        <Text className={`ml-4 text-lg ${textColor}`}>{item.name}</Text>
+        <View className={`flex-row items-center p-4 rounded-2xl ${
+          isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'
+        }`}>
+          <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center ${
+            isDarkMode ? 'bg-[#2d2d2d]' : 'bg-white'
+          }`}>
+            <Image
+              source={{ uri: item.logoUrl }}
+              style={{ width: 50, height: 50 }}
+              resizeMode="contain"
+            />
+          </View>
+          <View className="flex-1 ml-4">
+            <Text className={`text-lg font-medium ${textColor}`}>
+              {item.name}
+            </Text>
+          </View>
+          <FontAwesome
+            name="chevron-right"
+            size={16}
+            color={isDarkMode ? '#D55004' : '#D55004'}
+          />
+        </View>
       </TouchableOpacity>
     ),
-    [borderColor, textColor, handleBrandPress]
+    [textColor, handleBrandPress, isDarkMode]
   );
 
   const renderSectionHeader = useCallback(
@@ -187,27 +204,28 @@ export default function AllBrandsPage() {
   return (
     <View className={`flex-1  ${bgColor}`}>
       <CustomHeader title="All Brands" onBack={() => router.back()} />
-      <View className="px-4 -mt-4 pb-3">
+      <View className="px-4 -mt-6 ">
         <View className="flex-row gap-2">
-          <View
-            className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 
-								`}
-          >
-            <FontAwesome
-              name="search"
-              size={20}
-              color={isDarkMode ? "white" : "black"}
-            />
-            <TextInput
-              className={`flex-1 p-3 ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-              placeholder="Search Brands..."
-              placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
+        // Replace your current search input View and TextInput with this:
+<View
+  className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12`}
+>
+  <FontAwesome
+    name="search"
+    size={20}
+    color={isDarkMode ? "white" : "black"}
+  />
+  <TextInput
+    className={`flex-1 px-3 h-full ${
+      isDarkMode ? "text-white" : "text-black"
+    }`}
+    style={{ textAlignVertical: 'center' }}
+    placeholder="Search Brands..."
+    placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+    value={searchQuery}
+    onChangeText={setSearchQuery}
+  />
+</View>
         </View>
       </View>
       {isLoading && !refreshing ? (

@@ -112,25 +112,26 @@ const ByBrands = React.memo(() => {
 
 	return (
 		<View
-			className={`mt-4 px-3  mb-4 ${isDarkMode ? '' : 'bg-[#FFFFFF]'}`}>
-			<View className='flex-row justify-between items-center mb-4'>
-				<Text
-					className={`text-xl font-bold ${
-						isDarkMode ? 'text-white' : 'text-black'
-					} mt-2`}>
-					Explore by Brands
-				</Text>
-				<TouchableOpacity
-					onPress={handleSeeAllBrands}
-					className='flex-row items-center'>
-					<Text className='text-red mr-2'>See all brands</Text>
-					<FontAwesome
-						name='chevron-right'
-						size={14}
-						color={isDarkMode ? '#FFFFFF' : '#000000'}
-					/>
-				</TouchableOpacity>
-			</View>
+			className={`mt-3  px-3  mb-4 ${isDarkMode ? '' : 'bg-[#FFFFFF]'}`}>
+<View className='flex-row justify-between items-center mb-4'>
+  <Text
+    className={`text-xl font-bold ${
+      isDarkMode ? 'text-white' : 'text-black'
+    }`}>
+    Explore by Brands
+  </Text>
+  <TouchableOpacity
+    onPress={handleSeeAllBrands}
+    className='flex-row items-center'>
+    <Text className='text-red'>View All</Text>
+    <FontAwesome
+      name='chevron-right'
+      size={14}
+      color={isDarkMode ? '#FFFFFF' : '#000000'}
+      style={{ marginLeft: 8 }}
+    />
+  </TouchableOpacity>
+</View>
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
