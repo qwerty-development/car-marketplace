@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, memo, useRef } from 'react'
+import React, { useState, useCallback, useEffect, memo, useRef, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -11,9 +11,10 @@ import {
 	Alert,
 	Dimensions,
 	Pressable,
-	ActivityIndicator
+	ActivityIndicator,
+	FlatList
 } from 'react-native'
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { FontAwesome, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { supabase } from '@/utils/supabase'
@@ -29,6 +30,7 @@ import * as Haptics from 'expo-haptics'
 import Animated, {
 	FadeIn,
 	FadeOut,
+	SlideInDown,
 	SlideInUp,
 	SlideOutDown,
 	withSpring
@@ -72,116 +74,326 @@ const CONDITIONS = [
 	{ value: 'Used', label: 'Used', icon: 'star-half' }
 ]
 
-const BrandSelector = memo(
-	({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
-		const [brands, setBrands] = useState<any[]>([])
-		const [isLoading, setIsLoading] = useState(false)
-
-		const getLogoUrl = useCallback((make: string, isLightMode: boolean) => {
-			const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
-			switch (formattedMake) {
-				case 'range-rover':
-					return isLightMode
-						? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
-						: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
-				case 'infiniti':
-					return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
-				case 'audi':
-					return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
-				case 'nissan':
-					return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
-				default:
-					return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
+const BrandSelector = memo(({ selectedBrand, onSelectBrand, isDarkMode }: BrandSelectorProps) => {
+	// State Management
+	const [brands, setBrands] = useState<Brand[]>([]);
+	const [showAllBrands, setShowAllBrands] = useState(false);
+	const [searchQuery, setSearchQuery] = useState('');
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [currentPage, setCurrentPage] = useState(0);
+	const [hasMore, setHasMore] = useState(true);
+	const PAGE_SIZE = 20;
+  
+	// Logo URL Generator
+	const getLogoUrl = useCallback((make: string, isLightMode: boolean) => {
+	  const formattedMake = make.toLowerCase().replace(/\s+/g, '-');
+	  switch (formattedMake) {
+		case 'range-rover':
+		  return isLightMode
+			? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
+			: 'https://www.carlogos.org/car-logos/land-rover-logo.png';
+		case 'infiniti':
+		  return 'https://www.carlogos.org/car-logos/infiniti-logo.png';
+		case 'audi':
+		  return 'https://www.freepnglogos.com/uploads/audi-logo-2.png';
+		case 'nissan':
+		  return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png';
+		default:
+		  return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
+	  }
+	}, []);
+  
+	// Fetch ALL Brands Data
+	useEffect(() => {
+	  const fetchAllBrands = async () => {
+		setIsLoading(true);
+		setError(null);
+		
+		try {
+		  let allMakes = new Set<string>();
+		  let hasMoreRecords = true;
+		  let page = 0;
+		  const recordsPerBatch = 1000;
+  
+		  while (hasMoreRecords) {
+			console.log(`Fetching batch ${page + 1}...`);
+			
+			const { data, error: supabaseError } = await supabase
+			  .from('allcars')
+			  .select('make')
+			  .range(page * recordsPerBatch, (page + 1) * recordsPerBatch - 1)
+			  .order('make');
+  
+			if (supabaseError) {
+			  console.error('Supabase error:', supabaseError);
+			  throw supabaseError;
 			}
-		}, [])
-
-		useEffect(() => {
-			const fetchBrands = async () => {
-				setIsLoading(true)
-				try {
-					const { data, error } = await supabase
-						.from('cars')
-						.select('make')
-						.order('make')
-
-					if (error) throw error
-
-					const uniqueBrands = Array.from(
-						new Set(data.map((item: { make: string }) => item.make))
-					)
-					const brandsData = uniqueBrands.map((make: string) => ({
-						name: make,
-						logoUrl: getLogoUrl(make, !isDarkMode)
-					}))
-
-					setBrands(brandsData)
-				} catch (error) {
-					console.error('Error fetching brands:', error)
-				}
-				setIsLoading(false)
+			
+			if (!data || data.length === 0) {
+			  console.log('No more records found');
+			  hasMoreRecords = false;
+			  break;
 			}
-
-			fetchBrands()
-		}, [isDarkMode])
-
-		if (isLoading) {
-			return (
-				<View className='h-24 justify-center'>
-					<ActivityIndicator color='#D55004' />
-				</View>
-			)
+  
+			console.log(`Received ${data.length} records in batch ${page + 1}`);
+  
+			data.forEach(item => {
+			  if (item.make && typeof item.make === 'string' && item.make.trim()) {
+				allMakes.add(item.make.trim());
+			  }
+			});
+  
+			page++;
+			hasMoreRecords = data.length === recordsPerBatch;
+		  }
+  
+		  const uniqueBrands = Array.from(allMakes).sort((a, b) => a.localeCompare(b));
+		  console.log('Total unique brands found:', uniqueBrands.length);
+  
+		  const brandsData = uniqueBrands.map(make => ({
+			name: make,
+			logoUrl: getLogoUrl(make, !isDarkMode),
+		  }));
+  
+		  setBrands(brandsData);
+		} catch (err) {
+		  const errorMessage = err instanceof Error ? err.message : 'Failed to fetch brands';
+		  setError(errorMessage);
+		  console.error('Error fetching brands:', err);
+		} finally {
+		  setIsLoading(false);
 		}
-
-		return (
-			<ScrollView
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				className='mb-6'>
-				{brands.map((brand, index) => (
-					<TouchableOpacity
-						key={index}
-						onPress={() => onSelectBrand(brand.name)}
-						className={`
-            mr-4 p-4 rounded-2xl items-center
-            ${
-							selectedBrand === brand.name
-								? 'bg-red'
-								: isDarkMode
-								? 'bg-[#1c1c1c]'
-								: 'bg-[#f5f5f5]'
-						}
-          `}>
-						<BlurView
-							intensity={
-								selectedBrand === brand.name ? 0 : isDarkMode ? 20 : 40
-							}
-							tint={isDarkMode ? 'dark' : 'light'}
-							className='rounded-xl p-2'>
-							<Image
-								source={{ uri: brand.logoUrl }}
-								style={{ width: 60, height: 60 }}
-								contentFit='contain'
-							/>
-						</BlurView>
-						<Text
-							className={`
-              mt-2 text-sm font-medium
-              ${
-								selectedBrand === brand.name
-									? 'text-white'
-									: isDarkMode
-									? 'text-white'
-									: 'text-black'
-							}
-            `}>
-							{brand.name}
-						</Text>
-					</TouchableOpacity>
-				))}
-			</ScrollView>
-		)
+	  };
+  
+	  fetchAllBrands();
+	}, [isDarkMode, getLogoUrl]);
+  
+	// Filter brands based on search query
+	const filteredBrands = useMemo(() => 
+	  brands.filter(brand => 
+		brand.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+	  ),
+	  [brands, searchQuery]
+	);
+  
+	// Get paginated brands for the modal
+	const paginatedBrands = useMemo(() => {
+	  const start = currentPage * PAGE_SIZE;
+	  const end = start + PAGE_SIZE;
+	  return filteredBrands.slice(0, end); // Include all previous pages plus current page
+	}, [filteredBrands, currentPage]);
+  
+	// Load more function for pagination
+	const loadMore = useCallback(() => {
+	  if ((currentPage + 1) * PAGE_SIZE < filteredBrands.length) {
+		setCurrentPage(prev => prev + 1);
+		setHasMore(true);
+	  } else {
+		setHasMore(false);
+	  }
+	}, [currentPage, filteredBrands.length]);
+  
+	// Reset pagination when search query changes
+	useEffect(() => {
+	  setCurrentPage(0);
+	  setHasMore(true);
+	}, [searchQuery]);
+  
+	// Render brand item component
+	const BrandItem = useCallback(({ brand, isSelected, onPress, size = 'normal' }: BrandItemProps) => (
+	  <TouchableOpacity
+		onPress={onPress}
+		className={`${size === 'normal' ? 'mr-3' : ''} ${isSelected ? 'scale-110' : ''}`}
+	  >
+		<BlurView
+		  intensity={isDarkMode ? 20 : 40}
+		  tint={isDarkMode ? 'dark' : 'light'}
+		  className={`rounded-2xl p-4 ${
+			size === 'normal' 
+			  ? 'w-[110px] h-[150px]' 
+			  : 'flex-row items-center p-4 mb-2'
+		  } justify-between items-center`}
+		>
+		  <View className={`${size === 'normal' ? 'w-[60px] h-[60px]' : 'w-12 h-12'} justify-center items-center`}>
+			<Image
+			  source={{ uri: brand.logoUrl }}
+			  style={{ 
+				width: size === 'normal' ? 60 : 40, 
+				height: size === 'normal' ? 60 : 40 
+			  }}
+			  contentFit="contain"
+			/>
+		  </View>
+		  <Text
+			className={`${size === 'normal' ? 'text-center' : 'flex-1 ml-3'} text-sm font-medium
+			  ${
+				isSelected
+				  ? 'text-red'
+				  : isDarkMode
+				  ? 'text-white'
+				  : 'text-black'
+			  }`}
+			numberOfLines={2}
+		  >
+			{brand.name}
+		  </Text>
+		</BlurView>
+	  </TouchableOpacity>
+	), [isDarkMode]);
+  
+	if (isLoading) {
+	  return (
+		<View className="flex-1 justify-center items-center">
+		  <ActivityIndicator size="large" color="#FF0000" />
+		</View>
+	  );
 	}
-)
+  
+	if (error) {
+	  return (
+		<View className="p-4">
+		  <Text className="text-red-500">Error: {error}</Text>
+		  <TouchableOpacity 
+			onPress={() => window.location.reload()} 
+			className="mt-2 bg-red-500 p-2 rounded"
+		  >
+			<Text className="text-white text-center">Retry</Text>
+		  </TouchableOpacity>
+		</View>
+	  );
+	}
+  
+	return (
+	  <View>
+		{/* Header */}
+		<View className="flex-row items-center justify-between mb-4">
+		  <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+			{brands.length} Brands Available
+		  </Text>
+		  <TouchableOpacity
+			onPress={() => {
+			  setShowAllBrands(true);
+			  setCurrentPage(0);
+			  setHasMore(true);
+			}}
+			className="ml-auto bg-red px-3 py-1 rounded-full"
+		  >
+			<Text className="text-white">View All</Text>
+		  </TouchableOpacity>
+		</View>
+  
+		{/* Horizontal Scrollable List */}
+		<ScrollView 
+		  horizontal 
+		  showsHorizontalScrollIndicator={false} 
+		  className="mb-6"
+		  contentContainerStyle={{ paddingRight: 20 }}
+		>
+		  {brands.map((brand) => (
+			<BrandItem
+			  key={brand.name}
+			  brand={brand}
+			  isSelected={selectedBrand === brand.name}
+			  onPress={() => onSelectBrand(selectedBrand === brand.name ? '' : brand.name)}
+			/>
+		  ))}
+		</ScrollView>
+  
+		{/* All Brands Modal with Pagination */}
+		<Modal
+		  visible={showAllBrands}
+		  animationType="slide"
+		  transparent={true}
+		  onRequestClose={() => setShowAllBrands(false)}
+		>
+		  <BlurView
+			intensity={isDarkMode ? 20 : 40}
+			tint={isDarkMode ? 'dark' : 'light'}
+			className="flex-1"
+		  >
+			<TouchableOpacity
+			  className="flex-1"
+			  activeOpacity={1}
+			  onPress={() => setShowAllBrands(false)}
+			/>
+			<Animated.View
+			  entering={SlideInDown}
+			  exiting={SlideOutDown}
+			  className={`h-[60%] rounded-t-3xl ${isDarkMode ? 'bg-black' : 'bg-white'}`}
+			>
+			  <View className="p-4">
+				{/* Modal Header */}
+				<View className="items-center mb-2">
+				  <View className="w-16 h-1 rounded-full bg-gray-300" />
+				</View>
+  
+				<View className="flex-row justify-between items-center mb-4">
+				  <Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+					All Brands ({filteredBrands.length})
+				  </Text>
+				  <TouchableOpacity onPress={() => setShowAllBrands(false)} className="p-2">
+					<Ionicons name="close" size={24} color={isDarkMode ? 'white' : 'black'} />
+				  </TouchableOpacity>
+				</View>
+  
+				{/* Search Bar */}
+				<View className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}>
+				  <FontAwesome name="search" size={20} color={isDarkMode ? 'white' : 'black'} />
+				  <TextInput
+					className={`flex-1 px-3 h-full ${isDarkMode ? 'text-white' : 'text-black'}`}
+					style={{ textAlignVertical: 'center' }}
+					placeholder="Search brands..."
+					placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+					value={searchQuery}
+					onChangeText={(text) => {
+					  setSearchQuery(text);
+					  setCurrentPage(0);
+					}}
+				  />
+				  {searchQuery ? (
+					<TouchableOpacity onPress={() => {
+					  setSearchQuery('');
+					  setCurrentPage(0);
+					}}>
+					  <Ionicons name="close-circle" size={20} color={isDarkMode ? 'white' : 'black'} />
+					</TouchableOpacity>
+				  ) : null}
+				</View>
+  
+				{/* Brands List with Infinite Scroll */}
+				<FlatList
+				  data={paginatedBrands}
+				  renderItem={({ item: brand }) => (
+					<BrandItem
+					  key={brand.name}
+					  brand={brand}
+					  isSelected={selectedBrand === brand.name}
+					  onPress={() => {
+						onSelectBrand(selectedBrand === brand.name ? '' : brand.name);
+						setShowAllBrands(false);
+					  }}
+					  size="large"
+					/>
+				  )}
+				  keyExtractor={item => item.name}
+				  onEndReached={loadMore}
+				  onEndReachedThreshold={0.5}
+				  ListFooterComponent={() => (
+					hasMore ? (
+					  <View className="py-4">
+						<ActivityIndicator size="small" color="#FF0000" />
+					  </View>
+					) : <View className="h-32" />
+				  )}
+				/>
+			  </View>
+			</Animated.View>
+		  </BlurView>
+		</Modal>
+	  </View>
+	);
+  });
 
 const VEHICLE_COLORS = [
 	{ name: 'Black', gradient: ['#000000', '#1a1a1a'] },
