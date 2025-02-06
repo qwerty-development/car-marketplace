@@ -85,20 +85,17 @@ export default function VideoPickerButton({
 			if (status !== 'granted') {
 				throw new Error('Camera roll permission is required')
 			}
-
 			const result = await ImagePicker.launchImageLibraryAsync({
 				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 				allowsEditing: true,
 				allowsMultipleSelection: false,
-				videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540, // target 720p resolution
-				videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+				videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
+				videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium, // Use enum instead of decimal
 				videoMaxDuration: maxDuration,
 				base64: false,
 				exif: false,
 				presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
-				selectionLimit: 1,
-				preferredAssetRepresentationMode:
-				  ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+				selectionLimit: 1
 			  });
 			  
 			  
