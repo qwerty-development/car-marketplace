@@ -90,12 +90,13 @@ export default function VideoPickerButton({
 				allowsEditing: true,
 				allowsMultipleSelection: false,
 				videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
-				videoQuality: ImagePicker.UIImagePickerControllerQualityType.VGA640x480, // Use enum instead of decimal
+				videoQuality: ImagePicker.UIImagePickerControllerQualityType.High, // Use enum instead of decimal
 				videoMaxDuration: maxDuration,
 				base64: false,
 				exif: false,
 				presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
 				selectionLimit: 1
+				
 			  });
 			  
 			  
