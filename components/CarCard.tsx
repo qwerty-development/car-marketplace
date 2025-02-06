@@ -2,7 +2,6 @@ import React, { useMemo, useState, useRef, useCallback } from 'react'
 import {
 	View,
 	Text,
-	TouchableOpacity,
 	Dimensions,
 	Linking,
 	Alert,
@@ -17,7 +16,7 @@ import { styled } from 'nativewind'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
-import SimpleLineIcons from '@expo/vector-icons/SimpleLineIcons';
+import { useCarDetails } from '@/hooks/useCarDetails'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -105,18 +104,37 @@ export default function CarCard({
 	const router = useRouter()
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)
+	const { prefetchCarDetails } = useCarDetails()
 
-	const handleCardPress = useCallback(() => {
-		router.push({
-			pathname: isDealer
-				? '/(home)/(dealer)/CarDetails'
-				: '/(home)/(user)/CarDetails',
-			params: {
-				carId: car.id,
-				isDealerView: isDealer
-			}
-		})
-	}, [router, car, isDealer])
+	const handleCardPress = useCallback(async () => {
+		try {
+			// Start prefetching before navigation
+			const prefetchedData = await prefetchCarDetails(car.id)
+
+			router.push({
+				pathname: isDealer
+					? '/(home)/(dealer)/CarDetails'
+					: '/(home)/(user)/CarDetails',
+				params: {
+					carId: car.id,
+					isDealerView: isDealer,
+					prefetchedData: JSON.stringify(prefetchedData)
+				}
+			})
+		} catch (error) {
+			console.error('Error navigating to car details:', error)
+			// Navigate anyway as fallback
+			router.push({
+				pathname: isDealer
+					? '/(home)/(dealer)/CarDetails'
+					: '/(home)/(user)/CarDetails',
+				params: {
+					carId: car.id,
+					isDealerView: isDealer
+				}
+			})
+		}
+	}, [router, car, isDealer, prefetchCarDetails])
 
 	const handleCall = useCallback(() => {
 		if (car.dealership_phone) {

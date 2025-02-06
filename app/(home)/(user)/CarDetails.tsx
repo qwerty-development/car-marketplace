@@ -1,73 +1,84 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { View } from 'react-native'
+// app/(home)/(user)/CarDetails.tsx
+import React, { useEffect, useState, useCallback, Suspense } from 'react'
+import { View, ActivityIndicator } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/utils/supabase'
-import CarDetailScreen from './CarDetailModalIOS'
+import { useCarDetails } from '@/hooks/useCarDetails'
 import { useFavorites } from '@/utils/useFavorites'
 
+// Lazy load the CarDetailScreen component
+const CarDetailScreen = React.lazy(() => import('./CarDetailModalIOS'))
+
 export default function CarDetailsPage() {
-  const params = useLocalSearchParams()
-  const [car, setCar] = useState<any>(null)
-  const { toggleFavorite } = useFavorites()
+	const params = useLocalSearchParams()
+	const [car, setCar] = useState<any>(null)
+	const { toggleFavorite } = useFavorites()
+	const { prefetchCarDetails } = useCarDetails()
 
-  const handleFavoritePress = useCallback(
-    async (carId: any) => {
-      const newLikesCount = await toggleFavorite(carId)
-      if (car && car.id === carId) {
-        setCar((prev: any) => ({ ...prev, likes: newLikesCount }))
-      }
-    },
-    [car, toggleFavorite]
-  )
+	const handleFavoritePress = useCallback(
+		async (carId: any) => {
+			const newLikesCount = await toggleFavorite(carId)
+			if (car && car.id === carId) {
+				setCar((prev: any) => ({ ...prev, likes: newLikesCount }))
+			}
+		},
+		[car, toggleFavorite]
+	)
 
-  useEffect(() => {
-    let isMounted = true
+	useEffect(() => {
+		let isMounted = true
 
-    async function fetchCarDetails() {
-      if (!params.carId) return
+		async function initializeCarDetails() {
+			// Try to use prefetched data first
+			if (params.prefetchedData) {
+				try {
+					const prefetchedCar = JSON.parse(params.prefetchedData as string)
+					if (isMounted) {
+						setCar(prefetchedCar)
+						return
+					}
+				} catch (error) {
+					console.error('Error parsing prefetched data:', error)
+				}
+			}
 
-      try {
-        const { data, error } = await supabase
-          .from('cars')
-          .select(
-            '*, dealerships (name,logo,phone,location,latitude,longitude)'
-          )
-          .eq('id', params.carId)
-          .single()
+			// Fallback to fetching if no prefetched data
+			if (!params.carId) return
 
-        if (error) throw error
+			try {
+				const fetchedCar = await prefetchCarDetails(params.carId as string)
+				if (isMounted && fetchedCar) {
+					setCar(fetchedCar)
+				}
+			} catch (error) {
+				console.error('Error fetching car details:', error)
+			}
+		}
 
-        if (data && isMounted) {
-          const carWithDealershipInfo = {
-            ...data,
-            dealership_name: data.dealerships.name,
-            dealership_logo: data.dealerships.logo,
-            dealership_phone: data.dealerships.phone,
-            dealership_location: data.dealerships.location,
-            dealership_latitude: data.dealerships.latitude,
-            dealership_longitude: data.dealerships.longitude
-          }
-          setCar(carWithDealershipInfo)
-        }
-      } catch (error) {
-        console.error('Error fetching car details:', error)
-      }
-    }
+		initializeCarDetails()
 
-    fetchCarDetails()
+		return () => {
+			isMounted = false
+		}
+	}, [params.carId, params.prefetchedData, prefetchCarDetails])
 
-    return () => {
-      isMounted = false
-    }
-  }, [params.carId])
-
-  return (
-    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-      <CarDetailScreen
-        car={car}
-        isDealer={params.isDealerView === 'true'}
-        onFavoritePress={handleFavoritePress}
-      />
-    </View>
-  )
+	return (
+		<View style={{ flex: 1, backgroundColor: 'transparent' }}>
+			<Suspense
+				fallback={
+					<View
+						style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+						<ActivityIndicator size='large' color='#D55004' />
+					</View>
+				}>
+				{car && (
+					<CarDetailScreen
+						car={car}
+						isDealer={params.isDealerView === 'true'}
+						onFavoritePress={handleFavoritePress}
+					/>
+				)}
+			</Suspense>
+		</View>
+	)
 }

@@ -118,24 +118,34 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const scrollViewRef = useRef<any>(null)
 	const [activeImageIndex, setActiveImageIndex] = useState(0)
 
+	const trackCarView = useCallback(
+		async (carId: any, userId: any) => {
+			try {
+				const { data, error } = await supabase.rpc('track_car_view', {
+					car_id: carId,
+					user_id: userId
+				})
+
+				if (error) throw error
+
+				if (data && onViewUpdate) {
+					onViewUpdate(carId, data)
+				}
+			} catch (error) {
+				console.error('Error tracking car view:', error)
+			}
+		},
+		[onViewUpdate]
+	)
+
 	useEffect(() => {
 		if (car && user) {
 			trackCarView(car.id, user.id)
-			fetchSimilarCars()
-			fetchDealerCars()
-
 			if (scrollViewRef.current) {
 				scrollViewRef.current.scrollTo({ y: 0, animated: false })
 			}
 		}
-	}, [car, user])
-
-	const handleDealershipPress = useCallback(() => {
-		router.push({
-			pathname: '/(home)/(user)/DealershipDetails',
-			params: { dealershipId: car.dealership_id }
-		})
-	}, [router, car.dealership_id])
+	}, [car, user, trackCarView])
 
 	const fetchSimilarCars = useCallback(async () => {
 		try {
@@ -224,25 +234,33 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 		if (error) console.error('Error fetching dealer cars:', error)
 	}, [car.dealership_id, car.id])
 
-	const trackCarView = useCallback(
-		async (carId: any, userId: any) => {
-			try {
-				const { data, error } = await supabase.rpc('track_car_view', {
-					car_id: carId,
-					user_id: userId
-				})
+	useEffect(() => {
+		if (car) {
+			// Optional: Add small delay for smoother transition
+			const timer = setTimeout(() => {
+				fetchSimilarCars()
+			}, 100)
+			return () => clearTimeout(timer)
+		}
+	}, [car, fetchSimilarCars])
 
-				if (error) throw error
+	// Fetch dealer cars after initial render (or after a slight delay)
+	useEffect(() => {
+		if (car) {
+			// Optional: Stagger the loading slightly
+			const timer = setTimeout(() => {
+				fetchDealerCars()
+			}, 200)
+			return () => clearTimeout(timer)
+		}
+	}, [car, fetchDealerCars])
 
-				if (data && onViewUpdate) {
-					onViewUpdate(carId, data)
-				}
-			} catch (error) {
-				console.error('Error tracking car view:', error)
-			}
-		},
-		[onViewUpdate]
-	)
+	const handleDealershipPress = useCallback(() => {
+		router.push({
+			pathname: '/(home)/(user)/DealershipDetails',
+			params: { dealershipId: car.dealership_id }
+		})
+	}, [router, car.dealership_id])
 
 	const debouncedTrackCarView = useCallback(
 		debounce((carId: any, userId: any) => {
@@ -342,8 +360,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				/>
 			</TouchableOpacity>
 
-
-
 			<ScrollView ref={scrollViewRef} className='rounded-b-lg'>
 				{/* Image Carousel  */}
 				<View className='relative mb-6 overflow-visible'>
@@ -352,38 +368,40 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 							data={car.images}
 							renderItem={({ item }) => (
 								<View className='relative'>
-								  <OptimizedImage
-									source={{ uri: item }}
-									style={{ width: width, height: 350 }}
-								  />
-								  {/* Eye and heart icons positioned within the image */}
-								  <View className='absolute    top-12 right-0 flex-row items-center z-10'>
-									<View className='flex-row items-center px-3 py-1 '>
-									  <Ionicons name='eye' size={20} color='#FFFFFF' />
-									  <Text className='text-white font-bold ml-1'>{car.views || 0}</Text>
+									<OptimizedImage
+										source={{ uri: item }}
+										style={{ width: width, height: 350 }}
+									/>
+									{/* Eye and heart icons positioned within the image */}
+									<View className='absolute    top-12 right-0 flex-row items-center z-10'>
+										<View className='flex-row items-center px-3 py-1 '>
+											<Ionicons name='eye' size={20} color='#FFFFFF' />
+											<Text className='text-white font-bold ml-1'>
+												{car.views || 0}
+											</Text>
+										</View>
+										<TouchableOpacity
+											className='mr-3 '
+											onPress={() => onFavoritePress(car.id)}>
+											<Ionicons
+												name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
+												size={20}
+												color={isFavorite(car.id) ? 'red' : 'white'}
+											/>
+										</TouchableOpacity>
 									</View>
-									<TouchableOpacity
-									  className='mr-3 '
-									  onPress={() => onFavoritePress(car.id)}>
-									  <Ionicons
-										name={isFavorite(car.id) ? 'heart' : 'heart-outline'}
-										size={20}
-										color={isFavorite(car.id) ? 'red' : 'white'}
-									  />
-									</TouchableOpacity>
-								  </View>
 								</View>
-							  )}
-							  horizontal
-							  pagingEnabled
-							  showsHorizontalScrollIndicator={false}
-							  onMomentumScrollEnd={event => {
+							)}
+							horizontal
+							pagingEnabled
+							showsHorizontalScrollIndicator={false}
+							onMomentumScrollEnd={event => {
 								const newIndex = Math.round(
-								  event.nativeEvent.contentOffset.x / width
+									event.nativeEvent.contentOffset.x / width
 								)
 								setActiveImageIndex(newIndex)
-							  }}
-							/>
+							}}
+						/>
 						{/* Pagination Dots */}
 						<View className='absolute bottom-8 left-0 right-0 flex-row justify-center z-10'>
 							{car.images.map((_: any, index: React.Key | null | undefined) => (
