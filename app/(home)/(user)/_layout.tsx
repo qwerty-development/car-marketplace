@@ -67,7 +67,6 @@ export default function RootLayout() {
 								backgroundColor: 'transparent'
 							},
 
-							animationDuration: 200,
 							gestureEnabled: true,
 							gestureDirection: 'horizontal'
 						}}
