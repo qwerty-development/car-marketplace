@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useState, useRef, memo } from 'react'
+import React, {
+	useCallback,
+	useEffect,
+	useState,
+	useRef,
+	memo,
+	useMemo
+} from 'react'
 import {
 	StyleSheet,
 	View,
@@ -10,42 +17,55 @@ import {
 	Linking,
 	Alert,
 	Share,
-	Platform
+	PanResponder,
+	Platform,
+	AppState
 } from 'react-native'
-import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
+import { Ionicons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
 import MapView, { Marker } from 'react-native-maps'
-import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import { Image } from 'expo-image'
-import { Radius } from 'lucide-react-native'
 
 const { width, height } = Dimensions.get('window')
+const CAR_DETAIL_CONFIG = {
+	SIMILAR_CARS_DELAY: 100,
+	DEALER_CARS_DELAY: 200,
+	IMAGE_BATCH_SIZE: 3,
+	SCROLL_DELAY: 16
+}
 
-const OptimizedImage = memo(({ source, style, onLoad }: any) => {
+const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
 	const [loaded, setLoaded] = useState(false)
 
 	const handleLoad = useCallback(() => {
 		setLoaded(true)
-		onLoad && onLoad()
+		onLoad?.()
 	}, [onLoad])
 
+	const blurhash =
+		'|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj['
+
 	return (
-		<View style={style}>
-			{!loaded && (
-				<View
-					style={[style, { backgroundColor: '#E0E0E0', position: 'absolute' }]}
-				/>
-			)}
+		<View style={[style, { overflow: 'hidden' }]}>
 			<Image
 				source={source}
-				style={style}
+				style={[
+					style,
+					{
+						opacity: loaded ? 1 : 0.3
+					}
+				]}
 				onLoad={handleLoad}
+				recyclingKey={`${source.uri}`}
+				placeholder={blurhash}
 				contentFit='cover'
+				transition={200}
+				cachePolicy='memory-disk'
 			/>
 		</View>
 	)
@@ -117,6 +137,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const [dealerCars, setDealerCars] = useState<any>([])
 	const scrollViewRef = useRef<any>(null)
 	const [activeImageIndex, setActiveImageIndex] = useState(0)
+	// Add to CarDetailScreen.tsx
+	useEffect(() => {
+		const subscription = AppState.addEventListener('memoryWarning', () => {
+			// Clear non-essential data
+			setSimilarCars([])
+			setDealerCars([])
+		})
+
+		return () => {
+			subscription.remove()
+		}
+	}, [])
 
 	const trackCarView = useCallback(
 		async (carId: any, userId: any) => {
@@ -233,6 +265,15 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 		}
 		if (error) console.error('Error fetching dealer cars:', error)
 	}, [car.dealership_id, car.id])
+
+	useEffect(() => {
+		return () => {
+			// Clear image cache on unmount
+			if (Platform.OS === 'ios') {
+				Image.clearMemoryCache()
+			}
+		}
+	}, [])
 
 	useEffect(() => {
 		if (car) {
@@ -360,7 +401,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				/>
 			</TouchableOpacity>
 
-			<ScrollView ref={scrollViewRef} className='rounded-b-lg'>
+			<ScrollView
+				ref={scrollViewRef}
+				className='rounded-b-lg'
+				scrollEventThrottle={16}>
 				{/* Image Carousel  */}
 				<View className='relative mb-6 overflow-visible'>
 					<View className='rounded-b-[20px] overflow-hidden'>
@@ -660,6 +704,17 @@ const styles = StyleSheet.create({
 		height: 200,
 		borderRadius: 10,
 		marginVertical: 10
+	},
+	container: {
+		flex: 1,
+		backgroundColor: 'transparent'
+	},
+	scrollContent: {
+		flexGrow: 1
+	},
+	mainImage: {
+		width: '100%',
+		height: 300
 	}
 })
 
