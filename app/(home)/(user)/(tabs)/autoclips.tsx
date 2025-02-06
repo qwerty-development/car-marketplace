@@ -80,6 +80,9 @@ export default function AutoClips() {
 	const [refreshing, setRefreshing] = useState(false)
 	const [networkType, setNetworkType] =
 		useState<Network.NetworkStateType | null>(null)
+	const [expandedDescriptions, setExpandedDescriptions] = useState<{
+		[key: number]: boolean
+	}>({})
 	const { user } = useUser()
 	const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
 	const viewedClips = useRef<Set<number>>(new Set())
@@ -459,9 +462,16 @@ export default function AutoClips() {
 		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 	}, [])
 
+	const [truncatedTextMap, setTruncatedTextMap] = useState<{
+		[key: number]: boolean
+	}>({})
+
 	const renderClipInfo = useMemo(
-		() => (item: any) => {
+		() => (item: AutoClip) => {
 			const formattedPostDate = getFormattedPostDate(item.created_at)
+			const isDescriptionExpanded = expandedDescriptions[item.id] || false
+			const shouldShowExpandOption =
+				item.description && item.description.length > 80
 
 			return (
 				<View className='absolute bottom-0 left-0 right-0 mb-8'>
@@ -503,11 +513,26 @@ export default function AutoClips() {
 
 						{item.description && (
 							<View className='mb-1'>
-								<Text
-									className='text-white/90 text-base leading-6'
-									numberOfLines={2}>
-									{item.description}
-								</Text>
+								<TouchableOpacity
+									onPress={() => {
+										setExpandedDescriptions(prev => ({
+											...prev,
+											[item.id]: !prev[item.id]
+										}))
+									}}
+									activeOpacity={0.9}>
+									<Text
+										className='text-white/90 text-base leading-6'
+										numberOfLines={isDescriptionExpanded ? undefined : 2}>
+										{item.description}
+										{shouldShowExpandOption && (
+											<Text className='text-red'>
+												{' '}
+												{isDescriptionExpanded ? 'Read less' : '... Read more'}
+											</Text>
+										)}
+									</Text>
+								</TouchableOpacity>
 							</View>
 						)}
 
@@ -564,7 +589,7 @@ export default function AutoClips() {
 				</View>
 			)
 		},
-		[getFormattedPostDate]
+		[getFormattedPostDate, expandedDescriptions]
 	)
 	// Function to estimate buffer size based on network type
 	const getEstimatedBufferSize = useCallback(
