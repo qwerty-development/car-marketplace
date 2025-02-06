@@ -1252,9 +1252,6 @@ export default function DealerListings() {
 							<View className='absolute bottom-0 w-full p-5'>
 								<View className='flex-row justify-between items-end'>
 									<View className='flex-1'>
-										<Text className='text-white/90 text-sm font-medium mb-1'>
-											{item.year}
-										</Text>
 										<Text className='text-white text-2xl font-bold tracking-tight mb-1'>
 											{item.make} {item.model}
 										</Text>

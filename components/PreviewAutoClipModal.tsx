@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import {
-	View,
-	Text,
-	TouchableOpacity,
-	Alert,
-	Modal,
-	ScrollView,
-	TextInput
-} from 'react-native'
+import { View, Text, TouchableOpacity, Alert, Modal } from 'react-native'
 import {
 	GestureHandlerRootView,
 	PanGestureHandler
@@ -24,10 +16,23 @@ import { FontAwesome } from '@expo/vector-icons'
 import { Video, ResizeMode } from 'expo-av'
 import { useTheme } from '@/utils/ThemeContext'
 import { supabase } from '@/utils/supabase'
-import VideoPickerButton from '@/components/VideoPickerComponent'
-import CarSelector from '@/components/CarSelector'
-import { useUser } from '@clerk/clerk-expo'
-import { AutoClip, Car } from '@/types/autoclip'
+import EditAutoClipModal from './EditAutoClipModal' // Adjust path as needed
+
+interface AutoClip {
+	id: number
+	title: string
+	description: string
+	video_url: string
+	status: 'published' | 'draft'
+	likes: number
+	views: number
+	car?: {
+		id: number
+		year: number
+		make: string
+		model: string
+	}
+}
 
 interface PreviewAutoClipModalProps {
 	clip: AutoClip | null
@@ -47,77 +52,29 @@ export default function PreviewAutoClipModal({
 	onEdit
 }: PreviewAutoClipModalProps) {
 	const { isDarkMode } = useTheme()
-	const { user } = useUser()
 	const [videoRef, setVideoRef] = useState<Video | null>(null)
 	const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
-	const translateX = useSharedValue(0)
-	const [isEditing, setIsEditing] = useState(false)
 	const [isStatusLoading, setIsStatusLoading] = useState(false)
 	const [currentClip, setCurrentClip] = useState<AutoClip | null>(null)
-	const [cars, setCars] = useState<Car[]>([])
-
-	// Edit form state
-	const [editTitle, setEditTitle] = useState('')
-	const [editDescription, setEditDescription] = useState('')
-	const [editCarId, setEditCarId] = useState<number | null>(null)
-	const [editVideoUri, setEditVideoUri] = useState('')
-	const [isLoading, setIsLoading] = useState(false)
+	const [showEditModal, setShowEditModal] = useState(false)
+	const translateX = useSharedValue(0)
 
 	useEffect(() => {
 		if (clip) {
 			setCurrentClip(clip)
-			setEditTitle(clip.title)
-			setEditDescription(clip.description || '')
-			setEditCarId(clip.car?.id || null)
-			setEditVideoUri(clip.video_url)
 		}
 	}, [clip])
 
 	useEffect(() => {
-		if (isEditing && user) {
-			fetchCars()
-		}
-	}, [isEditing, user])
-
-	useEffect(() => {
-		if (!isVisible) {
-			setIsEditing(false)
-			if (videoRef) {
-				videoRef.stopAsync()
-			}
+		if (!isVisible && videoRef) {
+			videoRef.stopAsync()
 		}
 	}, [isVisible])
-
-	const fetchCars = async () => {
-		if (!user) return
-		try {
-			const { data: dealershipData, error: dealershipError } = await supabase
-				.from('dealerships')
-				.select('id')
-				.eq('user_id', user.id)
-				.single()
-
-			if (dealershipError) throw dealershipError
-
-			const { data: carsData, error: carsError } = await supabase
-				.from('cars')
-				.select('*')
-				.eq('dealership_id', dealershipData.id)
-				.in('status', ['available', 'pending'])
-
-			if (carsError) throw carsError
-			if (carsData) {
-				setCars(carsData)
-			}
-		} catch (error) {
-			console.error('Error fetching cars:', error)
-			Alert.alert('Error', 'Failed to load cars')
-		}
-	}
 
 	const handleToggleStatus = async () => {
 		if (!currentClip || isStatusLoading) return
 		setIsStatusLoading(true)
+
 		try {
 			const newStatus =
 				currentClip.status === 'published' ? 'draft' : 'published'
@@ -130,75 +87,12 @@ export default function PreviewAutoClipModal({
 
 			const updatedClip = { ...currentClip, status: newStatus }
 			setCurrentClip(updatedClip)
+			onToggleStatus(updatedClip)
 		} catch (error) {
 			console.error('Error:', error)
 			Alert.alert('Error', 'Failed to update status')
 		} finally {
 			setIsStatusLoading(false)
-		}
-	}
-
-	const handleSaveEdit = async () => {
-		if (!currentClip) return
-		if (!editTitle.trim()) {
-			Alert.alert('Error', 'Title is required')
-			return
-		}
-
-		setIsLoading(true)
-		try {
-			const updates: Partial<AutoClip> = {}
-
-			// Only include changed fields
-			if (editTitle.trim() !== currentClip.title) {
-				updates.title = editTitle.trim()
-			}
-			if (editDescription.trim() !== (currentClip.description || '')) {
-				updates.description = editDescription.trim()
-			}
-			if (editCarId && editCarId !== currentClip.car?.id) {
-				updates.car_id = editCarId
-			}
-			if (editVideoUri !== currentClip.video_url) {
-				updates.video_url = editVideoUri
-			}
-
-			// Only make the update if there are changes
-			if (Object.keys(updates).length > 0) {
-				const { error } = await supabase
-					.from('auto_clips')
-					.update(updates)
-					.eq('id', currentClip.id)
-
-				if (error) throw error
-
-				// Fetch updated clip data
-				const { data: updatedClip, error: fetchError } = await supabase
-					.from('auto_clips')
-					.select(
-						`
-                        *,
-                        car:cars(id, year, make, model)
-                    `
-					)
-					.eq('id', currentClip.id)
-					.single()
-
-				if (fetchError) throw fetchError
-
-				setCurrentClip(updatedClip)
-				if (onEdit) {
-					onEdit(updatedClip)
-				}
-				Alert.alert('Success', 'AutoClip updated successfully')
-			}
-
-			setIsEditing(false)
-		} catch (error) {
-			console.error('Error:', error)
-			Alert.alert('Error', 'Failed to update AutoClip')
-		} finally {
-			setIsLoading(false)
 		}
 	}
 
@@ -302,7 +196,7 @@ export default function PreviewAutoClipModal({
 						</TouchableOpacity>
 
 						<TouchableOpacity
-							onPress={() => setIsEditing(true)}
+							onPress={() => setShowEditModal(true)}
 							className='bg-black/50 p-2 px-4 rounded-full mr-3 flex-row items-center'>
 							<FontAwesome name='edit' size={16} color='white' />
 							<Text className='text-white ml-2'>Edit</Text>
@@ -336,101 +230,6 @@ export default function PreviewAutoClipModal({
 		</>
 	)
 
-	const renderEditMode = () => (
-		<ScrollView className='flex-1'>
-			<View
-				className={`flex-row justify-between items-center p-4 mt-12 border-b border-red ${
-					isDarkMode ? 'bg-black' : 'bg-white'
-				}`}>
-				<TouchableOpacity onPress={() => setIsEditing(false)}>
-					<FontAwesome
-						name='arrow-left'
-						size={24}
-						color={isDarkMode ? 'white' : 'black'}
-					/>
-				</TouchableOpacity>
-				<Text
-					className={`text-lg font-bold ${
-						isDarkMode ? 'text-white' : 'text-black'
-					}`}>
-					Edit AutoClip
-				</Text>
-				<TouchableOpacity onPress={handleSaveEdit} disabled={isLoading}>
-					<Text className={`text-red ${isLoading ? 'opacity-50' : ''}`}>
-						{isLoading ? 'Saving...' : 'Save'}
-					</Text>
-				</TouchableOpacity>
-			</View>
-
-			<View className='p-4'>
-				<View className='mb-4'>
-					<Text className={`mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						Title
-					</Text>
-					<TextInput
-						value={editTitle}
-						onChangeText={setEditTitle}
-						className={`p-3 rounded-lg ${
-							isDarkMode
-								? 'bg-neutral-800 text-white'
-								: 'bg-neutral-100 text-black'
-						}`}
-						placeholderTextColor={isDarkMode ? '#666' : '#999'}
-					/>
-				</View>
-
-				<View className='mb-4'>
-					<Text className={`mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						Description
-					</Text>
-					<TextInput
-						value={editDescription}
-						onChangeText={setEditDescription}
-						multiline
-						numberOfLines={4}
-						className={`p-3 rounded-lg ${
-							isDarkMode
-								? 'bg-neutral-800 text-white'
-								: 'bg-neutral-100 text-black'
-						}`}
-						placeholderTextColor={isDarkMode ? '#666' : '#999'}
-						textAlignVertical='top'
-						style={{ minHeight: 100 }}
-					/>
-				</View>
-
-				<View className='mb-4'>
-					<Text className={`mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						Car
-					</Text>
-					<CarSelector
-						cars={cars}
-						selectedCarId={editCarId}
-						onCarSelect={setEditCarId}
-					/>
-				</View>
-
-				<View className='mb-4'>
-					<Text className={`mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						Video
-					</Text>
-					<Video
-						source={{ uri: editVideoUri }}
-						style={{ width: '100%', height: 200 }}
-						resizeMode={ResizeMode.COVER}
-						useNativeControls
-						className='rounded-lg mb-2'
-					/>
-					<VideoPickerButton
-						onVideoSelected={(uri: React.SetStateAction<string>) =>
-							setEditVideoUri(uri)
-						}
-					/>
-				</View>
-			</View>
-		</ScrollView>
-	)
-
 	return (
 		<Modal
 			visible={isVisible}
@@ -446,11 +245,23 @@ export default function PreviewAutoClipModal({
 						<Animated.View
 							style={[{ flex: 1 }, animatedStyle]}
 							className={isDarkMode ? 'bg-black' : 'bg-white'}>
-							{!isEditing ? renderPreviewMode() : renderEditMode()}
+							{renderPreviewMode()}
 						</Animated.View>
 					</PanGestureHandler>
 				</LinearGradient>
 			</GestureHandlerRootView>
+
+			<EditAutoClipModal
+				isVisible={showEditModal}
+				onClose={() => setShowEditModal(false)}
+				clip={currentClip}
+				onSuccess={() => {
+					setShowEditModal(false)
+					if (onEdit) {
+						onEdit(currentClip)
+					}
+				}}
+			/>
 		</Modal>
 	)
 }
