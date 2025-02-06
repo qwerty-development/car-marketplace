@@ -13,7 +13,7 @@ export default function TabsLayout() {
 				tabBarStyle: {
 					position: 'absolute',
 					backgroundColor: isDarkMode ? 'black' : 'white',
-					height: 60,
+					height: 70,
 					paddingBottom: 20,
 					borderWidth: 0,
 					borderColor: '#D55004',

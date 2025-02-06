@@ -205,21 +205,25 @@ const EmptyState = ({ isDarkMode }) => (
 )
 
 const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode }) => (
-  <View className='flex-row justify-center items-center my-4 space-x-2'>
+  <View className='flex-row justify-center items-center  space-x-3'>
     <TouchableOpacity
       onPress={() => onPageChange(currentPage - 1)}
       disabled={currentPage === 1}
-      className={`px-3 py-2 rounded-lg ${currentPage === 1 ? 'opacity-50' : ''}`}>
-      <Text className={isDarkMode ? 'text-white' : 'text-black'}>Previous</Text>
+      className={`p-2 rounded-full bg-zinc-800/80 ${currentPage === 1 ? 'opacity-30' : ''}`}>
+      <Ionicons name="chevron-back" size={20} color={isDarkMode ? '#fff' : '#000'} />
     </TouchableOpacity>
-    <Text className={isDarkMode ? 'text-white' : 'text-black'}>
-      {currentPage} of {totalPages}
-    </Text>
+    
+    <View className='bg-zinc-800/80 px-4 py-2 rounded-full'>
+      <Text className='text-white font-medium'>
+        {currentPage} / {totalPages}
+      </Text>
+    </View>
+    
     <TouchableOpacity
       onPress={() => onPageChange(currentPage + 1)}
-      disabled={currentPage === totalPages}
-      className={`px-3 py-2 rounded-lg ${currentPage === totalPages ? 'opacity-50' : ''}`}>
-      <Text className={isDarkMode ? 'text-white' : 'text-black'}>Next</Text>
+      disabled={currentPage === totalPages} 
+      className={`p-2 rounded-full bg-zinc-800/80 ${currentPage === totalPages ? 'opacity-30' : ''}`}>
+      <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#000'} />
     </TouchableOpacity>
   </View>
 )
@@ -367,6 +371,16 @@ export default function AutoClips() {
       colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
       className='flex-1'>
       <CustomHeader title='AutoClips' dealership={dealershipData} />
+	  <BlurView
+          intensity={0}
+          tint={isDarkMode ? 'dark' : 'light'}
+          className='absolute top-14 right-6'>
+          <TouchableOpacity
+            className='w-11 h-11 rounded-full border p-2  border-black dark:border-white  items-center justify-center shadow-lg'
+            onPress={() => setIsCreateModalVisible(true)}>
+            <FontAwesome name='plus' size={24} color='#D55004' />
+          </TouchableOpacity>
+        </BlurView>
 
       <View className='flex-1'>
         <FlatList
@@ -409,16 +423,7 @@ export default function AutoClips() {
           )}
         />
 
-        <BlurView
-          intensity={0}
-          tint={isDarkMode ? 'dark' : 'light'}
-          className='absolute bottom-16 right-6'>
-          <TouchableOpacity
-            className='w-14 h-14 rounded-full bg-red items-center justify-center shadow-lg'
-            onPress={() => setIsCreateModalVisible(true)}>
-            <FontAwesome name='plus' size={24} color='white' />
-          </TouchableOpacity>
-        </BlurView>
+
 
         <CreateAutoClipModal
           isVisible={isCreateModalVisible}
