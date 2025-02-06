@@ -90,19 +90,18 @@ export default function VideoPickerButton({
 				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 				allowsEditing: true,
 				allowsMultipleSelection: false,
-				quality: 0.1,
-				videoExportPreset: ImagePicker.VideoExportPreset.H264_3840x2160,
-				videoQuality:
-					ImagePicker.UIImagePickerControllerQualityType.IFrame1280x720,
+				videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720, // target 720p resolution
+				videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
 				videoMaxDuration: maxDuration,
 				base64: false,
 				exif: false,
-				presentationStyle:
-					ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+				presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
 				selectionLimit: 1,
 				preferredAssetRepresentationMode:
-					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible
-			})
+				  ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+			  });
+			  
+			  
 
 			if (!result.canceled && result.assets.length > 0) {
 				const videoAsset = result.assets[0]
