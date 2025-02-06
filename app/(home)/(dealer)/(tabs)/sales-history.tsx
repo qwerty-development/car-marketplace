@@ -3,14 +3,11 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	Image,
 	Modal,
-	TextInput,
-	ActivityIndicator,
 	Dimensions,
 	StatusBar,
 	ScrollView,
-	FlatList
+	RefreshControl
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
@@ -663,6 +660,7 @@ export default function SalesHistoryPage() {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false)
+	const [isRefreshing, setIsRefreshing] = useState(false)
 	const scrollRef = useRef(null)
 	useScrollToTop(scrollRef)
 	const [kpis, setKpis] = useState({
@@ -703,6 +701,7 @@ export default function SalesHistoryPage() {
 	const fetchSalesHistory = useCallback(async () => {
 		if (!user) return
 		setIsLoading(true)
+		setIsRefreshing(true)
 		try {
 			const { data: dealershipData } = await supabase
 				.from('dealerships')
@@ -726,6 +725,7 @@ export default function SalesHistoryPage() {
 			console.error('Error fetching sales history:', error)
 		} finally {
 			setIsLoading(false)
+			setIsRefreshing(false)
 		}
 	}, [user])
 
@@ -810,7 +810,15 @@ export default function SalesHistoryPage() {
 				</View>
 
 				{/* KPI Section */}
-				<ScrollView className='flex-1' ref={scrollRef}>
+				<ScrollView
+					className='flex-1'
+					ref={scrollRef}
+					refreshControl={
+						<RefreshControl
+							refreshing={isRefreshing}
+							onRefresh={fetchSalesHistory}
+						/>
+					}>
 					<View className='px-4'>
 						<View className='flex-row mb-4'>
 							<KPICard
