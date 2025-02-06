@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useCallback, memo } from 'react'
+import React, {
+	useState,
+	useEffect,
+	useCallback,
+	memo,
+	ReactNode,
+	useMemo
+} from 'react'
 import {
 	View,
 	Text,
@@ -8,7 +15,8 @@ import {
 	Platform,
 	StatusBar,
 	Dimensions,
-	Modal
+	Modal,
+	ActivityIndicator
 } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import {
@@ -31,6 +39,7 @@ import Animated, {
 import { supabase } from '@/utils/supabase'
 import CategorySelector from '@/components/Category'
 import Slider from '@react-native-community/slider'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 const { width } = Dimensions.get('window')
 
@@ -117,102 +126,167 @@ const SectionHeader = memo(({ title, subtitle, isDarkMode }) => (
 	</View>
 ))
 
+interface Brand {
+	name: string
+	logoUrl: string
+}
+
+interface BrandSelectorProps {
+	selectedBrand: string
+	onSelectBrand: (brand: string) => void
+	children?: ReactNode
+}
+
+const BRANDS_CACHE_KEY = 'cachedBrandsSelector'
+const CACHE_EXPIRY = 1000000000 // 24 hours in milliseconds
+
+const getLogoUrl = (make: string, isLightMode: boolean) => {
+	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
+	switch (formattedMake) {
+		case 'range-rover':
+			return isLightMode
+				? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
+				: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
+		case 'infiniti':
+			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
+		case 'audi':
+			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
+		case 'nissan':
+			return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
+		default:
+			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
+	}
+}
+
 const BrandSelector = memo(
-	({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
-		const [brands, setBrands] = useState([])
+	({ selectedBrand, onSelectBrand }: BrandSelectorProps) => {
+		const [brands, setBrands] = useState<Brand[]>([])
+		const [isLoading, setIsLoading] = useState(false)
 		const [showAllBrands, setShowAllBrands] = useState(false)
 		const [searchQuery, setSearchQuery] = useState('')
+		const { isDarkMode } = useTheme()
 
-		const getLogoUrl = useCallback((make: string, isLightMode: any) => {
-			const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
-			switch (formattedMake) {
-				case 'range-rover':
-					return isLightMode
-						? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
-						: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
-				case 'infiniti':
-					return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
-				case 'audi':
-					return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
-				case 'nissan':
-					return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
-				default:
-					return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
-			}
-		}, [])
+		const fetchBrands = useMemo(
+			() => async () => {
+				setIsLoading(true)
+				try {
+					const cachedData = await AsyncStorage.getItem(BRANDS_CACHE_KEY)
+					if (cachedData) {
+						const { brands: cachedBrands, timestamp } = JSON.parse(cachedData)
+						if (Date.now() - timestamp < CACHE_EXPIRY) {
+							setBrands(cachedBrands)
+							setIsLoading(false)
+							return
+						}
+					}
 
-		useEffect(() => {
-			const fetchBrands = async () => {
-				const { data, error } = await supabase
-					.from('cars')
-					.select('make')
-					.order('make')
+					const { data, error } = await supabase
+						.from('cars')
+						.select('make')
+						.order('make')
 
-				if (!error) {
-					const uniqueBrands = Array.from(new Set(data.map(item => item.make)))
-					const brandsData = uniqueBrands.map(make => ({
+					if (error) throw error
+
+					const uniqueBrands = Array.from(
+						new Set(data.map((item: { make: string }) => item.make))
+					)
+					const brandsData = uniqueBrands.map((make: string) => ({
 						name: make,
 						logoUrl: getLogoUrl(make, !isDarkMode)
 					}))
-					setBrands(brandsData)
-				}
-			}
-			fetchBrands()
-		}, [isDarkMode])
 
-		const filteredBrands = brands.filter(brand =>
-			brand.name.toLowerCase().includes(searchQuery.toLowerCase())
+					setBrands(brandsData)
+
+					await AsyncStorage.setItem(
+						BRANDS_CACHE_KEY,
+						JSON.stringify({ brands: brandsData, timestamp: Date.now() })
+					)
+				} catch (error) {
+					console.error('Error fetching brands:', error)
+				} finally {
+					setIsLoading(false)
+				}
+			},
+			[isDarkMode]
 		)
 
+		useEffect(() => {
+			fetchBrands()
+		}, [fetchBrands])
+
+		const filteredBrands = useMemo(
+			() =>
+				brands.filter(brand =>
+					brand.name.toLowerCase().includes(searchQuery.toLowerCase())
+				),
+			[brands, searchQuery]
+		)
+
+		const handleBrandPress = useCallback(
+			(brandName: string) => {
+				onSelectBrand(selectedBrand === brandName ? '' : brandName)
+			},
+			[onSelectBrand, selectedBrand]
+		)
+
+		if (isLoading) {
+			return <ActivityIndicator size='large' color='#D55004' />
+		}
+
 		return (
-			<View>
-				<View className='flex-row items-center justify-between mb-4'>
+			<View className={`mt-3 px-3 mb-4 ${isDarkMode ? '' : 'bg-[#FFFFFF]'}`}>
+				<View className='flex-row justify-between items-center mb-4'>
+					<Text
+						className={`text-xl font-bold ${
+							isDarkMode ? 'text-white' : 'text-black'
+						}`}></Text>
 					<TouchableOpacity
 						onPress={() => setShowAllBrands(true)}
-						className='ml-auto bg-red px-3 py-1 rounded-full'>
-						<Text className='text-white'>View All</Text>
+						className='flex-row items-center'>
+						<Text className='text-red'>View All</Text>
+						<FontAwesome
+							name='chevron-right'
+							size={14}
+							color={isDarkMode ? '#FFFFFF' : '#000000'}
+							style={{ marginLeft: 8 }}
+						/>
 					</TouchableOpacity>
 				</View>
 
 				<ScrollView
 					horizontal
 					showsHorizontalScrollIndicator={false}
-					className='mb-6'>
+					className='rounded-lg'>
 					{brands.map((brand, index) => (
 						<TouchableOpacity
 							key={index}
-							onPress={() =>
-								onSelectBrand(selectedBrand === brand.name ? '' : brand.name)
-							}
-							className={`mr-3 `}>
-							<BlurView
-								intensity={isDarkMode ? 20 : 40}
-								tint={isDarkMode ? 'dark' : 'light'}
-								className='rounded-2xl p-4 w-[110px] h-[150px] justify-between items-center'>
-								<View className='w-[60px] h-[60px] justify-center items-center'>
-									<Image
-										source={{ uri: brand.logoUrl }}
-										style={{ width: 60, height: 60 }}
-										contentFit='contain'
-									/>
-								</View>
-								<Text
-									className={`text-center text-sm font-medium
-                ${
+							onPress={() => handleBrandPress(brand.name)}
+							className='items-center mb-1 mt-1 mr-4'>
+							<View
+								className={`p-3 rounded-xl ${
+									selectedBrand === brand.name ? 'bg-red/10' : ''
+								}`}>
+								<Image
+									source={{ uri: brand.logoUrl }}
+									style={{ width: 80, height: 80 }}
+									resizeMode='contain'
+								/>
+							</View>
+							<Text
+								className={`${
 									selectedBrand === brand.name
-										? 'text-red'
+										? 'text-red font-medium'
 										: isDarkMode
 										? 'text-white'
 										: 'text-black'
-								}`}
-									numberOfLines={2}>
-									{brand.name}
-								</Text>
-							</BlurView>
+								} text-center mt-2`}>
+								{brand.name}
+							</Text>
 						</TouchableOpacity>
 					))}
 				</ScrollView>
 
+				{/* Modal for All Brands */}
 				<Modal
 					visible={showAllBrands}
 					animationType='slide'
@@ -235,7 +309,7 @@ const BrandSelector = memo(
 							}`}>
 							<View className='p-4'>
 								<View className='items-center mb-2'>
-									<View className='w-16 h-1 rounded-full bg-gray-300' />
+									<View className='w-16 h-1 rounded-full bg-neutral-300' />
 								</View>
 
 								<View className='flex-row justify-between items-center mb-4'>
@@ -257,7 +331,9 @@ const BrandSelector = memo(
 								</View>
 
 								<View
-									className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}>
+									className={`flex-row items-center rounded-full border border-[#ccc] px-4 h-12 mb-4 ${
+										isDarkMode ? 'border-[#555]' : ''
+									}`}>
 									<FontAwesome
 										name='search'
 										size={20}
@@ -282,33 +358,28 @@ const BrandSelector = memo(
 										<TouchableOpacity
 											key={index}
 											onPress={() => {
-												onSelectBrand(
-													selectedBrand === brand.name ? '' : brand.name
-												)
+												handleBrandPress(brand.name)
 												setShowAllBrands(false)
 											}}
 											className={`flex-row items-center p-4 mb-2 rounded-xl ${
 												selectedBrand === brand.name
 													? 'bg-red/10'
 													: isDarkMode
-													? 'bg-gray-800'
-													: 'bg-gray-100'
+													? 'bg-neutral-800'
+													: 'bg-neutral-100'
 											}`}>
 											<View className='w-12 h-12 justify-center items-center mr-3'>
 												<Image
 													source={{ uri: brand.logoUrl }}
 													style={{ width: 40, height: 40 }}
-													contentFit='contain'
+													resizeMode='contain'
 												/>
 											</View>
 											<Text
 												className={`flex-1 font-medium ${
-													selectedBrand === brand.name
-														? 'text-red'
-														: isDarkMode
-														? 'text-white'
-														: 'text-black'
-												}`}>
+													selectedBrand === brand.name ? 'text-red' : ''
+												} ${isDarkMode ? 'text-white' : 'text-black'}`}
+												numberOfLines={1}>
 												{brand.name}
 											</Text>
 										</TouchableOpacity>
@@ -323,7 +394,6 @@ const BrandSelector = memo(
 		)
 	}
 )
-
 const ModelSelector = memo(
 	({ make, selectedModel, onSelectModel, isDarkMode }) => {
 		const [models, setModels] = useState([])
@@ -753,7 +823,7 @@ const DealershipSelector = memo(
 							}`}>
 							<View className='p-4'>
 								<View className='items-center mb-2'>
-									<View className='w-16 h-1 rounded-full bg-gray-300' />
+									<View className='w-16 h-1 rounded-full bg-neutral-300' />
 								</View>
 
 								<View className='flex-row justify-between items-center mb-4'>
@@ -811,8 +881,8 @@ const DealershipSelector = memo(
 												filters.dealership === dealer.id
 													? 'bg-red/10'
 													: isDarkMode
-													? 'bg-gray-800'
-													: 'bg-gray-100'
+													? 'bg-neutral-800'
+													: 'bg-neutral-100'
 											}`}>
 											<View className='w-12 h-12 justify-center items-center mr-3'>
 												{dealer.logo ? (
@@ -1296,7 +1366,7 @@ const FilterPage = () => {
 								params: { filters: JSON.stringify({}) }
 							})
 						}}
-						className='flex-1 mr-2 py-3 px-6 rounded-full bg-gradient-to-r from-gray-600 to-gray-800 shadow-lg transition-transform active:scale-95'>
+						className='flex-1 mr-2 py-3 px-6 rounded-full bg-gradient-to-r from-neutral-600 to-neutral-800 shadow-lg transition-transform active:scale-95'>
 						<Text className='text-black dark:text-white border border-textgray p-2 rounded-full font-medium text-center'>
 							Clear All
 						</Text>
