@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase'
 import { Alert } from 'react-native'
 import { useNotifications } from '@/hooks/useNotifications'
 
+
 // Add a global state to track if the sign-out process has started
 let isSigningOut = false
 
