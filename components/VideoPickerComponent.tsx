@@ -77,59 +77,65 @@ export default function VideoPickerButton({
 
 	const pickVideo = async () => {
 		try {
-			setIsLoading(true)
-			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-
-			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-
-			if (status !== 'granted') {
-				throw new Error('Camera roll permission is required')
+		  setIsLoading(true)
+		  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+	  
+		  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+		  if (status !== 'granted') throw new Error('Camera roll permission required')
+	  
+		  const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+			allowsEditing: true,
+			allowsMultipleSelection: false,
+			videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
+			videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+			videoMaxDuration: maxDuration,
+			base64: false,
+			exif: false,
+		  })
+	  
+		  if (!result.canceled && result.assets.length > 0) {
+			const videoAsset = result.assets[0]
+			const videoDuration = videoAsset.duration || 0
+	  
+			if (!videoAsset.uri) throw new Error('No video URI received')
+	  
+			const fileInfo = await FileSystem.getInfoAsync(videoAsset.uri)
+			const fileSize = fileInfo.exists ? (fileInfo as any).size : 0
+	  
+			if (fileSize > 5 * 1024 * 1024) {
+			  const compressedUri = await FileSystem.downloadAsync(
+				videoAsset.uri,
+				FileSystem.documentDirectory + 'compressed.mp4'
+			  )
+			  videoAsset.uri = compressedUri.uri
+			  const compressedInfo = await FileSystem.getInfoAsync(compressedUri.uri)
+			  videoAsset.fileSize = (compressedInfo as any).size
 			}
-			const result = await ImagePicker.launchImageLibraryAsync({
-				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-				allowsEditing: true,
-				allowsMultipleSelection: false,
-				videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
-				videoQuality: ImagePicker.UIImagePickerControllerQualityType.High, // Use enum instead of decimal
-				videoMaxDuration: maxDuration,
-				base64: false,
-				exif: false,
-				presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
-				selectionLimit: 1
-				
-			  });
-			  
-			  
-
-			if (!result.canceled && result.assets.length > 0) {
-				const videoAsset = result.assets[0]
-				const videoDuration = videoAsset.duration ?? 0 // Duration from expo-image-picker is in milliseconds
-
-				if (!videoAsset.uri) {
-					throw new Error('No video URI received')
-				}
-
-				// Validate video
-				await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
-
-				const isMovFile = videoAsset.uri.toLowerCase().endsWith('.mov')
-				const assetWithType: any = {
-					...videoAsset,
-					type: isMovFile ? 'video/quicktime' : 'video/mp4',
-					originalDuration: videoDuration // Pass the duration in milliseconds
-				}
-
-				onVideoSelect(assetWithType)
-				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+	  
+			await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
+	  
+			const assetWithType: VideoAsset = {
+			  uri: videoAsset.uri,
+			  width: videoAsset.width,
+			  height: videoAsset.height,
+			  duration: videoDuration,
+			  type: videoAsset.uri.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4',
+			  fileSize: videoAsset.fileSize,
+			  originalDuration: videoDuration
 			}
+	  
+			onVideoSelect(assetWithType)
+			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+		  }
 		} catch (error: any) {
-			console.error('Error picking video:', error)
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-			Alert.alert('Error', error.message || 'Failed to select video')
+		  console.error('Error picking video:', error)
+		  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+		  Alert.alert('Error', error.message || 'Failed to select video')
 		} finally {
-			setIsLoading(false)
+		  setIsLoading(false)
 		}
-	}
+	  }
 
 	const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
 		if (!status.isLoaded) return
