@@ -83,16 +83,25 @@ export default function VideoPickerButton({
 		  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 		  if (status !== 'granted') throw new Error('Camera roll permission required')
 	  
-		  const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-			allowsEditing: true,
-			allowsMultipleSelection: false,
-			videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
-			videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-			videoMaxDuration: maxDuration,
-			base64: false,
-			exif: false,
-		  })
+			const result = await ImagePicker.launchImageLibraryAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+				allowsEditing: true,
+				allowsMultipleSelection: false,
+				videoExportPreset: ImagePicker.VideoExportPreset.HEVC_1920x1080, // Changed to HEVC
+				videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+				videoMaxDuration: maxDuration,
+				base64: false,
+				exif: false,
+			   })
+			   
+			   if (!result || result.canceled || !result.assets || result.assets.length === 0) {
+				return;
+			   }
+			   
+			   const videoAsset = result.assets[0];
+			   if (!videoAsset || !videoAsset.uri) {
+				throw new Error('No video URI received');
+			   }
 	  
 		  if (!result.canceled && result.assets.length > 0) {
 			const videoAsset = result.assets[0]
