@@ -1,65 +1,113 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-	View,
-	Text,
-	TouchableOpacity,
-	Alert,
-	Modal,
-	ScrollView,
-	TextInput,
-	ActivityIndicator,
-	Platform,
-	KeyboardAvoidingView,
-	Dimensions
-} from 'react-native'
-import { supabase } from '@/utils/supabase'
-import { LinearGradient } from 'expo-linear-gradient'
-import { useTheme } from '@/utils/ThemeContext'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { FontAwesome, Ionicons } from '@expo/vector-icons'
-import VideoPickerButton from './VideoPickerComponent'
-import CarSelector from './CarSelector'
-import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av'
-import { BlurView } from 'expo-blur'
-import * as Haptics from 'expo-haptics'
-import * as FileSystem from 'expo-file-system'
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
+  Dimensions
+} from 'react-native';
+import { supabase } from '@/utils/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '@/utils/ThemeContext';
+import { FontAwesome, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import VideoPickerButton from './VideoPickerComponent';
+import CarSelector from './CarSelector';
+import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from 'react-native-reanimated';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 100MB
-const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime']
-const MAX_VIDEO_DURATION = 20 // seconds
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
+const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime'];
+const MAX_VIDEO_DURATION = 20;
 
-interface CreateAutoClipModalProps {
-	isVisible: boolean
-	onClose: () => void
-	dealership: { id: number } | null
-	onSuccess: () => void
-}
+// Reusable Section Header Component (matching car listing modal)
+const SectionHeader = ({ title, subtitle, isDarkMode }:any) => (
+  <View className="mb-4">
+    <LinearGradient
+      colors={isDarkMode ? ['#D55004', '#FF6B00'] : ['#000', '#333']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      className="w-12 h-1 rounded-full mb-2"
+    />
+    <Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+      {title}
+    </Text>
+    {subtitle && (
+      <Text className={`text-sm mt-1 ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+        {subtitle}
+      </Text>
+    )}
+  </View>
+);
 
-interface VideoAsset {
-	uri: string
-	width: number
-	height: number
-	duration: number
-	type?: string
-	fileSize?: number
-	originalDuration?: number
-}
+// Reusable Input Component (matching car listing modal)
+const NeumorphicInput = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline = false,
+  required = false,
+  error,
+  isDarkMode,
+  maxLength,
+}:any) => (
+  <Animated.View entering={FadeIn.duration(400)} className="mb-6">
+    <Text className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'}`}>
+      {label} {required && <Text className="text-red">*</Text>}
+    </Text>
 
-interface Car {
-	id: number
-	make: string
-	model: string
-	year: number
-	price: number
-	status: 'available' | 'pending' | 'sold'
-}
+    <View className={`rounded-2xl overflow-hidden ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'}`}>
+      <BlurView
+        intensity={isDarkMode ? 20 : 40}
+        tint={isDarkMode ? 'dark' : 'light'}
+        className="p-2"
+      >
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={isDarkMode ? '#666' : '#999'}
+          multiline={multiline}
+          numberOfLines={multiline ? 4 : 1}
+          maxLength={maxLength}
+          className={`text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
+          style={{
+            height: multiline ? 100 : 50,
+            textAlignVertical: multiline ? 'top' : 'center',
+          }}
+        />
+      </BlurView>
+    </View>
+
+    {error && <Text className="text-red text-xs mt-1 ml-1">{error}</Text>}
+    {maxLength && (
+      <Text className={`text-right mt-1 text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+        {value.length}/{maxLength}
+      </Text>
+    )}
+  </Animated.View>
+);
 
 export default function CreateAutoClipModal({
-	isVisible,
-	onClose,
-	dealership,
-	onSuccess
+  isVisible,
+  onClose,
+  dealership,
+  onSuccess
 }: CreateAutoClipModalProps) {
 	const { isDarkMode } = useTheme()
 	const [title, setTitle] = useState('')
@@ -297,198 +345,184 @@ export default function CreateAutoClipModal({
 
 	return (
 		<Modal
-			visible={isVisible}
-			onRequestClose={onClose}
-			animationType='slide'
-			presentationStyle='pageSheet'>
-			<LinearGradient
-				colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
-				className='flex-1'>
-				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-					className='flex-1'>
-					<SafeAreaView className='flex-1'>
-						<View className='flex-row justify-between items-center p-4 border-b border-red'>
-							<TouchableOpacity onPress={onClose} className='p-2'>
-								<FontAwesome
-									name='times'
-									size={24}
-									color={isDarkMode ? 'white' : 'black'}
-								/>
-							</TouchableOpacity>
-							<Text
-								className={`text-lg font-bold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Create AutoClip
-							</Text>
-							<TouchableOpacity
-								onPress={handleSubmit}
-								disabled={isLoading}
-								className={`p-2 ${isLoading ? 'opacity-50' : ''}`}>
-								{isLoading ? (
-									<ActivityIndicator color='#D55004' />
-								) : (
-									<Text className='text-red font-bold'>Create</Text>
-								)}
-							</TouchableOpacity>
+		  visible={isVisible}
+		  animationType="none"
+		  transparent
+		  statusBarTranslucent
+		>
+		  <KeyboardAvoidingView
+			behavior={Platform.OS === "ios" ? "padding" : "height"}
+			className="flex-1"
+			keyboardVerticalOffset={Platform.OS === "ios" ? -64 : 0}
+			style={{ zIndex: 999 }}
+		  >
+			<Animated.View
+			  entering={FadeIn}
+			  exiting={FadeOut}
+			  className="flex-1"
+			  style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000 }}
+			>
+			  <BlurView
+				intensity={isDarkMode ? 30 : 20}
+				tint={isDarkMode ? "dark" : "light"}
+				className="flex-1"
+			  >
+				<Animated.View
+				  entering={SlideInDown}
+				  exiting={SlideOutDown}
+				  className={`flex-1 mt-12 rounded-t-3xl overflow-hidden ${
+					isDarkMode ? 'bg-black' : 'bg-white'
+				  }`}
+				>
+				  {/* Header */}
+				  <View className="flex-row items-center justify-between px-6 py-4">
+					<TouchableOpacity onPress={onClose} className="p-2">
+					  <Ionicons
+						name="close"
+						size={24}
+						color={isDarkMode ? "white" : "black"}
+					  />
+					</TouchableOpacity>
+					<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+					  Create AutoClip
+					</Text>
+					<TouchableOpacity
+					  onPress={handleSubmit}
+					  disabled={isLoading}
+					  className="bg-red px-4 py-2 rounded-full"
+					>
+					  <Text className="text-white font-medium">
+						{isLoading ? 'Creating...' : 'Create'}
+					  </Text>
+					</TouchableOpacity>
+				  </View>
+	
+				  <ScrollView
+					className="flex-1 px-6"
+					showsVerticalScrollIndicator={false}
+					keyboardShouldPersistTaps="handled"
+				  >
+					{/* Video Section */}
+					<View className="py-4">
+					  <SectionHeader
+						title="Video Upload"
+						subtitle="Select a video to share with your audience"
+						isDarkMode={isDarkMode}
+					  />
+					  <VideoPickerButton
+						onVideoSelect={handleVideoSelect}
+						videoUri={video?.uri}
+					  />
+					  {videoError && (
+						<Text className="text-red text-xs mt-2">{videoError}</Text>
+					  )}
+					</View>
+	
+					{/* Basic Information */}
+					<View className="mb-8">
+					  <SectionHeader
+						title="Clip Details"
+						subtitle="Add information about your AutoClip"
+						isDarkMode={isDarkMode}
+					  />
+					  
+					  <NeumorphicInput
+						label="Title"
+						value={title}
+						onChangeText={setTitle}
+						placeholder="Enter title"
+						required
+						error={titleError}
+						isDarkMode={isDarkMode}
+						maxLength={50}
+					  />
+	
+					  <NeumorphicInput
+						label="Description"
+						value={description}
+						onChangeText={setDescription}
+						placeholder="Enter description"
+						multiline
+						error={descriptionError}
+						isDarkMode={isDarkMode}
+						maxLength={500}
+					  />
+					</View>
+	
+					{/* Car Selection */}
+					<View className="mb-8">
+					  <SectionHeader
+						title="Featured Vehicle"
+						subtitle="Select the car featured in this clip"
+						isDarkMode={isDarkMode}
+					  />
+					  <CarSelector
+						cars={cars}
+						selectedCarId={selectedCarId}
+						onCarSelect={setSelectedCarId}
+						error={carError}
+					  />
+					</View>
+	
+					{/* Upload Progress */}
+					{isLoading && uploadProgress > 0 && (
+					  <View className="mb-8">
+						<SectionHeader
+						  title="Uploading"
+						  subtitle={`Progress: ${uploadProgress}%`}
+						  isDarkMode={isDarkMode}
+						/>
+						<View className="h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+						  <LinearGradient
+							colors={['#D55004', '#FF6B00']}
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 0 }}
+							className="h-full rounded-full"
+							style={{ width: `${uploadProgress}%` }}
+						  />
 						</View>
-
-						<ScrollView
-							className='flex-1 p-4'
-							keyboardShouldPersistTaps='handled'
-							showsVerticalScrollIndicator={false}>
-							<View className='mb-4'>
-								<Text
-									className={`mb-2 font-semibold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Title *
-								</Text>
-								<TextInput
-									value={title}
-									onChangeText={setTitle}
-									placeholder='Enter title'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									className={`border ${
-										titleError ? 'border-rose-500' : 'border-red'
-									} rounded-lg p-3 ${
-										isDarkMode
-											? 'bg-neutral-700 text-white'
-											: 'bg-white text-black'
-									}`}
-									maxLength={100}
-								/>
-								{titleError && (
-									<Text className='text-rose-500 mt-1 text-sm'>
-										{titleError}
-									</Text>
-								)}
-							</View>
-
-							<View className='mb-4'>
-								<Text
-									className={`mb-2 font-semibold ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									Description
-								</Text>
-								<TextInput
-									value={description}
-									onChangeText={setDescription}
-									placeholder='Enter description'
-									placeholderTextColor={isDarkMode ? '#A0AEC0' : '#718096'}
-									multiline
-									numberOfLines={4}
-									maxLength={500}
-									className={`border ${
-										descriptionError ? 'border-rose-500' : 'border-red'
-									} rounded-lg p-3 min-h-[100px] ${
-										isDarkMode
-											? 'bg-neutral-700 text-white'
-											: 'bg-white text-black'
-									}`}
-									textAlignVertical='top'
-								/>
-								{descriptionError && (
-									<Text className='text-rose-500 mt-1 text-sm'>
-										{descriptionError}
-									</Text>
-								)}
-								<Text
-									className={`text-right mt-1 text-xs ${
-										isDarkMode ? 'text-neutral-700' : 'text-black'
-									}`}>
-									{description.length}/500
-								</Text>
-							</View>
-
-							<View className='mb-4'>
-								<CarSelector
-									cars={cars}
-									selectedCarId={selectedCarId}
-									onCarSelect={setSelectedCarId}
-									error={carError}
-								/>
-								{carError && (
-									<Text className='text-rose-500 mt-1 text-sm'>{carError}</Text>
-								)}
-							</View>
-
-							<View className='mb-4'>
-								<VideoPickerButton
-									onVideoSelect={handleVideoSelect}
-									videoUri={video?.uri}
-								/>
-							</View>
-
-							{isLoading && uploadProgress > 0 && (
-								<View className='mt-4'>
-									<View className='flex-row justify-between mb-2'>
-										<Text
-											className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-											Uploading...
-										</Text>
-										<Text
-											className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-											{uploadProgress}%
-										</Text>
-									</View>
-									<View className='h-2 bg-white rounded-full'>
-										<View
-											className='h-2 bg-red rounded-full'
-											style={{ width: `${uploadProgress}%` }}
-										/>
-									</View>
-								</View>
-							)}
-
-							<View className='mt-6 mb-8'>
-								<Text
-									className={`text-sm mb-4 ${
-										isDarkMode ? 'text-white' : 'text-neutral-700'
-									}`}>
-									Guidelines:
-								</Text>
-								<View className='space-y-2'>
-									<Text
-										className={`text-xs ${
-											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
-										}`}>
-										• Video must be less than 50MB
-									</Text>
-									<Text
-										className={`text-xs ${
-											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
-										}`}>
-										• Maximum duration: 60 seconds
-									</Text>
-									<Text
-										className={`text-xs ${
-											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
-										}`}>
-										• Supported formats: MP4, MOV
-									</Text>
-									<Text
-										className={`text-xs ${
-											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
-										}`}>
-										• Title must be at least 3 characters
-									</Text>
-									<Text
-										className={`text-xs ${
-											isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
-										}`}>
-										• Description must be at least 10 characters if provided
-									</Text>
-								</View>
-							</View>
-
-							{Platform.OS === 'ios' && <View className='h-8' />}
-						</ScrollView>
-					</SafeAreaView>
-				</KeyboardAvoidingView>
-			</LinearGradient>
+					  </View>
+					)}
+	
+					{/* Guidelines */}
+					<View className="mb-8">
+					  <SectionHeader
+						title="Guidelines"
+						subtitle="Important information about creating AutoClips"
+						isDarkMode={isDarkMode}
+					  />
+					  <BlurView
+						intensity={isDarkMode ? 20 : 40}
+						tint={isDarkMode ? "dark" : "light"}
+						className="p-4 rounded-2xl"
+					  >
+						<View className="space-y-2">
+						  <Text className={`text-sm ${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'}`}>
+							• Video must be less than 50MB
+						  </Text>
+						  <Text className={`text-sm ${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'}`}>
+							• Maximum duration: 60 seconds
+						  </Text>
+						  <Text className={`text-sm ${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'}`}>
+							• Supported formats: MP4, MOV
+						  </Text>
+						  <Text className={`text-sm ${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'}`}>
+							• Title must be at least 3 characters
+						  </Text>
+						  <Text className={`text-sm ${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'}`}>
+							• Description must be at least 10 characters if provided
+						  </Text>
+						</View>
+					  </BlurView>
+					</View>
+	
+					{/* Bottom Spacing */}
+					<View className="h-20" />
+				  </ScrollView>
+				</Animated.View>
+			  </BlurView>
+			</Animated.View>
+		  </KeyboardAvoidingView>
 		</Modal>
-	)
-}
+	  );
+	}

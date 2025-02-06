@@ -379,7 +379,7 @@ export default function AutoClips() {
 					ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
 				/>
 				<BlurView
-					intensity={80}
+					intensity={0}
 					tint={isDarkMode ? 'dark' : 'light'}
 					className='absolute bottom-16 right-6'>
 					<TouchableOpacity
