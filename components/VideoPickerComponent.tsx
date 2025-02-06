@@ -49,97 +49,62 @@ export default function VideoPickerButton({
 
 	const validateVideo = useCallback(
 		async (uri: string, duration: number, fileSize?: number) => {
-			// Check duration
-			if (duration > maxDuration * 1000) {
-				throw new Error(`Video must be ${maxDuration} seconds or shorter`)
-			}
-
-			// Check file size
-			if (!fileSize) {
-				const fileInfo: any = await FileSystem.getInfoAsync(uri)
-				fileSize = fileInfo.size
-			}
-
-			if (fileSize && fileSize > maxSize) {
-				throw new Error(
-					`Video must be smaller than ${maxSize / (1024 * 1024)}MB`
-				)
-			}
-
-			// Validate format
-			const extension = uri.split('.').pop()?.toLowerCase()
-			if (!extension || !['mp4', 'mov'].includes(extension)) {
-				throw new Error('Video must be in MP4 or MOV format')
-			}
+		  if (duration > maxDuration * 1000) {
+			throw new Error(`Video must be ${maxDuration} seconds or shorter`)
+		  }
+	  
+		  if (!fileSize) {
+			const fileInfo: any = await FileSystem.getInfoAsync(uri)
+			fileSize = fileInfo.size
+		  }
+	  
+		  if (fileSize && fileSize > maxSize) {
+			throw new Error(`Video must be smaller than ${maxSize / (1024 * 1024)}MB`)
+		  }
+	  
+		  const extension = uri.split('.').pop()?.toLowerCase()
+		  if (!extension || !['mp4', 'mov', 'hevc'].includes(extension)) {
+			throw new Error('Video must be in MP4, MOV, or HEVC format')
+		  }
 		},
 		[maxDuration, maxSize]
-	)
-
-	const pickVideo = async () => {
+	  )
+	  
+	  const pickVideo = async () => {
 		try {
 		  setIsLoading(true)
-		  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-	  
 		  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-		  if (status !== 'granted') throw new Error('Camera roll permission required')
+		  if (status !== 'granted') throw new Error('Permission required')
 	  
-			const result = await ImagePicker.launchImageLibraryAsync({
-				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-				allowsEditing: true,
-				allowsMultipleSelection: false,
-				videoExportPreset: ImagePicker.VideoExportPreset.HEVC_1920x1080, // Changed to HEVC
-				videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-				videoMaxDuration: maxDuration,
-				base64: false,
-				exif: false,
-			   })
-			   
-			   if (!result || result.canceled || !result.assets || result.assets.length === 0) {
-				return;
-			   }
-			   
-			   const videoAsset = result.assets[0];
-			   if (!videoAsset || !videoAsset.uri) {
-				throw new Error('No video URI received');
-			   }
+		  const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+			allowsEditing: true,
+			videoExportPreset: ImagePicker.VideoExportPreset.HEVC_1920x1080,
+			videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+			videoMaxDuration: maxDuration
+		  })
 	  
-		  if (!result.canceled && result.assets.length > 0) {
-			const videoAsset = result.assets[0]
-			const videoDuration = videoAsset.duration || 0
+		  if (!result?.assets?.[0]?.uri) return
 	  
-			if (!videoAsset.uri) throw new Error('No video URI received')
+		  const videoAsset = result.assets[0]
+		  const videoDuration = videoAsset.duration || 0
+		  
+		  await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
 	  
-			const fileInfo = await FileSystem.getInfoAsync(videoAsset.uri)
-			const fileSize = fileInfo.exists ? (fileInfo as any).size : 0
+		  const type = videoAsset.uri.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 
+					   videoAsset.uri.toLowerCase().endsWith('.hevc') ? 'video/hevc' : 'video/mp4'
 	  
-			if (fileSize > 5 * 1024 * 1024) {
-			  const compressedUri = await FileSystem.downloadAsync(
-				videoAsset.uri,
-				FileSystem.documentDirectory + 'compressed.mp4'
-			  )
-			  videoAsset.uri = compressedUri.uri
-			  const compressedInfo = await FileSystem.getInfoAsync(compressedUri.uri)
-			  videoAsset.fileSize = (compressedInfo as any).size
-			}
+		  onVideoSelect({
+			uri: videoAsset.uri,
+			width: videoAsset.width,
+			height: videoAsset.height,
+			duration: videoDuration,
+			type,
+			fileSize: videoAsset.fileSize,
+			originalDuration: videoDuration
+		  })
 	  
-			await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
-	  
-			const assetWithType: VideoAsset = {
-			  uri: videoAsset.uri,
-			  width: videoAsset.width,
-			  height: videoAsset.height,
-			  duration: videoDuration,
-			  type: videoAsset.uri.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4',
-			  fileSize: videoAsset.fileSize,
-			  originalDuration: videoDuration
-			}
-	  
-			onVideoSelect(assetWithType)
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-		  }
 		} catch (error: any) {
-		  console.error('Error picking video:', error)
-		  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
 		  Alert.alert('Error', error.message || 'Failed to select video')
 		} finally {
 		  setIsLoading(false)
