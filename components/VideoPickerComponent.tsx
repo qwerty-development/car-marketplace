@@ -90,19 +90,17 @@ export default function VideoPickerButton({
 				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 				allowsEditing: true,
 				allowsMultipleSelection: false,
-				quality: 0.5,
-				//videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
-				//videoQuality:
-					//ImagePicker.UIImagePickerControllerQualityType.IFrame1280x720,
+				// Note: The "quality" option applies to images only.
+				// For videos, we use the export preset and videoQuality.
+				videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540, // slightly lower resolution for smaller file size
+				videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium, // balanced quality on iOS
 				videoMaxDuration: maxDuration,
 				base64: false,
 				exif: false,
-				presentationStyle:
-					ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+				presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
 				selectionLimit: 1,
-				preferredAssetRepresentationMode:
-					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible
-			})
+				preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+			  });
 
 			if (!result.canceled && result.assets.length > 0) {
 				const videoAsset = result.assets[0]
