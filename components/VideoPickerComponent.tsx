@@ -90,10 +90,10 @@ export default function VideoPickerButton({
 				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 				allowsEditing: true,
 				allowsMultipleSelection: false,
-				quality: 0.2,
-				videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480,
+				quality: 0.1,
+				videoExportPreset: ImagePicker.VideoExportPreset.LowQuality,
 				videoQuality:
-					ImagePicker.UIImagePickerControllerQualityType.VGA640x480,
+					ImagePicker.UIImagePickerControllerQualityType.Low,
 				videoMaxDuration: maxDuration,
 				base64: false,
 				exif: false,
