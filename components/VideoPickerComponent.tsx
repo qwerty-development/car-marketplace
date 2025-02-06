@@ -1,170 +1,233 @@
-import React, { useCallback, useState } from 'react';
-import { TouchableOpacity, Text, View, Alert, ActivityIndicator } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { FFmpegKit } from 'ffmpeg-kit-react-native'; // make sure this package is installed
+// VideoPickerButton.tsx
+import React, { useCallback, useState } from 'react'
+import {
+	TouchableOpacity,
+	Text,
+	View,
+	Alert,
+	ActivityIndicator
+} from 'react-native'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
+import { Video, AVPlaybackStatus } from 'expo-av'
+import { useTheme } from '@/utils/ThemeContext'
+import { BlurView } from 'expo-blur'
+import * as Haptics from 'expo-haptics'
+import * as FileSystem from 'expo-file-system'
 
 interface VideoAsset {
-  uri: string;
-  width: number;
-  height: number;
-  duration: number;
-  type?: string;
-  fileSize?: number;
+	uri: string
+	width: number
+	height: number
+	duration: number
+	type?: string
+	fileSize?: number
+	originalDuration?: number // Should be in milliseconds
 }
 
 interface VideoPickerButtonProps {
-  onVideoSelect: (video: VideoAsset) => void;
-  videoUri?: string;
-  maxDuration?: number;
-  maxSize?: number;
-  error?: string;
-  disabled?: boolean;
+	onVideoSelect: (video: VideoAsset) => void
+	videoUri?: string
+	maxDuration?: number
+	maxSize?: number
+	error?: string
+	disabled?: boolean
 }
 
 export default function VideoPickerButton({
-  onVideoSelect,
-  videoUri,
-  maxSize = 5 * 1024 * 1024, // 5MB target
-  maxDuration = 20,
-  error,
-  disabled,
+	onVideoSelect,
+	videoUri,
+	maxSize = 50 * 1024 * 1024, // 100MB
+	maxDuration = 20,
+	error,
+	disabled
 }: VideoPickerButtonProps) {
-  const [isLoading, setIsLoading] = useState(false);
+	const { isDarkMode } = useTheme()
+	const [isLoading, setIsLoading] = useState(false)
+	const [isPlaying, setIsPlaying] = useState(false)
+	const [videoRef, setVideoRef] = useState<Video | null>(null)
 
-  // Validate video dimensions, duration, size, etc.
-  const validateVideo = useCallback(
-    async (uri: string, duration: number, fileSize?: number) => {
-      if (duration > maxDuration * 1000) {
-        throw new Error(`Video must be ${maxDuration} seconds or shorter`);
-      }
+	const validateVideo = useCallback(
+		async (uri: string, duration: number, fileSize?: number) => {
+			// Check duration
+			if (duration > maxDuration * 1000) {
+				throw new Error(`Video must be ${maxDuration} seconds or shorter`)
+			}
 
-      if (!fileSize) {
-        const fileInfo: any = await FileSystem.getInfoAsync(uri);
-        fileSize = fileInfo.size;
-      }
+			// Check file size
+			if (!fileSize) {
+				const fileInfo: any = await FileSystem.getInfoAsync(uri)
+				fileSize = fileInfo.size
+			}
 
-      if (fileSize && fileSize > maxSize) {
-        // We will attempt compression if fileSize > maxSize.
-        return;
-      }
-    },
-    [maxDuration, maxSize]
-  );
+			if (fileSize && fileSize > maxSize) {
+				throw new Error(
+					`Video must be smaller than ${maxSize / (1024 * 1024)}MB`
+				)
+			}
 
-  // Function to compress video using FFmpeg.
-  const compressVideo = async (inputUri: string, duration: number): Promise<string> => {
-    // 5 MB target file size.
-    const targetFileSizeBytes = 5 * 1024 * 1024;
-    const audioBitrate = 128000; // 128 kbps in bits per second
-    const targetFileSizeBits = targetFileSizeBytes * 8;
+			// Validate format
+			const extension = uri.split('.').pop()?.toLowerCase()
+			if (!extension || !['mp4', 'mov'].includes(extension)) {
+				throw new Error('Video must be in MP4 or MOV format')
+			}
+		},
+		[maxDuration, maxSize]
+	)
 
-    // Compute target video bitrate in bits per second.
-    // (Subtract audio contribution from total bits)
-    let targetVideoBitrate = Math.floor((targetFileSizeBits - audioBitrate * duration) / duration);
-    if (targetVideoBitrate < 100000) {
-      // Set a minimum video bitrate (e.g., 100 kbps) to avoid extremely low quality.
-      targetVideoBitrate = 100000;
-    }
+	const pickVideo = async () => {
+		try {
+			setIsLoading(true)
+			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 
-    const outputUri = FileSystem.cacheDirectory + 'compressedVideo.mp4';
-    // Build FFmpeg command. (You might consider a two-pass command for improved quality.)
-    const command = `-i "${inputUri}" -c:a aac -b:a 128k -c:v libx264 -b:v ${targetVideoBitrate} "${outputUri}"`;
+			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 
-    console.log('Running FFmpeg command:', command);
-    const session = await FFmpegKit.execute(command);
-    const returnCode = await session.getReturnCode();
+			if (status !== 'granted') {
+				throw new Error('Camera roll permission is required')
+			}
 
-    if (returnCode.isValueSuccess()) {
-      return outputUri;
-    } else {
-      throw new Error('Video compression failed');
-    }
-  };
+			const result = await ImagePicker.launchImageLibraryAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+				allowsEditing: true,
+				allowsMultipleSelection: false,
+				quality: 0.8,
+				videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
+				videoQuality:
+					ImagePicker.UIImagePickerControllerQualityType.IFrame960x540,
+				videoMaxDuration: maxDuration,
+				base64: false,
+				exif: false,
+				presentationStyle:
+					ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+				selectionLimit: 1,
+				preferredAssetRepresentationMode:
+					ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible
+			})
 
-  const pickVideo = async () => {
-    try {
-      setIsLoading(true);
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') throw new Error('Permission required');
+			if (!result.canceled && result.assets.length > 0) {
+				const videoAsset = result.assets[0]
+				const videoDuration = videoAsset.duration ?? 0 // Duration from expo-image-picker is in milliseconds
 
-      // Use ImagePicker to let user select video.
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true,
-        // Do not set a fixed export preset here so we avoid unwanted re-encoding.
-        videoMaxDuration: maxDuration,
-      });
+				if (!videoAsset.uri) {
+					throw new Error('No video URI received')
+				}
 
-      if (!result?.assets?.[0]?.uri) return;
+				// Validate video
+				await validateVideo(videoAsset.uri, videoDuration, videoAsset.fileSize)
 
-      const videoAsset = result.assets[0];
-      const videoDuration = videoAsset.duration || 0; // duration in seconds (or milliseconds? Adjust as needed)
-      let finalUri = videoAsset.uri;
+				const isMovFile = videoAsset.uri.toLowerCase().endsWith('.mov')
+				const assetWithType: any = {
+					...videoAsset,
+					type: isMovFile ? 'video/quicktime' : 'video/mp4',
+					originalDuration: videoDuration // Pass the duration in milliseconds
+				}
 
-      // Get file info (size, etc.)
-      const fileInfo: any = await FileSystem.getInfoAsync(videoAsset.uri);
-      const fileSize = fileInfo.size;
+				onVideoSelect(assetWithType)
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+			}
+		} catch (error: any) {
+			console.error('Error picking video:', error)
+			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+			Alert.alert('Error', error.message || 'Failed to select video')
+		} finally {
+			setIsLoading(false)
+		}
+	}
 
-      // Validate video (duration and format)
-      await validateVideo(videoAsset.uri, videoDuration * 1000, fileSize);
+	const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+		if (!status.isLoaded) return
+		setIsPlaying(status.isPlaying)
+	}
 
-      // If the video is larger than maxSize (5MB), compress it.
-      if (fileSize > maxSize) {
-        finalUri = await compressVideo(videoAsset.uri, videoDuration);
-      }
+	const togglePlayback = async () => {
+		if (!videoRef) return
 
-      // Determine MIME type based on file extension.
-      const lowerUri = finalUri.toLowerCase();
-      const type = lowerUri.endsWith('.mov')
-        ? 'video/quicktime'
-        : lowerUri.endsWith('.hevc')
-        ? 'video/hevc'
-        : 'video/mp4';
+		try {
+			if (isPlaying) {
+				await videoRef.pauseAsync()
+			} else {
+				await videoRef.playAsync()
+			}
+			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+		} catch (error) {
+			console.error('Playback error:', error)
+		}
+	}
 
-      onVideoSelect({
-        uri: finalUri,
-        width: videoAsset.width,
-        height: videoAsset.height,
-        duration: videoDuration,
-        type,
-        fileSize, // original size (optional—you might want to get new size info here)
-      });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to select video');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+	return (
+		<BlurView
+			intensity={isDarkMode ? 30 : 50}
+			tint={isDarkMode ? 'dark' : 'light'}
+			className='rounded-xl overflow-hidden'>
+			<View className='p-4'>
+				<Text
+					className={`font-semibold mb-2 ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
+					Video *
+				</Text>
 
-  return (
-    <View style={{ padding: 16 }}>
-      <Text style={{ fontWeight: '600', marginBottom: 8 }}>Video *</Text>
-      <TouchableOpacity
-        onPress={pickVideo}
-        disabled={disabled || isLoading}
-        style={{
-          borderWidth: 2,
-          borderStyle: 'dashed',
-          borderRadius: 10,
-          padding: 20,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: disabled ? 0.5 : 1,
-        }}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#D55004" />
-        ) : (
-          <Text style={{ marginTop: 8, fontSize: 16 }}>
-            {videoUri ? 'Change Video' : 'Select Video'}
-          </Text>
-        )}
-        <Text style={{ marginTop: 4, fontSize: 12 }}>
-          MP4 or MOV • Max {maxSize / (1024 * 1024)} MB • Max {maxDuration}s
-        </Text>
-      </TouchableOpacity>
-      {error && <Text style={{ color: 'red', marginTop: 4 }}>{error}</Text>}
-    </View>
-  );
+				<TouchableOpacity
+					onPress={pickVideo}
+					disabled={disabled || isLoading}
+					className={`
+            border-2 border-dashed rounded-xl p-6 items-center justify-center
+            ${error ? 'border-rose-500' : 'border-red'}
+            ${isDarkMode ? 'bg-neutral-700/50' : 'bg-white/50'}
+            ${disabled ? 'opacity-50' : ''}
+          `}>
+					{isLoading ? (
+						<ActivityIndicator color='#D55004' />
+					) : (
+						<>
+							<FontAwesome
+								name={videoUri ? 'play' : 'video-camera'}
+								size={32}
+								color={isDarkMode ? '#FFFFFF' : '#000000'}
+							/>
+							<Text
+								className={`mt-2 font-medium ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}>
+								{videoUri ? 'Change Video' : 'Select Video'}
+							</Text>
+							<Text
+								className={`mt-1 text-xs ${
+									isDarkMode ? 'text-neutral-700' : 'text-neutral-700'
+								}`}>
+								MP4 or MOV • Max {maxSize / (1024 * 1024)}
+								MB • Max {maxDuration}s
+							</Text>
+						</>
+					)}
+				</TouchableOpacity>
+
+				{error && <Text className='text-rose-500 text-sm mt-1'>{error}</Text>}
+
+				{videoUri && (
+					<View className='mt-4 rounded-xl overflow-hidden relative'>
+						<Video
+							ref={setVideoRef}
+							source={{ uri: videoUri }}
+							className='w-full h-48 rounded-xl'
+							useNativeControls={false}
+							isLooping
+							onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+						/>
+						<TouchableOpacity
+							onPress={togglePlayback}
+							className='absolute inset-0 items-center justify-center'>
+							<BlurView intensity={30} tint='dark' className='p-4 rounded-full'>
+								<Ionicons
+									name={isPlaying ? 'pause' : 'play'}
+									size={30}
+									color='white'
+								/>
+							</BlurView>
+						</TouchableOpacity>
+					</View>
+				)}
+			</View>
+		</BlurView>
+	)
 }
