@@ -239,9 +239,7 @@ const BrandSelector = memo(
 					<Text
 						className={`text-xl font-bold ${
 							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Choose Brand
-					</Text>
+						}`}></Text>
 					<TouchableOpacity
 						onPress={() => setShowAllBrands(true)}
 						className='flex-row items-center'>
