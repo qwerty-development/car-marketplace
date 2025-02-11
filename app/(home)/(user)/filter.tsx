@@ -466,58 +466,149 @@ const ModelSelector = memo(
 // Range Selector Component
 const RangeSelector = memo(
 	({ title, min, max, value, onChange, prefix = '', isDarkMode, step = 1 }) => {
-		// Format value with prefix and localization
+		const [localValue, setLocalValue] = useState(['', ''])
+		const isYearSelector = title.toLowerCase() === 'year'
+
+		// Initialize local value on mount and when value prop changes
+		useEffect(() => {
+			if (value && Array.isArray(value)) {
+				setLocalValue([value[0].toString(), value[1].toString()])
+			}
+		}, [value])
+
 		const formatValue = useCallback(
-			(val: number) => {
-				const formattedNumber = Math.round(val).toLocaleString()
+			(val: string | number) => {
+				if (isYearSelector) {
+					return val.toString()
+				}
+				const numericValue = typeof val === 'string' ? parseInt(val) : val
+				if (isNaN(numericValue)) return ''
+				const formattedNumber = Math.round(numericValue).toLocaleString()
 				return prefix === '$'
 					? `${prefix}${formattedNumber}`
 					: `${formattedNumber}${prefix}`
 			},
-			[prefix]
+			[prefix, isYearSelector]
 		)
 
-		// Clean and validate input
+		const validateAndFormatYear = useCallback(
+			(value: string) => {
+				const numValue = parseInt(value)
+				if (isNaN(numValue)) return ''
+				if (numValue < min) return min.toString()
+				if (numValue > max) return max.toString()
+				return numValue.toString()
+			},
+			[min, max]
+		)
+
 		const handleTextChange = useCallback(
 			(text: string, index: number) => {
-				// 1. Remove non-numeric characters
+				// Remove non-numeric characters
 				const cleanText = text.replace(/[^0-9]/g, '')
 
-				// 2. Parse to number, default to min/max if invalid
-				const newValue = parseInt(cleanText) || (index === 0 ? min : max)
+				// Update local value immediately for responsive input
+				const newLocalValue = [...localValue]
+				newLocalValue[index] = cleanText
+				setLocalValue(newLocalValue)
 
-				// 3. Clamp value to valid range
-				const clampedValue = Math.min(Math.max(newValue, min), max)
+				if (cleanText === '') return
 
-				// 4. Create new range array
-				const newRange = [...value]
-				newRange[index] = clampedValue
+				if (isYearSelector) {
+					// For year input, wait for the full year to be typed
+					if (cleanText.length < 4) return
 
-				// 5. Ensure min <= max
-				if (index === 0 && clampedValue > value[1]) {
-					newRange[1] = clampedValue
-				} else if (index === 1 && clampedValue < value[0]) {
-					newRange[0] = clampedValue
+					const validYear = validateAndFormatYear(cleanText)
+					if (!validYear) return
+
+					const yearValue = parseInt(validYear)
+					const otherIndex = index === 0 ? 1 : 0
+					const otherValue =
+						parseInt(localValue[otherIndex]) || (index === 0 ? max : min)
+
+					// Ensure min <= max
+					const newRange =
+						index === 0
+							? [yearValue, Math.max(yearValue, otherValue)]
+							: [Math.min(yearValue, otherValue), yearValue]
+
+					onChange(newRange)
+				} else {
+					// Handle other numeric inputs
+					const numValue = parseInt(cleanText)
+					if (isNaN(numValue)) return
+
+					const clampedValue = Math.min(Math.max(numValue, min), max)
+					const otherIndex = index === 0 ? 1 : 0
+					const otherValue =
+						parseInt(localValue[otherIndex]) || (index === 0 ? max : min)
+
+					const newRange =
+						index === 0
+							? [clampedValue, Math.max(clampedValue, otherValue)]
+							: [Math.min(clampedValue, otherValue), clampedValue]
+
+					onChange(newRange)
 				}
-
-				// 6. Update parent state
-				onChange(newRange)
 			},
-			[value, min, max, onChange]
+			[localValue, onChange, min, max, isYearSelector, validateAndFormatYear]
+		)
+
+		const handleBlur = useCallback(
+			(index: number) => {
+				const currentValue = localValue[index]
+				if (currentValue === '') {
+					// Reset to min/max on blur if empty
+					const defaultValue = index === 0 ? min : max
+					const newLocalValue = [...localValue]
+					newLocalValue[index] = defaultValue.toString()
+					setLocalValue(newLocalValue)
+
+					const newRange = [...value]
+					newRange[index] = defaultValue
+					onChange(newRange)
+				} else if (isYearSelector) {
+					// Validate and format year on blur
+					const validYear = validateAndFormatYear(currentValue)
+					const newLocalValue = [...localValue]
+					newLocalValue[index] = validYear
+					setLocalValue(newLocalValue)
+
+					if (validYear) {
+						const yearValue = parseInt(validYear)
+						const otherIndex = index === 0 ? 1 : 0
+						const otherValue =
+							parseInt(localValue[otherIndex]) || (index === 0 ? max : min)
+
+						const newRange =
+							index === 0
+								? [yearValue, Math.max(yearValue, otherValue)]
+								: [Math.min(yearValue, otherValue), yearValue]
+
+						onChange(newRange)
+					}
+				}
+			},
+			[
+				localValue,
+				value,
+				onChange,
+				min,
+				max,
+				isYearSelector,
+				validateAndFormatYear
+			]
 		)
 
 		return (
 			<View className='mb-6'>
-				{/* Title */}
 				<Text
 					className={`text-base font-medium mb-4
-        ${isDarkMode ? 'text-white' : 'text-black'}`}>
+          ${isDarkMode ? 'text-white' : 'text-black'}`}>
 					{title}
 				</Text>
 
-				{/* Input Container */}
 				<View className='flex-row items-center space-x-4'>
-					{/* Min Input */}
 					<BlurView
 						intensity={isDarkMode ? 20 : 40}
 						tint={isDarkMode ? 'dark' : 'light'}
@@ -531,26 +622,26 @@ const RangeSelector = memo(
 							end={{ x: 1, y: 1 }}>
 							<Text
 								className={`text-xs mb-1
-              ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
 								Min {title}
 							</Text>
 							<TextInput
-								value={formatValue(value[0])}
+								value={localValue[0]}
 								onChangeText={text => handleTextChange(text, 0)}
+								onBlur={() => handleBlur(0)}
 								keyboardType='numeric'
 								className={`text-lg font-medium
-                ${isDarkMode ? 'text-white' : 'text-black'}`}
+                  ${isDarkMode ? 'text-white' : 'text-black'}`}
 								style={{ height: 40 }}
-								placeholder={`Min ${formatValue(min)}`}
+								placeholder={min.toString()}
 								placeholderTextColor={isDarkMode ? '#666' : '#999'}
+								maxLength={isYearSelector ? 4 : undefined}
 							/>
 						</LinearGradient>
 					</BlurView>
 
-					{/* Separator */}
 					<View className='w-8 h-0.5 bg-neutral-400' />
 
-					{/* Max Input */}
 					<BlurView
 						intensity={isDarkMode ? 20 : 40}
 						tint={isDarkMode ? 'dark' : 'light'}
@@ -564,18 +655,20 @@ const RangeSelector = memo(
 							end={{ x: 1, y: 1 }}>
 							<Text
 								className={`text-xs mb-1
-              ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
 								Max {title}
 							</Text>
 							<TextInput
-								value={formatValue(value[1])}
+								value={localValue[1]}
 								onChangeText={text => handleTextChange(text, 1)}
+								onBlur={() => handleBlur(1)}
 								keyboardType='numeric'
 								className={`text-lg font-medium
-                ${isDarkMode ? 'text-white' : 'text-black'}`}
+                  ${isDarkMode ? 'text-white' : 'text-black'}`}
 								style={{ height: 40 }}
-								placeholder={`Max ${formatValue(max)}`}
+								placeholder={max.toString()}
 								placeholderTextColor={isDarkMode ? '#666' : '#999'}
+								maxLength={isYearSelector ? 4 : undefined}
 							/>
 						</LinearGradient>
 					</BlurView>
