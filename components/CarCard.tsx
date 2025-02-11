@@ -239,7 +239,7 @@ export default function CarCard({
 							<StyledText
 								className='text-white text-2xl font-bold mb-1.5'
 								numberOfLines={1}>
-								{car.year} {car.make} {car.model}
+								{car.make} {car.model}
 							</StyledText>
 							<View className='flex-row items-center space-x-4'>
 								<View className='flex-row items-center'>
@@ -316,9 +316,9 @@ export default function CarCard({
 				{/* Specs Grid */}
 				<StyledView className='flex-row justify-between mt-4 mb-2 px-2 '>
 					<SpecItem
-						title='Drivetrain'
-						icon='git-commit-outline'
-						value={car.drivetrain}
+						title='Year'
+						icon='calendar-outline'
+						value={car.year}
 						isDarkMode={isDarkMode}
 					/>
 					<SpecItem
