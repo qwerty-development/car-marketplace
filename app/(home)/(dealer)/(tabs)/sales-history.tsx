@@ -502,7 +502,7 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
 								className={`text-xs ${
 									isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
 								}`}>
-								Dealership
+								Seller
 							</Text>
 							<Text
 								className={`text-sm font-medium ${
