@@ -428,15 +428,30 @@ export default function CreateAutoClipModal({
 
 			const { data, error } = await supabase
 				.from('cars')
-				.select('id, make, model, year, price, status')
+				.select(
+					`
+                id,
+                make,
+                model,
+                year,
+                price,
+                status,
+                auto_clips(id)
+            `
+				)
 				.eq('dealership_id', dealership!.id)
 				.in('status', ['available', 'pending'])
 				.order('listed_at', { ascending: false })
 
-			console.log(data)
-
 			if (error) throw error
-			setCars(data || [])
+
+			// Filter out cars that already have autoclips
+			const availableCars =
+				data
+					?.filter(car => !car.auto_clips || car.auto_clips.length === 0)
+					.map(({ auto_clips, ...car }) => car) || []
+
+			setCars(availableCars)
 		} catch (error) {
 			console.error('Error fetching cars:', error)
 			Alert.alert('Error', 'Failed to load cars')
@@ -531,6 +546,23 @@ export default function CreateAutoClipModal({
 		try {
 			if (!validateForm()) return
 
+			// Check if car already has an autoclip
+			const { data: existingClip, error: checkError } = await supabase
+				.from('auto_clips')
+				.select('id')
+				.eq('car_id', formState.selectedCarId)
+				.single()
+
+			if (checkError && checkError.code !== 'PGRST116') {
+				throw checkError
+			}
+
+			if (existingClip) {
+				triggerHaptic('heavy')
+				Alert.alert('Error', 'This car already has an AutoClip')
+				return
+			}
+
 			setIsLoading(true)
 			triggerHaptic('medium')
 
@@ -594,7 +626,7 @@ export default function CreateAutoClipModal({
 			Alert.alert('Success', 'AutoClip created successfully')
 			onSuccess()
 			handleClose()
-		} catch (error: any) {
+		} catch (error) {
 			console.error('Error:', error)
 			triggerHaptic('error')
 			Alert.alert('Error', error.message || 'Failed to create AutoClip')
@@ -671,9 +703,9 @@ export default function CreateAutoClipModal({
 
 									<TouchableOpacity
 										onPress={handleSubmit}
-										disabled={isLoading}
+										disabled={isLoading || cars.length === 0}
 										className={`bg-red px-4 py-2 rounded-full ${
-											isLoading ? 'opacity-50' : ''
+											isLoading || cars.length === 0 ? 'opacity-50' : ''
 										}`}>
 										{isLoading ? (
 											<ActivityIndicator color='white' size='small' />
@@ -777,19 +809,35 @@ export default function CreateAutoClipModal({
 										isDarkMode={isDarkMode}
 									/>
 
-									<CarSelector
-										cars={cars}
-										selectedCarId={formState.selectedCarId}
-										onCarSelect={id =>
-											setFormState(prev => ({
-												...prev,
-												selectedCarId: id,
-												carError: ''
-											}))
-										}
-										error={formState.carError}
-										isDarkMode={isDarkMode}
-									/>
+									{cars.length > 0 ? (
+										<CarSelector
+											cars={cars}
+											selectedCarId={formState.selectedCarId}
+											onCarSelect={id =>
+												setFormState(prev => ({
+													...prev,
+													selectedCarId: id,
+													carError: ''
+												}))
+											}
+											error={formState.carError}
+											isDarkMode={isDarkMode}
+										/>
+									) : (
+										<BlurView
+											intensity={isDarkMode ? 20 : 40}
+											tint={isDarkMode ? 'dark' : 'light'}
+											className='p-4 rounded-2xl'>
+											<Text
+												className={`text-center ${
+													isDarkMode ? 'text-white' : 'text-black'
+												}`}>
+												No cars available for new AutoClips.
+												{'\n'}
+												All cars already have associated clips.
+											</Text>
+										</BlurView>
+									)}
 								</View>
 
 								{/* Upload Progress */}
