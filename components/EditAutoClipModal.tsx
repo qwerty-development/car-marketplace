@@ -98,13 +98,36 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 		try {
 			const { data, error } = await supabase
 				.from('cars')
-				.select('*')
+				.select(
+					`
+                id,
+                make,
+                model,
+                year,
+                images,
+                status,
+                auto_clips!left(id)
+            `
+				)
 				.eq('dealership_id', clip.dealership_id)
 				.eq('status', 'available')
 				.order('listed_at', { ascending: false })
 
 			if (error) throw error
-			if (data) setDealershipCars(data)
+
+			// Filter cars:
+			// 1. Include currently associated car
+			// 2. Include cars with no autoclips
+			const availableCars = data
+				?.filter(
+					car =>
+						car.id === clip.car_id ||
+						!car.auto_clips ||
+						car.auto_clips.length === 0
+				)
+				.map(({ auto_clips, ...carData }) => carData)
+
+			setDealershipCars(availableCars || [])
 		} catch (error) {
 			console.error('Error fetching dealership cars:', error)
 			Alert.alert('Error', 'Failed to load cars')
@@ -121,12 +144,31 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 
 		setLoading(true)
 		try {
+			// Only check for existing autoclip if changing the car
+			if (selectedCar && selectedCar.id !== clip.car_id) {
+				// Check if selected car already has an autoclip
+				const { data: existingClip, error: checkError } = await supabase
+					.from('auto_clips')
+					.select('id')
+					.eq('car_id', selectedCar.id)
+					.neq('id', clip.id) // Exclude current clip
+					.single()
+
+				if (checkError && checkError.code !== 'PGRST116') {
+					throw checkError
+				}
+
+				if (existingClip) {
+					Alert.alert('Error', 'Selected car already has an AutoClip')
+					return
+				}
+			}
+
 			const updateData: Partial<AutoClip> = {
 				title: title.trim(),
 				description: description.trim()
 			}
 
-			// Only include car_id in update if it has changed
 			if (selectedCar && selectedCar.id !== clip.car_id) {
 				updateData.car_id = selectedCar.id
 			}
@@ -160,6 +202,16 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 
 			{loadingCars ? (
 				<ActivityIndicator size='small' color='#D55004' />
+			) : dealershipCars.length === 0 ? (
+				<View className='p-4 rounded-xl bg-neutral-900/5 dark:bg-white/5'>
+					<Text
+						className={`text-sm text-center ${
+							isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+						}`}>
+						No cars available for selection.
+						{'\n'}All cars already have associated clips.
+					</Text>
+				</View>
 			) : (
 				<ScrollView
 					horizontal
