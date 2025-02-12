@@ -2,14 +2,12 @@ import React, { useMemo, useCallback, useState } from 'react'
 import {
 	View,
 	Text,
-	Platform,
 	TouchableOpacity,
 	Modal,
 	ScrollView,
 	TextInput,
 	Pressable
 } from 'react-native'
-import { useTheme } from '@/utils/ThemeContext'
 import { Car } from '@/types/autoclip'
 import { BlurView } from 'expo-blur'
 import {
@@ -36,6 +34,7 @@ interface CarSelectorProps {
 	error?: string
 	disabled?: boolean
 	isDarkMode?: boolean
+	showUnavailable?: boolean
 }
 
 const CarCard = React.memo(
@@ -43,21 +42,24 @@ const CarCard = React.memo(
 		car,
 		isSelected,
 		onSelect,
-		isDarkMode
+		isDarkMode,
+		disabled
 	}: {
 		car: Car
 		isSelected: boolean
 		onSelect: () => void
 		isDarkMode: boolean
+		disabled?: boolean
 	}) => {
 		const scale = useSharedValue(1)
 
 		const handlePress = useCallback(async () => {
+			if (disabled) return
 			scale.value = withSpring(0.95)
 			await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 			onSelect()
 			scale.value = withSpring(1)
-		}, [onSelect])
+		}, [onSelect, disabled])
 
 		const animatedStyle = useAnimatedStyle(() => ({
 			transform: [{ scale: scale.value }]
@@ -65,7 +67,9 @@ const CarCard = React.memo(
 
 		return (
 			<Animated.View style={animatedStyle}>
-				<Pressable onPress={handlePress} className='mb-3'>
+				<Pressable
+					onPress={handlePress}
+					className={`mb-3 ${disabled ? 'opacity-50' : ''}`}>
 					<BlurView
 						intensity={isDarkMode ? 20 : 40}
 						tint={isDarkMode ? 'dark' : 'light'}
@@ -172,7 +176,8 @@ export default function CarSelector({
 	onCarSelect,
 	error,
 	disabled,
-	isDarkMode = false
+	isDarkMode = false,
+	showUnavailable = false // Default to false
 }: CarSelectorProps) {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
@@ -180,13 +185,18 @@ export default function CarSelector({
 	const filteredCars = useMemo(() => {
 		return cars.filter(car => {
 			const searchTerm = searchQuery.toLowerCase()
-			return (
+			const matchesSearch =
 				car.make.toLowerCase().includes(searchTerm) ||
 				car.model.toLowerCase().includes(searchTerm) ||
 				car.year.toString().includes(searchTerm)
-			)
+
+			if (!showUnavailable && car.auto_clips) {
+				return false
+			}
+
+			return matchesSearch
 		})
-	}, [cars, searchQuery])
+	}, [cars, searchQuery, showUnavailable])
 
 	const selectedCar = useMemo(
 		() => cars.find(car => car.id === selectedCarId),
@@ -208,8 +218,33 @@ export default function CarSelector({
 		[onCarSelect]
 	)
 
+	const noResultsMessage = useMemo(() => {
+		if (cars.length === 0) {
+			return 'No cars available. Please add cars first.'
+		}
+		if (searchQuery && filteredCars.length === 0) {
+			return 'No cars match your search.'
+		}
+		return 'No cars available for new AutoClips.'
+	}, [cars.length, searchQuery, filteredCars.length])
+
 	return (
 		<>
+			{filteredCars.length === 0 && (
+				<View className='flex-1 justify-center items-center py-8'>
+					<MaterialCommunityIcons
+						name='car-off'
+						size={48}
+						color={isDarkMode ? '#666' : '#999'}
+					/>
+					<Text
+						className={`mt-4 text-center ${
+							isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
+						}`}>
+						{noResultsMessage}
+					</Text>
+				</View>
+			)}
 			<Pressable onPress={handleOpenModal}>
 				<BlurView
 					intensity={isDarkMode ? 20 : 40}
