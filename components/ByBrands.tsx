@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import {
 	View,
 	Text,
@@ -33,6 +33,8 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 				: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
 		case 'infiniti':
 			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
+			case 'jetour':
+			return 'https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg'
 		case 'audi':
 			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
 		case 'nissan':
@@ -48,48 +50,31 @@ const ByBrands = React.memo(() => {
 	const router = useRouter()
 	const { isDarkMode } = useTheme()
 
-	const fetchBrands = useMemo(
-		() => async () => {
-			setIsLoading(true)
-			try {
-				const cachedData = await AsyncStorage.getItem(BRANDS_CACHE_KEY)
-				if (cachedData) {
-					const { brands: cachedBrands, timestamp } = JSON.parse(cachedData)
-					if (Date.now() - timestamp < CACHE_EXPIRY) {
-						setBrands(cachedBrands)
-						setIsLoading(false)
-						return
-					}
-				}
-
-				const { data, error } = await supabase
-					.from('cars')
-					.select('make')
-					.order('make')
-
-				if (error) throw error
-
-				const uniqueBrands = Array.from(
-					new Set(data.map((item: { make: string }) => item.make))
-				)
-				const brandsData = uniqueBrands.map((make: string) => ({
-					name: make,
-					logoUrl: getLogoUrl(make, !isDarkMode)
-				}))
-
-				setBrands(brandsData)
-
-				await AsyncStorage.setItem(
-					BRANDS_CACHE_KEY,
-					JSON.stringify({ brands: brandsData, timestamp: Date.now() })
-				)
-			} catch (error) {
-				console.error('Error fetching brands:', error)
-			}
-			setIsLoading(false)
-		},
-		[]
-	)
+	  const fetchBrands = useCallback(async () => {
+		setIsLoading(true);
+		try {
+		  const { data, error } = await supabase
+			.from("cars")
+			.select("make")
+			.order("make");
+	
+		  if (error) throw error;
+	
+		  const uniqueBrands = Array.from(
+			new Set(data.map((item: { make: string }) => item.make))
+		  );
+		  const brandsData = uniqueBrands.map((make: string) => ({
+			name: make,
+			logoUrl: getLogoUrl(make, !isDarkMode),
+		  }));
+	
+		  setBrands(brandsData);
+		} catch (error) {
+		  console.error("Error fetching brands:", error);
+		} finally {
+		  setIsLoading(false);
+		}
+	  }, [isDarkMode]);
 
 	useEffect(() => {
 		fetchBrands()

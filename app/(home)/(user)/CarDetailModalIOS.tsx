@@ -81,6 +81,8 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 				: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
 		case 'infiniti':
 			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
+			case "jetour":
+				return "https://upload.wikimedia.org/wikipedia/commons/8/8a/Jetour_Logo.png?20230608073743";
 		case 'audi':
 			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
 		case 'nissan':

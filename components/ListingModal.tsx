@@ -108,7 +108,7 @@ const BrandSelector = memo(
         case "infiniti":
           return "https://www.carlogos.org/car-logos/infiniti-logo.png";
 		  case "jetour":
-			return "https://upload.wikimedia.org/wikipedia/commons/a/a0/Jetour_logo.svg";
+			return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
         case "audi":
           return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
         case "nissan":

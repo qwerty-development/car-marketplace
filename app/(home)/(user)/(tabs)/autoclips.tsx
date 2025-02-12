@@ -974,7 +974,7 @@ export default function AutoClips() {
 				className='absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full backdrop-blur-md'
 				onPress={() => router.back()}
 				style={{ elevation: 5 }}>
-				<Ionicons name='chevron-back' size={24} color='white' />
+				<Ionicons name='home' size={24} color='white' />
 			</TouchableOpacity>
 
 			<FlatList
