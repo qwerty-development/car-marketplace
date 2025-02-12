@@ -72,6 +72,8 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
       return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
     case "nissan":
       return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
+		  case "jetour":
+			return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
     default:
       return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
   }

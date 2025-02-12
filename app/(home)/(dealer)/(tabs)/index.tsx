@@ -1340,10 +1340,10 @@ export default function DealerListings() {
 					intensity={isDarkMode ? 30 : 50}
 					tint={isDarkMode ? 'dark' : 'light'}
 					className={`mx-6 mb-4 rounded-xl overflow-hidden ${
-						subscriptionExpired ? 'bg-rose-500/20' : 'bg-amber-500/20'
+						subscriptionExpired ? 'bg-rose-500/20' : 'bg-orange-200'
 					}`}>
 					<View className='p-4'>
-						<Text className='text-center font-medium text-white'>
+						<Text className='text-center shadow-black font-extrabold text-white'>
 							{subscriptionExpired
 								? 'Your subscription has expired. Please renew to manage listings.'
 								: `Your subscription will expire in ${daysUntilExpiration} days. Please renew soon.`}
