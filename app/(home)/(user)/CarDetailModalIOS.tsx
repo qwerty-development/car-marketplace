@@ -470,12 +470,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				{/* Car Info Header */}
 				<View className='flex-row items-center justify-between px-4'>
 					<View className='flex-row items-center flex-1'>
-						<View
+					<View
 							className='justify-center items-center mt-2'
 							style={{ width: 50 }}>
 							<OptimizedImage
 								source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
-								style={{ width: 50, height: 30 }}
+								style={{ width:70, height: 50 }}
 								contentFit='contain'
 							/>
 						</View>

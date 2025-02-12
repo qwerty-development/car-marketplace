@@ -64,11 +64,8 @@ export default function RootLayout() {
 							animation: 'slide_from_right',
 							headerShown: false,
 							contentStyle: {
-								backgroundColor: 'transparent'
+								backgroundColor: isDarkMode? 'black' : 'white'
 							},
-
-							gestureEnabled: true,
-							gestureDirection: 'horizontal'
 						}}
 					/>
 					<Stack.Screen

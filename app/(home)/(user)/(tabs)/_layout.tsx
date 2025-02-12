@@ -12,7 +12,7 @@ export default function TabLayout() {
       screenOptions={({ route }) => ({
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isDarkMode ? 'rgba(18, 18, 18, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+          backgroundColor: isDarkMode ? '#000' : 'rgba(255, 255, 255, 0.98)',
           height: 75, // Increased height slightly
           paddingBottom: 15, // Increased bottom padding
           paddingTop: 5, // Added top padding
@@ -23,8 +23,6 @@ export default function TabLayout() {
           shadowOpacity: 0.1,
           shadowRadius: 12,
           // Subtle border for light mode
-          borderTopColor: isDarkMode ? 'transparent' : 'rgba(0, 0, 0, 0.05)',
-          borderTopWidth: isDarkMode ? 0 : 1,
         },
         tabBarShowLabel: false,
         tabBarActiveTintColor: '#D55004',

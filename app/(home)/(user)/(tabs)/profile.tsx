@@ -9,6 +9,8 @@ import {
   Alert,
   Linking,
   Modal,
+  TouchableWithoutFeedback,
+  StyleSheet,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { useUser, useAuth } from "@clerk/clerk-expo";
@@ -25,6 +27,8 @@ import type { NotificationSettings } from "../types/type";
 const WHATSAPP_NUMBER = "+1234567890";
 const SUPPORT_EMAIL = "support@example.com";
 const EMAIL_SUBJECT = "Support Request";
+
+const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
@@ -168,6 +172,10 @@ export default function UserProfileAndSupportPage() {
     }));
   };
 
+  const closeModal = (setModalVisible: (visible: boolean) => void) => {
+    setModalVisible(false);
+  };
+
   return (
     <ScrollView
       className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
@@ -291,7 +299,7 @@ export default function UserProfileAndSupportPage() {
                 isDarkMode ? "text-white/60" : "text-gray-500"
               } text-sm mt-1`}
             >
-              Manage your notification preferences
+              Your choice of beeps
             </Text>
           </View>
           <Ionicons
@@ -310,12 +318,11 @@ export default function UserProfileAndSupportPage() {
         visible={isEditMode}
         onRequestClose={() => setIsEditMode(false)}
       >
-        <View className="flex-1 justify-end">
-          <View
-            className={`${
-              isDarkMode ? "bg-neutral-900" : "bg-white"
-            } rounded-t-3xl p-6 shadow-lg`}
-          >
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => closeModal(setIsEditMode)}>
+            <View style={styles.modalBackground} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
             <View className="flex-row justify-between items-center mb-6">
               <Text
                 className={`text-xl font-semibold ${
@@ -390,12 +397,12 @@ export default function UserProfileAndSupportPage() {
         visible={isSecuritySettingsVisible}
         onRequestClose={() => setIsSecuritySettingsVisible(false)}
       >
-        <View className="flex-1 justify-end">
-          <View
-            className={`${
-              isDarkMode ? "bg-neutral-900" : "bg-white"
-            } rounded-t-3xl p-6 shadow-lg`}
-          >
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => closeModal(setIsSecuritySettingsVisible)}>
+            <View style={styles.modalBackground} />
+          </TouchableWithoutFeedback>
+
+          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
             <View className="flex-row justify-between items-center mb-6">
               <Text
                 className={`text-xl font-semibold ${
@@ -495,12 +502,11 @@ export default function UserProfileAndSupportPage() {
         visible={isNotificationSettingsVisible}
         onRequestClose={() => setIsNotificationSettingsVisible(false)}
       >
-        <View className="flex-1 justify-end">
-          <View
-            className={`${
-              isDarkMode ? "bg-neutral-900" : "bg-white"
-            } rounded-t-3xl p-6 shadow-lg`}
-          >
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => closeModal(setIsNotificationSettingsVisible)}>
+            <View style={styles.modalBackground} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
             <View className="flex-row justify-between items-center mb-6">
               <Text
                 className={`text-xl font-semibold ${
@@ -569,12 +575,11 @@ export default function UserProfileAndSupportPage() {
         visible={isChangePasswordMode}
         onRequestClose={() => setIsChangePasswordMode(false)}
       >
-        <View className="flex-1 justify-end">
-          <View
-            className={`${
-              isDarkMode ? "bg-neutral-900" : "bg-white"
-            } rounded-t-3xl p-6 shadow-lg`}
-          >
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => closeModal(setIsChangePasswordMode)}>
+            <View style={styles.modalBackground} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
             <View className="flex-row justify-between items-center mb-6">
               <Text
                 className={`text-xl font-semibold ${
@@ -746,3 +751,32 @@ export default function UserProfileAndSupportPage() {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent background
+  },
+  modalBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+  },
+  modalContent: {
+    width: "80%",
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+});

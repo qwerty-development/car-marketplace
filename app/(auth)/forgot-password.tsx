@@ -53,17 +53,16 @@ const CustomHeader = ({ title, onBack }: any) => {
 	return (
 		<SafeAreaView
 			edges={['top']}
-			className={`${isDarkMode ? 'bg-black' : 'bg-white'} border-b border-red`}>
-			<View className='flex-row items-center justify-between py-4 px-4'>
+			className={`${isDarkMode ? 'bg-black' : 'bg-black'}`}>
+			<View className='flex-row items-center py-4 px-4'>
 				<TouchableOpacity onPress={onBack}>
 					<Ionicons
 						name='chevron-back'
 						size={24}
-						color={isDarkMode ? 'white' : 'black'}
+						color='white'
 					/>
 				</TouchableOpacity>
-				<Text className='text-xl font-bold text-red'>{title}</Text>
-				<View style={{ width: 24 }} />
+				<Text className='text-xl font-bold text-white ml-4'>{title}</Text>
 			</View>
 		</SafeAreaView>
 	)
@@ -114,15 +113,9 @@ export default function ForgotPasswordPage() {
 			<AnimatedLine startPos={{ x: width * 0.5, y: -100 }} duration={20000} />
 			<AnimatedLine startPos={{ x: width * 0.8, y: -100 }} duration={18000} />
 
-			<View className='flex-1 justify-center px-8'>
+			<View className='flex-1 justify-center -mt-64 items-center px-8'>
 				{!successfulCreation ? (
 					<>
-						<Text
-							className={`text-2xl font-bold mb-6 ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}>
-							Reset Your Password
-						</Text>
 						<TextInput
 							className={`w-full h-12 px-4 mb-4 rounded-lg ${
 								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
@@ -135,7 +128,7 @@ export default function ForgotPasswordPage() {
 							autoCapitalize='none'
 						/>
 						<TouchableOpacity
-							className='bg-red py-3 rounded-lg'
+							className='bg-red py-3 rounded-lg w-full'
 							onPress={onRequestReset}>
 							<Text className='text-white text-center font-bold'>
 								Send Reset Code
@@ -144,12 +137,6 @@ export default function ForgotPasswordPage() {
 					</>
 				) : (
 					<>
-						<Text
-							className={`text-2xl font-bold mb-6 ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}>
-							Enter New Password
-						</Text>
 						<TextInput
 							className={`w-full h-12 px-4 mb-4 rounded-lg ${
 								isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
@@ -159,7 +146,7 @@ export default function ForgotPasswordPage() {
 							value={code}
 							onChangeText={setCode}
 						/>
-						<View className='relative mb-4'>
+						<View className='relative mb-4 w-full'>
 							<TextInput
 								className={`w-full h-12 px-4 pr-12 rounded-lg ${
 									isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
@@ -181,7 +168,7 @@ export default function ForgotPasswordPage() {
 							</TouchableOpacity>
 						</View>
 						<TouchableOpacity
-							className='bg-red py-3 rounded-lg'
+							className='bg-red py-3 rounded-lg w-full'
 							onPress={onReset}>
 							<Text className='text-white text-center font-bold'>
 								Reset Password

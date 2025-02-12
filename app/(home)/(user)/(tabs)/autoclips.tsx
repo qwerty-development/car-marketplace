@@ -1,26 +1,30 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, {
+	useState,
+	useEffect,
+	useCallback,
+	useRef,
+	useMemo
+} from 'react'
 import {
 	View,
 	Text,
 	TouchableOpacity,
 	Dimensions,
 	FlatList,
-	Platform,
 	StyleSheet,
-	ActivityIndicator,
 	RefreshControl,
 	Animated,
-	Alert
+	Alert,
+	Share,
+	Linking
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 import { useTheme } from '@/utils/ThemeContext'
 
 import VideoControls from '@/components/VideoControls'
-
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
 import { useUser } from '@clerk/clerk-expo'
-import { Share, Linking } from 'react-native'
 import { formatDistanceToNow } from 'date-fns'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Heart, Pause, Play } from 'lucide-react-native'
@@ -28,14 +32,23 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as Network from 'expo-network'
 import { Image } from 'expo-image'
+import { BlurView } from 'expo-blur'
+import SplashScreen from '../SplashScreen'
 
+// --- constants ---
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
 const TAB_BAR_HEIGHT = 80
 const MAX_VIDEO_BUFFER = 3
-// Estimated average video chunk size (adjust based on your video data)
 const AVG_VIDEO_CHUNK_SIZE_BYTES = 5 * 1024 * 1024 // e.g., 5MB
 
+// Adjust these to taste for your "splashes"
+const SPLASH_CIRCLE_SIZE = width * 2 // large enough to cover from a corner
+const SPLASH_ANIM_DURATION = 500 // each circle's expand duration
+const TEXT_FADE_IN_DURATION = 500
+const EXIT_FADE_OUT_DURATION = 600
+
+// --- Interfaces ---
 interface Car {
 	id: string
 	year: number
@@ -47,6 +60,7 @@ interface Dealership {
 	id: number
 	name: string
 	logo: string
+	phone?: string
 }
 
 interface AutoClip {
@@ -72,35 +86,131 @@ interface VideoState {
 export default function AutoClips() {
 	const { isDarkMode } = useTheme()
 	const isFocused = useIsFocused()
+	const { user } = useUser()
 
-	// Data states
-	const [autoClips, setAutoClips] = useState<AutoClip[]>([])
+	// ****************************
+	// SPLASH SCREEN - ANIMATION LOGIC
+	// ****************************
+	const [showSplash, setShowSplash] = useState(true)
+	const [splashPhase, setSplashPhase] = useState<'entrance' | 'holding' | 'exit'>(
+		'entrance'
+	)
+
+	/**
+	 * "isLoading" indicates whether data is still fetching.
+	 * We'll only move to "exit" phase after:
+	 *   1) The entrance animation is fully done
+	 *   2) And isLoading = false
+	 */
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
+
+	// We’ll have 3 circles animating for a “splash” effect.
+	// Each circle has its own scale + opacity.
+	const circleScales = [
+		useRef(new Animated.Value(0)).current,
+		useRef(new Animated.Value(0)).current,
+		useRef(new Animated.Value(0)).current
+	]
+	const circleOpacities = [
+		useRef(new Animated.Value(1)).current,
+		useRef(new Animated.Value(1)).current,
+		useRef(new Animated.Value(1)).current
+	]
+
+	// Text fade-in
+	const splashTextOpacity = useRef(new Animated.Value(0)).current
+
+	// Overall container fade-out (for the exit)
+	const splashContainerOpacity = useRef(new Animated.Value(1)).current
+
+	// Phase 1: Entrance animation
+	useEffect(() => {
+		if (splashPhase === 'entrance') {
+			/**
+			 * Animate circles in sequence (or slight overlap):
+			 * 1) Circle 1 from scale 0->1
+			 * 2) Circle 2 from 0->1
+			 * 3) Circle 3 from 0->1
+			 * Then fade in the text
+			 */
+			Animated.sequence([
+				Animated.timing(circleScales[0], {
+					toValue: 1,
+					duration: SPLASH_ANIM_DURATION,
+					useNativeDriver: true
+				}),
+				Animated.timing(circleScales[1], {
+					toValue: 1,
+					duration: SPLASH_ANIM_DURATION,
+					useNativeDriver: true
+				}),
+				Animated.timing(circleScales[2], {
+					toValue: 1,
+					duration: SPLASH_ANIM_DURATION,
+					useNativeDriver: true
+				}),
+				Animated.timing(splashTextOpacity, {
+					toValue: 1,
+					duration: TEXT_FADE_IN_DURATION,
+					useNativeDriver: true
+				})
+			]).start(() => {
+				// When entrance finishes, transition to "holding"
+				setSplashPhase('holding')
+			})
+		}
+	}, [splashPhase])
+
+	// Phase 2: Exit animation
+	// We only start the exit once:
+	//   - Phase is "holding" (entrance done)
+	//   - AND isLoading is false
+	useEffect(() => {
+		if (splashPhase === 'holding' && !isLoading) {
+			setSplashPhase('exit')
+
+			// Now fade out the entire container
+			Animated.timing(splashContainerOpacity, {
+				toValue: 0,
+				duration: EXIT_FADE_OUT_DURATION,
+				useNativeDriver: true
+			}).start(() => {
+				setShowSplash(false)
+			})
+		}
+	}, [splashPhase, isLoading])
+
+	// ****************************
+	// NETWORK, DATA, AND VIDEO STATES
+	// ****************************
 	const [refreshing, setRefreshing] = useState(false)
 	const [networkType, setNetworkType] =
 		useState<Network.NetworkStateType | null>(null)
+
+	const [autoClips, setAutoClips] = useState<AutoClip[]>([])
+	const viewedClips = useRef<Set<number>>(new Set())
+
 	const [expandedDescriptions, setExpandedDescriptions] = useState<{
 		[key: number]: boolean
 	}>({})
-	const { user } = useUser()
-	const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
-	const viewedClips = useRef<Set<number>>(new Set())
 
-	// UI states
-	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
-
-	// Video control states
+	// Track which videos are playing
 	const [isPlaying, setIsPlaying] = useState<VideoState>({})
 	const [globalMute, setGlobalMute] = useState(false)
 	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({})
+	const [videoLoading, setVideoLoading] = useState<{ [key: number]: boolean }>(
+		{}
+	)
 
-	// Refs and animations
-	const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({})
+	// Timers/refs
+	const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
 	const lastTap = useRef<{ [key: number]: number }>({})
 	const flatListRef = useRef<FlatList>(null)
 	const heartAnimations = useRef<{ [key: number]: Animated.Value }>({})
 	const playPauseAnimations = useRef<{ [key: number]: Animated.Value }>({})
+	const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({})
+	const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
 
 	const viewabilityConfig = useRef({
 		itemVisiblePercentThreshold: 50,
@@ -108,10 +218,25 @@ export default function AutoClips() {
 		minimumViewTime: 500
 	}).current
 
+	// Track playback progress/duration
+	const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
+		{}
+	)
+	const [videoDuration, setVideoDuration] = useState<{ [key: number]: number }>(
+		{}
+	)
+
+	// ***************
+	// FETCH / DATA LOGIC
+	// ***************
+	const initializeClipAnimations = useCallback((clipId: number) => {
+		heartAnimations.current[clipId] = new Animated.Value(0)
+		playPauseAnimations.current[clipId] = new Animated.Value(0)
+	}, [])
+
 	const trackClipView = useCallback(
 		async (clipId: number) => {
 			if (!user || viewedClips.current.has(clipId)) return
-
 			try {
 				await supabase.rpc('track_autoclip_view', {
 					clip_id: clipId,
@@ -126,17 +251,12 @@ export default function AutoClips() {
 							: clip
 					)
 				)
-			} catch (error) {
-				console.error('Error tracking view:', error)
+			} catch (err) {
+				console.error('Error tracking view:', err)
 			}
 		},
 		[user]
 	)
-
-	const initializeClipAnimations = useCallback((clipId: number) => {
-		heartAnimations.current[clipId] = new Animated.Value(0)
-		playPauseAnimations.current[clipId] = new Animated.Value(0)
-	}, [])
 
 	const fetchData = useCallback(async () => {
 		setIsLoading(true)
@@ -193,8 +313,8 @@ export default function AutoClips() {
 					{}
 				)
 			)
-		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to load content')
+		} catch (err: any) {
+			setError(err?.message || 'Failed to load content')
 		} finally {
 			setIsLoading(false)
 		}
@@ -205,13 +325,6 @@ export default function AutoClips() {
 		await fetchData()
 		setRefreshing(false)
 	}, [fetchData])
-
-	const [videoProgress, setVideoProgress] = useState<{
-		[key: number]: number
-	}>({})
-	const [videoDuration, setVideoDuration] = useState<{
-		[key: number]: number
-	}>({})
 
 	const handlePlaybackStatusUpdate = useCallback(
 		(status: any, clipId: number) => {
@@ -240,17 +353,21 @@ export default function AutoClips() {
 		[currentVideoIndex, autoClips.length]
 	)
 
-	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
-		const videoRef = videoRefs.current[clipId]?.current
-		if (videoRef) {
-			try {
-				await videoRef.setPositionAsync(time * 1000)
-			} catch (error) {
-				console.error('Error scrubbing video:', error)
+	const handleVideoScrub = useCallback(
+		async (clipId: number, time: number) => {
+			const videoRef = videoRefs.current[clipId]?.current
+			if (videoRef) {
+				try {
+					await videoRef.setPositionAsync(time * 1000)
+				} catch (err) {
+					console.error('Error scrubbing video:', err)
+				}
 			}
-		}
-	}, [])
+		},
+		[]
+	)
 
+	// Check network type
 	useEffect(() => {
 		const getType = async () => {
 			const type: any = await Network.getNetworkStateAsync()
@@ -259,23 +376,26 @@ export default function AutoClips() {
 		getType()
 	}, [])
 
+	// Cleanup timers on unmount
 	useEffect(() => {
 		return () => {
 			Object.values(viewTimers.current).forEach(timer => clearTimeout(timer))
 		}
 	}, [])
 
+	// Fetch data on mount
 	useEffect(() => {
 		fetchData()
 	}, [fetchData, user])
 
+	// Pause all videos if the tab is not focused
 	useEffect(() => {
 		const resetVideoPlayback = async (ref: React.RefObject<Video>) => {
 			try {
 				await ref?.current?.pauseAsync()
 				await ref?.current?.setPositionAsync(0)
-			} catch (error) {
-				console.error('Error resetting video playback:', error)
+			} catch (err) {
+				console.error('Error resetting video playback:', err)
 			}
 		}
 		if (!isFocused) {
@@ -283,7 +403,6 @@ export default function AutoClips() {
 			setVideoProgress({})
 			setVideoDuration({})
 		}
-
 		return () => {
 			Object.values(videoRefs.current).forEach(resetVideoPlayback)
 			setVideoProgress({})
@@ -291,6 +410,9 @@ export default function AutoClips() {
 		}
 	}, [isFocused])
 
+	// ****************************
+	// VIDEO TAP / LIKE / MUTE LOGIC
+	// ****************************
 	const handleVideoPress = useCallback(
 		async (clipId: number) => {
 			const videoRef = videoRefs.current[clipId]?.current
@@ -330,8 +452,8 @@ export default function AutoClips() {
 				]).start(() => {
 					setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: false }))
 				})
-			} catch (error) {
-				console.error('Error handling video playback:', error)
+			} catch (err) {
+				console.error('Error handling video playback:', err)
 			}
 		},
 		[currentVideoIndex, isPlaying, trackClipView]
@@ -340,7 +462,6 @@ export default function AutoClips() {
 	const handleLikePress = useCallback(
 		async (clipId: number) => {
 			if (!user) return
-
 			try {
 				const { data: newLikesCount, error } = await supabase.rpc(
 					'toggle_autoclip_like',
@@ -349,15 +470,14 @@ export default function AutoClips() {
 						user_id: user.id
 					}
 				)
-
 				if (error) throw error
 
 				setAutoClips(prev =>
-					prev.map((clip: any) => {
+					prev.map(clip => {
 						if (clip.id === clipId) {
 							const isCurrentlyLiked = clip.liked_users?.includes(user.id)
 							const updatedLikedUsers = isCurrentlyLiked
-								? clip.liked_users.filter((id: any) => id !== user.id)
+								? clip.liked_users.filter(id => id !== user.id)
 								: [...(clip.liked_users || []), user.id]
 
 							return {
@@ -370,6 +490,7 @@ export default function AutoClips() {
 					})
 				)
 
+				// Heart animation
 				const animation = heartAnimations.current[clipId]
 				if (animation) {
 					animation.setValue(0)
@@ -387,8 +508,8 @@ export default function AutoClips() {
 						})
 					]).start()
 				}
-			} catch (error) {
-				console.error('Error toggling like:', error)
+			} catch (err) {
+				console.error('Error toggling like:', err)
 			}
 		},
 		[user]
@@ -418,12 +539,14 @@ export default function AutoClips() {
 					await handleLikePress(clipId)
 				}
 			}
-
 			lastTap.current[clipId] = now
 		},
 		[autoClips, handleLikePress, user?.id]
 	)
 
+	// ****************************
+	// RENDER HELPERS
+	// ****************************
 	const renderVideoControls = useCallback(
 		(clipId: number) => {
 			const clip = autoClips.find(c => c.id === clipId)
@@ -565,8 +688,8 @@ export default function AutoClips() {
 													item.description || ''
 												}`
 											})
-										} catch (error) {
-											console.error('Error sharing:', error)
+										} catch (err) {
+											console.error('Error sharing:', err)
 										}
 									}}>
 									<Ionicons name='share-social' size={24} color='white' />
@@ -591,22 +714,23 @@ export default function AutoClips() {
 		},
 		[getFormattedPostDate, expandedDescriptions]
 	)
-	// Function to estimate buffer size based on network type
+
 	const getEstimatedBufferSize = useCallback(
 		(networkType: Network.NetworkStateType | null) => {
 			switch (networkType) {
 				case Network.NetworkStateType.WIFI:
 				case Network.NetworkStateType.ETHERNET:
-					return 3 * AVG_VIDEO_CHUNK_SIZE_BYTES // Buffer more on fast connections
+					return 3 * AVG_VIDEO_CHUNK_SIZE_BYTES
 				case Network.NetworkStateType.CELLULAR:
-					return 1.5 * AVG_VIDEO_CHUNK_SIZE_BYTES // Buffer less on cellular
+					return 1.5 * AVG_VIDEO_CHUNK_SIZE_BYTES
 				default:
-					return 2 * AVG_VIDEO_CHUNK_SIZE_BYTES // Default buffer size
+					return 2 * AVG_VIDEO_CHUNK_SIZE_BYTES
 			}
 		},
 		[]
 	)
-	// Preload adjacent videos (optimized with useEffect)
+
+	// Preload adjacent videos
 	useEffect(() => {
 		const preloadAdjacentVideos = async () => {
 			if (autoClips.length > 0) {
@@ -625,9 +749,6 @@ export default function AutoClips() {
 							try {
 								const status = await ref.current.getStatusAsync()
 								if (!status.isLoaded) {
-									console.log(
-										`Preloading video ${clip.id} with estimated buffer size: ${estimatedBufferSize}`
-									)
 									await ref.current.loadAsync(
 										{ uri: clip.video_url },
 										{
@@ -637,13 +758,12 @@ export default function AutoClips() {
 												networkType === Network.NetworkStateType.CELLULAR
 													? 1000
 													: 250
-											// Add a buffer configuration here if `expo-av` supports it in the future
 										},
 										false
 									)
 								}
-							} catch (error) {
-								console.error('Error preloading video:', error)
+							} catch (err) {
+								console.error('Error preloading video:', err)
 							}
 						}
 					}
@@ -691,8 +811,8 @@ export default function AutoClips() {
 								await ref?.current?.pauseAsync()
 								setIsPlaying(prev => ({ ...prev, [clipId]: false }))
 							}
-						} catch (error) {
-							console.error('Error transitioning video:', error)
+						} catch (err) {
+							console.error('Error transitioning video:', err)
 						}
 					})
 				}
@@ -701,7 +821,11 @@ export default function AutoClips() {
 		[autoClips, currentVideoIndex, trackClipView]
 	)
 
-	// Render clip item (optimized with useCallback)
+	const handleSplashFinish = () => {
+		console.log("Splash has finished!")
+		// If you no longer track showSplash, do nothing else
+	  }
+
 	const renderClip = useCallback(
 		({ item, index }: { item: AutoClip; index: number }) => {
 			if (!videoRefs.current[item.id]) {
@@ -728,36 +852,37 @@ export default function AutoClips() {
 							progressUpdateIntervalMillis={
 								networkType === Network.NetworkStateType.CELLULAR ? 1000 : 250
 							}
-							onLoadStart={async () => {
-								if (index === currentVideoIndex) {
-									try {
-										const ref = videoRefs.current[item.id]?.current
-										if (ref) {
-											await ref.setPositionAsync(0)
-										}
-									} catch (error) {
-										console.error(
-											'Error setting video position on load start:',
-											error
-										)
-									}
-								}
+							onLoadStart={() => {
+								setVideoLoading(prev => ({ ...prev, [item.id]: true }))
 							}}
 							onLoad={async () => {
+								setVideoLoading(prev => ({ ...prev, [item.id]: false }))
 								if (index === currentVideoIndex) {
 									try {
 										const ref = videoRefs.current[item.id]?.current
 										if (ref && isPlaying[item.id]) {
 											await ref.playAsync()
 										}
-									} catch (error) {
-										console.error('Error playing video on load:', error)
+									} catch (err) {
+										console.error('Error playing video on load:', err)
 									}
 								}
 							}}
 							rate={1.0}
 							volume={1.0}
 						/>
+
+						{/* Blur loader while the video is still loading */}
+						{videoLoading[item.id] && (
+							<BlurView
+								style={StyleSheet.absoluteFill}
+								intensity={60}
+								tint={isDarkMode ? 'dark' : 'light'}>
+								<View className='flex-1 items-center justify-center'>
+									<Animated.ActivityIndicator size='small' color='#D55004' />
+								</View>
+							</BlurView>
+						)}
 
 						{/* Play/Pause Icon Animation */}
 						{showPlayPauseIcon[item.id] && (
@@ -794,7 +919,10 @@ export default function AutoClips() {
 							<Heart size={80} color='#D55004' fill='#D55004' />
 						</Animated.View>
 
+						{/* Video Controls */}
 						{renderVideoControls(item.id)}
+
+						{/* Info Overlay */}
 						{renderClipInfo(item)}
 					</TouchableOpacity>
 				</View>
@@ -808,21 +936,17 @@ export default function AutoClips() {
 			globalMute,
 			networkType,
 			showPlayPauseIcon,
+			videoLoading,
 			renderVideoControls,
 			renderClipInfo,
-			handlePlaybackStatusUpdate
+			handlePlaybackStatusUpdate,
+			isDarkMode
 		]
 	)
 
-	// Loading and error states
-	if (isLoading) {
-		return (
-			<View style={styles.centerContainer}>
-				<ActivityIndicator size='large' color='#D55004' />
-			</View>
-		)
-	}
-
+	// *******************
+	// ERROR STATE CHECK
+	// *******************
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
@@ -831,14 +955,28 @@ export default function AutoClips() {
 		)
 	}
 
+	// *******************
+	// MAIN RENDER
+	// *******************
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+			{/**
+			 * SPLASH SCREEN: Only render if showSplash = true
+			 */}
+			      <SplashScreen
+        isDarkMode={isDarkMode}
+        isLoading={isLoading}
+        onSplashFinish={handleSplashFinish}
+      />
+
+			{/* Your actual content behind the splash */}
 			<TouchableOpacity
 				className='absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full backdrop-blur-md'
 				onPress={() => router.back()}
 				style={{ elevation: 5 }}>
 				<Ionicons name='chevron-back' size={24} color='white' />
 			</TouchableOpacity>
+
 			<FlatList
 				ref={flatListRef}
 				data={autoClips}
@@ -858,7 +996,7 @@ export default function AutoClips() {
 				contentContainerStyle={{
 					paddingBottom: TAB_BAR_HEIGHT
 				}}
-				removeClippedSubviews={true}
+				removeClippedSubviews
 				maxToRenderPerBatch={MAX_VIDEO_BUFFER}
 				windowSize={MAX_VIDEO_BUFFER * 2 + 1}
 			/>
@@ -867,37 +1005,16 @@ export default function AutoClips() {
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1
-	},
 	centerContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center'
 	},
-	clipContainer: {
-		height,
-		width
-	},
-	videoContainer: {
-		flex: 1
-	},
-	video: {
-		height: '100%',
-		width: '100%'
-	},
-	controlsContainer: {
-		position: 'absolute',
-		right: 16,
-		bottom: 160,
-		alignItems: 'center',
-		zIndex: 10
-	},
-	controlButton: {
-		backgroundColor: 'rgba(0,0,0,0.5)',
-		padding: 8,
-		borderRadius: 20,
-		marginVertical: 8
+	errorText: {
+		color: 'red',
+		fontSize: 16,
+		textAlign: 'center',
+		padding: 16
 	},
 	playPauseIcon: {
 		position: 'absolute',
@@ -917,90 +1034,22 @@ const styles = StyleSheet.create({
 		zIndex: 11
 	},
 
-	infoContainer: {
-		position: 'absolute',
-		bottom: -80,
-		paddingBottom: 0,
-		left: 0,
-		right: 0,
-		backgroundColor: 'rgba(0,0,0,0.3)'
-	},
-	infoGradient: {
-		justifyContent: 'flex-end',
-		paddingBottom: 10
-	},
-	dealershipBar: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		paddingHorizontal: 16,
-		marginTop: 16
-	},
-	dealershipInfo: {
-		flexDirection: 'row',
-		alignItems: 'center'
-	},
-	dealershipLogo: {
-		width: 40,
-		height: 40,
-		borderRadius: 16,
-		marginRight: 8,
-		backgroundColor: 'rgba(255,255,255,0.5)'
-	},
-	dealershipName: {
-		color: 'white',
-		fontSize: 20,
-		fontWeight: '600'
-	},
-	expandButton: {
-		width: 32,
-		height: 32,
+	// SPLASH STYLES
+	splashContainer: {
+		...StyleSheet.absoluteFillObject,
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: 'rgba(0,0,0,0.3)',
-		borderRadius: 16
+		zIndex: 9999,
+		backgroundColor: '#fff' // default for light mode
 	},
-	expandableContent: {
-		marginHorizontal: 20,
-		marginTop: 20
+	splashCircle: {
+		position: 'absolute',
+		width: SPLASH_CIRCLE_SIZE,
+		height: SPLASH_CIRCLE_SIZE,
+		borderRadius: SPLASH_CIRCLE_SIZE / 2
 	},
-	title: {
-		color: 'white',
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginBottom: 8
-	},
-	description: {
-		color: '#E0E0E0',
-		fontSize: 14,
-		marginBottom: 12,
-		lineHeight: 20
-	},
-	carInfo: {
-		marginTop: 12
-	},
-	carName: {
-		color: '#D55004',
-		fontSize: 16,
-		fontWeight: '600',
-		marginBottom: 10
-	},
-	visitButton: {
-		backgroundColor: '#D55004',
-		paddingHorizontal: 20,
-		paddingVertical: 10,
-		borderRadius: 8,
-		alignSelf: 'flex-start'
-	},
-	visitButtonText: {
-		color: 'white',
-		fontSize: 14,
-		fontWeight: '600'
-	},
-	errorText: {
-		color: 'red',
-		fontSize: 16,
-		textAlign: 'center',
-		padding: 16
+	splashText: {
+		fontSize: 28,
+		fontWeight: 'bold'
 	}
 })
