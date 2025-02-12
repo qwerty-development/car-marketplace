@@ -30,14 +30,10 @@ import MapView, { Marker } from 'react-native-maps'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import { Image } from 'expo-image'
+import AutoclipModal from '@/components/AutoclipModal'
+import { LinearGradient } from 'expo-linear-gradient'
 
-const { width, height } = Dimensions.get('window')
-const CAR_DETAIL_CONFIG = {
-	SIMILAR_CARS_DELAY: 100,
-	DEALER_CARS_DELAY: 200,
-	IMAGE_BATCH_SIZE: 3,
-	SCROLL_DELAY: 16
-}
+const { width } = Dimensions.get('window')
 
 const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
 	const [loaded, setLoaded] = useState(false)
@@ -137,7 +133,71 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const [dealerCars, setDealerCars] = useState<any>([])
 	const scrollViewRef = useRef<any>(null)
 	const [activeImageIndex, setActiveImageIndex] = useState(0)
-	// Add to CarDetailScreen.tsx
+	const [autoclips, setAutoclips] = useState<any>([])
+	const [selectedClip, setSelectedClip] = useState<any>(null)
+	const [showClipModal, setShowClipModal] = useState<any>(false)
+
+	// Add fetchAutoclips function
+	const fetchAutoclips = useCallback(async () => {
+		if (!car) return
+
+		try {
+			const { data, error } = await supabase
+				.from('auto_clips')
+				.select('*')
+				.eq('car_id', car.id)
+				.eq('status', 'published')
+				.order('created_at', { ascending: false })
+
+			if (error) throw error
+			setAutoclips(data || [])
+		} catch (error) {
+			console.error('Error fetching autoclips:', error)
+		}
+	}, [car])
+
+	// Add to useEffect for initial fetch
+	useEffect(() => {
+		if (car) {
+			fetchAutoclips()
+		}
+	}, [car, fetchAutoclips])
+
+	const handleClipLike = useCallback(
+		async clipId => {
+			if (!user) return
+
+			try {
+				const { data: newLikesCount, error } = await supabase.rpc(
+					'toggle_autoclip_like',
+					{
+						clip_id: clipId,
+						user_id: user.id
+					}
+				)
+
+				if (error) throw error
+
+				setAutoclips(prev =>
+					prev.map(clip =>
+						clip.id === clipId
+							? {
+									...clip,
+									likes: newLikesCount,
+									liked_users: clip.liked_users?.includes(user.id)
+										? clip.liked_users.filter(id => id !== user.id)
+										: [...(clip.liked_users || []), user.id]
+							  }
+							: clip
+					)
+				)
+			} catch (error) {
+				console.error('Error toggling autoclip like:', error)
+			}
+		},
+		[user]
+	)
+
 	useEffect(() => {
 		const subscription = AppState.addEventListener('memoryWarning', () => {
 			// Clear non-essential data
@@ -467,15 +527,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 					</View>
 				</View>
 
-				{/* Car Info Header */}
 				<View className='flex-row items-center justify-between px-4'>
-					<View className='flex-row items-center flex-1'>
-					<View
+					<View className='flex-row items-center'>
+						<View
 							className='justify-center items-center mt-2'
 							style={{ width: 50 }}>
 							<OptimizedImage
 								source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
-								style={{ width:70, height: 50 }}
+								style={{ width: 70, height: 50 }}
 								contentFit='contain'
 							/>
 						</View>
@@ -494,6 +553,25 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 							</Text>
 						</View>
 					</View>
+
+					{autoclips.length > 0 && (
+						<TouchableOpacity
+							onPress={() => {
+								setSelectedClip(autoclips[0])
+								setShowClipModal(true)
+							}}
+							className='flex-row items-center bg-red px-4 py-2 rounded-full mt-4'>
+							<Ionicons
+								name='videocam'
+								size={16}
+								color='white'
+								className='mr-1'
+							/>
+							<Text className='text-white text-sm font-medium ml-1'>
+								View Clip
+							</Text>
+						</TouchableOpacity>
+					)}
 				</View>
 
 				{/* Technical Data */}
@@ -695,6 +773,16 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 					</Text>
 				</TouchableOpacity>
 			</View>
+			<AutoclipModal
+				isVisible={showClipModal}
+				onClose={() => {
+					setShowClipModal(false)
+					setSelectedClip(null)
+				}}
+				clip={selectedClip}
+				onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
+				isLiked={selectedClip?.liked_users?.includes(user?.id)}
+			/>
 		</View>
 	)
 }
