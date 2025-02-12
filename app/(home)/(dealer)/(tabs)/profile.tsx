@@ -270,22 +270,6 @@ export default function DealershipProfilePage() {
       ref={scrollRef}
       className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
     >
-      {/* Subscription Warnings */}
-      {subscriptionExpired && (
-        <View className="bg-rose-700 p-4">
-          <Text className="text-white text-center font-bold">
-            Your subscription has expired. Please renew to continue.
-          </Text>
-        </View>
-      )}
-
-      {showWarning && (
-        <View className="bg-yellow-500 p-4">
-          <Text className="text-white text-center font-bold">
-            Subscription expires in {daysUntilExpiration} days. Please renew soon.
-          </Text>
-        </View>
-      )}
 
       {/* Profile Header */}
       <View className="relative">

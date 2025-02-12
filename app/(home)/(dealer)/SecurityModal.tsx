@@ -4,7 +4,9 @@ import {
   Text,
   Modal,
   TextInput,
-  TouchableOpacity
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  StyleSheet
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 
@@ -36,11 +38,16 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-end">
+      <View style={styles.modalOverlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.modalBackground} />
+        </TouchableWithoutFeedback>
+        
         <View 
-          className={`${
-            isDarkMode ? 'bg-neutral-900' : 'bg-white'
-          } rounded-t-3xl p-6 shadow-lg`}
+          style={[
+            styles.modalContent,
+            { backgroundColor: isDarkMode ? '#1A1A1A' : 'white' }
+          ]}
         >
           <View className="flex-row justify-between items-center mb-6">
             <Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
@@ -91,10 +98,7 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
 
           <TouchableOpacity
             className="bg-red mt-6 p-4 rounded-xl flex-row justify-center items-center"
-            onPress={() => {
-              onUpdatePassword()
-              onClose()
-            }}
+            onPress={onUpdatePassword}
           >
             <Ionicons name="key-outline" size={20} color="white" style={{ marginRight: 8 }} />
             <Text className="text-white font-semibold">
@@ -106,3 +110,32 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
     </Modal>
   )
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+});

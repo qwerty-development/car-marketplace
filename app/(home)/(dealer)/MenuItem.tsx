@@ -25,7 +25,7 @@ export const MenuItem: React.FC<MenuItemProps> = ({
     <TouchableOpacity
       onPress={onPress}
       className={`${isDarkMode ? 'bg-neutral-800' : 'bg-white'} 
-        p-4 rounded-xl shadow-sm flex-row items-center`}
+        p-4 rounded-xl shadow-sm mb-2  flex-row items-center`}
     >
       <View className={`${iconBgColor} p-3 rounded-xl`}>
         <Ionicons name={icon} size={24} color={iconColor} />

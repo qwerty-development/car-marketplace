@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
-import { useRouter } from 'expo-router'
+import { router, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -27,46 +27,62 @@ import CarAnalyticsCard from '@/components/CarAnalyticsCard'
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const SUBSCRIPTION_WARNING_DAYS = 7
 
-const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading }: any) => (
+const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack }: any) => (
 	<LinearGradient
-		colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F8F8F8']}
-		className='px-4 py-6 rounded-b-3xl shadow-lg'>
-		<SafeAreaView edges={['top']}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row justify-between items-center'>
-				<View>
-					<Text
-						className={`text-sm ${
-							isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
-						}`}>
-						Dashboard
-					</Text>
-					<Text
-						className={`text-2xl font-bold mt-1 ${
-							isDarkMode ? 'text-white' : 'text-night'
-						}`}>
-						{title}
-					</Text>
-				</View>
-				<TouchableOpacity
-					onPress={onRefresh}
-					className={`rounded-full p-3 ${
-						isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
-					}`}>
-					{isLoading ? (
-						<ActivityIndicator color='#D55004' size='small' />
-					) : (
-						<Ionicons
-							name='refresh'
-							size={22}
-							color={isDarkMode ? '#FFFFFF' : '#000000'}
-						/>
-					)}
-				</TouchableOpacity>
+	  colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F8F8F8']}
+	  className='px-4 py-6 rounded-b-3xl shadow-lg'
+	>
+	  <SafeAreaView edges={['top']}>
+		<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+		<View className='flex-row justify-between items-center'>
+		  <View className='flex-row items-center'>
+			<TouchableOpacity 
+			  onPress={router.back}
+			  className='mr-3'
+			>
+			  <Ionicons
+				name='chevron-back'
+				size={24}
+				color={isDarkMode ? '#FFFFFF' : '#000000'}
+			  />
+			</TouchableOpacity>
+			<View>
+			  <Text
+				className={`text-sm ${
+				  isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
+				}`}
+			  >
+				Dashboard
+			  </Text>
+			  <Text
+				className={`text-2xl font-bold mt-1 ${
+				  isDarkMode ? 'text-white' : 'text-night'
+				}`}
+			  >
+				{title}
+			  </Text>
 			</View>
-		</SafeAreaView>
+		  </View>
+		  <TouchableOpacity
+			onPress={onRefresh}
+			className={`rounded-full p-3 ${
+			  isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
+			}`}
+		  >
+			{isLoading ? (
+			  <ActivityIndicator color='#D55004' size='small' />
+			) : (
+			  <Ionicons
+				name='refresh'
+				size={22}
+				color={isDarkMode ? '#FFFFFF' : '#000000'}
+			  />
+			)}
+		  </TouchableOpacity>
+		</View>
+	  </SafeAreaView>
 	</LinearGradient>
-)
+  )
 
 const MetricCard = ({ title, value, icon, trend, color, isDarkMode }: any) => (
 	<LinearGradient

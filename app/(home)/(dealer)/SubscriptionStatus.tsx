@@ -16,7 +16,7 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
   return (
     <View
       className={`${isDarkMode ? 'bg-neutral-800' : 'bg-white'} 
-        p-4 rounded-xl shadow-sm flex-row items-center`}
+        p-4 rounded-xl mb-2 shadow-sm flex-row items-center`}
     >
       <View className={`${subscriptionExpired ? 'bg-rose-500/10' : 'bg-yellow-500/10'} p-3 rounded-xl`}>
         <Ionicons 
