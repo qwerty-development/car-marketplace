@@ -44,7 +44,7 @@ const ModernPicker: React.FC<ModernPickerProps> = ({
 
 			<TouchableOpacity
 				onPress={() => setIsVisible(true)}
-				className={`px-4 py-3 rounded-xl border flex-row justify-between items-center ${
+				className={`px-4 py-3 mb-3 rounded-xl border flex-row justify-between items-center ${
 					isDarkMode
 						? 'border-neutral-700 bg-neutral-800'
 						: 'border-neutral-200 bg-neutral-50'
@@ -99,7 +99,7 @@ const ModernPicker: React.FC<ModernPickerProps> = ({
 								<TouchableOpacity
 									key={option.value}
 									onPress={() => handleSelect(option.value)}
-									className={`p-4 border-b border-neutral-200 dark:border-neutral-800 flex-row justify-between items-center`}>
+									className='p-4 border-b border-neutral-200 dark:border-neutral-800 flex-row justify-between items-center'>
 									<Text className={isDarkMode ? 'text-white' : 'text-black'}>
 										{option.label}
 									</Text>

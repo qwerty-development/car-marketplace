@@ -448,7 +448,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 							/>
 
 							{/* Price Range */}
-							<View>
+							<View className='-top-6'>
 								<Text
 									className={`text-sm font-medium mb-2 ${
 										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
@@ -484,7 +484,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 							</View>
 
 							{/* Year Range */}
-							<View>
+							<View className='-top-9 -mb-7'>
 								<Text
 									className={`text-sm font-medium mb-2 ${
 										isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
@@ -1342,7 +1342,7 @@ export default function DealerListings() {
 					intensity={isDarkMode ? 30 : 50}
 					tint={isDarkMode ? 'dark' : 'light'}
 					className={`mx-6 mb-4 rounded-xl overflow-hidden ${
-						subscriptionExpired ? 'bg-rose-500/20' : 'bg-orange-200'
+						subscriptionExpired ? 'bg-rose-500/20' : 'bg-orange-400'
 					}`}>
 					<View className='p-4'>
 						<Text className='text-center shadow-black font-extrabold text-white'>
