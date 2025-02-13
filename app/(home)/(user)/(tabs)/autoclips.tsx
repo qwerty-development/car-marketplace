@@ -1,10 +1,4 @@
-import React, {
-	useState,
-	useEffect,
-	useCallback,
-	useRef,
-	useMemo
-} from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
 	View,
 	Text,
@@ -92,9 +86,9 @@ export default function AutoClips() {
 	// SPLASH SCREEN - ANIMATION LOGIC
 	// ****************************
 	const [showSplash, setShowSplash] = useState(true)
-	const [splashPhase, setSplashPhase] = useState<'entrance' | 'holding' | 'exit'>(
-		'entrance'
-	)
+	const [splashPhase, setSplashPhase] = useState<
+		'entrance' | 'holding' | 'exit'
+	>('entrance')
 
 	/**
 	 * "isLoading" indicates whether data is still fetching.
@@ -353,19 +347,16 @@ export default function AutoClips() {
 		[currentVideoIndex, autoClips.length]
 	)
 
-	const handleVideoScrub = useCallback(
-		async (clipId: number, time: number) => {
-			const videoRef = videoRefs.current[clipId]?.current
-			if (videoRef) {
-				try {
-					await videoRef.setPositionAsync(time * 1000)
-				} catch (err) {
-					console.error('Error scrubbing video:', err)
-				}
+	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
+		const videoRef = videoRefs.current[clipId]?.current
+		if (videoRef) {
+			try {
+				await videoRef.setPositionAsync(time * 1000)
+			} catch (err) {
+				console.error('Error scrubbing video:', err)
 			}
-		},
-		[]
-	)
+		}
+	}, [])
 
 	// Check network type
 	useEffect(() => {
@@ -822,9 +813,9 @@ export default function AutoClips() {
 	)
 
 	const handleSplashFinish = () => {
-		console.log("Splash has finished!")
+		console.log('Splash has finished!')
 		// If you no longer track showSplash, do nothing else
-	  }
+	}
 
 	const renderClip = useCallback(
 		({ item, index }: { item: AutoClip; index: number }) => {
@@ -963,11 +954,11 @@ export default function AutoClips() {
 			{/**
 			 * SPLASH SCREEN: Only render if showSplash = true
 			 */}
-			      <SplashScreen
-        isDarkMode={isDarkMode}
-        isLoading={isLoading}
-        onSplashFinish={handleSplashFinish}
-      />
+			<SplashScreen
+				isDarkMode={isDarkMode}
+				isLoading={isLoading}
+				onSplashFinish={handleSplashFinish}
+			/>
 
 			{/* Your actual content behind the splash */}
 			<TouchableOpacity

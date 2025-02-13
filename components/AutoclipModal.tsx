@@ -236,13 +236,6 @@ const AutoclipModal = ({
 								<Text className='text-white text-lg font-bold mb-5'>
 									{clip?.title}
 								</Text>
-								{clip?.description && (
-									<Text
-										className='text-white/80'
-										numberOfLines={isDescriptionExpanded ? undefined : 2}>
-										{clip.description}
-									</Text>
-								)}
 							</TouchableOpacity>
 						</View>
 					</LinearGradient>
