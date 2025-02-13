@@ -80,6 +80,8 @@ const SortModal = ({
 		outputRange: [SCREEN_HEIGHT, 0]
 	})
 
+
+
 	return (
 		<Modal
 			animationType='none'
@@ -153,19 +155,47 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 	)
 })
 
-const DealershipCard = React.memo(({ item, onPress, isDarkMode }: any) => (
-	<TouchableOpacity
-		className={`mx-4 mb-4 rounded-2xl overflow-hidden ${
-			isDarkMode ? 'bg-gray' : 'bg-white'
-		}`}
+const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) => {
+	const fadeAnim = useRef(new Animated.Value(0)).current;
+	const translateY = useRef(new Animated.Value(50)).current;
+  
+	useEffect(() => {
+	  Animated.parallel([
+		Animated.timing(fadeAnim, {
+		  toValue: 1,
+		  duration: 500,
+		  delay: index * 100,
+		  useNativeDriver: true,
+		}),
+		Animated.timing(translateY, {
+		  toValue: 0,
+		  duration: 500,
+		  delay: index * 100,
+		  useNativeDriver: true,
+		}),
+	  ]).start();
+	}, []);
+  
+	return (
+	  <Animated.View
 		style={{
+		  opacity: fadeAnim,
+		  transform: [{ translateY }],
+		}}
+	  >
+		<TouchableOpacity
+		  className={`mx-4 mb-4 rounded-2xl overflow-hidden ${
+			isDarkMode ? 'bg-gray' : 'bg-white'
+		  }`}
+		  style={{
 			shadowColor: '#000',
 			shadowOffset: { width: 0, height: 2 },
 			shadowOpacity: 0.1,
 			shadowRadius: 8,
-			elevation: 5
-		}}
-		onPress={() => onPress(item)}>
+			elevation: 5,
+		  }}
+		  onPress={() => onPress(item)}
+		>
 		<LinearGradient
 			colors={isDarkMode ? ['#1A1A1A', '#1A1A1A'] : ['#e6e6e6', '#e6e6e6']}
 			className='p-4'>
@@ -216,7 +246,9 @@ const DealershipCard = React.memo(({ item, onPress, isDarkMode }: any) => (
 			</View>
 		</LinearGradient>
 	</TouchableOpacity>
-))
+	</Animated.View>
+  );
+});
 
 export default function DealershipListPage() {
 	const { isDarkMode } = useTheme()
@@ -230,6 +262,32 @@ export default function DealershipListPage() {
 		useState<Location.LocationObject | null>(null)
 	const router = useRouter()
 	const scrollRef = useRef(null)
+	const DealershipSkeleton = React.memo(() => (
+		<View 
+		  className={`mx-4 mb-4 rounded-2xl overflow-hidden`}
+		  style={{
+			shadowColor: '#000',
+			shadowOffset: { width: 0, height: 2 },
+			shadowOpacity: 0.1,
+			shadowRadius: 8,
+			elevation: 5,
+		  }}
+		>
+		  <LinearGradient
+			colors={['#f0f0f0', '#e0e0e0']}
+			className='p-4'
+		  >
+			<View className='flex-row items-center'>
+			  <View className='w-16 h-16 rounded-full bg-gray-300' />
+			  <View className='flex-1 ml-4'>
+				<View className='w-3/4 h-5 bg-gray-300 rounded' />
+				<View className='w-1/2 h-4 bg-gray-300 rounded mt-2' />
+				<View className='w-2/3 h-4 bg-gray-300 rounded mt-2' />
+			  </View>
+			</View>
+		  </LinearGradient>
+		</View>
+	  ));
 
 	// This hook will listen for tab re-press events and scroll the ref to top.
 	useScrollToTop(scrollRef)
@@ -411,31 +469,44 @@ export default function DealershipListPage() {
 				</View>
 			</View>
 
-			<FlatList
-				ref={scrollRef}
-				data={sortedAndFilteredDealerships}
-				renderItem={({ item }) => (
-					<DealershipCard
-						item={item}
-						onPress={handleDealershipPress}
-						isDarkMode={isDarkMode}
-					/>
-				)}
-				keyExtractor={item => `${item.id}`}
-				ListEmptyComponent={renderEmpty}
-				refreshControl={
-					<RefreshControl
-						refreshing={refreshing}
-						onRefresh={onRefresh}
-						colors={['#D55004']}
-						tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-					/>
-				}
-				contentContainerStyle={{
-					paddingVertical: 8,
-					flexGrow: 1
-				}}
-			/>
+			{isLoading ? (
+  <FlatList
+    data={[1, 2, 3, 4, 5]} // Show 5 skeleton items
+    renderItem={() => <DealershipSkeleton />}
+    keyExtractor={(item) => `skeleton-${item}`}
+    contentContainerStyle={{
+      paddingVertical: 8,
+      flexGrow: 1,
+    }}
+  />
+) : (
+  <FlatList
+    ref={scrollRef}
+    data={sortedAndFilteredDealerships}
+    renderItem={({ item, index }) => (
+      <DealershipCard
+        item={item}
+        onPress={handleDealershipPress}
+        isDarkMode={isDarkMode}
+        index={index}
+      />
+    )}
+    keyExtractor={item => `${item.id}`}
+    ListEmptyComponent={renderEmpty}
+    refreshControl={
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        colors={['#D55004']}
+        tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+      />
+    }
+    contentContainerStyle={{
+      paddingVertical: 8,
+      flexGrow: 1,
+    }}
+  />
+)}
 
 			<SortModal
 				visible={showSortModal}

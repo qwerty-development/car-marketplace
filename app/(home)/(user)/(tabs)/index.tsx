@@ -4,7 +4,6 @@ import {
 	FlatList,
 	TextInput,
 	TouchableOpacity,
-	ActivityIndicator,
 	StyleSheet,
 	Text,
 	Keyboard,
@@ -25,6 +24,9 @@ import { Animated } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
 import { useScrollToTop } from '@react-navigation/native'
+import SkeletonByBrands from '@/components/SkeletonByBrands'
+import SkeletonCategorySelector from '@/components/SkeletonCategorySelector'
+import SkeletonCarCard from '@/components/SkeletonCarCard'
 
 const ITEMS_PER_PAGE = 7
 
@@ -66,7 +68,7 @@ export default function BrowseCarsPage() {
 	const [cars, setCars] = useState<Car[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
-	const [isLoading, setIsLoading] = useState(false)
+	const [isLoading, setIsLoading] = useState(true) // Initially true for skeleton
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState<string | null>(null)
 	const [filters, setFilters] = useState<Filters>({})
@@ -77,6 +79,7 @@ export default function BrowseCarsPage() {
 	const scrollY = useRef<any>(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
 	useScrollToTop(flatListRef)
+	const fadeAnim = useRef(new Animated.Value(0)).current // For fade-in
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
@@ -111,26 +114,33 @@ export default function BrowseCarsPage() {
 		}
 	}, [params.filters])
 
+	useEffect(() => {
+		Animated.timing(fadeAnim, {
+			toValue: 1,
+			duration: 500,
+			useNativeDriver: true
+		}).start()
+	}, [cars]) // Trigger animation when cars data is loaded
+
 	const CustomHeader = React.memo(
 		({ title, onBack }: { title: string; onBack?: () => void }) => {
-		  const { isDarkMode } = useTheme();
-	  
-		  return (
-			<SafeAreaView className={`bg-${isDarkMode ? "black" : "white"}`}>
-			  <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-			  <View className="flex-row items-center ml-2 -mb-6">
-				<Text
-				  className={`text-2xl ${
-					isDarkMode ? "text-white" : "text-black"
-				  }  font-bold ml-2`}
-				>
-				  {title}
-				</Text>
-			  </View>
-			</SafeAreaView>
-		  );
+			const { isDarkMode } = useTheme()
+
+			return (
+				<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'}`}>
+					<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+					<View className='flex-row items-center ml-2 -mb-6'>
+						<Text
+							className={`text-2xl ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}  font-bold ml-2`}>
+							{title}
+						</Text>
+					</View>
+				</SafeAreaView>
+			)
 		}
-	  );
+	)
 
 	const fetchCars = useCallback(
 		async (
@@ -433,18 +443,28 @@ export default function BrowseCarsPage() {
 	const renderListHeader = useMemo(
 		() => (
 			<>
-				<ByBrands />
+				{isLoading ? (
+					<SkeletonByBrands />
+				) : (
+					<Animated.View style={{ opacity: fadeAnim }}>
+						<ByBrands />
+					</Animated.View>
+				)}
 				<View className='mb-3 mt-3'>
-
-				
-				<CategorySelector 
-					selectedCategories={filters.categories || []}
-					onCategoryPress={handleCategoryPress}
-				/>
+					{isLoading ? (
+						<SkeletonCategorySelector />
+					) : (
+						<Animated.View style={{ opacity: fadeAnim }}>
+							<CategorySelector
+								selectedCategories={filters.categories || []}
+								onCategoryPress={handleCategoryPress}
+							/>
+						</Animated.View>
+					)}
 				</View>
 			</>
 		),
-		[filters.categories, handleCategoryPress]
+		[filters.categories, handleCategoryPress, isLoading, fadeAnim]
 	)
 
 	const renderListEmpty = useCallback(
@@ -568,9 +588,9 @@ export default function BrowseCarsPage() {
 					)}
 					scrollEventThrottle={16}
 					ListHeaderComponent={renderListHeader}
-					data={cars}
-					renderItem={renderCarItem}
-					keyExtractor={keyExtractor}
+					data={isLoading ? Array(3).fill(null) : cars} // Render skeleton items when loading
+					renderItem={isLoading ? () => <SkeletonCarCard /> : renderCarItem}
+					keyExtractor={isLoading ? (item, index) => `skeleton-${index}` : keyExtractor}
 					onEndReached={() => {
 						if (currentPage < totalPages && !isLoading) {
 							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
@@ -579,13 +599,7 @@ export default function BrowseCarsPage() {
 					onEndReachedThreshold={0.5}
 					ListEmptyComponent={renderListEmpty}
 					ListFooterComponent={() =>
-						isLoading ? (
-							<ActivityIndicator
-								size='large'
-								color='#D55004'
-								className='mb-16'
-							/>
-						) : null
+						isLoading ? null : null // Remove ActivityIndicator when using skeleton
 					}
 				/>
 			</SafeAreaView>

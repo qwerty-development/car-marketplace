@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react'
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import {
 	View,
 	Text,
@@ -9,7 +9,8 @@ import {
 	Image,
 	ActivityIndicator,
 	Pressable,
-	Share
+	Share,
+	Animated
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
@@ -98,9 +99,30 @@ export default function CarCard({
 	car,
 	onFavoritePress,
 	isFavorite,
-	isDealer = false
-}: any) {
-	const { isDarkMode } = useTheme()
+	isDealer = false,
+	index = 0  // Add index prop
+  }: any) {
+	const { isDarkMode } = useTheme();
+	const fadeAnim = useRef(new Animated.Value(0)).current;
+	const translateY = useRef(new Animated.Value(50)).current;
+	
+	// Add animation effect
+	useEffect(() => {
+	  Animated.parallel([
+		Animated.timing(fadeAnim, {
+		  toValue: 1,
+		  duration: 500,
+		  delay: index * 100,
+		  useNativeDriver: true,
+		}),
+		Animated.timing(translateY, {
+		  toValue: 0,
+		  duration: 500,
+		  delay: index * 100,
+		  useNativeDriver: true,
+		}),
+	  ]).start();
+	}, []);
 	const router = useRouter()
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)
@@ -288,6 +310,12 @@ export default function CarCard({
 	)
 
 	return (
+		<Animated.View
+		style={{
+		  opacity: fadeAnim,
+		  transform: [{ translateY }],
+		}}
+	  >
 		<StyledView
 			className={`mx-4 my-3 ${
 				isDarkMode ? 'bg-[#242424]' : 'bg-[#e1e1e1] '
@@ -398,5 +426,6 @@ export default function CarCard({
 				</StyledView>
 			</StyledPressable>
 		</StyledView>
+		</Animated.View>
 	)
 }
