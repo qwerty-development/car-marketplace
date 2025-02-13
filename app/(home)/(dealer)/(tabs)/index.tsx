@@ -679,47 +679,50 @@ export default function DealerListings() {
 				const currentSortOrder = sortOrderRef.current
 				const currentSearchQuery = searchQueryRef.current
 
-				let queryBuilder = supabase
-					.from('cars')
-					.select(
-						'*, dealerships!inner(name,logo,phone,location,latitude,longitude)',
-						{ count: 'exact' }
-					)
-					.eq('dealership_id', dealership.id)
-					.order(currentSortBy, { ascending: currentSortOrder === 'asc' })
+				// Helper to build a fresh query with all conditions
+				const buildBaseQuery = () => {
+					let query = supabase
+						.from('cars')
+						.select(
+							'*, dealerships!inner(name,logo,phone,location,latitude,longitude)',
+							{ count: 'exact' }
+						)
+						.eq('dealership_id', dealership.id)
+						.order(currentSortBy, { ascending: currentSortOrder === 'asc' })
 
-				if (currentSearchQuery) {
-					const cleanQuery = currentSearchQuery.trim().toLowerCase()
-					const searchTerms = cleanQuery.split(/\s+/)
+					if (currentSearchQuery) {
+						const cleanQuery = currentSearchQuery.trim().toLowerCase()
+						const searchTerms = cleanQuery.split(/\s+/)
+						searchTerms.forEach(term => {
+							const numericTerm = parseInt(term)
+							let searchConditions = [
+								`make.ilike.%${term}%`,
+								`model.ilike.%${term}%`,
+								`description.ilike.%${term}%`
+							]
+							if (!isNaN(numericTerm)) {
+								searchConditions = searchConditions.concat([
+									`year::text.eq.${numericTerm}`,
+									`price::text.ilike.%${numericTerm}%`,
+									`mileage::text.ilike.%${numericTerm}%`
+								])
+							}
+							query = query.or(searchConditions.join(','))
+						})
+					}
 
-					searchTerms.forEach(term => {
-						const numericTerm = parseInt(term)
-						let searchConditions = [
-							`make.ilike.%${term}%`,
-							`model.ilike.%${term}%`,
-							`description.ilike.%${term}%`
-						]
-
-						if (!isNaN(numericTerm)) {
-							searchConditions = searchConditions.concat([
-								`year::text.eq.${numericTerm}`,
-								`price::text.ilike.%${numericTerm}%`,
-								`mileage::text.ilike.%${numericTerm}%`
-							])
-						}
-
-						queryBuilder = queryBuilder.or(searchConditions.join(','))
-					})
+					// Apply filters from currentFilters
+					query = applyFiltersToQuery(query, currentFilters)
+					return query
 				}
 
-				queryBuilder = applyFiltersToQuery(queryBuilder, currentFilters)
-
-				// First get the count
-				const { count } = await queryBuilder
+				// Get count by rebuilding the query
+				const countQuery = buildBaseQuery()
+				const { count, error: countError } = await countQuery
+				if (countError) throw countError
 
 				if (!count) {
 					setListings([])
-					setTotalPages(0)
 					setCurrentPage(1)
 					setHasMoreListings(false)
 					setIsLoading(false)
@@ -735,21 +738,20 @@ export default function DealerListings() {
 					totalItems - 1
 				)
 
-				// Execute the actual query with range
-				const { data, error } = await queryBuilder.range(startRange, endRange)
-
+				// Rebuild the query again for fetching data
+				const dataQuery = buildBaseQuery()
+				const { data, error } = await dataQuery.range(startRange, endRange)
 				if (error) throw error
 
-				const formattedData =
-					data?.map(item => ({
-						...item,
-						dealership_name: item.dealerships.name,
-						dealership_logo: item.dealerships.logo,
-						dealership_phone: item.dealerships.phone,
-						dealership_location: item.dealerships.location,
-						dealership_latitude: item.dealerships.latitude,
-						dealership_longitude: item.dealerships.longitude
-					})) || []
+				const formattedData = (data || []).map(item => ({
+					...item,
+					dealership_name: item.dealerships.name,
+					dealership_logo: item.dealerships.logo,
+					dealership_phone: item.dealerships.phone,
+					dealership_location: item.dealerships.location,
+					dealership_latitude: item.dealerships.latitude,
+					dealership_longitude: item.dealerships.longitude
+				}))
 
 				const uniqueListings = Array.from(
 					new Set(formattedData.map(car => car.id))
