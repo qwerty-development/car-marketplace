@@ -77,8 +77,8 @@ const DRIVE_TRAINS = [
 	{ value: 'FWD', label: 'Front Wheel Drive', icon: 'car-traction-control' },
 	{ value: 'RWD', label: 'Rear Wheel Drive', icon: 'car-traction-control' },
 	{ value: 'AWD', label: 'All Wheel Drive', icon: 'car-traction-control' },
-	{ value: '4WD', label: '4 Wheel Drive', icon: 'car-4x4' },
-	{ value: '4x4', label: '4x4', icon: 'car-4x4' }
+	{ value: '4WD', label: '4 Wheel Drive', icon: 'car-traction-control' },
+	{ value: '4x4', label: '4x4', icon: 'car-traction-control' }
 ]
 
 const CONDITIONS = [
