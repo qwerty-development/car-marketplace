@@ -10,11 +10,12 @@ import {
 	Animated,
 	Alert,
 	Share,
-	Linking
+	Linking,
+	ActivityIndicator
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
+import * as FileSystem from 'expo-file-system'
 import { useTheme } from '@/utils/ThemeContext'
-
 import VideoControls from '@/components/VideoControls'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
@@ -22,23 +23,24 @@ import { useUser } from '@clerk/clerk-expo'
 import { formatDistanceToNow } from 'date-fns'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Heart, Pause, Play } from 'lucide-react-native'
-import { Ionicons } from '@expo/vector-icons'
+
 import { router } from 'expo-router'
 import * as Network from 'expo-network'
 import { Image } from 'expo-image'
 import { BlurView } from 'expo-blur'
 import SplashScreen from '../SplashScreen'
+import { Ionicons } from '@expo/vector-icons'
 
 // --- constants ---
 const { height, width } = Dimensions.get('window')
 const DOUBLE_TAP_DELAY = 300
 const TAB_BAR_HEIGHT = 80
-const MAX_VIDEO_BUFFER = 3
-const AVG_VIDEO_CHUNK_SIZE_BYTES = 5 * 1024 * 1024 // e.g., 5MB
+const MAX_VIDEO_BUFFER = 2 // we now preload only a couple of clips
+const AVG_VIDEO_CHUNK_SIZE_BYTES = 9 * 1024 * 1024 // e.g., 5MB
 
 // Adjust these to taste for your "splashes"
-const SPLASH_CIRCLE_SIZE = width * 2 // large enough to cover from a corner
-const SPLASH_ANIM_DURATION = 500 // each circle's expand duration
+const SPLASH_CIRCLE_SIZE = width * 2
+const SPLASH_ANIM_DURATION = 500
 const TEXT_FADE_IN_DURATION = 500
 const EXIT_FADE_OUT_DURATION = 600
 
@@ -57,7 +59,7 @@ interface Dealership {
 	phone?: string
 }
 
-interface AutoClip {
+export interface AutoClip {
 	id: number
 	title: string
 	description: string
@@ -77,30 +79,207 @@ interface VideoState {
 	[key: number]: boolean
 }
 
+/**
+ * Helper: Given a remote video URL, check if it’s cached locally.
+ * If not, download it into FileSystem.cacheDirectory.
+ */
+async function getCachedVideoUri(videoUrl: string): Promise<string> {
+	const filename = encodeURIComponent(videoUrl.split('/').pop() || videoUrl)
+	const localUri = FileSystem.cacheDirectory + filename
+	const fileInfo = await FileSystem.getInfoAsync(localUri)
+	if (fileInfo.exists) {
+		return localUri
+	}
+	try {
+		const { uri } = await FileSystem.downloadAsync(videoUrl, localUri)
+		return uri
+	} catch (err) {
+		console.error('Error caching video:', err)
+		return videoUrl // fallback to remote URL
+	}
+}
+
+/**
+ * Custom hook that returns a cached URI.
+ */
+function useCachedVideoUri(videoUrl: string): string {
+	const [uri, setUri] = useState(videoUrl)
+	useEffect(() => {
+		let isMounted = true
+		getCachedVideoUri(videoUrl)
+			.then(cachedUri => {
+				if (isMounted) setUri(cachedUri)
+			})
+			.catch(err => {
+				console.error(err)
+				if (isMounted) setUri(videoUrl)
+			})
+		return () => {
+			isMounted = false
+		}
+	}, [videoUrl])
+	return uri
+}
+
+/**
+ * Separate component to render a single clip.
+ * This component is now a function component so hooks can be called at its top level.
+ */
+interface ClipItemProps {
+	item: AutoClip
+	index: number
+	handleVideoPress: (clipId: number) => void
+	handleDoubleTap: (clipId: number) => void
+	isPlaying: VideoState
+	currentVideoIndex: number
+	globalMute: boolean
+	networkType: Network.NetworkStateType | null
+	videoLoading: { [key: number]: boolean }
+	setVideoLoading: React.Dispatch<
+		React.SetStateAction<{ [key: number]: boolean }>
+	>
+	renderVideoControls: (clipId: number) => JSX.Element
+	renderClipInfo: (item: AutoClip) => JSX.Element
+	handlePlaybackStatusUpdate: (status: any, clipId: number) => void
+	isDarkMode: boolean
+	videoRefs: React.MutableRefObject<{ [key: number]: React.RefObject<Video> }>
+}
+
+const ClipItem: React.FC<ClipItemProps> = props => {
+	const {
+		item,
+		index,
+		handleVideoPress,
+		handleDoubleTap,
+		isPlaying,
+		currentVideoIndex,
+		globalMute,
+		networkType,
+		videoLoading,
+		setVideoLoading,
+		renderVideoControls,
+		renderClipInfo,
+		handlePlaybackStatusUpdate,
+		isDarkMode,
+		videoRefs
+	} = props
+
+	// State to manage icon visibility
+	const [iconVisible, setIconVisible] = React.useState(false)
+	const [iconType, setIconType] = React.useState<'play' | 'pause'>('play') // Default to play icon
+
+	// Use the custom hook at the top level of this component.
+	const cachedUri = useCachedVideoUri(item.video_url)
+
+	// Ensure a ref exists for this clip.
+	if (!videoRefs.current[item.id]) {
+		videoRefs.current[item.id] = React.createRef()
+	}
+
+	const handlePress = () => {
+		handleVideoPress(item.id)
+		setIconVisible(true)
+		if (isPlaying[item.id]) {
+			setIconType('play')
+		} else {
+			setIconType('pause')
+		}
+		setTimeout(() => {
+			setIconVisible(false)
+		}, 500) // Icon disappears after 500ms
+	}
+
+	return (
+		<View style={{ height, width }} key={`clip-${item.id}`}>
+			<TouchableOpacity
+				activeOpacity={1}
+				onPress={handlePress}
+				onLongPress={() => handleDoubleTap(item.id)}
+				style={{ flex: 1 }}>
+				<Video
+					ref={videoRefs.current[item.id]}
+					source={{ uri: cachedUri }}
+					style={{ flex: 1 }}
+					resizeMode={ResizeMode.COVER}
+					shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
+					isLooping
+					isMuted={globalMute}
+					onPlaybackStatusUpdate={status =>
+						handlePlaybackStatusUpdate(status, item.id)
+					}
+					progressUpdateIntervalMillis={
+						networkType === Network.NetworkStateType.CELLULAR ? 1000 : 250
+					}
+					onLoadStart={() => {
+						setVideoLoading(prev => ({ ...prev, [item.id]: true }))
+					}}
+					onLoad={async () => {
+						setVideoLoading(prev => ({ ...prev, [item.id]: false }))
+						if (index === currentVideoIndex) {
+							try {
+								const ref = videoRefs.current[item.id]?.current
+								if (ref && isPlaying[item.id]) {
+									await ref.playAsync()
+								}
+							} catch (err) {
+								console.error('Error playing video on load:', err)
+							}
+						}
+					}}
+					rate={1.0}
+					volume={1.0}
+				/>
+
+				{/* Play/Pause Icon Overlay */}
+				{iconVisible && (
+					<View style={styles.iconContainer}>
+						<Ionicons // Using Ionicons from expo-vector-icons
+							name={iconType === 'play' ? 'play-circle' : 'pause-circle'}
+							size={60}
+							color='white'
+						/>
+					</View>
+				)}
+
+				{/* Blur loader while the video is loading */}
+				{videoLoading[item.id] && (
+					<BlurView
+						style={StyleSheet.absoluteFill}
+						intensity={60}
+						tint={isDarkMode ? 'dark' : 'light'}>
+						<View
+							style={{
+								flex: 1,
+								alignItems: 'center',
+								justifyContent: 'center'
+							}}>
+							<ActivityIndicator size='small' color='#D55004' />
+						</View>
+					</BlurView>
+				)}
+
+				{/* Video controls (e.g., play/pause overlay) */}
+				{renderVideoControls(item.id)}
+
+				{/* Info overlay with clip details */}
+				{renderClipInfo(item)}
+			</TouchableOpacity>
+		</View>
+	)
+}
+
 export default function AutoClips() {
 	const { isDarkMode } = useTheme()
 	const isFocused = useIsFocused()
 	const { user } = useUser()
 
-	// ****************************
-	// SPLASH SCREEN - ANIMATION LOGIC
-	// ****************************
+	// SPLASH SCREEN & LOADING STATES
 	const [showSplash, setShowSplash] = useState(true)
 	const [splashPhase, setSplashPhase] = useState<
 		'entrance' | 'holding' | 'exit'
 	>('entrance')
-
-	/**
-	 * "isLoading" indicates whether data is still fetching.
-	 * We'll only move to "exit" phase after:
-	 *   1) The entrance animation is fully done
-	 *   2) And isLoading = false
-	 */
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
-
-	// We’ll have 3 circles animating for a “splash” effect.
-	// Each circle has its own scale + opacity.
 	const circleScales = [
 		useRef(new Animated.Value(0)).current,
 		useRef(new Animated.Value(0)).current,
@@ -111,23 +290,11 @@ export default function AutoClips() {
 		useRef(new Animated.Value(1)).current,
 		useRef(new Animated.Value(1)).current
 	]
-
-	// Text fade-in
 	const splashTextOpacity = useRef(new Animated.Value(0)).current
-
-	// Overall container fade-out (for the exit)
 	const splashContainerOpacity = useRef(new Animated.Value(1)).current
 
-	// Phase 1: Entrance animation
 	useEffect(() => {
 		if (splashPhase === 'entrance') {
-			/**
-			 * Animate circles in sequence (or slight overlap):
-			 * 1) Circle 1 from scale 0->1
-			 * 2) Circle 2 from 0->1
-			 * 3) Circle 3 from 0->1
-			 * Then fade in the text
-			 */
 			Animated.sequence([
 				Animated.timing(circleScales[0], {
 					toValue: 1,
@@ -150,21 +317,14 @@ export default function AutoClips() {
 					useNativeDriver: true
 				})
 			]).start(() => {
-				// When entrance finishes, transition to "holding"
 				setSplashPhase('holding')
 			})
 		}
 	}, [splashPhase])
 
-	// Phase 2: Exit animation
-	// We only start the exit once:
-	//   - Phase is "holding" (entrance done)
-	//   - AND isLoading is false
 	useEffect(() => {
 		if (splashPhase === 'holding' && !isLoading) {
 			setSplashPhase('exit')
-
-			// Now fade out the entire container
 			Animated.timing(splashContainerOpacity, {
 				toValue: 0,
 				duration: EXIT_FADE_OUT_DURATION,
@@ -175,21 +335,15 @@ export default function AutoClips() {
 		}
 	}, [splashPhase, isLoading])
 
-	// ****************************
-	// NETWORK, DATA, AND VIDEO STATES
-	// ****************************
+	// NETWORK, DATA, VIDEO STATES
 	const [refreshing, setRefreshing] = useState(false)
 	const [networkType, setNetworkType] =
 		useState<Network.NetworkStateType | null>(null)
-
 	const [autoClips, setAutoClips] = useState<AutoClip[]>([])
 	const viewedClips = useRef<Set<number>>(new Set())
-
 	const [expandedDescriptions, setExpandedDescriptions] = useState<{
 		[key: number]: boolean
 	}>({})
-
-	// Track which videos are playing
 	const [isPlaying, setIsPlaying] = useState<VideoState>({})
 	const [globalMute, setGlobalMute] = useState(false)
 	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({})
@@ -212,7 +366,6 @@ export default function AutoClips() {
 		minimumViewTime: 500
 	}).current
 
-	// Track playback progress/duration
 	const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
 		{}
 	)
@@ -220,9 +373,7 @@ export default function AutoClips() {
 		{}
 	)
 
-	// ***************
 	// FETCH / DATA LOGIC
-	// ***************
 	const initializeClipAnimations = useCallback((clipId: number) => {
 		heartAnimations.current[clipId] = new Animated.Value(0)
 		playPauseAnimations.current[clipId] = new Animated.Value(0)
@@ -237,7 +388,6 @@ export default function AutoClips() {
 					user_id: user.id
 				})
 				viewedClips.current.add(clipId)
-
 				setAutoClips(prev =>
 					prev.map(clip =>
 						clip.id === clipId
@@ -272,18 +422,11 @@ export default function AutoClips() {
 			])
 
 			const carsById = (carsResponse.data || []).reduce(
-				(acc, car) => ({
-					...acc,
-					[car.id]: car
-				}),
+				(acc, car) => ({ ...acc, [car.id]: car }),
 				{}
 			)
-
 			const dealershipsById = (dealershipsResponse.data || []).reduce(
-				(acc, dealer) => ({
-					...acc,
-					[dealer.id]: dealer
-				}),
+				(acc, dealer) => ({ ...acc, [dealer.id]: dealer }),
 				{}
 			)
 
@@ -300,10 +443,7 @@ export default function AutoClips() {
 			setAutoClips(mergedClips)
 			setIsPlaying(
 				mergedClips.reduce(
-					(acc, clip, index) => ({
-						...acc,
-						[clip.id]: index === 0
-					}),
+					(acc, clip, index) => ({ ...acc, [clip.id]: index === 0 }),
 					{}
 				)
 			)
@@ -331,7 +471,6 @@ export default function AutoClips() {
 					...prev,
 					[clipId]: status.durationMillis / 1000
 				}))
-
 				if (
 					status.didJustFinish &&
 					!status.isLooping &&
@@ -379,7 +518,7 @@ export default function AutoClips() {
 		fetchData()
 	}, [fetchData, user])
 
-	// Pause all videos if the tab is not focused
+	// Pause videos when not focused
 	useEffect(() => {
 		const resetVideoPlayback = async (ref: React.RefObject<Video>) => {
 			try {
@@ -401,17 +540,13 @@ export default function AutoClips() {
 		}
 	}, [isFocused])
 
-	// ****************************
 	// VIDEO TAP / LIKE / MUTE LOGIC
-	// ****************************
 	const handleVideoPress = useCallback(
 		async (clipId: number) => {
 			const videoRef = videoRefs.current[clipId]?.current
 			if (!videoRef) return
-
 			const newPlayingState = !isPlaying[clipId]
 			setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
-
 			try {
 				if (newPlayingState) {
 					await videoRef.playAsync()
@@ -424,10 +559,8 @@ export default function AutoClips() {
 						clearTimeout(viewTimers.current[currentVideoIndex])
 					}
 				}
-
 				const animation = playPauseAnimations.current[clipId]
 				setShowPlayPauseIcon(prev => ({ ...prev, [clipId]: true }))
-
 				Animated.sequence([
 					Animated.timing(animation, {
 						toValue: 1,
@@ -462,7 +595,6 @@ export default function AutoClips() {
 					}
 				)
 				if (error) throw error
-
 				setAutoClips(prev =>
 					prev.map(clip => {
 						if (clip.id === clipId) {
@@ -470,7 +602,6 @@ export default function AutoClips() {
 							const updatedLikedUsers = isCurrentlyLiked
 								? clip.liked_users.filter(id => id !== user.id)
 								: [...(clip.liked_users || []), user.id]
-
 							return {
 								...clip,
 								likes: newLikesCount,
@@ -480,8 +611,6 @@ export default function AutoClips() {
 						return clip
 					})
 				)
-
-				// Heart animation
 				const animation = heartAnimations.current[clipId]
 				if (animation) {
 					animation.setValue(0)
@@ -511,7 +640,6 @@ export default function AutoClips() {
 			event.stopPropagation()
 			const newMuteState = !globalMute
 			setGlobalMute(newMuteState)
-
 			Object.values(videoRefs.current).forEach(ref => {
 				ref?.current?.setIsMutedAsync(newMuteState)
 			})
@@ -523,7 +651,6 @@ export default function AutoClips() {
 		async (clipId: number) => {
 			const now = Date.now()
 			const lastTapTime = lastTap.current[clipId] || 0
-
 			if (now - lastTapTime < DOUBLE_TAP_DELAY) {
 				const clip = autoClips.find(c => c.id === clipId)
 				if (clip && !clip.liked_users?.includes(user?.id || '')) {
@@ -535,14 +662,11 @@ export default function AutoClips() {
 		[autoClips, handleLikePress, user?.id]
 	)
 
-	// ****************************
 	// RENDER HELPERS
-	// ****************************
 	const renderVideoControls = useCallback(
 		(clipId: number) => {
 			const clip = autoClips.find(c => c.id === clipId)
 			const isLiked = clip?.liked_users?.includes(user?.id || '') || false
-
 			return (
 				<VideoControls
 					clipId={clipId}
@@ -576,39 +700,63 @@ export default function AutoClips() {
 		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 	}, [])
 
-	const [truncatedTextMap, setTruncatedTextMap] = useState<{
-		[key: number]: boolean
-	}>({})
-
 	const renderClipInfo = useMemo(
 		() => (item: AutoClip) => {
 			const formattedPostDate = getFormattedPostDate(item.created_at)
 			const isDescriptionExpanded = expandedDescriptions[item.id] || false
 			const shouldShowExpandOption =
 				item.description && item.description.length > 80
-
 			return (
-				<View className='absolute bottom-0 left-0 right-0 mb-8'>
+				<View
+					style={{
+						position: 'absolute',
+						bottom: 0,
+						left: 0,
+						right: 0,
+						paddingBottom: 0
+					}}>
 					<LinearGradient
 						colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
-						className='p-5 rounded-t-3xl pb-16 -mb-8'
-						style={{ zIndex: 50 }}>
-						<View className='flex-row items-center justify-between mb-1'>
-							<View className='flex-row items-center flex-1'>
+						style={{
+							padding: 20,
+							borderTopLeftRadius: 30,
+							borderTopRightRadius: 30,
+							paddingBottom: 60,
+							marginBottom: -8,
+							zIndex: 50
+						}}>
+						<View
+							style={{
+								flexDirection: 'row',
+								alignItems: 'center',
+								justifyContent: 'space-between',
+								marginBottom: 4
+							}}>
+							<View
+								style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
 								{item.dealership?.logo && (
 									<Image
-										source={{
-											uri: item.dealership.logo
+										source={{ uri: item.dealership.logo }}
+										style={{
+											width: 48,
+											height: 48,
+											borderRadius: 10,
+											marginRight: 12,
+											backgroundColor: 'rgba(255,255,255,0.5)'
 										}}
-										className='w-12 h-12 rounded-xl mr-3 bg-white/50'
 									/>
 								)}
-								<View className='flex-1'>
-									<Text className='text-white text-lg font-bold'>
+								<View style={{ flex: 1 }}>
+									<Text
+										style={{
+											color: 'white',
+											fontSize: 18,
+											fontWeight: 'bold'
+										}}>
 										{item.dealership?.name}
 									</Text>
-									<View className='flex-row items-center'>
-										<Text className='text-red text-sm'>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Text style={{ color: 'red', fontSize: 12 }}>
 											{formattedPostDate}
 										</Text>
 									</View>
@@ -617,16 +765,16 @@ export default function AutoClips() {
 						</View>
 
 						{item.car && (
-							<View className='mb-1 flex'>
-								<Text className='text-red text-xl font-bold'>
+							<View style={{ marginBottom: 4 }}>
+								<Text
+									style={{ color: 'red', fontSize: 20, fontWeight: 'bold' }}>
 									{item.car.year} {item.car.make} {item.car.model}
 								</Text>
-								<View className='flex-row items-center mt-1'></View>
 							</View>
 						)}
 
 						{item.description && (
-							<View className='mb-1'>
+							<View style={{ marginBottom: 4 }}>
 								<TouchableOpacity
 									onPress={() => {
 										setExpandedDescriptions(prev => ({
@@ -636,11 +784,15 @@ export default function AutoClips() {
 									}}
 									activeOpacity={0.9}>
 									<Text
-										className='text-white/90 text-base leading-6'
+										style={{
+											color: 'rgba(255,255,255,0.9)',
+											fontSize: 16,
+											lineHeight: 24
+										}}
 										numberOfLines={isDescriptionExpanded ? undefined : 2}>
 										{item.description}
 										{shouldShowExpandOption && (
-											<Text className='text-red'>
+											<Text style={{ color: 'red' }}>
 												{' '}
 												{isDescriptionExpanded ? 'Read less' : '... Read more'}
 											</Text>
@@ -651,25 +803,47 @@ export default function AutoClips() {
 						)}
 
 						{item.car && (
-							<View className='flex-row items-center space-x-3'>
+							<View
+								style={{
+									flexDirection: 'row',
+									alignItems: 'center',
+									justifyContent: 'space-between'
+								}}>
 								<TouchableOpacity
-									className='flex-1 bg-red py-2 px-4 rounded-xl flex-row items-center justify-center'
+									style={{
+										flex: 1,
+										backgroundColor: 'red',
+										paddingVertical: 8,
+										paddingHorizontal: 16,
+										borderRadius: 10,
+										flexDirection: 'row',
+										alignItems: 'center',
+										justifyContent: 'center'
+									}}
 									onPress={() => {
 										router.push({
 											pathname: '/(home)/(user)/CarDetails',
-											params: {
-												carId: item.car.id
-											}
+											params: { carId: item.car.id }
 										})
 									}}>
-									<Text className='text-white font-semibold mr-2'>
+									<Text
+										style={{
+											color: 'white',
+											fontWeight: '600',
+											marginRight: 8
+										}}>
 										View Details
 									</Text>
 									<Ionicons name='arrow-forward' size={18} color='white' />
 								</TouchableOpacity>
 
 								<TouchableOpacity
-									className='bg-white/10 p-2 rounded-xl'
+									style={{
+										backgroundColor: 'rgba(255,255,255,0.1)',
+										padding: 8,
+										borderRadius: 10,
+										marginHorizontal: 4
+									}}
 									onPress={async () => {
 										try {
 											await Share.share({
@@ -687,7 +861,11 @@ export default function AutoClips() {
 								</TouchableOpacity>
 
 								<TouchableOpacity
-									className='bg-white/10 p-2 rounded-xl'
+									style={{
+										backgroundColor: 'rgba(255,255,255,0.1)',
+										padding: 8,
+										borderRadius: 10
+									}}
 									onPress={() => {
 										if (item.dealership?.phone) {
 											Linking.openURL(`tel:${item.dealership.phone}`)
@@ -721,27 +899,26 @@ export default function AutoClips() {
 		[]
 	)
 
-	// Preload adjacent videos
+	// Preload adjacent videos (only current and next)
 	useEffect(() => {
 		const preloadAdjacentVideos = async () => {
 			if (autoClips.length > 0) {
 				const visibleIndexes = [
-					Math.max(0, currentVideoIndex - 1),
 					currentVideoIndex,
 					Math.min(autoClips.length - 1, currentVideoIndex + 1)
 				]
 				const estimatedBufferSize = getEstimatedBufferSize(networkType)
-
 				for (const index of visibleIndexes) {
 					const clip = autoClips[index]
 					if (clip) {
 						const ref = videoRefs.current[clip.id]
 						if (ref && ref.current) {
 							try {
+								const localUri = await getCachedVideoUri(clip.video_url)
 								const status = await ref.current.getStatusAsync()
 								if (!status.isLoaded) {
 									await ref.current.loadAsync(
-										{ uri: clip.video_url },
+										{ uri: localUri },
 										{
 											shouldPlay: false,
 											isMuted: globalMute,
@@ -761,7 +938,6 @@ export default function AutoClips() {
 				}
 			}
 		}
-
 		preloadAdjacentVideos()
 	}, [
 		currentVideoIndex,
@@ -776,21 +952,14 @@ export default function AutoClips() {
 			if (viewableItems.length > 0) {
 				const visibleClip = viewableItems[0].item
 				const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id)
-
 				if (newIndex !== currentVideoIndex) {
-					// Clear any existing view timer for the old index
 					if (viewTimers.current[currentVideoIndex]) {
 						clearTimeout(viewTimers.current[currentVideoIndex])
 					}
-
 					setCurrentVideoIndex(newIndex)
-
-					// Set new view timer for the new index
 					viewTimers.current[newIndex] = setTimeout(() => {
 						trackClipView(visibleClip.id)
 					}, 5000)
-
-					// Handle video transitions
 					Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
 						const shouldPlay = clipId === visibleClip.id.toString()
 						try {
@@ -814,164 +983,57 @@ export default function AutoClips() {
 
 	const handleSplashFinish = () => {
 		console.log('Splash has finished!')
-		// If you no longer track showSplash, do nothing else
 	}
 
-	const renderClip = useCallback(
-		({ item, index }: { item: AutoClip; index: number }) => {
-			if (!videoRefs.current[item.id]) {
-				videoRefs.current[item.id] = React.createRef()
-			}
-			return (
-				<View className='h-screen w-screen' key={`clip-${item.id}`}>
-					<TouchableOpacity
-						activeOpacity={1}
-						onPress={() => handleVideoPress(item.id)}
-						onLongPress={() => handleDoubleTap(item.id)}
-						style={{ flex: 1 }}>
-						<Video
-							ref={videoRefs.current[item.id]}
-							source={{ uri: item.video_url }}
-							style={{ flex: 1 }}
-							resizeMode={ResizeMode.COVER}
-							shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
-							isLooping
-							isMuted={globalMute}
-							onPlaybackStatusUpdate={status =>
-								handlePlaybackStatusUpdate(status, item.id)
-							}
-							progressUpdateIntervalMillis={
-								networkType === Network.NetworkStateType.CELLULAR ? 1000 : 250
-							}
-							onLoadStart={() => {
-								setVideoLoading(prev => ({ ...prev, [item.id]: true }))
-							}}
-							onLoad={async () => {
-								setVideoLoading(prev => ({ ...prev, [item.id]: false }))
-								if (index === currentVideoIndex) {
-									try {
-										const ref = videoRefs.current[item.id]?.current
-										if (ref && isPlaying[item.id]) {
-											await ref.playAsync()
-										}
-									} catch (err) {
-										console.error('Error playing video on load:', err)
-									}
-								}
-							}}
-							rate={1.0}
-							volume={1.0}
-						/>
-
-						{/* Blur loader while the video is still loading */}
-						{videoLoading[item.id] && (
-							<BlurView
-								style={StyleSheet.absoluteFill}
-								intensity={60}
-								tint={isDarkMode ? 'dark' : 'light'}>
-								<View className='flex-1 items-center justify-center'>
-									<Animated.ActivityIndicator size='small' color='#D55004' />
-								</View>
-							</BlurView>
-						)}
-
-						{/* Play/Pause Icon Animation */}
-						{showPlayPauseIcon[item.id] && (
-							<Animated.View
-								style={[
-									styles.playPauseIcon,
-									{ opacity: playPauseAnimations.current[item.id] }
-								]}>
-								{isPlaying[item.id] ? (
-									<Play color='white' size={50} />
-								) : (
-									<Pause color='white' size={50} />
-								)}
-							</Animated.View>
-						)}
-
-						{/* Heart Animation */}
-						<Animated.View
-							style={[
-								styles.heartAnimation,
-								{
-									opacity: heartAnimations.current[item.id],
-									transform: [
-										{
-											scale: heartAnimations.current[item.id]?.interpolate({
-												inputRange: [0, 1],
-												outputRange: [0.3, 1.2]
-											})
-										}
-									],
-									zIndex: 70
-								}
-							]}>
-							<Heart size={80} color='#D55004' fill='#D55004' />
-						</Animated.View>
-
-						{/* Video Controls */}
-						{renderVideoControls(item.id)}
-
-						{/* Info Overlay */}
-						{renderClipInfo(item)}
-					</TouchableOpacity>
-				</View>
-			)
-		},
-		[
-			handleVideoPress,
-			handleDoubleTap,
-			isPlaying,
-			currentVideoIndex,
-			globalMute,
-			networkType,
-			showPlayPauseIcon,
-			videoLoading,
-			renderVideoControls,
-			renderClipInfo,
-			handlePlaybackStatusUpdate,
-			isDarkMode
-		]
-	)
-
-	// *******************
-	// ERROR STATE CHECK
-	// *******************
-	if (error) {
-		return (
-			<View style={styles.centerContainer}>
-				<Text style={styles.errorText}>{error}</Text>
-			</View>
-		)
-	}
-
-	// *******************
-	// MAIN RENDER
-	// *******************
 	return (
-		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
-			{/**
-			 * SPLASH SCREEN: Only render if showSplash = true
-			 */}
+		<View
+			style={[
+				{ flex: 1 },
+				isDarkMode ? { backgroundColor: 'black' } : { backgroundColor: 'white' }
+			]}>
 			<SplashScreen
 				isDarkMode={isDarkMode}
 				isLoading={isLoading}
 				onSplashFinish={handleSplashFinish}
 			/>
 
-			{/* Your actual content behind the splash */}
 			<TouchableOpacity
-				className='absolute top-12 left-4 z-50 bg-black/60 p-2 rounded-full backdrop-blur-md'
-				onPress={() => router.back()}
-				style={{ elevation: 5 }}>
+				style={{
+					position: 'absolute',
+					top: 48,
+					left: 16,
+					zIndex: 50,
+					backgroundColor: 'rgba(0,0,0,0.6)',
+					padding: 8,
+					borderRadius: 9999,
+					elevation: 5
+				}}
+				onPress={() => router.back()}>
 				<Ionicons name='home' size={24} color='white' />
 			</TouchableOpacity>
 
 			<FlatList
 				ref={flatListRef}
 				data={autoClips}
-				renderItem={renderClip}
+				renderItem={({ item, index }) => (
+					<ClipItem
+						item={item}
+						index={index}
+						handleVideoPress={handleVideoPress}
+						handleDoubleTap={handleDoubleTap}
+						isPlaying={isPlaying}
+						currentVideoIndex={currentVideoIndex}
+						globalMute={globalMute}
+						networkType={networkType}
+						videoLoading={videoLoading}
+						setVideoLoading={setVideoLoading}
+						renderVideoControls={renderVideoControls}
+						renderClipInfo={renderClipInfo}
+						handlePlaybackStatusUpdate={handlePlaybackStatusUpdate}
+						isDarkMode={isDarkMode}
+						videoRefs={videoRefs}
+					/>
+				)}
 				keyExtractor={item => item.id.toString()}
 				pagingEnabled
 				showsVerticalScrollIndicator={false}
@@ -984,12 +1046,15 @@ export default function AutoClips() {
 						tintColor={isDarkMode ? '#FFFFFF' : '#D55004'}
 					/>
 				}
-				contentContainerStyle={{
-					paddingBottom: TAB_BAR_HEIGHT
-				}}
+				contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT }}
 				removeClippedSubviews
 				maxToRenderPerBatch={MAX_VIDEO_BUFFER}
 				windowSize={MAX_VIDEO_BUFFER * 2 + 1}
+				getItemLayout={(data, index) => ({
+					length: height,
+					offset: height * index,
+					index
+				})}
 			/>
 		</View>
 	)
@@ -1024,14 +1089,12 @@ const styles = StyleSheet.create({
 		transform: [{ translateX: -40 }, { translateY: -40 }],
 		zIndex: 11
 	},
-
-	// SPLASH STYLES
 	splashContainer: {
 		...StyleSheet.absoluteFillObject,
 		justifyContent: 'center',
 		alignItems: 'center',
 		zIndex: 9999,
-		backgroundColor: '#fff' // default for light mode
+		backgroundColor: '#fff'
 	},
 	splashCircle: {
 		position: 'absolute',
@@ -1042,5 +1105,15 @@ const styles = StyleSheet.create({
 	splashText: {
 		fontSize: 28,
 		fontWeight: 'bold'
+	},
+	iconContainer: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'rgba(0,0,0,0.2)' // Optional: Add a slight background dim
 	}
 })
