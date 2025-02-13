@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import React, {
+	useState,
+	useEffect,
+	useCallback,
+	useMemo,
+	useRef
+} from 'react'
 import {
 	View,
 	FlatList,
@@ -44,6 +50,8 @@ interface Car {
 	dealership_location: string
 	dealership_latitude: number
 	dealership_longitude: number
+	views?: number
+	listed_at?: string
 }
 
 interface Filters {
@@ -68,22 +76,21 @@ export default function BrowseCarsPage() {
 	const [cars, setCars] = useState<Car[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
-	const [isLoading, setIsLoading] = useState(true) // Initially true for skeleton
+	const [isLoading, setIsLoading] = useState(true)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState<string | null>(null)
 	const [filters, setFilters] = useState<Filters>({})
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
 	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 	const scrollY = useRef<any>(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
 	useScrollToTop(flatListRef)
-	const fadeAnim = useRef(new Animated.Value(0)).current // For fade-in
+	const fadeAnim = useRef(new Animated.Value(0)).current
 
 	const router = useRouter()
 	const params = useLocalSearchParams<{ filters: string }>()
 	const [isKeyboardVisible, setKeyboardVisible] = useState(false)
+
 	useEffect(() => {
 		const keyboardDidShowListener = Keyboard.addListener(
 			'keyboardDidShow',
@@ -120,7 +127,7 @@ export default function BrowseCarsPage() {
 			duration: 500,
 			useNativeDriver: true
 		}).start()
-	}, [cars]) // Trigger animation when cars data is loaded
+	}, [cars])
 
 	const CustomHeader = React.memo(
 		({ title, onBack }: { title: string; onBack?: () => void }) => {
@@ -149,7 +156,7 @@ export default function BrowseCarsPage() {
 			currentSortOption = sortOption,
 			query = searchQuery
 		) => {
-			setIsLoading(true)
+			setIsLoading(true) // Start loading before fetching
 			try {
 				let queryBuilder = supabase
 					.from('cars')
@@ -159,7 +166,6 @@ export default function BrowseCarsPage() {
 					)
 					.eq('status', 'available')
 
-				// Handle special filters first
 				if (currentFilters.specialFilter) {
 					switch (currentFilters.specialFilter) {
 						case 'newArrivals':
@@ -170,14 +176,12 @@ export default function BrowseCarsPage() {
 								sevenDaysAgo.toISOString()
 							)
 							break
-
 						case 'mostPopular':
 							currentSortOption = 'views_desc'
 							break
 					}
 				}
 
-				// Apply standard filters
 				if (currentFilters.categories && currentFilters.categories.length > 0) {
 					queryBuilder = queryBuilder.in('category', currentFilters.categories)
 				}
@@ -228,7 +232,6 @@ export default function BrowseCarsPage() {
 						.lte('mileage', currentFilters.mileageRange[1])
 				}
 
-				// Handle search query
 				if (query) {
 					const cleanQuery = query.trim().toLowerCase()
 					const searchTerms = cleanQuery.split(/\s+/)
@@ -259,7 +262,6 @@ export default function BrowseCarsPage() {
 					})
 				}
 
-				// Apply sorting
 				switch (currentSortOption) {
 					case 'price_asc':
 						queryBuilder = queryBuilder.order('price', { ascending: true })
@@ -346,7 +348,7 @@ export default function BrowseCarsPage() {
 				setTotalPages(0)
 				setCurrentPage(1)
 			} finally {
-				setIsLoading(false)
+				setIsLoading(false) // End loading after data is fetched or on error
 			}
 		},
 		[filters, sortOption, searchQuery]
@@ -391,16 +393,13 @@ export default function BrowseCarsPage() {
 		})
 	}, [router, filters])
 
-	const handleViewUpdate = useCallback(
-		(carId: string, newViewCount: number) => {
-			setCars(prevCars =>
-				prevCars.map(car =>
-					car.id === carId ? { ...car, views: newViewCount } : car
-				)
+	const handleViewUpdate = useCallback((carId: string, newViewCount: number) => {
+		setCars(prevCars =>
+			prevCars.map(car =>
+				car.id === carId ? { ...car, views: newViewCount } : car
 			)
-		},
-		[]
-	)
+		)
+	}, [])
 
 	const keyExtractor = useCallback(
 		(item: Car) => `${item.id}-${item.make}-${item.model}`,
@@ -413,7 +412,7 @@ export default function BrowseCarsPage() {
 
 	const handleCategoryPress = useCallback(
 		(category: string) => {
-			setIsLoading(true)
+			setIsLoading(true) // Start loading when category is pressed
 			setFilters(prevFilters => {
 				const updatedCategories = prevFilters.categories
 					? prevFilters.categories.includes(category)
@@ -528,7 +527,6 @@ export default function BrowseCarsPage() {
 								onSubmitEditing={handleSearch}
 							/>
 
-							{/* Filter Icon inside search bar */}
 							<TouchableOpacity
 								style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
 								onPress={openFilterPage}>
@@ -539,7 +537,6 @@ export default function BrowseCarsPage() {
 								/>
 							</TouchableOpacity>
 
-							{/* Clear button (only show when there's text) */}
 							{searchQuery.length > 0 && (
 								<TouchableOpacity
 									style={styles.clearButton}
@@ -561,7 +558,7 @@ export default function BrowseCarsPage() {
 									setSortOption(value)
 									fetchCars(1, filters, value, searchQuery)
 								}}
-								initialValue={sortOption} // Pass sortOption directly
+								initialValue={sortOption}
 							/>
 						</View>
 					</View>
@@ -588,7 +585,7 @@ export default function BrowseCarsPage() {
 					)}
 					scrollEventThrottle={16}
 					ListHeaderComponent={renderListHeader}
-					data={isLoading ? Array(3).fill(null) : cars} // Render skeleton items when loading
+					data={isLoading ? Array(3).fill(null) : cars}
 					renderItem={isLoading ? () => <SkeletonCarCard /> : renderCarItem}
 					keyExtractor={isLoading ? (item, index) => `skeleton-${index}` : keyExtractor}
 					onEndReached={() => {
@@ -598,9 +595,7 @@ export default function BrowseCarsPage() {
 					}}
 					onEndReachedThreshold={0.5}
 					ListEmptyComponent={renderListEmpty}
-					ListFooterComponent={() =>
-						isLoading ? null : null // Remove ActivityIndicator when using skeleton
-					}
+					ListFooterComponent={() => null} // Remove ListFooterComponent
 				/>
 			</SafeAreaView>
 		</LinearGradient>
