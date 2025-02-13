@@ -141,6 +141,7 @@ interface ClipItemProps {
 	renderVideoControls: (clipId: number) => JSX.Element
 	renderClipInfo: (item: AutoClip) => JSX.Element
 	handlePlaybackStatusUpdate: (status: any, clipId: number) => void
+	allowPlayback: boolean
 	isDarkMode: boolean
 	videoRefs: React.MutableRefObject<{ [key: number]: React.RefObject<Video> }>
 }
@@ -161,7 +162,8 @@ const ClipItem: React.FC<ClipItemProps> = props => {
 		renderClipInfo,
 		handlePlaybackStatusUpdate,
 		isDarkMode,
-		videoRefs
+		videoRefs,
+		allowPlayback
 	} = props
 
 	// State to manage icon visibility
@@ -218,7 +220,8 @@ const ClipItem: React.FC<ClipItemProps> = props => {
 						if (index === currentVideoIndex) {
 							try {
 								const ref = videoRefs.current[item.id]?.current
-								if (ref && isPlaying[item.id]) {
+
+								if (ref && isPlaying[item.id] && allowPlayback) {
 									await ref.playAsync()
 								}
 							} catch (err) {
@@ -272,6 +275,8 @@ export default function AutoClips() {
 	const { isDarkMode } = useTheme()
 	const isFocused = useIsFocused()
 	const { user } = useUser()
+
+	const [allowVideoPlayback, setAllowVideoPlayback] = useState(false)
 
 	// SPLASH SCREEN & LOADING STATES
 	const [showSplash, setShowSplash] = useState(true)
@@ -379,6 +384,18 @@ export default function AutoClips() {
 		playPauseAnimations.current[clipId] = new Animated.Value(0)
 	}, [])
 
+	useEffect(() => {
+		if (allowVideoPlayback && autoClips.length > 0) {
+			const currentClip = autoClips[currentVideoIndex]
+			if (currentClip) {
+				const ref = videoRefs.current[currentClip.id]
+				if (ref && ref.current) {
+					ref.current.playAsync()
+					setIsPlaying(prev => ({ ...prev, [currentClip.id]: true }))
+				}
+			}
+		}
+	}, [allowVideoPlayback, currentVideoIndex, autoClips])
 	const trackClipView = useCallback(
 		async (clipId: number) => {
 			if (!user || viewedClips.current.has(clipId)) return
@@ -965,8 +982,11 @@ export default function AutoClips() {
 						try {
 							if (shouldPlay) {
 								await ref?.current?.setPositionAsync(0)
-								await ref?.current?.playAsync()
-								setIsPlaying(prev => ({ ...prev, [clipId]: true }))
+
+								if (allowVideoPlayback) {
+									await ref?.current?.playAsync()
+									setIsPlaying(prev => ({ ...prev, [clipId]: true }))
+								}
 							} else {
 								await ref?.current?.pauseAsync()
 								setIsPlaying(prev => ({ ...prev, [clipId]: false }))
@@ -978,11 +998,12 @@ export default function AutoClips() {
 				}
 			}
 		},
-		[autoClips, currentVideoIndex, trackClipView]
+		[autoClips, currentVideoIndex, trackClipView, allowVideoPlayback]
 	)
 
 	const handleSplashFinish = () => {
-		console.log('Splash has finished!')
+		console.log('Splash finished, enabling video playback')
+		setAllowVideoPlayback(true)
 	}
 
 	return (
@@ -1032,6 +1053,8 @@ export default function AutoClips() {
 						handlePlaybackStatusUpdate={handlePlaybackStatusUpdate}
 						isDarkMode={isDarkMode}
 						videoRefs={videoRefs}
+						// Pass our new flag
+						allowPlayback={allowVideoPlayback}
 					/>
 				)}
 				keyExtractor={item => item.id.toString()}
