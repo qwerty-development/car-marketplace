@@ -773,7 +773,7 @@ export default function AutoClips() {
 										{item.dealership?.name}
 									</Text>
 									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<Text style={{ color: 'red', fontSize: 12 }}>
+										<Text style={{ color: '#D55004', fontSize: 12 }}>
 											{formattedPostDate}
 										</Text>
 									</View>
@@ -784,7 +784,7 @@ export default function AutoClips() {
 						{item.car && (
 							<View style={{ marginBottom: 4 }}>
 								<Text
-									style={{ color: 'red', fontSize: 20, fontWeight: 'bold' }}>
+									style={{ color: '#D55004', fontSize: 20, fontWeight: 'bold' }}>
 									{item.car.year} {item.car.make} {item.car.model}
 								</Text>
 							</View>
@@ -809,7 +809,7 @@ export default function AutoClips() {
 										numberOfLines={isDescriptionExpanded ? undefined : 2}>
 										{item.description}
 										{shouldShowExpandOption && (
-											<Text style={{ color: 'red' }}>
+											<Text style={{ color: '#D55004' }}>
 												{' '}
 												{isDescriptionExpanded ? 'Read less' : '... Read more'}
 											</Text>
@@ -829,7 +829,7 @@ export default function AutoClips() {
 								<TouchableOpacity
 									style={{
 										flex: 1,
-										backgroundColor: 'red',
+										backgroundColor: '#D55004',
 										paddingVertical: 8,
 										paddingHorizontal: 16,
 										borderRadius: 10,
