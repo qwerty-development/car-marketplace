@@ -12,7 +12,10 @@ export default function RootLayout() {
 			<View
 				style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
 				<Stack>
-					<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
+					<Stack.Screen
+						name='(tabs)'
+						options={{ animation: 'slide_from_bottom', headerShown: false }}
+					/>
 					<Stack.Screen
 						name='filter'
 						options={{
@@ -64,8 +67,8 @@ export default function RootLayout() {
 							animation: 'slide_from_right',
 							headerShown: false,
 							contentStyle: {
-								backgroundColor: isDarkMode? 'black' : 'white'
-							},
+								backgroundColor: isDarkMode ? 'black' : 'white'
+							}
 						}}
 					/>
 					<Stack.Screen
