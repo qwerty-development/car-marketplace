@@ -663,10 +663,7 @@ export default function CreateAutoClipModal({
 			animationType='none'
 			transparent
 			statusBarTranslucent>
-			<KeyboardAvoidingView
-				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-				className='flex-1'
-				keyboardVerticalOffset={Platform.OS === 'ios' ? -64 : 0}>
+			<View className='flex-1' style={{ zIndex: 99999 }}>
 				<Animated.View
 					entering={FadeIn}
 					exiting={FadeOut}
@@ -871,7 +868,7 @@ export default function CreateAutoClipModal({
 						</Animated.View>
 					</BlurView>
 				</Animated.View>
-			</KeyboardAvoidingView>
+			</View>
 		</Modal>
 	)
 }
