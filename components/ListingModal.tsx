@@ -37,6 +37,7 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
+import DateTimePickerModal from 'react-native-modal-datetime-picker'
 import * as Haptics from 'expo-haptics'
 import Animated, {
 	FadeIn,
@@ -86,9 +87,9 @@ const CONDITIONS = [
 ]
 
 const BrandSelector = memo(
-	({ selectedBrand, onSelectBrand, isDarkMode }: BrandSelectorProps) => {
+	({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
 		// State Management
-		const [brands, setBrands] = useState<Brand[]>([])
+		const [brands, setBrands] = useState<any[]>([])
 		const [showAllBrands, setShowAllBrands] = useState(false)
 		const [searchQuery, setSearchQuery] = useState('')
 		const [isLoading, setIsLoading] = useState(true)
@@ -224,7 +225,7 @@ const BrandSelector = memo(
 
 		// Render brand item component
 		const BrandItem = useCallback(
-			({ brand, isSelected, onPress, size = 'normal' }: BrandItemProps) => (
+			({ brand, isSelected, onPress, size = 'normal' }: any) => (
 				<TouchableOpacity
 					onPress={onPress}
 					className={`${size === 'normal' ? 'mr-3' : ''} ${
@@ -1620,10 +1621,9 @@ const ListingModal = ({
 												Purchase Date
 											</Text>
 											<View
-												className={`
-                        rounded-2xl overflow-hidden
-                        ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'}
-                      `}>
+												className={`rounded-2xl overflow-hidden ${
+													isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'
+												}`}>
 												<BlurView
 													intensity={isDarkMode ? 20 : 40}
 													tint={isDarkMode ? 'dark' : 'light'}
@@ -1634,10 +1634,9 @@ const ListingModal = ({
 														color={isDarkMode ? '#fff' : '#000'}
 													/>
 													<Text
-														className={`
-                            ml-3 text-base
-                            ${isDarkMode ? 'text-white' : 'text-black'}
-                          `}>
+														className={`ml-3 text-base ${
+															isDarkMode ? 'text-white' : 'text-black'
+														}`}>
 														{formData.date_bought
 															? format(new Date(formData.date_bought), 'PPP')
 															: 'Select purchase date'}
@@ -1645,6 +1644,24 @@ const ListingModal = ({
 												</BlurView>
 											</View>
 										</TouchableOpacity>
+
+										<DateTimePickerModal
+											isVisible={showDatePicker}
+											mode='date'
+											date={
+												formData.date_bought
+													? new Date(formData.date_bought)
+													: new Date()
+											}
+											onConfirm={selectedDate => {
+												handleInputChange(
+													'date_bought',
+													selectedDate.toISOString()
+												)
+												setShowDatePicker(false)
+											}}
+											onCancel={() => setShowDatePicker(false)}
+										/>
 
 										<NeumorphicInput
 											label='Seller Name'
@@ -1663,26 +1680,6 @@ const ListingModal = ({
 								</ScrollView>
 
 								{/* Date Picker Modal */}
-								{showDatePicker && (
-									<DateTimePicker
-										value={
-											formData.date_bought
-												? new Date(formData.date_bought)
-												: new Date()
-										}
-										mode='date'
-										display='spinner'
-										onChange={(event, selectedDate) => {
-											setShowDatePicker(false)
-											if (selectedDate) {
-												handleInputChange(
-													'date_bought',
-													selectedDate.toISOString()
-												)
-											}
-										}}
-									/>
-								)}
 							</Animated.View>
 						</BlurView>
 					</Animated.View>
