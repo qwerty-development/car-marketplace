@@ -750,43 +750,57 @@ const NeumorphicInput = memo(
 
 // Selection Option Component
 const SelectionCard = memo(
-	({ label, icon, isSelected, onSelect, isDarkMode }: any) => (
-		<Pressable
-			onPress={onSelect}
-			className={`
-      mr-3 mb-3 p-4 rounded-2xl
-      ${isSelected ? 'bg-red' : isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'}
-    `}>
-			<LinearGradient
-				colors={
-					isSelected
-						? ['#D55004', '#FF6B00']
-						: isDarkMode
-						? ['#1c1c1c', '#2d2d2d']
-						: ['#f5f5f5', '#e5e5e5']
-				}
-				className='absolute inset-0 rounded-2xl'
-				start={{ x: 0, y: 0 }}
-				end={{ x: 1, y: 1 }}
-			/>
+	({
+		label = '',
+		icon = 'car',
+		isSelected = false,
+		onSelect = () => {},
+		isDarkMode = false,
+		imageUrl = null
+	}: any) => (
+		<TouchableOpacity onPress={onSelect} className='mr-3 mb-3 w-28 h-28'>
 			<BlurView
-				intensity={isSelected ? 0 : isDarkMode ? 20 : 40}
+				intensity={isDarkMode ? 20 : 40}
 				tint={isDarkMode ? 'dark' : 'light'}
-				className='items-center'>
-				<MaterialCommunityIcons
-					name={icon}
-					size={24}
-					color={isSelected ? '#fff' : isDarkMode ? '#fff' : '#000'}
-				/>
-				<Text
-					className={`
-        mt-2 text-sm font-medium
-        ${isSelected ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}
-      `}>
-					{label}
-				</Text>
+				className='rounded-2xl h-full'>
+				<LinearGradient
+					colors={
+						isSelected
+							? ['#D55004', '#FF6B00']
+							: isDarkMode
+							? ['#1c1c1c', '#2d2d2d']
+							: ['#f5f5f5', '#e5e5e5']
+					}
+					className='p-4 rounded-2xl items-center justify-center h-full'
+					start={{ x: 0, y: 0 }}
+					end={{ x: 1, y: 1 }}>
+					{imageUrl ? (
+						<Image
+							source={{ uri: imageUrl }}
+							style={{ width: 40, height: 40 }}
+							contentFit='contain'
+							className='mb-2'
+						/>
+					) : (
+						<MaterialCommunityIcons
+							name={icon}
+							size={24}
+							color={isSelected ? '#fff' : isDarkMode ? '#fff' : '#000'}
+						/>
+					)}
+					<Text
+						className={`mt-2 text-sm font-medium text-center ${
+							isSelected
+								? 'text-white'
+								: isDarkMode
+								? 'text-white'
+								: 'text-black'
+						}`}>
+						{label}
+					</Text>
+				</LinearGradient>
 			</BlurView>
-		</Pressable>
+		</TouchableOpacity>
 	)
 )
 
