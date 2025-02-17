@@ -298,6 +298,11 @@ export default function AutoClips() {
 	const splashTextOpacity = useRef(new Animated.Value(0)).current
 	const splashContainerOpacity = useRef(new Animated.Value(1)).current
 
+useEffect(() => {
+  setAllowVideoPlayback(isFocused);
+}, [isFocused]);
+
+
 	useEffect(() => {
 		if (splashPhase === 'entrance') {
 			Animated.sequence([
@@ -397,6 +402,7 @@ export default function AutoClips() {
 		}
 	}, [allowVideoPlayback, currentVideoIndex, autoClips])
 	const trackClipView = useCallback(
+
 		async (clipId: number) => {
 			if (!user || viewedClips.current.has(clipId)) return
 			try {
