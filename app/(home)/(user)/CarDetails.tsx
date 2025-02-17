@@ -1,10 +1,11 @@
 // app/(home)/(user)/CarDetails.tsx
 import React, { useEffect, useState, useCallback, Suspense } from 'react'
-import { View, ActivityIndicator } from 'react-native'
+import { View, ActivityIndicator, Platform,StyleSheet } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import { useCarDetails } from '@/hooks/useCarDetails'
 import { useFavorites } from '@/utils/useFavorites'
+import { useTheme } from '@/utils/ThemeContext'
 
 // Lazy load the CarDetailScreen component
 const CarDetailScreen = React.lazy(() => import('./CarDetailModalIOS'))
@@ -14,6 +15,7 @@ export default function CarDetailsPage() {
 	const [car, setCar] = useState<any>(null)
 	const { toggleFavorite } = useFavorites()
 	const { prefetchCarDetails } = useCarDetails()
+    const { isDarkMode } = useTheme()
 
 	const handleFavoritePress = useCallback(
 		async (carId: any) => {
@@ -62,23 +64,55 @@ export default function CarDetailsPage() {
 		}
 	}, [params.carId, params.prefetchedData, prefetchCarDetails])
 
-	return (
-		<View style={{ flex: 1, backgroundColor: 'transparent' }}>
-			<Suspense
-				fallback={
-					<View
-						style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-						<ActivityIndicator size='large' color='#D55004' />
-					</View>
-				}>
-				{car && (
-					<CarDetailScreen
-						car={car}
-						isDealer={params.isDealerView === 'true'}
-						onFavoritePress={handleFavoritePress}
-					/>
-				)}
-			</Suspense>
-		</View>
-	)
+	   return (
+    <View
+      style={[
+        styles.mainContainer,
+        { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
+      ]}
+    >
+      <Suspense
+        fallback={
+          <View style={[
+            styles.loadingContainer,
+            { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
+          ]}>
+            <ActivityIndicator size='large' color='#D55004' />
+          </View>
+        }
+      >
+        {car && (
+          <View style={[
+            styles.screenContainer,
+            { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
+          ]}>
+            <CarDetailScreen
+              car={car}
+              isDealer={params.isDealerView === 'true'}
+              onFavoritePress={handleFavoritePress}
+            />
+          </View>
+        )}
+      </Suspense>
+    </View>
+  )
 }
+
+const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  screenContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+})

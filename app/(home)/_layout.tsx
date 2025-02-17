@@ -5,6 +5,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { Alert, View, ActivityIndicator, useColorScheme, Animated } from 'react-native'
 import { useNotifications } from '@/hooks/useNotifications'
+import { useTheme } from '@/utils/ThemeContext'
 
 // Global sign-out flag
 let isSigningOut = false
@@ -44,7 +45,7 @@ function LoadingSkeleton() {
   }, []);
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         {
           flex: 1,
@@ -63,6 +64,7 @@ export default function HomeLayout() {
   const { user } = useUser()
   const router = useRouter()
   const segments = useSegments()
+  const { isDarkMode } = useTheme();
 
   const [isCheckingUser, setIsCheckingUser] = useState(true)
   const [isRouting, setIsRouting] = useState(true)
@@ -156,5 +158,7 @@ export default function HomeLayout() {
   }
 
   // 4) Render child routes
-  return <Slot />
+  return  <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+      <Slot />
+    </View>
 }

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Stack } from 'expo-router'
-import { Easing, View } from 'react-native'
+import { Easing, Platform, View } from 'react-native'
 import { useTheme } from '@/utils/ThemeContext'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
@@ -11,7 +11,7 @@ export default function RootLayout() {
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<View
 				style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
-				<Stack>
+				<Stack >
 					<Stack.Screen
 						name='(tabs)'
 						options={{ animation: 'slide_from_bottom', headerShown: false }}
@@ -60,17 +60,37 @@ export default function RootLayout() {
 						}}
 					/>
 
-					<Stack.Screen
-						name='CarDetails'
-						options={{
-							presentation: 'card',
-							animation: 'slide_from_right',
-							headerShown: false,
-							contentStyle: {
-								backgroundColor: isDarkMode ? 'black' : 'white'
-							}
-						}}
-					/>
+<Stack.Screen
+  name='CarDetails'
+  options={{
+    presentation: Platform.select({
+      ios: 'card',
+      android: 'containedModal'
+    }),
+    animation: Platform.select({
+      ios: 'ios_from_right',
+      android: 'default'
+    }),
+    headerShown: false,
+        contentStyle: {
+      backgroundColor: isDarkMode? 'black' : 'white'
+    }
+  }}
+
+/>
+
+<Stack.Screen
+  name='CarDetailsModal'
+  options={{
+    presentation: 'modal',
+    animation: 'slide_from_bottom',
+    headerShown: false,
+    contentStyle: {
+      backgroundColor: 'transparent'
+    }
+  }}
+/>
+
 					<Stack.Screen
 						name='notifications'
 						options={{

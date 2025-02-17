@@ -446,7 +446,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   };
 
   return (
-    <View className={`${isDarkMode ? "bg-black" : "bg-white"} flex-1`}>
+   <View
+    style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
+    ]}
+  >
       <TouchableOpacity
         onPress={() => router.back()}
         className="absolute top-12 left-4 z-50 rounded-full p-2"
@@ -829,6 +834,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 };
 
 const styles = StyleSheet.create({
+ container: {
+    flex: 1,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
   map: {
     height: 200,
     borderRadius: 10,
