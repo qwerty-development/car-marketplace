@@ -1154,7 +1154,7 @@ export default function DealerListings() {
 
 							{/* Gradient Overlay - Enhanced opacity */}
 							<LinearGradient
-								colors={['transparent', 'rgba(0,0,0,0.85)']}
+								colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
 								className='absolute bottom-0 left-0 right-0 h-40'
 							/>
 
