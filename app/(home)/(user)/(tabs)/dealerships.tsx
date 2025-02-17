@@ -13,7 +13,8 @@ import {
 	Animated,
 	Easing,
 	TouchableWithoutFeedback,
-	Dimensions
+	Dimensions,
+  Platform
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
@@ -141,24 +142,30 @@ const SortModal = ({
 }
 
 const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
+  const { isDarkMode } = useTheme();
 
-	return (
-		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row ml-6'>
-				<Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>
-					{title}
-				</Text>
-			</View>
-		</SafeAreaView>
-	)
-})
+  // Use a negative margin for iOS and a normal (or small positive) margin for Android
+  const headerTitleMargin = Platform.OS === 'ios' ? '-mb-5' : 'mb-2';
+
+  return (
+    <SafeAreaView
+      className={`bg-${isDarkMode ? 'black' : 'white'}`}
+
+    >
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <View className="flex-row ml-6">
+        <Text className={`text-2xl font-bold text-black dark:text-white ${headerTitleMargin}`}>
+          {title}
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+});
 
 const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) => {
 	const fadeAnim = useRef(new Animated.Value(0)).current;
 	const translateY = useRef(new Animated.Value(50)).current;
-  
+
 	useEffect(() => {
 	  Animated.parallel([
 		Animated.timing(fadeAnim, {
@@ -175,7 +182,7 @@ const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) =>
 		}),
 	  ]).start();
 	}, []);
-  
+
 	return (
 	  <Animated.View
 		style={{
@@ -263,7 +270,7 @@ export default function DealershipListPage() {
 	const router = useRouter()
 	const scrollRef = useRef(null)
 	const DealershipSkeleton = React.memo(() => (
-		<View 
+		<View
 		  className={`mx-4 mb-4 rounded-2xl overflow-hidden`}
 		  style={{
 			shadowColor: '#000',
@@ -439,7 +446,7 @@ export default function DealershipListPage() {
 			<View className='px-4 pb-3'>
 				<View className='flex-row gap-2'>
 					<View
-						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 
+						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4
 						`}>
 						<FontAwesome
 							name='search'
@@ -501,10 +508,11 @@ export default function DealershipListPage() {
         tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
       />
     }
-    contentContainerStyle={{
-      paddingVertical: 8,
-      flexGrow: 1,
-    }}
+   contentContainerStyle={{
+    paddingVertical: 8,
+    flexGrow: 1,
+    paddingBottom: Platform.OS === 'android' ? 70 : 8, // Extra bottom padding for Android
+  }}
   />
 )}
 

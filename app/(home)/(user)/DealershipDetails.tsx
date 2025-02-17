@@ -40,7 +40,7 @@ const OptimizedImage = React.memo(({ source, style, className }: any) => {
 	const [isLoading, setIsLoading] = useState(true)
 	const [hasError, setHasError] = useState(false)
 
-	
+
 
 	return (
 		<View className={`relative ${className}`}>
@@ -67,7 +67,7 @@ const OptimizedImage = React.memo(({ source, style, className }: any) => {
 const CustomHeader = React.memo(
 	({ title, onBack }: { title: string; onBack?: () => void }) => {
 	  const { isDarkMode } = useTheme();
-  
+
 	  return (
 		<SafeAreaView className={`bg-${isDarkMode ? "black" : "white"}`}>
 		  <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
@@ -75,7 +75,7 @@ const CustomHeader = React.memo(
 			{onBack && (
 			  <Pressable onPress={onBack} className="p-2">
 				<ChevronLeft
-				  size={24}
+				  size={30}
 				  className={isDarkMode ? "text-white" : "text-black"}
 				/>
 			  </Pressable>
@@ -609,7 +609,7 @@ export default function DealershipDetails() {
 				<View className='px-5 mb-4'>
 					<View className='flex-row items-center space-x-2 mb-4'>
 		  <View
-			className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 
+			className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4
 								`}
 		  >
 			<FontAwesome
@@ -645,7 +645,7 @@ export default function DealershipDetails() {
 						</View>
 								  <View className={`items-center justify-center w-12 h-12`}>
 							<SortPicker
-							
+
 								onValueChange={(value: any) => {
 									setFilters(prev => ({ ...prev, sortOption: value }))
 									// Don't trigger a new fetch - let the useEffect handle sorting
