@@ -32,19 +32,25 @@ import { useScrollToTop } from '@react-navigation/native'
 import SkeletonCarCard from '@/components/SkeletonCarCard' // Import skeleton
 // Original CustomHeader (Reverted)
 const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
+  const { isDarkMode } = useTheme();
 
-	return (
-		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row ml-6'>
-				<Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>
-					{title}
-				</Text>
-			</View>
-		</SafeAreaView>
-	)
-})
+  // Use a negative margin for iOS and a normal (or small positive) margin for Android
+  const headerTitleMargin = Platform.OS === 'ios' ? '-mb-5' : 'mb-2';
+
+  return (
+    <SafeAreaView
+      className={`bg-${isDarkMode ? 'black' : 'white'}`}
+
+    >
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <View className="flex-row ml-6">
+        <Text className={`text-2xl font-bold text-black dark:text-white ${headerTitleMargin}`}>
+          {title}
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+});
 
 interface Car {
 	id: number
@@ -331,7 +337,8 @@ export default function Favorite() {
 					data={sortedCars}
 					renderItem={renderCarItem}
 					keyExtractor={keyExtractor}
-					contentContainerStyle={{ flexGrow: 1, paddingBottom: 50 }}
+					contentContainerStyle={{ flexGrow: 1,  paddingBottom: Platform.OS === 'android' ? 150 : 50, // Extra bottom padding for Android
+        }}
 					ListEmptyComponent={EmptyFavorites}
 					refreshControl={
 						<RefreshControl
@@ -353,7 +360,7 @@ export default function Favorite() {
 			<View className='px-4 pb-3'>
 				<View className='flex-row gap-2'>
 					<View
-						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 
+						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4
 								`}>
 						<FontAwesome
 							name='search'

@@ -17,6 +17,7 @@ import {
   StatusBar,
   RefreshControl,
   Pressable,
+  Platform,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -35,9 +36,11 @@ const CustomHeader = React.memo(
     const { isDarkMode } = useTheme();
 
     return (
-      <SafeAreaView className={`bg-${isDarkMode ? "black" : "white"}`}>
+      <SafeAreaView
+        className={`bg-${isDarkMode ? "black" : "white"}`}
+      >
         <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-        <View className="flex-row items-center ml-2">
+        <View className={`flex-row items-center ml-2  ${Platform.OS === "ios" ? "" : "mb-7"}`}>
           {onBack && (
             <Pressable onPress={onBack} className="p-2">
               <ChevronLeft
@@ -49,7 +52,7 @@ const CustomHeader = React.memo(
           <Text
             className={`text-2xl ${
               isDarkMode ? "text-white" : "text-black"
-            }  font-bold ml-2`}
+            } font-bold ml-2`}
           >
             {title}
           </Text>
@@ -58,6 +61,7 @@ const CustomHeader = React.memo(
     );
   }
 );
+
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
   const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
