@@ -491,7 +491,7 @@ export default function BrowseCarsPage() {
 
 	return (
 		<LinearGradient
-			colors={isDarkMode ? ['#000000', '#000000'] : ['#FFFFFF', '#FFFFFF']}
+		colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
 			style={{ flex: 1 }}
 			start={{ x: 0, y: 0 }}
 			end={{ x: 1, y: 1 }}>

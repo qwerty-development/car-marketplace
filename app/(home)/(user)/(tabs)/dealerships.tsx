@@ -204,7 +204,7 @@ const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) =>
 		  onPress={() => onPress(item)}
 		>
 		<LinearGradient
-			colors={isDarkMode ? ['#1A1A1A', '#1A1A1A'] : ['#e6e6e6', '#e6e6e6']}
+			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
 			className='p-4'>
 			<View className='flex-row items-center'>
 				<Image

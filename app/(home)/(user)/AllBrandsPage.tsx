@@ -93,7 +93,7 @@ export default function AllBrandsPage() {
   const { isDarkMode } = useTheme();
 
   const textColor = isDarkMode ? "text-white" : "text-black";
-  const bgColor = isDarkMode ? "bg-night" : "bg-white";
+  const bgColor = isDarkMode ? "bg-black" : "bg-white";
   const borderColor = isDarkMode ? "border-red" : "border-red";
   const sectionHeaderBgColor = isDarkMode ? "bg-gray" : "bg-white";
 
@@ -173,8 +173,7 @@ export default function AllBrandsPage() {
         <View className={`flex-row items-center p-4 rounded-2xl ${
           isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'
         }`}>
-          <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center ${
-            isDarkMode ? 'bg-[#2d2d2d]' : 'bg-white'
+          <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center '
           }`}>
             <Image
               source={{ uri: item.logoUrl }}
