@@ -104,7 +104,7 @@ const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (
 );
 
 const TechnicalDataItem = ({ icon, label, value, isDarkMode, isLast }: any) => (
-  <View className={`flex-row items-center p-4 relative`}>
+  <View className={`flex-row items-center mx-4 py-3 relative`}>
     <View className="w-8">
       <Ionicons
         name={icon}
@@ -120,7 +120,7 @@ const TechnicalDataItem = ({ icon, label, value, isDarkMode, isLast }: any) => (
     <Text className="dark:text-white font-semibold text-sm">{value}</Text>
 
     {!isLast && (
-      <View className="absolute bottom-0 left-[12.5%] w-4/5 h-[1px] bg-[#c9c9c9]" />
+      <View className="absolute bottom-0 w-full h-[1] bg-[#c9c9c9]" />
     )}
   </View>
 );
@@ -599,17 +599,17 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 }}
                 style={{
                   backgroundColor:"#D55004",
-                  borderRadius: 20,
-                  width: 40,
-                  height: 40,
+                  borderRadius: 100,
+                  width: 50,
+                  height: 30,
                   justifyContent: "center",
                   alignItems: "center",
                 }}
               >
                 <Ionicons
-                  name="videocam"
+                  name="film"
                   size={20}
-                  color={isDarkMode ? "white" : "black"}
+                  color={isDarkMode ? "white" : "white"}
                 />
               </TouchableOpacity>
             )}

@@ -187,7 +187,7 @@ export default function UserProfileAndSupportPage() {
       {/* Header Section */}
       <View className="relative">
         <LinearGradient
-          colors={isDarkMode ? ["#D55004", "#1a1a1a"] : ["#D55004", "#ff8c00"]}
+          colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
           className="pt-12 pb-24 rounded-b-[40px]"
         >
           <View className="items-center mt-6">
@@ -216,7 +216,7 @@ export default function UserProfileAndSupportPage() {
       <View className="space-y-4 px-6 -mt-12">
         <TouchableOpacity
           onPress={() => setIsEditMode(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-white"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
       p-4 rounded-xl shadow-sm flex-row items-center`}
         >
           <View className="bg-red/10 p-3 rounded-xl">
@@ -248,7 +248,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={() => setIsSecuritySettingsVisible(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-white"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
       p-4 rounded-xl shadow-sm flex-row items-center`}
         >
           <View className="bg-purple-500/10 p-3 rounded-xl">
@@ -280,7 +280,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={() => setIsNotificationSettingsVisible(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-white"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
       p-4 rounded-xl shadow-sm flex-row items-center`}
         >
           <View className="bg-blue-500/10 p-3 rounded-xl">
@@ -677,7 +677,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={openWhatsApp}
-          className={`${isDarkMode ? "bg-neutral-800/50" : "bg-neutral-100"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
               p-4 rounded-2xl flex-row items-center`}
         >
           <View className="bg-green-500/10 p-3 rounded-xl">
@@ -709,7 +709,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={openEmail}
-          className={`${isDarkMode ? "bg-neutral-800/50" : "bg-neutral-100"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
               p-4 rounded-2xl flex-row items-center`}
         >
           <View className="bg-blue-500/10 p-3 rounded-xl">

@@ -1546,7 +1546,7 @@ const FilterPage = () => {
     }}
     className="w-40 py-3 px-6 rounded-full bg-gradient-to-r from-neutral-600 to-neutral-800 shadow-lg transition-transform active:scale-95"
   >
-    <Text className="text-black dark:text-white border border-textgray p-2 rounded-full bg-red font-medium text-center">
+    <Text className="text-white border border-textgray p-2 rounded-full bg-red font-medium text-center">
       Clear All
     </Text>
   </TouchableOpacity>
