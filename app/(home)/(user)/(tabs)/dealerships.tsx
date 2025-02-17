@@ -511,7 +511,7 @@ export default function DealershipListPage() {
    contentContainerStyle={{
     paddingVertical: 8,
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 70 : 8, // Extra bottom padding for Android
+    paddingBottom: Platform.OS === 'android' ? 70 : 64, // Extra bottom padding for Android
   }}
   />
 )}
