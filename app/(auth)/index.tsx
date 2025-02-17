@@ -1,233 +1,363 @@
-// app/(auth)/index.tsx
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
 import {
-	View,
-	Text,
-	TouchableOpacity,
-	Dimensions,
-	Animated,
-	Image,
-	ActivityIndicator,
-	Alert
-} from 'react-native'
-import { useRouter } from 'expo-router'
-import { useOAuth } from '@clerk/clerk-expo'
-import { Ionicons } from '@expo/vector-icons'
-import { BlurView } from 'expo-blur'
+  View,
+  Text,
+  TouchableOpacity,
+  Dimensions,
+  Animated,
+  Image,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  Easing,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useOAuth } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window')
+const { width, height } = Dimensions.get('window');
 
-// Animated components from your existing pages
-const AnimatedLine = ({ startPos, duration }: any) => {
-	const position = new Animated.Value(0)
+// Animated Blob Component
+const AnimatedBlob = ({ position, size, delay, duration }:any) => {
+  const translateY = new Animated.Value(0);
+  const scale = new Animated.Value(1);
+  const rotate = new Animated.Value(0);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-	useEffect(() => {
-		Animated.loop(
-			Animated.timing(position, {
-				toValue: 1,
-				duration: duration,
-				useNativeDriver: true
-			})
-		).start()
-	}, [duration])
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(translateY, {
+              toValue: 20,
+              duration: duration,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+            Animated.timing(translateY, {
+              toValue: 0,
+              duration: duration,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(scale, {
+              toValue: 1.1,
+              duration: duration * 1.2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+            Animated.timing(scale, {
+              toValue: 1,
+              duration: duration * 1.2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(rotate, {
+              toValue: 1,
+              duration: duration * 2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      ])
+    ).start();
+  }, []);
 
-	return (
-		<Animated.View
-			className='absolute w-[1px] h-[100px] bg-red'
-			style={{
-				left: startPos.x,
-				top: startPos.y,
-				transform: [
-					{
-						translateY: position.interpolate({
-							inputRange: [0, 1],
-							outputRange: [0, height + 100]
-						})
-					}
-				]
-			}}
-		/>
-	)
-}
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: position.x,
+        top: position.y,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: isDark ? 'rgba(213, 80, 4, 0.08)' : 'rgba(213, 80, 4, 0.05)',
+        transform: [
+          { translateY },
+          { scale },
+          {
+            rotate: rotate.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0deg', '360deg'],
+            }),
+          },
+        ],
+      }}
+    />
+  );
+};
 
-const FadingCircle = ({ position, size }: any) => {
-	const opacity = new Animated.Value(0)
+// Animated Logo Component
+const AnimatedLogo = () => {
+  const logoScale = new Animated.Value(0.8);
+  const logoOpacity = new Animated.Value(0);
 
-	useEffect(() => {
-		Animated.loop(
-			Animated.sequence([
-				Animated.timing(opacity, {
-					toValue: 0.5,
-					duration: 2000,
-					useNativeDriver: true
-				}),
-				Animated.timing(opacity, {
-					toValue: 0,
-					duration: 2000,
-					useNativeDriver: true
-				})
-			])
-		).start()
-	}, [])
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(logoScale, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.elastic(1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
 
-	return (
-		<Animated.View
-			style={{
-				position: 'absolute',
-				left: position.x,
-				top: position.y,
-				width: size,
-				height: size,
-				borderRadius: size / 2,
-				backgroundColor: '#D55004',
-				opacity: opacity
-			}}
-		/>
-	)
-}
+  return (
+    <Animated.View
+      style={{
+        transform: [{ scale: logoScale }],
+        opacity: logoOpacity,
+        alignItems: 'center',
+      }}
+    >
+      <Image
+        source={require('@/assets/logo.png')}
+        style={{ width: 120, height: 120 }}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+};
 
-const SocialAuthButton = ({
-	onPress,
-	isLoading,
-	platform
-}: {
-	onPress: () => void
-	isLoading: boolean
-	platform: 'google' | 'apple'
-}) => (
-	<TouchableOpacity
-		onPress={onPress}
-		disabled={isLoading}
-		className='w-full h-14 rounded-full bg-black border border-white/20 flex-row items-center justify-center mb-4'>
-		{isLoading ? (
-			<ActivityIndicator color='#FFF' />
-		) : (
-			<>
-				<Ionicons
-					name={`logo-${platform}`}
-					size={24}
-					color='#FFF'
-					style={{ marginRight: 8 }}
-				/>
-				<Text className='text-white font-semibold text-lg'>
-					Continue with {platform.charAt(0).toUpperCase() + platform.slice(1)}
-				</Text>
-			</>
-		)}
-	</TouchableOpacity>
-)
+// Social Auth Button Component
+const SocialAuthButton = ({ onPress, isLoading, platform }:any) => {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={isLoading}
+      style={{
+        width: '100%',
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+        borderWidth: 1,
+        borderColor: isDark ? '#374151' : '#E5E7EB',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+      }}
+    >
+      {isLoading ? (
+        <ActivityIndicator color={isDark ? '#FFF' : '#000'} />
+      ) : (
+        <>
+          <Ionicons
+            name={`logo-${platform}`}
+            size={24}
+            color={isDark ? '#FFF' : '#000'}
+            style={{ marginRight: 12 }}
+          />
+          <Text
+            style={{
+              color: isDark ? '#FFF' : '#000',
+              fontSize: 18,
+              fontWeight: '600',
+            }}
+          >
+            Continue with {platform.charAt(0).toUpperCase() + platform.slice(1)}
+          </Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+};
 
 export default function LandingPage() {
-	const router = useRouter()
-	const [isLoading, setIsLoading] = useState({
-		google: false,
-		apple: false
-	})
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState({
+    google: false,
+    apple: false,
+  });
+  const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' });
+  const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' });
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-	const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' })
-	const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' })
+  const handleSocialAuth = async (platform: 'google' | 'apple') => {
+    try {
+      setIsLoading(prev => ({ ...prev, [platform]: true }));
+      const auth = platform === 'google' ? googleAuth : appleAuth;
+      const { createdSessionId, setActive } = await auth();
 
-	const handleSocialAuth = async (platform: 'google' | 'apple') => {
-		try {
-			setIsLoading(prev => ({ ...prev, [platform]: true }))
-			const auth = platform === 'google' ? googleAuth : appleAuth
-			const { createdSessionId, setActive } = await auth()
+      if (createdSessionId) {
+        setActive && (await setActive({ session: createdSessionId }));
+        router.replace('/(home)');
+      }
+    } catch (err) {
+      console.error(`${platform} OAuth error:`, err);
+      Alert.alert(
+        'Authentication Error',
+        `Failed to authenticate with ${
+          platform.charAt(0).toUpperCase() + platform.slice(1)
+        }`
+      );
+    } finally {
+      setIsLoading(prev => ({ ...prev, [platform]: false }));
+    }
+  };
 
-			if (createdSessionId) {
-				setActive && (await setActive({ session: createdSessionId }))
-				router.replace('/(home)')
-			}
-		} catch (err) {
-			console.error(`${platform} OAuth error:`, err)
-			Alert.alert(
-				'Authentication Error',
-				`Failed to authenticate with ${
-					platform.charAt(0).toUpperCase() + platform.slice(1)
-				}`
-			)
-		} finally {
-			setIsLoading(prev => ({ ...prev, [platform]: false }))
-		}
-	}
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: isDark ? '#000' : '#fff',
+      }}
+    >
+      {/* Animated Background */}
+      <AnimatedBlob
+        position={{ x: width * 0.1, y: height * 0.1 }}
+        size={200}
+        delay={0}
+        duration={4000}
+      />
+      <AnimatedBlob
+        position={{ x: width * 0.6, y: height * 0.2 }}
+        size={300}
+        delay={1000}
+        duration={5000}
+      />
+      <AnimatedBlob
+        position={{ x: width * 0.2, y: height * 0.7 }}
+        size={250}
+        delay={2000}
+        duration={4500}
+      />
 
-	return (
-		<View className='flex-1 bg-black'>
-			{/* Animated background elements */}
-			<AnimatedLine startPos={{ x: width * 0.2, y: -100 }} duration={15000} />
-			<AnimatedLine startPos={{ x: width * 0.5, y: -100 }} duration={20000} />
-			<AnimatedLine startPos={{ x: width * 0.8, y: -100 }} duration={18000} />
-			<FadingCircle position={{ x: width * 0.1, y: height * 0.1 }} size={100} />
-			<FadingCircle position={{ x: width * 0.7, y: height * 0.3 }} size={150} />
-			<FadingCircle position={{ x: width * 0.3, y: height * 0.8 }} size={120} />
+      <View style={{ flex: 1, justifyContent: 'space-between', padding: 32 }}>
+        {/* Logo Section */}
+        <View style={{ alignItems: 'center', marginTop: 48 }}>
+          <AnimatedLogo />
+          <Text
+            style={{
+              fontSize: 32,
+              fontWeight: 'bold',
+              color: '#D55004',
+              marginTop: 16,
+              textAlign: 'center',
+            }}
+          >
+            Welcome to Fleet
+          </Text>
+          <Text
+            style={{
+              fontSize: 18,
+              color: isDark ? '#9CA3AF' : '#6B7280',
+              marginTop: 8,
+              textAlign: 'center',
+            }}
+          >
+            Your journey begins here
+          </Text>
+        </View>
 
-			<View className='flex-1 justify-between px-8 py-12'>
-				{/* Logo Section */}
-				<View className='items-center mt-12'>
-					<Image
-						source={require('@/assets/types/convertible.png')}
-						className='w-32 h-32'
-						resizeMode='contain'
-					/>
-					<Text className='text-4xl font-bold text-red mt-4 text-center'>
-						Welcome to QWERTY
-					</Text>
-					<Text className='text-gray text-lg mt-2 text-center'>
-						Find your perfect car
-					</Text>
-				</View>
+        {/* Buttons Section */}
+        <View style={{ width: '100%', gap: 16 }}>
+          {/* Social Auth Buttons */}
+          <SocialAuthButton
+            platform="google"
+            isLoading={isLoading.google}
+            onPress={() => handleSocialAuth('google')}
+          />
+          <SocialAuthButton
+            platform="apple"
+            isLoading={isLoading.apple}
+            onPress={() => handleSocialAuth('apple')}
+          />
 
-				{/* Buttons Section */}
-				<View className='w-full space-y-4'>
-					{/* Social Auth Buttons */}
-					<SocialAuthButton
-						platform='google'
-						isLoading={isLoading.google}
-						onPress={() => handleSocialAuth('google')}
-					/>
-					<SocialAuthButton
-						platform='apple'
-						isLoading={isLoading.apple}
-						onPress={() => handleSocialAuth('apple')}
-					/>
+          {/* Divider */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }} />
+            <Text style={{ marginHorizontal: 16, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+              OR
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }} />
+          </View>
 
-					{/* Divider */}
-					<View className='flex-row items-center my-4'>
-						<View className='flex-1 h-[1px] bg-white/20' />
-						<Text className='text-white/60 mx-4'>OR</Text>
-						<View className='flex-1 h-[1px] bg-white/20' />
-					</View>
+          {/* Regular Auth Buttons */}
+          <TouchableOpacity
+            onPress={() => router.push('/sign-in')}
+            style={{
+              width: '100%',
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: '#D55004',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>
+              Sign In
+            </Text>
+          </TouchableOpacity>
 
-					{/* Regular Auth Buttons */}
-					<TouchableOpacity
-						onPress={() => router.push('/sign-in')}
-						className='w-full h-14 rounded-full bg-red flex-row items-center justify-center'>
-						<Text className='text-white font-semibold text-lg'>Sign In</Text>
-					</TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/sign-up')}
+            style={{
+              width: '100%',
+              height: 56,
+              borderRadius: 28,
+              borderWidth: 2,
+              borderColor: '#D55004',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#D55004', fontSize: 18, fontWeight: '600' }}>
+              Create Account
+            </Text>
+          </TouchableOpacity>
 
-					<TouchableOpacity
-						onPress={() => router.push('/sign-up')}
-						className='w-full h-14 rounded-full border-2 border-red flex-row items-center justify-center'>
-						<Text className='text-red font-semibold text-lg'>
-							Create Account
-						</Text>
-					</TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/forgot-password')}
+            style={{ marginTop: 16 }}
+          >
+            <Text
+              style={{
+                color: isDark ? '#fff' : '#000',
+                textAlign: 'center',
+                textDecorationLine: 'underline',
+              }}
+            >
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-					<TouchableOpacity
-						onPress={() => router.push('/forgot-password')}
-						className='mt-4'>
-						<Text className='text-white text-center underline'>
-							Forgot Password?
-						</Text>
-					</TouchableOpacity>
-				</View>
-
-				{/* Terms & Privacy */}
-				<Text className='text-white/60 text-center text-sm mt-8'>
-					By continuing, you agree to our{' '}
-					<Text className='text-red'>Terms of Service</Text> and{' '}
-					<Text className='text-red'>Privacy Policy</Text>
-				</Text>
-			</View>
-		</View>
-	)
+        {/* Terms & Privacy */}
+        <Text
+          style={{
+            color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+            textAlign: 'center',
+            fontSize: 14,
+            marginTop: 32,
+          }}
+        >
+          By continuing, you agree to our{' '}
+          <Text style={{ color: '#D55004' }}>Terms of Service</Text> and{' '}
+          <Text style={{ color: '#D55004' }}>Privacy Policy</Text>
+        </Text>
+      </View>
+    </View>
+  );
 }

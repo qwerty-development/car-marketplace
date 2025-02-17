@@ -12,78 +12,66 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  useColorScheme,
+  Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
 import { useOAuth } from "@clerk/clerk-expo";
 import { maybeCompleteAuthSession } from "expo-web-browser";
 
-// Complete auth session
 maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get("window");
 
-interface AnimatedLineProps {
-  startPos: { x: number; y: number };
+// Animated background blob component
+interface BlobProps {
+  position: { x: number; y: number };
+  size: number;
+  delay: number;
   duration: number;
 }
 
-const AnimatedLine: React.FC<AnimatedLineProps> = ({ startPos, duration }) => {
-  const position = new Animated.Value(0);
+const AnimatedBlob: React.FC<BlobProps> = ({ position, size, delay, duration }) => {
+  const translateY = new Animated.Value(0);
+  const scale = new Animated.Value(1);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(position, {
-        toValue: 1,
-        duration: duration,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, [duration]);
-
-  return (
-    <Animated.View
-      style={{
-        position: "absolute",
-        left: startPos.x,
-        top: startPos.y,
-        width: 1,
-        height: 100,
-        backgroundColor: "#D55004",
-        transform: [
-          {
-            translateY: position.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, height + 100],
-            }),
-          },
-        ],
-      }}
-    />
-  );
-};
-
-interface FadingCircleProps {
-  position: { x: number; y: number };
-  size: number;
-}
-
-const FadingCircle: React.FC<FadingCircleProps> = ({ position, size }) => {
-  const opacity = new Animated.Value(0);
-
-  useEffect(() => {
+    // Float animation
     Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.5,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
+        Animated.delay(delay),
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(translateY, {
+              toValue: 20,
+              duration: duration,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+            Animated.timing(translateY, {
+              toValue: 0,
+              duration: duration,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(scale, {
+              toValue: 1.1,
+              duration: duration * 1.2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+            Animated.timing(scale, {
+              toValue: 1,
+              duration: duration * 1.2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
       ])
     ).start();
   }, []);
@@ -91,19 +79,23 @@ const FadingCircle: React.FC<FadingCircleProps> = ({ position, size }) => {
   return (
     <Animated.View
       style={{
-        position: "absolute",
+        position: 'absolute',
         left: position.x,
         top: position.y,
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: "#D55004",
-        opacity: opacity,
+        backgroundColor: isDark ? 'rgba(213, 80, 4, 0.08)' : 'rgba(213, 80, 4, 0.05)',
+        transform: [
+          { translateY },
+          { scale },
+        ],
       }}
     />
   );
 };
 
+// OAuth Component
 const SignInWithOAuth = () => {
   const [isLoading, setIsLoading] = useState<{
     google: boolean;
@@ -112,6 +104,8 @@ const SignInWithOAuth = () => {
   const { startOAuthFlow: googleAuth } = useOAuth({ strategy: "oauth_google" });
   const { startOAuthFlow: appleAuth } = useOAuth({ strategy: "oauth_apple" });
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const onSelectAuth = async (strategy: "google" | "apple") => {
     try {
@@ -127,9 +121,7 @@ const SignInWithOAuth = () => {
       console.error("OAuth error:", err);
       Alert.alert(
         "Authentication Error",
-        "Failed to authenticate with " +
-          strategy.charAt(0).toUpperCase() +
-          strategy.slice(1)
+        "Failed to authenticate with " + strategy.charAt(0).toUpperCase() + strategy.slice(1)
       );
     } finally {
       setIsLoading((prev) => ({ ...prev, [strategy]: false }));
@@ -137,29 +129,47 @@ const SignInWithOAuth = () => {
   };
 
   return (
-    <View className="w-full flex mt-8 items-center justify-center">
-      <View className="flex-row space-x-4">
+    <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 16 }}>
         <TouchableOpacity
           onPress={() => onSelectAuth("google")}
           disabled={isLoading.google}
-          className="items-center justify-center bg-black border-white/20 border w-14 h-14 rounded-full"
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+            borderWidth: 1,
+            borderColor: isDark ? '#374151' : '#E5E7EB',
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+          }}
         >
           {isLoading.google ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
           ) : (
-            <Ionicons name="logo-google" size={24} color="#fff" />
+            <Ionicons name="logo-google" size={24} color={isDark ? '#fff' : '#000'} />
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => onSelectAuth("apple")}
           disabled={isLoading.apple}
-          className="items-center justify-center bg-black border border-white/20 w-14 h-14 rounded-full"
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+            borderWidth: 1,
+            borderColor: isDark ? '#374151' : '#E5E7EB',
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+          }}
         >
           {isLoading.apple ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
           ) : (
-            <Ionicons name="logo-apple" size={24} color="#FFF" />
+            <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
           )}
         </TouchableOpacity>
       </View>
@@ -167,9 +177,12 @@ const SignInWithOAuth = () => {
   );
 };
 
+// Main SignIn Component
 export default function SignInPage() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -221,9 +234,7 @@ export default function SignInPage() {
       }
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
-      setEmailError(
-        err.errors?.[0]?.message || "An error occurred. Please try again."
-      );
+      setEmailError(err.errors?.[0]?.message || "An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -232,65 +243,113 @@ export default function SignInPage() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-black"
+      style={{
+        flex: 1,
+        backgroundColor: isDark ? '#000' : '#fff',
+      }}
     >
-      <AnimatedLine startPos={{ x: width * 0.2, y: -100 }} duration={15000} />
-      <AnimatedLine startPos={{ x: width * 0.5, y: -100 }} duration={20000} />
-      <AnimatedLine startPos={{ x: width * 0.8, y: -100 }} duration={18000} />
+      {/* Animated Background */}
+      <AnimatedBlob
+        position={{ x: width * 0.1, y: height * 0.1 }}
+        size={200}
+        delay={0}
+        duration={4000}
+      />
+      <AnimatedBlob
+        position={{ x: width * 0.6, y: height * 0.2 }}
+        size={300}
+        delay={1000}
+        duration={5000}
+      />
+      <AnimatedBlob
+        position={{ x: width * 0.2, y: height * 0.7 }}
+        size={250}
+        delay={2000}
+        duration={4500}
+      />
 
-      <FadingCircle position={{ x: width * 0.1, y: height * 0.1 }} size={100} />
-      <FadingCircle position={{ x: width * 0.7, y: height * 0.3 }} size={150} />
-      <FadingCircle position={{ x: width * 0.3, y: height * 0.8 }} size={120} />
-
-      <View className="flex-1 justify-center px-8">
-        <Text className="text-4xl font-bold mb-8 text-[#D55004] text-center">
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}>
+        <Text
+          style={{
+            fontSize: 32,
+            fontWeight: 'bold',
+            marginBottom: 32,
+            color: '#D55004',
+            textAlign: 'center',
+          }}
+        >
           Sign In
         </Text>
 
-        <View className="mb-4 space-y-4">
+        <View style={{ marginBottom: 16, gap: 16 }}>
           <View>
             <TextInput
-              className="w-full h-12 px-4 bg-[#1F2937] text-white rounded-lg border border-[#374151]"
+              style={{
+                width: '100%',
+                height: 48,
+                paddingHorizontal: 16,
+                backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                color: isDark ? '#fff' : '#000',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: isDark ? '#374151' : '#E5E7EB',
+              }}
               autoCapitalize="none"
               value={emailAddress}
               placeholder="Email"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
               onChangeText={setEmailAddress}
               keyboardType="email-address"
               autoComplete="email"
               editable={!isLoading}
             />
             {emailError && (
-              <Text className="text-[#D55004] text-sm mt-1">{emailError}</Text>
+              <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                {emailError}
+              </Text>
             )}
           </View>
 
           <View>
-            <View className="relative">
+            <View style={{ position: 'relative' }}>
               <TextInput
-                className="w-full h-12 px-4 bg-[#1F2937] text-white rounded-lg border border-[#374151]"
+                style={{
+                  width: '100%',
+                  height: 48,
+                  paddingHorizontal: 16,
+                  paddingRight: 48,
+                  backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                  color: isDark ? '#fff' : '#000',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#374151' : '#E5E7EB',
+                }}
                 value={password}
                 placeholder="Password"
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 secureTextEntry={!showPassword}
                 onChangeText={setPassword}
                 autoComplete="password"
                 editable={!isLoading}
               />
               <TouchableOpacity
-                className="absolute right-4 top-3"
+                style={{
+                  position: 'absolute',
+                  right: 16,
+                  top: 12,
+                }}
                 onPress={togglePasswordVisibility}
                 disabled={isLoading}
               >
                 <Ionicons
                   name={showPassword ? "eye-off" : "eye"}
                   size={24}
-                  color="#6B7280"
+                  color={isDark ? '#6B7280' : '#9CA3AF'}
                 />
               </TouchableOpacity>
             </View>
             {passwordError && (
-              <Text className="text-[#D55004] text-sm mt-1">
+              <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
                 {passwordError}
               </Text>
             )}
@@ -298,20 +357,28 @@ export default function SignInPage() {
         </View>
 
         {error && (
-          <Text className="text-[#D55004] text-center mb-4">{error}</Text>
+          <Text style={{ color: '#D55004', textAlign: 'center', marginBottom: 16 }}>
+            {error}
+          </Text>
         )}
 
         <TouchableOpacity
-          className={`bg-[#D55004] py-2 rounded-full  flex-row justify-center items-center ${
-            isLoading ? "opacity-70" : ""
-          }`}
+          style={{
+            backgroundColor: '#D55004',
+            paddingVertical: 12,
+            borderRadius: 24,
+            opacity: isLoading ? 0.7 : 1,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
           onPress={onSignInPress}
           disabled={isLoading}
         >
           {isLoading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-bold text-lg text-center">
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
               Sign In
             </Text>
           )}
@@ -319,20 +386,22 @@ export default function SignInPage() {
 
         <SignInWithOAuth />
 
-        <View className="flex-row justify-center mt-6">
-          <Text className="text-[#9CA3AF]">Don't have an account? </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>
+          <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+            Don't have an account?{' '}
+          </Text>
           <Link href="/sign-up" asChild>
             <TouchableOpacity>
-              <Text className="text-[#D55004] font-bold">Sign up</Text>
+              <Text style={{ color: '#D55004', fontWeight: 'bold' }}>Sign up</Text>
             </TouchableOpacity>
           </Link>
         </View>
 
         <TouchableOpacity
           onPress={() => router.push("/forgot-password")}
-          className="mx-auto mt-4"
+          style={{ marginTop: 16, alignSelf: 'center' }}
         >
-          <Text className="text-white underline text-center">
+          <Text style={{ color: isDark ? '#fff' : '#000', textDecorationLine: 'underline', textAlign: 'center' }}>
             Forgot Password?
           </Text>
         </TouchableOpacity>

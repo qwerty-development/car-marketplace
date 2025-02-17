@@ -326,6 +326,7 @@ export default function Favorite() {
 		return (
 			<Animated.View style={{ opacity: fadeAnim }}>
 				<FlatList
+				className='mb-56'
 					ref={scrollRef}
 					data={sortedCars}
 					renderItem={renderCarItem}

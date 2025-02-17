@@ -48,14 +48,14 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
 
 	return (
-		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row ml-6'>
-				<Text className='text-2xl -mb-5 font-bold text-black dark:text-white'>
-					{title}
-				</Text>
-			</View>
-		</SafeAreaView>
+	<SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
+	  <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+	  <View className='ml-3'>
+		<Text className={`text-2xl  font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+		  {title}
+		</Text>
+	  </View>
+	</SafeAreaView>
 	)
 })
 
@@ -796,22 +796,14 @@ export default function SalesHistoryPage() {
 
 	return (
 		<LinearGradient
-			colors={isDarkMode ? ['#1A1A1A', '#2D2D2D'] : ['#F8F9FA', '#E9ECEF']}
+		colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
 			className='flex-1'>
-			<SafeAreaView className='flex-1'>
 				{/* Header */}
-				<View className='px-4 pt-2 pb-4'>
-					<Text
-						className={`text-2xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						Sales History
-					</Text>
-				</View>
+				<CustomHeader title='Sales History'/>
 
 				{/* KPI Section */}
 				<ScrollView
-					className='flex-1'
+					className='flex-1 mt-8'
 					ref={scrollRef}
 					refreshControl={
 						<RefreshControl
@@ -874,7 +866,6 @@ export default function SalesHistoryPage() {
 						</View>
 					</View>
 				</ScrollView>
-			</SafeAreaView>
 			{selectedSale && (
 				<SaleDetailsModal
 					isVisible={isModalVisible}

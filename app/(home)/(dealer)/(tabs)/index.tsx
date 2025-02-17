@@ -33,17 +33,14 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 	const { isDarkMode } = useTheme()
 
 	return (
-		<SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'} `}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-			<View className='flex-row ml-6'>
-				<Text
-					className={`text-2xl -mb-5 font-bold ${
-						isDarkMode ? 'text-white' : 'text-black'
-					} `}>
-					{title}
-				</Text>
-			</View>
-		</SafeAreaView>
+	<SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
+	  <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+	  <View className='ml-3'>
+		<Text className={`text-2xl  font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+		  {title}
+		</Text>
+	  </View>
+	</SafeAreaView>
 	)
 })
 
