@@ -367,15 +367,15 @@ export default function Favorite() {
 							size={20}
 							color={isDarkMode ? 'white' : 'black'}
 						/>
-						<TextInput
-							className={`flex-1 p-3 ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}
-							placeholder='Search Favorites...'
-							placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
-							value={searchQuery}
-							onChangeText={setSearchQuery}
-						/>
+					<TextInput
+  className={`flex-1 p-3 ${isDarkMode ? 'text-white' : 'text-black'}`}
+  placeholder="Search Favorites..."
+  placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+  value={searchQuery}
+  onChangeText={setSearchQuery}
+  textAlignVertical="center"
+/>
+
 					</View>
 
 					<View className={`items-center justify-center w-12 h-12`}>

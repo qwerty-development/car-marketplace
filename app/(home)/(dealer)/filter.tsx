@@ -109,6 +109,7 @@ const RangeInput = ({ label, min, max, value, onChange, step = 1 }: any) => {
 						Min
 					</Text>
 					<TextInput
+           textAlignVertical="center"
 						className={`border rounded-md p-2 mt-1 ${
 							isDarkMode
 								? 'text-white border-red bg-gray'
@@ -125,6 +126,7 @@ const RangeInput = ({ label, min, max, value, onChange, step = 1 }: any) => {
 						Max
 					</Text>
 					<TextInput
+           textAlignVertical="center"
 						className={`border rounded-md p-2 mt-1 ${
 							isDarkMode
 								? 'text-white border-red bg-gray'
@@ -190,6 +192,7 @@ const SearchableSelect = ({
 				{isDropdownOpen && (
 					<View>
 						<TextInput
+             textAlignVertical="center"
 							className={`p-3 ${
 								isDarkMode ? 'text-white bg-red' : 'text-white bg-red'
 							}`}

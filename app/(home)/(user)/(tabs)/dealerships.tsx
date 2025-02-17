@@ -461,6 +461,7 @@ export default function DealershipListPage() {
 							placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
 							value={searchQuery}
 							onChangeText={setSearchQuery}
+               textAlignVertical="center"
 						/>
 					</View>
 

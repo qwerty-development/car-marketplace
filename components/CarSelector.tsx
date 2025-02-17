@@ -359,6 +359,7 @@ export default function CarSelector({
 										color={isDarkMode ? 'white' : 'black'}
 									/>
 									<TextInput
+                   textAlignVertical="center"
 										className={`flex-1 px-3 h-full ${
 											isDarkMode ? 'text-white' : 'text-black'
 										}`}

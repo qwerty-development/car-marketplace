@@ -472,6 +472,7 @@ export default function BrowseCarsPage() {
 								style={{ marginLeft: 12 }}
 							/>
 							<TextInput
+               textAlignVertical="center"
 								style={[
 									styles.searchInput,
 									isDarkMode && styles.darkSearchInput

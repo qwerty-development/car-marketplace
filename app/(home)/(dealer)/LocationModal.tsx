@@ -60,12 +60,12 @@ export const LocationModal: React.FC<LocationModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <Pressable 
+      <Pressable
         className="flex-1 bg-black/50"
         onPress={onClose}
       >
         <View className="flex-1 justify-end">
-          <Pressable 
+          <Pressable
             className={`${
               isDarkMode ? 'bg-neutral-900' : 'bg-white'
             } rounded-t-3xl p-6 shadow-lg h-3/4`}
@@ -82,6 +82,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
             <View className="flex-1">
               <TextInput
+               textAlignVertical="center"
                 className={`${
                   isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
                 } p-4 rounded-xl mb-4`}

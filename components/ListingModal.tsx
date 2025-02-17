@@ -380,6 +380,7 @@ const BrandSelector = memo(
 										color={isDarkMode ? 'white' : 'black'}
 									/>
 									<TextInput
+                   textAlignVertical="center"
 										className={`flex-1 px-3 h-full ${
 											isDarkMode ? 'text-white' : 'text-black'
 										}`}
@@ -713,6 +714,7 @@ const NeumorphicInput = memo(
 						)}
 
 						<TextInput
+             textAlignVertical="center"
 							value={value?.toString()}
 							onChangeText={onChangeText}
 							placeholder={placeholder}

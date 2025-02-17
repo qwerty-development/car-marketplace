@@ -328,6 +328,7 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 										Title
 									</Text>
 									<TextInput
+                   textAlignVertical="center"
 										value={title}
 										onChangeText={setTitle}
 										placeholder='Enter title'
@@ -349,6 +350,7 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 										Description
 									</Text>
 									<TextInput
+                   textAlignVertical="center"
 										value={description}
 										onChangeText={setDescription}
 										placeholder='Enter description'

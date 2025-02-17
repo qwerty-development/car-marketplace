@@ -44,8 +44,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={styles.modalBackground} />
         </TouchableWithoutFeedback>
-        
-        <View 
+
+        <View
           style={[
             styles.modalContent,
             { backgroundColor: isDarkMode ? '#1A1A1A' : 'white' }
@@ -62,6 +62,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
           <View className="space-y-4">
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -73,12 +74,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             />
 
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
               value={formData.phone}
               onChangeText={text => setFormData((prev: any) => ({ ...prev, phone: text }))}
-              placeholder="Contact Number" 
+              placeholder="Contact Number"
               keyboardType="phone-pad"
               placeholderTextColor={isDarkMode ? '#999' : '#666'}
               cursorColor="#D55004"

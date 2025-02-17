@@ -229,6 +229,7 @@ export default function AllBrandsPage() {
     placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
     value={searchQuery}
     onChangeText={setSearchQuery}
+     textAlignVertical="center"
   />
 </View>
         </View>

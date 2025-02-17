@@ -623,6 +623,7 @@ export default function DealershipDetails() {
 			  }`}
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? '#999999' : '#666666'}
+                 textAlignVertical="center"
 								value={filters.searchQuery}
 								onChangeText={text =>
 									setFilters(prev => ({ ...prev, searchQuery: text }))

@@ -654,6 +654,7 @@ export default function DealershipDetails() {
 				style={styles.container}>
 				<View style={styles.searchContainer}>
 					<TextInput
+           textAlignVertical="center"
 						style={[styles.searchInput, isDarkMode && styles.darkText]}
 						placeholder='Search cars...'
 						placeholderTextColor={isDarkMode ? '#888' : '#555'}

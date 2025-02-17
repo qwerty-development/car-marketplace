@@ -3,16 +3,16 @@ import { View, Text, Modal, TextInput, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import type { EditProfileModalProps } from './types/type'
 
-export const EditProfileModal: React.FC<EditProfileModalProps> = ({ 
-  visible, 
-  onClose, 
+export const EditProfileModal: React.FC<EditProfileModalProps> = ({
+  visible,
+  onClose,
   firstName,
   lastName,
   email,
   setFirstName,
   setLastName,
   onUpdate,
-  isDarkMode 
+  isDarkMode
 }) => {
   return (
     <Modal
@@ -22,7 +22,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end">
-        <View 
+        <View
           className={`${
             isDarkMode ? 'bg-neutral-900' : 'bg-white'
           } rounded-t-3xl p-6 shadow-lg`}
@@ -38,6 +38,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
           <View className="space-y-4">
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -47,6 +48,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               placeholderTextColor={isDarkMode ? '#999' : '#666'}
             />
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -56,6 +58,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               placeholderTextColor={isDarkMode ? '#999' : '#666'}
             />
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}

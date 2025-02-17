@@ -42,8 +42,8 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={styles.modalBackground} />
         </TouchableWithoutFeedback>
-        
-        <View 
+
+        <View
           style={[
             styles.modalContent,
             { backgroundColor: isDarkMode ? '#1A1A1A' : 'white' }
@@ -60,6 +60,7 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
 
           <View className="space-y-4">
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -72,6 +73,7 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
             />
 
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -84,6 +86,7 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
             />
 
             <TextInput
+             textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}

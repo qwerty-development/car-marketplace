@@ -525,6 +525,7 @@ export default function BrowseCarsPage() {
 								value={searchQuery}
 								onChangeText={setSearchQuery}
 								onSubmitEditing={handleSearch}
+                 textAlignVertical="center"
 							/>
 
 							<TouchableOpacity

@@ -172,6 +172,7 @@ const NeumorphicInput = React.memo(
 							)}
 
 							<TextInput
+               textAlignVertical="center"
 								value={value}
 								onChangeText={onChangeText}
 								placeholder={placeholder}

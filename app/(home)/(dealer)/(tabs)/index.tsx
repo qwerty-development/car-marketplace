@@ -98,6 +98,7 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
 
 				{/* Search Input */}
 				<TextInput
+         textAlignVertical="center"
 					placeholder='Search inventory...'
 					value={localSearchQuery}
 					onChangeText={handleTextChange}
@@ -230,6 +231,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							Sold Price
 						</Text>
 						<TextInput
+             textAlignVertical="center"
 							placeholder='Enter sold price'
 							value={soldInfo.price}
 							onChangeText={text =>
@@ -247,6 +249,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							Date Sold
 						</Text>
 						<TextInput
+             textAlignVertical="center"
 							placeholder='YYYY-MM-DD'
 							value={soldInfo.date}
 							onChangeText={text =>
@@ -263,6 +266,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							Buyer Name
 						</Text>
 						<TextInput
+             textAlignVertical="center"
 							placeholder='Enter buyer name'
 							value={soldInfo.buyer_name}
 							onChangeText={text =>
@@ -454,6 +458,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 								</Text>
 								<View className='flex-row space-x-4'>
 									<TextInput
+                   textAlignVertical="center"
 										placeholder='Min Price'
 										value={localFilters.minPrice}
 										onChangeText={value => handleChange('minPrice', value)}
@@ -466,6 +471,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 										placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
 									/>
 									<TextInput
+                   textAlignVertical="center"
 										placeholder='Max Price'
 										value={localFilters.maxPrice}
 										onChangeText={value => handleChange('maxPrice', value)}
@@ -490,6 +496,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 								</Text>
 								<View className='flex-row space-x-4'>
 									<TextInput
+                   textAlignVertical="center"
 										placeholder='Min Year'
 										value={localFilters.minYear}
 										onChangeText={value => handleChange('minYear', value)}
@@ -502,6 +509,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 										placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
 									/>
 									<TextInput
+                   textAlignVertical="center"
 										placeholder='Max Year'
 										value={localFilters.maxYear}
 										onChangeText={value => handleChange('maxYear', value)}
