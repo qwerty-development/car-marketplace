@@ -15,34 +15,14 @@ interface NotificationSchedule {
 
 // Define the notification schedules (you can customize these)
 const notificationSchedules: NotificationSchedule[] = [
-  {
-    hour: 9,
-    title: "🌅 Morning Updates",
-    message: "Start your day with fresh car listings!",
+{
+    hour: 16, // Scheduled hour in each user's local time for the daily notification
+    title: "🌅 Daily Update",
+    message: "Check out the latest car listings for today!",
     data: {
       screen: '/(home)/(user)',
       type: 'daily_reminder',
       timeOfDay: 'morning'
-    }
-  },
-  {
-    hour: 14,
-    title: "🚗 Afternoon Picks",
-    message: "Take a break and browse new cars!",
-    data: {
-      screen: '/(home)/(user)',
-      type: 'daily_reminder',
-      timeOfDay: 'afternoon'
-    }
-  },
-  {
-    hour: 19,
-    title: "🌆 Evening Selection",
-    message: "End your day by finding your dream car!",
-    data: {
-      screen: '/(home)/(user)',
-      type: 'daily_reminder',
-      timeOfDay: 'evening'
     }
   }
 ];
