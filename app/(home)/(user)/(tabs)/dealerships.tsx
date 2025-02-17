@@ -164,7 +164,7 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 
 const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) => {
 	const fadeAnim = useRef(new Animated.Value(0)).current;
-	const translateY = useRef(new Animated.Value(50)).current;
+	const translateY = useRef(new Animated.Value(-50)).current; // Start from above
 
 	useEffect(() => {
 	  Animated.parallel([
@@ -204,12 +204,12 @@ const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) =>
 		  onPress={() => onPress(item)}
 		>
 		<LinearGradient
-			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#E0E0E0']}
 			className='p-4'>
 			<View className='flex-row items-center'>
 				<Image
 					source={{ uri: item.logo }}
-					className='w-16 h-16 rounded-full bg-gray-200'
+					className='w-16 h-16 rounded-full bg-neutral-200'
 				/>
 				<View className='flex-1 ml-4'>
 					<Text
@@ -285,11 +285,11 @@ export default function DealershipListPage() {
 			className='p-4'
 		  >
 			<View className='flex-row items-center'>
-			  <View className='w-16 h-16 rounded-full bg-gray-300' />
+			  <View className='w-16 h-16 rounded-full bg-neutral-300' />
 			  <View className='flex-1 ml-4'>
-				<View className='w-3/4 h-5 bg-gray-300 rounded' />
-				<View className='w-1/2 h-4 bg-gray-300 rounded mt-2' />
-				<View className='w-2/3 h-4 bg-gray-300 rounded mt-2' />
+				<View className='w-3/4 h-5 bg-neutral-300 rounded' />
+				<View className='w-1/2 h-4 bg-neutral-300 rounded mt-2' />
+				<View className='w-2/3 h-4 bg-neutral-300 rounded mt-2' />
 			  </View>
 			</View>
 		  </LinearGradient>
@@ -430,7 +430,7 @@ export default function DealershipListPage() {
 				</Text>
 				<Text
 					className={`${
-						isDarkMode ? 'text-gray-400' : 'text-gray-600'
+						isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
 					} text-base mt-2 text-center`}>
 					Try adjusting your search
 				</Text>
@@ -444,38 +444,38 @@ export default function DealershipListPage() {
 			<CustomHeader title={'Dealerships'} />
 
 			<View className='px-4 pb-3'>
-				<View className='flex-row gap-2'>
-					<View
-						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4
-						`}>
-						<FontAwesome
-							name='search'
-							size={20}
-							color={isDarkMode ? 'white' : 'black'}
-						/>
-						<TextInput
-							className={`flex-1 p-3 ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}`}
-							placeholder='Search Dealerships...'
-							placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
-							value={searchQuery}
-							onChangeText={setSearchQuery}
-               textAlignVertical="center"
-						/>
-					</View>
+  <View className='flex-row gap-2 items-center'>
+    <View
+      className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555]`}>
+      <FontAwesome
+        name='search'
+        size={20}
+        color={isDarkMode ? 'white' : 'black'}
+        style={{ marginLeft: 12 }}
+      />
+      <TextInput
+        className={`flex-1 p-3 ${
+          isDarkMode ? 'text-white' : 'text-black'
+        }`}
+        placeholder='Search Dealerships...'
+        placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        textAlignVertical="center"
+      />
+    </View>
 
-					<TouchableOpacity
-						onPress={() => setShowSortModal(true)}
-						className={`items-center justify-center w-12 h-12`}>
-						<FontAwesome
-							name='sort'
-							size={20}
-							color={isDarkMode ? 'white' : 'black'}
-						/>
-					</TouchableOpacity>
-				</View>
-			</View>
+    <TouchableOpacity
+      onPress={() => setShowSortModal(true)}
+      className={`p-3 rounded-full bg-${isDarkMode ? 'black' : 'white'}`}>
+      <FontAwesome
+        name='sort'
+        size={20}
+        color={isDarkMode ? 'white' : 'black'}
+      />
+    </TouchableOpacity>
+  </View>
+</View>
 
 			{isLoading ? (
   <FlatList

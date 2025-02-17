@@ -358,36 +358,33 @@ export default function Favorite() {
 			style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
 			<CustomHeader title='Favorites' />
 			<View className='px-4 pb-3'>
-				<View className='flex-row gap-2'>
-					<View
-						className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4
-								`}>
-						<FontAwesome
-							name='search'
-							size={20}
-							color={isDarkMode ? 'white' : 'black'}
-						/>
-					<TextInput
-  className={`flex-1 p-3 ${isDarkMode ? 'text-white' : 'text-black'}`}
-  placeholder="Search Favorites..."
-  placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
-  value={searchQuery}
-  onChangeText={setSearchQuery}
-  textAlignVertical="center"
-/>
+  <View className='flex-row gap-2 items-center'>
+    <View className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555]`}>
+      <FontAwesome
+        name='search'
+        size={20}
+        color={isDarkMode ? 'white' : 'black'}
+        style={{ marginLeft: 12 }}
+      />
+      <TextInput
+        className={`flex-1 p-3 ${isDarkMode ? 'text-white' : 'text-black'}`}
+        placeholder="Search Favorites..."
+        placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        textAlignVertical="center"
+      />
+    </View>
 
-					</View>
-
-					<View className={`items-center justify-center w-12 h-12`}>
-						<SortPicker
-							onValueChange={(value: string) => {
-								setSortOption(value)
-							}}
-							initialValue={sortOption}
-						/>
-					</View>
-				</View>
-			</View>
+    <SortPicker
+      onValueChange={(value: string) => {
+        setSortOption(value)
+      }}
+      initialValue={sortOption}
+      className="p-3 rounded-full"
+    />
+  </View>
+</View>
 
 			{renderContent()}
 			{renderModal}

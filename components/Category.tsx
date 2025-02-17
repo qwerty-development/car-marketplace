@@ -76,8 +76,8 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 										isSelected
 											? ['#D55004', '#FF6B00']
 											: isDarkMode
-											? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
-											: ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.8)']
+											? ['#000000', '#1A1A1A']
+											: ['#FFFFFF', '#E0E0E0']
 									}
 									className='h-full p-3 items-center justify-center'>
 									<View className='flex-1 justify-center items-center'>

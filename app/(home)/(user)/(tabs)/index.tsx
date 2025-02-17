@@ -512,7 +512,7 @@ export default function BrowseCarsPage() {
 							<FontAwesome
 								name='search'
 								size={20}
-								color={isDarkMode ? '#FFFFFF' : '#666666'}
+								color={isDarkMode ? '#FFFFFF' : '#000000'}
 								style={{ marginLeft: 12 }}
 							/>
 							<TextInput
@@ -520,6 +520,7 @@ export default function BrowseCarsPage() {
 									styles.searchInput,
 									isDarkMode && styles.darkSearchInput
 								]}
+								className='p-3'
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
 								value={searchQuery}
@@ -655,8 +656,6 @@ const styles = StyleSheet.create({
 	},
 	searchInput: {
 		flex: 1,
-		paddingVertical: 8,
-		paddingHorizontal: 12,
 		color: 'black'
 	},
 	darkSearchInput: {
