@@ -211,7 +211,6 @@ export default function AllBrandsPage() {
       <CustomHeader title="All Brands" onBack={() => router.back()} />
       <View className="px-4 -mt-6 ">
         <View className="flex-row gap-2">
-        // Replace your current search input View and TextInput with this:
 <View
   className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12`}
 >
