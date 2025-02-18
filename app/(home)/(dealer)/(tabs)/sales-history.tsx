@@ -797,7 +797,7 @@ export default function SalesHistoryPage() {
 	return (
 		<LinearGradient
 		colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
-			className='flex-1'>
+			className='flex-1 mb-12'>
 				{/* Header */}
 				<CustomHeader title='Sales History'/>
 

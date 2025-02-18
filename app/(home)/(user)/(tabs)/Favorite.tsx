@@ -35,26 +35,30 @@ import SkeletonCarCard from '@/components/SkeletonCarCard' // Import skeleton
 // Custom Header Component
 // -----------------------
 const CustomHeader = React.memo(({ title }: { title: string }) => {
-  const { isDarkMode } = useTheme()
-  // Adjust margin based on platform
-  const headerTitleMargin = Platform.OS === 'ios' ? '-mb-5' : 'mb-2'
+  const { isDarkMode } = useTheme();
+
   return (
-    <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <View style={{ flexDirection: 'row', marginLeft: 24 }}>
+    <SafeAreaView style={{ backgroundColor: isDarkMode ? "black" : "white" }}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+      <View
+        style={{
+          flexDirection: "row",
+          marginLeft: 24,
+          marginBottom: Platform.OS === "ios" ? -20 : 8,
+        }}
+      >
         <Text
           style={[
-            { fontSize: 24, fontWeight: 'bold' },
-            { color: isDarkMode ? 'white' : 'black' },
-            // You can adjust margin as needed
-          ]}>
+            { fontSize: 24, fontWeight: "bold" },
+            { color: isDarkMode ? "white" : "black" },
+          ]}
+        >
           {title}
         </Text>
       </View>
     </SafeAreaView>
-  )
-})
-
+  );
+});
 interface Car {
   id: number
   make: string
@@ -352,6 +356,7 @@ export default function Favorite() {
     return (
       <Animated.View style={{ opacity: fadeAnim }}>
         <FlatList
+        className='mb-32'
           ref={scrollRef}
           data={sortedCars}
           renderItem={renderCarItem}
@@ -375,49 +380,50 @@ export default function Favorite() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+    <View style={{ flex: 1,  backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
       <CustomHeader title="Favorites" />
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View
-            style={[
-              {
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderRadius: 999,
-                paddingVertical: 4,
-                paddingHorizontal: 8
-              },
-              { borderColor: isDarkMode ? '#555' : '#ccc' }
-            ]}>
-            <FontAwesome
-              name="search"
-              size={20}
-              color={isDarkMode ? 'white' : 'black'}
-              style={{ marginLeft: 12 }}
-            />
-            <TextInput
-              style={[
-                { flex: 1, padding: 12, color: isDarkMode ? 'white' : 'black' }
-              ]}
-              placeholder="Search Favorites..."
-              placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              textAlignVertical="center"
-            />
-          </View>
-          <SortPicker
+<View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+    <View
+      style={[
+        {
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          borderWidth: 1,
+          borderRadius: 999,
+          paddingVertical: 4,
+          paddingHorizontal: 8,
+        },
+        { borderColor: isDarkMode ? "#555" : "#ccc" },
+      ]}
+    >
+      <FontAwesome
+        name="search"
+        size={20}
+        color={isDarkMode ? "white" : "black"}
+        style={{ marginLeft: 12 }}
+      />
+      <TextInput
+        style={[
+          { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
+        ]}
+        placeholder="Search Favorites.."
+        placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        textAlignVertical="center"
+      />
+    </View>
+    <SortPicker
             onValueChange={(value: string) => {
               setSortOption(value)
             }}
             initialValue={sortOption}
             style={{ padding: 12, borderRadius: 999 }}
           />
-        </View>
-      </View>
+  </View>
+</View>
       {renderContent()}
       {renderModal}
     </View>
@@ -432,7 +438,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000000',
-    marginBottom: 16
+    marginBottom: 10
   },
   emptyContainer: {
     flex: 1,

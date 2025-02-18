@@ -1157,7 +1157,7 @@ export default function DealerListings() {
 						<View className='relative'>
 				<Image
   source={{ uri: item.images[0] }}
-  className='w-full aspect-[16/9]' // Using 16:9 aspect ratio for consistent display
+  className='w-full aspect-[24/24]' // Using 16:9 aspect ratio for consistent display
   resizeMode='cover' // Ensures image fills container while maintaining aspect ratio
 />
 

@@ -3,8 +3,8 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
-  useRef
-} from 'react';
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -21,17 +21,17 @@ import {
   Platform,
   Animated,
   Easing,
-  RefreshControl
-} from 'react-native';
-import { supabase } from '@/utils/supabase';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/utils/ThemeContext';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useScrollToTop } from '@react-navigation/native';
-import * as Location from 'expo-location';
-import { BlurView } from 'expo-blur';
+  RefreshControl,
+} from "react-native";
+import { supabase } from "@/utils/supabase";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/utils/ThemeContext";
+import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { useScrollToTop } from "@react-navigation/native";
+import * as Location from "expo-location";
+import { BlurView } from "expo-blur";
 
 // -------------------
 // Types & Constants
@@ -47,13 +47,13 @@ interface Dealership {
   distance?: number;
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const SORT_OPTIONS = {
-  AZ: 'a-z',
-  ZA: 'z-a',
-  RANDOM: 'random',
-  NEAREST: 'nearest'
+  AZ: "a-z",
+  ZA: "z-a",
+  RANDOM: "random",
+  NEAREST: "nearest",
 } as const;
 type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS];
 
@@ -65,7 +65,7 @@ const SortModal = ({
   onClose,
   onSelect,
   currentSort,
-  isDarkMode
+  isDarkMode,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -81,21 +81,21 @@ const SortModal = ({
         toValue: 1,
         duration: 300,
         easing: Easing.bezier(0.33, 1, 0.68, 1),
-        useNativeDriver: true
+        useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(animation, {
         toValue: 0,
         duration: 200,
         easing: Easing.bezier(0.33, 1, 0.68, 1),
-        useNativeDriver: true
+        useNativeDriver: true,
       }).start();
     }
   }, [visible, animation]);
 
   const modalTranslateY = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [SCREEN_HEIGHT, 0]
+    outputRange: [SCREEN_HEIGHT, 0],
   });
 
   return (
@@ -110,7 +110,7 @@ const SortModal = ({
         <TouchableWithoutFeedback onPress={onClose}>
           <BlurView
             intensity={isDarkMode ? 50 : 80}
-            tint={isDarkMode ? 'dark' : 'light'}
+            tint={isDarkMode ? "dark" : "light"}
             style={StyleSheet.absoluteFill}
           />
         </TouchableWithoutFeedback>
@@ -120,17 +120,14 @@ const SortModal = ({
             styles.modalContent,
             {
               transform: [{ translateY: modalTranslateY }],
-              backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF'
-            }
+              backgroundColor: isDarkMode ? "#1A1A1A" : "#FFFFFF",
+            },
           ]}
         >
           <View style={styles.modalHeader}>
             <View style={styles.dragIndicator} />
             <Text
-              style={[
-                styles.modalTitle,
-                isDarkMode && styles.modalTitleDark
-              ]}
+              style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}
             >
               Sort Dealerships
             </Text>
@@ -142,7 +139,7 @@ const SortModal = ({
               style={[
                 styles.option,
                 currentSort === value && styles.selectedOption,
-                isDarkMode && styles.optionDark
+                isDarkMode && styles.optionDark,
               ]}
               onPress={() => {
                 onSelect(value as SortOption);
@@ -153,7 +150,7 @@ const SortModal = ({
                 style={[
                   styles.optionText,
                   currentSort === value && styles.selectedOptionText,
-                  isDarkMode && styles.optionTextDark
+                  isDarkMode && styles.optionTextDark,
                 ]}
               >
                 {key}
@@ -174,19 +171,19 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
   const { isDarkMode } = useTheme();
 
   return (
-    <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+    <SafeAreaView style={{ backgroundColor: isDarkMode ? "black" : "white" }}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       <View
         style={{
-          flexDirection: 'row',
+          flexDirection: "row",
           marginLeft: 24,
-          marginBottom: Platform.OS === 'ios' ? -20 : 8
+          marginBottom: Platform.OS === "ios" ? -20 : 8,
         }}
       >
         <Text
           style={[
-            { fontSize: 24, fontWeight: 'bold' },
-            { color: isDarkMode ? 'white' : 'black' }
+            { fontSize: 24, fontWeight: "bold" },
+            { color: isDarkMode ? "white" : "black" },
           ]}
         >
           {title}
@@ -204,7 +201,7 @@ const DealershipCard = React.memo(
     item,
     onPress,
     isDarkMode,
-    index
+    index,
   }: {
     item: Dealership;
     onPress: (dealership: Dealership) => void;
@@ -221,38 +218,38 @@ const DealershipCard = React.memo(
           toValue: 1,
           duration: 400,
           delay: index * 70, // stagger effect
-          useNativeDriver: true
+          useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 400,
           delay: index * 70,
-          useNativeDriver: true
-        })
+          useNativeDriver: true,
+        }),
       ]).start();
     }, [fadeAnim, slideAnim, index]);
 
     // Defensive checks
-    const name = item.name || 'Unnamed Dealership';
+    const name = item.name || "Unnamed Dealership";
     const logo = item.logo
       ? { uri: item.logo }
-      : require('@/assets/images/placeholder-logo.png'); // fallback logo image
-    const locationText = item.location || 'Unknown location';
+      : require("@/assets/images/placeholder-logo.png"); // fallback logo image
+    const locationText = item.location || "Unknown location";
 
     return (
       <Animated.View
         style={[
           cardStyles.container,
           {
-            backgroundColor: isDarkMode ? '#222' : '#fff',
+            backgroundColor: isDarkMode ? "#222" : "#fff",
             opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }]
-          }
+            transform: [{ translateY: slideAnim }],
+          },
         ]}
       >
         <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.9}>
           <LinearGradient
-            colors={isDarkMode ? ['#000', '#1A1A1A'] : ['#fff', '#E0E0E0']}
+            colors={isDarkMode ? ["#000", "#1A1A1A"] : ["#fff", "#E0E0E0"]}
             style={cardStyles.gradient}
           >
             <View style={cardStyles.row}>
@@ -261,7 +258,7 @@ const DealershipCard = React.memo(
                 <Text
                   style={[
                     cardStyles.name,
-                    { color: isDarkMode ? 'white' : 'black' }
+                    { color: isDarkMode ? "white" : "black" },
                   ]}
                 >
                   {name}
@@ -272,12 +269,12 @@ const DealershipCard = React.memo(
                   <Ionicons
                     name="location-outline"
                     size={14}
-                    color={isDarkMode ? '#CCC' : '#666'}
+                    color={isDarkMode ? "#CCC" : "#666"}
                   />
                   <Text
                     style={[
                       cardStyles.infoText,
-                      { color: isDarkMode ? 'white' : '#444' }
+                      { color: isDarkMode ? "white" : "#444" },
                     ]}
                   >
                     {locationText}
@@ -292,12 +289,12 @@ const DealershipCard = React.memo(
                     <Ionicons
                       name="car-outline"
                       size={14}
-                      color={isDarkMode ? '#CCC' : '#666'}
+                      color={isDarkMode ? "#CCC" : "#666"}
                     />
                     <Text
                       style={[
                         cardStyles.infoText,
-                        { color: isDarkMode ? 'white' : '#444' }
+                        { color: isDarkMode ? "white" : "#444" },
                       ]}
                     >
                       {item.total_cars} vehicles available
@@ -318,43 +315,43 @@ const cardStyles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 5
+    elevation: 5,
   },
   gradient: {
-    padding: 16
+    padding: 16,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center'
+    flexDirection: "row",
+    alignItems: "center",
   },
   logo: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#ccc'
+    backgroundColor: "#ccc",
   },
   content: {
     flex: 1,
-    marginLeft: 16
+    marginLeft: 16,
   },
   name: {
     fontSize: 18,
-    fontWeight: 'bold'
+    fontWeight: "bold",
   },
   infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
   infoText: {
     fontSize: 14,
-    marginLeft: 4
-  }
+    marginLeft: 4,
+  },
 });
 
 // -------------------
@@ -365,7 +362,7 @@ export default function DealershipListPage() {
   const router = useRouter();
 
   const [dealerships, setDealerships] = useState<Dealership[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -373,7 +370,8 @@ export default function DealershipListPage() {
   const [showSortModal, setShowSortModal] = useState(false);
 
   const [hasFetched, setHasFetched] = useState(false);
-  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [userLocation, setUserLocation] =
+    useState<Location.LocationObject | null>(null);
 
   const scrollRef = useRef<FlatList<Dealership> | null>(null);
   useScrollToTop(scrollRef);
@@ -384,9 +382,9 @@ export default function DealershipListPage() {
   const getUserLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== "granted") {
         // Permission is denied
-        console.log('Permission denied, unable to access location');
+        console.log("Permission denied, unable to access location");
         // We won't throw; we just skip location-based distance
         setUserLocation(null);
         return;
@@ -394,7 +392,7 @@ export default function DealershipListPage() {
       const location = await Location.getCurrentPositionAsync({});
       setUserLocation(location);
     } catch (error) {
-      console.error('Error getting location:', error);
+      console.error("Error getting location:", error);
       setUserLocation(null);
     }
   }, []);
@@ -427,8 +425,8 @@ export default function DealershipListPage() {
     if (!hasFetched) setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('dealerships')
-        .select('*, cars(count)');
+        .from("dealerships")
+        .select("*, cars(count)");
 
       if (error) throw error;
 
@@ -458,14 +456,14 @@ export default function DealershipListPage() {
           latitude: lat,
           longitude: lon,
           total_cars: dealer.cars?.[0]?.count || 0,
-          distance: distanceVal
+          distance: distanceVal,
         };
       });
 
       setDealerships(formattedData);
     } catch (error) {
-      console.error('Error fetching dealerships:', error);
-      Alert.alert('Error', 'Failed to fetch dealerships');
+      console.error("Error fetching dealerships:", error);
+      Alert.alert("Error", "Failed to fetch dealerships");
     } finally {
       if (!hasFetched) setIsLoading(false);
       setHasFetched(true);
@@ -482,7 +480,7 @@ export default function DealershipListPage() {
   const sortedAndFilteredDealerships = useMemo(() => {
     // Filter
     const filtered = dealerships.filter((dealer) => {
-      const dealerName = dealer.name || '';
+      const dealerName = dealer.name || "";
       return dealerName.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
@@ -490,20 +488,22 @@ export default function DealershipListPage() {
     switch (sortBy) {
       case SORT_OPTIONS.AZ:
         return filtered.sort((a, b) => {
-          const nameA = a.name || '';
-          const nameB = b.name || '';
+          const nameA = a.name || "";
+          const nameB = b.name || "";
           return nameA.localeCompare(nameB);
         });
       case SORT_OPTIONS.ZA:
         return filtered.sort((a, b) => {
-          const nameA = a.name || '';
-          const nameB = b.name || '';
+          const nameA = a.name || "";
+          const nameB = b.name || "";
           return nameB.localeCompare(nameA);
         });
       case SORT_OPTIONS.RANDOM:
         return filtered.sort(() => Math.random() - 0.5);
       case SORT_OPTIONS.NEAREST:
-        return filtered.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+        return filtered.sort(
+          (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)
+        );
       default:
         return filtered;
     }
@@ -524,8 +524,8 @@ export default function DealershipListPage() {
   const handleDealershipPress = useCallback(
     (dealership: Dealership) => {
       router.push({
-        pathname: '/(home)/(user)/DealershipDetails',
-        params: { dealershipId: dealership.id }
+        pathname: "/(home)/(user)/DealershipDetails",
+        params: { dealershipId: dealership.id },
       });
     },
     [router]
@@ -540,13 +540,15 @@ export default function DealershipListPage() {
         <Ionicons
           name="business-outline"
           size={50}
-          color={isDarkMode ? '#FFFFFF' : '#000000'}
+          color={isDarkMode ? "#FFFFFF" : "#000000"}
         />
-        <Text style={[styles.emptyText, { color: isDarkMode ? 'white' : 'black' }]}>
+        <Text
+          style={[styles.emptyText, { color: isDarkMode ? "white" : "black" }]}
+        >
           No dealerships found
         </Text>
         <Text
-          style={[styles.emptySubText, { color: isDarkMode ? '#CCC' : '#555' }]}
+          style={[styles.emptySubText, { color: isDarkMode ? "#CCC" : "#555" }]}
         >
           Try adjusting your search
         </Text>
@@ -558,52 +560,66 @@ export default function DealershipListPage() {
   // Render
   // -------------------
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
+    <View
+      style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
+    >
       <CustomHeader title="Dealerships" />
-
-      {/* Search + Sort Row */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchRow}>
-          <FontAwesome
-            name="search"
-            size={20}
-            color={isDarkMode ? 'white' : 'black'}
-            style={{ marginLeft: 12, marginRight: 8 }}
-          />
-          <TextInput
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View
             style={[
-              styles.searchInput,
-              { color: isDarkMode ? 'white' : 'black' }
+              {
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                borderWidth: 1,
+                borderRadius: 999,
+                paddingVertical: 4,
+                paddingHorizontal: 8,
+              },
+              { borderColor: isDarkMode ? "#555" : "#ccc" },
             ]}
-            placeholder="Search Dealerships..."
-            placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            textAlignVertical="center"
-          />
+          >
+            <FontAwesome
+              name="search"
+              size={20}
+              color={isDarkMode ? "white" : "black"}
+              style={{ marginLeft: 12 }}
+            />
+            <TextInput
+              style={[
+                { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
+              ]}
+              placeholder="Search Dealerships.."
+              placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              textAlignVertical="center"
+            />
+          </View>
           <TouchableOpacity
             onPress={() => setShowSortModal(true)}
             style={[
-              styles.sortButton,
               {
-                backgroundColor: isDarkMode ? 'black' : 'white',
-                marginLeft: 8
-              }
+                padding: 12,
+                borderRadius: 999,
+              },
             ]}
           >
             <FontAwesome
               name="sort"
               size={20}
-              color={isDarkMode ? 'white' : 'black'}
+              color={isDarkMode ? "white" : "black"}
             />
           </TouchableOpacity>
         </View>
       </View>
-
       {/* Main Content: Loading or List */}
       {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: isDarkMode ? 'white' : 'black' }}>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <Text style={{ color: isDarkMode ? "white" : "black" }}>
             Loading...
           </Text>
         </View>
@@ -625,8 +641,8 @@ export default function DealershipListPage() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#D55004']}
-              tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
+              colors={["#D55004"]}
+              tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
             />
           }
           contentContainerStyle={styles.flatListContent}
@@ -651,110 +667,110 @@ export default function DealershipListPage() {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'transparent'
+    justifyContent: "flex-end",
+    backgroundColor: "transparent",
   },
   modalContent: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    maxHeight: '80%',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    maxHeight: "80%",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 5
+    elevation: 5,
   },
   modalHeader: {
-    alignItems: 'center',
-    marginBottom: 20
+    alignItems: "center",
+    marginBottom: 20,
   },
   dragIndicator: {
     width: 40,
     height: 4,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
     borderRadius: 2,
-    marginBottom: 16
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333'
+    fontWeight: "bold",
+    color: "#333",
   },
   modalTitleDark: {
-    color: '#fff'
+    color: "#fff",
   },
   option: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
-    marginBottom: 8
+    marginBottom: 8,
   },
   optionDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)'
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   optionText: {
     fontSize: 16,
-    color: '#333',
-    flex: 1
+    color: "#333",
+    flex: 1,
   },
   optionTextDark: {
-    color: '#fff'
+    color: "#fff",
   },
   selectedOption: {
-    backgroundColor: 'rgba(213, 80, 4, 0.1)'
+    backgroundColor: "rgba(213, 80, 4, 0.1)",
   },
   selectedOptionText: {
-    color: '#D55004',
-    fontWeight: '600'
+    color: "#D55004",
+    fontWeight: "600",
   },
   checkmark: {
     width: 10,
     height: 10,
-    backgroundColor: '#D55004',
+    backgroundColor: "#D55004",
     borderRadius: 50,
-    marginLeft: 8
+    marginLeft: 8,
   },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 12
+    paddingBottom: 12,
   },
   searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center'
+    flexDirection: "row",
+    alignItems: "center",
   },
   searchInput: {
     flex: 1,
-    padding: 8
+    padding: 8,
   },
   sortButton: {
     padding: 12,
     borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: "center",
+    alignItems: "center",
   },
   flatListContent: {
     paddingVertical: 8,
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'android' ? 70 : 64
+    paddingBottom: Platform.OS === "android" ? 70 : 64,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 20,
   },
   emptyText: {
     fontSize: 18,
     marginTop: 12,
-    textAlign: 'center'
+    textAlign: "center",
   },
   emptySubText: {
     fontSize: 14,
     marginTop: 4,
-    textAlign: 'center'
-  }
+    textAlign: "center",
+  },
 });
