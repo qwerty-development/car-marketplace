@@ -554,7 +554,7 @@ export default function BrowseCarsPage() {
               <TextInput
                 style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
                 className='p-3'
-                placeholder='Search cars...'
+                placeholder='Search cars..'
                 placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
