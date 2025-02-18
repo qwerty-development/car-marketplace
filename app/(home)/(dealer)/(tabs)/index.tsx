@@ -1155,16 +1155,14 @@ export default function DealerListings() {
 						} rounded-3xl overflow-hidden shadow-xl`}>
 						{/* Image and Overlays */}
 						<View className='relative'>
-							<Image
-								source={{ uri: item.images[0] }}
-								className='w-full h-[245px]'
-							/>
+				<Image
+  source={{ uri: item.images[0] }}
+  className='w-full aspect-[16/9]' // Using 16:9 aspect ratio for consistent display
+  resizeMode='cover' // Ensures image fills container while maintaining aspect ratio
+/>
 
 							{/* Gradient Overlay - Enhanced opacity */}
-							<LinearGradient
-								colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
-								className='absolute bottom-0 left-0 right-0 h-40'
-							/>
+
 
 							{/* Top Actions Row */}
 							<View className='absolute top-4 w-full px-4 flex-row justify-between items-center'>
