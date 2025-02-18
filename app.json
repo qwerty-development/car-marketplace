@@ -1,19 +1,19 @@
 {
 	"expo": {
-		"name": "clerk-expo-quickstart",
+		"name": "Fleet, Your Car Marketplace",
 		"slug": "clerk-expo-quickstart",
 		"version": "1.0.0",
 		"orientation": "portrait",
-		"icon": "./assets/images/icon.png",
-		"scheme": "myapp",
+		"icon": "./assets/images/logo.png",
+		"scheme": "fleet",
 		"userInterfaceStyle": "automatic",
 		"splash": {
-			"image": "./assets/images/splash.png",
+			"image": "./assets/images/logo.png",
 			"resizeMode": "contain",
-			"backgroundColor": "#ffffff"
+			"backgroundColor": "#000000"
 		},
 		"notification": {
-			"icon": "./assets/images/icon.png",
+			"icon": "./assets/images/logo.png",
 			"color": "#D55004",
 			"iosDisplayInForeground": true,
 			"androidMode": "default",
@@ -31,7 +31,7 @@
 		},
 		"android": {
 			"adaptiveIcon": {
-				"foregroundImage": "./assets/images/adaptive-icon.png",
+				"foregroundImage": "./assets/images/logo.png",
 				"backgroundColor": "#ffffff"
 			},
 			"permissions": [
@@ -52,7 +52,6 @@
 				"android.permission.SCHEDULE_EXACT_ALARM",
 				"android.permission.POST_NOTIFICATIONS"
 			],
-			"useNextNotificationsApi": true,
 			"package": "com.qwertyapp.clerkexpoquickstart"
 		},
 		"web": {
