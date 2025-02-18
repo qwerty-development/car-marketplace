@@ -319,7 +319,7 @@ export default function SignUpScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <View
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{
         flex: 1,
@@ -565,6 +565,6 @@ export default function SignUpScreen() {
           )}
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

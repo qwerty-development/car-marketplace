@@ -241,8 +241,7 @@ export default function SignInPage() {
   }, [isLoaded, signIn, emailAddress, password, setActive, router]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <View
       style={{
         flex: 1,
         backgroundColor: isDark ? '#000' : '#fff',
@@ -406,6 +405,6 @@ export default function SignInPage() {
           </Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
