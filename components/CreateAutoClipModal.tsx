@@ -417,10 +417,13 @@ export default function CreateAutoClipModal({
 		setIsVideoPlaying(false)
 	}, [])
 
-	// Fetch cars when modal opens
-	useEffect(() => {
-		fetchCars()
-	}, [])
+
+useEffect(() => {
+  if (isVisible) {
+    fetchCars()
+  }
+}, [isVisible])
+
 	// Fetch cars data from Supabase
 	const fetchCars = async () => {
 		try {
