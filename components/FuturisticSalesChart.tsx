@@ -100,7 +100,7 @@ const FuturisticSalesChart = ({ salesData, isDarkMode }) => {
 				}`}>
 				{value}
 			</Text>
-			{trend && (
+			{trend ? (
 				<View className='flex-row items-center mt-1'>
 					<Ionicons
 						name={trend >= 0 ? 'trending-up' : 'trending-down'}
@@ -114,7 +114,7 @@ const FuturisticSalesChart = ({ salesData, isDarkMode }) => {
 						{Math.abs(trend).toFixed(1)}%
 					</Text>
 				</View>
-			)}
+			): null }
 		</LinearGradient>
 	)
 
