@@ -149,210 +149,230 @@ export default function BrowseCarsPage() {
 		}
 	)
 
-	const fetchCars = useCallback(
-		async (
-			page = 1,
-			currentFilters: Filters = filters,
-			currentSortOption = sortOption,
-			query = searchQuery
-		) => {
-			setIsLoading(true) // Start loading before fetching
-			try {
-				let queryBuilder = supabase
-					.from('cars')
-					.select(
-						`*, dealerships (name,logo,phone,location,latitude,longitude)`,
-						{ count: 'exact' }
-					)
-					.eq('status', 'available')
+const fetchCars = useCallback(
+  async (
+    page = 1,
+    currentFilters: Filters = filters,
+    currentSortOption = sortOption,
+    query = searchQuery
+  ) => {
+    setIsLoading(true); // Start loading before fetching
+    try {
+      let queryBuilder = supabase
+        .from("cars")
+        .select(
+          `*, dealerships (name,logo,phone,location,latitude,longitude)`,
+          { count: "exact" }
+        )
+        .eq("status", "available");
 
-				if (currentFilters.specialFilter) {
-					switch (currentFilters.specialFilter) {
-						case 'newArrivals':
-							const sevenDaysAgo = new Date()
-							sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-							queryBuilder = queryBuilder.gte(
-								'listed_at',
-								sevenDaysAgo.toISOString()
-							)
-							break
-						case 'mostPopular':
-							currentSortOption = 'views_desc'
-							break
-					}
-				}
+      // Special Filters
+      if (currentFilters.specialFilter) {
+        switch (currentFilters.specialFilter) {
+          case "newArrivals":
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            queryBuilder = queryBuilder.gte(
+              "listed_at",
+              sevenDaysAgo.toISOString()
+            );
+            break;
+          case "mostPopular":
+            currentSortOption = "views_desc";
+            break;
+        }
+      }
 
-				if (currentFilters.categories && currentFilters.categories.length > 0) {
-					queryBuilder = queryBuilder.in('category', currentFilters.categories)
-				}
+      // Categories (unchanged)
+      if (currentFilters.categories && currentFilters.categories.length > 0) {
+        queryBuilder = queryBuilder.in("category", currentFilters.categories);
+      }
 
-				if (currentFilters.dealership) {
-					queryBuilder = queryBuilder.eq(
-						'dealership_id',
-						currentFilters.dealership
-					)
-				}
-				if (currentFilters.make) {
-					queryBuilder = queryBuilder.eq('make', currentFilters.make)
-				}
-				if (currentFilters.model) {
-					queryBuilder = queryBuilder.eq('model', currentFilters.model)
-				}
-				if (currentFilters.condition) {
-					queryBuilder = queryBuilder.eq('condition', currentFilters.condition)
-				}
-				if (currentFilters.yearRange) {
-					queryBuilder = queryBuilder
-						.gte('year', currentFilters.yearRange[0])
-						.lte('year', currentFilters.yearRange[1])
-				}
-				if (currentFilters.color) {
-					queryBuilder = queryBuilder.eq('color', currentFilters.color)
-				}
-				if (currentFilters.transmission) {
-					queryBuilder = queryBuilder.eq(
-						'transmission',
-						currentFilters.transmission
-					)
-				}
-				if (currentFilters.drivetrain) {
-					queryBuilder = queryBuilder.eq(
-						'drivetrain',
-						currentFilters.drivetrain
-					)
-				}
-				if (currentFilters.priceRange) {
-					queryBuilder = queryBuilder
-						.gte('price', currentFilters.priceRange[0])
-						.lte('price', currentFilters.priceRange[1])
-				}
-				if (currentFilters.mileageRange) {
-					queryBuilder = queryBuilder
-						.gte('mileage', currentFilters.mileageRange[0])
-						.lte('mileage', currentFilters.mileageRange[1])
-				}
+      // Multi‑select filters
+      if (
+        Array.isArray(currentFilters.dealership) &&
+        currentFilters.dealership.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("dealership_id", currentFilters.dealership);
+      }
+      if (Array.isArray(currentFilters.make) && currentFilters.make.length > 0) {
+        queryBuilder = queryBuilder.in("make", currentFilters.make);
+      }
+      if (
+        Array.isArray(currentFilters.model) &&
+        currentFilters.model.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("model", currentFilters.model);
+      }
+      // If you decide to allow multi‑select for condition as well:
+      if (
+        Array.isArray(currentFilters.condition) &&
+        currentFilters.condition.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("condition", currentFilters.condition);
+      } else if (typeof currentFilters.condition === "string" && currentFilters.condition) {
+        queryBuilder = queryBuilder.eq("condition", currentFilters.condition);
+      }
 
-				if (query) {
-					const cleanQuery = query.trim().toLowerCase()
-					const searchTerms = cleanQuery.split(/\s+/)
+      // Year Range
+      if (currentFilters.yearRange) {
+        queryBuilder = queryBuilder
+          .gte("year", currentFilters.yearRange[0])
+          .lte("year", currentFilters.yearRange[1]);
+      }
 
-					searchTerms.forEach(term => {
-						const numericTerm = parseInt(term)
-						let searchConditions = [
-							`make.ilike.%${term}%`,
-							`model.ilike.%${term}%`,
-							`description.ilike.%${term}%`,
-							`color.ilike.%${term}%`,
-							`category.ilike.%${term}%`,
-							`transmission.ilike.%${term}%`,
-							`drivetrain.ilike.%${term}%`,
-							`type.ilike.%${term}%`,
-							`condition.ilike.%${term}%`
-						]
+      if (Array.isArray(currentFilters.color) && currentFilters.color.length > 0) {
+        queryBuilder = queryBuilder.in("color", currentFilters.color);
+      }
+      if (
+        Array.isArray(currentFilters.transmission) &&
+        currentFilters.transmission.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("transmission", currentFilters.transmission);
+      }
+      if (
+        Array.isArray(currentFilters.drivetrain) &&
+        currentFilters.drivetrain.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("drivetrain", currentFilters.drivetrain);
+      }
 
-						if (!isNaN(numericTerm)) {
-							searchConditions = searchConditions.concat([
-								`year::text.eq.${numericTerm}`,
-								`price::text.ilike.%${numericTerm}%`,
-								`mileage::text.ilike.%${numericTerm}%`
-							])
-						}
+      // Price Range
+      if (currentFilters.priceRange) {
+        queryBuilder = queryBuilder
+          .gte("price", currentFilters.priceRange[0])
+          .lte("price", currentFilters.priceRange[1]);
+      }
+      // Mileage Range
+      if (currentFilters.mileageRange) {
+        queryBuilder = queryBuilder
+          .gte("mileage", currentFilters.mileageRange[0])
+          .lte("mileage", currentFilters.mileageRange[1]);
+      }
 
-						queryBuilder = queryBuilder.or(searchConditions.join(','))
-					})
-				}
+      // Search query
+      if (query) {
+        const cleanQuery = query.trim().toLowerCase();
+        const searchTerms = cleanQuery.split(/\s+/);
+        searchTerms.forEach((term) => {
+          const numericTerm = parseInt(term);
+          let searchConditions = [
+            `make.ilike.%${term}%`,
+            `model.ilike.%${term}%`,
+            `description.ilike.%${term}%`,
+            `color.ilike.%${term}%`,
+            `category.ilike.%${term}%`,
+            `transmission.ilike.%${term}%`,
+            `drivetrain.ilike.%${term}%`,
+            `type.ilike.%${term}%`,
+            `condition.ilike.%${term}%`,
+          ];
+          if (!isNaN(numericTerm)) {
+            searchConditions = searchConditions.concat([
+              `year::text.eq.${numericTerm}`,
+              `price::text.ilike.%${numericTerm}%`,
+              `mileage::text.ilike.%${numericTerm}%`,
+            ]);
+          }
+          queryBuilder = queryBuilder.or(searchConditions.join(","));
+        });
+      }
 
-				switch (currentSortOption) {
-					case 'price_asc':
-						queryBuilder = queryBuilder.order('price', { ascending: true })
-						break
-					case 'price_desc':
-						queryBuilder = queryBuilder.order('price', { ascending: false })
-						break
-					case 'year_asc':
-						queryBuilder = queryBuilder.order('year', { ascending: true })
-						break
-					case 'year_desc':
-						queryBuilder = queryBuilder.order('year', { ascending: false })
-						break
-					case 'mileage_asc':
-						queryBuilder = queryBuilder.order('mileage', { ascending: true })
-						break
-					case 'mileage_desc':
-						queryBuilder = queryBuilder.order('mileage', { ascending: false })
-						break
-					case 'views_desc':
-						queryBuilder = queryBuilder.order('views', { ascending: false })
-						break
-					default:
-						queryBuilder = queryBuilder.order('listed_at', { ascending: false })
-				}
+      // Sorting
+      switch (currentSortOption) {
+        case "price_asc":
+          queryBuilder = queryBuilder.order("price", { ascending: true });
+          break;
+        case "price_desc":
+          queryBuilder = queryBuilder.order("price", { ascending: false });
+          break;
+        case "year_asc":
+          queryBuilder = queryBuilder.order("year", { ascending: true });
+          break;
+        case "year_desc":
+          queryBuilder = queryBuilder.order("year", { ascending: false });
+          break;
+        case "mileage_asc":
+          queryBuilder = queryBuilder.order("mileage", { ascending: true });
+          break;
+        case "mileage_desc":
+          queryBuilder = queryBuilder.order("mileage", { ascending: false });
+          break;
+        case "views_desc":
+          queryBuilder = queryBuilder.order("views", { ascending: false });
+          break;
+        default:
+          queryBuilder = queryBuilder.order("listed_at", { ascending: false });
+      }
 
-				const { count } = await queryBuilder
+      // Pagination calculations
+      const { count } = await queryBuilder;
+      if (!count) {
+        setCars([]);
+        setTotalPages(0);
+        setCurrentPage(1);
+        setIsLoading(false);
+        return;
+      }
+      const totalItems = count;
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+      const safePageNumber = Math.min(page, totalPages);
+      const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE;
+      const endRange = Math.min(
+        safePageNumber * ITEMS_PER_PAGE - 1,
+        totalItems - 1
+      );
 
-				if (!count) {
-					setCars([])
-					setTotalPages(0)
-					setCurrentPage(1)
-					setIsLoading(false)
-					return
-				}
+      // Fetch data for current page
+      let { data, error }:any = await queryBuilder.range(startRange, endRange);
+      if (error) throw error;
 
-				const totalItems = count
-				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
-				const safePageNumber = Math.min(page, totalPages)
-				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
-				const endRange = Math.min(
-					safePageNumber * ITEMS_PER_PAGE - 1,
-					totalItems - 1
-				)
+      // If no filters are applied, randomize the order
+      if (
+        Object.keys(currentFilters).length === 0 &&
+        !currentSortOption &&
+        !query
+      ) {
+        for (let i = data!.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [data[i], data[j]] = [data[j], data[i]];
+        }
+      }
 
-				let { data, error } = await queryBuilder.range(startRange, endRange)
+      // Merge dealership info into the car data
+      const newCars =
+        data?.map((item: { dealerships: { name: any; logo: any; phone: any; location: any; latitude: any; longitude: any } }) => ({
+          ...item,
+          dealership_name: item.dealerships.name,
+          dealership_logo: item.dealerships.logo,
+          dealership_phone: item.dealerships.phone,
+          dealership_location: item.dealerships.location,
+          dealership_latitude: item.dealerships.latitude,
+          dealership_longitude: item.dealerships.longitude,
+        })) || [];
 
-				if (error) throw error
+      // Deduplicate car entries by id
+      const uniqueCars = Array.from(new Set(newCars.map((car: { id: any }) => car.id))).map(
+        (id) => newCars.find((car: { id: unknown }) => car.id === id)
+      );
 
-				if (
-					Object.keys(currentFilters).length === 0 &&
-					!currentSortOption &&
-					!query
-				) {
-					for (let i = data!.length - 1; i > 0; i--) {
-						const j = Math.floor(Math.random() * (i + 1))
-						;[data![i], data![j]] = [data![j], data![i]]
-					}
-				}
+      setCars((prevCars) =>
+        safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
+      );
+      setTotalPages(totalPages);
+      setCurrentPage(safePageNumber);
+    } catch (error) {
+      console.error("Error fetching cars:", error);
+      setCars([]);
+      setTotalPages(0);
+      setCurrentPage(1);
+    } finally {
+      setIsLoading(false); // End loading state after fetching
+    }
+  },
+  [filters, sortOption, searchQuery]
+);
 
-				const newCars =
-					data?.map(item => ({
-						...item,
-						dealership_name: item.dealerships.name,
-						dealership_logo: item.dealerships.logo,
-						dealership_phone: item.dealerships.phone,
-						dealership_location: item.dealerships.location,
-						dealership_latitude: item.dealerships.latitude,
-						dealership_longitude: item.dealerships.longitude
-					})) || []
-
-				const uniqueCars = Array.from(new Set(newCars.map(car => car.id))).map(
-					id => newCars.find(car => car.id === id)
-				)
-
-				setCars(prevCars =>
-					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
-				)
-				setTotalPages(totalPages)
-				setCurrentPage(safePageNumber)
-			} catch (error) {
-				console.error('Error fetching cars:', error)
-				setCars([])
-				setTotalPages(0)
-				setCurrentPage(1)
-			} finally {
-				setIsLoading(false) // End loading after data is fetched or on error
-			}
-		},
-		[filters, sortOption, searchQuery]
-	)
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)

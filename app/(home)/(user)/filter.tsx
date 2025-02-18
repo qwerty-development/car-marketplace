@@ -30,10 +30,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import Animated, {
-  FadeIn,
-  FadeOut,
   SlideInDown,
-  SlideInUp,
   SlideOutDown,
 } from "react-native-reanimated";
 import { supabase } from "@/utils/supabase";
@@ -108,19 +105,23 @@ const DRIVETRAIN_OPTIONS = [
 
 // Section Header Component
 const SectionHeader = memo(({ title, subtitle, isDarkMode }) => (
-  <View className="mb-4">
+  <View style={{ marginBottom: 16 }}>
     <Text
-      className={`text-xl font-bold ${
-        isDarkMode ? "text-white" : "text-black"
-      }`}
+      style={{
+        fontSize: 20,
+        fontWeight: "bold",
+        color: isDarkMode ? "white" : "black",
+      }}
     >
       {title}
     </Text>
     {subtitle && (
       <Text
-        className={`text-sm mt-1 ${
-          isDarkMode ? "text-neutral-400" : "text-neutral-600"
-        }`}
+        style={{
+          fontSize: 14,
+          marginTop: 4,
+          color: isDarkMode ? "#aaa" : "#555",
+        }}
       >
         {subtitle}
       </Text>
@@ -128,19 +129,22 @@ const SectionHeader = memo(({ title, subtitle, isDarkMode }) => (
   </View>
 ));
 
+// --------------------
+// Brand Selector Component (Multi‑select)
+// --------------------
 interface Brand {
   name: string;
   logoUrl: string;
 }
 
 interface BrandSelectorProps {
-  selectedBrand: string;
-  onSelectBrand: (brand: string) => void;
-  children?: ReactNode;
+  selectedBrands: string[];
+  onSelectBrand: (brands: string[]) => void;
+  isDarkMode: boolean;
 }
 
 const BRANDS_CACHE_KEY = "cachedBrandsSelector";
-const CACHE_EXPIRY = 1000000000; // 24 hours in milliseconds
+const CACHE_EXPIRY = 1000000000; // dummy expiry
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
   const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
@@ -161,12 +165,11 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 };
 
 const BrandSelector = memo(
-  ({ selectedBrand, onSelectBrand }: BrandSelectorProps) => {
+  ({ selectedBrands, onSelectBrand, isDarkMode }: BrandSelectorProps) => {
     const [brands, setBrands] = useState<Brand[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showAllBrands, setShowAllBrands] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const { isDarkMode } = useTheme();
 
     const fetchBrands = useMemo(
       () => async () => {
@@ -226,9 +229,13 @@ const BrandSelector = memo(
 
     const handleBrandPress = useCallback(
       (brandName: string) => {
-        onSelectBrand(selectedBrand === brandName ? "" : brandName);
+        if (selectedBrands.includes(brandName)) {
+          onSelectBrand(selectedBrands.filter((b) => b !== brandName));
+        } else {
+          onSelectBrand([...selectedBrands, brandName]);
+        }
       },
-      [onSelectBrand, selectedBrand]
+      [onSelectBrand, selectedBrands]
     );
 
     if (isLoading) {
@@ -236,53 +243,63 @@ const BrandSelector = memo(
     }
 
     return (
-      <View className={`mt-3  mb-8 ${isDarkMode ? "" : "bg-[#FFFFFF]"}`}>
-<View className="mb-4">
-  <View className="flex-row justify-between items-center">
-    <Text
-      className={`text-xl font-bold ${
-        isDarkMode ? "text-white" : "text-black"
-      }`}
-    >
-      Brands and Models
-    </Text>
-    <TouchableOpacity
-      onPress={() => setShowAllBrands(true)}
-      className="flex-row items-center"
-    >
-      <Text className="text-red">View All</Text>
-      <FontAwesome
-        name="chevron-right"
-        size={14}
-        color={isDarkMode ? "#FFFFFF" : "#000000"}
-        style={{ marginLeft: 8 }}
-      />
-    </TouchableOpacity>
-  </View>
-  <Text
-    className={`text-sm mt-1 ${
-      isDarkMode ? "text-neutral-400" : "text-neutral-600"
-    }`}
-  >
-    Filter by brands
-  </Text>
-</View>
+      <View style={{ marginTop: 12, marginBottom: 32 }}>
+        <View style={{ marginBottom: 16 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                color: isDarkMode ? "white" : "black",
+              }}
+            >
+              Brands and Models
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowAllBrands(true)}
+              style={{ flexDirection: "row", alignItems: "center" }}
+            >
+              <Text className="text-red">View All</Text>
+              <FontAwesome
+                name="chevron-right"
+                size={14}
+                color={isDarkMode ? "#FFFFFF" : "#000000"}
+                style={{ marginLeft: 8 }}
+              />
+            </TouchableOpacity>
+          </View>
+          <Text
+            style={{
+              fontSize: 14,
+              marginTop: 4,
+              color: isDarkMode ? "#aaa" : "#555",
+            }}
+          >
+            Filter by brands
+          </Text>
+        </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="rounded-lg"
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {brands.map((brand, index) => (
             <TouchableOpacity
               key={index}
               onPress={() => handleBrandPress(brand.name)}
-              className="items-center mb-1 mt-1 mr-4"
+              style={{ alignItems: "center", marginRight: 16 }}
             >
               <View
-                className={`p-3 rounded-xl ${
-                  selectedBrand === brand.name ? "bg-red/10" : ""
-                }`}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: selectedBrands.includes(brand.name)
+                    ? "rgba(255,0,0,0.1)"
+                    : "transparent",
+                }}
               >
                 <Image
                   source={{ uri: brand.logoUrl }}
@@ -291,13 +308,15 @@ const BrandSelector = memo(
                 />
               </View>
               <Text
-                className={`${
-                  selectedBrand === brand.name
-                    ? "text-red font-medium"
+                style={{
+                  marginTop: 8,
+                  color: selectedBrands.includes(brand.name)
+                    ? "#D55004"
                     : isDarkMode
-                    ? "text-white"
-                    : "text-black"
-                } text-center mt-2`}
+                    ? "white"
+                    : "black",
+                  textAlign: "center",
+                }}
               >
                 {brand.name}
               </Text>
@@ -305,7 +324,6 @@ const BrandSelector = memo(
           ))}
         </ScrollView>
 
-        {/* Modal for All Brands */}
         <Modal
           visible={showAllBrands}
           animationType="slide"
@@ -315,36 +333,55 @@ const BrandSelector = memo(
           <BlurView
             intensity={isDarkMode ? 20 : 40}
             tint={isDarkMode ? "dark" : "light"}
-            className="flex-1"
+            style={{ flex: 1 }}
           >
             <TouchableOpacity
-              className="flex-1"
+              style={{ flex: 1 }}
               activeOpacity={1}
               onPress={() => setShowAllBrands(false)}
             />
             <Animated.View
               entering={SlideInDown}
               exiting={SlideOutDown}
-              className={`h-[60%] rounded-t-3xl ${
-                isDarkMode ? "bg-black" : "bg-white"
-              }`}
+              style={{
+                height: "60%",
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                backgroundColor: isDarkMode ? "black" : "white",
+              }}
             >
-              <View className="p-4">
-                <View className="items-center mb-2">
-                  <View className="w-16 h-1 rounded-full bg-neutral-300" />
+              <View style={{ padding: 16 }}>
+                <View style={{ alignItems: "center", marginBottom: 8 }}>
+                  <View
+                    style={{
+                      width: 64,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#ccc",
+                    }}
+                  />
                 </View>
 
-                <View className="flex-row justify-between items-center mb-4">
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 16,
+                  }}
+                >
                   <Text
-                    className={`text-xl font-bold ${
-                      isDarkMode ? "text-white" : "text-black"
-                    }`}
+                    style={{
+                      fontSize: 20,
+                      fontWeight: "bold",
+                      color: isDarkMode ? "white" : "black",
+                    }}
                   >
                     All Brands
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowAllBrands(false)}
-                    className="p-2"
+                    style={{ padding: 8 }}
                   >
                     <Ionicons
                       name="close"
@@ -355,9 +392,16 @@ const BrandSelector = memo(
                 </View>
 
                 <View
-                  className={`flex-row items-center rounded-full border border-[#ccc] px-4 h-12 mb-4 ${
-                    isDarkMode ? "border-[#555]" : ""
-                  }`}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#555" : "#ccc",
+                    borderRadius: 24,
+                    paddingHorizontal: 16,
+                    height: 48,
+                    marginBottom: 16,
+                  }}
                 >
                   <FontAwesome
                     name="search"
@@ -365,21 +409,19 @@ const BrandSelector = memo(
                     color={isDarkMode ? "white" : "black"}
                   />
                   <TextInput
-                    className={`flex-1 px-3 h-full ${
-                      isDarkMode ? "text-white" : "text-black"
-                    }`}
-                    style={{ textAlignVertical: "center" }}
+                    style={{
+                      flex: 1,
+                      marginLeft: 12,
+                      color: isDarkMode ? "white" : "black",
+                    }}
                     placeholder="Search brands..."
-                    placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+                    placeholderTextColor={isDarkMode ? "gray" : "gray"}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                   />
                 </View>
 
-                <ScrollView
-                  className="pt-2"
-                  showsVerticalScrollIndicator={false}
-                >
+                <ScrollView showsVerticalScrollIndicator={false}>
                   {filteredBrands.map((brand, index) => (
                     <TouchableOpacity
                       key={index}
@@ -387,15 +429,28 @@ const BrandSelector = memo(
                         handleBrandPress(brand.name);
                         setShowAllBrands(false);
                       }}
-                      className={`flex-row items-center p-4 mb-2 rounded-xl ${
-                        selectedBrand === brand.name
-                          ? "bg-red/10"
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 16,
+                        marginBottom: 8,
+                        borderRadius: 12,
+                        backgroundColor: selectedBrands.includes(brand.name)
+                          ? "rgba(255,0,0,0.1)"
                           : isDarkMode
-                          ? "bg-neutral-800"
-                          : "bg-neutral-100"
-                      }`}
+                          ? "#333"
+                          : "#eee",
+                      }}
                     >
-                      <View className="w-12 h-12 justify-center items-center mr-3">
+                      <View
+                        style={{
+                          width: 48,
+                          height: 48,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          marginRight: 12,
+                        }}
+                      >
                         <Image
                           source={{ uri: brand.logoUrl }}
                           style={{ width: 40, height: 40 }}
@@ -403,16 +458,21 @@ const BrandSelector = memo(
                         />
                       </View>
                       <Text
-                        className={`flex-1 font-medium ${
-                          selectedBrand === brand.name ? "text-red" : ""
-                        } ${isDarkMode ? "text-white" : "text-black"}`}
-                        numberOfLines={1}
+                        style={{
+                          flex: 1,
+                          fontWeight: "500",
+                          color: selectedBrands.includes(brand.name)
+                            ? "#D55004"
+                            : isDarkMode
+                            ? "white"
+                            : "black",
+                        }}
                       >
                         {brand.name}
                       </Text>
                     </TouchableOpacity>
                   ))}
-                  <View className="h-32" />
+                  <View style={{ height: 32 }} />
                 </ScrollView>
               </View>
             </Animated.View>
@@ -422,70 +482,79 @@ const BrandSelector = memo(
     );
   }
 );
+
+// --------------------
+// Model Selector Component (Multi‑select)
+// --------------------
 const ModelSelector = memo(
-  ({ make, selectedModel, onSelectModel, isDarkMode }) => {
-    const [models, setModels] = useState([]);
+  ({ make, selectedModels, onSelectModel, isDarkMode }) => {
+    const [models, setModels] = useState<string[]>([]);
 
     useEffect(() => {
       const fetchModels = async () => {
-        if (!make) return;
-
+        if (!make || make.length === 0) {
+          setModels([]);
+          return;
+        }
         const { data, error } = await supabase
           .from("cars")
           .select("model")
-          .eq("make", make)
+          .in("make", make)
           .order("model");
-
-        if (!error) {
-          const uniqueModels = Array.from(
-            new Set(data.map((item) => item.model))
-          );
+        if (!error && data) {
+          const uniqueModels = Array.from(new Set(data.map((item: any) => item.model)));
           setModels(uniqueModels);
         }
       };
       fetchModels();
     }, [make]);
 
-    if (!make) return null;
+    if (!make || make.length === 0) return null;
+
+    const handleModelPress = (model: string) => {
+      if (selectedModels.includes(model)) {
+        onSelectModel(selectedModels.filter((m) => m !== model));
+      } else {
+        onSelectModel([...selectedModels, model]);
+      }
+    };
 
     return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mb-6"
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
         {models.map((model, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => onSelectModel(selectedModel === model ? "" : model)}
-            className={`mr-3`}
-          >
+          <TouchableOpacity key={index} onPress={() => handleModelPress(model)} style={{ marginRight: 16 }}>
             <BlurView
               intensity={isDarkMode ? 20 : 40}
               tint={isDarkMode ? "dark" : "light"}
-              className="rounded-2xl"
+              style={{ borderRadius: 12 }}
             >
               <LinearGradient
                 colors={
-                  selectedModel === model
+                  selectedModels.includes(model)
                     ? ["#D55004", "#FF6B00"]
                     : isDarkMode
                     ? ["#1c1c1c", "#2d2d2d"]
                     : ["#f5f5f5", "#e5e5e5"]
                 }
-                className="px-6 py-4 rounded-2xl"
+                style={{
+                  paddingHorizontal: 24,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  alignItems: "center",
+                }}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
                 <Text
-                  className={`text-base font-medium
-                ${
-                  selectedModel === model
-                    ? "text-white"
-                    : isDarkMode
-                    ? "text-white"
-                    : "text-black"
-                }`}
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "500",
+                    color: selectedModels.includes(model)
+                      ? "white"
+                      : isDarkMode
+                      ? "white"
+                      : "black",
+                  }}
                 >
                   {model}
                 </Text>
@@ -498,13 +567,14 @@ const ModelSelector = memo(
   }
 );
 
-// Range Selector Component
+// --------------------
+// Range Selector Component (Unchanged)
+// --------------------
 const RangeSelector = memo(
   ({ title, min, max, value, onChange, prefix = "", isDarkMode, step = 1 }) => {
     const [localValue, setLocalValue] = useState(["", ""]);
     const isYearSelector = title.toLowerCase() === "year";
 
-    // Initialize local value on mount and when value prop changes
     useEffect(() => {
       if (value && Array.isArray(value)) {
         setLocalValue([value[0].toString(), value[1].toString()]);
@@ -539,10 +609,7 @@ const RangeSelector = memo(
 
     const handleTextChange = useCallback(
       (text: string, index: number) => {
-        // Remove non-numeric characters
         const cleanText = text.replace(/[^0-9]/g, "");
-
-        // Update local value immediately for responsive input
         const newLocalValue = [...localValue];
         newLocalValue[index] = cleanText;
         setLocalValue(newLocalValue);
@@ -550,39 +617,29 @@ const RangeSelector = memo(
         if (cleanText === "") return;
 
         if (isYearSelector) {
-          // For year input, wait for the full year to be typed
           if (cleanText.length < 4) return;
-
           const validYear = validateAndFormatYear(cleanText);
           if (!validYear) return;
-
           const yearValue = parseInt(validYear);
           const otherIndex = index === 0 ? 1 : 0;
           const otherValue =
             parseInt(localValue[otherIndex]) || (index === 0 ? max : min);
-
-          // Ensure min <= max
           const newRange =
             index === 0
               ? [yearValue, Math.max(yearValue, otherValue)]
               : [Math.min(yearValue, otherValue), yearValue];
-
           onChange(newRange);
         } else {
-          // Handle other numeric inputs
           const numValue = parseInt(cleanText);
           if (isNaN(numValue)) return;
-
           const clampedValue = Math.min(Math.max(numValue, min), max);
           const otherIndex = index === 0 ? 1 : 0;
           const otherValue =
             parseInt(localValue[otherIndex]) || (index === 0 ? max : min);
-
           const newRange =
             index === 0
               ? [clampedValue, Math.max(clampedValue, otherValue)]
               : [Math.min(clampedValue, otherValue), clampedValue];
-
           onChange(newRange);
         }
       },
@@ -593,74 +650,65 @@ const RangeSelector = memo(
       (index: number) => {
         const currentValue = localValue[index];
         if (currentValue === "") {
-          // Reset to min/max on blur if empty
           const defaultValue = index === 0 ? min : max;
           const newLocalValue = [...localValue];
           newLocalValue[index] = defaultValue.toString();
           setLocalValue(newLocalValue);
-
           const newRange = [...value];
           newRange[index] = defaultValue;
           onChange(newRange);
         } else if (isYearSelector) {
-          // Validate and format year on blur
           const validYear = validateAndFormatYear(currentValue);
           const newLocalValue = [...localValue];
           newLocalValue[index] = validYear;
           setLocalValue(newLocalValue);
-
           if (validYear) {
             const yearValue = parseInt(validYear);
             const otherIndex = index === 0 ? 1 : 0;
             const otherValue =
               parseInt(localValue[otherIndex]) || (index === 0 ? max : min);
-
             const newRange =
               index === 0
                 ? [yearValue, Math.max(yearValue, otherValue)]
                 : [Math.min(yearValue, otherValue), yearValue];
-
             onChange(newRange);
           }
         }
       },
-      [
-        localValue,
-        value,
-        onChange,
-        min,
-        max,
-        isYearSelector,
-        validateAndFormatYear,
-      ]
+      [localValue, value, onChange, min, max, isYearSelector, validateAndFormatYear]
     );
 
     return (
-      <View className="mb-6">
+      <View style={{ marginBottom: 24 }}>
         <Text
-          className={`text-base font-medium mb-4
-          ${isDarkMode ? "text-white" : "text-black"}`}
+          style={{
+            fontSize: 16,
+            fontWeight: "500",
+            marginBottom: 16,
+            color: isDarkMode ? "white" : "black",
+          }}
         >
           {title}
         </Text>
 
-        <View className="flex-row items-center space-x-4">
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <BlurView
             intensity={isDarkMode ? 20 : 40}
             tint={isDarkMode ? "dark" : "light"}
-            className="flex-1 rounded-2xl overflow-hidden"
+            style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}
           >
             <LinearGradient
-              colors={
-                isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]
-              }
-              className="p-4"
+              colors={isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]}
+              style={{ padding: 16 }}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <Text
-                className={`text-xs mb-1
-                ${isDarkMode ? "text-neutral-400" : "text-neutral-600"}`}
+                style={{
+                  fontSize: 12,
+                  marginBottom: 4,
+                  color: isDarkMode ? "#aaa" : "#555",
+                }}
               >
                 Min {title}
               </Text>
@@ -669,9 +717,12 @@ const RangeSelector = memo(
                 onChangeText={(text) => handleTextChange(text, 0)}
                 onBlur={() => handleBlur(0)}
                 keyboardType="numeric"
-                className={`text-lg font-medium
-                  ${isDarkMode ? "text-white" : "text-black"}`}
-                style={{ height: 40 }}
+                style={{
+                  fontSize: 18,
+                  fontWeight: "500",
+                  color: isDarkMode ? "white" : "black",
+                  height: 40,
+                }}
                 placeholder={min.toString()}
                 placeholderTextColor={isDarkMode ? "#666" : "#999"}
                 maxLength={isYearSelector ? 4 : undefined}
@@ -679,24 +730,25 @@ const RangeSelector = memo(
             </LinearGradient>
           </BlurView>
 
-          <View className="w-8 h-0.5 bg-neutral-400" />
+          <View style={{ width: 32, height: 1, backgroundColor: "#ccc", marginHorizontal: 8 }} />
 
           <BlurView
             intensity={isDarkMode ? 20 : 40}
             tint={isDarkMode ? "dark" : "light"}
-            className="flex-1 rounded-2xl overflow-hidden"
+            style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}
           >
             <LinearGradient
-              colors={
-                isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]
-              }
-              className="p-4"
+              colors={isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]}
+              style={{ padding: 16 }}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <Text
-                className={`text-xs mb-1
-                ${isDarkMode ? "text-neutral-400" : "text-neutral-600"}`}
+                style={{
+                  fontSize: 12,
+                  marginBottom: 4,
+                  color: isDarkMode ? "#aaa" : "#555",
+                }}
               >
                 Max {title}
               </Text>
@@ -705,9 +757,12 @@ const RangeSelector = memo(
                 onChangeText={(text) => handleTextChange(text, 1)}
                 onBlur={() => handleBlur(1)}
                 keyboardType="numeric"
-                className={`text-lg font-medium
-                  ${isDarkMode ? "text-white" : "text-black"}`}
-                style={{ height: 40 }}
+                style={{
+                  fontSize: 18,
+                  fontWeight: "500",
+                  color: isDarkMode ? "white" : "black",
+                  height: 40,
+                }}
                 placeholder={max.toString()}
                 placeholderTextColor={isDarkMode ? "#666" : "#999"}
                 maxLength={isYearSelector ? 4 : undefined}
@@ -720,13 +775,15 @@ const RangeSelector = memo(
   }
 );
 
+// --------------------
 // Quick Filter Card Component
+// --------------------
 const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }) => (
-  <TouchableOpacity onPress={onSelect} className={`mr-3 w-40  `}>
+  <TouchableOpacity onPress={onSelect} style={{ marginRight: 16, width: 160 }}>
     <BlurView
       intensity={isDarkMode ? 20 : 40}
       tint={isDarkMode ? "dark" : "light"}
-      className="rounded-2xl"
+      style={{ borderRadius: 12 }}
     >
       <LinearGradient
         colors={
@@ -736,7 +793,12 @@ const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }) => (
             ? ["#1c1c1c", "#2d2d2d"]
             : ["#f5f5f5", "#e5e5e5"]
         }
-        className="px-6 py-4 rounded-2xl"
+        style={{
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+          borderRadius: 12,
+          alignItems: "center",
+        }}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
@@ -746,10 +808,12 @@ const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }) => (
           color={isSelected ? "#fff" : isDarkMode ? "#fff" : "#000"}
         />
         <Text
-          className={`mt-2 text-sm font-medium
-          ${
-            isSelected ? "text-white" : isDarkMode ? "text-white" : "text-black"
-          }`}
+          style={{
+            marginTop: 8,
+            fontSize: 14,
+            fontWeight: "500",
+            color: isSelected ? "white" : isDarkMode ? "white" : "black",
+          }}
         >
           {filter.label}
         </Text>
@@ -758,41 +822,45 @@ const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }) => (
   </TouchableOpacity>
 ));
 
+// --------------------
 // Color Selector Component
+// --------------------
 const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }) => (
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    className="mb-6"
-  >
+  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
     {VEHICLE_COLORS.map((color) => (
       <TouchableOpacity
         key={color.name}
         onPress={() =>
-          onSelectColor(selectedColor === color.name ? "" : color.name)
+          onSelectColor(
+            selectedColor.includes(color.name)
+              ? selectedColor.filter((c: string) => c !== color.name)
+              : [...selectedColor, color.name]
+          )
         }
-        className={`mr-3`}
+        style={{ marginRight: 16 }}
       >
         <BlurView
           intensity={isDarkMode ? 20 : 40}
           tint={isDarkMode ? "dark" : "light"}
-          className="rounded-2xl p-2"
+          style={{ borderRadius: 12, padding: 8 }}
         >
           <LinearGradient
             colors={color.gradient}
-            className="w-16 h-16 rounded-xl mb-2"
+            style={{ width: 64, height: 64, borderRadius: 12, marginBottom: 8 }}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
           <Text
-            className={`text-center text-sm font-medium
-            ${
-              selectedColor === color.name
-                ? "text-red"
+            style={{
+              textAlign: "center",
+              fontSize: 14,
+              fontWeight: "500",
+              color: selectedColor.includes(color.name)
+                ? "#D55004"
                 : isDarkMode
-                ? "text-white"
-                : "text-black"
-            }`}
+                ? "white"
+                : "black",
+            }}
           >
             {color.name}
           </Text>
@@ -802,21 +870,16 @@ const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }) => (
   </ScrollView>
 ));
 
+// --------------------
 // Selection Card Component
+// --------------------
 const SelectionCard = memo(
-  ({
-    label = "",
-    icon = "car",
-    isSelected = false,
-    onSelect = () => {},
-    isDarkMode = false,
-    imageUrl = null,
-  }) => (
-    <TouchableOpacity onPress={onSelect} className={`mr-3 mb-3 w-40 `}>
+  ({ label = "", icon = "car", isSelected = false, onSelect = () => {}, isDarkMode = false, imageUrl = null }) => (
+    <TouchableOpacity onPress={onSelect} style={{ marginRight: 16, marginBottom: 16, width: 160 }}>
       <BlurView
         intensity={isDarkMode ? 20 : 40}
         tint={isDarkMode ? "dark" : "light"}
-        className="rounded-2xl"
+        style={{ borderRadius: 12 }}
       >
         <LinearGradient
           colors={
@@ -826,16 +889,15 @@ const SelectionCard = memo(
               ? ["#1c1c1c", "#2d2d2d"]
               : ["#f5f5f5", "#e5e5e5"]
           }
-          className="p-4 rounded-2xl items-center"
+          style={{ padding: 16, borderRadius: 12, alignItems: "center" }}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
           {imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
-              style={{ width: 40, height: 40 }}
-              contentFit="contain"
-              className="mb-2"
+              style={{ width: 40, height: 40, marginBottom: 8 }}
+              resizeMode="contain"
             />
           ) : (
             <MaterialCommunityIcons
@@ -845,10 +907,12 @@ const SelectionCard = memo(
             />
           )}
           <Text
-            className={`mt-2 text-sm font-medium
-          ${
-            isSelected ? "text-white" : isDarkMode ? "text-white" : "text-black"
-          }`}
+            style={{
+              marginTop: 8,
+              fontSize: 14,
+              fontWeight: "500",
+              color: isSelected ? "white" : isDarkMode ? "white" : "black",
+            }}
           >
             {label}
           </Text>
@@ -858,7 +922,9 @@ const SelectionCard = memo(
   )
 );
 
-// First, add this new component above your FilterPage component:
+// --------------------
+// Dealership Selector Component (Multi‑select)
+// --------------------
 const DealershipSelector = memo(
   ({ dealerships, filters, setFilters, isDarkMode }) => {
     const [showAllDealers, setShowAllDealers] = useState(false);
@@ -870,109 +936,109 @@ const DealershipSelector = memo(
 
     return (
       <View>
-<View className="mb-4">
-  <View className="flex-row justify-between items-center">
-    <Text
-      className={`text-xl font-bold ${
-        isDarkMode ? "text-white" : "text-black"
-      }`}
-    >
-      Dealerships
-    </Text>
-    <TouchableOpacity
-      onPress={() => setShowAllDealers(true)}
-      className="flex-row items-center"
-    >
-      <Text className="text-red">View All</Text>
-      <FontAwesome
-        name="chevron-right"
-        size={14}
-        color={isDarkMode ? "#FFFFFF" : "#000000"}
-        style={{ marginLeft: 8 }}
-      />
-    </TouchableOpacity>
-  </View>
-  <Text
-    className={`text-sm mt-1 ${
-      isDarkMode ? "text-neutral-400" : "text-neutral-600"
-    }`}
-  >
-    Filter by dealerships
-  </Text>
-</View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mb-6"
-        >
-          {dealerships.map(
-            (dealer: {
-              id: React.Key | null | undefined;
-              name:
-                | string
-                | number
-                | boolean
-                | React.ReactElement<
-                    any,
-                    string | React.JSXElementConstructor<any>
-                  >
-                | Iterable<React.ReactNode>
-                | React.ReactPortal
-                | null
-                | undefined;
-              logo: any;
-            }) => (
-              <TouchableOpacity
-                key={dealer.id}
-                onPress={() =>
-                  setFilters((prev: { dealership: any }) => ({
-                    ...prev,
-                    dealership: prev.dealership === dealer.id ? "" : dealer.id,
-                    dealershipName:
-                      prev.dealership === dealer.id ? "" : dealer.name,
-                  }))
-                }
-                className={`mr-3 `}
+        <View style={{ marginBottom: 16 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                color: isDarkMode ? "white" : "black",
+              }}
+            >
+              Dealerships
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowAllDealers(true)}
+              style={{ flexDirection: "row", alignItems: "center" }}
+            >
+              <Text style={{ color: "#D55004" }}>View All</Text>
+              <FontAwesome
+                name="chevron-right"
+                size={14}
+                color={isDarkMode ? "#FFFFFF" : "#000000"}
+                style={{ marginLeft: 8 }}
+              />
+            </TouchableOpacity>
+          </View>
+          <Text
+            style={{
+              fontSize: 14,
+              marginTop: 4,
+              color: isDarkMode ? "#aaa" : "#555",
+            }}
+          >
+            Filter by dealerships
+          </Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+          {dealerships.map((dealer: { id: string; name: string; logo: string }) => (
+            <TouchableOpacity
+              key={dealer.id}
+              onPress={() =>
+                setFilters((prev: any) => ({
+                  ...prev,
+                  dealership: prev.dealership.includes(dealer.id)
+                    ? prev.dealership.filter((d: string) => d !== dealer.id)
+                    : [...prev.dealership, dealer.id],
+                  dealershipName: prev.dealershipName.includes(dealer.name)
+                    ? prev.dealershipName.filter((n: string) => n !== dealer.name)
+                    : [...prev.dealershipName, dealer.name],
+                }))
+              }
+              style={{ marginRight: 16 }}
+            >
+              <BlurView
+                intensity={isDarkMode ? 20 : 40}
+                tint={isDarkMode ? "dark" : "light"}
+                style={{
+                  borderRadius: 12,
+                  padding: 16,
+                  width: 110,
+                  height: 150,
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
               >
-                <BlurView
-                  intensity={isDarkMode ? 20 : 40}
-                  tint={isDarkMode ? "dark" : "light"}
-                  className="rounded-2xl p-4 w-[110px] h-[150px] justify-between items-center"
+                <View style={{ width: 60, height: 60, justifyContent: "center", alignItems: "center" }}>
+                  {dealer.logo ? (
+                    <Image
+                      source={{ uri: dealer.logo }}
+                      style={{ width: 60, height: 60 }}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="car-estate"
+                      size={40}
+                      color={isDarkMode ? "#666" : "#999"}
+                    />
+                  )}
+                </View>
+                <Text
+                  style={{
+                    textAlign: "center",
+                    fontSize: 14,
+                    fontWeight: "500",
+                    color: filters.dealership.includes(dealer.id)
+                      ? "#D55004"
+                      : isDarkMode
+                      ? "white"
+                      : "black",
+                  }}
+                  numberOfLines={2}
                 >
-                  <View className="w-[60px] h-[60px] justify-center items-center">
-                    {dealer.logo ? (
-                      <Image
-                        source={{ uri: dealer.logo }}
-                        style={{ width: 60, height: 60 }}
-                        contentFit="contain"
-                      />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="car-estate"
-                        size={40}
-                        color={isDarkMode ? "#666" : "#999"}
-                      />
-                    )}
-                  </View>
-                  <Text
-                    className={`text-center text-sm font-medium
-                ${
-                  filters.dealership === dealer.id
-                    ? "text-red"
-                    : isDarkMode
-                    ? "text-white"
-                    : "text-black"
-                }`}
-                    numberOfLines={2}
-                  >
-                    {dealer.name}
-                  </Text>
-                </BlurView>
-              </TouchableOpacity>
-            )
-          )}
+                  {dealer.name}
+                </Text>
+              </BlurView>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
-        // Modify the Modal section in the DealershipSelector component:
         <Modal
           visible={showAllDealers}
           animationType="slide"
@@ -982,36 +1048,55 @@ const DealershipSelector = memo(
           <BlurView
             intensity={isDarkMode ? 20 : 40}
             tint={isDarkMode ? "dark" : "light"}
-            className="flex-1"
+            style={{ flex: 1 }}
           >
             <TouchableOpacity
-              className="flex-1"
+              style={{ flex: 1 }}
               activeOpacity={1}
               onPress={() => setShowAllDealers(false)}
             />
             <Animated.View
               entering={SlideInDown}
               exiting={SlideOutDown}
-              className={`h-[60%] rounded-t-3xl ${
-                isDarkMode ? "bg-black" : "bg-white"
-              }`}
+              style={{
+                height: "60%",
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                backgroundColor: isDarkMode ? "black" : "white",
+              }}
             >
-              <View className="p-4">
-                <View className="items-center mb-2">
-                  <View className="w-16 h-1 rounded-full bg-neutral-300" />
+              <View style={{ padding: 16 }}>
+                <View style={{ alignItems: "center", marginBottom: 8 }}>
+                  <View
+                    style={{
+                      width: 64,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#ccc",
+                    }}
+                  />
                 </View>
 
-                <View className="flex-row justify-between items-center mb-4">
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 16,
+                  }}
+                >
                   <Text
-                    className={`text-xl font-bold ${
-                      isDarkMode ? "text-white" : "text-black"
-                    }`}
+                    style={{
+                      fontSize: 20,
+                      fontWeight: "bold",
+                      color: isDarkMode ? "white" : "black",
+                    }}
                   >
                     All Dealerships
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowAllDealers(false)}
-                    className="p-2"
+                    style={{ padding: 8 }}
                   >
                     <Ionicons
                       name="close"
@@ -1022,7 +1107,16 @@ const DealershipSelector = memo(
                 </View>
 
                 <View
-                  className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#555" : "#ccc",
+                    borderRadius: 24,
+                    paddingHorizontal: 16,
+                    height: 48,
+                    marginBottom: 16,
+                  }}
                 >
                   <FontAwesome
                     name="search"
@@ -1030,46 +1124,61 @@ const DealershipSelector = memo(
                     color={isDarkMode ? "white" : "black"}
                   />
                   <TextInput
-                    className={`flex-1 px-3 h-full ${
-                      isDarkMode ? "text-white" : "text-black"
-                    }`}
-                    style={{ textAlignVertical: "center" }}
+                    style={{
+                      flex: 1,
+                      marginLeft: 12,
+                      color: isDarkMode ? "white" : "black",
+                    }}
                     placeholder="Search dealerships..."
-                    placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+                    placeholderTextColor={isDarkMode ? "gray" : "gray"}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                   />
                 </View>
 
-                <ScrollView
-                  className="pt-2"
-                  showsVerticalScrollIndicator={false}
-                >
+                <ScrollView showsVerticalScrollIndicator={false}>
                   {filteredDealerships.map((dealer) => (
                     <TouchableOpacity
                       key={dealer.id}
                       onPress={() => {
-                        setFilters((prev) => ({
+                        setFilters((prev: any) => ({
                           ...prev,
-                          dealership: dealer.id,
-                          dealershipName: dealer.name,
+                          dealership: prev.dealership.includes(dealer.id)
+                            ? prev.dealership.filter((d: string) => d !== dealer.id)
+                            : [...prev.dealership, dealer.id],
+                          dealershipName: prev.dealershipName.includes(dealer.name)
+                            ? prev.dealershipName.filter((n: string) => n !== dealer.name)
+                            : [...prev.dealershipName, dealer.name],
                         }));
                         setShowAllDealers(false);
                       }}
-                      className={`flex-row items-center p-4 mb-2 rounded-xl ${
-                        filters.dealership === dealer.id
-                          ? "bg-red/10"
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 16,
+                        marginBottom: 8,
+                        borderRadius: 12,
+                        backgroundColor: filters.dealership.includes(dealer.id)
+                          ? "rgba(255,0,0,0.1)"
                           : isDarkMode
-                          ? "bg-neutral-800"
-                          : "bg-neutral-100"
-                      }`}
+                          ? "#333"
+                          : "#eee",
+                      }}
                     >
-                      <View className="w-12 h-12 justify-center items-center mr-3">
+                      <View
+                        style={{
+                          width: 48,
+                          height: 48,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          marginRight: 12,
+                        }}
+                      >
                         {dealer.logo ? (
                           <Image
                             source={{ uri: dealer.logo }}
                             style={{ width: 40, height: 40 }}
-                            contentFit="contain"
+                            resizeMode="contain"
                           />
                         ) : (
                           <MaterialCommunityIcons
@@ -1080,19 +1189,21 @@ const DealershipSelector = memo(
                         )}
                       </View>
                       <Text
-                        className={`flex-1 font-medium ${
-                          filters.dealership === dealer.id
-                            ? "text-red"
+                        style={{
+                          flex: 1,
+                          fontWeight: "500",
+                          color: filters.dealership.includes(dealer.id)
+                            ? "#D55004"
                             : isDarkMode
-                            ? "text-white"
-                            : "text-black"
-                        }`}
+                            ? "white"
+                            : "black",
+                        }}
                       >
                         {dealer.name}
                       </Text>
                     </TouchableOpacity>
                   ))}
-                  <View className="h-32" />
+                  <View style={{ height: 32 }} />
                 </ScrollView>
               </View>
             </Animated.View>
@@ -1103,38 +1214,36 @@ const DealershipSelector = memo(
   }
 );
 
-// Then in your FilterPage component, replace the dealership section with:
-{
-  /* Dealership Section */
-}
-
+// --------------------
 // Main Filter Page Component
+// --------------------
 const FilterPage = () => {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [dealerships, setDealerships] = useState([]);
+  const [dealerships, setDealerships] = useState<any[]>([]);
+
+  // Updated default filters using arrays for multi‑select fields:
   const defaultFilters = {
-    dealership: "",
-    dealershipName: "",
-    make: "",
-    model: "",
-    condition: "",
+    dealership: [],
+    dealershipName: [],
+    make: [],
+    model: [],
+    condition: [],
     priceRange: [0, 1000000],
     mileageRange: [0, 500000],
     yearRange: [1900, new Date().getFullYear()],
-    color: "",
-    transmission: "",
-    drivetrain: "",
+    color: [],
+    transmission: [],
+    drivetrain: [],
     categories: [],
     quickFilter: null,
   };
 
   const [filters, setFilters] = useState(() => {
     if (!params.filters) return defaultFilters;
-
     try {
-      const parsedFilters = JSON.parse(params.filters);
+      const parsedFilters = JSON.parse(params.filters as string);
       return parsedFilters && typeof parsedFilters === "object"
         ? { ...defaultFilters, ...parsedFilters }
         : defaultFilters;
@@ -1146,65 +1255,21 @@ const FilterPage = () => {
 
   useEffect(() => {
     const fetchDealerships = async () => {
-      const { data, error } = await supabase
-        .from("dealerships")
-        .select("id, name, logo");
+      const { data, error } = await supabase.from("dealerships").select("id, name, logo");
       if (!error) setDealerships(data || []);
     };
     fetchDealerships();
   }, []);
 
-  const handleQuickFilterSelect = (
-    quickFilter:
-      | {
-          id: string;
-          label: string;
-          icon: string;
-          filter: {
-            specialFilter: string;
-            sortBy: string;
-            priceRange?: undefined;
-          };
-        }
-      | {
-          id: string;
-          label: string;
-          filter: {
-            priceRange: number[];
-            specialFilter?: undefined;
-            sortBy?: undefined;
-          };
-          icon?: undefined;
-        }
-      | {
-          id: string;
-          label: string;
-          icon: string;
-          filter: {
-            priceRange: number[];
-            specialFilter?: undefined;
-            sortBy?: undefined;
-          };
-        }
-      | {
-          id: string;
-          label: string;
-          icon: string;
-          filter: {
-            specialFilter: string;
-            sortBy?: undefined;
-            priceRange?: undefined;
-          };
-        }
-  ) => {
+  const handleQuickFilterSelect = (quickFilter: any) => {
     if (filters.quickFilter?.id === quickFilter.id) {
       // Deselect if already selected
-      setFilters((prev: { categories: any }) => ({
+      setFilters((prev: any) => ({
         ...defaultFilters,
         categories: prev.categories, // Preserve categories
       }));
     } else {
-      setFilters((prev: { categories: any }) => ({
+      setFilters((prev: any) => ({
         ...defaultFilters,
         ...quickFilter.filter,
         quickFilter,
@@ -1214,42 +1279,37 @@ const FilterPage = () => {
   };
 
   const handleCategorySelect = (category: any) => {
-    setFilters((prev: { categories: any[] }) => ({
+    setFilters((prev: any) => ({
       ...prev,
-      categories: prev.categories?.includes(category)
+      categories: prev.categories.includes(category)
         ? prev.categories.filter((c: any) => c !== category)
-        : [...(prev.categories || []), category],
+        : [...prev.categories, category],
     }));
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"}`}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
-      <View className="p-4 ">
-        <View className="relative flex-row items-center ">
+      <View style={{ padding: 16 }}>
+        <View style={{ position: "relative", flexDirection: "row", alignItems: "center" }}>
           <Text
-            className={`text-xl font-bold ${
-              isDarkMode ? "text-white" : "text-black"
-            }`}
+            style={{
+              fontSize: 20,
+              fontWeight: "bold",
+              color: isDarkMode ? "white" : "black",
+            }}
           >
             Filters
           </Text>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="absolute right-4"
-          >
-            <Ionicons
-              name="arrow-down"
-              size={24}
-              color={isDarkMode ? "white" : "black"}
-            />
+          <TouchableOpacity onPress={() => router.back()} style={{ position: "absolute", right: 16 }}>
+            <Ionicons name="arrow-down" size={24} color={isDarkMode ? "white" : "black"} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4">
-        <View className="py-4">
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+        <View style={{ paddingVertical: 16 }}>
           {/* Quick Filters Section */}
           <SectionHeader
             title="Quick Filters"
@@ -1257,42 +1317,33 @@ const FilterPage = () => {
             isDarkMode={isDarkMode}
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {QUICK_FILTERS.map((filter) => (
+            {QUICK_FILTERS.map((filterItem) => (
               <QuickFilterCard
-                key={filter.id}
-                filter={filter}
-                isSelected={filters.quickFilter?.id === filter.id}
-                onSelect={() => handleQuickFilterSelect(filter)}
+                key={filterItem.id}
+                filter={filterItem}
+                isSelected={filters.quickFilter?.id === filterItem.id}
+                onSelect={() => handleQuickFilterSelect(filterItem)}
                 isDarkMode={isDarkMode}
               />
             ))}
           </ScrollView>
 
-          <SectionHeader
-            subtitle="Select your budget range"
-            isDarkMode={isDarkMode}
-          />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
+          <SectionHeader subtitle="Select your budget range" isDarkMode={isDarkMode} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
             {PRICE_RANGES.map((range, index) => (
               <SelectionCard
                 key={index}
                 label={range.label}
                 icon={range.icon}
                 isSelected={
-                  JSON.stringify(filters.priceRange || [0, 1000000]) ===
-                  JSON.stringify(range.value)
+                  JSON.stringify(filters.priceRange) === JSON.stringify(range.value)
                 }
                 onSelect={() =>
-                  setFilters((prev: { priceRange: any }) => ({
+                  setFilters((prev: any) => ({
                     ...prev,
                     priceRange:
-                      JSON.stringify(prev.priceRange) ===
-                      JSON.stringify(range.value)
-                        ? [0, 1000000] // Reset to default range when deselecting
+                      JSON.stringify(prev.priceRange) === JSON.stringify(range.value)
+                        ? [0, 1000000]
                         : range.value,
                   }))
                 }
@@ -1305,25 +1356,27 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           <BrandSelector
-            selectedBrand={filters.make}
-            onSelectBrand={(make: any) => {
+            selectedBrands={filters.make}
+            onSelectBrand={(newSelectedBrands) =>
               setFilters((prev: any) => ({
                 ...prev,
-                make,
-                model: "", // Clear model when brand changes or is deselected
-              }));
-            }}
+                make: newSelectedBrands,
+                model: [], // Clear models when brand selection changes
+              }))
+            }
             isDarkMode={isDarkMode}
           />
 
           <ModelSelector
             make={filters.make}
-            selectedModel={filters.model}
-            onSelectModel={(model: any) => setFilters({ ...filters, model })}
+            selectedModels={filters.model}
+            onSelectModel={(newSelectedModels) =>
+              setFilters((prev: any) => ({ ...prev, model: newSelectedModels }))
+            }
             isDarkMode={isDarkMode}
           />
 
@@ -1331,7 +1384,7 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           {/* Price Range Selector */}
@@ -1347,10 +1400,7 @@ const FilterPage = () => {
             step={1000}
             value={filters.priceRange}
             onChange={(range: any) =>
-              setFilters((prev: any) => ({
-                ...prev,
-                priceRange: range,
-              }))
+              setFilters((prev: any) => ({ ...prev, priceRange: range }))
             }
             prefix="$"
             isDarkMode={isDarkMode}
@@ -1360,7 +1410,7 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           {/* Mileage Range Selector */}
@@ -1376,10 +1426,7 @@ const FilterPage = () => {
             step={1000}
             value={filters.mileageRange}
             onChange={(range: any) =>
-              setFilters((prev: any) => ({
-                ...prev,
-                mileageRange: range,
-              }))
+              setFilters((prev: any) => ({ ...prev, mileageRange: range }))
             }
             prefix=" km"
             isDarkMode={isDarkMode}
@@ -1389,7 +1436,7 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           {/* Year Range Selector */}
@@ -1417,11 +1464,10 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           {/* Dealership Section */}
-
           <DealershipSelector
             dealerships={dealerships}
             filters={filters}
@@ -1433,7 +1479,7 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           {/* Transmission Options */}
@@ -1442,22 +1488,19 @@ const FilterPage = () => {
             subtitle="Choose transmission type"
             isDarkMode={isDarkMode}
           />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
             {TRANSMISSION_OPTIONS.map((option) => (
               <SelectionCard
                 key={option.value}
                 label={option.label}
                 icon={option.icon}
-                isSelected={filters.transmission === option.value}
+                isSelected={filters.transmission.includes(option.value)}
                 onSelect={() =>
-                  setFilters((prev: { transmission: string }) => ({
+                  setFilters((prev: any) => ({
                     ...prev,
-                    transmission:
-                      prev.transmission === option.value ? "" : option.value,
+                    transmission: prev.transmission.includes(option.value)
+                      ? prev.transmission.filter((val: string) => val !== option.value)
+                      : [...prev.transmission, option.value],
                   }))
                 }
                 isDarkMode={isDarkMode}
@@ -1465,34 +1508,31 @@ const FilterPage = () => {
             ))}
           </ScrollView>
 
-          {/* Drivetrain Options */}
-
           <LinearGradient
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
+
+          {/* Drivetrain Options */}
           <SectionHeader
             title="Drivetrain"
             subtitle="Select drivetrain configuration"
             isDarkMode={isDarkMode}
           />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
             {DRIVETRAIN_OPTIONS.map((option) => (
               <SelectionCard
                 key={option.value}
                 label={option.label}
-                isSelected={filters.drivetrain === option.value}
+                isSelected={filters.drivetrain.includes(option.value)}
                 onSelect={() =>
-                  setFilters((prev: { drivetrain: string }) => ({
+                  setFilters((prev: any) => ({
                     ...prev,
-                    drivetrain:
-                      prev.drivetrain === option.value ? "" : option.value,
+                    drivetrain: prev.drivetrain.includes(option.value)
+                      ? prev.drivetrain.filter((val: string) => val !== option.value)
+                      : [...prev.drivetrain, option.value],
                   }))
                 }
                 isDarkMode={isDarkMode}
@@ -1504,7 +1544,7 @@ const FilterPage = () => {
             colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            className="w-12 h-1 rounded-full mb-2"
+            style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
           />
 
           {/* Color Selection */}
@@ -1515,16 +1555,15 @@ const FilterPage = () => {
           />
           <ColorSelector
             selectedColor={filters.color}
-            onSelectColor={(color: any) =>
+            onSelectColor={(newColors) =>
               setFilters((prev: any) => ({
                 ...prev,
-                color,
+                color: newColors,
               }))
             }
             isDarkMode={isDarkMode}
           />
 
-          {/* Bottom Spacing */}
           <View style={{ height: 100 }} />
         </View>
       </ScrollView>
@@ -1533,38 +1572,66 @@ const FilterPage = () => {
       <BlurView
         intensity={isDarkMode ? 25 : 40}
         tint={isDarkMode ? "dark" : "light"}
-        className="absolute bottom-0 left-0 right-0 border-t border-neutral-200/30"
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTopWidth: 1,
+          borderTopColor: "rgba(200,200,200,0.3)",
+        }}
       >
-<View className="flex-row  bg-white dark:bg-black justify-center items-center pb-3">
-  <TouchableOpacity
-    onPress={() => {
-      setFilters(defaultFilters);
-      router.replace({
-        pathname: "/(home)/(user)",
-        params: { filters: JSON.stringify({}) },
-      });
-    }}
-    className="w-40 py-3 px-6 rounded-full bg-gradient-to-r from-neutral-600 to-neutral-800 shadow-lg transition-transform active:scale-95"
-  >
-    <Text className="text-white border border-textgray p-2 rounded-full bg-red font-medium text-center">
-      Clear All
-    </Text>
-  </TouchableOpacity>
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: isDarkMode ? "black" : "white",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingVertical: 20,
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              setFilters(defaultFilters);
+              router.replace({
+                pathname: "/(home)/(user)",
+                params: { filters: JSON.stringify({}) },
+              });
+            }}
+            style={{
+              width: 160,
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              borderRadius: 24,
+              backgroundColor: "gray",
+              marginRight: 16,
+            }}
+          >
+            <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
+              Clear All
+            </Text>
+          </TouchableOpacity>
 
-  <TouchableOpacity
-    onPress={() => {
-      router.replace({
-        pathname: "/(home)/(user)",
-        params: { filters: JSON.stringify(filters) },
-      });
-    }}
-    className="w-40 py-3 px-6 rounded-full bg-gradient-to-r from-red-500 to-red-700 shadow-lg transition-transform active:scale-95"
-  >
-    <Text className="text-black dark:text-white border border-textgray p-2 rounded-full font-semibold text-center">
-      Apply Filters
-    </Text>
-  </TouchableOpacity>
-</View>
+          <TouchableOpacity
+            onPress={() => {
+              router.replace({
+                pathname: "/(home)/(user)",
+                params: { filters: JSON.stringify(filters) },
+              });
+            }}
+            style={{
+              width: 160,
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              borderRadius: 24,
+              backgroundColor: "#D55004",
+            }}
+          >
+            <Text style={{ color: isDarkMode ? "black" : "black", fontWeight: "bold", textAlign: "center" }}>
+              Apply Filters
+            </Text>
+          </TouchableOpacity>
+        </View>
       </BlurView>
     </SafeAreaView>
   );
