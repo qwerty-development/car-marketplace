@@ -21,6 +21,8 @@ import CustomSplashScreen from './CustomSplashScreen'
 LogBox.ignoreLogs([
 	'Encountered two children with the same key',
 	'Non-serializable values were found in the navigation state' ,
+  'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation - use another VirtualizedList-backed container instead.',
+  'Text strings must be rendered within a <Text> component.',
 ])
 
 // Prevent auto-hiding splash screen
