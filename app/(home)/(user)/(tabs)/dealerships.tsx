@@ -55,9 +55,6 @@ const SORT_OPTIONS = {
 
 type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS]
 
-// -------------------
-// Skeleton Component
-// -------------------
 const DealershipSkeleton = React.memo(() => (
   <View
     style={[

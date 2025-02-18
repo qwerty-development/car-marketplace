@@ -20,7 +20,7 @@ import CustomSplashScreen from './CustomSplashScreen'
 
 LogBox.ignoreLogs([
 	'Encountered two children with the same key',
-	'Non-serializable values were found in the navigation state' // Ignore navigation state warnings
+	'Non-serializable values were found in the navigation state' ,
 ])
 
 // Prevent auto-hiding splash screen
