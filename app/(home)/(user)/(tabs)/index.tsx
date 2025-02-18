@@ -13,7 +13,9 @@ import {
 	StyleSheet,
 	Text,
 	Keyboard,
-	StatusBar
+	StatusBar,
+	ActivityIndicator,
+	Animated
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
@@ -26,7 +28,6 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import CategorySelector from '@/components/Category'
 import { RefreshControl } from 'react-native'
-import { Animated } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
 import { useScrollToTop } from '@react-navigation/native'
@@ -55,14 +56,14 @@ interface Car {
 }
 
 interface Filters {
-	dealership?: string
-	make?: string
-	model?: string
-	condition?: string
+	dealership?: string | string[]
+	make?: string | string[]
+	model?: string | string[]
+	condition?: string | string[]
 	yearRange?: [number, number]
-	color?: string
-	transmission?: string
-	drivetrain?: string
+	color?: string | string[]
+	transmission?: string | string[]
+	drivetrain?: string | string[]
 	priceRange?: [number, number]
 	mileageRange?: [number, number]
 	categories?: string[]
@@ -76,13 +77,15 @@ export default function BrowseCarsPage() {
 	const [cars, setCars] = useState<Car[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
-	const [isLoading, setIsLoading] = useState(true)
+	// Instead of one “isLoading” we use two loading states:
+	const [isInitialLoading, setIsInitialLoading] = useState(true)
+	const [loadingMore, setLoadingMore] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [sortOption, setSortOption] = useState<string | null>(null)
 	const [filters, setFilters] = useState<Filters>({})
 	const [refreshing, setRefreshing] = useState(false)
 	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
-	const scrollY = useRef<any>(new Animated.Value(0)).current
+	const scrollY = useRef(new Animated.Value(0)).current
 	const flatListRef = useRef<any>(null)
 	useScrollToTop(flatListRef)
 	const fadeAnim = useRef(new Animated.Value(0)).current
@@ -138,9 +141,7 @@ export default function BrowseCarsPage() {
 					<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 					<View className='flex-row items-center ml-2 -mb-6'>
 						<Text
-							className={`text-2xl ${
-								isDarkMode ? 'text-white' : 'text-black'
-							}  font-bold ml-2`}>
+							className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'}  font-bold ml-2`}>
 							{title}
 						</Text>
 					</View>
@@ -149,230 +150,236 @@ export default function BrowseCarsPage() {
 		}
 	)
 
-const fetchCars = useCallback(
-  async (
-    page = 1,
-    currentFilters: Filters = filters,
-    currentSortOption = sortOption,
-    query = searchQuery
-  ) => {
-    setIsLoading(true); // Start loading before fetching
-    try {
-      let queryBuilder = supabase
-        .from("cars")
-        .select(
-          `*, dealerships (name,logo,phone,location,latitude,longitude)`,
-          { count: "exact" }
-        )
-        .eq("status", "available");
+	const fetchCars = useCallback(
+		async (
+			page = 1,
+			currentFilters: Filters = filters,
+			currentSortOption = sortOption,
+			query = searchQuery
+		) => {
+			// Use initial-loading only for page 1; for later pages, use loadingMore.
+			if (page === 1) {
+				setIsInitialLoading(true)
+			} else {
+				setLoadingMore(true)
+			}
+			try {
+				let queryBuilder = supabase
+					.from("cars")
+					.select(
+						`*, dealerships (name,logo,phone,location,latitude,longitude)`,
+						{ count: "exact" }
+					)
+					.eq("status", "available")
 
-      // Special Filters
-      if (currentFilters.specialFilter) {
-        switch (currentFilters.specialFilter) {
-          case "newArrivals":
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            queryBuilder = queryBuilder.gte(
-              "listed_at",
-              sevenDaysAgo.toISOString()
-            );
-            break;
-          case "mostPopular":
-            currentSortOption = "views_desc";
-            break;
-        }
-      }
+				// Special Filters
+				if (currentFilters.specialFilter) {
+					switch (currentFilters.specialFilter) {
+						case "newArrivals":
+							const sevenDaysAgo = new Date()
+							sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+							queryBuilder = queryBuilder.gte(
+								"listed_at",
+								sevenDaysAgo.toISOString()
+							)
+							break
+						case "mostPopular":
+							currentSortOption = "views_desc"
+							break
+					}
+				}
 
-      // Categories (unchanged)
-      if (currentFilters.categories && currentFilters.categories.length > 0) {
-        queryBuilder = queryBuilder.in("category", currentFilters.categories);
-      }
+				// Categories
+				if (currentFilters.categories && currentFilters.categories.length > 0) {
+					queryBuilder = queryBuilder.in("category", currentFilters.categories)
+				}
 
-      // Multi‑select filters
-      if (
-        Array.isArray(currentFilters.dealership) &&
-        currentFilters.dealership.length > 0
-      ) {
-        queryBuilder = queryBuilder.in("dealership_id", currentFilters.dealership);
-      }
-      if (Array.isArray(currentFilters.make) && currentFilters.make.length > 0) {
-        queryBuilder = queryBuilder.in("make", currentFilters.make);
-      }
-      if (
-        Array.isArray(currentFilters.model) &&
-        currentFilters.model.length > 0
-      ) {
-        queryBuilder = queryBuilder.in("model", currentFilters.model);
-      }
-      // If you decide to allow multi‑select for condition as well:
-      if (
-        Array.isArray(currentFilters.condition) &&
-        currentFilters.condition.length > 0
-      ) {
-        queryBuilder = queryBuilder.in("condition", currentFilters.condition);
-      } else if (typeof currentFilters.condition === "string" && currentFilters.condition) {
-        queryBuilder = queryBuilder.eq("condition", currentFilters.condition);
-      }
+				// Multi‑select filters
+				if (
+					Array.isArray(currentFilters.dealership) &&
+					currentFilters.dealership.length > 0
+				) {
+					queryBuilder = queryBuilder.in("dealership_id", currentFilters.dealership)
+				}
+				if (Array.isArray(currentFilters.make) && currentFilters.make.length > 0) {
+					queryBuilder = queryBuilder.in("make", currentFilters.make)
+				}
+				if (
+					Array.isArray(currentFilters.model) &&
+					currentFilters.model.length > 0
+				) {
+					queryBuilder = queryBuilder.in("model", currentFilters.model)
+				}
+				if (
+					Array.isArray(currentFilters.condition) &&
+					currentFilters.condition.length > 0
+				) {
+					queryBuilder = queryBuilder.in("condition", currentFilters.condition)
+				} else if (typeof currentFilters.condition === "string" && currentFilters.condition) {
+					queryBuilder = queryBuilder.eq("condition", currentFilters.condition)
+				}
 
-      // Year Range
-      if (currentFilters.yearRange) {
-        queryBuilder = queryBuilder
-          .gte("year", currentFilters.yearRange[0])
-          .lte("year", currentFilters.yearRange[1]);
-      }
+				// Year Range
+				if (currentFilters.yearRange) {
+					queryBuilder = queryBuilder
+						.gte("year", currentFilters.yearRange[0])
+						.lte("year", currentFilters.yearRange[1])
+				}
 
-      if (Array.isArray(currentFilters.color) && currentFilters.color.length > 0) {
-        queryBuilder = queryBuilder.in("color", currentFilters.color);
-      }
-      if (
-        Array.isArray(currentFilters.transmission) &&
-        currentFilters.transmission.length > 0
-      ) {
-        queryBuilder = queryBuilder.in("transmission", currentFilters.transmission);
-      }
-      if (
-        Array.isArray(currentFilters.drivetrain) &&
-        currentFilters.drivetrain.length > 0
-      ) {
-        queryBuilder = queryBuilder.in("drivetrain", currentFilters.drivetrain);
-      }
+				if (Array.isArray(currentFilters.color) && currentFilters.color.length > 0) {
+					queryBuilder = queryBuilder.in("color", currentFilters.color)
+				}
+				if (
+					Array.isArray(currentFilters.transmission) &&
+					currentFilters.transmission.length > 0
+				) {
+					queryBuilder = queryBuilder.in("transmission", currentFilters.transmission)
+				}
+				if (
+					Array.isArray(currentFilters.drivetrain) &&
+					currentFilters.drivetrain.length > 0
+				) {
+					queryBuilder = queryBuilder.in("drivetrain", currentFilters.drivetrain)
+				}
 
-      // Price Range
-      if (currentFilters.priceRange) {
-        queryBuilder = queryBuilder
-          .gte("price", currentFilters.priceRange[0])
-          .lte("price", currentFilters.priceRange[1]);
-      }
-      // Mileage Range
-      if (currentFilters.mileageRange) {
-        queryBuilder = queryBuilder
-          .gte("mileage", currentFilters.mileageRange[0])
-          .lte("mileage", currentFilters.mileageRange[1]);
-      }
+				// Price Range
+				if (currentFilters.priceRange) {
+					queryBuilder = queryBuilder
+						.gte("price", currentFilters.priceRange[0])
+						.lte("price", currentFilters.priceRange[1])
+				}
+				// Mileage Range
+				if (currentFilters.mileageRange) {
+					queryBuilder = queryBuilder
+						.gte("mileage", currentFilters.mileageRange[0])
+						.lte("mileage", currentFilters.mileageRange[1])
+				}
 
-      // Search query
-      if (query) {
-        const cleanQuery = query.trim().toLowerCase();
-        const searchTerms = cleanQuery.split(/\s+/);
-        searchTerms.forEach((term) => {
-          const numericTerm = parseInt(term);
-          let searchConditions = [
-            `make.ilike.%${term}%`,
-            `model.ilike.%${term}%`,
-            `description.ilike.%${term}%`,
-            `color.ilike.%${term}%`,
-            `category.ilike.%${term}%`,
-            `transmission.ilike.%${term}%`,
-            `drivetrain.ilike.%${term}%`,
-            `type.ilike.%${term}%`,
-            `condition.ilike.%${term}%`,
-          ];
-          if (!isNaN(numericTerm)) {
-            searchConditions = searchConditions.concat([
-              `year::text.eq.${numericTerm}`,
-              `price::text.ilike.%${numericTerm}%`,
-              `mileage::text.ilike.%${numericTerm}%`,
-            ]);
-          }
-          queryBuilder = queryBuilder.or(searchConditions.join(","));
-        });
-      }
+				// Search query
+				if (query) {
+					const cleanQuery = query.trim().toLowerCase()
+					const searchTerms = cleanQuery.split(/\s+/)
+					searchTerms.forEach((term) => {
+						const numericTerm = parseInt(term)
+						let searchConditions = [
+							`make.ilike.%${term}%`,
+							`model.ilike.%${term}%`,
+							`description.ilike.%${term}%`,
+							`color.ilike.%${term}%`,
+							`category.ilike.%${term}%`,
+							`transmission.ilike.%${term}%`,
+							`drivetrain.ilike.%${term}%`,
+							`type.ilike.%${term}%`,
+							`condition.ilike.%${term}%`,
+						]
+						if (!isNaN(numericTerm)) {
+							searchConditions = searchConditions.concat([
+								`year::text.eq.${numericTerm}`,
+								`price::text.ilike.%${numericTerm}%`,
+								`mileage::text.ilike.%${numericTerm}%`,
+							])
+						}
+						queryBuilder = queryBuilder.or(searchConditions.join(","))
+					})
+				}
 
-      // Sorting
-      switch (currentSortOption) {
-        case "price_asc":
-          queryBuilder = queryBuilder.order("price", { ascending: true });
-          break;
-        case "price_desc":
-          queryBuilder = queryBuilder.order("price", { ascending: false });
-          break;
-        case "year_asc":
-          queryBuilder = queryBuilder.order("year", { ascending: true });
-          break;
-        case "year_desc":
-          queryBuilder = queryBuilder.order("year", { ascending: false });
-          break;
-        case "mileage_asc":
-          queryBuilder = queryBuilder.order("mileage", { ascending: true });
-          break;
-        case "mileage_desc":
-          queryBuilder = queryBuilder.order("mileage", { ascending: false });
-          break;
-        case "views_desc":
-          queryBuilder = queryBuilder.order("views", { ascending: false });
-          break;
-        default:
-          queryBuilder = queryBuilder.order("listed_at", { ascending: false });
-      }
+				// Sorting
+				switch (currentSortOption) {
+					case "price_asc":
+						queryBuilder = queryBuilder.order("price", { ascending: true })
+						break
+					case "price_desc":
+						queryBuilder = queryBuilder.order("price", { ascending: false })
+						break
+					case "year_asc":
+						queryBuilder = queryBuilder.order("year", { ascending: true })
+						break
+					case "year_desc":
+						queryBuilder = queryBuilder.order("year", { ascending: false })
+						break
+					case "mileage_asc":
+						queryBuilder = queryBuilder.order("mileage", { ascending: true })
+						break
+					case "mileage_desc":
+						queryBuilder = queryBuilder.order("mileage", { ascending: false })
+						break
+					case "views_desc":
+						queryBuilder = queryBuilder.order("views", { ascending: false })
+						break
+					default:
+						queryBuilder = queryBuilder.order("listed_at", { ascending: false })
+				}
 
-      // Pagination calculations
-      const { count } = await queryBuilder;
-      if (!count) {
-        setCars([]);
-        setTotalPages(0);
-        setCurrentPage(1);
-        setIsLoading(false);
-        return;
-      }
-      const totalItems = count;
-      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-      const safePageNumber = Math.min(page, totalPages);
-      const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE;
-      const endRange = Math.min(
-        safePageNumber * ITEMS_PER_PAGE - 1,
-        totalItems - 1
-      );
+				// Pagination calculations
+				const { count } = await queryBuilder
+				if (!count) {
+					setCars([])
+					setTotalPages(0)
+					setCurrentPage(1)
+					return
+				}
+				const totalItems = count
+				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+				const safePageNumber = Math.min(page, totalPages)
+				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
+				const endRange = Math.min(
+					safePageNumber * ITEMS_PER_PAGE - 1,
+					totalItems - 1
+				)
 
-      // Fetch data for current page
-      let { data, error }:any = await queryBuilder.range(startRange, endRange);
-      if (error) throw error;
+				// Fetch data for current page
+				let { data, error }: any = await queryBuilder.range(startRange, endRange)
+				if (error) throw error
 
-      // If no filters are applied, randomize the order
-      if (
-        Object.keys(currentFilters).length === 0 &&
-        !currentSortOption &&
-        !query
-      ) {
-        for (let i = data!.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [data[i], data[j]] = [data[j], data[i]];
-        }
-      }
+				// If no filters are applied, randomize the order
+				if (
+					Object.keys(currentFilters).length === 0 &&
+					!currentSortOption &&
+					!query
+				) {
+					for (let i = data.length - 1; i > 0; i--) {
+						const j = Math.floor(Math.random() * (i + 1))
+						[data[i], data[j]] = [data[j], data[i]]
+					}
+				}
 
-      // Merge dealership info into the car data
-      const newCars =
-        data?.map((item: { dealerships: { name: any; logo: any; phone: any; location: any; latitude: any; longitude: any } }) => ({
-          ...item,
-          dealership_name: item.dealerships.name,
-          dealership_logo: item.dealerships.logo,
-          dealership_phone: item.dealerships.phone,
-          dealership_location: item.dealerships.location,
-          dealership_latitude: item.dealerships.latitude,
-          dealership_longitude: item.dealerships.longitude,
-        })) || [];
+				// Merge dealership info into the car data
+				const newCars =
+					data?.map((item: { dealerships: { name: any; logo: any; phone: any; location: any; latitude: any; longitude: any } }) => ({
+						...item,
+						dealership_name: item.dealerships.name,
+						dealership_logo: item.dealerships.logo,
+						dealership_phone: item.dealerships.phone,
+						dealership_location: item.dealerships.location,
+						dealership_latitude: item.dealerships.latitude,
+						dealership_longitude: item.dealerships.longitude,
+					})) || []
 
-      // Deduplicate car entries by id
-      const uniqueCars = Array.from(new Set(newCars.map((car: { id: any }) => car.id))).map(
-        (id) => newCars.find((car: { id: unknown }) => car.id === id)
-      );
+				// Deduplicate car entries by id
+				const uniqueCars = Array.from(new Set(newCars.map((car: { id: any }) => car.id))).map(
+					(id) => newCars.find((car: { id: unknown }) => car.id === id)
+				)
 
-      setCars((prevCars) =>
-        safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
-      );
-      setTotalPages(totalPages);
-      setCurrentPage(safePageNumber);
-    } catch (error) {
-      console.error("Error fetching cars:", error);
-      setCars([]);
-      setTotalPages(0);
-      setCurrentPage(1);
-    } finally {
-      setIsLoading(false); // End loading state after fetching
-    }
-  },
-  [filters, sortOption, searchQuery]
-);
-
+				setCars(prevCars =>
+					safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
+				)
+				setTotalPages(totalPages)
+				setCurrentPage(safePageNumber)
+			} catch (error) {
+				console.error("Error fetching cars:", error)
+				setCars([])
+				setTotalPages(0)
+				setCurrentPage(1)
+			} finally {
+				if (page === 1) {
+					setIsInitialLoading(false)
+				} else {
+					setLoadingMore(false)
+				}
+			}
+		},
+		[filters, sortOption, searchQuery]
+	)
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
@@ -432,7 +439,6 @@ const fetchCars = useCallback(
 
 	const handleCategoryPress = useCallback(
 		(category: string) => {
-			setIsLoading(true) // Start loading when category is pressed
 			setFilters(prevFilters => {
 				const updatedCategories = prevFilters.categories
 					? prevFilters.categories.includes(category)
@@ -459,18 +465,19 @@ const fetchCars = useCallback(
 		fetchCars(1, {}, '', '')
 	}, [fetchCars])
 
+	// Render header: show skeletons only if we have no cars (i.e. on the very first load)
 	const renderListHeader = useMemo(
 		() => (
 			<>
-				{isLoading ? (
+				{(isInitialLoading && cars.length === 0) ? (
 					<SkeletonByBrands />
 				) : (
 					<Animated.View style={{ opacity: fadeAnim }}>
 						<ByBrands />
 					</Animated.View>
 				)}
-				<View className='mb-3 mt-3'>
-					{isLoading ? (
+				<View style={{ marginBottom: 12, marginTop: 12 }}>
+					{(isInitialLoading && cars.length === 0) ? (
 						<SkeletonCategorySelector />
 					) : (
 						<Animated.View style={{ opacity: fadeAnim }}>
@@ -483,12 +490,12 @@ const fetchCars = useCallback(
 				</View>
 			</>
 		),
-		[filters.categories, handleCategoryPress, isLoading, fadeAnim]
+		[cars, isInitialLoading, fadeAnim, filters.categories, handleCategoryPress]
 	)
 
 	const renderListEmpty = useCallback(
 		() =>
-			!isLoading && (
+			(!isInitialLoading && cars.length === 0) && (
 				<View style={styles.emptyContainer}>
 					<Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
 						{filters.categories && filters.categories.length > 0
@@ -506,12 +513,15 @@ const fetchCars = useCallback(
 					)}
 				</View>
 			),
-		[filters, searchQuery, isDarkMode, isLoading, handleResetFilters]
+		[filters, searchQuery, isDarkMode, isInitialLoading, handleResetFilters, cars]
 	)
+
+	// When data exists, always pass the loaded cars (even if loadingMore is true)
+	const listData = (isInitialLoading && cars.length === 0) ? Array(3).fill(null) : cars
 
 	return (
 		<LinearGradient
-		colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
 			style={{ flex: 1 }}
 			start={{ x: 0, y: 0 }}
 			end={{ x: 1, y: 1 }}>
@@ -523,12 +533,7 @@ const fetchCars = useCallback(
 				]}>
 				<View style={styles.searchContainer}>
 					<View style={styles.searchInputContainer}>
-						<View
-							style={[
-								styles.searchBar,
-								isDarkMode && styles.darkSearchBar,
-								{ flex: 1 }
-							]}>
+						<View style={[styles.searchBar, isDarkMode && styles.darkSearchBar, { flex: 1 }]}>
 							<FontAwesome
 								name='search'
 								size={20}
@@ -536,17 +541,14 @@ const fetchCars = useCallback(
 								style={{ marginLeft: 12 }}
 							/>
 							<TextInput
-								style={[
-									styles.searchInput,
-									isDarkMode && styles.darkSearchInput
-								]}
+								style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
 								className='p-3'
 								placeholder='Search cars...'
 								placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
 								value={searchQuery}
 								onChangeText={setSearchQuery}
 								onSubmitEditing={handleSearch}
-                 textAlignVertical="center"
+								textAlignVertical="center"
 							/>
 
 							<TouchableOpacity
@@ -607,17 +609,32 @@ const fetchCars = useCallback(
 					)}
 					scrollEventThrottle={16}
 					ListHeaderComponent={renderListHeader}
-					data={isLoading ? Array(3).fill(null) : cars}
-					renderItem={isLoading ? () => <SkeletonCarCard /> : renderCarItem}
-					keyExtractor={isLoading ? (item, index) => `skeleton-${index}` : keyExtractor}
+					data={listData}
+					renderItem={
+						(isInitialLoading && cars.length === 0)
+							? () => <SkeletonCarCard />
+							: renderCarItem
+					}
+					keyExtractor={
+						(isInitialLoading && cars.length === 0)
+							? (_item, index) => `skeleton-${index}`
+							: keyExtractor
+					}
 					onEndReached={() => {
-						if (currentPage < totalPages && !isLoading) {
+						if (currentPage < totalPages && !loadingMore) {
 							fetchCars(currentPage + 1, filters, sortOption, searchQuery)
 						}
 					}}
 					onEndReachedThreshold={0.5}
 					ListEmptyComponent={renderListEmpty}
-					ListFooterComponent={() => null} // Remove ListFooterComponent
+					ListFooterComponent={
+						loadingMore ? (
+							<ActivityIndicator
+								style={{ margin: 16 }}
+								color={isDarkMode ? '#FFFFFF' : '#000000'}
+							/>
+						) : null
+					}
 				/>
 			</SafeAreaView>
 		</LinearGradient>
