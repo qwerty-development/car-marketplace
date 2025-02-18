@@ -16,11 +16,11 @@ import {
   StatusBar,
   Modal,
   StyleSheet,
-  Animated,
-  Easing,
   TouchableWithoutFeedback,
   Dimensions,
-  Platform
+  Platform,
+  Animated,
+  Easing
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
@@ -55,76 +55,6 @@ const SORT_OPTIONS = {
 
 type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS]
 
-const DealershipSkeleton = React.memo(() => (
-  <View
-    style={[
-      skeletonStyles.card,
-      {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5
-      }
-    ]}>
-    <LinearGradient colors={['#f0f0f0', '#e0e0e0']} style={skeletonStyles.gradient}>
-      <View style={skeletonStyles.row}>
-        <View style={skeletonStyles.skeletonCircle} />
-        <View style={skeletonStyles.skeletonContent}>
-          <View style={skeletonStyles.skeletonLineShort} />
-          <View style={skeletonStyles.skeletonLineMedium} />
-          <View style={skeletonStyles.skeletonLineLong} />
-        </View>
-      </View>
-    </LinearGradient>
-  </View>
-))
-
-const skeletonStyles = StyleSheet.create({
-  card: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden'
-  },
-  gradient: {
-    padding: 16
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  skeletonCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#ccc'
-  },
-  skeletonContent: {
-    flex: 1,
-    marginLeft: 16
-  },
-  skeletonLineShort: {
-    width: '75%',
-    height: 20,
-    backgroundColor: '#ccc',
-    borderRadius: 8
-  },
-  skeletonLineMedium: {
-    width: '50%',
-    height: 16,
-    backgroundColor: '#ccc',
-    borderRadius: 8,
-    marginTop: 8
-  },
-  skeletonLineLong: {
-    width: '60%',
-    height: 16,
-    backgroundColor: '#ccc',
-    borderRadius: 8,
-    marginTop: 8
-  }
-})
 
 // -------------------
 // Sort Modal Component
@@ -243,33 +173,9 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 // -------------------
 // Dealership Card Component
 // -------------------
-const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const translateY = useRef(new Animated.Value(-50)).current
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        delay: index * 100,
-        useNativeDriver: true
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 500,
-        delay: index * 100,
-        useNativeDriver: true
-      })
-    ]).start()
-  }, [fadeAnim, translateY, index])
+const DealershipCard = React.memo(({ item, onPress, isDarkMode }: any) => {
 
   return (
-    <Animated.View
-      style={{
-        opacity: fadeAnim,
-        transform: [{ translateY }]
-      }}>
       <TouchableOpacity
         style={[
           cardStyles.container,
@@ -317,7 +223,6 @@ const DealershipCard = React.memo(({ item, onPress, isDarkMode, index }: any) =>
           </View>
         </LinearGradient>
       </TouchableOpacity>
-    </Animated.View>
   )
 })
 
@@ -427,7 +332,7 @@ export default function DealershipListPage() {
   // Fetch Dealerships
   // -------------------
   const fetchDealerships = useCallback(async () => {
-    // Show skeleton only if we haven't fetched before.
+    // Show loading only if we haven't fetched before.
     if (!hasFetched) setIsLoading(true)
     try {
       const { data, error } = await supabase
@@ -556,22 +461,18 @@ export default function DealershipListPage() {
       </View>
 
       {isLoading ? (
-        <FlatList
-          data={[1, 2, 3, 4, 5]} // 5 skeleton items
-          renderItem={() => <DealershipSkeleton />}
-          keyExtractor={(item) => `skeleton-${item}`}
-          contentContainerStyle={styles.flatListContent}
-        />
+       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{color: isDarkMode ? 'white' : 'black'}}>Loading...</Text>
+        </View>
       ) : (
         <FlatList
           ref={scrollRef}
           data={sortedAndFilteredDealerships}
-          renderItem={({ item, index }) => (
+          renderItem={({ item}) => (
             <DealershipCard
               item={item}
               onPress={handleDealershipPress}
               isDarkMode={isDarkMode}
-              index={index}
             />
           )}
           keyExtractor={(item) => `${item.id}`}
