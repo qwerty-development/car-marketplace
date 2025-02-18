@@ -15,48 +15,52 @@ export function setIsSigningOut(value: boolean) {
   isSigningOut = value
 }
 
-// Enhanced LoadingSkeleton with animations
+
 function LoadingSkeleton() {
-  const colorScheme = useColorScheme();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const colorScheme = useColorScheme()
+  const fadeAnim = useRef(new Animated.Value(0.5)).current
 
   useEffect(() => {
-    // Set up pulse animation
+    // Pulse from 0.5 to 1 opacity and back
     const pulse = Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 500,
         useNativeDriver: true,
       }),
       Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
+        toValue: 0.5,
+        duration: 500,
         useNativeDriver: true,
       }),
-    ]);
+    ])
 
-    // Create infinite loop
-    Animated.loop(pulse).start();
+    // Loop the pulse animation indefinitely
+    const loop = Animated.loop(pulse)
+    loop.start()
 
     // Cleanup on unmount
     return () => {
-      fadeAnim.stopAnimation();
-    };
-  }, []);
+      loop.stop()
+    }
+  }, [fadeAnim])
 
   return (
     <Animated.View
-      style={[
-        {
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          opacity: fadeAnim,
-        },
-      ]}
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        opacity: fadeAnim,
+        backgroundColor: colorScheme === 'dark' ? '#000000' : '#FFFFFF',
+      }}
     >
+      <ActivityIndicator
+        size="large"
+        color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'}
+      />
     </Animated.View>
-  );
+  )
 }
 
 export default function HomeLayout() {
@@ -64,7 +68,7 @@ export default function HomeLayout() {
   const { user } = useUser()
   const router = useRouter()
   const segments = useSegments()
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useTheme()
 
   const [isCheckingUser, setIsCheckingUser] = useState(true)
   const [isRouting, setIsRouting] = useState(true)
@@ -158,7 +162,9 @@ export default function HomeLayout() {
   }
 
   // 4) Render child routes
-  return  <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+  return (
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
       <Slot />
     </View>
+  )
 }
