@@ -521,39 +521,38 @@ export default function DealershipListPage() {
     <View style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
       <CustomHeader title="Dealerships" />
       <View style={styles.searchContainer}>
-        <View style={styles.searchRow}>
-          <View style={[styles.searchInputWrapper, { borderColor: isDarkMode ? '#555' : '#ccc' }]}>
-            <FontAwesome
-              name="search"
-              size={20}
-              color={isDarkMode ? 'white' : 'black'}
-              style={{ marginLeft: 12 }}
-            />
-            <TextInput
-              style={[
-                styles.searchInput,
-                { color: isDarkMode ? 'white' : 'black' }
-              ]}
-              placeholder="Search Dealerships..."
-              placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              textAlignVertical="center"
-            />
-          </View>
-          <TouchableOpacity
-            onPress={() => setShowSortModal(true)}
-            style={[
-              styles.sortButton,
-              { backgroundColor: isDarkMode ? 'black' : 'white' }
-            ]}>
-            <FontAwesome
-              name="sort"
-              size={20}
-              color={isDarkMode ? 'white' : 'black'}
-            />
-          </TouchableOpacity>
-        </View>
+     <View style={styles.searchRow}>
+  <FontAwesome
+    name="search"
+    size={20}
+    color={isDarkMode ? 'white' : 'black'}
+    style={{ marginLeft: 12, marginRight: 8 }}
+  />
+  <TextInput
+    style={[
+      styles.searchInput,
+      { color: isDarkMode ? 'white' : 'black' }
+    ]}
+    placeholder="Search Dealerships..."
+    placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+    value={searchQuery}
+    onChangeText={setSearchQuery}
+    textAlignVertical="center"
+  />
+  <TouchableOpacity
+    onPress={() => setShowSortModal(true)}
+    style={[
+      styles.sortButton,
+      { backgroundColor: isDarkMode ? 'black' : 'white', marginLeft: 8 } // Added marginLeft for spacing
+    ]}>
+    <FontAwesome
+      name="sort"
+      size={20}
+      color={isDarkMode ? 'white' : 'black'}
+    />
+  </TouchableOpacity>
+</View>
+
       </View>
 
       {isLoading ? (
