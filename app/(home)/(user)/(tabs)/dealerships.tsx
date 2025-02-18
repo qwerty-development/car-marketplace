@@ -30,7 +30,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useScrollToTop } from "@react-navigation/native";
-import * as Location from "expo-location";
+// import * as Location from "expo-location"; // REMOVED
 import { BlurView } from "expo-blur";
 
 // -------------------
@@ -42,9 +42,9 @@ interface Dealership {
   logo: string | null;
   total_cars?: number;
   location?: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  distance?: number;
+  // latitude: number | null; // REMOVED
+  // longitude: number | null; // REMOVED
+  // distance?: number; // REMOVED
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -53,7 +53,7 @@ const SORT_OPTIONS = {
   AZ: "a-z",
   ZA: "z-a",
   RANDOM: "random",
-  NEAREST: "nearest",
+  // NEAREST: "nearest", // REMOVED
 } as const;
 type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS];
 
@@ -278,8 +278,6 @@ const DealershipCard = React.memo(
                     ]}
                   >
                     {locationText}
-                    {item.distance != null &&
-                      ` • ${item.distance.toFixed(1)} km away`}
                   </Text>
                 </View>
 
@@ -370,53 +368,53 @@ export default function DealershipListPage() {
   const [showSortModal, setShowSortModal] = useState(false);
 
   const [hasFetched, setHasFetched] = useState(false);
-  const [userLocation, setUserLocation] =
-    useState<Location.LocationObject | null>(null);
+  // const [userLocation, setUserLocation] =
+  //   useState<Location.LocationObject | null>(null); // REMOVED
 
   const scrollRef = useRef<FlatList<Dealership> | null>(null);
   useScrollToTop(scrollRef);
 
   // -------------------
-  // Location & Distance
+  // Location & Distance (REMOVED)
   // -------------------
-  const getUserLocation = useCallback(async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        // Permission is denied
-        console.log("Permission denied, unable to access location");
-        // We won't throw; we just skip location-based distance
-        setUserLocation(null);
-        return;
-      }
-      const location = await Location.getCurrentPositionAsync({});
-      setUserLocation(location);
-    } catch (error) {
-      console.error("Error getting location:", error);
-      setUserLocation(null);
-    }
-  }, []);
+  // const getUserLocation = useCallback(async () => {
+  //   try {
+  //     const { status } = await Location.requestForegroundPermissionsAsync();
+  //     if (status !== "granted") {
+  //       // Permission is denied
+  //       console.log("Permission denied, unable to access location");
+  //       // We won't throw; we just skip location-based distance
+  //       setUserLocation(null);
+  //       return;
+  //     }
+  //     const location = await Location.getCurrentPositionAsync({});
+  //     setUserLocation(location);
+  //   } catch (error) {
+  //     console.error("Error getting location:", error);
+  //     setUserLocation(null);
+  //   }
+  // }, []);
 
-  useEffect(() => {
-    getUserLocation();
-  }, [getUserLocation]);
+  // useEffect(() => {
+  //   getUserLocation();
+  // }, [getUserLocation]);
 
-  const calculateDistance = useCallback(
-    (lat1: number, lon1: number, lat2: number, lon2: number) => {
-      const R = 6371; // Earth's radius in km
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    },
-    []
-  );
+  // const calculateDistance = useCallback(
+  //   (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  //     const R = 6371; // Earth's radius in km
+  //     const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  //     const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  //     const a =
+  //       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+  //       Math.cos((lat1 * Math.PI) / 180) *
+  //         Math.cos((lat2 * Math.PI) / 180) *
+  //         Math.sin(dLon / 2) *
+  //         Math.sin(dLon / 2);
+  //     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  //     return R * c;
+  //   },
+  //   []
+  // );
 
   // -------------------
   // Fetch Dealerships
@@ -435,28 +433,28 @@ export default function DealershipListPage() {
       // Format the data to match our type
       const formattedData: Dealership[] = rawDealers.map((dealer) => {
         // Defensive checks
-        const lat = dealer.latitude ?? null;
-        const lon = dealer.longitude ?? null;
+        // const lat = dealer.latitude ?? null; // REMOVED
+        // const lon = dealer.longitude ?? null; // REMOVED
 
-        let distanceVal: number | undefined;
-        if (userLocation && lat !== null && lon !== null) {
-          distanceVal = calculateDistance(
-            userLocation.coords.latitude,
-            userLocation.coords.longitude,
-            lat,
-            lon
-          );
-        }
+        // let distanceVal: number | undefined; // REMOVED
+        // if (userLocation && lat !== null && lon !== null) { // REMOVED
+        //   distanceVal = calculateDistance( // REMOVED
+        //     userLocation.coords.latitude, // REMOVED
+        //     userLocation.coords.longitude, // REMOVED
+        //     lat, // REMOVED
+        //     lon // REMOVED
+        //   ); // REMOVED
+        // } // REMOVED
 
         return {
           id: dealer.id,
           name: dealer.name ?? null,
           logo: dealer.logo ?? null,
           location: dealer.location ?? null,
-          latitude: lat,
-          longitude: lon,
+          // latitude: lat, // REMOVED
+          // longitude: lon, // REMOVED
           total_cars: dealer.cars?.[0]?.count || 0,
-          distance: distanceVal,
+          // distance: distanceVal, // REMOVED
         };
       });
 
@@ -468,7 +466,7 @@ export default function DealershipListPage() {
       if (!hasFetched) setIsLoading(false);
       setHasFetched(true);
     }
-  }, [hasFetched, userLocation, calculateDistance]);
+  }, [hasFetched]); // removed dependecy: userLocation, calculateDistance
 
   useEffect(() => {
     fetchDealerships();
@@ -500,10 +498,10 @@ export default function DealershipListPage() {
         });
       case SORT_OPTIONS.RANDOM:
         return filtered.sort(() => Math.random() - 0.5);
-      case SORT_OPTIONS.NEAREST:
-        return filtered.sort(
-          (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)
-        );
+      // case SORT_OPTIONS.NEAREST: // REMOVED
+      //   return filtered.sort( // REMOVED
+      //     (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity) // REMOVED
+      //   ); // REMOVED
       default:
         return filtered;
     }

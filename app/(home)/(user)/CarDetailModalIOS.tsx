@@ -615,7 +615,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             )}
           </View>
           <View
-            className={`rounded-lg mt-4 ${
+            className={`rounded-lg mt-5 ${
               isDarkMode ? "bg-[#1c1c1c]" : "bg-[#e9e9e9]"
             }`}
           >
