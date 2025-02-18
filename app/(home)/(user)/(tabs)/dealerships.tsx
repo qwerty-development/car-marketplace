@@ -21,23 +21,25 @@ import {
   Platform,
   Animated,
   Easing,
-  ActivityIndicator
+  RefreshControl
 } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useScrollToTop } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { BlurView } from 'expo-blur';
 
+// -------------------
+// Types & Constants
+// -------------------
 interface Dealership {
   id: number;
-  name: string | null;     // name might be null in the database
-  logo: string | null;     // same for logo
+  name: string | null;
+  logo: string | null;
   total_cars?: number;
   location?: string | null;
   latitude: number | null;
@@ -47,16 +49,12 @@ interface Dealership {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// -----------------
-// Sort Options
-// -----------------
 const SORT_OPTIONS = {
   AZ: 'a-z',
   ZA: 'z-a',
   RANDOM: 'random',
   NEAREST: 'nearest'
 } as const;
-
 type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS];
 
 // -------------------
@@ -71,7 +69,7 @@ const SortModal = ({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSelect: (sortValue: SortOption) => void;
+  onSelect: (sort: SortOption) => void;
   currentSort: SortOption;
   isDarkMode: boolean;
 }) => {
@@ -103,12 +101,12 @@ const SortModal = ({
   return (
     <Modal
       animationType="none"
-      transparent={true}
+      transparent
       visible={visible}
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        {/* Clicking outside the modal content to close */}
+        {/* Dismiss modal if user taps outside */}
         <TouchableWithoutFeedback onPress={onClose}>
           <BlurView
             intensity={isDarkMode ? 50 : 80}
@@ -117,7 +115,6 @@ const SortModal = ({
           />
         </TouchableWithoutFeedback>
 
-        {/* Animated bottom sheet */}
         <Animated.View
           style={[
             styles.modalContent,
@@ -175,6 +172,7 @@ const SortModal = ({
 // -------------------
 const CustomHeader = React.memo(({ title }: { title: string }) => {
   const { isDarkMode } = useTheme();
+
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
@@ -199,7 +197,7 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
 });
 
 // -------------------
-// Dealership Card (with fade/slide animation)
+// Dealership Card Component (With Animation)
 // -------------------
 const DealershipCard = React.memo(
   ({
@@ -209,62 +207,56 @@ const DealershipCard = React.memo(
     index
   }: {
     item: Dealership;
-    onPress: (dealer: Dealership) => void;
+    onPress: (dealership: Dealership) => void;
     isDarkMode: boolean;
     index: number;
   }) => {
-    // A small fade/slide animation per item
+    // Fade and slide-in animation
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(15)).current;
+    const slideAnim = useRef(new Animated.Value(10)).current; // small upward slide
 
     useEffect(() => {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 350,
-          delay: index * 75, // stagger the animation slightly
+          duration: 400,
+          delay: index * 70, // stagger effect
           useNativeDriver: true
         }),
-        Animated.timing(translateY, {
+        Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 350,
-          delay: index * 75,
+          duration: 400,
+          delay: index * 70,
           useNativeDriver: true
         })
       ]).start();
-    }, [fadeAnim, translateY, index]);
+    }, [fadeAnim, slideAnim, index]);
 
-    // Fallback values if any data is null
-    const dealerName = item.name ?? 'Unknown Dealer';
-    const dealerLogo = item.logo ?? ''; // or a placeholder URI if you have one
-    const locationText = item.location ?? 'Unknown Location';
-    const distanceText =
-      item.distance !== undefined
-        ? `• ${item.distance.toFixed(1)} km away`
-        : '';
+    // Defensive checks
+    const name = item.name || 'Unnamed Dealership';
+    const logo = item.logo
+      ? { uri: item.logo }
+      : require('@/assets/images/placeholder-logo.png'); // fallback logo image
+    const locationText = item.location || 'Unknown location';
 
     return (
       <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [{ translateY }]
-        }}
+        style={[
+          cardStyles.container,
+          {
+            backgroundColor: isDarkMode ? '#222' : '#fff',
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
       >
-        <TouchableOpacity
-          style={[
-            cardStyles.container,
-            { backgroundColor: isDarkMode ? '#222222' : '#FFFFFF' }
-          ]}
-          onPress={() => onPress(item)}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.9}>
           <LinearGradient
-            colors={
-              isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#E0E0E0']
-            }
+            colors={isDarkMode ? ['#000', '#1A1A1A'] : ['#fff', '#E0E0E0']}
             style={cardStyles.gradient}
           >
             <View style={cardStyles.row}>
+              <Image source={logo} style={cardStyles.logo} />
               <View style={cardStyles.content}>
                 <Text
                   style={[
@@ -272,25 +264,29 @@ const DealershipCard = React.memo(
                     { color: isDarkMode ? 'white' : 'black' }
                   ]}
                 >
-                  {dealerName}
+                  {name}
                 </Text>
-                {item.location && (
-                  <View style={cardStyles.infoRow}>
-                    <Ionicons
-                      name="location-outline"
-                      size={14}
-                      color={isDarkMode ? '#CCC' : '#666'}
-                    />
-                    <Text
-                      style={[
-                        cardStyles.infoText,
-                        { color: isDarkMode ? 'white' : '#444' }
-                      ]}
-                    >
-                      {locationText} {distanceText}
-                    </Text>
-                  </View>
-                )}
+
+                {/* Location */}
+                <View style={cardStyles.infoRow}>
+                  <Ionicons
+                    name="location-outline"
+                    size={14}
+                    color={isDarkMode ? '#CCC' : '#666'}
+                  />
+                  <Text
+                    style={[
+                      cardStyles.infoText,
+                      { color: isDarkMode ? 'white' : '#444' }
+                    ]}
+                  >
+                    {locationText}
+                    {item.distance != null &&
+                      ` • ${item.distance.toFixed(1)} km away`}
+                  </Text>
+                </View>
+
+                {/* Cars */}
                 {item.total_cars !== undefined && (
                   <View style={cardStyles.infoRow}>
                     <Ionicons
@@ -367,76 +363,68 @@ const cardStyles = StyleSheet.create({
 export default function DealershipListPage() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
-  const scrollRef = useRef<FlatList<Dealership> | null>(null);
 
   const [dealerships, setDealerships] = useState<Dealership[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
   const [sortBy, setSortBy] = useState<SortOption>(SORT_OPTIONS.RANDOM);
   const [showSortModal, setShowSortModal] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(
-    null
-  );
 
+  const [hasFetched, setHasFetched] = useState(false);
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+
+  const scrollRef = useRef<FlatList<Dealership> | null>(null);
   useScrollToTop(scrollRef);
 
   // -------------------
   // Location & Distance
   // -------------------
-  const getUserLocation = async () => {
+  const getUserLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Unable to access location');
+        // Permission is denied
+        console.log('Permission denied, unable to access location');
+        // We won't throw; we just skip location-based distance
+        setUserLocation(null);
         return;
       }
       const location = await Location.getCurrentPositionAsync({});
       setUserLocation(location);
     } catch (error) {
       console.error('Error getting location:', error);
+      setUserLocation(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     getUserLocation();
-  }, []);
+  }, [getUserLocation]);
 
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) => {
-    if (
-      lat1 == null ||
-      lon1 == null ||
-      lat2 == null ||
-      lon2 == null
-    ) {
-      return undefined; // can't calculate if any are null
-    }
-    const R = 6371; // Earth's radius in km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  const calculateDistance = useCallback(
+    (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371; // Earth's radius in km
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    },
+    []
+  );
 
   // -------------------
   // Fetch Dealerships
   // -------------------
   const fetchDealerships = useCallback(async () => {
-    // Show loading only if we haven't fetched before.
     if (!hasFetched) setIsLoading(true);
-
     try {
       const { data, error } = await supabase
         .from('dealerships')
@@ -444,30 +432,37 @@ export default function DealershipListPage() {
 
       if (error) throw error;
 
-      // Defensive approach: If data is null, fallback to empty array
-      const safeData: Dealership[] = (data ?? []).map((dealer: any) => {
-        const distance = userLocation
-          ? calculateDistance(
-              userLocation?.coords?.latitude,
-              userLocation?.coords?.longitude,
-              dealer.latitude,
-              dealer.longitude
-            )
-          : undefined;
+      // Defensive: if data is null or empty, default to []
+      const rawDealers: any[] = data || [];
+      // Format the data to match our type
+      const formattedData: Dealership[] = rawDealers.map((dealer) => {
+        // Defensive checks
+        const lat = dealer.latitude ?? null;
+        const lon = dealer.longitude ?? null;
+
+        let distanceVal: number | undefined;
+        if (userLocation && lat !== null && lon !== null) {
+          distanceVal = calculateDistance(
+            userLocation.coords.latitude,
+            userLocation.coords.longitude,
+            lat,
+            lon
+          );
+        }
 
         return {
           id: dealer.id,
           name: dealer.name ?? null,
           logo: dealer.logo ?? null,
-          total_cars: dealer.cars?.[0]?.count || 0,
           location: dealer.location ?? null,
-          latitude: dealer.latitude ?? null,
-          longitude: dealer.longitude ?? null,
-          distance
+          latitude: lat,
+          longitude: lon,
+          total_cars: dealer.cars?.[0]?.count || 0,
+          distance: distanceVal
         };
       });
 
-      setDealerships(safeData);
+      setDealerships(formattedData);
     } catch (error) {
       console.error('Error fetching dealerships:', error);
       Alert.alert('Error', 'Failed to fetch dealerships');
@@ -475,7 +470,7 @@ export default function DealershipListPage() {
       if (!hasFetched) setIsLoading(false);
       setHasFetched(true);
     }
-  }, [userLocation, hasFetched]);
+  }, [hasFetched, userLocation, calculateDistance]);
 
   useEffect(() => {
     fetchDealerships();
@@ -485,45 +480,47 @@ export default function DealershipListPage() {
   // Sorting & Filtering
   // -------------------
   const sortedAndFilteredDealerships = useMemo(() => {
+    // Filter
     const filtered = dealerships.filter((dealer) => {
-      // Fallback for null name
-      const dealerName = dealer.name ?? '';
+      const dealerName = dealer.name || '';
       return dealerName.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
+    // Sort
     switch (sortBy) {
       case SORT_OPTIONS.AZ:
         return filtered.sort((a, b) => {
-          const nameA = (a.name ?? '').toLowerCase();
-          const nameB = (b.name ?? '').toLowerCase();
+          const nameA = a.name || '';
+          const nameB = b.name || '';
           return nameA.localeCompare(nameB);
         });
       case SORT_OPTIONS.ZA:
         return filtered.sort((a, b) => {
-          const nameA = (a.name ?? '').toLowerCase();
-          const nameB = (b.name ?? '').toLowerCase();
+          const nameA = a.name || '';
+          const nameB = b.name || '';
           return nameB.localeCompare(nameA);
         });
       case SORT_OPTIONS.RANDOM:
-        // Shuffle array by random sort
         return filtered.sort(() => Math.random() - 0.5);
       case SORT_OPTIONS.NEAREST:
-        return filtered.sort((a, b) => {
-          const distA = a.distance ?? Number.MAX_VALUE;
-          const distB = b.distance ?? Number.MAX_VALUE;
-          return distA - distB;
-        });
+        return filtered.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
       default:
         return filtered;
     }
   }, [dealerships, searchQuery, sortBy]);
 
+  // -------------------
+  // Refresh
+  // -------------------
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchDealerships();
     setRefreshing(false);
   }, [fetchDealerships]);
 
+  // -------------------
+  // Handle Card Press
+  // -------------------
   const handleDealershipPress = useCallback(
     (dealership: Dealership) => {
       router.push({
@@ -534,7 +531,9 @@ export default function DealershipListPage() {
     [router]
   );
 
-  // If list is empty after filtering
+  // -------------------
+  // Empty / Loading
+  // -------------------
   const renderEmpty = useCallback(() => {
     return (
       <View style={styles.emptyContainer}>
@@ -543,19 +542,11 @@ export default function DealershipListPage() {
           size={50}
           color={isDarkMode ? '#FFFFFF' : '#000000'}
         />
-        <Text
-          style={[
-            styles.emptyText,
-            { color: isDarkMode ? 'white' : 'black' }
-          ]}
-        >
+        <Text style={[styles.emptyText, { color: isDarkMode ? 'white' : 'black' }]}>
           No dealerships found
         </Text>
         <Text
-          style={[
-            styles.emptySubText,
-            { color: isDarkMode ? '#CCC' : '#555' }
-          ]}
+          style={[styles.emptySubText, { color: isDarkMode ? '#CCC' : '#555' }]}
         >
           Try adjusting your search
         </Text>
@@ -563,16 +554,14 @@ export default function DealershipListPage() {
     );
   }, [isDarkMode]);
 
+  // -------------------
+  // Render
+  // -------------------
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: isDarkMode ? 'black' : 'white'
-      }}
-    >
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? 'black' : 'white' }}>
       <CustomHeader title="Dealerships" />
 
-      {/* Search Container */}
+      {/* Search + Sort Row */}
       <View style={styles.searchContainer}>
         <View style={styles.searchRow}>
           <FontAwesome
@@ -611,15 +600,9 @@ export default function DealershipListPage() {
         </View>
       </View>
 
-      {/* Main Content */}
+      {/* Main Content: Loading or List */}
       {isLoading ? (
-        // Show a loading spinner on initial fetch
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            size="large"
-            color="#D55004"
-            style={{ marginBottom: 12 }}
-          />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: isDarkMode ? 'white' : 'black' }}>
             Loading...
           </Text>
@@ -628,7 +611,6 @@ export default function DealershipListPage() {
         <FlatList
           ref={scrollRef}
           data={sortedAndFilteredDealerships}
-          keyExtractor={(item) => `${item.id}`}
           renderItem={({ item, index }) => (
             <DealershipCard
               item={item}
@@ -637,6 +619,7 @@ export default function DealershipListPage() {
               index={index}
             />
           )}
+          keyExtractor={(item) => `${item.id}`}
           ListEmptyComponent={renderEmpty}
           refreshControl={
             <RefreshControl
@@ -650,6 +633,7 @@ export default function DealershipListPage() {
         />
       )}
 
+      {/* Sort Modal */}
       <SortModal
         visible={showSortModal}
         onClose={() => setShowSortModal(false)}
@@ -696,10 +680,10 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333333'
+    color: '#333'
   },
   modalTitleDark: {
-    color: '#FFFFFF'
+    color: '#fff'
   },
   option: {
     flexDirection: 'row',
@@ -714,11 +698,11 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 16,
-    color: '#333333',
+    color: '#333',
     flex: 1
   },
   optionTextDark: {
-    color: '#FFFFFF'
+    color: '#fff'
   },
   selectedOption: {
     backgroundColor: 'rgba(213, 80, 4, 0.1)'
@@ -772,10 +756,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     textAlign: 'center'
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
   }
 });

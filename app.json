@@ -26,7 +26,8 @@
 				"googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
 			},
 			"infoPlist": {
-				"UIBackgroundModes": ["remote-notification"]
+				"UIBackgroundModes": ["remote-notification"],
+				"NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships."
 			},
 			"bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
 		},
