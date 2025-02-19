@@ -27,6 +27,7 @@ import { LocationModal } from '../LocationModal'
 import { SecurityModal } from '../SecurityModal'
 import { ProfileMenu } from '../ProfileMenu'
 import { supabase } from '@/utils/supabase'
+import { Buffer } from 'buffer'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 
@@ -91,8 +92,8 @@ export default function DealershipProfilePage() {
   }, [dealership])
 
   const daysUntilExpiration = getDaysUntilExpiration()
-  const showWarning = daysUntilExpiration !== null && 
-    daysUntilExpiration <= SUBSCRIPTION_WARNING_DAYS && 
+  const showWarning = daysUntilExpiration !== null &&
+    daysUntilExpiration <= SUBSCRIPTION_WARNING_DAYS &&
     daysUntilExpiration > 0
   const subscriptionExpired = !isSubscriptionValid()
 
@@ -308,7 +309,7 @@ export default function DealershipProfilePage() {
       </View>
 
       {/* Menu Items */}
-      <ProfileMenu 
+      <ProfileMenu
         isDarkMode={isDarkMode}
         onEditProfile={() => setIsEditProfileVisible(true)}
         onLocation={() => setIsLocationModalVisible(true)}
@@ -319,7 +320,7 @@ export default function DealershipProfilePage() {
       />
 
       {/* Modals */}
-      <EditProfileModal 
+      <EditProfileModal
         visible={isEditProfileVisible}
         onClose={() => setIsEditProfileVisible(false)}
         isDarkMode={isDarkMode}
@@ -329,7 +330,7 @@ export default function DealershipProfilePage() {
         isLoading={isLoading}
       />
 
-      <LocationModal 
+      <LocationModal
         visible={isLocationModalVisible}
         onClose={() => setIsLocationModalVisible(false)}
         isDarkMode={isDarkMode}
@@ -344,7 +345,7 @@ export default function DealershipProfilePage() {
         isLoading={isLoading}
       />
 
-<SecurityModal 
+<SecurityModal
         visible={isSecurityModalVisible}
         onClose={() => setIsSecurityModalVisible(false)}
         isDarkMode={isDarkMode}

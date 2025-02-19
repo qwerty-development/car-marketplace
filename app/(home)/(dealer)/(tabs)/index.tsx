@@ -1161,7 +1161,6 @@ export default function DealerListings() {
   resizeMode='cover' // Ensures image fills container while maintaining aspect ratio
 />
 
-							{/* Gradient Overlay - Enhanced opacity */}
 
 
 							{/* Top Actions Row */}
