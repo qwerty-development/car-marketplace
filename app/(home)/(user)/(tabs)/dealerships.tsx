@@ -1,8 +1,8 @@
 import React, {
   useState,
   useEffect,
-  useMemo,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 import {
@@ -50,9 +50,9 @@ interface Dealership {
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const SORT_OPTIONS = {
-  AZ: "a-z",
-  ZA: "z-a",
-  RANDOM: "random",
+  ATOZ : "a-z",
+  ZTOA: "z-a",
+  RANDOMIZED: "random",
   // NEAREST: "nearest", // REMOVED
 } as const;
 type SortOption = (typeof SORT_OPTIONS)[keyof typeof SORT_OPTIONS];
@@ -153,7 +153,7 @@ const SortModal = ({
                   isDarkMode && styles.optionTextDark,
                 ]}
               >
-                {key}
+                {key.replace('ATOZ', 'From A to Z').replace('ZTOA', 'From Z to A').replace('RANDOMIZED', 'Randomized')}
               </Text>
               {currentSort === value && <View style={styles.checkmark} />}
             </TouchableOpacity>
@@ -364,7 +364,7 @@ export default function DealershipListPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [sortBy, setSortBy] = useState<SortOption>(SORT_OPTIONS.RANDOM);
+  const [sortBy, setSortBy] = useState<SortOption>(SORT_OPTIONS.RANDOMIZED);
   const [showSortModal, setShowSortModal] = useState(false);
 
   const [hasFetched, setHasFetched] = useState(false);
@@ -374,51 +374,6 @@ export default function DealershipListPage() {
   const scrollRef = useRef<FlatList<Dealership> | null>(null);
   useScrollToTop(scrollRef);
 
-  // -------------------
-  // Location & Distance (REMOVED)
-  // -------------------
-  // const getUserLocation = useCallback(async () => {
-  //   try {
-  //     const { status } = await Location.requestForegroundPermissionsAsync();
-  //     if (status !== "granted") {
-  //       // Permission is denied
-  //       console.log("Permission denied, unable to access location");
-  //       // We won't throw; we just skip location-based distance
-  //       setUserLocation(null);
-  //       return;
-  //     }
-  //     const location = await Location.getCurrentPositionAsync({});
-  //     setUserLocation(location);
-  //   } catch (error) {
-  //     console.error("Error getting location:", error);
-  //     setUserLocation(null);
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   getUserLocation();
-  // }, [getUserLocation]);
-
-  // const calculateDistance = useCallback(
-  //   (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  //     const R = 6371; // Earth's radius in km
-  //     const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  //     const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  //     const a =
-  //       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-  //       Math.cos((lat1 * Math.PI) / 180) *
-  //         Math.cos((lat2 * Math.PI) / 180) *
-  //         Math.sin(dLon / 2) *
-  //         Math.sin(dLon / 2);
-  //     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  //     return R * c;
-  //   },
-  //   []
-  // );
-
-  // -------------------
-  // Fetch Dealerships
-  // -------------------
  const fetchDealerships = useCallback(async () => {
     if (!hasFetched) setIsLoading(true);
     try {
@@ -464,24 +419,20 @@ export default function DealershipListPage() {
 
     // Sort
     switch (sortBy) {
-      case SORT_OPTIONS.AZ:
+      case SORT_OPTIONS.ATOZ:
         return filtered.sort((a, b) => {
           const nameA = a.name || "";
           const nameB = b.name || "";
           return nameA.localeCompare(nameB);
         });
-      case SORT_OPTIONS.ZA:
+      case SORT_OPTIONS.ZTOA:
         return filtered.sort((a, b) => {
           const nameA = a.name || "";
           const nameB = b.name || "";
           return nameB.localeCompare(nameA);
         });
-      case SORT_OPTIONS.RANDOM:
+      case SORT_OPTIONS.RANDOMIZED:
         return filtered.sort(() => Math.random() - 0.5);
-      // case SORT_OPTIONS.NEAREST: // REMOVED
-      //   return filtered.sort( // REMOVED
-      //     (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity) // REMOVED
-      //   ); // REMOVED
       default:
         return filtered;
     }
@@ -568,7 +519,7 @@ export default function DealershipListPage() {
               style={[
                 { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
               ]}
-              placeholder="Search Dealerships.."
+              placeholder="Search Dealerships..."
               placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
               value={searchQuery}
               onChangeText={setSearchQuery}

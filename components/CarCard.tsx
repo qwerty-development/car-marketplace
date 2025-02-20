@@ -84,14 +84,6 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
 			color={isDarkMode ? '#FFFFFF' : '#000000'}
 			className='mb-0.5'
 		/>
-		{text && (
-			<StyledText
-				className={`text-xs font-medium ${
-					isDarkMode ? 'text-white' : 'text-black'
-				}`}>
-				{text}
-			</StyledText>
-		)}
 	</StyledPressable>
 )
 
@@ -309,6 +301,39 @@ export default function CarCard({
 		]
 	)
 
+	const handleWhatsAppPress = useCallback(() => {
+		if (car.dealership_phone) {
+		  // Format the message
+		  const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+		  
+		  // Format the phone number (remove any non-numeric characters)
+		  const phoneNumber = car.dealership_phone;
+		  
+		  // Create the WhatsApp URL
+		  const url = `whatsapp://send?phone=+961${phoneNumber}&text=${encodeURIComponent(message)}`;
+		  
+		  // Try to open WhatsApp
+		  Linking.canOpenURL(url)
+			.then(supported => {
+			  if (supported) {
+				return Linking.openURL(url);
+			  } else {
+				// WhatsApp is not installed, try web version as fallback
+				const webUrl = `https://wa.me/+961${phoneNumber}?text=${encodeURIComponent(message)}`;
+				return Linking.openURL(webUrl);
+			  }
+			})
+			.catch(() => {
+			  Alert.alert(
+				'Error',
+				'Unable to open WhatsApp. Please make sure it is installed on your device.'
+			  );
+			});
+		} else {
+		  Alert.alert('Phone number not available');
+		}
+	  }, [car]);
+
 	return (
 		<Animated.View
 		style={{
@@ -330,8 +355,8 @@ export default function CarCard({
 				showsHorizontalScrollIndicator={false}
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={viewabilityConfig}
-				initialNumToRender={1}
-				maxToRenderPerBatch={2}
+				initialNumToRender={3}
+				maxToRenderPerBatch={3}
 				windowSize={3}
 				removeClippedSubviews={true}
 				decelerationRate='fast'
@@ -409,19 +434,22 @@ export default function CarCard({
 						</StyledView>
 
 						<StyledView className='flex-row ml-3'>
-							<ActionButton
-								icon='call-outline'
-								onPress={handleCall}
-								text='Call'
-								isDarkMode={isDarkMode}
-							/>
-							<ActionButton
-								icon='share-outline'
-								onPress={handleShare}
-								text='Share'
-								isDarkMode={isDarkMode}
-							/>
-						</StyledView>
+  <ActionButton
+    icon='call-outline'
+    onPress={handleCall}
+    isDarkMode={isDarkMode}
+  />
+  <ActionButton
+    icon='logo-whatsapp'  // Using Ionicons WhatsApp logo
+    onPress={handleWhatsAppPress}
+    isDarkMode={isDarkMode}
+  />
+  <ActionButton
+    icon='share-outline'
+    onPress={handleShare}
+    isDarkMode={isDarkMode}
+  />
+</StyledView>
 					</StyledView>
 				</StyledView>
 			</StyledPressable>
