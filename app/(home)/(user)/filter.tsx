@@ -188,8 +188,8 @@ const BrandSelector = memo(
           .select("make")
           .eq("status","available")
           .order("make");
-          
-          
+
+
 
         if (error) throw error;
 
@@ -509,7 +509,7 @@ const ModelSelector = memo(
           .in("make", make)
           .order("model");
 
-          
+
         if (!error && data) {
           const uniqueModels = Array.from(
             new Set(data.map((item: { model: string }) => item.model))
@@ -600,220 +600,175 @@ interface RangeSelectorProps {
   step?: number;
 }
 
-const RangeSelector = memo(
-  ({ title, min, max, value, onChange, prefix = "", isDarkMode, step = 1 }: RangeSelectorProps) => {
-    const [localValue, setLocalValue] = useState<string[]>(["", ""]);
-    const isYearSelector = title.toLowerCase() === "year";
+const RangeSelector = memo(({
+  title,
+  min,
+  max,
+  value,
+  onChange,
+  prefix = "",
+  isDarkMode,
+  step = 1,
+}: RangeSelectorProps) => {
+  // Separate local state for each field
+  const [localMin, setLocalMin] = useState(value[0].toString());
+  const [localMax, setLocalMax] = useState(value[1].toString());
+  const isYearSelector = title.toLowerCase() === "year";
 
-    useEffect(() => {
-      if (value && Array.isArray(value)) {
-        setLocalValue([value[0].toString(), value[1].toString()]);
-      }
-    }, [value]);
+  // When the parent's value changes, update local state
+  useEffect(() => {
+    setLocalMin(value[0].toString());
+    setLocalMax(value[1].toString());
+  }, [value]);
 
-    const validateAndFormatYear = useCallback(
-      (value: string): string => {
-        const numValue = parseInt(value);
-        if (isNaN(numValue)) return "";
-        if (numValue < min) return min.toString();
-        if (numValue > max) return max.toString();
-        return numValue.toString();
-      },
-      [min, max]
-    );
+  // Validate and adjust min input on blur
+  const handleMinBlur = () => {
+    let newMin = parseInt(localMin, 10);
+    if (isNaN(newMin)) {
+      newMin = min;
+    }
+    newMin = Math.max(newMin, min);
+    newMin = Math.min(newMin, max);
+    let newMax = parseInt(localMax, 10);
+    if (isNaN(newMax)) {
+      newMax = max;
+    }
+    // If new minimum exceeds current max, adjust max accordingly
+    if (newMin > newMax) {
+      newMax = newMin;
+    }
+    setLocalMin(newMin.toString());
+    setLocalMax(newMax.toString());
+    onChange([newMin, newMax]);
+  };
 
-    const handleTextChange = useCallback(
-      (text: string, index: number) => {
-        const cleanText = text.replace(/[^0-9]/g, "");
-        const newLocalValue = [...localValue];
-        newLocalValue[index] = cleanText;
-        setLocalValue(newLocalValue);
+  // Validate and adjust max input on blur
+  const handleMaxBlur = () => {
+    let newMax = parseInt(localMax, 10);
+    if (isNaN(newMax)) {
+      newMax = max;
+    }
+    newMax = Math.min(newMax, max);
+    newMax = Math.max(newMax, min);
+    let newMin = parseInt(localMin, 10);
+    if (isNaN(newMin)) {
+      newMin = min;
+    }
+    // If new maximum is lower than current min, adjust min accordingly
+    if (newMax < newMin) {
+      newMin = newMax;
+    }
+    setLocalMin(newMin.toString());
+    setLocalMax(newMax.toString());
+    onChange([newMin, newMax]);
+  };
 
-        if (cleanText === "") return;
-
-        if (isYearSelector) {
-          if (cleanText.length < 4) return;
-          const validYear = validateAndFormatYear(cleanText);
-          if (!validYear) return;
-          const yearValue = parseInt(validYear);
-          const otherIndex = index === 0 ? 1 : 0;
-          const otherValue =
-            parseInt(localValue[otherIndex]) || (index === 0 ? max : min);
-          const newRange =
-            index === 0
-              ? [yearValue, Math.max(yearValue, otherValue)]
-              : [Math.min(yearValue, otherValue), yearValue];
-          onChange(newRange);
-        } else {
-          const numValue = parseInt(cleanText);
-          if (isNaN(numValue)) return;
-          const clampedValue = Math.min(Math.max(numValue, min), max);
-          const otherIndex = index === 0 ? 1 : 0;
-          const otherValue =
-            parseInt(localValue[otherIndex]) || (index === 0 ? max : min);
-          const newRange =
-            index === 0
-              ? [clampedValue, Math.max(clampedValue, otherValue)]
-              : [Math.min(clampedValue, otherValue), clampedValue];
-          onChange(newRange);
-        }
-      },
-      [localValue, onChange, min, max, isYearSelector, validateAndFormatYear]
-    );
-
-    const handleBlur = useCallback(
-      (index: number) => {
-        const currentValue = localValue[index];
-        if (currentValue === "") {
-          const defaultValue = index === 0 ? min : max;
-          const newLocalValue = [...localValue];
-          newLocalValue[index] = defaultValue.toString();
-          setLocalValue(newLocalValue);
-          const newRange = [...value];
-          newRange[index] = defaultValue;
-          onChange(newRange);
-        } else if (isYearSelector) {
-          const validYear = validateAndFormatYear(currentValue);
-          const newLocalValue = [...localValue];
-          newLocalValue[index] = validYear;
-          setLocalValue(newLocalValue);
-          if (validYear) {
-            const yearValue = parseInt(validYear);
-            const otherIndex = index === 0 ? 1 : 0;
-            const otherValue =
-              parseInt(localValue[otherIndex]) || (index === 0 ? max : min);
-            const newRange =
-              index === 0
-                ? [yearValue, Math.max(yearValue, otherValue)]
-                : [Math.min(yearValue, otherValue), yearValue];
-            onChange(newRange);
-          }
-        }
-      },
-      [
-        localValue,
-        value,
-        onChange,
-        min,
-        max,
-        isYearSelector,
-        validateAndFormatYear,
-      ]
-    );
-
-    return (
-      <View style={{ marginBottom: 24 }}>
-        <Text
-          style={{
-            fontSize: 16,
-            fontWeight: "500",
-            marginBottom: 16,
-            color: isDarkMode ? "white" : "black",
-          }}
+  return (
+    <View style={{ marginBottom: 24 }}>
+      <Text
+        style={{
+          fontSize: 16,
+          fontWeight: "500",
+          marginBottom: 16,
+          color: isDarkMode ? "white" : "black",
+        }}
+      >
+        {title}
+      </Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <BlurView
+          intensity={isDarkMode ? 20 : 40}
+          tint={isDarkMode ? "dark" : "light"}
+          style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}
         >
-          {title}
-        </Text>
-
+          <LinearGradient
+            colors={isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]}
+            style={{ padding: 16 }}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                marginBottom: 4,
+                color: isDarkMode ? "#aaa" : "#555",
+              }}
+            >
+              Min {title}
+            </Text>
+            <TextInput
+              value={localMin}
+              onChangeText={setLocalMin}
+              onBlur={handleMinBlur}
+              keyboardType="numeric"
+              style={{
+                fontSize: 18,
+                fontWeight: "500",
+                color: isDarkMode ? "white" : "black",
+                height: 40,
+              }}
+              placeholder={min.toString()}
+              placeholderTextColor={isDarkMode ? "#666" : "#999"}
+              maxLength={isYearSelector ? 4 : undefined}
+            />
+          </LinearGradient>
+        </BlurView>
         <View
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
+            width: 32,
+            height: 1,
+            backgroundColor: "#ccc",
+            marginHorizontal: 8,
           }}
+        />
+        <BlurView
+          intensity={isDarkMode ? 20 : 40}
+          tint={isDarkMode ? "dark" : "light"}
+          style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}
         >
-          <BlurView
-            intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? "dark" : "light"}
-            style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}
+          <LinearGradient
+            colors={isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]}
+            style={{ padding: 16 }}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <LinearGradient
-              colors={
-                isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]
-              }
-              style={{ padding: 16 }}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <Text
+              style={{
+                fontSize: 12,
+                marginBottom: 4,
+                color: isDarkMode ? "#aaa" : "#555",
+              }}
             >
-              <Text
-                style={{
-                  fontSize: 12,
-                  marginBottom: 4,
-                  color: isDarkMode ? "#aaa" : "#555",
-                }}
-              >
-                Min {title}
-              </Text>
-              <TextInput
-                value={localValue[0]}
-                onChangeText={(text) => handleTextChange(text, 0)}
-                onBlur={() => handleBlur(0)}
-                keyboardType="numeric"
-                style={{
-                  fontSize: 18,
-                  fontWeight: "500",
-                  color: isDarkMode ? "white" : "black",
-                  height: 40,
-                }}
-                placeholder={min.toString()}
-                placeholderTextColor={isDarkMode ? "#666" : "#999"}
-                maxLength={isYearSelector ? 4 : undefined}
-              />
-            </LinearGradient>
-          </BlurView>
-
-          <View
-            style={{
-              width: 32,
-              height: 1,
-              backgroundColor: "#ccc",
-              marginHorizontal: 8,
-            }}
-          />
-
-          <BlurView
-            intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? "dark" : "light"}
-            style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}
-          >
-            <LinearGradient
-              colors={
-                isDarkMode ? ["#1c1c1c", "#2d2d2d"] : ["#f5f5f5", "#e5e5e5"]
-              }
-              style={{ padding: 16 }}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  marginBottom: 4,
-                  color: isDarkMode ? "#aaa" : "#555",
-                }}
-              >
-                Max {title}
-              </Text>
-              <TextInput
-                value={localValue[1]}
-                onChangeText={(text) => handleTextChange(text, 1)}
-                onBlur={() => handleBlur(1)}
-                keyboardType="numeric"
-                style={{
-                  fontSize: 18,
-                  fontWeight: "500",
-                  color: isDarkMode ? "white" : "black",
-                  height: 40,
-                }}
-                placeholder={max.toString()}
-                placeholderTextColor={isDarkMode ? "#666" : "#999"}
-                maxLength={isYearSelector ? 4 : undefined}
-              />
-            </LinearGradient>
-          </BlurView>
-        </View>
+              Max {title}
+            </Text>
+            <TextInput
+              value={localMax}
+              onChangeText={setLocalMax}
+              onBlur={handleMaxBlur}
+              keyboardType="numeric"
+              style={{
+                fontSize: 18,
+                fontWeight: "500",
+                color: isDarkMode ? "white" : "black",
+                height: 40,
+              }}
+              placeholder={max.toString()}
+              placeholderTextColor={isDarkMode ? "#666" : "#999"}
+              maxLength={isYearSelector ? 4 : undefined}
+            />
+          </LinearGradient>
+        </BlurView>
       </View>
-    );
-  }
-);
+    </View>
+  );
+});
+
 
 // --------------------
 // Quick Filter Card Component
@@ -1023,12 +978,12 @@ const DealershipSelector = memo(
         const updatedDealership = dealershipIncluded
           ? prev.dealership.filter((d: string) => d !== dealer.id)
           : [...prev.dealership, dealer.id];
-    
+
         const dealershipNameIncluded = prev.dealershipName.includes(dealer.name);
         const updatedDealershipName = dealershipNameIncluded
           ? prev.dealershipName.filter((n: string) => n !== dealer.name)
           : [...prev.dealershipName, dealer.name];
-    
+
         return {
           ...prev,
           dealership: updatedDealership,
@@ -1036,7 +991,7 @@ const DealershipSelector = memo(
         };
       });
     }, [setFilters]);
-    
+
     return (
       <View>
         <View style={{ marginBottom: 16 }}>
@@ -1182,7 +1137,7 @@ const DealershipSelector = memo(
                     }}
                   />
                 </View>
-    
+
                 <View
                   style={{
                     flexDirection: "row",
@@ -1211,7 +1166,7 @@ const DealershipSelector = memo(
                     />
                   </TouchableOpacity>
                 </View>
-    
+
                 <View
                   style={{
                     flexDirection: "row",
@@ -1241,7 +1196,7 @@ const DealershipSelector = memo(
                     onChangeText={setSearchQuery}
                   />
                 </View>
-    
+
                 <ScrollView showsVerticalScrollIndicator={false}>
                   {filteredDealerships.map((dealer) => (
                     <TouchableOpacity
@@ -1492,7 +1447,7 @@ if (supabaseFilter.dealership) {
               if (supabaseFilter.specialFilter === 'newArrivals') {
               query = query.order('created_at', { ascending: false });
       }
-       
+
 
   const { count, error } = await query;
 

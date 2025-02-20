@@ -15,20 +15,19 @@ import {
   Keyboard,
   StatusBar,
   ActivityIndicator,
-  Animated
+  Animated,
+  RefreshControl
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import { useFavorites } from '@/utils/useFavorites'
-import { FontAwesome } from '@expo/vector-icons'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import ByBrands from '@/components/ByBrands'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import CategorySelector from '@/components/Category'
-import { RefreshControl } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
 import { useScrollToTop } from '@react-navigation/native'
 import SkeletonByBrands from '@/components/SkeletonByBrands'
@@ -71,27 +70,34 @@ interface Filters {
   sortBy?: string
 }
 
+// Define a suggestion type to group makes and models.
+interface Suggestions {
+  makes: string[]
+  models: string[]
+}
+
 export default function BrowseCarsPage() {
   const { isDarkMode } = useTheme()
   const { favorites, toggleFavorite, isFavorite } = useFavorites()
   const [cars, setCars] = useState<Car[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  // We now separate “initial load” from refreshing & loadingMore.
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  // The "refreshing" state is now also used for filter/search refreshes.
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState<string | null>(null)
   const [filters, setFilters] = useState<Filters>({})
   const [showScrollTopButton, setShowScrollTopButton] = useState(false)
-  // This flag tells us whether we've fetched at least once before.
   const [hasFetched, setHasFetched] = useState(false)
   const scrollY = useRef(new Animated.Value(0)).current
   const flatListRef = useRef<any>(null)
   useScrollToTop(flatListRef)
   const fadeAnim = useRef(new Animated.Value(0)).current
+
+  // --- New: suggestions state now groups makes and models ---
+  const [suggestions, setSuggestions] = useState<Suggestions>({ makes: [], models: [] })
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const router = useRouter()
   const params = useLocalSearchParams<{ filters: string }>()
@@ -106,7 +112,6 @@ export default function BrowseCarsPage() {
       'keyboardDidHide',
       () => setKeyboardVisible(false)
     )
-
     return () => {
       keyboardDidShowListener.remove()
       keyboardDidHideListener.remove()
@@ -138,13 +143,11 @@ export default function BrowseCarsPage() {
   const CustomHeader = React.memo(
     ({ title, onBack }: { title: string; onBack?: () => void }) => {
       const { isDarkMode } = useTheme()
-
       return (
-        <SafeAreaView className={`bg-${isDarkMode ? 'black' : 'white'}`}>
+        <SafeAreaView style={{ backgroundColor: isDarkMode ? '#000' : '#fff' }}>
           <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-          <View className='flex-row items-center ml-2 -mb-6'>
-            <Text
-              className={`text-2xl ${isDarkMode ? 'text-white' : 'text-black'}  font-bold ml-2`}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8, marginBottom: -24 }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', marginLeft: 8, color: isDarkMode ? '#fff' : '#000' }}>
               {title}
             </Text>
           </View>
@@ -160,7 +163,6 @@ export default function BrowseCarsPage() {
       currentSortOption = sortOption,
       query = searchQuery
     ) => {
-      // For page 1, use initial loading only if nothing has been fetched before.
       if (page === 1) {
         if (!hasFetched) {
           setIsInitialLoading(true)
@@ -232,7 +234,6 @@ export default function BrowseCarsPage() {
             .gte("year", currentFilters.yearRange[0])
             .lte("year", currentFilters.yearRange[1])
         }
-
         if (Array.isArray(currentFilters.color) && currentFilters.color.length > 0) {
           queryBuilder = queryBuilder.in("color", currentFilters.color)
         }
@@ -290,31 +291,31 @@ export default function BrowseCarsPage() {
           })
         }
 
-        // Sorting
-        switch (currentSortOption) {
-          case "price_asc":
-            queryBuilder = queryBuilder.order("price", { ascending: true })
-            break
-          case "price_desc":
-            queryBuilder = queryBuilder.order("price", { ascending: false })
-            break
-          case "year_asc":
-            queryBuilder = queryBuilder.order("year", { ascending: true })
-            break
-          case "year_desc":
-            queryBuilder = queryBuilder.order("year", { ascending: false })
-            break
-          case "mileage_asc":
-            queryBuilder = queryBuilder.order("mileage", { ascending: true })
-            break
-          case "mileage_desc":
-            queryBuilder = queryBuilder.order("mileage", { ascending: false })
-            break
-          case "views_desc":
-            queryBuilder = queryBuilder.order("views", { ascending: false })
-            break
-          default:
-            queryBuilder = queryBuilder.order("listed_at", { ascending: false })
+        // Sorting: Only apply ordering if a sort option is provided.
+        if (currentSortOption) {
+          switch (currentSortOption) {
+            case "price_asc":
+              queryBuilder = queryBuilder.order("price", { ascending: true })
+              break
+            case "price_desc":
+              queryBuilder = queryBuilder.order("price", { ascending: false })
+              break
+            case "year_asc":
+              queryBuilder = queryBuilder.order("year", { ascending: true })
+              break
+            case "year_desc":
+              queryBuilder = queryBuilder.order("year", { ascending: false })
+              break
+            case "mileage_asc":
+              queryBuilder = queryBuilder.order("mileage", { ascending: true })
+              break
+            case "mileage_desc":
+              queryBuilder = queryBuilder.order("mileage", { ascending: false })
+              break
+            case "views_desc":
+              queryBuilder = queryBuilder.order("views", { ascending: false })
+              break
+          }
         }
 
         // Pagination calculations
@@ -338,12 +339,8 @@ export default function BrowseCarsPage() {
         let { data, error }: any = await queryBuilder.range(startRange, endRange)
         if (error) throw error
 
-        // If no filters are applied, randomize the order
-        if (
-          Object.keys(currentFilters).length === 0 &&
-          !currentSortOption &&
-          !query
-        ) {
+        // If no sort option is selected, randomize the order of the fetched data
+        if (!currentSortOption) {
           for (let i = data.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1))
             [data[i], data[j]] = [data[j], data[i]]
@@ -393,8 +390,77 @@ export default function BrowseCarsPage() {
     [filters, sortOption, searchQuery, hasFetched]
   )
 
+  // --- New: Enhanced suggestions ---
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      if (searchQuery.trim().length === 0) {
+        setSuggestions({ makes: [], models: [] })
+        setShowSuggestions(false)
+        return
+      }
+      // First query: fetch makes and models matching the search query
+      const { data, error } = await supabase
+        .from('cars')
+        .select('make, model')
+        .or(`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`)
+        .limit(20)
+      if (error) {
+        console.error('Error fetching suggestions:', error)
+        setSuggestions({ makes: [], models: [] })
+        return
+      }
+      const makesSet = new Set<string>()
+      const modelsSet = new Set<string>()
+      data.forEach((row: any) => {
+        if (row.make && row.make.toLowerCase().includes(searchQuery.toLowerCase())) {
+          makesSet.add(row.make)
+        }
+        if (row.model && row.model.toLowerCase().includes(searchQuery.toLowerCase())) {
+          modelsSet.add(row.model)
+        }
+      })
+
+      let makes = Array.from(makesSet)
+      let models = Array.from(modelsSet)
+
+      // If the user’s query exactly matches one of the makes, fetch that brand’s distinct models.
+      const matchedMake = makes.find(m => m.toLowerCase() === searchQuery.trim().toLowerCase())
+      if (matchedMake) {
+        const { data: modelsData, error: modelsError } = await supabase
+          .from('cars')
+          .select('model')
+          .eq('make', matchedMake)
+          .limit(20)
+        if (!modelsError && modelsData) {
+          const extraModels = new Set<string>()
+          modelsData.forEach((row: any) => {
+            if (row.model) extraModels.add(row.model)
+          })
+          models = Array.from(extraModels)
+        }
+      }
+      setSuggestions({ makes, models })
+      setShowSuggestions(true)
+    } catch (error) {
+      console.error('Error in suggestions:', error)
+    }
+  }, [searchQuery])
+
+  // Debounce suggestions fetch
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      fetchSuggestions()
+    }, 300)
+    return () => clearTimeout(delayDebounce)
+  }, [searchQuery, fetchSuggestions])
+
+  const handleSuggestionPress = useCallback((suggestion: string) => {
+    setSearchQuery(suggestion)
+    setShowSuggestions(false)
+    fetchCars(1, filters, sortOption, suggestion)
+  }, [filters, sortOption, fetchCars])
+
   const onRefresh = useCallback(() => {
-    // For pull-to-refresh we simply call fetchCars.
     fetchCars(1, filters, sortOption, searchQuery)
   }, [filters, sortOption, searchQuery, fetchCars])
 
@@ -430,20 +496,13 @@ export default function BrowseCarsPage() {
     })
   }, [router, filters])
 
-  const handleViewUpdate = useCallback((carId: string, newViewCount: number) => {
-    setCars(prevCars =>
-      prevCars.map(car =>
-        car.id === carId ? { ...car, views: newViewCount } : car
-      )
-    )
-  }, [])
-
   const keyExtractor = useCallback(
     (item: Car) => `${item.id}-${item.make}-${item.model}`,
     []
   )
 
   const handleSearch = useCallback(() => {
+    setShowSuggestions(false)
     fetchCars(1, filters, sortOption, searchQuery)
   }, [filters, sortOption, searchQuery, fetchCars])
 
@@ -455,12 +514,10 @@ export default function BrowseCarsPage() {
             ? prevFilters.categories.filter(c => c !== category)
             : [...prevFilters.categories, category]
           : [category]
-
         const newFilters = {
           ...prevFilters,
           categories: updatedCategories
         }
-
         fetchCars(1, newFilters, sortOption, searchQuery)
         return newFilters
       })
@@ -475,7 +532,6 @@ export default function BrowseCarsPage() {
     fetchCars(1, {}, '', '')
   }, [fetchCars])
 
-  // Render header: we show skeletons only if it's the very first load (has never fetched before) and no cars exist.
   const renderListHeader = useMemo(
     () => (
       <>
@@ -509,15 +565,11 @@ export default function BrowseCarsPage() {
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
             {filters.categories && filters.categories.length > 0
-              ? `No cars available for the selected ${
-                  filters.categories.length === 1 ? 'category' : 'categories'
-                }:\n${filters.categories.join(', ')}`
+              ? `No cars available for the selected ${filters.categories.length === 1 ? 'category' : 'categories'}:\n${filters.categories.join(', ')}`
               : 'No cars available.'}
           </Text>
           {(Object.keys(filters).length > 0 || searchQuery) && (
-            <TouchableOpacity
-              onPress={handleResetFilters}
-              style={styles.resetButton}>
+            <TouchableOpacity onPress={handleResetFilters} style={styles.resetButton}>
               <Text style={styles.resetButtonText}>Remove filters</Text>
             </TouchableOpacity>
           )}
@@ -526,8 +578,7 @@ export default function BrowseCarsPage() {
     [filters, searchQuery, isDarkMode, isInitialLoading, handleResetFilters, cars]
   )
 
-  // If this is the very first load with no data, show skeleton placeholders;
-  // otherwise, show the actual cars (even if the result is empty).
+  // When initially loading with no data, show skeletons
   const listData = (isInitialLoading && cars.length === 0) ? Array(3).fill(null) : cars
 
   return (
@@ -553,7 +604,6 @@ export default function BrowseCarsPage() {
               />
               <TextInput
                 style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
-                className='p-3'
                 placeholder='Search cars...'
                 placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
                 value={searchQuery}
@@ -561,7 +611,6 @@ export default function BrowseCarsPage() {
                 onSubmitEditing={handleSearch}
                 textAlignVertical="center"
               />
-
               <TouchableOpacity
                 style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
                 onPress={openFilterPage}>
@@ -571,7 +620,6 @@ export default function BrowseCarsPage() {
                   color={isDarkMode ? '#000000' : '#ffffff'}
                 />
               </TouchableOpacity>
-
               {searchQuery.length > 0 && (
                 <TouchableOpacity
                   style={styles.clearButton}
@@ -587,18 +635,48 @@ export default function BrowseCarsPage() {
                 </TouchableOpacity>
               )}
             </View>
-            <View style={styles.sortPickerContainer}>
-              <SortPicker
-                onValueChange={(value: any) => {
-                  setSortOption(value)
-                  fetchCars(1, filters, value, searchQuery)
-                }}
-                initialValue={sortOption}
-              />
-            </View>
           </View>
+          {/* --- New: Enhanced Suggestions Dropdown --- */}
+          {showSuggestions && (suggestions.makes.length > 0 || suggestions.models.length > 0) && (
+            <View style={[styles.suggestionsContainer, { backgroundColor: isDarkMode ? '#333' : '#fff' }]}>
+              {suggestions.makes.length > 0 && (
+                <>
+                  <Text style={[styles.suggestionsHeader, { color: isDarkMode ? '#fff' : '#000' }]}>
+                    Makes
+                  </Text>
+                  {suggestions.makes.map((suggestion, index) => (
+                    <TouchableOpacity
+                      key={`make-${index}`}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSuggestionPress(suggestion)}>
+                      <Text style={[styles.suggestionText, { color: isDarkMode ? '#fff' : '#000' }]}>
+                        {suggestion}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              {suggestions.models.length > 0 && (
+                <>
+                  <Text style={[styles.suggestionsHeader, { color: isDarkMode ? '#fff' : '#000' }]}>
+                    Models
+                  </Text>
+                  {suggestions.models.map((suggestion, index) => (
+                    <TouchableOpacity
+                      key={`model-${index}`}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSuggestionPress(suggestion)}>
+                      <Text style={[styles.suggestionText, { color: isDarkMode ? '#fff' : '#000' }]}>
+                        {suggestion}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
         </View>
-            <FlatList
+        <FlatList
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -645,7 +723,7 @@ export default function BrowseCarsPage() {
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
               />
             ) : (
-              <View style={{ paddingBottom: 50 }} /> // Added bottom spacing here
+              <View style={{ paddingBottom: 50 }} />
             )
           }
         />
@@ -662,35 +740,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000'
   },
   searchContainer: {
-    padding: 10
-  },
-  scrollTopButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 70,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84
+    padding: 10,
+    zIndex: 10
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between'
-  },
-  iconButton: {
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: '#000000'
-  },
-  darkIconButton: {
-    backgroundColor: '#ffffff'
   },
   searchBar: {
     flex: 1,
@@ -713,6 +769,43 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 10
+  },
+  iconButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#000000'
+  },
+  darkIconButton: {
+    backgroundColor: '#ffffff'
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    paddingVertical: 8,
+    zIndex: 20
+  },
+  suggestionsHeader: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 4
+  },
+  suggestionItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd'
+  },
+  suggestionText: {
+    fontSize: 16
   },
   emptyContainer: {
     flex: 1,
@@ -737,15 +830,5 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: 'white',
     fontWeight: 'bold'
-  },
-  favoriteButton: {
-    padding: 12,
-    borderRadius: 20,
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  sortPickerContainer: {
-    paddingHorizontal: 10
   }
 })
