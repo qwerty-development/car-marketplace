@@ -1682,12 +1682,12 @@ const ListingModal = ({
 										/>
 
 										<NeumorphicInput
-											label='Seller Name'
+											label='Bought From'
 											value={formData.seller_name}
 											onChangeText={(text: any) =>
 												handleInputChange('seller_name', text)
 											}
-											placeholder="Enter seller's name"
+											placeholder="Enter bought from name"
 											icon='account'
 											isDarkMode={isDarkMode}
 										/>
