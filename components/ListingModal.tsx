@@ -1309,6 +1309,8 @@ const ListingModal = ({
 		}
 
 		onSubmit(submissionData)
+    handleClose();
+
 	}, [formData, modalImages, onSubmit, initialData])
 
 	return (
