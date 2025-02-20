@@ -512,7 +512,7 @@ export default function DealershipDetails() {
 
 	const handleWhatsApp = useCallback(() => {
 		if (dealership?.phone) {
-			const whatsappUrl = `https://wa.me/${dealership.phone}`
+			const whatsappUrl = `https://wa.me/+961${dealership.phone}`
 			Linking.openURL(whatsappUrl)
 		}
 	}, [dealership])
