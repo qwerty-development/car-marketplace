@@ -429,6 +429,48 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }
   }, [car]);
 
+  const handleOpenInMaps = useCallback(() => {
+  const { dealership_latitude, dealership_longitude } = car;
+  if (!dealership_latitude || !dealership_longitude) {
+    Alert.alert("Location unavailable", "No location available for this dealership");
+    return;
+  }
+
+  if (Platform.OS === "ios") {
+    Alert.alert("Open Maps", "Choose your preferred maps application", [
+      {
+        text: "Apple Maps",
+        onPress: () => {
+          const appleMapsUrl = `maps:0,0?q=${dealership_latitude},${dealership_longitude}`;
+          Linking.openURL(appleMapsUrl);
+        },
+      },
+      {
+        text: "Google Maps",
+        onPress: () => {
+          const googleMapsUrl = `comgooglemaps://?q=${dealership_latitude},${dealership_longitude}&zoom=14`;
+          Linking.openURL(googleMapsUrl).catch(() => {
+            // If Google Maps app isn’t installed, fallback to browser
+            const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
+            Linking.openURL(fallbackUrl);
+          });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  } else {
+    // Android: open Google Maps directly
+    const googleMapsUrl = `geo:${dealership_latitude},${dealership_longitude}?q=${dealership_latitude},${dealership_longitude}`;
+    Linking.openURL(googleMapsUrl).catch(() => {
+      // Fallback to browser if necessary
+      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
+      Linking.openURL(fallbackUrl);
+    });
+  }
+}, [car.dealership_latitude, car.dealership_longitude]);
+
+
+
   const handleOpenInGoogleMaps = useCallback(() => {
     const latitude = car.dealership_latitude || 37.7749;
     const longitude = car.dealership_longitude || -122.4194;
@@ -714,27 +756,43 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           ) : null}
         </View>
 
-        {/* Dealership Section */}
-        <View className="mt-8 px-4">
-          <Text
-            className={`text-lg font-bold mb-4 ${
-              isDarkMode ? "text-white" : "text-black"
-            }`}
-          >
-            Location
-          </Text>
+{/* Dealership Section */}
+<View className="mt-8 px-4">
+  <Text className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-black"}`}>
+    Location
+  </Text>
+  <View style={{ flex: 1 }}>
+    <MapView style={styles.map} region={mapRegion}>
+      <Marker
+        coordinate={{
+          latitude: car.dealership_latitude || 37.7749,
+          longitude: car.dealership_longitude || -122.4194,
+        }}
+        title={car.dealership_name}
+        description={car.dealership_location}
+      />
+    </MapView>
+    <TouchableOpacity
+    className="bg-red"
+      onPress={handleOpenInMaps}
+      style={{
+        position: "absolute",
+        bottom: 16,
+        right: 16,
 
-          <MapView style={styles.map} region={mapRegion}>
-            <Marker
-              coordinate={{
-                latitude: car.dealership_latitude || 37.7749,
-                longitude: car.dealership_longitude || -122.4194,
-              }}
-              title={car.dealership_name}
-              description={car.dealership_location}
-            />
-          </MapView>
-        </View>
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 25,
+        flexDirection: "row",
+        alignItems: "center",
+      }}
+    >
+      <Ionicons name="navigate-outline" size={24} color="#fff" />
+      <Text style={{ color: "#fff", marginLeft: 8 }}>Take Me There</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+
 
         {/* Similar Cars Section */}
         {similarCars.length > 0 && (
