@@ -540,7 +540,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 					</ScrollView>
 
 					{/* Footer */}
-					<View className='p-4 border-t border-neutral-200 dark:border-neutral-800'>
+					<View className='p-4 border-t mb-3 border-neutral-200 dark:border-neutral-800'>
 						<TouchableOpacity
 							onPress={handleApply}
 							className='bg-red py-4 rounded-xl'>
