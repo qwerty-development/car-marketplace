@@ -3,8 +3,6 @@ import React, {
   useEffect,
   useState,
   useRef,
-  memo,
-  useMemo,
 } from "react";
 import {
   StyleSheet,
@@ -17,7 +15,6 @@ import {
   Linking,
   Alert,
   Share,
-  PanResponder,
   Platform,
   AppState,
 } from "react-native";
@@ -456,9 +453,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         onPress={() => router.back()}
         className="absolute top-12 left-4 z-50 rounded-full p-2"
         style={{
-          backgroundColor: isDarkMode
-            ? "rgba(255,255,255,0.5)"
-            : "rgba(0,0,0,0.5)",
+          backgroundColor: isDarkMode ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.25,
@@ -715,9 +710,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             <FlatList
               data={similarCars}
               renderItem={renderCarItem}
-              keyExtractor={(item) =>
-                `${item.id}-${item.make}-${item.model}-${Math.random()}`
-              }
+              keyExtractor={(item) => item.id.toString()}
               horizontal
               showsHorizontalScrollIndicator={false}
             />
@@ -736,9 +729,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             <FlatList
               data={dealerCars}
               renderItem={renderCarItem}
-              keyExtractor={(item: any) =>
-                `${item.id}-${item.make}-${item.model}-${Math.random()}`
-              }
+                keyExtractor={(item) => item.id.toString()}
               horizontal
               showsHorizontalScrollIndicator={false}
             />

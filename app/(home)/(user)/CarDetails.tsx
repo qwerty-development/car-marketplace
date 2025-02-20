@@ -6,9 +6,8 @@ import { supabase } from '@/utils/supabase'
 import { useCarDetails } from '@/hooks/useCarDetails'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
+import CarDetailScreen from './CarDetailModalIOS';
 
-// Lazy load the CarDetailScreen component
-const CarDetailScreen = React.lazy(() => import('./CarDetailModalIOS'))
 
 export default function CarDetailsPage() {
 	const params = useLocalSearchParams()
