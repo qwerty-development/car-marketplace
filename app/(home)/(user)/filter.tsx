@@ -186,7 +186,10 @@ const BrandSelector = memo(
         const { data, error } = await supabase
           .from("cars")
           .select("make")
+          .eq("status","available")
           .order("make");
+          
+          
 
         if (error) throw error;
 
@@ -502,8 +505,11 @@ const ModelSelector = memo(
         const { data, error } = await supabase
           .from("cars")
           .select("model")
+          .eq("status","available")
           .in("make", make)
           .order("model");
+
+          
         if (!error && data) {
           const uniqueModels = Array.from(
             new Set(data.map((item: { model: string }) => item.model))
@@ -1451,6 +1457,7 @@ const supabaseFilter = buildSupabaseFilter(filters);
 let query = supabase
 .from("cars")
 .select('*', { count: 'exact', head: true })
+.eq("status","available")
 
 if (supabaseFilter.dealership) {
           query = query.in('dealership_id', supabaseFilter.dealership);
