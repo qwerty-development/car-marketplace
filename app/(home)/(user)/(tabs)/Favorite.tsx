@@ -408,7 +408,7 @@ export default function Favorite() {
         style={[
           { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
         ]}
-        placeholder="Search Favorites.."
+        placeholder="Search Favorites..."
         placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
         value={searchQuery}
         onChangeText={setSearchQuery}

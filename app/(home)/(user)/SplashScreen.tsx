@@ -9,12 +9,12 @@ import {
 
 const { height, width } = Dimensions.get('window')
 const SPLASH_CIRCLE_SIZE = width * 2
-const BG_FADE_DURATION = 800
-const CIRCLE_ANIM_DURATION = 1500 // Slower circle animations
-const CIRCLE_STAGGER_DELAY = 400 // More delay between circles
-const TEXT_ANIM_DURATION = 1000
+const BG_FADE_DURATION = 400
+const CIRCLE_ANIM_DURATION = 500 // Slower circle animations
+const CIRCLE_STAGGER_DELAY = 100 // More delay between circles
+const TEXT_ANIM_DURATION = 500
 const TEXT_STAGGER_DELAY = 500
-const EXIT_FADE_DURATION = 1000
+const EXIT_FADE_DURATION = 300
 
 type SplashPhase = 'entrance' | 'holding' | 'exit'
 

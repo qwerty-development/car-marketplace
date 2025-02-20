@@ -88,12 +88,43 @@ const TRANSMISSION_OPTIONS = [
 ];
 
 // Drivetrain Options
+// Drivetrain Options
 const DRIVETRAIN_OPTIONS = [
-  { label: "FWD", value: "FWD", icon: "car-traction-control" },
-  { label: "RWD", value: "RWD", icon: "car-traction-control" },
-  { label: "AWD", value: "AWD", icon: "car-traction-control" },
-  { label: "4WD", value: "4WD", icon: "car-4x4" },
-  { label: "4x4", value: "4x4", icon: "car-4x4" },
+  { 
+    label: "FWD", 
+    value: "FWD", 
+    getImage: (isDark: boolean) => isDark ? 
+      require("../../../assets/drivetrain/fwdD.png") : 
+      require("../../../assets/drivetrain/fwd.png") 
+  },
+  { 
+    label: "RWD", 
+    value: "RWD", 
+    getImage: (isDark: boolean) => isDark ? 
+      require("../../../assets/drivetrain/rwdD.png") : 
+      require("../../../assets/drivetrain/rwd.png")
+  },
+  { 
+    label: "AWD", 
+    value: "AWD", 
+    getImage: (isDark: boolean) => isDark ? 
+      require("../../../assets/drivetrain/awdD.png") : 
+      require("../../../assets/drivetrain/awd.png")
+  },
+  { 
+    label: "4WD", 
+    value: "4WD", 
+    getImage: (isDark: boolean) => isDark ? 
+      require("../../../assets/drivetrain/4wdD.png") : 
+      require("../../../assets/drivetrain/4wd.png")
+  },
+  { 
+    label: "4x4", 
+    value: "4x4", 
+    getImage: (isDark: boolean) => isDark ? 
+      require("../../../assets/drivetrain/4x4D.png") : 
+      require("../../../assets/drivetrain/4x4.png")
+  },
 ];
 
 // Section Header Component
@@ -942,7 +973,7 @@ interface SelectionCardProps {
 const SelectionCard = memo(
   ({
     label = "",
-    icon = "car",
+    icon = "",
     isSelected = false,
     onSelect = () => { },
     isDarkMode = false,
@@ -969,19 +1000,19 @@ const SelectionCard = memo(
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {imageUrl ? (
-            <Image
-              source={{ uri: imageUrl }}
-              style={{ width: 40, height: 40, marginBottom: 8 }}
-              resizeMode="contain"
-            />
-          ) : (
-            <MaterialCommunityIcons
-              name={icon}
-              size={24}
-              color={isSelected ? "#fff" : isDarkMode ? "#fff" : "#000"}
-            />
-          )}
+{imageUrl ? (
+  <Image
+    source={imageUrl}
+    style={{ width: 60, height: 30, marginBottom: 8 }}
+    resizeMode="contain"
+  />
+) : icon ? (
+  <MaterialCommunityIcons
+    name={icon}
+    size={24}
+    color={isSelected ? "#fff" : isDarkMode ? "#fff" : "#000"}
+  />
+) : null}
           <Text
             style={{
               marginTop: 8,
@@ -1820,24 +1851,25 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
         showsHorizontalScrollIndicator={false}
         style={{ marginBottom: 24 }}
       >
-        {DRIVETRAIN_OPTIONS.map((option) => (
-          <SelectionCard
-            key={option.value}
-            label={option.label}
-            isSelected={filters.drivetrain.includes(option.value)}
-            onSelect={() =>
-              setFilters((prev: FilterProps) => ({
-                ...prev,
-                drivetrain: prev.drivetrain.includes(option.value)
-                  ? prev.drivetrain.filter(
-                    (val: string) => val !== option.value
-                  )
-                  : [...prev.drivetrain, option.value],
-              }))
-            }
-            isDarkMode={isDarkMode}
-          />
-        ))}
+{DRIVETRAIN_OPTIONS.map((option) => (
+  <SelectionCard
+    key={option.value}
+    label={option.label}
+    imageUrl={option.getImage(isDarkMode)}  // Use the getImage function here
+    isSelected={filters.drivetrain.includes(option.value)}
+    onSelect={() =>
+      setFilters((prev: FilterProps) => ({
+        ...prev,
+        drivetrain: prev.drivetrain.includes(option.value)
+          ? prev.drivetrain.filter(
+            (val: string) => val !== option.value
+          )
+          : [...prev.drivetrain, option.value],
+      }))
+    }
+    isDarkMode={isDarkMode}
+  />
+))}
       </ScrollView>
 
       <LinearGradient

@@ -779,7 +779,7 @@ useEffect(() => {
 										{item.dealership?.name}
 									</Text>
 									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<Text style={{ color: '#D55004', fontSize: 12 }}>
+										<Text style={{ color: '#A8A8A8', fontSize: 12 }}>
 											{formattedPostDate}
 										</Text>
 									</View>
@@ -836,7 +836,7 @@ useEffect(() => {
 									style={{
 										flex: 1,
 										backgroundColor: '#D55004',
-										paddingVertical: 8,
+										paddingVertical: 10,
 										paddingHorizontal: 16,
 										borderRadius: 10,
 										flexDirection: 'row',

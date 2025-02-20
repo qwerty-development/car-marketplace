@@ -572,6 +572,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             </View>
           </View>
 
+			{/* Autoclip Button (Moved to Top Right) */}
+		    
           {/* View Clip Button (Aligned to Technical Data) */}
         </View>
 
@@ -592,28 +594,40 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             >
               Technical Data
             </Text>
+
             {autoclips.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedClip(autoclips[0]);
-                  setShowClipModal(true);
-                }}
-                style={{
-                  backgroundColor:"#D55004",
-                  borderRadius: 100,
-                  width: 50,
-                  height: 30,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <Ionicons
-                  name="film"
-                  size={20}
-                  color={isDarkMode ? "white" : "white"}
-                />
-              </TouchableOpacity>
-            )}
+			  <TouchableOpacity
+			    onPress={() => {
+			      setSelectedClip(autoclips[0]);
+			      setShowClipModal(true);
+			    }}
+			    style={{
+			      backgroundColor: "#D55004",
+			      borderRadius: 20,
+			      paddingVertical: 8,
+			      paddingHorizontal: 16,
+			      justifyContent: "center",
+			      alignItems: "center",
+			      flexDirection: "row",
+			      shadowColor: "#000",
+			      shadowOffset: { width: 0, height: 2 },
+			      shadowOpacity: 0.25,
+			      shadowRadius: 3.84,
+			      elevation: 5,
+			    }}
+			  >
+			    <Ionicons
+			      name="film"
+			      size={16}
+			      color="white"
+			      style={{ marginRight: 5 }}
+			    />
+			    <Text style={{ color: "white", fontWeight: "bold" }}>
+			      Autoclip
+			    </Text>
+			  </TouchableOpacity>
+		    )}
+
           </View>
           <View
             className={`rounded-lg mt-5 ${

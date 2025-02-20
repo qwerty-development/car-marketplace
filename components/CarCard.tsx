@@ -330,8 +330,8 @@ export default function CarCard({
 				showsHorizontalScrollIndicator={false}
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={viewabilityConfig}
-				initialNumToRender={1}
-				maxToRenderPerBatch={2}
+				initialNumToRender={3}
+				maxToRenderPerBatch={3}
 				windowSize={3}
 				removeClippedSubviews={true}
 				decelerationRate='fast'
