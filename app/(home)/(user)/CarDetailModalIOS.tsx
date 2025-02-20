@@ -17,6 +17,8 @@ import {
   Share,
   Platform,
   AppState,
+  Modal,
+  Pressable
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/clerk-expo";
@@ -28,7 +30,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import AutoclipModal from "@/components/AutoclipModal";
-import { LinearGradient } from "expo-linear-gradient";
+
 
 const { width } = Dimensions.get("window");
 
@@ -137,6 +139,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const [autoclips, setAutoclips] = useState<any>([]);
   const [selectedClip, setSelectedClip] = useState<any>(null);
   const [showClipModal, setShowClipModal] = useState<any>(false);
+   const [selectedImage, setSelectedImage] = useState<any>(null);
 
   // Add fetchAutoclips function
   const fetchAutoclips = useCallback(async () => {
@@ -165,7 +168,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   }, [car, fetchAutoclips]);
 
   const handleClipLike = useCallback(
-    async (clipId) => {
+    async (clipId: any) => {
       if (!user) return;
 
       try {
@@ -179,14 +182,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
         if (error) throw error;
 
-        setAutoclips((prev) =>
-          prev.map((clip) =>
+        setAutoclips((prev: any[]) =>
+          prev.map((clip: { id: any; liked_users: string[]; }) =>
             clip.id === clipId
               ? {
                   ...clip,
                   likes: newLikesCount,
                   liked_users: clip.liked_users?.includes(user.id)
-                    ? clip.liked_users.filter((id) => id !== user.id)
+                    ? clip.liked_users.filter((id: string) => id !== user.id)
                     : [...(clip.liked_users || []), user.id],
                 }
               : clip
@@ -476,34 +479,37 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         {/* Image Carousel  */}
         <View className="relative mb-6 overflow-visible">
           <View className="rounded-b-[20px] overflow-hidden">
-            <FlatList
+           <FlatList
               data={car.images}
               renderItem={({ item }) => (
-                <View className="relative">
-                  <OptimizedImage
-                    source={{ uri: item }}
-                    style={{ width: width, height: 350 }}
-                  />
-                  {/* Eye and heart icons positioned within the image */}
-                  <View className="absolute    top-12 right-0 flex-row items-center z-10">
-                    <View className="flex-row items-center px-3 py-1 ">
-                      <Ionicons name="eye" size={20} color="#FFFFFF" />
-                      <Text className="text-white font-bold ml-1">
-                        {car.views || 0}
-                      </Text>
+
+                <Pressable onPress={() => setSelectedImage(item)}>
+                  <View className="relative">
+                    <OptimizedImage
+                      source={{ uri: item }}
+                      style={{ width: width, height: 350 }}
+                    />
+                    {/* Eye and heart icons positioned within the image */}
+                    <View className="absolute top-12 right-0 flex-row items-center z-10">
+                      <View className="flex-row items-center px-3 py-1 ">
+                        <Ionicons name="eye" size={20} color="#FFFFFF" />
+                        <Text className="text-white font-bold ml-1">
+                          {car.views || 0}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        className="mr-3"
+                        onPress={() => onFavoritePress(car.id)}
+                      >
+                        <Ionicons
+                          name={isFavorite(car.id) ? "heart" : "heart-outline"}
+                          size={20}
+                          color={isFavorite(car.id) ? "red" : "white"}
+                        />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      className="mr-3 "
-                      onPress={() => onFavoritePress(car.id)}
-                    >
-                      <Ionicons
-                        name={isFavorite(car.id) ? "heart" : "heart-outline"}
-                        size={20}
-                        color={isFavorite(car.id) ? "red" : "white"}
-                      />
-                    </TouchableOpacity>
                   </View>
-                </View>
+                </Pressable>
               )}
               horizontal
               pagingEnabled
@@ -820,13 +826,34 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
         isLiked={selectedClip?.liked_users?.includes(user?.id)}
       />
+     {selectedImage && (
+        <Modal
+          visible={true}
+          transparent={true}
+          onRequestClose={() => setSelectedImage(null)}
+        >
+          <View style={styles.modalBackground}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setSelectedImage(null)}
+            >
+              <Ionicons name="close" size={40} color="white" />
+            </TouchableOpacity>
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullscreenImage}
+              contentFit="contain"
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
-
 const styles = StyleSheet.create({
  container: {
     flex: 1,
+    backgroundColor: "transparent",
     ...Platform.select({
       android: {
         elevation: 0,
@@ -838,16 +865,29 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginVertical: 10,
   },
-  container: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
   scrollContent: {
     flexGrow: 1,
   },
   mainImage: {
     width: "100%",
     height: 300,
+  },
+   modalBackground: {
+    flex: 1,
+    backgroundColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 1,
+  },
+  fullscreenImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
   },
 });
 

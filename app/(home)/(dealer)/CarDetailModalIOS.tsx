@@ -10,7 +10,9 @@ import {
 	Linking,
 	Alert,
 	Share,
-	Platform
+	Platform,
+	Modal,  // <-- Import Modal here
+  Pressable
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { useUser } from '@clerk/clerk-expo'
@@ -53,7 +55,6 @@ const OptimizedImage = memo(({ source, style, onLoad }: any) => {
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
-
 	switch (formattedMake) {
 		case 'range-rover':
 			return isLightMode
@@ -77,8 +78,7 @@ const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (
 			size={24}
 			color={isDarkMode ? '#FFFFFF' : '#000000'}
 		/>
-		<Text
-			className={`text-xs mt-1 ${isDarkMode ? 'text-white' : 'text-black'}`}>
+		<Text className={`text-xs mt-1 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 			{text}
 		</Text>
 	</TouchableOpacity>
@@ -93,12 +93,10 @@ const TechnicalDataItem = ({ icon, label, value, isDarkMode, isLast }: any) => (
 				color={isDarkMode ? '#FFFFFF' : '#000000'}
 			/>
 		</View>
-		<Text
-			className={`flex-1 text-sm ${isDarkMode ? 'text-white' : 'text-black'}`}>
+		<Text className={`flex-1 text-sm ${isDarkMode ? 'text-white' : 'text-black'}`}>
 			{label}
 		</Text>
 		<Text className='dark:text-white font-semibold text-sm'>{value}</Text>
-
 		{!isLast && (
 			<View className='absolute bottom-0 left-[12.5%] w-4/5 h-[1px] bg-[#c9c9c9]' />
 		)}
@@ -117,6 +115,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const [dealerCars, setDealerCars] = useState([])
 	const scrollViewRef = useRef(null)
 	const [activeImageIndex, setActiveImageIndex] = useState(0)
+	const [selectedImage, setSelectedImage] = useState(null) // <-- State for full-screen image
 
 	useEffect(() => {
 		if (car && user) {
@@ -193,9 +192,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 					car_id: carId,
 					user_id: userId
 				})
-
 				if (error) throw error
-
 				if (data && onViewUpdate) {
 					onViewUpdate(carId, data)
 				}
@@ -224,9 +221,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const handleWhatsApp = useCallback(() => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-			const url = `https://wa.me/+961${
-				car.dealership_phone
-			}?text=${encodeURIComponent(message)}`
+			const url = `https://wa.me/+961${car.dealership_phone}?text=${encodeURIComponent(
+				message
+			)}`
 			Linking.openURL(url)
 		} else {
 			Alert.alert('WhatsApp number not available')
@@ -240,9 +237,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const handleShare = useCallback(async () => {
 		try {
 			await Share.share({
-				message: `Check out this ${car.year} ${car.make} ${
-					car.model
-				} for $${car.price.toLocaleString()}!`,
+				message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price.toLocaleString()}!`,
 				url: car.images[0]
 			})
 		} catch (error) {
@@ -254,7 +249,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 		const latitude = car.dealership_latitude || 37.7749
 		const longitude = car.dealership_longitude || -122.4194
 		const url = `https://www.google.com/maps?q=${latitude},${longitude}`
-
 		Linking.openURL(url).catch(err => {
 			Alert.alert('Error', 'Could not open Google Maps')
 		})
@@ -263,9 +257,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const renderCarItem = useCallback(
 		({ item }: any) => (
 			<TouchableOpacity
-				className={`${
-					isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-				} rounded-lg p-2 mr-4 w-48`}
+				className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} rounded-lg p-2 mr-4 w-48`}
 				onPress={() => {
 					router.push({
 						pathname: '/(home)/(dealer)/CarDetails',
@@ -276,10 +268,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 					source={{ uri: item.images[0] }}
 					style={{ width: '100%', height: 128, borderRadius: 8 }}
 				/>
-				<Text
-					className={`${
-						isDarkMode ? 'text-white' : 'text-black'
-					} font-bold mt-2`}>
+				<Text className={`${isDarkMode ? 'text-white' : 'text-black'} font-bold mt-2`}>
 					{item.year} {item.make} {item.model}
 				</Text>
 			</TouchableOpacity>
@@ -326,16 +315,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 			</View>
 
 			<ScrollView ref={scrollViewRef} className='rounded-b-lg'>
-				{/* Image Carousel  */}
+				{/* Image Carousel */}
 				<View className='relative mb-6 overflow-visible'>
 					<View className='rounded-b-[20px] overflow-hidden'>
 						<FlatList
 							data={car.images}
 							renderItem={({ item }) => (
-								<OptimizedImage
-									source={{ uri: item }}
-									style={{ width: width, height: 350 }}
-								/>
+								<Pressable onPress={() => setSelectedImage(item)}>
+									<OptimizedImage
+										source={{ uri: item }}
+										style={{ width: width, height: 350 }}
+									/>
+								</Pressable>
 							)}
 							horizontal
 							pagingEnabled
@@ -371,9 +362,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				{/* Car Info Header */}
 				<View className='flex-row items-center justify-between px-4'>
 					<View className='flex-row items-center flex-1'>
-						<View
-							className='justify-center items-center mt-2'
-							style={{ width: 50 }}>
+						<View className='justify-center items-center mt-2' style={{ width: 50 }}>
 							<OptimizedImage
 								source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
 								style={{ width: 50, height: 30 }}
@@ -381,16 +370,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 							/>
 						</View>
 						<View className='ml-3'>
-							<Text
-								className={`text-xl mt-6 font-bold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
+							<Text className={`text-xl mt-6 font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 								{car.make} {car.model}
 							</Text>
-							<Text
-								className={`text-sm ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
+							<Text className={`text-sm ${isDarkMode ? 'text-white' : 'text-black'}`}>
 								{car.year}
 							</Text>
 						</View>
@@ -399,16 +382,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 				{/* Technical Data */}
 				<View className='mt-8 mx-4'>
-					<Text
-						className={`text-lg font-bold mb-2 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
+					<Text className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Technical Data
 					</Text>
-					<View
-						className={`rounded-lg ${
-							isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#e9e9e9]'
-						}`}>
+					<View className={`rounded-lg ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#e9e9e9]'}`}>
 						{[
 							{
 								icon: 'speedometer-outline',
@@ -450,10 +427,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 				{/* Description */}
 				<View className='mt-6 px-4'>
-					<Text
-						className={`text-lg font-bold mb-2 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
+					<Text className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Description
 					</Text>
 					<Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
@@ -463,13 +437,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 				{/* Dealership Section */}
 				<View className='mt-8 px-4'>
-					<Text
-						className={`text-lg font-bold mb-4 ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
+					<Text className={`text-lg font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-black'}`}>
 						Location
 					</Text>
-
 					<MapView style={styles.map} region={mapRegion}>
 						<Marker
 							coordinate={{
@@ -484,10 +454,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 				{/* Similar Cars Section */}
 				<View className='mt-8 px-4'>
-					<Text
-						className={`text-xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mb-4`}>
+					<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'} mb-4`}>
 						Similarly Priced Cars
 					</Text>
 					<FlatList
@@ -503,10 +470,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 				{/* Dealer Cars Section */}
 				<View className='mt-8 px-4 mb-40'>
-					<Text
-						className={`text-xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						} mb-4`}>
+					<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'} mb-4`}>
 						More from {car.dealership_name}
 					</Text>
 					<FlatList
@@ -521,12 +485,33 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 				</View>
 			</ScrollView>
 
+			{/* Full-Screen Modal for Image */}
+			{selectedImage && (
+				<Modal
+					visible={true}
+					transparent={true}
+					onRequestClose={() => setSelectedImage(null)}>
+					<View style={styles.modalBackground}>
+						<TouchableOpacity
+							style={styles.closeButton}
+							onPress={() => setSelectedImage(null)}>
+							<Ionicons name="close" size={40} color="white" />
+						</TouchableOpacity>
+						<Image
+							source={{ uri: selectedImage }}
+							style={styles.fullscreenImage}
+							contentFit="contain"
+						/>
+					</View>
+				</Modal>
+			)}
+
 			{/* Bottom Action Bar */}
 			<View
-				className={`absolute bottom-0 p-8 w-full  flex-col justify-around items-center py-4 border-t  ${
+				className={`absolute bottom-0 p-8 w-full flex-col justify-around items-center py-4 border-t ${
 					isDarkMode ? 'bg-black' : 'bg-white'
 				}`}>
-				<View className='flex-row  items-center justify-between w-full'>
+				<View className='flex-row items-center justify-between w-full'>
 					<View className='flex-row items-center flex-1'>
 						<TouchableOpacity onPress={handleDealershipPress}>
 							<OptimizedImage
@@ -537,17 +522,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 						<TouchableOpacity onPress={handleDealershipPress}>
 							<View className='flex-1 ml-3'>
 								<Text
-									className={`text-base font-medium ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}
+									className={`text-base font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}
 									numberOfLines={1}>
 									{car.dealership_name}
 								</Text>
-
 								<Text
-									className={`text-sm ${
-										isDarkMode ? 'text-white' : 'text-black'
-									} mr-7`}
+									className={`text-sm ${isDarkMode ? 'text-white' : 'text-black'} mr-7`}
 									numberOfLines={2}>
 									<Ionicons name='location' size={12} />
 									{car.dealership_location}
@@ -576,7 +556,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 						/>
 					</View>
 				</View>
-
 				<TouchableOpacity
 					onPress={handleOpenInGoogleMaps}
 					className='flex-row items-center justify-center p-3 mt-4 rounded-full bg-black dark:bg-white w-full'>
@@ -599,6 +578,23 @@ const styles = StyleSheet.create({
 		height: 200,
 		borderRadius: 10,
 		marginVertical: 10
+	},
+	modalBackground: {
+		flex: 1,
+		backgroundColor: 'black',
+		justifyContent: 'center',
+		alignItems: 'center'
+	},
+	closeButton: {
+		position: 'absolute',
+		top: 40,
+		right: 20,
+		zIndex: 1
+	},
+	fullscreenImage: {
+		width: '100%',
+		height: '100%',
+		resizeMode: 'contain'
 	}
 })
 
