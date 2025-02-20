@@ -554,7 +554,7 @@ export default function BrowseCarsPage() {
               <TextInput
                 style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
                 className='p-3'
-                placeholder='Search cars..'
+                placeholder='Search cars...'
                 placeholderTextColor={isDarkMode ? '#FFFFFF' : '#666666'}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -598,7 +598,7 @@ export default function BrowseCarsPage() {
             </View>
           </View>
         </View>
-        <FlatList
+            <FlatList
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -644,7 +644,9 @@ export default function BrowseCarsPage() {
                 style={{ margin: 16 }}
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
               />
-            ) : null
+            ) : (
+              <View style={{ paddingBottom: 50 }} /> // Added bottom spacing here
+            )
           }
         />
       </SafeAreaView>

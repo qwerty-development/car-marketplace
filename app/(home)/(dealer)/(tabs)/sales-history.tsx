@@ -408,7 +408,7 @@ const KPICard = ({ title, value, icon, trend, isDarkMode }) => (
 					color={trend >= 0 ? '#10B981' : '#EF4444'}
 				/>
 				<Text
-					className={trend >= 0 ? 'text-green-500' : 'text-red-500'}
+					className={trend >= 0 ? 'text-green-500' : 'text-rose-500'}
 					style={{ fontSize: 12 }}>
 					{trend}%
 				</Text>
@@ -451,7 +451,7 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
 					</Text>
 					<View
 						className={`px-3 py-1.5 rounded-full flex-row items-center gap-1
-              ${profit >= 0 ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+              ${profit >= 0 ? 'bg-green-500/20' : 'bg-rose-500/20'}`}>
 						<MaterialCommunityIcons
 							name={profit >= 0 ? 'trending-up' : 'trending-down'}
 							size={16}
@@ -461,7 +461,7 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
 							className={
 								profit >= 0
 									? 'text-green-500 font-medium'
-									: 'text-red-500 font-medium'
+									: 'text-rose-500 font-medium'
 							}>
 							${Math.abs(profit).toLocaleString()}
 						</Text>

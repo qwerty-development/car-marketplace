@@ -224,7 +224,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 	const handleWhatsApp = useCallback(() => {
 		if (car.dealership_phone) {
 			const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-			const url = `https://wa.me/${
+			const url = `https://wa.me/+961${
 				car.dealership_phone
 			}?text=${encodeURIComponent(message)}`
 			Linking.openURL(url)
