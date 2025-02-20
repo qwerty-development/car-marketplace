@@ -419,44 +419,24 @@ export default function DealershipListPage() {
   // -------------------
   // Fetch Dealerships
   // -------------------
-  const fetchDealerships = useCallback(async () => {
+ const fetchDealerships = useCallback(async () => {
     if (!hasFetched) setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from("dealerships")
-        .select("*, cars(count)");
+        .select("*, cars!inner(count)") // Using !inner to ensure we count all cars
+        .eq('cars.status', 'available'); // Add filter for available cars only
 
       if (error) throw error;
 
-      // Defensive: if data is null or empty, default to []
       const rawDealers: any[] = data || [];
-      // Format the data to match our type
-      const formattedData: Dealership[] = rawDealers.map((dealer) => {
-        // Defensive checks
-        // const lat = dealer.latitude ?? null; // REMOVED
-        // const lon = dealer.longitude ?? null; // REMOVED
-
-        // let distanceVal: number | undefined; // REMOVED
-        // if (userLocation && lat !== null && lon !== null) { // REMOVED
-        //   distanceVal = calculateDistance( // REMOVED
-        //     userLocation.coords.latitude, // REMOVED
-        //     userLocation.coords.longitude, // REMOVED
-        //     lat, // REMOVED
-        //     lon // REMOVED
-        //   ); // REMOVED
-        // } // REMOVED
-
-        return {
+      const formattedData: Dealership[] = rawDealers.map((dealer) => ({
           id: dealer.id,
           name: dealer.name ?? null,
           logo: dealer.logo ?? null,
           location: dealer.location ?? null,
-          // latitude: lat, // REMOVED
-          // longitude: lon, // REMOVED
           total_cars: dealer.cars?.[0]?.count || 0,
-          // distance: distanceVal, // REMOVED
-        };
-      });
+      }));
 
       setDealerships(formattedData);
     } catch (error) {
@@ -466,7 +446,7 @@ export default function DealershipListPage() {
       if (!hasFetched) setIsLoading(false);
       setHasFetched(true);
     }
-  }, [hasFetched]); // removed dependecy: userLocation, calculateDistance
+  }, [hasFetched]);// removed dependecy: userLocation, calculateDistance
 
   useEffect(() => {
     fetchDealerships();
