@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useState,
-  useRef,
-} from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -18,7 +13,7 @@ import {
   Platform,
   AppState,
   Modal,
-  Pressable
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/clerk-expo";
@@ -90,14 +85,9 @@ const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (
   <TouchableOpacity onPress={onPress} className="items-center mx-2">
     <Ionicons
       name={icon}
-      size={24}
+      size={27}
       color={isDarkMode ? "#FFFFFF" : "#000000"}
     />
-    <Text
-      className={`text-xs mt-1 ${isDarkMode ? "text-white" : "text-black"}`}
-    >
-      {text}
-    </Text>
   </TouchableOpacity>
 );
 
@@ -215,7 +205,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         if (error) throw error;
 
         setAutoclips((prev: any[]) =>
-          prev.map((clip: { id: any; liked_users: string[]; }) =>
+          prev.map((clip: { id: any; liked_users: string[] }) =>
             clip.id === clipId
               ? {
                   ...clip,
@@ -421,7 +411,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const handleShare = useCallback(async () => {
     try {
       await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price.toLocaleString()}!`,
+        message: `Check out this ${car.year} ${car.make} ${
+          car.model
+        } for $${car.price.toLocaleString()}!`,
         url: car.images[0],
       });
     } catch (error: any) {
@@ -430,46 +422,47 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   }, [car]);
 
   const handleOpenInMaps = useCallback(() => {
-  const { dealership_latitude, dealership_longitude } = car;
-  if (!dealership_latitude || !dealership_longitude) {
-    Alert.alert("Location unavailable", "No location available for this dealership");
-    return;
-  }
+    const { dealership_latitude, dealership_longitude } = car;
+    if (!dealership_latitude || !dealership_longitude) {
+      Alert.alert(
+        "Location unavailable",
+        "No location available for this dealership"
+      );
+      return;
+    }
 
-  if (Platform.OS === "ios") {
-    Alert.alert("Open Maps", "Choose your preferred maps application", [
-      {
-        text: "Apple Maps",
-        onPress: () => {
-          const appleMapsUrl = `maps:0,0?q=${dealership_latitude},${dealership_longitude}`;
-          Linking.openURL(appleMapsUrl);
+    if (Platform.OS === "ios") {
+      Alert.alert("Open Maps", "Choose your preferred maps application", [
+        {
+          text: "Apple Maps",
+          onPress: () => {
+            const appleMapsUrl = `maps:0,0?q=${dealership_latitude},${dealership_longitude}`;
+            Linking.openURL(appleMapsUrl);
+          },
         },
-      },
-      {
-        text: "Google Maps",
-        onPress: () => {
-          const googleMapsUrl = `comgooglemaps://?q=${dealership_latitude},${dealership_longitude}&zoom=14`;
-          Linking.openURL(googleMapsUrl).catch(() => {
-            // If Google Maps app isn’t installed, fallback to browser
-            const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
-            Linking.openURL(fallbackUrl);
-          });
+        {
+          text: "Google Maps",
+          onPress: () => {
+            const googleMapsUrl = `comgooglemaps://?q=${dealership_latitude},${dealership_longitude}&zoom=14`;
+            Linking.openURL(googleMapsUrl).catch(() => {
+              // If Google Maps app isn’t installed, fallback to browser
+              const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
+              Linking.openURL(fallbackUrl);
+            });
+          },
         },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  } else {
-    // Android: open Google Maps directly
-    const googleMapsUrl = `geo:${dealership_latitude},${dealership_longitude}?q=${dealership_latitude},${dealership_longitude}`;
-    Linking.openURL(googleMapsUrl).catch(() => {
-      // Fallback to browser if necessary
-      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
-      Linking.openURL(fallbackUrl);
-    });
-  }
-}, [car.dealership_latitude, car.dealership_longitude]);
-
-
+        { text: "Cancel", style: "cancel" },
+      ]);
+    } else {
+      // Android: open Google Maps directly
+      const googleMapsUrl = `geo:${dealership_latitude},${dealership_longitude}?q=${dealership_latitude},${dealership_longitude}`;
+      Linking.openURL(googleMapsUrl).catch(() => {
+        // Fallback to browser if necessary
+        const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
+        Linking.openURL(fallbackUrl);
+      });
+    }
+  }, [car.dealership_latitude, car.dealership_longitude]);
 
   const handleOpenInGoogleMaps = useCallback(() => {
     const latitude = car.dealership_latitude || 37.7749;
@@ -516,6 +509,45 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   };
+
+  const handleWhatsAppPress = useCallback(() => {
+    if (car.dealership_phone) {
+      // Format the message
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
+        car.model
+      } listed for $${car.price.toLocaleString()}`;
+
+      // Format the phone number (remove any non-numeric characters)
+      const phoneNumber = car.dealership_phone;
+
+      // Create the WhatsApp URL
+      const url = `whatsapp://send?phone=+961${phoneNumber}&text=${encodeURIComponent(
+        message
+      )}`;
+
+      // Try to open WhatsApp
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            return Linking.openURL(url);
+          } else {
+            // WhatsApp is not installed, try web version as fallback
+            const webUrl = `https://wa.me/+961${phoneNumber}?text=${encodeURIComponent(
+              message
+            )}`;
+            return Linking.openURL(webUrl);
+          }
+        })
+        .catch(() => {
+          Alert.alert(
+            "Error",
+            "Unable to open WhatsApp. Please make sure it is installed on your device."
+          );
+        });
+    } else {
+      Alert.alert("Phone number not available");
+    }
+  }, [car]);
 
   return (
     <View
@@ -636,7 +668,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 {car.make} {car.model}
               </Text>
               <Text
-                className={`text-sm ${isDarkMode ? "text-white" : "text-black"}`}
+                className={`text-sm ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
               >
                 {car.year}
               </Text>
@@ -651,8 +685,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             </View>
           </View>
 
-			{/* Autoclip Button (Moved to Top Right) */}
-		    
+          {/* Autoclip Button (Moved to Top Right) */}
+
           {/* View Clip Button (Aligned to Technical Data) */}
         </View>
 
@@ -675,38 +709,37 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             </Text>
 
             {autoclips.length > 0 && (
-			  <TouchableOpacity
-			    onPress={() => {
-			      setSelectedClip(autoclips[0]);
-			      setShowClipModal(true);
-			    }}
-			    style={{
-			      backgroundColor: "#D55004",
-			      borderRadius: 20,
-			      paddingVertical: 8,
-			      paddingHorizontal: 16,
-			      justifyContent: "center",
-			      alignItems: "center",
-			      flexDirection: "row",
-			      shadowColor: "#000",
-			      shadowOffset: { width: 0, height: 2 },
-			      shadowOpacity: 0.25,
-			      shadowRadius: 3.84,
-			      elevation: 5,
-			    }}
-			  >
-			    <Ionicons
-			      name="film"
-			      size={16}
-			      color="white"
-			      style={{ marginRight: 5 }}
-			    />
-			    <Text style={{ color: "white", fontWeight: "bold" }}>
-			      Autoclip
-			    </Text>
-			  </TouchableOpacity>
-		    )}
-
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedClip(autoclips[0]);
+                  setShowClipModal(true);
+                }}
+                style={{
+                  backgroundColor: "#D55004",
+                  borderRadius: 20,
+                  paddingVertical: 8,
+                  paddingHorizontal: 16,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flexDirection: "row",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}
+              >
+                <Ionicons
+                  name="play"
+                  size={16}
+                  color="white"
+                  style={{ marginRight: 5 }}
+                />
+                <Text style={{ color: "white", fontWeight: "bold" }}>
+                  Autoclip
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View
             className={`rounded-lg mt-5 ${
@@ -770,43 +803,34 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           ) : null}
         </View>
 
-{/* Dealership Section */}
-<View className="mt-8 px-4">
-  <Text className={`text-lg font-bold ${isDarkMode ? "text-white" : "text-black"}`}>
-    Location
-  </Text>
-  <View style={{ flex: 1 }}>
-    <MapView style={styles.map} region={mapRegion}>
-      <Marker
-        coordinate={{
-          latitude: car.dealership_latitude || 37.7749,
-          longitude: car.dealership_longitude || -122.4194,
-        }}
-        title={car.dealership_name}
-        description={car.dealership_location}
-      />
-    </MapView>
-    <TouchableOpacity
-    className="bg-red"
-      onPress={handleOpenInMaps}
-      style={{
-        position: "absolute",
-        bottom: 16,
-        right: 16,
-
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 25,
-        flexDirection: "row",
-        alignItems: "center",
-      }}
-    >
-      <Ionicons name="navigate-outline" size={24} color="#fff" />
-      <Text style={{ color: "#fff", marginLeft: 8 }}>Take Me There</Text>
-    </TouchableOpacity>
-  </View>
-</View>
-
+        {/* Dealership Section */}
+        <View className="mt-8 px-4">
+          <Text
+            className={`text-lg font-bold ${
+              isDarkMode ? "text-white" : "text-black"
+            }`}
+          >
+            Location
+          </Text>
+          <View style={{ flex: 1 }}>
+            <MapView style={styles.map} region={mapRegion}>
+              <Marker
+                coordinate={{
+                  latitude: car.dealership_latitude || 37.7749,
+                  longitude: car.dealership_longitude || -122.4194,
+                }}
+                title={car.dealership_name}
+                description={car.dealership_location}
+              />
+            </MapView>
+          <TouchableOpacity
+            onPress={handleOpenInMaps}
+            className='absolute bottom-4 right-4 bg-red px-4 py-2 rounded-full flex-row items-center'>
+            <Ionicons name='navigate' size={16} color='white' />
+            <Text className='text-white ml-2'>Take Me There</Text>
+          </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Similar Cars Section */}
         {similarCars.length > 0 && (
@@ -893,19 +917,17 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             <ActionButton
               icon="call-outline"
               onPress={handleCall}
-              text="Call"
               isDarkMode={isDarkMode}
             />
             <ActionButton
-              icon="chatbubble-outline"
-              onPress={handleChat}
-              text="Chat"
+              icon="logo-whatsapp" // Using Ionicons WhatsApp logo
+  
+              onPress={handleWhatsAppPress}
               isDarkMode={isDarkMode}
             />
             <ActionButton
               icon="share-outline"
               onPress={handleShare}
-              text="Share"
               isDarkMode={isDarkMode}
             />
           </View>

@@ -723,12 +723,15 @@ useEffect(() => {
 		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 	}, [])
 
+	
+
 	const renderClipInfo = useMemo(
 		() => (item: AutoClip) => {
 			const formattedPostDate = getFormattedPostDate(item.created_at)
 			const isDescriptionExpanded = expandedDescriptions[item.id] || false
 			const shouldShowExpandOption =
 				item.description && item.description.length > 80
+				
 			return (
 				<View
 					style={{
@@ -830,7 +833,8 @@ useEffect(() => {
 								style={{
 									flexDirection: 'row',
 									alignItems: 'center',
-									justifyContent: 'space-between'
+									justifyContent: 'space-between',
+									
 								}}>
 								<TouchableOpacity
 									style={{
@@ -865,7 +869,67 @@ useEffect(() => {
 										backgroundColor: 'rgba(255,255,255,0.1)',
 										padding: 8,
 										borderRadius: 10,
-										marginHorizontal: 4
+										marginLeft:20,
+										marginRight:4
+									}}
+									onPress={() => {
+										if (item.dealership?.phone) {
+											Linking.openURL(`tel:${item.dealership.phone}`)
+										} else {
+											Alert.alert('Contact', 'Phone number not available')
+										}
+									}}>
+									<Ionicons name='call-outline' size={24} color='white' />
+								</TouchableOpacity>
+
+								<TouchableOpacity
+  style={{
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    padding: 8,
+    borderRadius: 10,
+    marginHorizontal: 4
+  }}
+  onPress={() => {
+    if (item.dealership?.phone) {
+      // Format the message
+      const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
+      
+      // Format the phone number (remove any non-numeric characters)
+      const phoneNumber = item.dealership.phone;
+      
+      // Create the WhatsApp URL
+      const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+      
+      // Try to open WhatsApp
+      Linking.canOpenURL(url)
+        .then(supported => {
+          if (supported) {
+            return Linking.openURL(url);
+          } else {
+            // WhatsApp is not installed, try web version as fallback
+            const webUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+            return Linking.openURL(webUrl);
+          }
+        })
+        .catch(() => {
+          Alert.alert(
+            'Error',
+            'Unable to open WhatsApp. Please make sure it is installed on your device.'
+          );
+        });
+    } else {
+      Alert.alert('Contact', 'Phone number not available');
+    }
+  }}>
+  <Ionicons name='logo-whatsapp' size={24} color='white' />
+</TouchableOpacity>
+
+								<TouchableOpacity
+									style={{
+										backgroundColor: 'rgba(255,255,255,0.1)',
+										padding: 8,
+										borderRadius: 10,
+										marginLeft:4
 									}}
 									onPress={async () => {
 										try {
@@ -880,24 +944,10 @@ useEffect(() => {
 											console.error('Error sharing:', err)
 										}
 									}}>
-									<Ionicons name='share-social' size={24} color='white' />
+									<Ionicons name='share-outline' size={24} color='white' />
 								</TouchableOpacity>
 
-								<TouchableOpacity
-									style={{
-										backgroundColor: 'rgba(255,255,255,0.1)',
-										padding: 8,
-										borderRadius: 10
-									}}
-									onPress={() => {
-										if (item.dealership?.phone) {
-											Linking.openURL(`tel:${item.dealership.phone}`)
-										} else {
-											Alert.alert('Contact', 'Phone number not available')
-										}
-									}}>
-									<Ionicons name='call' size={24} color='white' />
-								</TouchableOpacity>
+
 							</View>
 						)}
 					</LinearGradient>
