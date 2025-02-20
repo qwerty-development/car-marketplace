@@ -31,7 +31,6 @@ import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import AutoclipModal from "@/components/AutoclipModal";
 
-
 const { width } = Dimensions.get("window");
 
 const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
@@ -139,7 +138,40 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const [autoclips, setAutoclips] = useState<any>([]);
   const [selectedClip, setSelectedClip] = useState<any>(null);
   const [showClipModal, setShowClipModal] = useState<any>(false);
-   const [selectedImage, setSelectedImage] = useState<any>(null);
+  const [selectedImage, setSelectedImage] = useState<any>(null);
+
+  // Helper function to compute relative time from the listed_at property
+  const getRelativeTime = (dateString: string) => {
+    const now = new Date();
+    const postedDate = new Date(dateString);
+    const seconds = Math.floor((now.getTime() - postedDate.getTime()) / 1000);
+
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) {
+      return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+    }
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) {
+      return interval + " month" + (interval > 1 ? "s" : "") + " ago";
+    }
+    interval = Math.floor(seconds / 604800);
+    if (interval >= 1) {
+      return interval + " week" + (interval > 1 ? "s" : "") + " ago";
+    }
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) {
+      return interval + " day" + (interval > 1 ? "s" : "") + " ago";
+    }
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) {
+      return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
+    }
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) {
+      return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
+    }
+    return Math.floor(seconds) + " seconds ago";
+  };
 
   // Add fetchAutoclips function
   const fetchAutoclips = useCallback(async () => {
@@ -389,9 +421,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const handleShare = useCallback(async () => {
     try {
       await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${
-          car.model
-        } for $${car.price.toLocaleString()}!`,
+        message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price.toLocaleString()}!`,
         url: car.images[0],
       });
     } catch (error: any) {
@@ -446,17 +476,19 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   };
 
   return (
-   <View
-    style={[
-      styles.container,
-      { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
-    ]}
-  >
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
+      ]}
+    >
       <TouchableOpacity
         onPress={() => router.back()}
         className="absolute top-12 left-4 z-50 rounded-full p-2"
         style={{
-          backgroundColor: isDarkMode ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+          backgroundColor: isDarkMode
+            ? "rgba(255,255,255,0.5)"
+            : "rgba(0,0,0,0.5)",
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.25,
@@ -479,10 +511,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         {/* Image Carousel  */}
         <View className="relative mb-6 overflow-visible">
           <View className="rounded-b-[20px] overflow-hidden">
-           <FlatList
+            <FlatList
               data={car.images}
               renderItem={({ item }) => (
-
                 <Pressable onPress={() => setSelectedImage(item)}>
                   <View className="relative">
                     <OptimizedImage
@@ -563,11 +594,17 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 {car.make} {car.model}
               </Text>
               <Text
-                className={`text-sm ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
+                className={`text-sm ${isDarkMode ? "text-white" : "text-black"}`}
               >
                 {car.year}
+              </Text>
+              {/* Dynamic relative time display using listed_at */}
+              <Text
+                className={`text-xs mt-1 ${
+                  isDarkMode ? "text-neutral-300" : "text-neutral-600"
+                }`}
+              >
+                Posted {getRelativeTime(car.listed_at)}
               </Text>
             </View>
           </View>
@@ -582,7 +619,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-			  marginBottom:"8"
+              marginBottom: "8",
             }}
           >
             <Text
@@ -599,7 +636,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   setShowClipModal(true);
                 }}
                 style={{
-                  backgroundColor:"#D55004",
+                  backgroundColor: "#D55004",
                   borderRadius: 100,
                   width: 50,
                   height: 30,
@@ -660,22 +697,22 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </View>
 
         {/* Description */}
-		<View className="mt-6 px-4">
-  {car.description ? (
-    <>
-      <Text
-        className={`text-lg font-bold mb-2 ${
-          isDarkMode ? "text-white" : "text-black"
-        }`}
-      >
-        Description
-      </Text>
-      <Text className={`${isDarkMode ? "text-white" : "text-black"}`}>
-        {car.description}
-      </Text>
-    </>
-  ) : null}
-</View>
+        <View className="mt-6 px-4">
+          {car.description ? (
+            <>
+              <Text
+                className={`text-lg font-bold mb-2 ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
+              >
+                Description
+              </Text>
+              <Text className={`${isDarkMode ? "text-white" : "text-black"}`}>
+                {car.description}
+              </Text>
+            </>
+          ) : null}
+        </View>
 
         {/* Dealership Section */}
         <View className="mt-8 px-4">
@@ -735,7 +772,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             <FlatList
               data={dealerCars}
               renderItem={renderCarItem}
-                keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item) => item.id.toString()}
               horizontal
               showsHorizontalScrollIndicator={false}
             />
@@ -745,11 +782,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       {/* Bottom Action Bar */}
       <View
-        className={`absolute bottom-0 p-8 w-full  flex-col justify-around items-center py-4 border-t  ${
+        className={`absolute bottom-0 p-8 w-full flex-col justify-around items-center py-4 border-t ${
           isDarkMode ? "bg-black" : "bg-white"
         }`}
       >
-        <View className="flex-row  items-center justify-between w-full">
+        <View className="flex-row items-center justify-between w-full">
           <View className="flex-row items-center flex-1">
             <TouchableOpacity onPress={handleDealershipPress}>
               <OptimizedImage
@@ -826,7 +863,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
         isLiked={selectedClip?.liked_users?.includes(user?.id)}
       />
-     {selectedImage && (
+      {selectedImage && (
         <Modal
           visible={true}
           transparent={true}
@@ -850,8 +887,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     </View>
   );
 };
+
 const styles = StyleSheet.create({
- container: {
+  container: {
     flex: 1,
     backgroundColor: "transparent",
     ...Platform.select({
@@ -872,7 +910,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 300,
   },
-   modalBackground: {
+  modalBackground: {
     flex: 1,
     backgroundColor: "black",
     justifyContent: "center",
