@@ -35,6 +35,7 @@ import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
 import { BlurView } from "expo-blur";
+import { useUser } from "@clerk/clerk-expo";
 
 const ITEMS_PER_PAGE = 7;
 
@@ -74,10 +75,6 @@ interface Filters {
 }
 
 // Define a suggestion type to group makes and models.
-interface Suggestions {
-  makes: string[];
-  models: string[];
-}
 
 export default function BrowseCarsPage() {
   const { isDarkMode } = useTheme();
@@ -97,6 +94,9 @@ export default function BrowseCarsPage() {
   const flatListRef = useRef<FlatList<Car>>(null); // Specify the type of FlatList
   useScrollToTop(flatListRef);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const { user } = useUser();
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   // --- New: suggestions state now groups makes and models ---
   const [suggestions, setSuggestions] = useState<Suggestions>({
@@ -106,8 +106,13 @@ export default function BrowseCarsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const router = useRouter();
-  const params = useLocalSearchParams<{ filters?: string }>();
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  // Update this line
+  const params = useLocalSearchParams<{
+    filters?: string;
+    searchQuery?: string;
+    timestamp?: string;
+  }>();
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -125,18 +130,44 @@ export default function BrowseCarsPage() {
   }, []);
 
   useEffect(() => {
-    if (params.filters) {
-      try {
-        const parsedFilters: Filters = JSON.parse(params.filters);
-        setFilters(parsedFilters);
-        fetchCars(1, parsedFilters, sortOption, searchQuery);
-      } catch (error) {
-        console.error("Error parsing filters:", error);
+    const initializePage = async () => {
+      let initialFilters = {};
+      let initialQuery = "";
+      let shouldFetch = false;
+
+      // Handle filters if present
+      if (params.filters) {
+        try {
+          initialFilters = JSON.parse(params.filters);
+          shouldFetch = true;
+        } catch (error) {
+          console.error("Error parsing filters:", error);
+        }
       }
-    } else {
-      fetchCars(1, {}, sortOption, searchQuery);
-    }
-  }, [params.filters]);
+
+      // Handle search query if present
+      if (params.searchQuery !== undefined) {
+        initialQuery = params.searchQuery;
+        shouldFetch = true;
+      }
+
+      // Only update states if we have new values
+      if (Object.keys(initialFilters).length > 0) {
+        setFilters(initialFilters);
+      }
+      if (initialQuery !== searchQuery) {
+        setSearchQuery(initialQuery);
+      }
+
+      // Only fetch if we have new params or haven't loaded yet
+      if (shouldFetch || !isInitialLoadDone) {
+        await fetchCars(1, initialFilters, sortOption, initialQuery);
+        setIsInitialLoadDone(true);
+      }
+    };
+
+    initializePage();
+  }, [params.searchQuery, params.filters, params.timestamp]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -145,6 +176,8 @@ export default function BrowseCarsPage() {
       useNativeDriver: true,
     }).start();
   }, [cars]);
+
+  // Add near your other useEffects
 
   const CustomHeader = React.memo(
     ({ title, onBack }: { title: string; onBack?: () => void }) => {
@@ -304,29 +337,30 @@ export default function BrowseCarsPage() {
         // Search query
         if (query) {
           const cleanQuery = query.trim().toLowerCase();
-          const searchTerms = cleanQuery.split(/\s+/);
-          searchTerms.forEach((term) => {
-            const numericTerm = parseInt(term);
-            let searchConditions = [
-              `make.ilike.%${term}%`,
-              `model.ilike.%${term}%`,
-              `description.ilike.%${term}%`,
-              `color.ilike.%${term}%`,
-              `category.ilike.%${term}%`,
-              `transmission.ilike.%${term}%`,
-              `drivetrain.ilike.%${term}%`,
-              `type.ilike.%${term}%`,
-              `condition.ilike.%${term}%`,
-            ];
-            if (!isNaN(numericTerm)) {
-              searchConditions = searchConditions.concat([
-                `year::text.eq.${numericTerm}`,
-                `price::text.ilike.%${numericTerm}%`,
-                `mileage::text.ilike.%${numericTerm}%`,
-              ]);
-            }
-            queryBuilder = queryBuilder.or(searchConditions.join(","));
-          });
+
+          let searchConditions = [
+            `make.ilike.%${cleanQuery}%`,
+            `model.ilike.%${cleanQuery}%`,
+            `description.ilike.%${cleanQuery}%`,
+            `color.ilike.%${cleanQuery}%`,
+            `category.ilike.%${cleanQuery}%`,
+            `transmission.ilike.%${cleanQuery}%`,
+            `drivetrain.ilike.%${cleanQuery}%`,
+            `type.ilike.%${cleanQuery}%`,
+            `condition.ilike.%${cleanQuery}%`,
+          ];
+
+          // If the user input is numeric (year, price, mileage), add specific conditions
+          if (!isNaN(Number(cleanQuery))) {
+            searchConditions = searchConditions.concat([
+              `year::text.ilike.%${cleanQuery}%`,
+              `price::text.ilike.%${cleanQuery}%`,
+              `mileage::text.ilike.%${cleanQuery}%`,
+            ]);
+          }
+
+          // Apply the OR filter properly
+          queryBuilder = queryBuilder.or(searchConditions.join(","));
         }
 
         // Sorting: Only apply ordering if a sort option is provided.
@@ -431,86 +465,11 @@ export default function BrowseCarsPage() {
     [filters, sortOption, searchQuery, hasFetched]
   );
 
-  // --- New: Enhanced suggestions ---
-  const fetchSuggestions = useCallback(async () => {
-    try {
-      if (searchQuery.trim().length === 0) {
-        setSuggestions({ makes: [], models: [] });
-        setShowSuggestions(false);
-        return;
-      }
-      // First query: fetch makes and models matching the search query
-      const { data, error } = await supabase
-        .from("cars")
-        .select("make, model")
-        .or(`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`)
-        .limit(20);
-      if (error) {
-        console.error("Error fetching suggestions:", error);
-        setSuggestions({ makes: [], models: [] });
-        return;
-      }
-      const makesSet = new Set<string>();
-      const modelsSet = new Set<string>();
-      data.forEach((row: any) => {
-        if (
-          row.make &&
-          row.make.toLowerCase().includes(searchQuery.toLowerCase())
-        ) {
-          makesSet.add(row.make);
-        }
-        if (
-          row.model &&
-          row.model.toLowerCase().includes(searchQuery.toLowerCase())
-        ) {
-          modelsSet.add(row.model);
-        }
-      });
-
-      let makes = Array.from(makesSet);
-      let models = Array.from(modelsSet);
-
-      // If the user’s query exactly matches one of the makes, fetch that brand’s distinct models.
-      const matchedMake = makes.find(
-        (m) => m.toLowerCase() === searchQuery.trim().toLowerCase()
-      );
-      if (matchedMake) {
-        const { data: modelsData, error: modelsError } = await supabase
-          .from("cars")
-          .select("model")
-          .eq("make", matchedMake)
-          .limit(20);
-        if (!modelsError && modelsData) {
-          const extraModels = new Set<string>();
-          modelsData.forEach((row: any) => {
-            if (row.model) extraModels.add(row.model);
-          });
-          models = Array.from(extraModels);
-        }
-      }
-      setSuggestions({ makes, models });
-      setShowSuggestions(true);
-    } catch (error) {
-      console.error("Error in suggestions:", error);
-    }
-  }, [searchQuery]);
-
   // Debounce suggestions fetch
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchSuggestions();
-    }, 300);
+    const delayDebounce = setTimeout(() => {}, 300);
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, fetchSuggestions]);
-
-  const handleSuggestionPress = useCallback(
-    (suggestion: string) => {
-      setSearchQuery(suggestion);
-      setShowSuggestions(false);
-      fetchCars(1, filters, sortOption, suggestion);
-    },
-    [filters, sortOption, fetchCars]
-  );
+  }, [searchQuery]);
 
   const onRefresh = useCallback(() => {
     fetchCars(1, filters, sortOption, searchQuery);
@@ -553,10 +512,17 @@ export default function BrowseCarsPage() {
     []
   );
 
-  const handleSearch = useCallback(() => {
-    setShowSuggestions(false);
-    fetchCars(1, filters, sortOption, searchQuery);
-  }, [filters, sortOption, searchQuery, fetchCars]);
+  // Add this callback function in BrowseCarsPage
+  const handleSearchSubmit = useCallback(
+    (query: string) => {
+      setSearchQuery(query); // Update the search query
+      setIsSearchVisible(false); // Close the modal
+      fetchCars(1, filters, sortOption, query); // Fetch with new query
+    },
+    [filters, sortOption, fetchCars]
+  );
+
+  // Update the SearchModal component call
 
   const handleCategoryPress = useCallback(
     (category: string) => {
@@ -715,12 +681,17 @@ export default function BrowseCarsPage() {
       >
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
-            <View
-              style={[
-                styles.searchBar,
-                isDarkMode && styles.darkSearchBar,
-                { flex: 1 },
-              ]}
+            <TouchableOpacity
+              style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}
+              onPress={() => {
+                router.push({
+                  pathname: "/(home)/(user)/search",
+                  params: {
+                    currentQuery: searchQuery, // Pass current query to maintain state
+                    timestamp: Date.now().toString(), // Add timestamp to force refresh
+                  },
+                });
+              }}
             >
               <FontAwesome
                 name="search"
@@ -728,45 +699,49 @@ export default function BrowseCarsPage() {
                 color={isDarkMode ? "#FFFFFF" : "#000000"}
                 style={{ marginLeft: 12 }}
               />
-              <TextInput
+              <Text
                 style={[
-                  styles.searchInput,
-                  isDarkMode && styles.darkSearchInput,
+                  styles.searchPlaceholder,
+                  isDarkMode && { color: "#666" },
                 ]}
-                placeholder="Search cars..."
-                placeholderTextColor={isDarkMode ? "#FFFFFF" : "#666666"}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={handleSearch}
-                textAlignVertical="center"
-              />
-
-              <TouchableOpacity
-                style={[styles.iconButton, isDarkMode && styles.darkIconButton]}
-                onPress={openFilterPage}
+                numberOfLines={1}
               >
-                <FontAwesome
-                  name="sliders"
-                  size={20}
-                  color={isDarkMode ? "#000000" : "#ffffff"}
-                />
-              </TouchableOpacity>
-              {searchQuery.length > 0 && (
+                {searchQuery || "Search cars..."}
+              </Text>
+              {searchQuery ? (
                 <TouchableOpacity
-                  style={styles.clearButton}
-                  onPress={() => {
+                  onPress={(e) => {
+                    e.stopPropagation(); // Prevent parent onPress from firing
                     setSearchQuery("");
-                    fetchCars(1, {}, null, "");
+                    fetchCars(1, filters, sortOption, ""); // Immediately fetch all cars when clearing
                   }}
+                  style={styles.clearSearchButton}
                 >
-                  <FontAwesome
-                    name="times-circle"
+                  <Ionicons
+                    name="close-circle"
                     size={20}
                     color={isDarkMode ? "#FFFFFF" : "#666666"}
                   />
                 </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.iconButton,
+                    isDarkMode && styles.darkIconButton,
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation(); // Prevent parent onPress from firing
+                    openFilterPage();
+                  }}
+                >
+                  <FontAwesome
+                    name="sliders"
+                    size={20}
+                    color={isDarkMode ? "#000000" : "#ffffff"}
+                  />
+                </TouchableOpacity>
               )}
-            </View>
+            </TouchableOpacity>
             <SortPicker
               onValueChange={(value: string | null) => {
                 setSortOption(value);
@@ -775,76 +750,6 @@ export default function BrowseCarsPage() {
               initialValue={sortOption}
             />
           </View>
-          {/* --- New: Enhanced Suggestions Dropdown --- */}
-          {showSuggestions &&
-            (suggestions.makes.length > 0 || suggestions.models.length > 0) && (
-              <View style={suggestionStyles.suggestionsContainer}>
-                {Platform.OS === "ios" ? (
-                  <BlurView
-                    style={StyleSheet.absoluteFill}
-                    intensity={30}
-                    tint={isDarkMode ? "dark" : "light"}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      {
-                        backgroundColor: isDarkMode
-                          ? "rgba(0,0,0,0.5)"
-                          : "rgba(255,255,255,0.5)",
-                      },
-                    ]}
-                  />
-                )}
-                <View style={suggestionStyles.suggestionsInnerContainer}>
-                  {suggestions.makes.length > 0 && (
-                    <>
-                      <Text style={suggestionStyles.suggestionsHeader}>
-                        Makes
-                      </Text>
-                      {suggestions.makes.map((suggestion, index) => (
-                        <TouchableOpacity
-                          key={`make-${index}`}
-                          style={[
-                            suggestionStyles.suggestionItem,
-                            index === suggestions.makes.length - 1 &&
-                              suggestionStyles.suggestionItemLast,
-                          ]}
-                          onPress={() => handleSuggestionPress(suggestion)}
-                        >
-                          <Text style={suggestionStyles.suggestionText}>
-                            {suggestion}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </>
-                  )}
-                  {suggestions.models.length > 0 && (
-                    <>
-                      <Text style={suggestionStyles.suggestionsHeader}>
-                        Models
-                      </Text>
-                      {suggestions.models.map((suggestion, index) => (
-                        <TouchableOpacity
-                          key={`model-${index}`}
-                          style={[
-                            suggestionStyles.suggestionItem,
-                            index === suggestions.models.length - 1 &&
-                              suggestionStyles.suggestionItemLast,
-                          ]}
-                          onPress={() => handleSuggestionPress(suggestion)}
-                        >
-                          <Text style={suggestionStyles.suggestionText}>
-                            {suggestion}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </>
-                  )}
-                </View>
-              </View>
-            )}
         </View>
         <FlatList
           refreshControl={
@@ -918,18 +823,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  searchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 20,
-    marginHorizontal: 10,
-  },
-  darkSearchBar: {
-    borderColor: "#555",
-  },
   searchInput: {
     flex: 1,
     color: "black",
@@ -972,5 +865,33 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: "white",
     fontWeight: "bold",
+  },
+  darkSearchBar: {
+    borderColor: "#333",
+    backgroundColor: "#222",
+  },
+  searchPlaceholder: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: "#666",
+  },
+  // Add to your styles
+  clearSearchButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 24,
+    marginHorizontal: 10,
+    backgroundColor: "#f5f5f5",
+    paddingLeft: 12,
+    paddingRight: 8, // Reduced padding to accommodate the clear button
   },
 });
