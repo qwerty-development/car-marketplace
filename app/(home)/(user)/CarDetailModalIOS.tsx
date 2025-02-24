@@ -128,7 +128,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const [autoclips, setAutoclips] = useState<any>([]);
   const [selectedClip, setSelectedClip] = useState<any>(null);
   const [showClipModal, setShowClipModal] = useState<any>(false);
-  const [selectedImage, setSelectedImage] = useState<any>(null);
+const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
   // Helper function to compute relative time from the listed_at property
   const getRelativeTime = (dateString: string) => {
@@ -585,47 +585,30 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         {/* Image Carousel  */}
         <View className="relative mb-6 overflow-visible">
           <View className="rounded-b-[20px] overflow-hidden">
-            <FlatList
-              data={car.images}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => setSelectedImage(item)}>
-                  <View className="relative">
-                    <OptimizedImage
-                      source={{ uri: item }}
-                      style={{ width: width, height: 350 }}
-                    />
-                    {/* Eye and heart icons positioned within the image */}
-                    <View className="absolute top-12 right-0 flex-row items-center z-10">
-                      <View className="flex-row items-center px-3 py-1 ">
-                        <Ionicons name="eye" size={20} color="#FFFFFF" />
-                        <Text className="text-white font-bold ml-1">
-                          {car.views || 0}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        className="mr-3"
-                        onPress={() => onFavoritePress(car.id)}
-                      >
-                        <Ionicons
-                          name={isFavorite(car.id) ? "heart" : "heart-outline"}
-                          size={20}
-                          color={isFavorite(car.id) ? "red" : "white"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </Pressable>
-              )}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / width
-                );
-                setActiveImageIndex(newIndex);
-              }}
-            />
+         <FlatList
+  data={car.images}
+  renderItem={({ item, index }) => (
+    <Pressable onPress={() => setSelectedImageIndex(index)}>
+      <View className="relative">
+        <OptimizedImage
+          source={{ uri: item }}
+          style={{ width: width, height: 350 }}
+        />
+        {/* Your overlay icons and other content */}
+      </View>
+    </Pressable>
+  )}
+  horizontal
+  pagingEnabled
+  showsHorizontalScrollIndicator={false}
+  onMomentumScrollEnd={(event) => {
+    const newIndex = Math.round(
+      event.nativeEvent.contentOffset.x / width
+    );
+    setActiveImageIndex(newIndex);
+  }}
+/>
+
             {/* Pagination Dots */}
             <View className="absolute bottom-8 left-0 right-0 flex-row justify-center z-10">
               {car.images.map((_: any, index: React.Key | null | undefined) => (
@@ -921,7 +904,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             />
             <ActionButton
               icon="logo-whatsapp" // Using Ionicons WhatsApp logo
-  
+
               onPress={handleWhatsAppPress}
               isDarkMode={isDarkMode}
             />
@@ -957,27 +940,42 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
         isLiked={selectedClip?.liked_users?.includes(user?.id)}
       />
-      {selectedImage && (
-        <Modal
-          visible={true}
-          transparent={true}
-          onRequestClose={() => setSelectedImage(null)}
-        >
-          <View style={styles.modalBackground}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setSelectedImage(null)}
-            >
-              <Ionicons name="close" size={40} color="white" />
-            </TouchableOpacity>
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.fullscreenImage}
-              contentFit="contain"
-            />
-          </View>
-        </Modal>
-      )}
+     {selectedImageIndex !== null && (
+  <Modal
+    visible={true}
+    transparent={true}
+    onRequestClose={() => setSelectedImageIndex(null)}
+  >
+    <View style={styles.modalBackground}>
+      <TouchableOpacity
+        style={styles.closeButton}
+        onPress={() => setSelectedImageIndex(null)}
+      >
+        <Ionicons name="close" size={40} color="white" />
+      </TouchableOpacity>
+      <FlatList
+        data={car.images}
+        horizontal
+        pagingEnabled
+        initialScrollIndex={selectedImageIndex}
+        keyExtractor={(item, index) => index.toString()}
+        getItemLayout={(data, index) => ({
+          length: Dimensions.get("window").width,
+          offset: Dimensions.get("window").width * index,
+          index,
+        })}
+        renderItem={({ item }) => (
+          <Image
+            source={{ uri: item }}
+            style={styles.fullscreenImage}
+            contentFit="contain"
+          />
+        )}
+      />
+    </View>
+  </Modal>
+)}
+
     </View>
   );
 };
@@ -1004,7 +1002,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 300,
   },
-  modalBackground: {
+    modalBackground: {
     flex: 1,
     backgroundColor: "black",
     justifyContent: "center",
@@ -1017,8 +1015,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   fullscreenImage: {
-    width: "100%",
-    height: "100%",
+    width: Dimensions.get("window").width,
+    height: Dimensions.get("window").height,
     resizeMode: "contain",
   },
 });
