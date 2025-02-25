@@ -97,7 +97,7 @@ export default function CarCard({
 	const { isDarkMode } = useTheme();
 	const fadeAnim = useRef(new Animated.Value(0)).current;
 	const translateY = useRef(new Animated.Value(50)).current;
-	
+
 	// Add animation effect
 	useEffect(() => {
 	  Animated.parallel([
@@ -305,13 +305,13 @@ export default function CarCard({
 		if (car.dealership_phone) {
 		  // Format the message
 		  const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
-		  
+
 		  // Format the phone number (remove any non-numeric characters)
 		  const phoneNumber = car.dealership_phone;
-		  
+
 		  // Create the WhatsApp URL
 		  const url = `whatsapp://send?phone=+961${phoneNumber}&text=${encodeURIComponent(message)}`;
-		  
+
 		  // Try to open WhatsApp
 		  Linking.canOpenURL(url)
 			.then(supported => {

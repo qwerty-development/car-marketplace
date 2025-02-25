@@ -723,7 +723,7 @@ useEffect(() => {
 		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 	}, [])
 
-	
+
 
 	const renderClipInfo = useMemo(
 		() => (item: AutoClip) => {
@@ -731,7 +731,7 @@ useEffect(() => {
 			const isDescriptionExpanded = expandedDescriptions[item.id] || false
 			const shouldShowExpandOption =
 				item.description && item.description.length > 80
-				
+
 			return (
 				<View
 					style={{
@@ -834,7 +834,7 @@ useEffect(() => {
 									flexDirection: 'row',
 									alignItems: 'center',
 									justifyContent: 'space-between',
-									
+
 								}}>
 								<TouchableOpacity
 									style={{
@@ -893,13 +893,13 @@ useEffect(() => {
     if (item.dealership?.phone) {
       // Format the message
       const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
-      
+
       // Format the phone number (remove any non-numeric characters)
       const phoneNumber = item.dealership.phone;
-      
+
       // Create the WhatsApp URL
       const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
-      
+
       // Try to open WhatsApp
       Linking.canOpenURL(url)
         .then(supported => {
@@ -936,7 +936,7 @@ useEffect(() => {
 											await Share.share({
 												message: `Check out this ${item.car.year} ${
 													item.car.make
-												} ${item.car.model} on [Your App Name]!\n\n${
+												} ${item.car.model} on Fleet!\n\n${
 													item.description || ''
 												}`
 											})

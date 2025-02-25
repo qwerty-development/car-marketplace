@@ -413,8 +413,9 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
       await Share.share({
         message: `Check out this ${car.year} ${car.make} ${
           car.model
-        } for $${car.price.toLocaleString()}!`,
-        url: car.images[0],
+        } for $${car.price.toLocaleString()}!
+        at ${car.dealership_name} in ${car.dealership_location}
+        `,
       });
     } catch (error: any) {
       Alert.alert(error.message);
@@ -479,7 +480,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
       <TouchableOpacity
         className={`${
           isDarkMode ? "bg-gray-800" : "bg-gray-200"
-        } rounded-lg p-2 mr-4 w-48`}
+        }   mr-3  mt-2 w-48`}
         onPress={() => {
           router.push({
             pathname: "/(home)/(user)/CarDetails",
@@ -680,7 +681,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "8",
+
             }}
           >
             <Text
@@ -769,23 +770,20 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
         </View>
 
         {/* Description */}
-        <View className="mt-6 px-4">
-          {car.description ? (
-            <>
+     {car.description ? (   <View className="mt-8 px-4">
               <Text
-                className={`text-lg font-bold mb-2 ${
+                className={`text-lg font-bold ${
                   isDarkMode ? "text-white" : "text-black"
                 }`}
               >
                 Description
               </Text>
-              <Text className={`${isDarkMode ? "text-white" : "text-black"}`}>
+              <Text className={`${isDarkMode ? "text-white" : "text-black"} mt-3`}>
                 {car.description}
               </Text>
-            </>
-          ) : null}
         </View>
 
+  ) : null}
         {/* Dealership Section */}
         <View className="mt-8 px-4">
           <Text
@@ -795,7 +793,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
           >
             Location
           </Text>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }} className="mt-5">
             <MapView style={styles.map} region={mapRegion}>
               <Marker
                 coordinate={{
@@ -819,9 +817,9 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
         {similarCars.length > 0 && (
           <View className="mt-8 px-4">
             <Text
-              className={`text-xl font-bold ${
+              className={`text-lg font-bold ${
                 isDarkMode ? "text-white" : "text-black"
-              } mb-4`}
+              }`}
             >
               {similarCars[0].make === car.make &&
               similarCars[0].model === car.model &&
@@ -835,6 +833,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
               keyExtractor={(item) => item.id.toString()}
               horizontal
               showsHorizontalScrollIndicator={false}
+              className="mt-5"
             />
           </View>
         )}
@@ -842,9 +841,9 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
         {dealerCars.length > 0 && (
           <View className="mt-8 px-4 mb-40">
             <Text
-              className={`text-xl font-bold ${
+              className={`text-lg font-bold ${
                 isDarkMode ? "text-white" : "text-black"
-              } mb-4`}
+              } `}
             >
               More from {car.dealership_name}
             </Text>
@@ -854,6 +853,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
               keyExtractor={(item) => item.id.toString()}
               horizontal
               showsHorizontalScrollIndicator={false}
+              className="mt-5"
             />
           </View>
         )}
@@ -993,7 +993,7 @@ const styles = StyleSheet.create({
   map: {
     height: 200,
     borderRadius: 10,
-    marginVertical: 10,
+
   },
   scrollContent: {
     flexGrow: 1,
