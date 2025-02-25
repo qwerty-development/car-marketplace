@@ -192,7 +192,7 @@ const ClipItem: React.FC<ClipItemProps> = props => {
 	}
 
 	return (
-		<View style={{ height, width }} key={`clip-${item.id}`}>
+		<View style={{ height, width }} key={`clip-${item.id}` }>
 			<TouchableOpacity
 				activeOpacity={1}
 				onPress={handlePress}
@@ -725,38 +725,38 @@ useEffect(() => {
 
 
 
-	const renderClipInfo = useMemo(
-		() => (item: AutoClip) => {
-			const formattedPostDate = getFormattedPostDate(item.created_at)
-			const isDescriptionExpanded = expandedDescriptions[item.id] || false
-			const shouldShowExpandOption =
-				item.description && item.description.length > 80
+const renderClipInfo = useMemo(
+  () => (item: AutoClip) => {
+    const formattedPostDate = getFormattedPostDate(item.created_at)
+    const isDescriptionExpanded = expandedDescriptions[item.id] || false
+    const shouldShowExpandOption =
+      item.description && item.description.length > 80
 
-			return (
-				<View
-					style={{
-						position: 'absolute',
-						bottom: 0,
-						left: 0,
-						right: 0,
-						paddingBottom: 0
-					}}>
-					<LinearGradient
-						colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
-						style={{
-							padding: 20,
-							borderTopLeftRadius: 30,
-							borderTopRightRadius: 30,
-							paddingBottom: 60,
-							marginBottom: -8,
-							zIndex: 50
-						}}>
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingBottom: 0
+        }}>
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
+          style={{
+            padding: 25,
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            paddingBottom: 60,
+            marginBottom: 10,
+            zIndex: 10  // UPDATED: Increased from 50 to 70
+          }}>
 						<View
 							style={{
 								flexDirection: 'row',
 								alignItems: 'center',
 								justifyContent: 'space-between',
-								marginBottom: 4
+								marginBottom: 0
 							}}>
 							<View
 								style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>

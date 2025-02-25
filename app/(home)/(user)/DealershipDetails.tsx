@@ -215,7 +215,7 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
 								<View className='overflow-hidden rounded-full border-2 border-white shadow-lg'>
 									<OptimizedImage
 										source={{ uri: dealership.logo }}
-										className='w-10 h-10 rounded-full'
+										className='w-20 h-20 rounded-full'
 										style={{ backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }}
 									/>
 								</View>
@@ -523,74 +523,127 @@ export default function DealershipDetails() {
 				{dealership && (
 					<View className='mb-6'>
 						{/* Dealership Info Card */}
-						<View className='px-6  pb-6 mt-7'>
-							<View className='items-center'>
-								<View className='relative'>
-									<Image
-										source={{ uri: dealership.logo }}
-										className='w-24 h-24 rounded-2xl'
-										style={{
-											shadowColor: isDarkMode ? '#000' : '#D55004',
-											shadowOffset: { width: 0, height: 8 },
-											shadowOpacity: 0.3,
-											shadowRadius: 12
-										}}
-									/>
-									<LinearGradient
-										colors={
-											isDarkMode
-												? ['rgba(0,0,0,0.8)', 'transparent']
-												: ['rgba(255,255,255,0.8)', 'transparent']
-										}
-										className='absolute inset-0 rounded-2xl opacity-30'
-									/>
-								</View>
+			{/* Dealership Info Card - Modernized */}
+<View className='px-4 pb-6 mt-4'>
+  {/* Header Card with Background Blur Effect */}
+  <BlurView
+    intensity={isDarkMode ? 20 : 40}
+    tint={isDarkMode ? 'dark' : 'light'}
+    className='rounded-3xl overflow-hidden'>
 
-								<Text
-									className={`text-2xl font-bold mt-4 ${
-										isDarkMode ? 'text-white' : 'text-black'
-									}`}>
-									{dealership.name}
-								</Text>
+    <LinearGradient
+      colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F6F6F6']}
+      className='p-5 rounded-3xl'>
 
-								<View className='flex-row items-center mt-2'>
-									<Ionicons
-										name='location-outline'
-										size={16}
-										color={isDarkMode ? '#fff' : '#000'}
-									/>
-									<Text
-										className={`ml-1 ${
-											isDarkMode ? 'text-white/70' : 'text-black/70'
-										}`}>
-										{dealership.location}
-									</Text>
-								</View>
-							</View>
+      {/* Logo and Info Row */}
+      <View className='flex-row items-center'>
+        {/* Dealership Logo with Enhanced Styling */}
+        <View className='relative'>
+          <View className='bg-neutral-800/10 rounded-2xl p-1 shadow-lg'>
+            <Image
+              source={{ uri: dealership.logo }}
+              className='w-24 h-24 rounded-xl'
+              style={{
+                borderWidth: 2,
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#D55004',
+                shadowColor: isDarkMode ? '#000' : '#D55004',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12
+              }}
+            />
+          </View>
 
-							{/* Quick Actions */}
-							<View className='flex-row justify-center space-x-3 mt-8'>
-								<TouchableOpacity
-									onPress={handleCall}
-									className='flex-1 flex-row items-center justify-center space-x-2 bg-neutral-200 dark:bg-neutral-400 rounded-2xl py-4 px-6'>
-									<Ionicons
-										name='call-outline'
-										size={20}
-										color={isDarkMode ? '#fff' : '#000'}
-									/>
-									<Text className={isDarkMode ? 'text-white' : 'text-black'}>
-										Call
-									</Text>
-								</TouchableOpacity>
+          {/* Decorative Accent */}
+          <View className='absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-red'/>
+        </View>
 
-								<TouchableOpacity
-									onPress={handleWhatsApp}
-									className='flex-1 flex-row items-center justify-center space-x-2 bg-red rounded-2xl py-4 px-6'>
-									<Ionicons name='logo-whatsapp' size={20} color='white' />
-									<Text className='text-white'>WhatsApp</Text>
-								</TouchableOpacity>
-							</View>
-						</View>
+        {/* Dealership Information */}
+        <View className='ml-4 flex-1'>
+          <Text
+            className={`text-2xl font-bold ${
+              isDarkMode ? 'text-white' : 'text-black'
+            }`}>
+            {dealership.name}
+          </Text>
+
+          <View className='flex-row items-center mt-1'>
+            <View className='flex-row items-center bg-opacity-10 bg-neutral-500 rounded-full px-3 py-1'>
+              <Ionicons
+                name='location-outline'
+                size={14}
+                color={isDarkMode ? '#D55004' : '#D55004'}
+              />
+              <Text
+                className={`ml-1 text-sm ${
+                  isDarkMode ? 'text-white/70' : 'text-black/70'
+                }`}
+                numberOfLines={1}>
+                {dealership.location}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Enhanced Stats Row */}
+      <View className='flex-row justify-around mt-4 mb-2 px-2'>
+        <View className='items-center'>
+          <Text className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
+            Available Cars
+          </Text>
+          <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+            {filteredCars.length}
+          </Text>
+        </View>
+
+        <View className='h-full w-px bg-neutral-200 dark:bg-neutral-700'/>
+
+        <View className='items-center'>
+          <Text className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
+            Since
+          </Text>
+          <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+            {dealership.created_at ? new Date(dealership.created_at).getFullYear() : 'N/A'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Quick Actions - Redesigned */}
+      <View className='flex-row justify-between space-x-3 mt-4'>
+        <TouchableOpacity
+          onPress={handleCall}
+          className='flex-1 flex-row items-center justify-center space-x-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl py-3 shadow-sm'>
+          <View className='bg-red/10 rounded-full p-1'>
+            <Ionicons
+              name='call-outline'
+              size={18}
+              color='#D55004'
+            />
+          </View>
+          <Text className={`font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}>
+            Call
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleWhatsApp}
+          className='flex-1 flex-row items-center justify-center space-x-1 py-3 rounded-xl shadow-sm'
+          style={{
+            backgroundColor: '#25D366',
+            shadowColor: '#25D366',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 4
+          }}>
+          <Ionicons name='logo-whatsapp' size={18} color='white' />
+          <Text className='text-white font-medium'>WhatsApp</Text>
+        </TouchableOpacity>
+      </View>
+    </LinearGradient>
+  </BlurView>
+</View>
 
 						{/* Map View */}
 						<View className='px-6 mb-8'>
