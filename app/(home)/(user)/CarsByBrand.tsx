@@ -13,7 +13,7 @@ import {
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from './CarDetailModal'
-import CarDetailModalIOS from './CarDetailModalIOS'
+import CarDetailModalIOS from './CarDetailModal.ios'
 import { supabase } from '@/utils/supabase'
 import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'

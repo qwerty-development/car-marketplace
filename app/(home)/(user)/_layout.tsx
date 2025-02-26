@@ -46,16 +46,16 @@ export default function RootLayout() {
               headerShown: false,
             }}
           />
-          <Stack.Screen
-            name="CarDetailModal"
-            options={{
-              animation: "slide_from_bottom",
-              headerShown: false,
-            }}
-          />
+
 
           <Stack.Screen
             name="CarDetailModalIOS"
+            options={{
+              headerShown: true,
+            }}
+          />
+            <Stack.Screen
+            name="CarDetailModalAndroid"
             options={{
               headerShown: true,
             }}
@@ -66,7 +66,7 @@ export default function RootLayout() {
             options={{
               presentation: Platform.select({
                 ios: "card",
-                android: "containedModal",
+                android: "modal",
               }),
               animation: Platform.select({
                 ios: "ios_from_right",
