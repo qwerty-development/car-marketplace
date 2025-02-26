@@ -23,8 +23,9 @@ import { setIsSigningOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
 import { useScrollToTop } from "@react-navigation/native";
 import type { NotificationSettings } from "../types/type";
+import openWhatsApp from "@/utils/openWhatsapp";
 
-const WHATSAPP_NUMBER = "+1234567890";
+const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
 const EMAIL_SUBJECT = "Support Request";
 
@@ -149,16 +150,10 @@ export default function UserProfileAndSupportPage() {
     }
   };
 
-  const openWhatsApp = () => {
-    const url = `whatsapp://send?phone=${WHATSAPP_NUMBER}`;
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        return Linking.openURL(url);
-      } else {
-        return Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`);
-      }
-    });
-  };
+const openWhatsApp1 = () => {
+  // If WHATSAPP_NUMBER is a constant, make sure it doesn't include country code
+  openWhatsApp(WHATSAPP_NUMBER);
+};
 
   const openEmail = () => {
     const subject = encodeURIComponent(EMAIL_SUBJECT);
@@ -216,7 +211,7 @@ export default function UserProfileAndSupportPage() {
       <View className="space-y-4 px-6 -mt-12">
         <TouchableOpacity
           onPress={() => setIsEditMode(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
       p-4 rounded-xl shadow-sm flex-row items-center`}
         >
           <View className="bg-red/10 p-3 rounded-xl">
@@ -248,7 +243,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={() => setIsSecuritySettingsVisible(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
       p-4 rounded-xl shadow-sm flex-row items-center`}
         >
           <View className="bg-purple-500/10 p-3 rounded-xl">
@@ -280,7 +275,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={() => setIsNotificationSettingsVisible(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
       p-4 rounded-xl shadow-sm flex-row items-center`}
         >
           <View className="bg-blue-500/10 p-3 rounded-xl">
@@ -427,7 +422,7 @@ export default function UserProfileAndSupportPage() {
                 setIsSecuritySettingsVisible(false);
                 setIsChangePasswordMode(true);
               }}
-              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"} 
+              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                   p-4 rounded-xl flex-row items-center mb-4`}
             >
               <Ionicons
@@ -449,7 +444,7 @@ export default function UserProfileAndSupportPage() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"} 
+              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                   p-4 rounded-xl flex-row items-center mb-4`}
             >
               <Ionicons
@@ -471,7 +466,7 @@ export default function UserProfileAndSupportPage() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"} 
+              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                   p-4 rounded-xl flex-row items-center`}
             >
               <Ionicons
@@ -534,7 +529,7 @@ export default function UserProfileAndSupportPage() {
               <TouchableOpacity
                 key={key}
                 onPress={() => toggleNotification(key)}
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"} 
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                     p-4 rounded-xl flex-row items-center justify-between mb-4`}
               >
                 <View className="flex-row items-center">
@@ -676,8 +671,8 @@ export default function UserProfileAndSupportPage() {
         </Text>
 
         <TouchableOpacity
-          onPress={openWhatsApp}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
+          onPress={openWhatsApp1}
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
               p-4 rounded-2xl flex-row items-center`}
         >
           <View className="bg-green-500/10 p-3 rounded-xl">
@@ -709,7 +704,7 @@ export default function UserProfileAndSupportPage() {
 
         <TouchableOpacity
           onPress={openEmail}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} 
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
               p-4 rounded-2xl flex-row items-center`}
         >
           <View className="bg-blue-500/10 p-3 rounded-xl">

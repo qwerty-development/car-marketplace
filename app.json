@@ -27,7 +27,8 @@
 			},
 			"infoPlist": {
 				"UIBackgroundModes": ["remote-notification"],
-				"NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships."
+				"NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
+          "LSApplicationQueriesSchemes": ["whatsapp"]
 			},
 			"bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
 		},

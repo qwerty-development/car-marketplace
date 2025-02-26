@@ -27,6 +27,7 @@ import * as Linking from 'expo-linking'
 import DealershipAutoClips from '@/components/DealershipAutoClips'
 import SortPicker from '@/components/SortPicker'
 import { ChevronLeft } from 'lucide-react-native'
+import openWhatsApp from '@/utils/openWhatsapp'
 const ITEMS_PER_PAGE = 10
 
 interface FilterState {
@@ -510,12 +511,13 @@ export default function DealershipDetails() {
 		}
 	}, [dealership])
 
-	const handleWhatsApp = useCallback(() => {
-		if (dealership?.phone) {
-			const whatsappUrl = `https://wa.me/+961${dealership.phone}`
-			Linking.openURL(whatsappUrl)
-		}
-	}, [dealership])
+const handleWhatsApp = useCallback(() => {
+  if (dealership?.phone) {
+    openWhatsApp(dealership.phone);
+  } else {
+    Alert.alert('Contact', 'Phone number not available');
+  }
+}, [dealership]);
 
 	const renderHeader = useCallback(
 		() => (

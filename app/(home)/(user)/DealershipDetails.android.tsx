@@ -29,26 +29,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { ActivityIndicator } from 'react-native'
 const ITEMS_PER_PAGE = 10
 
-const BlurView = ({ intensity, tint, className, children, style }: any) => {
-  const { isDarkMode } = useTheme();
 
-  return (
-    <View
-      style={[
-        {
-          backgroundColor: tint === 'dark'
-            ? 'rgba(0,0,0,0.7)'
-            : 'rgba(255,255,255,0.8)',
-          borderRadius: 16,
-          overflow: 'hidden',
-        },
-        style
-      ]}
-    >
-      {children}
-    </View>
-  );
-};
 
 interface FilterState {
 	searchQuery: string

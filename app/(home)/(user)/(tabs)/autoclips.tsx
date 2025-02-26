@@ -30,6 +30,7 @@ import { Image } from 'expo-image'
 import { BlurView } from 'expo-blur'
 import SplashScreen from '../SplashScreen'
 import { Ionicons } from '@expo/vector-icons'
+import openWhatsApp from '@/utils/openWhatsapp'
 
 // --- constants ---
 const { height, width } = Dimensions.get('window')
@@ -887,38 +888,14 @@ const renderClipInfo = useMemo(
     marginHorizontal: 4
   }}
   onPress={() => {
-    if (item.dealership?.phone) {
-      // Format the message
-      const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
-
-      // Format the phone number (remove any non-numeric characters)
-      const phoneNumber = item.dealership.phone;
-
-      // Create the WhatsApp URL
-      const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
-
-      // Try to open WhatsApp
-      Linking.canOpenURL(url)
-        .then(supported => {
-          if (supported) {
-            return Linking.openURL(url);
-          } else {
-            // WhatsApp is not installed, try web version as fallback
-            const webUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-            return Linking.openURL(webUrl);
-          }
-        })
-        .catch(() => {
-          Alert.alert(
-            'Error',
-            'Unable to open WhatsApp. Please make sure it is installed on your device.'
-          );
-        });
-    } else {
-      Alert.alert('Contact', 'Phone number not available');
-    }
-  }}>
-  <Ionicons name='logo-whatsapp' size={24} color='white' />
+  if (item.dealership?.phone) {
+    const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
+    openWhatsApp(item.dealership.phone, message);
+  } else {
+    Alert.alert('Contact', 'Phone number not available');
+  }
+}}>
+<Ionicons name='logo-whatsapp' size={24} color='white' />
 </TouchableOpacity>
 
 								<TouchableOpacity

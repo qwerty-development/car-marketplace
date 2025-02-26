@@ -25,6 +25,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import AutoclipModal from "@/components/AutoclipModal";
+import openWhatsApp from "@/utils/openWhatsapp";
 
 const { width } = Dimensions.get("window");
 
@@ -511,44 +512,14 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
     longitudeDelta: 0.01,
   };
 
-  const handleWhatsAppPress = useCallback(() => {
-    if (car.dealership_phone) {
-      // Format the message
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
-        car.model
-      } listed for $${car.price.toLocaleString()}`;
-
-      // Format the phone number (remove any non-numeric characters)
-      const phoneNumber = car.dealership_phone;
-
-      // Create the WhatsApp URL
-      const url = `whatsapp://send?phone=+961${phoneNumber}&text=${encodeURIComponent(
-        message
-      )}`;
-
-      // Try to open WhatsApp
-      Linking.canOpenURL(url)
-        .then((supported) => {
-          if (supported) {
-            return Linking.openURL(url);
-          } else {
-            // WhatsApp is not installed, try web version as fallback
-            const webUrl = `https://wa.me/+961${phoneNumber}?text=${encodeURIComponent(
-              message
-            )}`;
-            return Linking.openURL(webUrl);
-          }
-        })
-        .catch(() => {
-          Alert.alert(
-            "Error",
-            "Unable to open WhatsApp. Please make sure it is installed on your device."
-          );
-        });
-    } else {
-      Alert.alert("Phone number not available");
-    }
-  }, [car]);
+const handleWhatsAppPress = useCallback(() => {
+  if (car.dealership_phone) {
+    const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+    openWhatsApp(car.dealership_phone, message);
+  } else {
+    Alert.alert('Phone number not available');
+  }
+}, [car]);
 
   return (
     <View

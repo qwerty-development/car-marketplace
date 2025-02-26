@@ -23,6 +23,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import Modal from 'react-native-modal'
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
+import openWhatsApp from '@/utils/openWhatsapp'
 
 const { width, height } = Dimensions.get('window')
 
@@ -183,17 +184,14 @@ const CarDetailModal = memo(
 			}
 		}, [car.dealership_phone])
 
-		const handleWhatsApp = useCallback(() => {
-			if (car.dealership_phone) {
-				const message = `Hi, I'm interested in the ${car.make} ${car.model}.`
-				const url = `https://wa.me/+961${
-					car.dealership_phone
-				}?text=${encodeURIComponent(message)}`
-				Linking.openURL(url)
-			} else {
-				Alert.alert('WhatsApp number not available')
-			}
-		}, [car.dealership_phone, car.make, car.model])
+const handleWhatsAppPress = useCallback(() => {
+  if (car.dealership_phone) {
+    const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+    openWhatsApp(car.dealership_phone, message);
+  } else {
+    Alert.alert('Phone number not available');
+  }
+}, [car]);
 
 		const handleChat = useCallback(() => {
 			Alert.alert('Chat feature coming soon!')
