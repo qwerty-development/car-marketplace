@@ -121,10 +121,6 @@ function useCachedVideoUri(videoUrl: string): string {
 	return uri
 }
 
-/**
- * Separate component to render a single clip.
- * This component is now a function component so hooks can be called at its top level.
- */
 interface ClipItemProps {
 	item: AutoClip
 	index: number
@@ -733,24 +729,25 @@ const renderClipInfo = useMemo(
       item.description && item.description.length > 80
 
     return (
-      <View
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          paddingBottom: 0
-        }}>
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
-          style={{
-            padding: 25,
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            paddingBottom: 60,
-            marginBottom: 10,
-            zIndex: 10  // UPDATED: Increased from 50 to 70
-          }}>
+     <View
+  style={{
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 0,
+    height: 'auto'            // ADD this to allow content to determine height
+  }}>
+      <LinearGradient
+  colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.9)']}
+  style={{
+    padding: 25,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 80,        // INCREASE from 60 to 80
+    marginBottom: 0,          // CHANGE from 10 to 0
+    zIndex: 50                // RESTORE from 10 to 50
+  }}>
 						<View
 							style={{
 								flexDirection: 'row',
