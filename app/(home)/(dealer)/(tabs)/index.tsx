@@ -11,7 +11,9 @@ import {
 	RefreshControl,
 	StatusBar,
 	Modal,
-	ScrollView
+	ScrollView,
+  Platform,
+  StyleSheet
 } from 'react-native'
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
@@ -29,20 +31,66 @@ import ModernPicker from '@/components/ModernPicker'
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
 
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
+const CustomHeader = ({ title, dealership }:any) => {
+  const { isDarkMode } = useTheme();
 
-	return (
-	<SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
-	  <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-	  <View className='ml-3'>
-		<Text className={`text-2xl  font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-		  {title}
-		</Text>
-	  </View>
-	</SafeAreaView>
-	)
-})
+  // Define standardized styles
+  const styles = StyleSheet.create({
+    container: {
+      backgroundColor: isDarkMode ? 'black' : 'white',
+      paddingBottom: Platform.OS === 'ios' ? 0 : 8,
+      zIndex: 10,
+    },
+    titleContainer: {
+      marginLeft: 16,
+      marginBottom: Platform.OS === 'ios' ? -14 : 0,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: isDarkMode ? 'white' : 'black',
+    },
+    dealershipContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: Platform.OS === 'ios' ? 12 : 8,
+    },
+    dealershipLogo: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      marginRight: 8,
+    },
+    dealershipName: {
+      fontSize: 14,
+      color: isDarkMode ? '#a1a1aa' : '#52525b',
+    }
+  });
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>{title}</Text>
+
+        {dealership && (
+          <View style={styles.dealershipContainer}>
+            {dealership.logo && (
+              <Image
+                source={{ uri: dealership.logo }}
+                style={styles.dealershipLogo}
+              />
+            )}
+            <Text style={styles.dealershipName}>
+              {dealership.name}
+            </Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+};
 
 interface SearchBarProps {
 	searchQuery: string
@@ -54,106 +102,144 @@ interface SearchBarProps {
 }
 
 const ModernSearchBar: React.FC<SearchBarProps> = ({
-	searchQuery,
-	onSearchChange,
-	onFilterPress,
-	onAddPress,
-	isDarkMode,
-	subscriptionExpired
+  searchQuery,
+  onSearchChange,
+  onFilterPress,
+  onAddPress,
+  isDarkMode,
+  subscriptionExpired
 }) => {
-	// Local state for controlled input
-	const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+  // Local state for controlled input
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
-	// Synchronize local state with prop changes
-	useEffect(() => {
-		setLocalSearchQuery(searchQuery)
-	}, [searchQuery])
+  // Synchronize local state with prop changes
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
 
-	// Handle text input changes
-	const handleTextChange = (text: string) => {
-		setLocalSearchQuery(text)
-		onSearchChange(text)
-	}
+  // Handle text input changes
+  const handleTextChange = (text: string) => {
+    setLocalSearchQuery(text);
+    onSearchChange(text);
+  };
 
-	// Handle search clear
-	const handleClearSearch = () => {
-		setLocalSearchQuery('')
-		onSearchChange('')
-	}
+  // Handle search clear
+  const handleClearSearch = () => {
+    setLocalSearchQuery('');
+    onSearchChange('');
+  };
 
-	return (
-		<View className='flex-row items-center justify-between px-4 py-2'>
-			{/* Search Input Container */}
-			<View
-				className={`flex-1 flex-row ${
-					isDarkMode ? 'bg-neutral-500' : 'bg-[#e1e1e1]'
-				} items-center px-4 py-2 mr-3 rounded-2xl`}>
-				{/* Search Icon */}
-				<Ionicons
-					name='search'
-					size={20}
-					color={isDarkMode ? '#a3a3a3' : '#666666'}
-					className='mr-2'
-				/>
+  // Platform-specific styles for the TextInput
+  const inputStyles = Platform.select({
+    ios: {
+      height: 40,
+      paddingVertical: 0 // iOS handles vertical centering well
+    },
+    android: {
+      height: 40,
+      paddingVertical: 0,
+      paddingTop: 0,
+      paddingBottom: 0
+    }
+  });
 
-				{/* Search Input */}
-				<TextInput
-         textAlignVertical="center"
-					placeholder='Search inventory...'
-					value={localSearchQuery}
-					onChangeText={handleTextChange}
-					placeholderTextColor={isDarkMode ? '#a3a3a3' : '#666666'}
-					className={`flex-1 text-base bottom-1 ${
-						isDarkMode ? 'text-white' : 'text-black'
-					}`}
-					returnKeyType='search'
-				/>
+  return (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 8
+    }}>
+      {/* Search Input Container */}
+      <View style={{
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: isDarkMode ? '#505050' : '#e1e1e1',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 0,
+        marginRight: 12,
+        borderRadius: 16,
+        height: 44
+      }}>
+        {/* Search Icon */}
+        <Ionicons
+          name='search'
+          size={20}
+          color={isDarkMode ? '#a3a3a3' : '#666666'}
+          style={{ marginRight: 8 }}
+        />
 
-				{/* Clear Button - Only show when there's text */}
-				{localSearchQuery.length > 0 && (
-					<TouchableOpacity onPress={handleClearSearch} className='p-2'>
-						<Ionicons
-							name='close-circle'
-							size={20}
-							color={isDarkMode ? '#a3a3a3' : '#666666'}
-						/>
-					</TouchableOpacity>
-				)}
-			</View>
+        {/* Search Input */}
+        <TextInput
+          placeholder='Search inventory...'
+          value={localSearchQuery}
+          onChangeText={handleTextChange}
+          placeholderTextColor={isDarkMode ? '#a3a3a3' : '#666666'}
+          style={[
+            {
+              flex: 1,
+              fontSize: 16,
+              color: isDarkMode ? 'white' : 'black',
+              textAlignVertical: 'center',
+            },
+            inputStyles
+          ]}
+          returnKeyType='search'
+        />
 
-			{/* Action Buttons */}
-			<View className='flex-row gap-2'>
-				{/* Filter Button */}
-				<TouchableOpacity
-					onPress={onFilterPress}
-					disabled={subscriptionExpired}
-					className={`p-2 rounded-xl ${
-						subscriptionExpired ? 'opacity-50' : ''
-					}`}>
-					<Ionicons
-						name='filter'
-						size={24}
-						color={isDarkMode ? '#FFFFFF' : '#000000'}
-					/>
-				</TouchableOpacity>
+        {/* Clear Button - Only show when there's text */}
+        {localSearchQuery.length > 0 && (
+          <TouchableOpacity onPress={handleClearSearch} style={{ padding: 8 }}>
+            <Ionicons
+              name='close-circle'
+              size={20}
+              color={isDarkMode ? '#a3a3a3' : '#666666'}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
 
-				{/* Add Button */}
-				<TouchableOpacity
-					onPress={onAddPress}
-					disabled={subscriptionExpired}
-					className={`p-2 rounded-full border border-emerald-300 ${
-						subscriptionExpired ? 'opacity-50' : ''
-					}`}>
-					<Ionicons
-						name='add'
-						size={24}
-						color={isDarkMode ? '#FFFFFF' : '#000000'}
-					/>
-				</TouchableOpacity>
-			</View>
-		</View>
-	)
-}
+      {/* Action Buttons */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {/* Filter Button */}
+        <TouchableOpacity
+          onPress={onFilterPress}
+          disabled={subscriptionExpired}
+          style={{
+            padding: 8,
+            borderRadius: 12,
+            opacity: subscriptionExpired ? 0.5 : 1
+          }}>
+          <Ionicons
+            name='filter'
+            size={24}
+            color={isDarkMode ? '#FFFFFF' : '#000000'}
+          />
+        </TouchableOpacity>
+
+        {/* Add Button */}
+        <TouchableOpacity
+          onPress={onAddPress}
+          disabled={subscriptionExpired}
+          style={{
+            padding: 8,
+            borderRadius: 9999,
+            borderWidth: 1,
+            borderColor: '#10B981',
+            opacity: subscriptionExpired ? 0.5 : 1
+          }}>
+          <Ionicons
+            name='add'
+            size={24}
+            color={isDarkMode ? '#FFFFFF' : '#000000'}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 interface SoldModalProps {
 	visible: boolean
@@ -1331,50 +1417,60 @@ export default function DealerListings() {
 	const subscriptionExpired = !isSubscriptionValid()
 
 	return (
-		<LinearGradient
-			colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
-			className='flex-1'>
-			<CustomHeader title='My Cars' />
+	  <LinearGradient
+    colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+    style={{ flex: 1 }}>
+    {/* Header */}
+    <CustomHeader title='My Cars' />
 
-			{/* Modern Header */}
+    {/* Subscription Warning */}
+    {(subscriptionExpired || showWarning) && (
+      <BlurView
+        intensity={isDarkMode ? 30 : 50}
+        tint={isDarkMode ? 'dark' : 'light'}
+        style={{
+          marginHorizontal: 24,
+          marginBottom: 16,
+          borderRadius: 12,
+          overflow: 'hidden',
+          backgroundColor: subscriptionExpired ? 'rgba(244, 63, 94, 0.2)' : 'rgba(251, 146, 60, 1)'
+        }}>
+        <View style={{ padding: 16 }}>
+          <Text style={{
+            textAlign: 'center',
+            fontWeight: '800',
+            color: 'white',
+            textShadowColor: 'black',
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 1
+          }}>
+            {subscriptionExpired
+              ? 'Your subscription has expired. Please renew to manage listings.'
+              : `Your subscription will expire in ${daysUntilExpiration} days. Please renew soon.`}
+          </Text>
+        </View>
+      </BlurView>
+    )}
 
-			{/* Subscription Warning */}
-			{(subscriptionExpired || showWarning) && (
-				<BlurView
-					intensity={isDarkMode ? 30 : 50}
-					tint={isDarkMode ? 'dark' : 'light'}
-					className={`mx-6 mb-4 rounded-xl overflow-hidden ${
-						subscriptionExpired ? 'bg-rose-500/20' : 'bg-orange-400'
-					}`}>
-					<View className='p-4'>
-						<Text className='text-center shadow-black font-extrabold text-white'>
-							{subscriptionExpired
-								? 'Your subscription has expired. Please renew to manage listings.'
-								: `Your subscription will expire in ${daysUntilExpiration} days. Please renew soon.`}
-						</Text>
-					</View>
-				</BlurView>
-			)}
-
-			{/* Search and Filter Bar */}
-			<ModernSearchBar
-				searchQuery={searchQuery}
-				onSearchChange={handleSearchChange}
-				onFilterPress={() => setIsFilterModalVisible(true)}
-				onAddPress={() => {
-					if (subscriptionExpired) {
-						Alert.alert(
-							'Subscription Expired',
-							'Please renew your subscription to add new listings.'
-						)
-						return
-					}
-					setSelectedListing(null)
-					setIsListingModalVisible(true)
-				}}
-				isDarkMode={isDarkMode}
-				subscriptionExpired={subscriptionExpired}
-			/>
+    {/* Search and Filter Bar */}
+    <ModernSearchBar
+      searchQuery={searchQuery}
+      onSearchChange={handleSearchChange}
+      onFilterPress={() => setIsFilterModalVisible(true)}
+      onAddPress={() => {
+        if (subscriptionExpired) {
+          Alert.alert(
+            'Subscription Expired',
+            'Please renew your subscription to add new listings.'
+          );
+          return;
+        }
+        setSelectedListing(null);
+        setIsListingModalVisible(true);
+      }}
+      isDarkMode={isDarkMode}
+      subscriptionExpired={subscriptionExpired}
+    />
 			{/* Listings */}
 			<FlatList
 				ref={scrollRef}

@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Dimensions,
   StatusBar,
-  Platform
+  Platform,
+  StyleSheet
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
@@ -57,33 +58,66 @@ interface Dealership {
   user_id: string
 }
 
-const CustomHeader = React.memo(({ title, dealership }: any) => {
-  const { isDarkMode } = useTheme()
+const CustomHeader = ({ title, dealership }:any) => {
+  const { isDarkMode } = useTheme();
+
+  // Define standardized styles
+  const styles = StyleSheet.create({
+    container: {
+      backgroundColor: isDarkMode ? 'black' : 'white',
+      paddingBottom: Platform.OS === 'ios' ? 0 : 8,
+      zIndex: 10,
+    },
+    titleContainer: {
+      marginLeft: 16,
+      marginBottom: Platform.OS === 'ios' ? -14 : 0,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: isDarkMode ? 'white' : 'black',
+    },
+    dealershipContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: Platform.OS === 'ios' ? 12 : 8,
+    },
+    dealershipLogo: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      marginRight: 8,
+    },
+    dealershipName: {
+      fontSize: 14,
+      color: isDarkMode ? '#a1a1aa' : '#52525b',
+    }
+  });
 
   return (
-    <SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <View className='ml-3'>
-        <Text className={`text-2xl -mb-5 font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-          {title}
-        </Text>
+
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>{title}</Text>
+
         {dealership && (
-          <View className='flex-row mt-12 items-center'>
+          <View style={styles.dealershipContainer}>
             {dealership.logo && (
               <Image
                 source={{ uri: dealership.logo }}
-                className='w-6 h-6 rounded-full mr-2'
+                style={styles.dealershipLogo}
               />
             )}
-            <Text className={`text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+            <Text style={styles.dealershipName}>
               {dealership.name}
             </Text>
           </View>
         )}
       </View>
     </SafeAreaView>
-  )
-})
+  );
+};
 
 const VideoItem = ({
   item,
@@ -212,21 +246,23 @@ const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode 
       className={`p-2 rounded-full bg-zinc-800/80 ${currentPage === 1 ? 'opacity-30' : ''}`}>
       <Ionicons name="chevron-back" size={20} color={isDarkMode ? '#fff' : '#000'} />
     </TouchableOpacity>
-    
+
     <View className='bg-zinc-800/80 px-4 py-2 rounded-full'>
       <Text className='text-white font-medium'>
         {currentPage} / {totalPages}
       </Text>
     </View>
-    
+
     <TouchableOpacity
       onPress={() => onPageChange(currentPage + 1)}
-      disabled={currentPage === totalPages} 
+      disabled={currentPage === totalPages}
       className={`p-2 rounded-full bg-zinc-800/80 ${currentPage === totalPages ? 'opacity-30' : ''}`}>
       <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#000'} />
     </TouchableOpacity>
   </View>
 )
+
+
 
 export default function AutoClips() {
   const { user } = useUser()
@@ -244,7 +280,46 @@ export default function AutoClips() {
   const [previewVisible, setPreviewVisible] = useState(false)
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [clipToEdit, setClipToEdit] = useState<AutoClip | null>(null)
-  
+
+  // Add button with correct z-index and positioning
+const FloatingAddButton = () => {
+  const { isDarkMode } = useTheme();
+
+  const buttonStyles = StyleSheet.create({
+    container: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 56 : 48,
+      right: 24,
+      zIndex: 20, // Higher than header
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5, // For Android shadow
+    },
+    button: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: isDarkMode ? 'white' : 'black',
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }
+  });
+
+  return (
+    <View style={buttonStyles.container}>
+      <TouchableOpacity
+        style={buttonStyles.button}
+        onPress={() => setIsCreateModalVisible(true)}>
+        <FontAwesome name='plus' size={24} color='#D55004' />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -326,7 +401,7 @@ export default function AutoClips() {
                 .eq('id', clipId)
 
               if (error) throw error
-              
+
               // Refresh the current page after deletion
               fetchDealershipAndClips()
               Alert.alert('Success', 'AutoClip deleted successfully')
@@ -349,7 +424,7 @@ export default function AutoClips() {
         .eq('id', clip.id)
 
       if (error) throw error
-      
+
       // Refresh the current page after status update
       fetchDealershipAndClips()
     } catch (error) {
@@ -366,92 +441,90 @@ export default function AutoClips() {
     )
   }
 
-  return (
-    <LinearGradient
-      colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
-      className='flex-1'>
+return (
+  <LinearGradient
+    colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+    style={{ flex: 1 }}>
+
+    {/* Header with guaranteed z-index */}
+    <View style={{ zIndex: 10 }}>
       <CustomHeader title='AutoClips' dealership={dealershipData} />
-	  <BlurView
-          intensity={0}
-          tint={isDarkMode ? 'dark' : 'light'}
-          className='absolute top-14 right-6'>
-          <TouchableOpacity
-            className='w-11 h-11 rounded-full border p-2  border-black dark:border-white  items-center justify-center shadow-lg'
-            onPress={() => setIsCreateModalVisible(true)}>
-            <FontAwesome name='plus' size={24} color='#D55004' />
-          </TouchableOpacity>
-        </BlurView>
+    </View>
 
-      <View className='flex-1'>
-        <FlatList
-          ref={scrollRef}
-          data={clips}
-          renderItem={({ item }) => (
-            <VideoItem
-              item={item}
-              onPress={() => {
-                setSelectedClip(item)
-                setPreviewVisible(true)
-              }}
+    {/* Add Button with higher z-index */}
+    <FloatingAddButton />
+
+    {/* Content with lower z-index */}
+    <View style={{ flex: 1, zIndex: 5 }} className='mt-3'>
+      <FlatList
+        ref={scrollRef}
+        data={clips}
+        renderItem={({ item }) => (
+          <VideoItem
+            item={item}
+            onPress={() => {
+              setSelectedClip(item)
+              setPreviewVisible(true)
+            }}
+            isDarkMode={isDarkMode}
+            onDelete={handleDelete}
+            onToggleStatus={toggleStatus}
+            onEdit={clip => {
+              setClipToEdit(clip)
+              setIsEditModalVisible(true)
+            }}
+          />
+        )}
+        keyExtractor={item => item.id.toString()}
+        numColumns={2}
+        contentContainerStyle={{
+          padding: 8,
+          paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+          paddingTop: 8 // Add padding to ensure content doesn't overlap header
+        }}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
+        ListFooterComponent={() => (
+          clips.length > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
               isDarkMode={isDarkMode}
-              onDelete={handleDelete}
-              onToggleStatus={toggleStatus}
-              onEdit={clip => {
-                setClipToEdit(clip)
-                setIsEditModalVisible(true)
-              }}
             />
-          )}
-          keyExtractor={item => item.id.toString()}
-          numColumns={2}
-          contentContainerStyle={{
-            padding: 8,
-            paddingBottom: Platform.OS === 'ios' ? 100 : 80
-          }}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
-          ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
-          ListFooterComponent={() => (
-            clips.length > 0 && (
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                isDarkMode={isDarkMode}
-              />
-            )
-          )}
-        />
+          )
+        )}
+      />
 
-
-
-        <CreateAutoClipModal
-          isVisible={isCreateModalVisible}
-          onClose={() => setIsCreateModalVisible(false)}
-          dealership={dealership}
-          onSuccess={handleRefresh}
-        />
-        <PreviewAutoClipModal
-          clip={selectedClip}
-          isVisible={previewVisible}
-          onClose={() => {
-            setPreviewVisible(false)
-            setSelectedClip(null)
-          }}
-          onDelete={handleDelete}
-          onToggleStatus={toggleStatus}
-          onEdit={handleRefresh}
-        />
-        <EditAutoClipModal
-          isVisible={isEditModalVisible}
-          onClose={() => {
-            setIsEditModalVisible(false)
-            setClipToEdit(null)
-          }}
-          clip={clipToEdit}
-          onSuccess={handleRefresh}
-        />
-      </View>
-    </LinearGradient>
-  )
+      {/* Modals remain unchanged */}
+      <CreateAutoClipModal
+        isVisible={isCreateModalVisible}
+        onClose={() => setIsCreateModalVisible(false)}
+        dealership={dealership}
+        onSuccess={handleRefresh}
+      />
+      <PreviewAutoClipModal
+        clip={selectedClip}
+        isVisible={previewVisible}
+        onClose={() => {
+          setPreviewVisible(false)
+          setSelectedClip(null)
+        }}
+        onDelete={handleDelete}
+        onToggleStatus={toggleStatus}
+        onEdit={handleRefresh}
+      />
+      <EditAutoClipModal
+        isVisible={isEditModalVisible}
+        onClose={() => {
+          setIsEditModalVisible(false)
+          setClipToEdit(null)
+        }}
+        clip={clipToEdit}
+        onSuccess={handleRefresh}
+      />
+    </View>
+  </LinearGradient>
+);
 }

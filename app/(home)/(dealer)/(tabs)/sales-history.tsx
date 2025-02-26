@@ -7,7 +7,9 @@ import {
 	Dimensions,
 	StatusBar,
 	ScrollView,
-	RefreshControl
+	RefreshControl,
+  Platform,
+  StyleSheet
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useUser } from '@clerk/clerk-expo'
@@ -44,20 +46,66 @@ interface SaleRecord {
 	seller_name: string | null // Added seller_name
 }
 
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-	const { isDarkMode } = useTheme()
+const CustomHeader = ({ title, dealership }:any) => {
+  const { isDarkMode } = useTheme();
 
-	return (
-	<SafeAreaView className={isDarkMode ? 'bg-black -mb-7' : 'bg-white -mb-7'}>
-	  <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-	  <View className='ml-3'>
-		<Text className={`text-2xl  font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-		  {title}
-		</Text>
-	  </View>
-	</SafeAreaView>
-	)
-})
+  // Define standardized styles
+  const styles = StyleSheet.create({
+    container: {
+      backgroundColor: isDarkMode ? 'black' : 'white',
+      paddingBottom: Platform.OS === 'ios' ? 0 : 8,
+      zIndex: 10,
+    },
+    titleContainer: {
+      marginLeft: 16,
+      marginBottom: Platform.OS === 'ios' ? -14 : 0,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: isDarkMode ? 'white' : 'black',
+    },
+    dealershipContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: Platform.OS === 'ios' ? 12 : 8,
+    },
+    dealershipLogo: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      marginRight: 8,
+    },
+    dealershipName: {
+      fontSize: 14,
+      color: isDarkMode ? '#a1a1aa' : '#52525b',
+    }
+  });
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>{title}</Text>
+
+        {dealership && (
+          <View style={styles.dealershipContainer}>
+            {dealership.logo && (
+              <Image
+                source={{ uri: dealership.logo }}
+                style={styles.dealershipLogo}
+              />
+            )}
+            <Text style={styles.dealershipName}>
+              {dealership.name}
+            </Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+};
 
 const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 	const daysListed = Math.ceil(
