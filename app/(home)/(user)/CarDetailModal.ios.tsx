@@ -515,18 +515,19 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
   const handleWhatsAppPress = useCallback(() => {
     if (car?.dealership_phone) {
       const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}`;
-  
+      
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+      const webURL = `https://wa.me/send?phone=961${cleanedPhoneNumber}&text=${encodeURIComponent(message)}`;
       Linking.openURL(webURL).catch(() => {
-        Alert.alert(
-          'Error',
-          'Unable to open WhatsApp. Please make sure it is installed on your device.'
-        );
+      Alert.alert(
+        'Error',
+        'Unable to open WhatsApp. Please make sure it is installed on your device.'
+      );
       });
     } else {
       Alert.alert('Phone number not available');
     }
-  }, [car]);
+    }, [car]);
   
 
   return (

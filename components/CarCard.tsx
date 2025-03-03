@@ -305,8 +305,9 @@ export default function CarCard({
 	const handleWhatsAppPress = useCallback(() => {
 		if (car?.dealership_phone) {
 		  const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-		  const webURL = `https://wa.me/961${cleanedPhoneNumber}`;
-	  
+		  
+		  const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+		  const webURL = `https://wa.me/send?phone=961${cleanedPhoneNumber}&text=${encodeURIComponent(message)}`;
 		  Linking.openURL(webURL).catch(() => {
 			Alert.alert(
 			  'Error',
