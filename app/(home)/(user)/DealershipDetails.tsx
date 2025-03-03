@@ -533,61 +533,67 @@ export default function DealershipDetails() {
 			<>
 				{dealership && (
 					<View className='mb-6'>
-						{/* Dealership Info Card */}
-			{/* Dealership Info Card - Modernized */}
-<View className='px-4 pb-6 mt-4'>
-  {/* Header Card with Background Blur Effect */}
-  <BlurView
-    intensity={isDarkMode ? 20 : 40}
-    tint={isDarkMode ? 'dark' : 'light'}
-    className='rounded-3xl overflow-hidden'>
-
+			<View className='px-4 pb-6 mt-4'>
+  {/* Modern Header Card with Subtle Gradient */}
+  <View className='rounded-3xl overflow-hidden shadow-lg'>
     <LinearGradient
-      colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F6F6F6']}
-      className='p-5 rounded-3xl'>
+      colors={isDarkMode ? ['#1A1A1A', '#121212'] : ['#FFFFFF', '#F9F9F9']}
+      start={{x: 0, y: 0}}
+      end={{x: 1, y: 1}}
+      className='p-6 rounded-3xl'>
 
-      {/* Logo and Info Row */}
+      {/* Logo and Info Section - Refined Layout */}
       <View className='flex-row items-center'>
-        {/* Dealership Logo with Enhanced Styling */}
+        {/* Dealership Logo with Professional Styling */}
         <View className='relative'>
-          <View className='bg-neutral-800/10 rounded-2xl p-1 shadow-lg'>
+          <View 
+            className='rounded-2xl p-0.5 shadow-lg'
+            style={{
+              backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'
+            }}>
             <Image
               source={{ uri: dealership.logo }}
-              className='w-24 h-24 rounded-xl'
+              className='w-20 h-20 rounded-xl'
               style={{
-                borderWidth: 2,
-                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#D55004',
-                shadowColor: isDarkMode ? '#000' : '#D55004',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12
+                borderWidth: 1,
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
               }}
+              resizeMode="cover"
             />
           </View>
 
-          {/* Decorative Accent */}
-          <View className='absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-red'/>
+          {/* Subtle Brand Accent */}
+          <View 
+            className='absolute -bottom-1 -right-1 w-5 h-5 rounded-full'
+            style={{ backgroundColor: '#D55004' }}
+          />
         </View>
 
-        {/* Dealership Information */}
+        {/* Dealership Information - Enhanced Typography */}
         <View className='ml-4 flex-1'>
           <Text
-            className={`text-2xl font-bold ${
-              isDarkMode ? 'text-white' : 'text-black'
-            }`}>
+            className={`text-xl font-bold ${
+              isDarkMode ? 'text-white' : 'text-neutral-800'
+            }`}
+            numberOfLines={1}
+            adjustsFontSizeToFit>
             {dealership.name}
           </Text>
 
-          <View className='flex-row items-center mt-1'>
-            <View className='flex-row items-center bg-opacity-10 bg-neutral-500 rounded-full px-3 py-1'>
+          <View className='flex-row items-center mt-1.5'>
+            <View 
+              className='flex-row items-center rounded-full px-3 py-1'
+              style={{
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)'
+              }}>
               <Ionicons
                 name='location-outline'
                 size={14}
-                color={isDarkMode ? '#D55004' : '#D55004'}
+                color='#D55004'
               />
               <Text
                 className={`ml-1 text-sm ${
-                  isDarkMode ? 'text-white/70' : 'text-black/70'
+                  isDarkMode ? 'text-white/60' : 'text-black/60'
                 }`}
                 numberOfLines={1}>
                 {dealership.location}
@@ -597,22 +603,31 @@ export default function DealershipDetails() {
         </View>
       </View>
 
-      {/* Enhanced Stats Row */}
-      <View className='flex-row justify-around mt-4 mb-2 px-2'>
+      {/* Statistics Section - Elegant Design */}
+      <View 
+        className='flex-row justify-around mt-5 mb-3 mx-1 p-3 rounded-2xl'
+        style={{
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.01)'
+        }}>
         <View className='items-center'>
-          <Text className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
-            Available Cars
+          <Text className={`text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
+            Inventory
           </Text>
           <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
             {filteredCars.length}
           </Text>
         </View>
 
-        <View className='h-full w-px bg-neutral-200 dark:bg-neutral-700'/>
+        <View 
+          className='h-full w-px'
+          style={{
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          }}
+        />
 
         <View className='items-center'>
-          <Text className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
-            Since
+          <Text className={`text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
+            Established
           </Text>
           <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
             {dealership.created_at ? new Date(dealership.created_at).getFullYear() : 'N/A'}
@@ -620,40 +635,55 @@ export default function DealershipDetails() {
         </View>
       </View>
 
-      {/* Quick Actions - Redesigned */}
-      <View className='flex-row justify-between space-x-3 mt-4'>
+      {/* Contact Actions - Modern & Professional */}
+      <View className='flex-row justify-between space-x-4 mt-4'>
         <TouchableOpacity
           onPress={handleCall}
-          className='flex-1 flex-row items-center justify-center space-x-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl py-3 shadow-sm'>
-          <View className='bg-red/10 rounded-full p-1'>
-            <Ionicons
-              name='call-outline'
-              size={18}
-              color='#D55004'
-            />
-          </View>
-          <Text className={`font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}>
-            Call
+          className='flex-1 flex-row items-center justify-center py-3.5 rounded-xl'
+          style={{
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+            borderWidth: 1,
+            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          }}>
+          <Ionicons
+            name='call-outline'
+            size={16}
+            color={isDarkMode ? '#D55004' : '#D55004'}
+            style={{ marginRight: 8 }}
+          />
+          <Text 
+            className={`font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}
+            style={{ fontSize: 15 }}>
+            Call Dealer
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleWhatsApp}
-          className='flex-1 flex-row items-center justify-center space-x-1 py-3 rounded-xl shadow-sm'
+          className='flex-1 flex-row items-center justify-center py-3.5 rounded-xl'
           style={{
             backgroundColor: '#25D366',
             shadowColor: '#25D366',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
+            shadowOpacity: isDarkMode ? 0.3 : 0.2,
             shadowRadius: 8,
             elevation: 4
           }}>
-          <Ionicons name='logo-whatsapp' size={18} color='white' />
-          <Text className='text-white font-medium'>WhatsApp</Text>
+          <Ionicons 
+            name='logo-whatsapp' 
+            size={16} 
+            color='white'
+            style={{ marginRight: 8 }}
+          />
+          <Text 
+            className='text-white font-medium'
+            style={{ fontSize: 15 }}>
+            WhatsApp
+          </Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
-  </BlurView>
+  </View>
 </View>
 
 						{/* Map View */}

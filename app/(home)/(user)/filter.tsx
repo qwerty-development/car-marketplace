@@ -819,6 +819,7 @@ const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }: Quic
       style={{ borderRadius: 12 }}
     >
       <LinearGradient
+      className="rounded-xl"
         colors={
           isSelected
             ? ["#D55004", "#FF6B00"]
@@ -829,7 +830,6 @@ const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }: Quic
         style={{
           paddingHorizontal: 24,
           paddingVertical: 16,
-          borderRadius: 12,
           alignItems: "center",
         }}
         start={{ x: 0, y: 0 }}
@@ -882,14 +882,21 @@ const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorS
         }
         style={{ marginRight: 16 }}
       >
-        <BlurView
-          intensity={isDarkMode ? 20 : 40}
-          tint={isDarkMode ? "dark" : "light"}
-          style={{ borderRadius: 12, padding: 8 }}
-        >
+        <View style={{ padding: 8 }}>
           <LinearGradient
             colors={color.gradient}
-            style={{ width: 64, height: 64, borderRadius: 12, marginBottom: 8 }}
+            style={{ 
+              width: 64, 
+              height: 64, 
+              borderRadius: 12, 
+              marginBottom: 8,
+              borderWidth: 2,
+              borderColor: selectedColor.includes(color.name)
+                ? "#D55004"
+                : isDarkMode
+                ? "white"
+                : "black",
+            }}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
@@ -907,7 +914,7 @@ const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorS
           >
             {color.name}
           </Text>
-        </BlurView>
+        </View>
       </TouchableOpacity>
     ))}
   </ScrollView>
@@ -941,7 +948,7 @@ const SelectionCard = memo(
       <BlurView
         intensity={isDarkMode ? 20 : 40}
         tint={isDarkMode ? "dark" : "light"}
-        style={{ borderRadius: 12 }}
+        className="rounded-xl"
       >
         <LinearGradient
           colors={
@@ -1077,9 +1084,7 @@ const DealershipSelector = memo(
                 onPress={() => handleDealershipSelect(dealer)}
                 style={{ marginRight: 16 }}
               >
-                <BlurView
-                  intensity={isDarkMode ? 20 : 40}
-                  tint={isDarkMode ? "dark" : "light"}
+                <View
                   style={{
                     borderRadius: 12,
                     padding: 16,
@@ -1091,8 +1096,8 @@ const DealershipSelector = memo(
                 >
                   <View
                     style={{
-                      width: 60,
-                      height: 60,
+                      width: 80,
+                      height: 80,
                       justifyContent: "center",
                       alignItems: "center",
                     }}
@@ -1100,14 +1105,18 @@ const DealershipSelector = memo(
                     {dealer.logo ? (
                       <Image
                         source={{ uri: dealer.logo }}
-                        style={{ width: 60, height: 60 }}
+                        style={{ width: 80, height: 80 }}
                         resizeMode="contain"
                       />
                     ) : (
                       <MaterialCommunityIcons
                         name="car-estate"
-                        size={40}
-                        color={isDarkMode ? "#666" : "#999"}
+                        size={60}
+                        color={filters.dealership.includes(dealer.id)
+                          ? "#D55004"
+                          : isDarkMode
+                          ? "white"
+                          : "black"}
                       />
                     )}
                   </View>
@@ -1126,7 +1135,7 @@ const DealershipSelector = memo(
                   >
                     {dealer.name}
                   </Text>
-                </BlurView>
+                </View>
               </TouchableOpacity>
             )
           )}
@@ -1241,18 +1250,13 @@ const DealershipSelector = memo(
                         alignItems: "center",
                         padding: 16,
                         marginBottom: 8,
-                        borderRadius: 12,
-                        backgroundColor: filters.dealership.includes(dealer.id)
-                          ? "rgba(255,0,0,0.1)"
-                          : isDarkMode
-                          ? "#333"
-                          : "#eee",
+
                       }}
                     >
                       <View
                         style={{
-                          width: 48,
-                          height: 48,
+                          width: 60,
+                          height: 60,
                           justifyContent: "center",
                           alignItems: "center",
                           marginRight: 12,
@@ -1261,14 +1265,18 @@ const DealershipSelector = memo(
                         {dealer.logo ? (
                           <Image
                             source={{ uri: dealer.logo }}
-                            style={{ width: 40, height: 40 }}
-                            resizeMode="contain"
+                            style={{ width: 50, height: 50 }}
+                            contentFit="contain"
                           />
                         ) : (
                           <MaterialCommunityIcons
                             name="car-estate"
-                            size={24}
-                            color={isDarkMode ? "#666" : "#999"}
+                            size={40}
+                            color={filters.dealership.includes(dealer.id)
+                              ? "#D55004"
+                              : isDarkMode
+                              ? "white" 
+                              : "black"}
                           />
                         )}
                       </View>
@@ -1297,7 +1305,6 @@ const DealershipSelector = memo(
     );
   }
 );
-
 // --------------------
 // Main Filter Page Component
 // --------------------

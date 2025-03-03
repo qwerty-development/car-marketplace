@@ -516,7 +516,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
     if (car?.dealership_phone) {
       const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
       
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString() } on Fleet`;
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
       Linking.openURL(webURL).catch(() => {
       Alert.alert(
@@ -625,10 +625,10 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
             </View>
             <View className="ml-3">
               <Text
-                className={`text-xl mt-6 font-bold ${
+                className={`text-xl mt-6 mr-12 font-bold ${
                   isDarkMode ? "text-white" : "text-black"
                 }`}
-              >
+              numberOfLines={2}>
                 {car.make} {car.model}
               </Text>
               <Text
