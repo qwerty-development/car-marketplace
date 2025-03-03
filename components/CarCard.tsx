@@ -303,40 +303,21 @@ export default function CarCard({
 	)
 
 	const handleWhatsAppPress = useCallback(() => {
-		if (!car.dealership_phone) {
-		  Alert.alert('Phone number not available');
-		  return;
-		}
+		if (car?.dealership_phone) {
+		  const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+		  const webURL = `https://wa.me/961${cleanedPhoneNumber}`;
 	  
-		const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
-		const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-		const phoneWithCountryCode = `961${cleanedPhoneNumber}`;
-		const webURL = `https://wa.me/${phoneWithCountryCode}?text=${encodeURIComponent(message)}`;
-		const appURL = `whatsapp://send?phone=${phoneWithCountryCode}&text=${encodeURIComponent(message)}`;
-	  
-		Linking.canOpenURL(appURL)
-		  .then(supported => {
-			if (supported) {
-			  return Linking.openURL(appURL);
-			} else {
-			  console.log("WhatsApp not installed, opening web link.");
-			  return Linking.openURL(webURL);
-			}
-		  })
-		  .catch(() => {
+		  Linking.openURL(webURL).catch(() => {
 			Alert.alert(
-			  'WhatsApp Not Available',
-			  'Please install WhatsApp or use the web version.',
-			  [
-				{ text: 'OK' },
-				{
-				  text: 'Open App Store',
-				  onPress: () => Linking.openURL('https://apps.apple.com/app/whatsapp-messenger/id310633997'),
-				},
-			  ]
+			  'Error',
+			  'Unable to open WhatsApp. Please make sure it is installed on your device.'
 			);
 		  });
+		} else {
+		  Alert.alert('Phone number not available');
+		}
 	  }, [car]);
+	  
 	  
 	  
 
