@@ -511,13 +511,22 @@ export default function DealershipDetails() {
 		}
 	}, [dealership])
 
-const handleWhatsApp = useCallback(() => {
-  if (dealership?.phone) {
-    openWhatsApp(dealership.phone);
-  } else {
-    Alert.alert('Contact', 'Phone number not available');
-  }
-}, [dealership]);
+	const handleWhatsApp = useCallback(() => {
+		if (dealership?.phone) {
+		  const cleanedPhoneNumber = dealership.phone.toString().replace(/\D/g, '');
+		  const webURL = `https://wa.me/961${cleanedPhoneNumber}`;
+	  
+		  Linking.openURL(webURL).catch(() => {
+			Alert.alert(
+			  'Error',
+			  'Unable to open WhatsApp. Please make sure it is installed on your device.'
+			);
+		  });
+		} else {
+		  Alert.alert('Contact', 'Phone number not available');
+		}
+	  }, [dealership]);
+	  
 
 	const renderHeader = useCallback(
 		() => (

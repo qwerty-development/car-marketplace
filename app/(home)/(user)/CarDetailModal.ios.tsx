@@ -512,14 +512,41 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
     longitudeDelta: 0.01,
   };
 
-const handleWhatsAppPress = useCallback(() => {
-  if (car.dealership_phone) {
+  const handleWhatsAppPress = useCallback(() => {
+    if (!car.dealership_phone) {
+      Alert.alert('Phone number not available');
+      return;
+    }
+    
     const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
-    openWhatsApp(car.dealership_phone, message);
-  } else {
-    Alert.alert('Phone number not available');
-  }
-}, [car]);
+    const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+    const phoneWithCountryCode = `961${cleanedPhoneNumber}`;
+    const webURL = `https://wa.me/${phoneWithCountryCode}?text=${encodeURIComponent(message)}`;
+    const appURL = `whatsapp://send?phone=${phoneWithCountryCode}&text=${encodeURIComponent(message)}`;
+    
+    Linking.canOpenURL(appURL)
+      .then(supported => {
+      if (supported) {
+        return Linking.openURL(appURL);
+      } else {
+        console.log("WhatsApp not installed, opening web link.");
+        return Linking.openURL(webURL);
+      }
+      })
+      .catch(() => {
+      Alert.alert(
+        'WhatsApp Not Available',
+        'Please install WhatsApp or use the web version.',
+        [
+        { text: 'OK' },
+        {
+          text: 'Open App Store',
+          onPress: () => Linking.openURL('https://apps.apple.com/app/whatsapp-messenger/id310633997'),
+        },
+        ]
+      );
+      });
+    }, [car]);
 
   return (
     <View

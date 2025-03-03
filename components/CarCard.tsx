@@ -302,66 +302,43 @@ export default function CarCard({
 		]
 	)
 
-const handleWhatsAppPress = useCallback(() => {
-  if (car.dealership_phone) {
-    // Format the message
-    const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
-
-    // Clean the phone number (remove any non-numeric characters)
-    const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-
-    // Format based on platform
-    if (Platform.OS === 'ios') {
-
-      const phoneWithCountryCode = `961${cleanedPhoneNumber}`;
-
-      Linking.canOpenURL(`whatsapp://send?phone=${phoneWithCountryCode}&text=${encodeURIComponent(message)}`)
-        .then(supported => {
-          if (supported) {
-            return Linking.openURL(`whatsapp://send?phone=${phoneWithCountryCode}&text=${encodeURIComponent(message)}`);
-          } else {
-
-            return Linking.openURL(`https://api.whatsapp.com/send?phone=${phoneWithCountryCode}&text=${encodeURIComponent(message)}`);
-          }
-        })
-        .catch(() => {
-          Alert.alert(
-            'WhatsApp Not Available',
-            'Please install WhatsApp to contact the dealer through this method.',
-            [
-              { text: 'OK' },
-              {
-                text: 'Open App Store',
-                onPress: () => Linking.openURL('https://apps.apple.com/app/whatsapp-messenger/id310633997')
-              }
-            ]
-          );
-        });
-    } else {
-      // Android implementation (existing code)
-      const url = `whatsapp://send?phone=+961${cleanedPhoneNumber}&text=${encodeURIComponent(message)}`;
-
-      Linking.canOpenURL(url)
-        .then(supported => {
-          if (supported) {
-            return Linking.openURL(url);
-          } else {
-            // WhatsApp is not installed, try web version as fallback
-            const webUrl = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
-            return Linking.openURL(webUrl);
-          }
-        })
-        .catch(() => {
-          Alert.alert(
-            'Error',
-            'Unable to open WhatsApp. Please make sure it is installed on your device.'
-          );
-        });
-    }
-  } else {
-    Alert.alert('Phone number not available');
-  }
-}, [car]);
+	const handleWhatsAppPress = useCallback(() => {
+		if (!car.dealership_phone) {
+		  Alert.alert('Phone number not available');
+		  return;
+		}
+	  
+		const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
+		const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+		const phoneWithCountryCode = `961${cleanedPhoneNumber}`;
+		const webURL = `https://wa.me/${phoneWithCountryCode}?text=${encodeURIComponent(message)}`;
+		const appURL = `whatsapp://send?phone=${phoneWithCountryCode}&text=${encodeURIComponent(message)}`;
+	  
+		Linking.canOpenURL(appURL)
+		  .then(supported => {
+			if (supported) {
+			  return Linking.openURL(appURL);
+			} else {
+			  console.log("WhatsApp not installed, opening web link.");
+			  return Linking.openURL(webURL);
+			}
+		  })
+		  .catch(() => {
+			Alert.alert(
+			  'WhatsApp Not Available',
+			  'Please install WhatsApp or use the web version.',
+			  [
+				{ text: 'OK' },
+				{
+				  text: 'Open App Store',
+				  onPress: () => Linking.openURL('https://apps.apple.com/app/whatsapp-messenger/id310633997'),
+				},
+			  ]
+			);
+		  });
+	  }, [car]);
+	  
+	  
 
 	return (
 		<Animated.View
