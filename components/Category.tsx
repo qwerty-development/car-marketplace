@@ -13,11 +13,12 @@ import { BlurView } from 'expo-blur'
 
 // Import your PNG assets
 import SedanPng from '@/assets/types/sedan.png'
+import SportsPng from '@/assets/types/sports.png'
 import SuvPng from '@/assets/types/suv.png'
 import HatchbackPng from '@/assets/types/hatchback.png'
 import ConvertiblePng from '@/assets/types/convertible.png'
 import CoupePng from '@/assets/types/coupe.png'
-import SportsPng from '@/assets/types/sports.png'
+
 
 const { width } = Dimensions.get('window')
 const CARD_WIDTH = width * 0.28
@@ -25,11 +26,12 @@ const CARD_HEIGHT = CARD_WIDTH * 1.2
 
 const categories = [
 	{ name: 'Sedan', image: SedanPng },
+	{ name: 'Sports', image: SportsPng },
 	{ name: 'SUV', image: SuvPng },
 	{ name: 'Hatchback', image: HatchbackPng },
 	{ name: 'Coupe', image: CoupePng },
 	{ name: 'Convertible', image: ConvertiblePng },
-	{ name: 'Sports', image: SportsPng }
+
 ]
 
 interface CategorySelectorProps {
