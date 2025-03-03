@@ -334,6 +334,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
       .from("cars")
       .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
       .eq("dealership_id", car.dealership_id)
+      .eq("status", "available")
       .neq("id", car.id)
       .limit(5);
 
