@@ -48,7 +48,8 @@ export default function DealerLayout() {
 					name='AddEditListing'
 					options={{
 						animation: 'slide_from_right',
-						headerShown: false
+						headerShown: false,
+						gestureEnabled: false
 					}}
 				/>
 				<Stack.Screen

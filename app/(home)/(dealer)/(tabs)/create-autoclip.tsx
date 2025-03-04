@@ -239,7 +239,7 @@ const EmptyState = ({ isDarkMode }) => (
 )
 
 const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode }) => (
-  <View className='flex-row justify-center items-center  space-x-3'>
+  <View className='left-0 fixed right-0 flex-row justify-center items-center space-x-3'>
     <TouchableOpacity
       onPress={() => onPageChange(currentPage - 1)}
       disabled={currentPage === 1}

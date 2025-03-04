@@ -544,7 +544,6 @@ export const ModelDropdown = memo(
 				<Modal
 					visible={isOpen}
 					transparent
-					animationType='slide'
 					onRequestClose={() => setIsOpen(false)}>
 					<TouchableOpacity
 						className='flex-1 bg-black/50'
@@ -554,7 +553,7 @@ export const ModelDropdown = memo(
 							tint={isDarkMode ? 'dark' : 'light'}
 							className='flex-1'>
 							<Animated.View
-								entering={SlideInUp}
+								entering={SlideInDown}
 								className={`
                 mt-auto rounded-t-3xl overflow-hidden
                 ${isDarkMode ? 'bg-black' : 'bg-white'}
