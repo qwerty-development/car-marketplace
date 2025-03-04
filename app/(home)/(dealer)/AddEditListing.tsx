@@ -19,7 +19,9 @@ import {
 	Dimensions,
 	Pressable,
 	ActivityIndicator,
-	FlatList
+	FlatList,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native'
 import { useUser } from '@clerk/clerk-expo';
 import {
@@ -86,9 +88,18 @@ export default function AddEditListing() {
     date_bought: new Date(),
     seller_name: null
   })
+
+
+
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [modalImages, setModalImages] = useState<string[]>([])
+const [showSoldModal, setShowSoldModal] = useState(false);
+const [soldInfo, setSoldInfo] = useState({
+  price: '',
+  date: new Date().toISOString().split('T')[0],
+  buyer_name: ''
+});
 
   const isSubscriptionValid = useCallback(() => {
   if (!dealership) return false;
@@ -318,6 +329,364 @@ export default function AddEditListing() {
 
 		return true
 	}
+
+
+const handleDeleteConfirmation = useCallback(() => {
+  if (!dealership || !isSubscriptionValid()) {
+    Alert.alert('Subscription Error', 'Your subscription is not valid or has expired.');
+    return;
+  }
+
+  Alert.alert(
+    'Delete Listing',
+    'Are you sure you want to delete this listing? This action cannot be undone.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        onPress: async () => {
+          try {
+            if (!initialData || !initialData.id || !dealership || !dealership.id) {
+              console.error("Missing data for deletion:", {
+                initialData: !!initialData,
+                listingId: initialData?.id,
+                dealership: !!dealership,
+                dealershipId: dealership?.id
+              });
+              Alert.alert("Error", "Unable to delete: missing required information");
+              return;
+            }
+
+            setIsLoading(true);
+
+            console.log(`Deleting listing ID ${initialData.id} from dealership ${dealership.id}`);
+
+            const { error } = await supabase
+              .from('cars')
+              .delete()
+              .eq('id', initialData.id)
+              .eq('dealership_id', dealership.id);
+
+            if (error) {
+              console.error("Supabase deletion error:", error);
+              throw error;
+            }
+
+            console.log("Deletion successful");
+            Alert.alert(
+              'Success',
+              'Listing deleted successfully',
+              [{ text: 'OK', onPress: () => router.back() }]
+            );
+          } catch (error:any) {
+            console.error('Error deleting listing:', error);
+            Alert.alert('Error', `Failed to delete listing. Please try again. (${error.message})`);
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        style: 'destructive'
+      }
+    ]
+  );
+}, [initialData, dealership, isSubscriptionValid, router]);
+
+const handleMarkAsSold = useCallback(async () => {
+  if (!initialData || !dealership || !isSubscriptionValid()) {
+    setShowSoldModal(false);
+    return;
+  }
+
+  // Validate sold info
+  if (!soldInfo.price || !soldInfo.date || !soldInfo.buyer_name) {
+    Alert.alert('Validation Error', 'Please fill in all the required fields.');
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+
+    const { error } = await supabase
+      .from('cars')
+      .update({
+        status: 'sold',
+        sold_price: parseInt(soldInfo.price),
+        date_sold: soldInfo.date,
+        buyer_name: soldInfo.buyer_name
+      })
+      .eq('id', initialData.id)
+      .eq('dealership_id', dealership.id);
+
+    if (error) throw error;
+
+    setShowSoldModal(false);
+    Alert.alert(
+      'Success',
+      'Listing marked as sold successfully',
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
+  } catch (error) {
+    console.error('Error marking as sold:', error);
+    Alert.alert('Error', 'Failed to mark listing as sold. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+}, [initialData, dealership, isSubscriptionValid, soldInfo, router]);
+
+
+const SoldModal = () => {
+  // Define a consistent input style
+  const inputStyle = `w-full px-4 py-3 rounded-xl border mb-4 ${
+    isDarkMode
+      ? 'border-neutral-700 bg-neutral-800 text-white'
+      : 'border-neutral-200 bg-neutral-50 text-black'
+  }`;
+
+  return (
+    <Modal
+      visible={showSoldModal}
+      transparent={true}
+      animationType="slide"
+      statusBarTranslucent={true}
+      onRequestClose={() => setShowSoldModal(false)}>
+
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ flex: 1 }}>
+          <BlurView
+            intensity={isDarkMode ? 30 : 20}
+            tint={isDarkMode ? 'dark' : 'light'}
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+
+            <View
+              style={{
+                width: '90%',
+                maxWidth: 400,
+                borderRadius: 24,
+                padding: 24,
+                backgroundColor: isDarkMode ? '#171717' : '#ffffff',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                elevation: 5,
+              }}>
+
+              {/* Header */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 24
+              }}>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  color: isDarkMode ? '#ffffff' : '#000000'
+                }}>
+                  Mark as Sold
+                </Text>
+
+                <TouchableOpacity onPress={() => setShowSoldModal(false)}>
+                  <Ionicons
+                    name="close-circle"
+                    size={24}
+                    color={isDarkMode ? '#FFFFFF' : '#000000'}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Selling Price */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '500',
+                  marginBottom: 8,
+                  color: isDarkMode ? '#d4d4d4' : '#4b5563'
+                }}>
+                  Selling Price
+                </Text>
+                <TextInput
+                  value={soldInfo.price}
+                  onChangeText={(text) => setSoldInfo(prev => ({ ...prev, price: text }))}
+                  placeholder="Enter selling price"
+                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                  keyboardType="numeric"
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#404040' : '#e5e7eb',
+                    backgroundColor: isDarkMode ? '#262626' : '#f9fafb',
+                    borderRadius: 12,
+                    color: isDarkMode ? '#ffffff' : '#000000',
+                    fontSize: 16
+                  }}
+                />
+              </View>
+
+              {/* Buyer Name */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '500',
+                  marginBottom: 8,
+                  color: isDarkMode ? '#d4d4d4' : '#4b5563'
+                }}>
+                  Buyer Name
+                </Text>
+                <TextInput
+                  value={soldInfo.buyer_name}
+                  onChangeText={(text) => setSoldInfo(prev => ({ ...prev, buyer_name: text }))}
+                  placeholder="Enter buyer name"
+                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#404040' : '#e5e7eb',
+                    backgroundColor: isDarkMode ? '#262626' : '#f9fafb',
+                    borderRadius: 12,
+                    color: isDarkMode ? '#ffffff' : '#000000',
+                    fontSize: 16
+                  }}
+                />
+              </View>
+
+              {/* Sale Date */}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '500',
+                  marginBottom: 8,
+                  color: isDarkMode ? '#d4d4d4' : '#4b5563'
+                }}>
+                  Sale Date
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#404040' : '#e5e7eb',
+                    backgroundColor: isDarkMode ? '#262626' : '#f9fafb',
+                    borderRadius: 12
+                  }}>
+                  <Text style={{
+                    color: soldInfo.date
+                      ? (isDarkMode ? '#ffffff' : '#000000')
+                      : (isDarkMode ? '#9CA3AF' : '#6B7280'),
+                    fontSize: 16
+                  }}>
+                    {soldInfo.date || 'Select date'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginTop: 8
+              }}>
+                <TouchableOpacity
+                  onPress={() => setShowSoldModal(false)}
+                  style={{
+                    flex: 1,
+                    marginRight: 8,
+                    height: 56,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: isDarkMode ? '#404040' : '#d1d5db',
+                    borderRadius: 12
+                  }}>
+                  <Text style={{
+                    color: isDarkMode ? '#ffffff' : '#000000',
+                    fontSize: 16,
+                    fontWeight: '600'
+                  }}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleMarkAsSold}
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    height: 56,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: '#16a34a',
+                    borderRadius: 12
+                  }}>
+                  <Text style={{
+                    color: '#ffffff',
+                    fontSize: 16,
+                    fontWeight: '600'
+                  }}>
+                    Confirm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </BlurView>
+        </View>
+      </TouchableWithoutFeedback>
+
+      <DateTimePickerModal
+        isVisible={showDatePicker}
+        mode="date"
+        date={soldInfo.date ? new Date(soldInfo.date) : new Date()}
+        onConfirm={(date) => {
+          setSoldInfo(prev => ({
+            ...prev,
+            date: date.toISOString().split('T')[0]
+          }));
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
+      />
+    </Modal>
+  );
+};
+
+
+const ActionButtons = () => {
+  if (!initialData) return null;
+
+  return (
+    <View className="border-t border-neutral-200 dark:border-neutral-800 mt-8 pt-6 mb-12">
+      <SectionHeader
+        title="Listing Actions"
+        subtitle="Additional operations for this listing"
+        isDarkMode={isDarkMode}
+      />
+
+      <View className="flex-row space-x-4 mt-4">
+        {/* Delete Button - Always show for existing listings */}
+        <TouchableOpacity
+          onPress={handleDeleteConfirmation}
+          className="flex-1 bg-rose-600 p-4 rounded-xl items-center">
+          <Text className="text-white font-medium">Delete Listing</Text>
+        </TouchableOpacity>
+
+        {/* Mark as Sold - Only show if listing is not already sold */}
+        {initialData.status !== 'sold' && (
+          <TouchableOpacity
+            onPress={() => setShowSoldModal(true)}
+            className="flex-1 bg-green-600 p-4 rounded-xl items-center">
+            <Text className="text-white font-medium">Mark as Sold</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
 
 const handleSubmit = useCallback(() => {
   if (!validateFormData(formData)) return;
@@ -856,10 +1225,11 @@ const handleSubmit = useCallback(() => {
 										/>
 									</View>
 
-									{/* Bottom Spacing */}
-									<View className='h-20' />
-								</ScrollView>
+                  {initialData && <ActionButtons />}
 
+
+								</ScrollView>
+<SoldModal />
     </SafeAreaView>
   )
 }

@@ -1055,183 +1055,151 @@ export default function DealerListings() {
 		}
 	}
 
-	const ListingCard = useMemo(
-		() =>
-			React.memo(({ item }: { item: CarListing }) => {
-				const subscriptionValid = isSubscriptionValid()
-				const statusConfig = getStatusConfig(item.status)
+const ListingCard = useMemo(
+  () =>
+    React.memo(({ item }: { item: CarListing }) => {
+      const subscriptionValid = isSubscriptionValid();
+      const statusConfig = getStatusConfig(item.status);
 
-				return (
-					<Animated.View
-						entering={FadeInDown}
-						className={`m-4 mb-4 ${
-							isDarkMode ? 'bg-textgray' : 'bg-[#e1e1e1]'
-						} rounded-3xl overflow-hidden shadow-xl`}>
-						{/* Image and Overlays */}
-						<View className='relative'>
-				<Image
-  source={{ uri: item.images[0] }}
-  className='w-full aspect-[24/24]' // Using 16:9 aspect ratio for consistent display
-  resizeMode='cover' // Ensures image fills container while maintaining aspect ratio
-/>
+      // Direct navigation handler with subscription validation
+      const handleCardPress = () => {
+        if (!subscriptionValid) {
+          Alert.alert(
+            'Subscription Expired',
+            'Please renew your subscription to manage listings.'
+          );
+          return;
+        }
 
+        // Navigate directly to edit page
+        router.push({
+          pathname: '/(home)/(dealer)/AddEditListing',
+          params: {
+            dealershipId: dealership.id,
+            listingId: item.id
+          }
+        });
+      };
 
+      return (
+        // Add TouchableOpacity wrapper here
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleCardPress}
+        >
+          <Animated.View
+            entering={FadeInDown}
+            className={`m-4 mb-4 ${
+              isDarkMode ? 'bg-textgray' : 'bg-[#e1e1e1]'
+            } rounded-3xl overflow-hidden shadow-xl`}>
+            {/* Image and Overlays */}
+            <View className='relative'>
+              <Image
+                source={{ uri: item.images[0] }}
+                className='w-full aspect-[24/24]'
+                resizeMode='cover'
+              />
 
-							{/* Top Actions Row */}
-							<View className='absolute top-4 w-full px-4 flex-row justify-between items-center'>
-								<View className='flex-row items-center'>
-									{/* Enhanced Status Badge with dot indicator */}
-									<View
-										style={{ backgroundColor: statusConfig.color }}
-										className='rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
-										<View
-											style={{ backgroundColor: statusConfig.dotColor }}
-											className='w-2 h-2 rounded-full mr-2 animate-pulse'
-										/>
-										<Text className='text-white text-xs font-bold uppercase tracking-wider'>
-											{item.status}
-										</Text>
-									</View>
+              {/* Top Actions Row */}
+              <View className='absolute top-4 w-full px-4 flex-row justify-between items-center'>
+                <View className='flex-row items-center'>
+                  {/* Enhanced Status Badge with dot indicator */}
+                  <View
+                    style={{ backgroundColor: statusConfig.color }}
+                    className='rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
+                    <View
+                      style={{ backgroundColor: statusConfig.dotColor }}
+                      className='w-2 h-2 rounded-full mr-2 animate-pulse'
+                    />
+                    <Text className='text-white text-xs font-bold uppercase tracking-wider'>
+                      {item.status}
+                    </Text>
+                  </View>
 
-									{/* Enhanced Stats Container */}
-									<View className='flex-row space-x-2'>
-										{/* Views Counter */}
-										<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
-											<FontAwesome name='eye' size={12} color='#FFFFFF' />
-											<Text className='text-white text-xs font-medium ml-1.5'>
-												{item.views || 0}
-											</Text>
-										</View>
+                  {/* Enhanced Stats Container */}
+                  <View className='flex-row space-x-2'>
+                    {/* Views Counter */}
+                    <View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
+                      <FontAwesome name='eye' size={12} color='#FFFFFF' />
+                      <Text className='text-white text-xs font-medium ml-1.5'>
+                        {item.views || 0}
+                      </Text>
+                    </View>
 
-										{/* Likes Counter */}
-										<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
-											<FontAwesome name='heart' size={12} color='#FFFFFF' />
-											<Text className='text-white text-xs font-medium ml-1.5'>
-												{item.likes || 0}
-											</Text>
-										</View>
-									</View>
-								</View>
+                    {/* Likes Counter */}
+                    <View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
+                      <FontAwesome name='heart' size={12} color='#FFFFFF' />
+                      <Text className='text-white text-xs font-medium ml-1.5'>
+                        {item.likes || 0}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
 
-								{/* Enhanced Menu Button */}
-								<TouchableOpacity
-									className='bg-black/60 backdrop-blur-lg rounded-full p-2.5'
-									onPress={() => {
-										if (!subscriptionValid) {
-											Alert.alert(
-												'Subscription Expired',
-												'Please renew your subscription to manage listings.'
-											)
-											return
-										}
+                {/* Remove ellipsis button here - intentionally deleted */}
+              </View>
 
-										const actions = [
-										{
-  text: 'Edit',
-  onPress: () => {
-    router.push({
-      pathname: '/(home)/(dealer)/AddEditListing',
-      params: {
-        dealershipId: dealership.id,
-        listingId: item.id
-      }
-    });
-  }},
-											// Only show "Mark as Sold" if the item is NOT sold
-											...(item.status !== 'sold'
-												? [
-														{
-															text: 'Mark as Sold',
-															onPress: () => {
-																setSelectedListing(item)
-																setIsSoldModalVisible(true)
-															}
-														}
-												  ]
-												: []),
-											{
-												text: 'Delete',
-												onPress: () => handleDeleteListing(item.id),
-												style: 'destructive'
-											},
-											{
-												text: 'Cancel',
-												style: 'cancel'
-											}
-										]
+              {/* Enhanced Bottom Content */}
+              <View className='absolute bottom-0 w-full p-5'>
+                <View className='flex-row justify-between items-end'>
+                  <View className='flex-1'>
+                    <Text className='text-white text-2xl font-bold tracking-tight mb-1'>
+                      {item.make} {item.model}
+                    </Text>
+                    <Text className='text-white text-3xl font-extrabold'>
+                      ${item.price.toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
 
-										Alert.alert('Manage Listing', 'Choose an action', actions)
-									}}>
-									<Ionicons
-										name='ellipsis-horizontal'
-										size={20}
-										color='#FFFFFF'
-									/>
-								</TouchableOpacity>
-							</View>
-
-							{/* Enhanced Bottom Content */}
-							<View className='absolute bottom-0 w-full p-5'>
-								<View className='flex-row justify-between items-end'>
-									<View className='flex-1'>
-										<Text className='text-white text-2xl font-bold tracking-tight mb-1'>
-											{item.make} {item.model}
-										</Text>
-										<Text className='text-white text-3xl font-extrabold'>
-											${item.price.toLocaleString()}
-										</Text>
-									</View>
-								</View>
-							</View>
-						</View>
-
-						{/* Enhanced Car Specs Section */}
-						<View className='px-5 py-4'>
-							<View className='flex-row justify-between'>
-								<SpecItem
-									title='Year'
-									icon='calendar-outline'
-									value={item.year}
-									isDarkMode={isDarkMode}
-								/>
-								<SpecItem
-									title='Mileage'
-									icon='speedometer-outline'
-									value={`${(item.mileage / 1000).toFixed(1)}k`}
-									isDarkMode={isDarkMode}
-								/>
-								<SpecItem
-									title='Transm.'
-									icon='cog-outline'
-									value={
-										item.transmission === 'Automatic'
-											? 'Auto'
-											: item.transmission === 'Manual'
-											? 'Man'
-											: item.transmission
-									}
-									isDarkMode={isDarkMode}
-								/>
-								<SpecItem
-									title='Condition'
-									icon='car-sport-outline'
-									value={item.condition}
-									isDarkMode={isDarkMode}
-								/>
-							</View>
-						</View>
-					</Animated.View>
-				)
-			}),
-		[
-			isDarkMode,
-			handleDeleteListing,
-			setSelectedListing,
-			setIsListingModalVisible,
-			setIsSoldModalVisible,
-			isSubscriptionValid
-		]
-	)
+            {/* Enhanced Car Specs Section */}
+            <View className='px-5 py-4'>
+              <View className='flex-row justify-between'>
+                <SpecItem
+                  title='Year'
+                  icon='calendar-outline'
+                  value={item.year}
+                  isDarkMode={isDarkMode}
+                />
+                <SpecItem
+                  title='Mileage'
+                  icon='speedometer-outline'
+                  value={`${(item.mileage / 1000).toFixed(1)}k`}
+                  isDarkMode={isDarkMode}
+                />
+                <SpecItem
+                  title='Transm.'
+                  icon='cog-outline'
+                  value={
+                    item.transmission === 'Automatic'
+                      ? 'Auto'
+                      : item.transmission === 'Manual'
+                      ? 'Man'
+                      : item.transmission
+                  }
+                  isDarkMode={isDarkMode}
+                />
+                <SpecItem
+                  title='Condition'
+                  icon='car-sport-outline'
+                  value={item.condition}
+                  isDarkMode={isDarkMode}
+                />
+              </View>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      );
+    }),
+  [
+    isDarkMode,
+    router,
+    dealership,
+    isSubscriptionValid
+  ]
+);
 
 	if (!dealership) {
 		return (
