@@ -52,14 +52,14 @@ import { format } from 'date-fns'
 const { width } = Dimensions.get('window')
 
 // Constants
-const VEHICLE_TYPES = [
+export const VEHICLE_TYPES = [
 	{ value: 'Benzine', label: 'Benzine', icon: 'gas-station' },
 	{ value: 'Diesel', label: 'Diesel', icon: 'fuel' },
 	{ value: 'Electric', label: 'Electric', icon: 'lightning-bolt' },
 	{ value: 'Hybrid', label: 'Hybrid', icon: 'leaf' }
 ]
 
-const CATEGORIES = [
+export const CATEGORIES = [
 	{ value: 'Sedan', label: 'Sedan', icon: 'car-side' },
 	{ value: 'SUV', label: 'SUV', icon: 'car-estate' },
 	{ value: 'Coupe', label: 'Coupe', icon: 'car-sports' },
@@ -68,12 +68,12 @@ const CATEGORIES = [
 	{ value: 'Sports', label: 'Sports', icon: 'car-sports' }
 ]
 
-const TRANSMISSIONS = [
+export const TRANSMISSIONS = [
 	{ value: 'Automatic', label: 'Automatic', icon: 'cog-clockwise' },
 	{ value: 'Manual', label: 'Manual', icon: 'cog' }
 ]
 
-const DRIVE_TRAINS = [
+export const DRIVE_TRAINS = [
 	{ value: 'FWD', label: 'Front Wheel Drive', icon: 'car-traction-control' },
 	{ value: 'RWD', label: 'Rear Wheel Drive', icon: 'car-traction-control' },
 	{ value: 'AWD', label: 'All Wheel Drive', icon: 'car-traction-control' },
@@ -81,12 +81,12 @@ const DRIVE_TRAINS = [
 	{ value: '4x4', label: '4x4', icon: 'car-traction-control' }
 ]
 
-const CONDITIONS = [
+export const CONDITIONS = [
 	{ value: 'New', label: 'New', icon: 'star' },
 	{ value: 'Used', label: 'Used', icon: 'star-half' }
 ]
 
-const BrandSelector = memo(
+export const BrandSelector = memo(
 	({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
 		// State Management
 		const [brands, setBrands] = useState<any[]>([])
@@ -447,7 +447,7 @@ const BrandSelector = memo(
 	}
 )
 
-const VEHICLE_COLORS = [
+export const VEHICLE_COLORS = [
 	{ name: 'Black', gradient: ['#000000', '#1a1a1a'] },
 	{ name: 'White', gradient: ['#ffffff', '#f5f5f5'] },
 	{ name: 'Silver', gradient: ['#C0C0C0', '#A8A8A8'] },
@@ -461,7 +461,7 @@ const VEHICLE_COLORS = [
 ]
 
 // Model Dropdown Component
-const ModelDropdown = memo(
+export const ModelDropdown = memo(
 	({ make, value, onChange, error, isDarkMode }: any) => {
 		const [isOpen, setIsOpen] = useState(false)
 		const [models, setModels] = useState<string[]>([])
@@ -613,7 +613,7 @@ const ModelDropdown = memo(
 )
 
 // Enhanced Color Selector Component
-const EnhancedColorSelector = memo(({ value, onChange, isDarkMode }: any) => {
+export const EnhancedColorSelector = memo(({ value, onChange, isDarkMode }: any) => {
 	return (
 		<ScrollView
 			horizontal
@@ -655,7 +655,7 @@ const EnhancedColorSelector = memo(({ value, onChange, isDarkMode }: any) => {
 })
 
 // Futuristic Input Component
-const NeumorphicInput = memo(
+export const NeumorphicInput = memo(
 	({
 		label,
 		value,
@@ -751,7 +751,7 @@ const NeumorphicInput = memo(
 )
 
 // Selection Option Component
-const SelectionCard = memo(
+export const SelectionCard = memo(
 	({
 		label = '',
 		icon = 'car',
@@ -806,7 +806,7 @@ const SelectionCard = memo(
 	)
 )
 
-const FuturisticGallery = memo(
+export const FuturisticGallery = memo(
 	({ images, onRemove, onReorder, onAdd, isDarkMode, isUploading }: any) => {
 		// 1. Enhanced animation configuration
 		const activationDistance = 20
@@ -1035,7 +1035,7 @@ const FuturisticGallery = memo(
 )
 
 // Section Header Component
-const SectionHeader = memo(({ title, subtitle, isDarkMode }: any) => (
+export const SectionHeader = memo(({ title, subtitle, isDarkMode }: any) => (
 	<View className='mb-4'>
 		<LinearGradient
 			colors={isDarkMode ? ['#D55004', '#FF6B00'] : ['#000', '#333']}
@@ -1697,7 +1697,7 @@ const ListingModal = ({
 									<View className='h-20' />
 								</ScrollView>
 
-								{/* Date Picker Modal */}
+
 							</Animated.View>
 						</BlurView>
 					</Animated.View>

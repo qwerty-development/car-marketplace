@@ -27,6 +27,8 @@ import { useScrollToTop } from '@react-navigation/native'
 import { debounce } from 'lodash'
 import { BlurView } from 'expo-blur'
 import ModernPicker from '@/components/ModernPicker'
+import { useRouter } from 'expo-router'
+  import { useFocusEffect } from '@react-navigation/native';
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -676,6 +678,7 @@ export default function DealerListings() {
 	const [selectedListing, setSelectedListing] = useState<CarListing | null>(
 		null
 	)
+  const router=useRouter()
 	const [isListingModalVisible, setIsListingModalVisible] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -760,7 +763,7 @@ export default function DealerListings() {
 		return query
 	}
 
-	const fetchListings = useCallback(
+  	const fetchListings = useCallback(
 		async (page = 1, refresh = false) => {
 			if (!dealership) return
 			setIsLoading(true)
@@ -865,6 +868,25 @@ export default function DealerListings() {
 		[dealership]
 	)
 
+	const handleRefresh = useCallback(() => {
+		setIsRefreshing(true)
+		setCurrentPage(1)
+		fetchListings(1, true)
+	}, [fetchListings])
+
+
+
+  useFocusEffect(
+    React.useCallback(() => {
+      handleRefresh();
+      return () => {
+
+      };
+    }, [handleRefresh])
+  );
+
+
+
 	const handleLoadMore = useCallback(() => {
 		if (!isLoading && hasMoreListings && !isRefreshing) {
 			const nextPage = currentPage + 1
@@ -872,11 +894,7 @@ export default function DealerListings() {
 		}
 	}, [currentPage, isLoading, hasMoreListings, isRefreshing, fetchListings])
 
-	const handleRefresh = useCallback(() => {
-		setIsRefreshing(true)
-		setCurrentPage(1)
-		fetchListings(1, true)
-	}, [fetchListings])
+
 
 	useEffect(() => {
 		fetchDealership()
@@ -962,199 +980,9 @@ export default function DealerListings() {
 		[dealership, isSubscriptionValid]
 	)
 
-	const handleSubmitListing = useCallback(
-		async (formData: Partial<CarListing>) => {
-			if (!dealership || !isSubscriptionValid()) return
 
-			try {
-				if (selectedListing) {
-					// Keep only the fields that exist in the database
-					const {
-						// Fields to exclude from update
-						id,
-						listed_at,
-						date_modified,
-						views,
-						likes,
-						viewed_users,
-						liked_users,
-						sold_price,
-						date_sold,
-						buyer_name,
-						status,
-						dealership_name,
-						dealership_logo,
-						dealership_phone,
-						dealership_location,
-						dealership_latitude,
-						dealership_longitude,
-						...allowedData
-					} = formData
 
-					// Prepare the update data with only valid database fields
-					const dataToUpdate = {
-						make: allowedData.make,
-						model: allowedData.model,
-						price: allowedData.price,
-						year: allowedData.year,
-						description: allowedData.description,
-						images: allowedData.images,
-						condition: allowedData.condition,
-						transmission: allowedData.transmission,
-						color: allowedData.color,
-						mileage: allowedData.mileage,
-						drivetrain: allowedData.drivetrain,
-						type: allowedData.type,
-						category: allowedData.category,
-						bought_price: allowedData.bought_price,
-						date_bought: allowedData.date_bought
-							? new Date(allowedData.date_bought).toISOString()
-							: null,
-						seller_name: allowedData.seller_name,
-						dealership_id: selectedListing.dealership_id
-					}
-
-					// Perform the update
-					const { data, error } = await supabase
-						.from('cars')
-						.update(dataToUpdate)
-						.eq('id', selectedListing.id)
-						.eq('dealership_id', dealership.id)
-						.select(
-							`
-                        id,
-                        listed_at,
-                        make,
-                        model,
-                        price,
-                        year,
-                        description,
-                        images,
-                        sold_price,
-                        date_sold,
-                        status,
-                        dealership_id,
-                        date_modified,
-                        views,
-                        likes,
-                        condition,
-                        transmission,
-                        color,
-                        mileage,
-                        drivetrain,
-                        viewed_users,
-                        liked_users,
-                        type,
-                        category,
-                        bought_price,
-                        date_bought,
-                        seller_name,
-                        buyer_name
-                    `
-						)
-						.single()
-
-					if (error) throw error
-
-					if (data) {
-						// Update the listings state with the new data
-						setListings(prevListings =>
-							prevListings.map(listing =>
-								listing.id === selectedListing.id
-									? {
-											...listing,
-											...data,
-											// Preserve the dealership information
-											dealership_name: listing.dealership_name,
-											dealership_logo: listing.dealership_logo,
-											dealership_phone: listing.dealership_phone,
-											dealership_location: listing.dealership_location,
-											dealership_latitude: listing.dealership_latitude,
-											dealership_longitude: listing.dealership_longitude
-									  }
-									: listing
-							)
-						)
-						Alert.alert('Success', 'Listing updated successfully')
-					}
-				} else {
-					// Handle new listing creation
-					const {
-						dealership_name,
-						dealership_logo,
-						dealership_phone,
-						dealership_location,
-						dealership_latitude,
-						dealership_longitude,
-						...allowedData
-					} = formData
-
-					const newListingData = {
-						make: allowedData.make,
-						model: allowedData.model,
-						price: allowedData.price,
-						year: allowedData.year,
-						description: allowedData.description,
-						images: allowedData.images,
-						condition: allowedData.condition,
-						transmission: allowedData.transmission,
-						color: allowedData.color,
-						mileage: allowedData.mileage,
-						drivetrain: allowedData.drivetrain,
-						type: allowedData.type,
-						category: allowedData.category,
-						bought_price: allowedData.bought_price,
-						date_bought: allowedData.date_bought
-							? new Date(allowedData.date_bought).toISOString()
-							: new Date().toISOString(),
-						seller_name: allowedData.seller_name,
-						dealership_id: dealership.id,
-						status: 'available',
-						views: 0,
-						likes: 0,
-						viewed_users: [],
-						liked_users: []
-					}
-
-					const { data, error } = await supabase
-						.from('cars')
-						.insert(newListingData)
-						.select()
-						.single()
-
-					if (error) throw error
-
-					if (data) {
-						// Add the dealership information to the new listing
-						const newListing = {
-							...data,
-							dealership_name: dealership.name,
-							dealership_logo: dealership.logo,
-							dealership_phone: dealership.phone,
-							dealership_location: dealership.location,
-							dealership_latitude: dealership.latitude,
-							dealership_longitude: dealership.longitude
-						}
-						setListings(prevListings => [newListing, ...prevListings])
-						Alert.alert('Success', 'New listing created successfully')
-					}
-				}
-
-				// Reset modal state
-				setIsListingModalVisible(false)
-				setSelectedListing(null)
-			} catch (error: any) {
-				console.error('Error submitting listing:', error)
-				Alert.alert(
-					'Error',
-					error?.message || 'Failed to submit listing. Please try again.'
-				)
-			}
-		},
-		[dealership, selectedListing, isSubscriptionValid]
-	)
-
-	const SpecItem = ({ title, icon, value, isDarkMode }) => (
+	const SpecItem = ({ title, icon, value, isDarkMode }:any) => (
 		<View className='flex-1 items-center justify-center'>
 			<Text
 				className={`text-xs mb-3 ${
@@ -1298,13 +1126,17 @@ export default function DealerListings() {
 										}
 
 										const actions = [
-											{
-												text: 'Edit',
-												onPress: () => {
-													setSelectedListing(item)
-													setIsListingModalVisible(true)
-												}
-											},
+										{
+  text: 'Edit',
+  onPress: () => {
+    router.push({
+      pathname: '/(home)/(dealer)/AddEditListing',
+      params: {
+        dealershipId: dealership.id,
+        listingId: item.id
+      }
+    });
+  }},
 											// Only show "Mark as Sold" if the item is NOT sold
 											...(item.status !== 'sold'
 												? [
@@ -1459,15 +1291,17 @@ export default function DealerListings() {
       onFilterPress={() => setIsFilterModalVisible(true)}
       onAddPress={() => {
         if (subscriptionExpired) {
-          Alert.alert(
-            'Subscription Expired',
-            'Please renew your subscription to add new listings.'
-          );
-          return;
-        }
-        setSelectedListing(null);
-        setIsListingModalVisible(true);
-      }}
+      Alert.alert(
+        'Subscription Expired',
+        'Please renew your subscription to add new listings.'
+      );
+      return;
+    }
+    router.push({
+      pathname: '/(home)/(dealer)/AddEditListing',
+      params: { dealershipId: dealership.id }
+    });
+  }}
       isDarkMode={isDarkMode}
       subscriptionExpired={subscriptionExpired}
     />
@@ -1524,16 +1358,7 @@ export default function DealerListings() {
 
 			{!subscriptionExpired && (
 				<>
-					<ListingModal
-						isVisible={isListingModalVisible}
-						onClose={() => {
-							setIsListingModalVisible(false)
-							setSelectedListing(null)
-						}}
-						onSubmit={handleSubmitListing}
-						initialData={selectedListing}
-						dealership={dealership}
-					/>
+
 
 					<ModernFilterModal
 						visible={isFilterModalVisible}
