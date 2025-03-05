@@ -126,19 +126,22 @@ export function useNotifications(): UseNotificationsReturn {
   }, [user]);
 
   // Set up realtime subscription for new notifications
-  const setupRealtimeSubscription = useCallback(() => {
-    if (!user) return;
+const setupRealtimeSubscription = useCallback(() => {
+  if (!user) return;
 
-    // Cleanup existing subscription
-    if (realtimeSubscription.current) {
-      realtimeSubscription.current.unsubscribe();
-    }
+  // Cleanup existing subscription
+  if (realtimeSubscription.current) {
+    console.log('Cleaning up previous realtime subscription');
+    realtimeSubscription.current.unsubscribe();
+  }
 
-    // Subscribe to real-time notifications
+  // Subscribe to real-time notifications with error tracking
+  try {
+    console.log('Setting up new realtime subscription');
     realtimeSubscription.current = NotificationService.subscribeToRealtime(
       user.id,
       async (notification) => {
-        console.log('Realtime notification received:', notification);
+        console.log('Processing realtime notification:', notification?.id);
 
         // Update unread count
         const newUnreadCount = await NotificationService.getUnreadCount(user.id);
@@ -148,7 +151,10 @@ export function useNotifications(): UseNotificationsReturn {
         await NotificationService.setBadgeCount(newUnreadCount);
       }
     );
-  }, [user]);
+  } catch (error) {
+    console.error('Failed to set up realtime subscription:', error);
+  }
+}, [user]);
 
   // Register for push notifications
   const registerForNotifications = useCallback(async () => {
@@ -392,23 +398,28 @@ export function useNotifications(): UseNotificationsReturn {
 
     initialize();
 
-    return () => {
-      mounted = false;
-      console.log('Cleaning up notification listeners');
+ return () => {
+  mounted = false;
+  console.log('Cleaning up notification listeners and subscriptions');
 
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-      if (pushTokenListener.current) {
-        pushTokenListener.current.remove();
-      }
-      if (realtimeSubscription.current) {
-        realtimeSubscription.current.unsubscribe();
-      }
-    };
+  if (notificationListener.current) {
+    Notifications.removeNotificationSubscription(notificationListener.current);
+  }
+  if (responseListener.current) {
+    Notifications.removeNotificationSubscription(responseListener.current);
+  }
+  if (pushTokenListener.current) {
+    pushTokenListener.current.remove();
+  }
+  if (realtimeSubscription.current) {
+    try {
+      console.log('Unsubscribing from realtime notifications');
+      realtimeSubscription.current.unsubscribe();
+    } catch (error) {
+      console.error('Error during subscription cleanup:', error);
+    }
+  }
+};
   }, [user?.id, handleNotification, handleNotificationResponse, setupRealtimeSubscription, refreshNotifications, registerForNotifications]);
 
   return {
