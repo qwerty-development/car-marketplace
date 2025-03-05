@@ -33,40 +33,57 @@ export function useNotifications(): UseNotificationsReturn {
   const initialCheckDone = useRef(false);
   const lastHandledNotification = useRef<string>();
   const pushTokenListener = useRef<any>();
+  const appState = useRef(AppState.currentState);
 
+  // Handler for token refresh events
   const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
     if (!user) return;
 
     console.log('Expo push token refreshed:', pushToken.data);
     try {
+      // Update token in Supabase
       await NotificationService.updatePushToken(pushToken.data, user.id);
+
+      // Update token in secure storage
+      await SecureStore.setItemAsync('expoPushToken', pushToken.data);
     } catch (error) {
       console.error('Error updating push token after refresh:', error);
     }
   }, [user]);
 
+  // Handler for received notifications
   const handleNotification = useCallback(async (notification: Notifications.Notification) => {
     if (!user) return;
 
-    // Prevent duplicate handling
+    // Avoid duplicate handling
     if (lastHandledNotification.current === notification.request.identifier) {
       return;
     }
     lastHandledNotification.current = notification.request.identifier;
 
     try {
+      console.log('Notification received:', {
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        data: notification.request.content.data
+      });
+
       // Update unread count
       const newUnreadCount = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(newUnreadCount);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(newUnreadCount);
     } catch (error) {
       console.error('Error handling notification:', error);
     }
   }, [user]);
 
+  // Handler for when user taps on a notification
   const handleNotificationResponse = useCallback(async (response: Notifications.NotificationResponse) => {
     if (!user) return;
 
-    // Prevent duplicate handling
+    // Avoid duplicate handling
     if (lastNotificationResponse.current?.notification.request.identifier ===
         response.notification.request.identifier) {
       return;
@@ -74,6 +91,11 @@ export function useNotifications(): UseNotificationsReturn {
     lastNotificationResponse.current = response;
 
     try {
+      console.log('User responded to notification:', {
+        title: response.notification.request.content.title,
+        data: response.notification.request.content.data
+      });
+
       const navigationData = await NotificationService.handleNotificationResponse(response);
       if (navigationData?.screen) {
         // Mark notification as read if it has an ID
@@ -82,9 +104,13 @@ export function useNotifications(): UseNotificationsReturn {
           await NotificationService.markAsRead(notificationId);
           const newUnreadCount = await NotificationService.getUnreadCount(user.id);
           setUnreadCount(newUnreadCount);
+
+          // Update badge count
+          await NotificationService.setBadgeCount(newUnreadCount);
         }
 
         // Navigate to the specified screen
+        console.log(`Navigating to ${navigationData.screen}`, navigationData.params);
         if (navigationData.params) {
           router.push({
             pathname: navigationData.screen,
@@ -99,6 +125,7 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user]);
 
+  // Set up realtime subscription for new notifications
   const setupRealtimeSubscription = useCallback(() => {
     if (!user) return;
 
@@ -111,134 +138,208 @@ export function useNotifications(): UseNotificationsReturn {
     realtimeSubscription.current = NotificationService.subscribeToRealtime(
       user.id,
       async (notification) => {
+        console.log('Realtime notification received:', notification);
+
         // Update unread count
         const newUnreadCount = await NotificationService.getUnreadCount(user.id);
         setUnreadCount(newUnreadCount);
+
+        // Update badge count
+        await NotificationService.setBadgeCount(newUnreadCount);
       }
     );
   }, [user]);
 
+  // Register for push notifications
   const registerForNotifications = useCallback(async () => {
     if (!user) return;
 
-    try {
-      const permissionStatus = await NotificationService.getPermissions();
+    setLoading(true);
+    console.log('Starting notification registration process');
 
-      if (permissionStatus?.status === 'granted') {
-        setIsPermissionGranted(true);
-      } else {
+    try {
+      // Check if we have project ID
+      const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+      if (!projectId) {
+        console.error('EXPO_PUBLIC_PROJECT_ID is not defined in environment variables');
+        console.error('Push notifications will not work without this value');
+        setLoading(false);
+        return;
+      }
+
+      // 1. Check permission status
+      const permissionStatus = await NotificationService.getPermissions();
+      console.log('Current permission status:', permissionStatus?.status);
+
+      if (permissionStatus?.status !== 'granted') {
+        console.log('Permission not granted, requesting...');
         const newPermission = await NotificationService.requestPermissions();
+
         if (newPermission?.status !== 'granted') {
+          console.log('Permission denied');
           setIsPermissionGranted(false);
+          setLoading(false);
           return;
         }
-        setIsPermissionGranted(true);
       }
 
-      const storedToken = await SecureStore.getItemAsync('expoPushToken');
-      let tokenData;
+      setIsPermissionGranted(true);
+      console.log('Notification permissions granted');
 
-      if (storedToken) {
-        // Check if the stored token exists in the database
-        const { data: existingTokenData, error: existingTokenError } = await supabase
-          .from('user_push_tokens')
-          .select('token')
-          .eq('user_id', user.id)
-          .eq('token', storedToken)
-          .single();
+      // 2. Get token
+      console.log('Getting Expo push token...');
+      const token = await NotificationService.registerForPushNotificationsAsync(user.id);
 
-        if (existingTokenError) {
-          console.error('Error checking existing token:', existingTokenError);
+      if (token) {
+        console.log('Successfully registered push token:', token);
+        await SecureStore.setItemAsync('expoPushToken', token);
+
+        // Remove any existing listener before adding a new one
+        if (pushTokenListener.current) {
+          pushTokenListener.current.remove();
         }
 
-        tokenData = existingTokenData;
-      }
-
-      // Only register if token doesn't exist or if it has changed
-      if (!tokenData) {
-        const token = await NotificationService.registerForPushNotificationsAsync(user.id);
-
-        if (token) {
-          console.log('Expo push token:', token);
-          await SecureStore.setItemAsync('expoPushToken', token);
-          pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-        }
+        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+      } else {
+        console.warn('Failed to get push token');
       }
     } catch (error) {
       console.error('Error registering for notifications:', error);
+
+      // Additional error logging
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+
       setIsPermissionGranted(false);
+    } finally {
+      setLoading(false);
     }
-  }, [user]);
+  }, [user, handleTokenRefresh]);
 
-
+  // Cleanup push token on logout
   const cleanupPushToken = useCallback(async () => {
     if (!user) return;
+
+    console.log('Starting push token cleanup process');
     try {
       // Get token from secure storage
       const token = await SecureStore.getItemAsync('expoPushToken');
 
       if (token) {
+        console.log('Cleaning up push token:', token);
+
         // Delete token from database
-        await supabase
+        const { error } = await supabase
           .from('user_push_tokens')
           .delete()
           .match({ user_id: user.id, token });
 
+        if (error) {
+          console.error('Error deleting push token from database:', error);
+        } else {
+          console.log('Token successfully removed from database');
+        }
+
         // Remove token from secure storage
         await SecureStore.deleteItemAsync('expoPushToken');
-
-        console.log('Push token cleaned up successfully');
+        console.log('Token removed from secure storage');
       } else {
-        console.warn('No push token found in secure storage to cleanup.');
+        console.warn('No push token found in secure storage to cleanup');
       }
     } catch (error) {
       console.error('Error cleaning up push token:', error);
     }
   }, [user]);
 
-  // Notification management functions - Kept the same
+  // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!user) return;
+
     try {
       await NotificationService.markAsRead(notificationId);
       const newUnreadCount = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(newUnreadCount);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(newUnreadCount);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
   }, [user]);
 
+  // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
     if (!user) return;
+
     try {
       await NotificationService.markAllAsRead(user.id);
       setUnreadCount(0);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
   }, [user]);
 
+  // Delete notification
   const deleteNotification = useCallback(async (notificationId: string) => {
     if (!user) return;
+
     try {
       await NotificationService.deleteNotification(notificationId);
       const newUnreadCount = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(newUnreadCount);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(newUnreadCount);
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
   }, [user]);
 
+  // Refresh notifications (update unread count)
   const refreshNotifications = useCallback(async () => {
     if (!user) return;
+
+    setLoading(true);
     try {
       const count = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(count);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(count);
     } catch (error) {
       console.error('Error refreshing notifications:', error);
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
+  // Handle app state changes (refresh when app comes to foreground)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active' &&
+        user?.id
+      ) {
+        console.log('App has come to foreground, refreshing notifications');
+        refreshNotifications();
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [refreshNotifications, user]);
+
+  // Set up notification listeners and initial data fetch
   useEffect(() => {
     if (!user?.id) return;
 
@@ -247,16 +348,53 @@ export function useNotifications(): UseNotificationsReturn {
     const initialize = async () => {
       if (!mounted) return;
 
+      console.log('Setting up notification listeners for user:', user.id);
+
+      // Set up notification listeners
       notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
       responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
+      // Set up realtime subscription
       setupRealtimeSubscription();
+
+      // Get initial unread count
+      await refreshNotifications();
+
+      // Check if we have a token stored and validate it
+      try {
+        const storedToken = await SecureStore.getItemAsync('expoPushToken');
+        if (storedToken) {
+          console.log('Found stored push token:', storedToken);
+
+          // Verify token is still valid in database
+          const { data } = await supabase
+            .from('user_push_tokens')
+            .select('token')
+            .eq('user_id', user.id)
+            .eq('token', storedToken)
+            .single();
+
+          if (!data) {
+            console.log('Stored token not found in database, re-registering...');
+            await registerForNotifications();
+          } else {
+            console.log('Token validated in database');
+            setIsPermissionGranted(true);
+          }
+        } else {
+          console.log('No stored token found, will need to register');
+          // Don't auto-register here, let the app call registerForPushNotifications
+        }
+      } catch (error) {
+        console.error('Error verifying token:', error);
+      }
     };
 
     initialize();
 
     return () => {
       mounted = false;
+      console.log('Cleaning up notification listeners');
 
       if (notificationListener.current) {
         Notifications.removeNotificationSubscription(notificationListener.current);
@@ -271,7 +409,7 @@ export function useNotifications(): UseNotificationsReturn {
         realtimeSubscription.current.unsubscribe();
       }
     };
-  }, [user?.id]);
+  }, [user?.id, handleNotification, handleNotificationResponse, setupRealtimeSubscription, refreshNotifications, registerForNotifications]);
 
   return {
     unreadCount,
