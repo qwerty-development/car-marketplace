@@ -99,7 +99,7 @@ export default function BrowseCarsPage() {
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   // --- New: suggestions state now groups makes and models ---
-  const [suggestions, setSuggestions] = useState<Suggestions>({
+  const [suggestions, setSuggestions] = useState<any>({
     makes: [],
     models: [],
   });

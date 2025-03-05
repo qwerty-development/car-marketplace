@@ -70,6 +70,16 @@ import {
 } from "@/components/ListingModal";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
+const SOURCE_OPTIONS = [
+  { value: 'Company', label: 'Company Source', icon: 'office-building' },
+  { value: 'GCC', label: 'GCC', icon: 'map-marker' },
+  { value: 'USA', label: 'US', icon: 'flag' },
+  { value: 'Canada', label: 'Canada', icon: 'flag' },
+  { value: 'Europe', label: 'Europe', icon: 'earth' }
+];
+
+
+
 export default function AddEditListing() {
   const { isDarkMode } = useTheme();
   const { user } = useUser();
@@ -729,9 +739,6 @@ export default function AddEditListing() {
     );
   };
 
-  const ActionButtons = () => { // This component is no longer needed
-    return null;
-  };
 
   const handleSubmit = useCallback(() => {
     if (!validateFormData(formData)) return;
@@ -788,6 +795,7 @@ export default function AddEditListing() {
               ? new Date(allowedData.date_bought).toISOString()
               : null,
             seller_name: allowedData.seller_name,
+              source: allowedData.source,
             dealership_id: dealership.id,
           };
 
@@ -825,7 +833,8 @@ export default function AddEditListing() {
             bought_price,
             date_bought,
             seller_name,
-            buyer_name
+            buyer_name,
+            source
           `
             )
             .single();
@@ -866,6 +875,7 @@ export default function AddEditListing() {
               : new Date().toISOString(),
             seller_name: allowedData.seller_name,
             dealership_id: dealership.id,
+             source: allowedData.source,
             status: "available",
             views: 0,
             likes: 0,
@@ -1064,6 +1074,7 @@ export default function AddEditListing() {
             ))}
           </ScrollView>
 
+
           <Text
             className={`text-sm font-medium mb-3 ${
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
@@ -1088,6 +1099,38 @@ export default function AddEditListing() {
             ))}
           </ScrollView>
         </View>
+
+        <View className="mb-8">
+  <SectionHeader
+    title="Vehicle Source"
+    subtitle="Select where the vehicle was sourced from"
+    isDarkMode={isDarkMode}
+  />
+
+  <Text
+    className={`text-sm font-medium mb-3 ${
+      isDarkMode ? "text-neutral-300" : "text-neutral-700"
+    }`}
+  >
+    Source
+  </Text>
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    className="mb-6"
+  >
+    {SOURCE_OPTIONS.map((source) => (
+      <SelectionCard
+        key={source.value}
+        label={source.label}
+        icon={source.icon}
+        isSelected={formData.source === source.value}
+        onSelect={() => handleInputChange("source", source.value)}
+        isDarkMode={isDarkMode}
+      />
+    ))}
+  </ScrollView>
+</View>
 
         <View className="mb-8">
           <SectionHeader

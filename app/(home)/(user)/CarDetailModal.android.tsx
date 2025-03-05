@@ -308,6 +308,47 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }
   }, [car.id, car.make, car.model, car.year, car.price]);
 
+    // Track call button clicks
+  const trackCallClick = useCallback(
+    async (carId: number) => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase.rpc("track_car_call", {
+          car_id: carId,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+        console.log(`Call count updated: ${data}`);
+      } catch (error) {
+        console.error("Error tracking call click:", error);
+      }
+    },
+    [user]
+  );
+
+  // Track WhatsApp button clicks
+  const trackWhatsAppClick = useCallback(
+    async (carId: number) => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase.rpc("track_car_whatsapp", {
+          car_id: carId,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+        console.log(`WhatsApp count updated: ${data}`);
+      } catch (error) {
+        console.error("Error tracking WhatsApp click:", error);
+      }
+    },
+    [user]
+  );
+
+
   const fetchDealerCars = useCallback(async () => {
     const { data, error } = await supabase
       .from("cars")
@@ -369,11 +410,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   const handleCall = useCallback(() => {
     if (car.dealership_phone) {
+      // Track the call click first
+      trackCallClick(car.id);
+      // Then proceed with the call
       Linking.openURL(`tel:${car.dealership_phone}`);
     } else {
       Alert.alert("Phone number not available");
     }
-  }, [car.dealership_phone]);
+  }, [car?.dealership_phone, car?.id, trackCallClick]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -481,61 +525,24 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   // Enhanced WhatsApp handling for Android
   const handleWhatsAppPress = useCallback(() => {
-    if (!car.dealership_phone) {
-      Alert.alert("Contact", "Phone number not available");
-      return;
+    if (car?.dealership_phone) {
+      // Track the WhatsApp click first
+      trackWhatsAppClick(car.id);
+
+      const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()} on Fleet`;
+      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
+
+      Linking.openURL(webURL).catch(() => {
+        Alert.alert(
+          'Error',
+          'Unable to open WhatsApp. Please make sure it is installed on your device.'
+        );
+      });
+    } else {
+      Alert.alert('Phone number not available');
     }
-
-    try {
-      // Format the message
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
-
-      // Format the phone number - ensure it's clean
-      const phoneNumber = `961${car.dealership_phone.toString().replace(/\D/g, '')}`;
-
-      // For Android, use the web URL format which is more reliable
-      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-
-      // Safe linking with proper error handling
-      Linking.canOpenURL(whatsappUrl)
-        .then(supported => {
-          if (supported) {
-            return Linking.openURL(whatsappUrl);
-          } else {
-            // Fallback for when direct linking fails
-            Alert.alert(
-              "WhatsApp Not Available",
-              "Would you like to copy the message to clipboard instead?",
-              [
-                {
-                  text: "Yes",
-                  onPress: () => {
-                    try {
-                      // This would require a clipboard library to be imported
-                      // Clipboard.setString(message);
-                      Alert.alert("Message copied to clipboard");
-                    } catch (e) {
-                      Alert.alert("Could not copy to clipboard");
-                    }
-                  }
-                },
-                { text: "No", style: "cancel" }
-              ]
-            );
-          }
-        })
-        .catch(err => {
-          console.error("Error with WhatsApp linking:", err);
-          Alert.alert(
-            "Error",
-            "Unable to open WhatsApp. Please try another contact method."
-          );
-        });
-    } catch (err) {
-      console.error("WhatsApp handling error:", err);
-      Alert.alert("Error", "An unexpected error occurred");
-    }
-  }, [car]);
+  }, [car, trackWhatsAppClick]);
 
   // Safer image modal for Android
   const renderImageModal = () => {
@@ -888,6 +895,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 icon: "thermometer-outline",
                 label: "Condition",
                 value: car.condition,
+              },
+                {
+                icon: "earth",
+                label: "Source",
+                value: car.source,
               },
             ].map((item, index, array) => (
               <TechnicalDataItem

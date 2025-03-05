@@ -129,7 +129,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const [autoclips, setAutoclips] = useState<any>([]);
   const [selectedClip, setSelectedClip] = useState<any>(null);
   const [showClipModal, setShowClipModal] = useState<any>(false);
-const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
   // Helper function to compute relative time from the listed_at property
   const getRelativeTime = (dateString: string) => {
@@ -255,6 +255,46 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
       }
     },
     [onViewUpdate]
+  );
+
+  // Track call button clicks
+  const trackCallClick = useCallback(
+    async (carId: number) => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase.rpc("track_car_call", {
+          car_id: carId,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+        console.log(`Call count updated: ${data}`);
+      } catch (error) {
+        console.error("Error tracking call click:", error);
+      }
+    },
+    [user]
+  );
+
+  // Track WhatsApp button clicks
+  const trackWhatsAppClick = useCallback(
+    async (carId: number) => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase.rpc("track_car_whatsapp", {
+          car_id: carId,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+        console.log(`WhatsApp count updated: ${data}`);
+      } catch (error) {
+        console.error("Error tracking WhatsApp click:", error);
+      }
+    },
+    [user]
   );
 
   useEffect(() => {
@@ -400,11 +440,14 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
 
   const handleCall = useCallback(() => {
     if (car.dealership_phone) {
+      // Track the call click first
+      trackCallClick(car.id);
+      // Then proceed with the call
       Linking.openURL(`tel:${car.dealership_phone}`);
     } else {
       Alert.alert("Phone number not available");
     }
-  }, [car.dealership_phone]);
+  }, [car?.dealership_phone, car?.id, trackCallClick]);
 
   const handleChat = useCallback(() => {
     Alert.alert("Chat feature coming soon!");
@@ -448,7 +491,7 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
           onPress: () => {
             const googleMapsUrl = `comgooglemaps://?q=${dealership_latitude},${dealership_longitude}&zoom=14`;
             Linking.openURL(googleMapsUrl).catch(() => {
-              // If Google Maps app isn’t installed, fallback to browser
+              // If Google Maps app isn't installed, fallback to browser
               const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
               Linking.openURL(fallbackUrl);
             });
@@ -515,21 +558,23 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
 
   const handleWhatsAppPress = useCallback(() => {
     if (car?.dealership_phone) {
+      // Track the WhatsApp click first
+      trackWhatsAppClick(car.id);
+
       const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-      
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString() } on Fleet`;
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()} on Fleet`;
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
+
       Linking.openURL(webURL).catch(() => {
-      Alert.alert(
-        'Error',
-        'Unable to open WhatsApp. Please make sure it is installed on your device.'
-      );
+        Alert.alert(
+          'Error',
+          'Unable to open WhatsApp. Please make sure it is installed on your device.'
+        );
       });
     } else {
       Alert.alert('Phone number not available');
     }
-    }, [car]);
-  
+  }, [car, trackWhatsAppClick]);
 
   return (
     <View
@@ -737,6 +782,11 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
                 label: "Condition",
                 value: car.condition,
               },
+              {
+                icon: "earth",
+                label: "Source",
+                value: car.source,
+              },
             ].map((item, index, array) => (
               <TechnicalDataItem
                 key={item.label}
@@ -885,7 +935,6 @@ const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null
             />
             <ActionButton
               icon="logo-whatsapp" // Using Ionicons WhatsApp logo
-
               onPress={handleWhatsAppPress}
               isDarkMode={isDarkMode}
             />

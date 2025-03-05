@@ -206,6 +206,13 @@ export default function IndividualCarAnalyticsPage() {
 	const [isLoading, setIsLoading] = useState(true)
 	const [refreshing, setRefreshing] = useState(false)
 
+	// Helper function to calculate CTA Rate
+	const calculateCTARate = useCallback((carData, analytics) => {
+		const totalCTAs = (carData.call_count || 0) + (carData.whatsapp_count || 0);
+		const totalViews = analytics.total_views || 1; // Avoid division by zero
+		return ((totalCTAs / totalViews) * 100).toFixed(1);
+	}, []);
+
 	const fetchData = useCallback(async () => {
 		setIsLoading(true)
 		try {
@@ -373,6 +380,53 @@ export default function IndividualCarAnalyticsPage() {
 					/>
 				</View>
 
+				{/* Engagement Metrics */}
+				<View className='mx-4 my-6'>
+					<Text className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-night'}`}>
+						Engagement Metrics
+					</Text>
+					<View className='flex-row'>
+						<MetricCard
+							title='Call Actions'
+							value={carData.call_count || 0}
+							icon='call'
+							color='#10B981' // green
+							isDarkMode={isDarkMode}
+						/>
+						<MetricCard
+							title='WhatsApp'
+							value={carData.whatsapp_count || 0}
+							icon='logo-whatsapp'
+							color='#25D366' // whatsapp green
+							isDarkMode={isDarkMode}
+						/>
+						<MetricCard
+							title='Total CTAs'
+							value={(carData.call_count || 0) + (carData.whatsapp_count || 0)}
+							icon='navigate-circle'
+							color='#D55004' // app orange
+							isDarkMode={isDarkMode}
+						/>
+					</View>
+				</View>
+
+				{/* CTA Engagement Rate */}
+				<ChartContainer
+					title='CTA Engagement Rate'
+					subtitle='Percentage of views resulting in contact attempts'
+					isDarkMode={isDarkMode}>
+					<View className='items-center justify-center py-4'>
+						<View className='w-36 h-36 rounded-full border-8 border-red items-center justify-center'>
+							<Text className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-night'}`}>
+								{calculateCTARate(carData, analytics)}%
+							</Text>
+						</View>
+						<Text className={`text-sm mt-4 ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+							{`${(carData.call_count || 0) + (carData.whatsapp_count || 0)} actions from ${analytics.total_views} views`}
+						</Text>
+					</View>
+				</ChartContainer>
+
 				{/* Performance Comparison */}
 				<ChartContainer
 					title='Performance Comparison'
@@ -403,6 +457,48 @@ export default function IndividualCarAnalyticsPage() {
 						/>
 					</View>
 				</ChartContainer>
+
+				{/* CTA Comparison */}
+				{analytics.comparison_to_average && (
+					<ChartContainer
+						title='CTA Performance'
+						subtitle='Comparison with dealership average'
+						isDarkMode={isDarkMode}>
+						<View className='px-4'>
+							<ComparisonBar
+								label='Call Actions'
+								value={carData.call_count || 0}
+								maxValue={Math.max(
+									carData.call_count || 0,
+									(carData.call_count || 0) - (analytics.comparison_to_average.call_diff || 0)
+								)}
+								difference={analytics.comparison_to_average.call_diff || 0}
+								isDarkMode={isDarkMode}
+							/>
+							<ComparisonBar
+								label='WhatsApp Actions'
+								value={carData.whatsapp_count || 0}
+								maxValue={Math.max(
+									carData.whatsapp_count || 0,
+									(carData.whatsapp_count || 0) - (analytics.comparison_to_average.whatsapp_diff || 0)
+								)}
+								difference={analytics.comparison_to_average.whatsapp_diff || 0}
+								isDarkMode={isDarkMode}
+							/>
+							<ComparisonBar
+								label='Total CTA'
+								value={(carData.call_count || 0) + (carData.whatsapp_count || 0)}
+								maxValue={Math.max(
+									(carData.call_count || 0) + (carData.whatsapp_count || 0),
+									(carData.call_count || 0) + (carData.whatsapp_count || 0) -
+									((analytics.comparison_to_average.call_diff || 0) + (analytics.comparison_to_average.whatsapp_diff || 0))
+								)}
+								difference={(analytics.comparison_to_average.call_diff || 0) + (analytics.comparison_to_average.whatsapp_diff || 0)}
+								isDarkMode={isDarkMode}
+							/>
+						</View>
+					</ChartContainer>
+				)}
 
 				{/* Car Details */}
 				<DetailCard

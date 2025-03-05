@@ -11,7 +11,7 @@ import {
 	Pressable,
 	Share,
 	Animated,
-  Platform
+	Platform
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
@@ -19,6 +19,8 @@ import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useCarDetails } from '@/hooks/useCarDetails'
+import { useUser } from '@clerk/clerk-expo'
+import { supabase } from '@/utils/supabase'
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -95,9 +97,14 @@ export default function CarCard({
 	isDealer = false,
 	index = 0  // Add index prop
   }: any) {
-	const { isDarkMode } = useTheme();
-	const fadeAnim = useRef(new Animated.Value(0)).current;
-	const translateY = useRef(new Animated.Value(50)).current;
+	const { isDarkMode } = useTheme()
+	const fadeAnim = useRef(new Animated.Value(0)).current
+	const translateY = useRef(new Animated.Value(50)).current
+	const { user } = useUser()
+	const router = useRouter()
+	const [currentImageIndex, setCurrentImageIndex] = useState(0)
+	const flatListRef = useRef(null)
+	const { prefetchCarDetails } = useCarDetails()
 
 	// Add animation effect
 	useEffect(() => {
@@ -114,12 +121,48 @@ export default function CarCard({
 		  delay: index * 100,
 		  useNativeDriver: true,
 		}),
-	  ]).start();
-	}, []);
-	const router = useRouter()
-	const [currentImageIndex, setCurrentImageIndex] = useState(0)
-	const flatListRef = useRef(null)
-	const { prefetchCarDetails } = useCarDetails()
+	  ]).start()
+	}, [])
+
+	// Track call button clicks
+	const trackCallClick = useCallback(
+	  async (carId: number) => {
+		if (!user) return
+
+		try {
+		  const { data, error } = await supabase.rpc("track_car_call", {
+			car_id: carId,
+			user_id: user.id,
+		  })
+
+		  if (error) throw error
+		  console.log(`Call count updated: ${data}`)
+		} catch (error) {
+		  console.error("Error tracking call click:", error)
+		}
+	  },
+	  [user]
+	)
+
+	// Track WhatsApp button clicks
+	const trackWhatsAppClick = useCallback(
+	  async (carId: number) => {
+		if (!user) return
+
+		try {
+		  const { data, error } = await supabase.rpc("track_car_whatsapp", {
+			car_id: carId,
+			user_id: user.id,
+		  })
+
+		  if (error) throw error
+		  console.log(`WhatsApp count updated: ${data}`)
+		} catch (error) {
+		  console.error("Error tracking WhatsApp click:", error)
+		}
+	  },
+	  [user]
+	)
 
 	const handleCardPress = useCallback(async () => {
 		try {
@@ -153,11 +196,14 @@ export default function CarCard({
 
 	const handleCall = useCallback(() => {
 		if (car.dealership_phone) {
+			// Track the call click first
+			trackCallClick(car.id)
+			// Then proceed with the call
 			Linking.openURL(`tel:${car.dealership_phone}`)
 		} else {
 			Alert.alert('Phone number not available')
 		}
-	}, [car.dealership_phone])
+	}, [car.dealership_phone, car.id, trackCallClick])
 
 	const handleShare = useCallback(async () => {
 		try {
@@ -304,23 +350,23 @@ export default function CarCard({
 
 	const handleWhatsAppPress = useCallback(() => {
 		if (car?.dealership_phone) {
-		  const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-		  
-		  const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`;
-		  const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)} on Fleet`;
-		  Linking.openURL(webURL).catch(() => {
-			Alert.alert(
-			  'Error',
-			  'Unable to open WhatsApp. Please make sure it is installed on your device.'
-			);
-		  });
+			// Track the WhatsApp click first
+			trackWhatsAppClick(car.id)
+
+			const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '')
+			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`
+			const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)} on Fleet`
+
+			Linking.openURL(webURL).catch(() => {
+				Alert.alert(
+					'Error',
+					'Unable to open WhatsApp. Please make sure it is installed on your device.'
+				)
+			})
 		} else {
-		  Alert.alert('Phone number not available');
+			Alert.alert('Phone number not available')
 		}
-	  }, [car]);
-	  
-	  
-	  
+	}, [car, trackWhatsAppClick])
 
 	return (
 		<Animated.View
