@@ -15,7 +15,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useUser } from "@clerk/clerk-expo";
 import { supabase } from "@/utils/supabase";
 import { debounce } from "@/utils/debounce";
@@ -28,6 +28,29 @@ import AutoclipModal from "@/components/AutoclipModal";
 import openWhatsApp from "@/utils/openWhatsapp";
 
 const { width } = Dimensions.get("window");
+
+const VEHICLE_FEATURES = [
+  { id: 'heated_seats', label: 'Heated Seats', icon: 'car-seat-heater' },
+  { id: 'keyless_entry', label: 'Keyless Entry', icon: 'key-wireless' },
+  { id: 'keyless_start', label: 'Keyless Start', icon: 'power' },
+  { id: 'power_mirrors', label: 'Power Mirrors', icon: 'car-side' },
+  { id: 'power_steering', label: 'Power Steering', icon: 'steering' },
+  { id: 'power_windows', label: 'Power Windows', icon: 'window-maximize' },
+  { id: 'backup_camera', label: 'Backup Camera', icon: 'camera' },
+  { id: 'bluetooth', label: 'Bluetooth', icon: 'bluetooth' },
+  { id: 'cruise_control', label: 'Cruise Control', icon: 'speedometer' },
+  { id: 'navigation', label: 'Navigation System', icon: 'map-marker' },
+  { id: 'sunroof', label: 'Sunroof', icon: 'weather-sunny' },
+  { id: 'leather_seats', label: 'Leather Seats', icon: 'car-seat' },
+  { id: 'third_row_seats', label: 'Third Row Seats', icon: 'seat-passenger' },
+  { id: 'parking_sensors', label: 'Parking Sensors', icon: 'parking' },
+  { id: 'lane_assist', label: 'Lane Departure Warning', icon: 'road-variant' },
+  { id: 'blind_spot', label: 'Blind Spot Monitoring', icon: 'eye-off' },
+  { id: 'apple_carplay', label: 'Apple CarPlay', icon: 'apple' },
+  { id: 'android_auto', label: 'Android Auto', icon: 'android' },
+  { id: 'premium_audio', label: 'Premium Audio', icon: 'speaker' },
+  { id: 'remote_start', label: 'Remote Start', icon: 'remote' },
+];
 
 const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
   const [loaded, setLoaded] = useState(false);
@@ -815,6 +838,43 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </View>
 
   ) : null}
+
+  {/* Features Section */}
+{car.features && car.features.length > 0 && (
+  <View className="mt-8 px-4">
+    <Text
+      className={`text-lg font-bold mb-3 ${
+        isDarkMode ? "text-white" : "text-black"
+      }`}
+    >
+      Features
+    </Text>
+    <View className="flex-row flex-wrap">
+      {car.features.map((featureId, index) => {
+        // Find the feature definition from a constant array (assumed to be defined)
+        const feature = VEHICLE_FEATURES.find(f => f.id === featureId);
+        if (!feature) return null;
+
+        return (
+          <View
+            key={index}
+            className={`flex-row items-center mr-2 mb-2 px-3 py-2 rounded-full ${isDarkMode ? "bg-[#1c1c1c]" : "bg-[#e9e9e9]"}`}
+          >
+            <MaterialCommunityIcons
+              name={feature.icon || "check-circle-outline"}
+              size={18}
+              color={isDarkMode ? "#D55004" : "#D55004"}
+              style={{ marginRight: 6 }}
+            />
+            <Text className={isDarkMode ? "text-white" : "text-black"}>
+              {feature.label || featureId}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  </View>
+)}
         {/* Dealership Section */}
         <View className="mt-8 px-4">
           <Text

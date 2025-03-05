@@ -77,6 +77,317 @@ const SOURCE_OPTIONS = [
   { value: 'Canada', label: 'Canada', icon: 'flag' },
   { value: 'Europe', label: 'Europe', icon: 'earth' }
 ];
+const VEHICLE_FEATURES = [
+  { id: 'heated_seats', label: 'Heated Seats', icon: 'car-seat-heater' },
+  { id: 'keyless_entry', label: 'Keyless Entry', icon: 'key-wireless' },
+  { id: 'keyless_start', label: 'Keyless Start', icon: 'power' },
+  { id: 'power_mirrors', label: 'Power Mirrors', icon: 'car-side' },
+  { id: 'power_steering', label: 'Power Steering', icon: 'steering' },
+  { id: 'power_windows', label: 'Power Windows', icon: 'window-maximize' },
+  { id: 'backup_camera', label: 'Backup Camera', icon: 'camera' },
+  { id: 'bluetooth', label: 'Bluetooth', icon: 'bluetooth' },
+  { id: 'cruise_control', label: 'Cruise Control', icon: 'speedometer' },
+  { id: 'navigation', label: 'Navigation System', icon: 'map-marker' },
+  { id: 'sunroof', label: 'Sunroof', icon: 'weather-sunny' },
+  { id: 'leather_seats', label: 'Leather Seats', icon: 'car-seat' },
+  { id: 'third_row_seats', label: 'Third Row Seats', icon: 'seat-passenger' },
+  { id: 'parking_sensors', label: 'Parking Sensors', icon: 'parking' },
+  { id: 'lane_assist', label: 'Lane Departure Warning', icon: 'road-variant' },
+  { id: 'blind_spot', label: 'Blind Spot Monitoring', icon: 'eye-off' },
+  { id: 'apple_carplay', label: 'Apple CarPlay', icon: 'apple' },
+  { id: 'android_auto', label: 'Android Auto', icon: 'android' },
+  { id: 'premium_audio', label: 'Premium Audio', icon: 'speaker' },
+  { id: 'remote_start', label: 'Remote Start', icon: 'remote' },
+];
+
+const FeatureSelector = memo(
+  ({ selectedFeatures = [], onFeatureToggle, isDarkMode }: any) => {
+    // State Management
+    const [showAllFeatures, setShowAllFeatures] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const PAGE_SIZE = 20;
+
+    // Filter features based on search query
+    const filteredFeatures = useMemo(
+      () =>
+        VEHICLE_FEATURES.filter((feature) =>
+          feature.label.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        ),
+      [searchQuery]
+    );
+
+    // Get paginated features for the modal
+    const paginatedFeatures = useMemo(() => {
+      const start = currentPage * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      return filteredFeatures.slice(0, end);
+    }, [filteredFeatures, currentPage]);
+
+    // Load more function for pagination
+    const loadMore = useCallback(() => {
+      if ((currentPage + 1) * PAGE_SIZE < filteredFeatures.length) {
+        setCurrentPage((prev) => prev + 1);
+        setHasMore(true);
+      } else {
+        setHasMore(false);
+      }
+    }, [currentPage, filteredFeatures.length]);
+
+    // Reset pagination when search query changes
+    useEffect(() => {
+      setCurrentPage(0);
+      setHasMore(true);
+    }, [searchQuery]);
+
+    // Render feature item component
+    const FeatureItem = useCallback(
+      ({ feature, isSelected, onPress, size = 'normal' }: any) => (
+        <TouchableOpacity
+          onPress={onPress}
+          className={`${size === 'normal' ? 'mr-3' : ''} ${
+            isSelected ? 'scale-105' : ''
+          }`}
+        >
+          <BlurView
+            intensity={isDarkMode ? 20 : 40}
+            tint={isDarkMode ? 'dark' : 'light'}
+            className={`rounded-2xl p-4 ${
+              size === 'normal'
+                ? 'w-[110px] h-[110px]'
+                : 'flex-row items-center p-4 mb-2'
+            } justify-between items-center`}
+          >
+            <View
+              className={`${
+                size === 'normal' ? 'w-[40px] h-[40px]' : 'w-12 h-12'
+              } justify-center items-center mb-2`}
+            >
+              <MaterialCommunityIcons
+                name={feature.icon}
+                size={size === 'normal' ? 30 : 24}
+                color={isSelected ? '#D55004' : isDarkMode ? '#fff' : '#000'}
+              />
+            </View>
+            <Text
+              className={`${
+                size === 'normal' ? 'text-center' : 'flex-1 ml-3'
+              } text-sm font-medium
+              ${isSelected ? 'text-red' : isDarkMode ? 'text-white' : 'text-black'}`}
+              numberOfLines={2}
+            >
+              {feature.label}
+            </Text>
+            {isSelected && (
+              <View
+                className={`absolute top-2 right-2 bg-red rounded-full p-1 ${
+                  size === 'normal' ? '' : 'top-auto'
+                }`}
+              >
+                <Ionicons name="checkmark" size={12} color="white" />
+              </View>
+            )}
+          </BlurView>
+        </TouchableOpacity>
+      ),
+      [isDarkMode]
+    );
+
+    return (
+      <View>
+        {/* Header */}
+        <View className="flex-row items-center justify-between mb-4">
+          <Text
+            className={`text-lg font-bold ${
+              isDarkMode ? 'text-white' : 'text-black'
+            }`}
+          >
+            {selectedFeatures.length > 0
+              ? `${selectedFeatures.length} Selected Features`
+              : 'Select Features'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              setShowAllFeatures(true);
+              setCurrentPage(0);
+              setHasMore(true);
+            }}
+            className="ml-auto bg-red px-3 py-1 rounded-full"
+          >
+            <Text className="text-white">View All</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Selected Features Count Badge */}
+        {selectedFeatures.length > 0 && (
+          <View className="mb-3">
+            <Text className={`text-sm ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+              {selectedFeatures.length} feature{selectedFeatures.length !== 1 ? 's' : ''} selected
+            </Text>
+          </View>
+        )}
+
+        {/* Horizontal Scrollable List - Show selected features first, then others */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-6"
+          contentContainerStyle={{ paddingRight: 20 }}
+        >
+          {VEHICLE_FEATURES.map((feature) => (
+            <FeatureItem
+              key={feature.id}
+              feature={feature}
+              isSelected={selectedFeatures.includes(feature.id)}
+              onPress={() => onFeatureToggle(feature.id)}
+            />
+          ))}
+        </ScrollView>
+
+        {/* All Features Modal with Pagination */}
+        <Modal
+          visible={showAllFeatures}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowAllFeatures(false)}
+        >
+          <BlurView
+            intensity={isDarkMode ? 20 : 40}
+            tint={isDarkMode ? 'dark' : 'light'}
+            className="flex-1"
+          >
+            <TouchableOpacity
+              className="flex-1"
+              activeOpacity={1}
+              onPress={() => setShowAllFeatures(false)}
+            />
+            <Animated.View
+              entering={SlideInDown}
+              exiting={SlideOutDown}
+              className={`h-[70%] rounded-t-3xl ${
+                isDarkMode ? 'bg-black' : 'bg-white'
+              }`}
+            >
+              <View className="p-4">
+                {/* Modal Header */}
+                <View className="items-center mb-2">
+                  <View className="w-16 h-1 rounded-full bg-gray-300" />
+                </View>
+
+                <View className="flex-row justify-between items-center mb-4">
+                  <Text
+                    className={`text-xl font-bold ${
+                      isDarkMode ? 'text-white' : 'text-black'
+                    }`}
+                  >
+                    All Features ({filteredFeatures.length})
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowAllFeatures(false)}
+                    className="p-2"
+                  >
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      color={isDarkMode ? 'white' : 'black'}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Search Bar */}
+                <View
+                  className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}
+                >
+                  <FontAwesome
+                    name="search"
+                    size={20}
+                    color={isDarkMode ? 'white' : 'black'}
+                  />
+                  <TextInput
+                    textAlignVertical="center"
+                    className={`flex-1 px-3 h-full ${
+                      isDarkMode ? 'text-white' : 'text-black'
+                    }`}
+                    style={{ textAlignVertical: 'center' }}
+                    placeholder="Search features..."
+                    placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+                    value={searchQuery}
+                    onChangeText={(text) => {
+                      setSearchQuery(text);
+                      setCurrentPage(0);
+                    }}
+                  />
+                  {searchQuery ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSearchQuery('');
+                        setCurrentPage(0);
+                      }}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={isDarkMode ? 'white' : 'black'}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {/* Selected Count Badge */}
+                {selectedFeatures.length > 0 && (
+                  <View
+                    className={`mb-4 p-3 rounded-xl ${
+                      isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'
+                    }`}
+                  >
+                    <Text
+                      className={`text-center ${
+                        isDarkMode ? 'text-white' : 'text-black'
+                      }`}
+                    >
+                      {selectedFeatures.length} feature{selectedFeatures.length !== 1 ? 's' : ''} selected
+                    </Text>
+                  </View>
+                )}
+
+                {/* Features List with Infinite Scroll */}
+                <FlatList
+                  data={paginatedFeatures}
+                  renderItem={({ item: feature }) => (
+                    <FeatureItem
+                      key={feature.id}
+                      feature={feature}
+                      isSelected={selectedFeatures.includes(feature.id)}
+                      onPress={() => {
+                        onFeatureToggle(feature.id);
+                      }}
+                      size="large"
+                    />
+                  )}
+                  keyExtractor={(item) => item.id}
+                  onEndReached={loadMore}
+                  onEndReachedThreshold={0.5}
+                  ListFooterComponent={() =>
+                    hasMore ? (
+                      <View className="py-4">
+                        <ActivityIndicator size="small" color="#D55004" />
+                      </View>
+                    ) : (
+                      <View className="h-32" />
+                    )
+                  }
+                />
+              </View>
+            </Animated.View>
+          </BlurView>
+        </Modal>
+      </View>
+    );
+  }
+);
+
+
 
 
 
@@ -96,6 +407,7 @@ export default function AddEditListing() {
     bought_price: null,
     date_bought: new Date(),
     seller_name: null,
+    features:[]
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -183,7 +495,9 @@ export default function AddEditListing() {
             date_bought: carData.date_bought
               ? new Date(carData.date_bought)
               : new Date(),
+              features: carData.features || [],
           });
+
           setModalImages(carData.images || []);
         }
       } catch (error) {
@@ -796,6 +1110,7 @@ export default function AddEditListing() {
               : null,
             seller_name: allowedData.seller_name,
               source: allowedData.source,
+               features: formData.features || [],
             dealership_id: dealership.id,
           };
 
@@ -834,7 +1149,8 @@ export default function AddEditListing() {
             date_bought,
             seller_name,
             buyer_name,
-            source
+            source,
+            features
           `
             )
             .single();
@@ -876,7 +1192,8 @@ export default function AddEditListing() {
             seller_name: allowedData.seller_name,
             dealership_id: dealership.id,
              source: allowedData.source,
-            status: "available",
+              features: formData.features || [],
+            status: "pending",
             views: 0,
             likes: 0,
             viewed_users: [],
@@ -1214,6 +1531,36 @@ export default function AddEditListing() {
             ))}
           </View>
         </View>
+
+        <View className="mb-8">
+  <SectionHeader
+    title="Vehicle Features"
+    subtitle="Select additional features and options available in this vehicle"
+    isDarkMode={isDarkMode}
+  />
+
+  <FeatureSelector
+    selectedFeatures={formData.features || []}
+    onFeatureToggle={(featureId:any) => {
+      setFormData((prev:any) => {
+        const currentFeatures = prev.features || [];
+        let updatedFeatures;
+
+        if (currentFeatures.includes(featureId)) {
+          // Remove feature if already selected
+          updatedFeatures = currentFeatures.filter(id => id !== featureId);
+        } else {
+          // Add feature if not selected
+          updatedFeatures = [...currentFeatures, featureId];
+        }
+
+        setHasChanges(true);
+        return { ...prev, features: updatedFeatures };
+      });
+    }}
+    isDarkMode={isDarkMode}
+  />
+</View>
 
         {/* Purchase Information */}
         <View className="mb-8">
