@@ -1,23 +1,13 @@
 // components/AuthRequiredModal.tsx
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet,TouchableWithoutFeedback } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/utils/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useGuestUser } from '@/utils/GuestUserContext';
-import { LinearGradient } from 'expo-linear-gradient';
 
-interface AuthRequiredModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  featureName: string;
-}
 
-const AuthRequiredModal: React.FC<AuthRequiredModalProps> = ({
-  isVisible,
-  onClose,
-  featureName,
-}) => {
+const AuthRequiredModal = ({ isVisible, onClose, featureName }:any) => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
   const { clearGuestMode } = useGuestUser();
@@ -35,76 +25,51 @@ const AuthRequiredModal: React.FC<AuthRequiredModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <View
-          style={[
-            styles.modalContent,
-            { backgroundColor: isDarkMode ? '#1c1c1c' : '#ffffff' },
-          ]}
-        >
-          <Ionicons
-            name="lock-closed-outline"
-            size={56}
-            color="#D55004"
-            style={styles.icon}
-          />
-
-          <Text
-            style={[
-              styles.title,
-              { color: isDarkMode ? '#ffffff' : '#000000' },
-            ]}
-          >
-            Sign In Required
-          </Text>
-
-          <Text
-            style={[
-              styles.message,
-              { color: isDarkMode ? '#cccccc' : '#666666' },
-            ]}
-          >
-            You need to sign in to {featureName}.
-          </Text>
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-
-            <LinearGradient
-              colors={['#ff6a00', '#ee0979']}
-              style={styles.signInButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <TouchableOpacity
-                onPress={handleSignIn}
-                style={styles.signInButtonTouchable}
-              >
-                <Text style={styles.signInButtonText}>Sign In</Text>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={guestStyles.overlay}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <View style={guestStyles.container}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={56}
+                color="#ffffff"
+                style={guestStyles.icon}
+              />
+              <Text style={guestStyles.title}>
+                {featureName
+                  ? `You need to sign in to ${featureName}`
+                  : "Sign In Required"}
+              </Text>
+              <Text style={guestStyles.subtitle}>
+                Please sign in to continue.
+              </Text>
+              <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
+                <Text style={guestStyles.signInButtonText}>Sign In</Text>
               </TouchableOpacity>
-            </LinearGradient>
-          </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+
+
+// Common guest styles – can be placed in a separate file for reuse
+const guestStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent overlay
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    zIndex: 1000,
   },
-  modalContent: {
-    width: '90%',
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    borderRadius: 20,
+  container: {
+    width: '80%',
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: '#D55004', // unified orange background
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -113,56 +78,33 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   icon: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: 'bold',
+    color: '#ffffff',
     marginBottom: 12,
     textAlign: 'center',
-    letterSpacing: 1,
   },
-  message: {
+  subtitle: {
     fontSize: 16,
+    color: '#ffffff',
+    marginBottom: 20,
     textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 22,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    width: '100%',
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: '#D55004',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#D55004',
   },
   signInButton: {
-    flex: 1,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  signInButtonTouchable: {
+    backgroundColor: '#ffffff',
     paddingVertical: 14,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   signInButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#D55004',
   },
 });
+
 
 export default AuthRequiredModal;

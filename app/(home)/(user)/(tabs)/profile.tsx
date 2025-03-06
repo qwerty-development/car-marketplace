@@ -281,29 +281,31 @@ export default function UserProfileAndSupportPage() {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
-      {/* Guest User Banner - Positioned as overlay with blur effect */}
- {isGuest && (
-  <View style={styles.guestBannerContainer} pointerEvents="auto">
+{isGuest && (
+  <View style={guestStyles.overlay} pointerEvents="auto">
     <BlurView
       intensity={80}
-      tint={isDarkMode ? "dark" : "light"}
-      style={StyleSheet.absoluteFillObject}
+      tint={isDarkMode ? 'dark' : 'light'}
+      style={StyleSheet.absoluteFill}
     />
-    <Animated.View style={[styles.guestBanner, bannerAnimatedStyle]}>
-      <View style={{ alignItems: "center" }}>
-        <Text style={styles.guestBannerTitle}>
-          You're browsing as a guest
-        </Text>
-        <Text style={styles.guestBannerSubtitle}>
-          Sign in to access all features
-        </Text>
-        <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-          <Text style={styles.signInButtonText}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
+    <Animated.View style={[guestStyles.container, bannerAnimatedStyle]}>
+      <Ionicons
+        name="lock-closed-outline"
+        size={56}
+        color="#ffffff"
+        style={guestStyles.icon}
+      />
+      <Text style={guestStyles.title}>You're browsing as a guest</Text>
+      <Text style={guestStyles.subtitle}>
+        Please sign in to access this feature.
+      </Text>
+      <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
+        <Text style={guestStyles.signInButtonText}>Sign In</Text>
+      </TouchableOpacity>
     </Animated.View>
   </View>
 )}
+
 
 
       <ScrollView
@@ -998,5 +1000,54 @@ guestBannerContainer: {
   signInButtonText: {
     color: "#D55004",
     fontWeight: "bold",
+  },
+});
+// Common guest styles – can be placed in a separate file for reuse
+const guestStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent overlay
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  container: {
+    width: '80%',
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: '#D55004', // unified orange background
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  icon: {
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  signInButton: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  signInButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#D55004',
   },
 });

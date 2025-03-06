@@ -28,7 +28,7 @@ import CarDetailModalIOS from '../CarDetailModal.ios'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { FontAwesome } from '@expo/vector-icons'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
 import { useScrollToTop } from '@react-navigation/native'
 import SkeletonCarCard from '@/components/SkeletonCarCard'
@@ -440,88 +440,84 @@ export default function Favorite() {
       </View>
       {renderContent()}
       {renderModal}
-      {/* Block the page for guest users */}
-      {isGuest && (
-        <View style={blockStyles.overlay} pointerEvents="auto">
-          <BlurView
-            intensity={80}
-            tint={isDarkMode ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          <View
-            style={[
-              blockStyles.centeredContent,
-              { backgroundColor: isDarkMode ? '#1c1c1c' : '#ffffff' }
-            ]}
-          >
-            <Text
-              style={[
-                blockStyles.blockTitle,
-                { color: isDarkMode ? 'white' : 'black' }
-              ]}
-            >
-              You're browsing as a guest
-            </Text>
-            <Text
-              style={[
-                blockStyles.blockMessage,
-                { color: isDarkMode ? 'lightgray' : 'gray' }
-              ]}
-            >
-              Please sign in to view your favorite cars.
-            </Text>
-            <TouchableOpacity style={blockStyles.signInButton} onPress={handleSignIn}>
-              <Text style={blockStyles.signInButtonText}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+{isGuest && (
+  <View style={guestStyles.overlay} pointerEvents="auto">
+    <BlurView
+      intensity={80}
+      tint={isDarkMode ? 'dark' : 'light'}
+      style={StyleSheet.absoluteFill}
+    />
+    <View style={guestStyles.container}>
+      <Ionicons
+        name="lock-closed-outline"
+        size={56}
+        color="#ffffff"
+        style={guestStyles.icon}
+      />
+      <Text style={guestStyles.title}>You're browsing as a guest</Text>
+      <Text style={guestStyles.subtitle}>
+        Please sign in to access this feature.
+      </Text>
+      <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
+        <Text style={guestStyles.signInButtonText}>Sign In</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
+
     </View>
   )
 }
-
-const blockStyles = StyleSheet.create({
+// Common guest styles – can be placed in a separate file for reuse
+const guestStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent overlay
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 9999
+    zIndex: 1000,
   },
-  centeredContent: {
+  container: {
     width: '80%',
     padding: 24,
     borderRadius: 16,
+    backgroundColor: '#D55004', // unified orange background
     alignItems: 'center',
-    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
-    shadowRadius: 10
+    shadowRadius: 10,
+    elevation: 10,
   },
-  blockTitle: {
+  icon: {
+    marginBottom: 12,
+  },
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#ffffff',
     marginBottom: 12,
-    textAlign: 'center'
-  },
-  blockMessage: {
-    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   signInButton: {
-    backgroundColor: '#D55004',
+    backgroundColor: '#ffffff',
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 12
+    borderRadius: 12,
   },
   signInButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff'
-  }
-})
+    color: '#D55004',
+  },
+});
+
 
 const styles = StyleSheet.create({
   headerContainer: {
