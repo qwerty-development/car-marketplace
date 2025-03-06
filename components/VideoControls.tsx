@@ -1,11 +1,9 @@
 // VideoControls.tsx
 import React, { useState, useEffect, useCallback } from 'react'
 import { View, Text, TouchableOpacity, Animated, Dimensions } from 'react-native'
-import {
-  Volume2,
-  VolumeX,
-  Heart
-} from 'lucide-react-native'
+import { Volume2, VolumeX, Heart } from 'lucide-react-native'
+import AuthRequiredModal from './AuthRequiredModal'
+import { useGuestUser } from '@/utils/GuestUserContext'
 
 const VideoControls = ({
   clipId,
@@ -22,14 +20,18 @@ const VideoControls = ({
 }: any) => {
   const [showControls, setShowControls] = useState(true)
   const [progressWidth, setProgressWidth] = useState(0)
+  const [authModalVisible, setAuthModalVisible] = useState(false)
   const opacity = new Animated.Value(1)
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
+
+  // Get guest status from your auth/guest hook
+  const { isGuest } = useGuestUser()
 
   // Determine if device is small based on height
   const isSmallDevice = screenHeight < 700
 
   useEffect(() => {
-    let timeout: string | number | NodeJS.Timeout | undefined
+    let timeout: NodeJS.Timeout | number
     if (isPlaying) {
       timeout = setTimeout(() => {
         Animated.timing(opacity, {
@@ -58,7 +60,7 @@ const VideoControls = ({
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
   }
 
-  const handleScrubbing = (event: { nativeEvent: { locationX: any } }) => {
+  const handleScrubbing = (event: { nativeEvent: { locationX: number } }) => {
     const { locationX } = event.nativeEvent
     const percentage = Math.max(0, Math.min(1, locationX / progressWidth))
     const newTime = percentage * duration
@@ -68,11 +70,19 @@ const VideoControls = ({
   // Calculate responsive bottom position for side controls
   const sideControlsBottomPosition = isSmallDevice ? 90 : 160
 
+  const handleLikePress = () => {
+    if (isGuest) {
+      setAuthModalVisible(true)
+    } else {
+      onLikePress(clipId)
+    }
+  }
+
   return (
     <>
       {/* Progress bar at bottom */}
       <Animated.View
-        className={`absolute left-0 right-0 px-4  bottom-0 `}
+        className="absolute left-0 right-0 px-4 bottom-0"
         style={{
           opacity,
           zIndex: 60,
@@ -100,9 +110,7 @@ const VideoControls = ({
           </TouchableOpacity>
 
           <View className="flex-row justify-between mt-1 bg-black/20">
-            <Text className="text-white text-xs">
-              {formatTime(currentTime)}
-            </Text>
+            <Text className="text-white text-xs">{formatTime(currentTime)}</Text>
             <Text className="text-white text-xs">{formatTime(duration)}</Text>
           </View>
         </View>
@@ -127,9 +135,7 @@ const VideoControls = ({
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => onLikePress(clipId)}
-            className="items-center">
+          <TouchableOpacity onPress={handleLikePress} className="items-center">
             <View className="bg-black/50 rounded-full p-3 mb-1">
               <Heart
                 size={isSmallDevice ? 20 : 24}
@@ -144,6 +150,13 @@ const VideoControls = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Auth Required Modal */}
+      <AuthRequiredModal
+        isVisible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+        featureName="like this video"
+      />
     </>
   )
 }
