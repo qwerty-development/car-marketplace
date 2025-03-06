@@ -1,111 +1,108 @@
 {
 	"expo": {
-	  "name": "Fleet",
-	  "slug": "clerk-expo-quickstart",
-	  "version": "1.0.0",
-	  "orientation": "portrait",
-	  "newArchEnabled": true,
-	  "icon": "./assets/images/logo.png",
-	  "scheme": "fleet",
-	  "userInterfaceStyle": "automatic",
-	  "splash": {
-		"image": "./assets/images/logo.png",
-		"resizeMode": "contain",
-		"backgroundColor": "#000000"
-	  },
-	  "notification": {
+		"name": "Fleet",
+		"slug": "clerk-expo-quickstart",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"newArchEnabled": true,
 		"icon": "./assets/images/logo.png",
-		"color": "#D55004",
-		"iosDisplayInForeground": true,
-		"androidMode": "default",
-		"androidCollapsedTitle": "New Cars Available!"
-	  },
-	  "ios": {
-		"supportsTablet": true,
-		"config": {
-		  "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg",
-		  "googleSignIn": {
-			"reservedClientId": "com.googleusercontent.apps.439161642265-gd8vs69sk0upfitqmm28r5vbh8tsmvji"
-		  }
+		"scheme": "fleet",
+		"userInterfaceStyle": "automatic",
+		"splash": {
+			"image": "./assets/images/logo.png",
+			"resizeMode": "contain",
+			"backgroundColor": "#000000"
 		},
-		"infoPlist": {
-		  "UIBackgroundModes": ["remote-notification"],
-		  "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
-		  "LSApplicationQueriesSchemes": ["whatsapp"]
-		},
-		"bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
-	  },
-	  "android": {
-		"adaptiveIcon": {
-		  "foregroundImage": "./assets/images/logo.png",
-		  "backgroundColor": "#ffffff"
-		},
-		"permissions": [
-		  "android.permission.RECORD_AUDIO",
-		  "android.permission.READ_EXTERNAL_STORAGE",
-		  "android.permission.WRITE_EXTERNAL_STORAGE",
-		  "android.permission.INTERNET",
-		  "android.permission.RECEIVE_BOOT_COMPLETED",
-		  "android.permission.VIBRATE",
-		  "android.permission.SCHEDULE_EXACT_ALARM",
-		  "android.permission.POST_NOTIFICATIONS"
-		],
-		"package": "com.qwertyapp.clerkexpoquickstart"
-	  },
-	  "web": {
-		"bundler": "metro",
-		"output": "static",
-		"favicon": "./assets/images/favicon.png"
-	  },
-	  "plugins": [
-		"expo-router",
-		"expo-secure-store",
-		[
-		  "expo-image-picker",
-		  {
-			"photosPermission": "The app accesses your photos to let you upload car images."
-		  }
-		],
-		[
-		  "expo-file-system",
-		  {
-			"filePermission": "The app needs access to files for image uploads."
-		  }
-		],
-		"expo-font",
-		[
-		  "expo-notifications",
-		  {
-			"icon": "./assets/images/icon.png",
+		"notification": {
+			"icon": "./assets/images/logo.png",
 			"color": "#D55004",
-			"sounds": ["./assets/sounds/notification.wav"],
-			"mode": "production"
-		  }
-		]
-	  ],
-	  "experiments": {
-		"typedRoutes": true
-	  },
-	  "extra": {
-		"router": {
-		  "origin": false
+			"iosDisplayInForeground": true,
+			"androidMode": "default",
+			"androidCollapsedTitle": "New Cars Available!"
 		},
-		"eas": {
-		  "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+		"ios": {
+			"supportsTablet": true,
+			"config": {
+				"googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
+			},
+			"infoPlist": {
+				"UIBackgroundModes": ["remote-notification"],
+				"NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
+          "LSApplicationQueriesSchemes": ["whatsapp"]
+			},
+			"bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
 		},
-		"clerk": {
-		  "appleTeamId": "3HV996A46Z",
-		  "appleServicesId": "com.fleetapp.web",
-		  "appleKeyId": "WV9YA9LMBU",
-		  "applePrivateKey": "MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgZC8Ai21wrFUqKEtkEpmqdTlPQMdWBq9kTEUMgwLx39KgCgYIKoZIzj0DAQehRANCAAQy/tmrhsVcgjBLW/bEIoNz/9Ou5IjltdyN4tBZU4PhTHR1JwROx0oaHI9K1d9XLkD6WhG2UTeV3pvuNT+3FCwD",
-		  "googleClientId": "439161642265-gd8vs69sk0upfitqmm28r5vbh8tsmvji.apps.googleusercontent.com"
-		}
-	  },
-	  "runtimeVersion": "1.0.0",
-	  "updates": {
-		"url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
-	  },
-	  "owner": "qwerty-app"
+		"android": {
+			"adaptiveIcon": {
+				"foregroundImage": "./assets/images/logo.png",
+				"backgroundColor": "#ffffff"
+			},
+			"permissions": [
+				"android.permission.RECORD_AUDIO",
+				"android.permission.READ_EXTERNAL_STORAGE",
+				"android.permission.WRITE_EXTERNAL_STORAGE",
+				"android.permission.INTERNET",
+				"android.permission.RECEIVE_BOOT_COMPLETED",
+				"android.permission.VIBRATE",
+				"android.permission.SCHEDULE_EXACT_ALARM",
+				"android.permission.POST_NOTIFICATIONS",
+				"android.permission.RECORD_AUDIO",
+				"android.permission.READ_EXTERNAL_STORAGE",
+				"android.permission.WRITE_EXTERNAL_STORAGE",
+				"android.permission.INTERNET",
+				"android.permission.RECEIVE_BOOT_COMPLETED",
+				"android.permission.VIBRATE",
+				"android.permission.SCHEDULE_EXACT_ALARM",
+				"android.permission.POST_NOTIFICATIONS"
+			],
+			"package": "com.qwertyapp.clerkexpoquickstart"
+		},
+		"web": {
+			"bundler": "metro",
+			"output": "static",
+			"favicon": "./assets/images/favicon.png"
+		},
+		"plugins": [
+			"expo-router",
+			"expo-secure-store",
+			[
+				"expo-image-picker",
+				{
+					"photosPermission": "The app accesses your photos to let you upload car images."
+				}
+			],
+			[
+				"expo-file-system",
+				{
+					"filePermission": "The app needs access to files for image uploads."
+				}
+			],
+			"expo-font",
+			[
+				"expo-notifications",
+				{
+					"icon": "./assets/images/icon.png",
+					"color": "#D55004",
+					"sounds": ["./assets/sounds/notification.wav"],
+					"mode": "production"
+				}
+			]
+		],
+		"experiments": {
+			"typedRoutes": true
+		},
+		"extra": {
+			"router": {
+				"origin": false
+			},
+			"eas": {
+				"projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+			}
+		},
+		"runtimeVersion": "1.0.0",
+		"updates": {
+			"url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+		},
+		"owner": "qwerty-app"
 	}
-  }
-  
+}
