@@ -15,9 +15,7 @@ import * as Notifications from 'expo-notifications'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import ErrorBoundary from 'react-native-error-boundary'
 import CustomSplashScreen from './CustomSplashScreen'
-
-// IMPORTANT: Configure notifications handler at app startup
-// This must be outside of any component to work properly
+import { GuestUserProvider, useGuestUser } from '@/utils/GuestUserContext';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -81,23 +79,25 @@ function NotificationsProvider() {
 }
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn } = useAuth()
-  const segments = useSegments()
-  const router = useRouter()
-  const [showSplash, setShowSplash] = useState(true)
-  const [isReady, setIsReady] = useState(false)
+  const { isLoaded, isSignedIn } = useAuth();
+  const { isGuest } = useGuestUser(); // Add this line
+  const segments = useSegments();
+  const router = useRouter();
+  const [showSplash, setShowSplash] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
   const handleNavigationStateChange = useCallback(() => {
-    if (!isReady) return
+    if (!isReady) return;
 
-    const inAuthGroup = segments[0] === '(auth)'
+    const inAuthGroup = segments[0] === '(auth)';
+    const isEffectivelySignedIn = isSignedIn || isGuest; // Update this line
 
-    if (isSignedIn && inAuthGroup) {
-      router.replace('/(home)')
-    } else if (!isSignedIn && !inAuthGroup) {
-      router.replace('/(auth)/sign-in')
+    if (isEffectivelySignedIn && inAuthGroup) {
+      router.replace('/(home)');
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
+      router.replace('/(auth)/sign-in');
     }
-  }, [isReady, isSignedIn, segments, router])
+  }, [isReady, isSignedIn, isGuest, segments, router]);
 
   useEffect(() => {
     if (isLoaded && !showSplash) {
@@ -136,20 +136,22 @@ export default function RootLayout() {
   }, [])
 
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
+     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ClerkProvider
-          tokenCache={tokenCache}
-          publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
-          <QueryClientProvider client={queryClient}>
-            <ThemeProvider>
-              <FavoritesProvider>
-                <NotificationsProvider />
-                <RootLayoutNav />
-              </FavoritesProvider>
-            </ThemeProvider>
-          </QueryClientProvider>
-        </ClerkProvider>
+        <GuestUserProvider> {/* Add this line */}
+          <ClerkProvider
+            tokenCache={tokenCache}
+            publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+            <QueryClientProvider client={queryClient}>
+              <ThemeProvider>
+                <FavoritesProvider>
+                  <NotificationsProvider />
+                  <RootLayoutNav />
+                </FavoritesProvider>
+              </ThemeProvider>
+            </QueryClientProvider>
+          </ClerkProvider>
+        </GuestUserProvider> {/* Add this line */}
       </GestureHandlerRootView>
     </ErrorBoundary>
   )

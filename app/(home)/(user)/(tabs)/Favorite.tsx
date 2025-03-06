@@ -16,7 +16,9 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  Animated
+  Animated,
+  StyleProp,
+  ViewStyle
 } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -29,36 +31,39 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { FontAwesome } from '@expo/vector-icons'
 import SortPicker from '@/components/SortPicker'
 import { useScrollToTop } from '@react-navigation/native'
-import SkeletonCarCard from '@/components/SkeletonCarCard' // Import skeleton
+import SkeletonCarCard from '@/components/SkeletonCarCard'
+import { BlurView } from 'expo-blur'
+import { useGuestUser } from '@/utils/GuestUserContext'
 
 // -----------------------
 // Custom Header Component
 // -----------------------
 const CustomHeader = React.memo(({ title }: { title: string }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useTheme()
 
   return (
-    <SafeAreaView style={{ backgroundColor: isDarkMode ? "black" : "white" }}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <View
         style={{
-          flexDirection: "row",
+          flexDirection: 'row',
           marginLeft: 24,
-          marginBottom: Platform.OS === "ios" ? -20 : 8,
+          marginBottom: Platform.OS === 'ios' ? -20 : 8
         }}
       >
         <Text
           style={[
-            { fontSize: 24, fontWeight: "bold" },
-            { color: isDarkMode ? "white" : "black" },
+            { fontSize: 24, fontWeight: 'bold' },
+            { color: isDarkMode ? 'white' : 'black' }
           ]}
         >
           {title}
         </Text>
       </View>
     </SafeAreaView>
-  );
-});
+  )
+})
+
 interface Car {
   id: number
   make: string
@@ -82,6 +87,7 @@ interface Car {
 export default function Favorite() {
   const { isDarkMode } = useTheme()
   const { favorites, toggleFavorite, isFavorite } = useFavorites()
+  const { isGuest, clearGuestMode } = useGuestUser()
   const [favoriteCars, setFavoriteCars] = useState<Car[]>([])
   const [filteredCars, setFilteredCars] = useState<Car[]>([])
   const [sortedCars, setSortedCars] = useState<Car[]>([])
@@ -356,7 +362,7 @@ export default function Favorite() {
     return (
       <Animated.View style={{ opacity: fadeAnim }}>
         <FlatList
-        className='mb-32'
+          className="mb-32"
           ref={scrollRef}
           data={sortedCars}
           renderItem={renderCarItem}
@@ -379,56 +385,143 @@ export default function Favorite() {
     )
   }
 
+  // -----------------------
+  // Handle Sign In for Guest Users
+  // -----------------------
+  const handleSignIn = async () => {
+    await clearGuestMode()
+    router.replace('/(auth)/sign-in')
+  }
+
   return (
-    <View style={{ flex: 1,  backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
       <CustomHeader title="Favorites" />
-<View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-    <View
-      style={[
-        {
-          flex: 1,
-          flexDirection: "row",
-          alignItems: "center",
-          borderWidth: 1,
-          borderRadius: 999,
-          paddingVertical: 4,
-          paddingHorizontal: 8,
-        },
-        { borderColor: isDarkMode ? "#555" : "#ccc" },
-      ]}
-    >
-      <FontAwesome
-        name="search"
-        size={20}
-        color={isDarkMode ? "white" : "black"}
-        style={{ marginLeft: 12 }}
-      />
-      <TextInput
-        style={[
-          { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
-        ]}
-        placeholder="Search Favorites..."
-        placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        textAlignVertical="center"
-      />
-    </View>
-    <SortPicker
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View
+            style={[
+              {
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderRadius: 999,
+                paddingVertical: 4,
+                paddingHorizontal: 8
+              },
+              { borderColor: isDarkMode ? '#555' : '#ccc' }
+            ]}
+          >
+            <FontAwesome
+              name="search"
+              size={20}
+              color={isDarkMode ? 'white' : 'black'}
+              style={{ marginLeft: 12 }}
+            />
+            <TextInput
+              style={[
+                { flex: 1, padding: 12, color: isDarkMode ? 'white' : 'black' }
+              ]}
+              placeholder="Search Favorites..."
+              placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              textAlignVertical="center"
+            />
+          </View>
+          <SortPicker
             onValueChange={(value: string) => {
               setSortOption(value)
             }}
             initialValue={sortOption}
             style={{ padding: 12, borderRadius: 999 }}
           />
-  </View>
-</View>
+        </View>
+      </View>
       {renderContent()}
       {renderModal}
+      {/* Block the page for guest users */}
+      {isGuest && (
+        <View style={blockStyles.overlay} pointerEvents="auto">
+          <BlurView
+            intensity={80}
+            tint={isDarkMode ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={[
+              blockStyles.centeredContent,
+              { backgroundColor: isDarkMode ? '#1c1c1c' : '#ffffff' }
+            ]}
+          >
+            <Text
+              style={[
+                blockStyles.blockTitle,
+                { color: isDarkMode ? 'white' : 'black' }
+              ]}
+            >
+              You're browsing as a guest
+            </Text>
+            <Text
+              style={[
+                blockStyles.blockMessage,
+                { color: isDarkMode ? 'lightgray' : 'gray' }
+              ]}
+            >
+              Please sign in to view your favorite cars.
+            </Text>
+            <TouchableOpacity style={blockStyles.signInButton} onPress={handleSignIn}>
+              <Text style={blockStyles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
+
+const blockStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999
+  },
+  centeredContent: {
+    width: '80%',
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10
+  },
+  blockTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center'
+  },
+  blockMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  signInButton: {
+    backgroundColor: '#D55004',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12
+  },
+  signInButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff'
+  }
+})
 
 const styles = StyleSheet.create({
   headerContainer: {

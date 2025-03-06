@@ -11,6 +11,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   StyleSheet,
+  Animated,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { useUser, useAuth } from "@clerk/clerk-expo";
@@ -22,12 +23,16 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { setIsSigningOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
 import { useScrollToTop } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import type { NotificationSettings } from "../types/type";
 import openWhatsApp from "@/utils/openWhatsapp";
+import { useGuestUser } from '@/utils/GuestUserContext';
+import { BlurView } from "expo-blur";
 
 const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
 const EMAIL_SUBJECT = "Support Request";
+const DEFAULT_PROFILE_IMAGE = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 
 const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
 
@@ -35,8 +40,11 @@ export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
   const { user } = useUser();
   const { signOut } = useAuth();
+  const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
+  const { isGuest, clearGuestMode } = useGuestUser();
+  const bannerAnimation = useRef(new Animated.Value(0)).current;
 
   // State Management
   const [firstName, setFirstName] = useState("");
@@ -62,14 +70,43 @@ export default function UserProfileAndSupportPage() {
   useScrollToTop(scrollRef);
 
   useEffect(() => {
-    if (user) {
+    if (user && !isGuest) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
-      setEmail(user.emailAddresses[0].emailAddress || "");
+      setEmail(user.emailAddresses[0]?.emailAddress || "");
+    } else if (isGuest) {
+      setFirstName("Guest");
+      setLastName("User");
+      setEmail("guest@example.com");
     }
-  }, [user]);
+  }, [user, isGuest]);
+
+  useEffect(() => {
+    // Animate the guest banner entrance
+    if (isGuest) {
+      Animated.spring(bannerAnimation, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isGuest, bannerAnimation]);
 
   const updateProfile = async (): Promise<void> => {
+    // Only allow profile update for authenticated users
+    if (isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to edit your profile information.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn }
+        ]
+      );
+      return;
+    }
+
     try {
       if (!user) throw new Error("No user found");
 
@@ -90,6 +127,19 @@ export default function UserProfileAndSupportPage() {
   };
 
   const onPickImage = async (): Promise<void> => {
+    // Only allow profile image update for authenticated users
+    if (isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to update your profile picture.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn }
+        ]
+      );
+      return;
+    }
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -116,6 +166,19 @@ export default function UserProfileAndSupportPage() {
   };
 
   const handleChangePassword = async (): Promise<void> => {
+    // Only allow password change for authenticated users
+    if (isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to change your password.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn }
+        ]
+      );
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       Alert.alert("Error", "New passwords do not match");
       return;
@@ -140,8 +203,16 @@ export default function UserProfileAndSupportPage() {
   const handleSignOut = async (): Promise<void> => {
     try {
       setIsSigningOut(true);
-      await cleanupPushToken();
-      await signOut();
+
+      if (isGuest) {
+        // Handle guest user sign out
+        await clearGuestMode();
+        router.replace('/(auth)/sign-in');
+      } else {
+        // Handle regular user sign out
+        await cleanupPushToken();
+        await signOut();
+      }
     } catch (error) {
       console.error("Error during sign out:", error);
       Alert.alert("Error", "Failed to sign out properly");
@@ -150,10 +221,21 @@ export default function UserProfileAndSupportPage() {
     }
   };
 
-const openWhatsApp1 = () => {
-  // If WHATSAPP_NUMBER is a constant, make sure it doesn't include country code
-  openWhatsApp(WHATSAPP_NUMBER);
-};
+  // Handler for when guest user wants to sign in
+  const handleSignIn = async (): Promise<void> => {
+    try {
+      await clearGuestMode();
+      router.replace('/(auth)/sign-in');
+    } catch (error) {
+      console.error("Error transitioning to sign in:", error);
+      Alert.alert("Error", "Failed to transition to sign in page");
+    }
+  };
+
+  const openWhatsApp1 = () => {
+    // If WHATSAPP_NUMBER is a constant, make sure it doesn't include country code
+    openWhatsApp(WHATSAPP_NUMBER);
+  };
 
   const openEmail = () => {
     const subject = encodeURIComponent(EMAIL_SUBJECT);
@@ -161,6 +243,19 @@ const openWhatsApp1 = () => {
   };
 
   const toggleNotification = (key: keyof NotificationSettings) => {
+    // Only allow notification changes for authenticated users
+    if (isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to manage notification settings.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn }
+        ]
+      );
+      return;
+    }
+
     setNotificationSettings((prev) => ({
       ...prev,
       [key]: !prev[key],
@@ -171,579 +266,662 @@ const openWhatsApp1 = () => {
     setModalVisible(false);
   };
 
+  // Guest Banner animation styles
+  const bannerAnimatedStyle = {
+    opacity: bannerAnimation,
+    transform: [
+      {
+        translateY: bannerAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-50, 0],
+        }),
+      },
+    ],
+  };
+
   return (
-    <ScrollView
-      className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
-      bounces={false}
-      overScrollMode="never"
-      showsVerticalScrollIndicator={false}
-      ref={scrollRef}
-    >
-      {/* Header Section */}
-      <View className="relative">
-        <LinearGradient
-          colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
-          className="pt-12 pb-24 rounded-b-[40px]"
-        >
-          <View className="items-center mt-6">
-            <View className="relative">
-              <Image
-                source={{ uri: user?.imageUrl }}
-                className="w-32 h-32 rounded-full border-4 border-white/20"
-              />
-              <TouchableOpacity
-                onPress={onPickImage}
-                className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
-              >
-                <Ionicons name="camera" size={20} color="#D55004" />
-              </TouchableOpacity>
-            </View>
-            <Text className="text-white text-xl font-semibold mt-4">
-              {firstName} {lastName}
-            </Text>
-            <Text className="text-white/80 text-sm">{email}</Text>
-          </View>
-        </LinearGradient>
-      </View>
-
-      {/* Quick Actions */}
-      {/* Quick Actions */}
-      <View className="space-y-4 px-6 -mt-12">
-        <TouchableOpacity
-          onPress={() => setIsEditMode(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-      p-4 rounded-xl shadow-sm flex-row items-center`}
-        >
-          <View className="bg-red/10 p-3 rounded-xl">
-            <Ionicons name="person-outline" size={24} color="#D55004" />
-          </View>
-          <View className="ml-4">
-            <Text
-              className={`${
-                isDarkMode ? "text-white" : "text-black"
-              } font-semibold`}
-            >
-              Edit Profile
-            </Text>
-            <Text
-              className={`${
-                isDarkMode ? "text-white/60" : "text-gray-500"
-              } text-sm mt-1`}
-            >
-              Update your personal information
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-            style={{ marginLeft: "auto" }}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setIsSecuritySettingsVisible(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-      p-4 rounded-xl shadow-sm flex-row items-center`}
-        >
-          <View className="bg-purple-500/10 p-3 rounded-xl">
-            <Ionicons name="shield-outline" size={24} color="#D55004" />
-          </View>
-          <View className="ml-4">
-            <Text
-              className={`${
-                isDarkMode ? "text-white" : "text-black"
-              } font-semibold`}
-            >
-              Security
-            </Text>
-            <Text
-              className={`${
-                isDarkMode ? "text-white/60" : "text-gray-500"
-              } text-sm mt-1`}
-            >
-              Password and privacy settings
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-            style={{ marginLeft: "auto" }}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setIsNotificationSettingsVisible(true)}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-      p-4 rounded-xl shadow-sm flex-row items-center`}
-        >
-          <View className="bg-blue-500/10 p-3 rounded-xl">
-            <Ionicons name="notifications-outline" size={24} color="#D55004" />
-          </View>
-          <View className="ml-4">
-            <Text
-              className={`${
-                isDarkMode ? "text-white" : "text-black"
-              } font-semibold`}
-            >
-              Notifications
-            </Text>
-            <Text
-              className={`${
-                isDarkMode ? "text-white/60" : "text-gray-500"
-              } text-sm mt-1`}
-            >
-              Your choice of beeps
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-            style={{ marginLeft: "auto" }}
-          />
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
+      {/* Guest User Banner - Positioned as overlay with blur effect */}
+ {isGuest && (
+  <View style={styles.guestBannerContainer} pointerEvents="auto">
+    <BlurView
+      intensity={80}
+      tint={isDarkMode ? "dark" : "light"}
+      style={StyleSheet.absoluteFillObject}
+    />
+    <Animated.View style={[styles.guestBanner, bannerAnimatedStyle]}>
+      <View style={{ alignItems: "center" }}>
+        <Text style={styles.guestBannerTitle}>
+          You're browsing as a guest
+        </Text>
+        <Text style={styles.guestBannerSubtitle}>
+          Sign in to access all features
+        </Text>
+        <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
+          <Text style={styles.signInButtonText}>Sign In</Text>
         </TouchableOpacity>
       </View>
+    </Animated.View>
+  </View>
+)}
 
-      {/* Edit Profile Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isEditMode}
-        onRequestClose={() => setIsEditMode(false)}
+
+      <ScrollView
+        className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
+        bounces={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+        ref={scrollRef}
+        contentContainerStyle={{ paddingTop: isGuest ? 80 : 0 }}
       >
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => closeModal(setIsEditMode)}>
-            <View style={styles.modalBackground} />
-          </TouchableWithoutFeedback>
-          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
-            <View className="flex-row justify-between items-center mb-6">
+        {/* Header Section */}
+        <View className="relative">
+          <LinearGradient
+            colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
+            className="pt-12 pb-24 rounded-b-[40px]"
+          >
+            <View className="items-center mt-6">
+              <View className="relative">
+                <Image
+                  source={{ uri: isGuest ? DEFAULT_PROFILE_IMAGE : user?.imageUrl }}
+                  className="w-32 h-32 rounded-full border-4 border-white/20"
+                />
+                <TouchableOpacity
+                  onPress={onPickImage}
+                  className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
+                >
+                  <Ionicons name="camera" size={20} color="#D55004" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-white text-xl font-semibold mt-4">
+                {isGuest ? "Guest User" : `${firstName} ${lastName}`}
+              </Text>
+              <Text className="text-white/80 text-sm">
+                {isGuest ? "" : email}
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Quick Actions */}
+        <View className="space-y-4 px-6 -mt-12">
+          {/* Edit Profile button - different behavior for guests */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to edit your profile information.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn }
+                  ]
+                );
+              } else {
+                setIsEditMode(true);
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+        p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="bg-red/10 p-3 rounded-xl">
+              <Ionicons name="person-outline" size={24} color="#D55004" />
+            </View>
+            <View className="ml-4">
               <Text
-                className={`text-xl font-semibold ${
+                className={`${
                   isDarkMode ? "text-white" : "text-black"
-                }`}
+                } font-semibold`}
               >
                 Edit Profile
               </Text>
-              <TouchableOpacity onPress={() => setIsEditMode(false)}>
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View className="space-y-4">
-              <TextInput
-                className={`${
-                  isDarkMode
-                    ? "bg-neutral-800 text-white"
-                    : "bg-neutral-100 text-black"
-                } p-4 rounded-xl`}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First Name"
-                placeholderTextColor={isDarkMode ? "#999" : "#666"}
-                cursorColor="#D55004"
-              />
-              <TextInput
-                className={`${
-                  isDarkMode
-                    ? "bg-neutral-800 text-white"
-                    : "bg-neutral-100 text-black"
-                } p-4 rounded-xl`}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last Name"
-                placeholderTextColor={isDarkMode ? "#999" : "#666"}
-                cursorColor="#D55004"
-              />
-              <TextInput
-                className={`${
-                  isDarkMode
-                    ? "bg-neutral-800 text-white"
-                    : "bg-neutral-100 text-black"
-                } p-4 rounded-xl`}
-                value={email}
-                editable={false}
-                placeholder="Email"
-                placeholderTextColor={isDarkMode ? "#999" : "#666"}
-              />
-            </View>
-
-            <TouchableOpacity
-              className="bg-red mt-6 p-4 rounded-xl"
-              onPress={updateProfile}
-            >
-              <Text className="text-white text-center font-semibold">
-                Update Profile
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Security Settings Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isSecuritySettingsVisible}
-        onRequestClose={() => setIsSecuritySettingsVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => closeModal(setIsSecuritySettingsVisible)}>
-            <View style={styles.modalBackground} />
-          </TouchableWithoutFeedback>
-
-          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
-            <View className="flex-row justify-between items-center mb-6">
               <Text
-                className={`text-xl font-semibold ${
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+              >
+                {isGuest ? "Sign in to edit your profile" : "Update your personal information"}
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          {/* Security settings button - different behavior for guests */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to access security settings.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn }
+                  ]
+                );
+              } else {
+                setIsSecuritySettingsVisible(true);
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+        p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="bg-purple-500/10 p-3 rounded-xl">
+              <Ionicons name="shield-outline" size={24} color="#D55004" />
+            </View>
+            <View className="ml-4">
+              <Text
+                className={`${
                   isDarkMode ? "text-white" : "text-black"
-                }`}
+                } font-semibold`}
               >
-                Security & Privacy
+                Security
               </Text>
-              <TouchableOpacity
-                onPress={() => setIsSecuritySettingsVisible(false)}
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
               >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-              </TouchableOpacity>
+                {isGuest ? "Sign in to access security settings" : "Password and privacy settings"}
+              </Text>
             </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => {
-                setIsSecuritySettingsVisible(false);
-                setIsChangePasswordMode(true);
-              }}
-              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                  p-4 rounded-xl flex-row items-center mb-4`}
-            >
-              <Ionicons
-                name="key-outline"
-                size={24}
-                color={isDarkMode ? "#fff" : "#000"}
-              />
+          {/* Notifications button - different behavior for guests */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to manage notifications.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn }
+                  ]
+                );
+              } else {
+                setIsNotificationSettingsVisible(true);
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+        p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="bg-blue-500/10 p-3 rounded-xl">
+              <Ionicons name="notifications-outline" size={24} color="#D55004" />
+            </View>
+            <View className="ml-4">
               <Text
-                className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-              >
-                Change Password
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={isDarkMode ? "#fff" : "#000"}
-                style={{ marginLeft: "auto" }}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                  p-4 rounded-xl flex-row items-center mb-4`}
-            >
-              <Ionicons
-                name="shield-outline"
-                size={24}
-                color={isDarkMode ? "#fff" : "#000"}
-              />
-              <Text
-                className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-              >
-                Privacy Policy
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={isDarkMode ? "#fff" : "#000"}
-                style={{ marginLeft: "auto" }}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                  p-4 rounded-xl flex-row items-center`}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={24}
-                color={isDarkMode ? "#fff" : "#000"}
-              />
-              <Text
-                className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-              >
-                Security Settings
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={isDarkMode ? "#fff" : "#000"}
-                style={{ marginLeft: "auto" }}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Notification Settings Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isNotificationSettingsVisible}
-        onRequestClose={() => setIsNotificationSettingsVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => closeModal(setIsNotificationSettingsVisible)}>
-            <View style={styles.modalBackground} />
-          </TouchableWithoutFeedback>
-          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
-            <View className="flex-row justify-between items-center mb-6">
-              <Text
-                className={`text-xl font-semibold ${
+                className={`${
                   isDarkMode ? "text-white" : "text-black"
-                }`}
+                } font-semibold`}
               >
-                Notification Settings
+                Notifications
               </Text>
-              <TouchableOpacity
-                onPress={() => setIsNotificationSettingsVisible(false)}
-              >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {(
-              Object.keys(notificationSettings) as Array<
-                keyof NotificationSettings
-              >
-            ).map((key) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => toggleNotification(key)}
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                    p-4 rounded-xl flex-row items-center justify-between mb-4`}
-              >
-                <View className="flex-row items-center">
-                  <Ionicons
-                    name={
-                      notificationSettings[key]
-                        ? "notifications"
-                        : "notifications-off"
-                    }
-                    size={24}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
-                  <Text
-                    className={`ml-3 ${
-                      isDarkMode ? "text-white" : "text-black"
-                    }`}
-                  >
-                    {key
-                      .replace(/([A-Z])/g, " $1")
-                      .replace(/^./, (str) => str.toUpperCase())}
-                  </Text>
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full ${
-                    notificationSettings[key] ? "bg-green-500" : "bg-gray-400"
-                  }`}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Change Password Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isChangePasswordMode}
-        onRequestClose={() => setIsChangePasswordMode(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => closeModal(setIsChangePasswordMode)}>
-            <View style={styles.modalBackground} />
-          </TouchableWithoutFeedback>
-          <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
-            <View className="flex-row justify-between items-center mb-6">
               <Text
-                className={`text-xl font-semibold ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
               >
-                Change Password
+                {isGuest ? "Sign in to manage notifications" : "Your choice of beeps"}
               </Text>
-              <TouchableOpacity onPress={() => setIsChangePasswordMode(false)}>
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-              </TouchableOpacity>
             </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+        </View>
 
-            <View className="space-y-4">
-              <TextInput
-                className={`${
-                  isDarkMode
-                    ? "bg-neutral-800 text-white"
-                    : "bg-neutral-100 text-black"
-                } p-4 rounded-xl`}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="Current Password"
-                placeholderTextColor={isDarkMode ? "#999" : "#666"}
-                secureTextEntry
-                cursorColor="#D55004"
-              />
-              <TextInput
-                className={`${
-                  isDarkMode
-                    ? "bg-neutral-800 text-white"
-                    : "bg-neutral-100 text-black"
-                } p-4 rounded-xl`}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="New Password"
-                placeholderTextColor={isDarkMode ? "#999" : "#666"}
-                secureTextEntry
-                cursorColor="#D55004"
-              />
-              <TextInput
-                className={`${
-                  isDarkMode
-                    ? "bg-neutral-800 text-white"
-                    : "bg-neutral-100 text-black"
-                } p-4 rounded-xl`}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Confirm New Password"
-                placeholderTextColor={isDarkMode ? "#999" : "#666"}
-                secureTextEntry
-                cursorColor="#D55004"
-              />
-            </View>
-
-            <View className="flex-row space-x-4 mt-6">
-              <TouchableOpacity
-                className="flex-1 bg-neutral-600/10 p-4 rounded-xl"
-                onPress={() => setIsChangePasswordMode(false)}
-              >
+        {/* Edit Profile Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isEditMode}
+          onRequestClose={() => setIsEditMode(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => closeModal(setIsEditMode)}>
+              <View style={styles.modalBackground} />
+            </TouchableWithoutFeedback>
+            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+              <View className="flex-row justify-between items-center mb-6">
                 <Text
-                  className={`text-center font-semibold ${
+                  className={`text-xl font-semibold ${
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  Cancel
+                  Edit Profile
                 </Text>
-              </TouchableOpacity>
+                <TouchableOpacity onPress={() => setIsEditMode(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View className="space-y-4">
+                <TextInput
+                  className={`${
+                    isDarkMode
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-black"
+                  } p-4 rounded-xl`}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First Name"
+                  placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                  cursorColor="#D55004"
+                />
+                <TextInput
+                  className={`${
+                    isDarkMode
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-black"
+                  } p-4 rounded-xl`}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last Name"
+                  placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                  cursorColor="#D55004"
+                />
+                <TextInput
+                  className={`${
+                    isDarkMode
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-black"
+                  } p-4 rounded-xl`}
+                  value={email}
+                  editable={false}
+                  placeholder="Email"
+                  placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                />
+              </View>
+
               <TouchableOpacity
-                className="flex-1 bg-red p-4 rounded-xl"
-                onPress={handleChangePassword}
+                className="bg-red mt-6 p-4 rounded-xl"
+                onPress={updateProfile}
               >
-                <Text className="text-center text-white font-semibold">
-                  Update Password
+                <Text className="text-white text-center font-semibold">
+                  Update Profile
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
+        </Modal>
+
+        {/* Security Settings Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isSecuritySettingsVisible}
+          onRequestClose={() => setIsSecuritySettingsVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => closeModal(setIsSecuritySettingsVisible)}>
+              <View style={styles.modalBackground} />
+            </TouchableWithoutFeedback>
+
+            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className={`text-xl font-semibold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                >
+                  Security & Privacy
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsSecuritySettingsVisible(false)}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setIsSecuritySettingsVisible(false);
+                  setIsChangePasswordMode(true);
+                }}
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                    p-4 rounded-xl flex-row items-center mb-4`}
+              >
+                <Ionicons
+                  name="key-outline"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                />
+                <Text
+                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                >
+                  Change Password
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                  style={{ marginLeft: "auto" }}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                    p-4 rounded-xl flex-row items-center mb-4`}
+              >
+                <Ionicons
+                  name="shield-outline"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                />
+                <Text
+                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                >
+                  Privacy Policy
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                  style={{ marginLeft: "auto" }}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                    p-4 rounded-xl flex-row items-center`}
+              >
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                />
+                <Text
+                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                >
+                  Security Settings
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                  style={{ marginLeft: "auto" }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Notification Settings Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isNotificationSettingsVisible}
+          onRequestClose={() => setIsNotificationSettingsVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => closeModal(setIsNotificationSettingsVisible)}>
+              <View style={styles.modalBackground} />
+            </TouchableWithoutFeedback>
+            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className={`text-xl font-semibold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                >
+                  Notification Settings
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsNotificationSettingsVisible(false)}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {(
+                Object.keys(notificationSettings) as Array<keyof NotificationSettings>
+
+              ).map((key) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => toggleNotification(key)}
+                  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                      p-4 rounded-xl flex-row items-center justify-between mb-4`}
+                >
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={
+                        notificationSettings[key]
+                          ? "notifications"
+                          : "notifications-off"
+                      }
+                      size={24}
+                      color={isDarkMode ? "#fff" : "#000"}
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      }`}
+                    >
+                      {key
+                        .replace(/([A-Z])/g, " $1")
+                        .replace(/^./, (str) => str.toUpperCase())}
+                    </Text>
+                  </View>
+                  <View
+                    className={`w-6 h-6 rounded-full ${
+                      notificationSettings[key] ? "bg-green-500" : "bg-gray-400"
+                    }`}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Change Password Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isChangePasswordMode}
+          onRequestClose={() => setIsChangePasswordMode(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => closeModal(setIsChangePasswordMode)}>
+              <View style={styles.modalBackground} />
+            </TouchableWithoutFeedback>
+            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className={`text-xl font-semibold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                >
+                  Change Password
+                </Text>
+                <TouchableOpacity onPress={() => setIsChangePasswordMode(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View className="space-y-4">
+                <TextInput
+                  className={`${
+                    isDarkMode
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-black"
+                  } p-4 rounded-xl`}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Current Password"
+                  placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                  secureTextEntry
+                  cursorColor="#D55004"
+                />
+                <TextInput
+                  className={`${
+                    isDarkMode
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-black"
+                  } p-4 rounded-xl`}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="New Password"
+                  placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                  secureTextEntry
+                  cursorColor="#D55004"
+                />
+                <TextInput
+                  className={`${
+                    isDarkMode
+                      ? "bg-neutral-800 text-white"
+                      : "bg-neutral-100 text-black"
+                  } p-4 rounded-xl`}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm New Password"
+                  placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                  secureTextEntry
+                  cursorColor="#D55004"
+                />
+              </View>
+
+              <View className="flex-row space-x-4 mt-6">
+                <TouchableOpacity
+                  className="flex-1 bg-neutral-600/10 p-4 rounded-xl"
+                  onPress={() => setIsChangePasswordMode(false)}
+                >
+                  <Text
+                    className={`text-center font-semibold ${
+                      isDarkMode ? "text-white" : "text-black"
+                    }`}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="flex-1 bg-red p-4 rounded-xl"
+                  onPress={handleChangePassword}
+                >
+                  <Text className="text-center text-white font-semibold">
+                    Update Password
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Support Section */}
+        <View className="mt-2 p-8 space-y-4">
+          <Text
+            className={`${
+              isDarkMode ? "text-white/60" : "text-textgray"
+            } text-xs uppercase tracking-wider`}
+          >
+            Support & Help
+          </Text>
+
+          <TouchableOpacity
+            onPress={openWhatsApp1}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+                p-4 rounded-2xl flex-row items-center`}
+          >
+            <View className="bg-green-500/10 p-3 rounded-xl">
+              <Feather name="message-circle" size={22} color="#22c55e" />
+            </View>
+            <View className="ml-4">
+              <Text
+                className={`font-semibold ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
+              >
+                WhatsApp Support
+              </Text>
+              <Text
+                className={`text-xs ${
+                  isDarkMode ? "text-white/60" : "text-textgray"
+                }`}
+              >
+                Available 24/7
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={openEmail}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+                p-4 rounded-2xl flex-row items-center mb-4`}
+          >
+            <View className="bg-blue-500/10 p-3 rounded-xl">
+              <Feather name="mail" size={22} color="#3b82f6" />
+            </View>
+            <View className="ml-4">
+              <Text
+                className={`font-semibold ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
+              >
+                Email Support
+              </Text>
+              <Text
+                className={`text-xs ${
+                  isDarkMode ? "text-white/60" : "text-gray"
+                }`}
+              >
+                Detailed inquiries
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
         </View>
-      </Modal>
 
-      {/* Support Section */}
-      <View className="mt-2 p-8 space-y-4">
-        <Text
-          className={`${
-            isDarkMode ? "text-white/60" : "text-textgray"
-          } text-xs uppercase tracking-wider`}
-        >
-          Support & Help
-        </Text>
-
-        <TouchableOpacity
-          onPress={openWhatsApp1}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-2xl flex-row items-center`}
-        >
-          <View className="bg-green-500/10 p-3 rounded-xl">
-            <Feather name="message-circle" size={22} color="#22c55e" />
-          </View>
-          <View className="ml-4">
-            <Text
-              className={`font-semibold ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              WhatsApp Support
-            </Text>
-            <Text
-              className={`text-xs ${
-                isDarkMode ? "text-white/60" : "text-textgray"
-              }`}
-            >
-              Available 24/7
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={isDarkMode ? "#fff" : "#000"}
-            style={{ marginLeft: "auto" }}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={openEmail}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-2xl flex-row items-center`}
-        >
-          <View className="bg-blue-500/10 p-3 rounded-xl">
-            <Feather name="mail" size={22} color="#3b82f6" />
-          </View>
-          <View className="ml-4">
-            <Text
-              className={`font-semibold ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              Email Support
-            </Text>
-            <Text
-              className={`text-xs ${
-                isDarkMode ? "text-white/60" : "text-gray"
-              }`}
-            >
-              Detailed inquiries
-            </Text>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={isDarkMode ? "#fff" : "#000"}
-            style={{ marginLeft: "auto" }}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Sign Out Button */}
-      <TouchableOpacity className="mt-2 p-5 mb-12" onPress={handleSignOut}>
-        <Text
-          className={`text-center text-red font-semibold border border-red p-4 rounded-2xl`}
-        >
-          Sign Out
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {/* Sign Out Button */}
+        {!isGuest&&<TouchableOpacity className="mt-2 p-5 mb-12" onPress={handleSignOut}>
+          <Text
+            className={`text-center text-red font-semibold border border-red p-4 rounded-2xl`}
+          >
+            Sign Out
+          </Text>
+        </TouchableOpacity>}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -773,5 +951,52 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+guestBannerContainer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,      // Cover full height
+    left: 0,
+    right: 0,       // Cover full width
+    zIndex: 1000,   // Ensure it sits on top of everything
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  guestBanner: {
+    backgroundColor: "rgba(213, 80, 4, 0.85)",
+    borderRadius: 12,
+    padding: 20,
+    width: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  guestBannerTitle: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 18,
+    textAlign: "center",
+  },
+  guestBannerSubtitle: {
+    color: "#FFF",
+    opacity: 0.8,
+    fontSize: 14,
+    marginVertical: 8,
+    textAlign: "center",
+  },
+  signInButton: {
+    backgroundColor: "#FFF",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  signInButtonText: {
+    color: "#D55004",
+    fontWeight: "bold",
   },
 });

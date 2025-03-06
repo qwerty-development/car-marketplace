@@ -1,11 +1,14 @@
 // app/(auth)/_layout.tsx
 import { Redirect, Stack } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
+import { useGuestUser } from '@/utils/GuestUserContext' // Add this import
 
 export default function UnAuthenticatedLayout() {
 	const { isSignedIn } = useAuth()
+	const { isGuest } = useGuestUser() // Add this line to get guest status
 
-	if (isSignedIn) {
+	// Update this condition to check for both signed in users and guest users
+	if (isSignedIn || isGuest) {
 		return <Redirect href={'/'} />
 	}
 

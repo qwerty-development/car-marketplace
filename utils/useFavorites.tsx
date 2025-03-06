@@ -1,105 +1,125 @@
 // hooks/useFavorites.tsx
-import React, { createContext, useState, useContext, useEffect } from 'react'
-import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { supabase } from '@/utils/supabase';
+import { useUser } from '@clerk/clerk-expo';
+import { useGuestUser } from '@/utils/GuestUserContext';
+import { Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import AuthRequiredModal from '@/components/AuthRequiredModal';
 
 interface FavoritesContextType {
-	favorites: number[]
-	toggleFavorite: any
-	isFavorite: (carId: number) => boolean
+  favorites: number[];
+  toggleFavorite: (carId: number) => Promise<number>;
+  isFavorite: (carId: number) => boolean;
 }
 
-const FavoritesContext = createContext<FavoritesContextType | undefined>(
-	undefined
-)
+const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
-	children
+  children
 }) => {
-	const [favorites, setFavorites] = useState<number[]>([])
-	const { user } = useUser()
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const { user } = useUser();
+  const { isGuest, guestId } = useGuestUser();
+  const router = useRouter();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
-	useEffect(() => {
-		if (user) {
-			fetchFavorites()
-		}
-	}, [user])
+  useEffect(() => {
+    // Fetch favorites only for authenticated users
+    if (user && !isGuest) {
+      fetchFavorites();
+    }
+  }, [user, isGuest]);
 
-	const fetchFavorites = async () => {
-		if (!user) return
+  const fetchFavorites = async () => {
+    if (!user || isGuest) return;
 
-		try {
-			const { data, error } = await supabase
-				.from('users')
-				.select('favorite')
-				.eq('id', user.id)
-				.single()
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('favorite')
+        .eq('id', user.id)
+        .single();
 
-			if (error) {
-				if (error.code === 'PGRST116') {
-					// User doesn't exist yet, initialize with empty favorites
-					setFavorites([])
-				} else {
-					console.error('Error fetching favorites:', error)
-				}
-			} else {
-				setFavorites(data?.favorite || [])
-			}
-		} catch (error) {
-			console.error('Error fetching favorites:', error)
-		}
-	}
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // User doesn't exist yet, initialize with empty favorites
+          setFavorites([]);
+        } else {
+          console.error('Error fetching favorites:', error);
+        }
+      } else {
+        setFavorites(data?.favorite || []);
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    }
+  };
 
-	const toggleFavorite = async (carId: number): Promise<number> => {
-		if (!user) return 0
-		try {
-			const { data, error } = await supabase.rpc('toggle_car_like', {
-				car_id: carId,
-				user_id: user.id
-			})
+  const toggleFavorite = async (carId: number): Promise<number> => {
+    // Check if user is a guest, and show auth prompt if they are
+       if (isGuest) {
+      setShowAuthModal(true);
 
-			if (error) {
-				console.error('Error toggling favorite:', error)
-				return 0
-			}
+      return 0;
+    }
 
-			// Update local favorites
-			const newFavorites = isFavorite(carId)
-				? favorites.filter(id => id !== carId)
-				: [...favorites, carId]
-			setFavorites(newFavorites)
+    // Proceed with favorite toggle for authenticated users
+    if (!user) return 0;
 
-			// Update user's favorites in the database
-			const { error: updateError } = await supabase
-				.from('users')
-				.update({ favorite: newFavorites })
-				.eq('id', user.id)
+    try {
+      const { data, error } = await supabase.rpc('toggle_car_like', {
+        car_id: carId,
+        user_id: user.id
+      });
 
-			if (updateError) {
-				console.error('Error updating user favorites:', updateError)
-			}
+      if (error) {
+        console.error('Error toggling favorite:', error);
+        return 0;
+      }
 
-			return data as number
-		} catch (error) {
-			console.error('Unexpected error in toggleFavorite:', error)
-			return 0
-		}
-	}
+      // Update local favorites
+      const newFavorites = isFavorite(carId)
+        ? favorites.filter(id => id !== carId)
+        : [...favorites, carId];
+      setFavorites(newFavorites);
 
-	const isFavorite = (carId: number) => favorites.includes(carId)
+      // Update user's favorites in the database
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ favorite: newFavorites })
+        .eq('id', user.id);
 
-	return (
-		<FavoritesContext.Provider
-			value={{ favorites, toggleFavorite, isFavorite }}>
-			{children}
-		</FavoritesContext.Provider>
-	)
-}
+      if (updateError) {
+        console.error('Error updating user favorites:', updateError);
+      }
+
+      return data as number;
+    } catch (error) {
+      console.error('Unexpected error in toggleFavorite:', error);
+      return 0;
+    }
+  };
+
+  const isFavorite = (carId: number) => favorites.includes(carId);
+
+  return (
+    <FavoritesContext.Provider
+      value={{ favorites, toggleFavorite, isFavorite }}>
+      {children}
+      <AuthRequiredModal
+        isVisible={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        featureName="add cars to favorites"
+      />
+    </FavoritesContext.Provider>
+  );
+};
 
 export const useFavorites = () => {
-	const context = useContext(FavoritesContext)
-	if (context === undefined) {
-		throw new Error('useFavorites must be used within a FavoritesProvider')
-	}
-	return context
-}
+  const context = useContext(FavoritesContext);
+  if (context === undefined) {
+    throw new Error('useFavorites must be used within a FavoritesProvider');
+  }
+  return context;
+};

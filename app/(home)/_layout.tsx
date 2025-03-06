@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase'
 import { Alert, View, ActivityIndicator, useColorScheme, Animated } from 'react-native'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useTheme } from '@/utils/ThemeContext'
+import { useGuestUser } from '@/utils/GuestUserContext';
 
 // Global sign-out flag
 let isSigningOut = false
@@ -68,7 +69,7 @@ export default function HomeLayout() {
   const router = useRouter()
   const segments = useSegments()
   const { isDarkMode } = useTheme()
-
+const { isGuest, guestId } = useGuestUser();
   const [isCheckingUser, setIsCheckingUser] = useState(true)
   const [isRouting, setIsRouting] = useState(true)
   const { registerForPushNotifications, refreshNotifications } = useNotifications()
@@ -77,119 +78,94 @@ export default function HomeLayout() {
   // 1) Check/Create Supabase user and handle notifications
   useEffect(() => {
     const checkAndCreateUser = async () => {
-      if (!user || isSigningOut) return
+      if ((!user && !isGuest) || isSigningOut) return;
 
       try {
-        console.log('Checking user in Supabase:', user.id)
+        const userId = isGuest ? `guest_${guestId}` : user?.id;
+
+        if (!userId) return;
 
         // Check if user exists in Supabase
         const { data: existingUser, error: fetchError } = await supabase
           .from('users')
           .select()
-          .eq('id', user.id)
-          .single()
+          .eq('id', userId)
+          .single();
 
         if (fetchError && fetchError.code !== 'PGRST116') {
-          console.error('Error fetching user from Supabase:', fetchError)
-          throw fetchError
+          throw fetchError;
         }
 
         // Create user if they don't exist
         if (!existingUser) {
-          console.log('User not found in Supabase, creating new user record')
-
           const { error: insertError } = await supabase.from('users').insert([
             {
-              id: user.id,
-              name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-              email: user.emailAddresses[0]?.emailAddress || '',
-              favorite: []
+              id: userId,
+              name: isGuest ? 'Guest User' : `${user?.firstName} ${user?.lastName}`,
+              email: isGuest ? `guest_${guestId}@example.com` : user?.emailAddresses[0].emailAddress,
+              favorite: [],
+              is_guest: isGuest // Add this field to track guest users
             }
-          ])
-
-          if (insertError) {
-            console.error('Error creating user in Supabase:', insertError)
-            throw insertError
-          }
-
-          console.log('Created new user in Supabase')
-        } else {
-          console.log('User found in Supabase:', existingUser.id)
+          ]);
+          if (insertError) throw insertError;
+          console.log('Created new user in Supabase');
         }
 
         // Update last_active timestamp
         const { error: updateError } = await supabase
           .from('users')
           .update({ last_active: new Date().toISOString() })
-          .eq('id', user.id)
+          .eq('id', userId);
 
-        if (updateError) {
-          console.error('Error updating last_active timestamp:', updateError)
-          throw updateError
-        }
+        if (updateError) throw updateError;
+        console.log('Updated last_active for user in Supabase');
 
-        console.log('Updated last_active for user in Supabase')
-
-        // Refresh notifications data
-        try {
-          console.log('Refreshing notification data...')
-          await refreshNotifications()
-        } catch (notificationError) {
-          console.error('Error refreshing notifications:', notificationError)
-          // Continue the flow even if notification refresh fails
-        }
-
-        // Register for notifications if not already attempted
-        if (!registrationAttempted.current) {
-          try {
-            console.log('Registering for push notifications...')
-            await registerForPushNotifications()
-            registrationAttempted.current = true
-            console.log('Successfully registered for push notifications')
-          } catch (notificationError) {
-            console.error('Error registering for push notifications:', notificationError)
-            // Continue the flow even if notification registration fails
-          }
+        // Register for notifications (skip for guests or conditionally register)
+        if (!isGuest) {
+          await registerForPushNotifications();
         }
       } catch (error) {
-        console.error('Error in user sync:', error)
+        console.error('Error in user sync:', error);
         Alert.alert(
           'Error',
           'There was a problem setting up your account. Please try again later.'
-        )
+        );
       } finally {
-        setIsCheckingUser(false)
+        setIsCheckingUser(false);
       }
-    }
+    };
 
-    if (isSignedIn && user) {
-      checkAndCreateUser()
+    if ((isSignedIn && user) || isGuest) {
+      checkAndCreateUser();
     } else {
-      setIsCheckingUser(false)
+      setIsCheckingUser(false);
     }
-  }, [isSignedIn, user, registerForPushNotifications, refreshNotifications])
+  }, [isSignedIn, user, isGuest, guestId]);
 
-  // 2) Handle routing based on auth state and role
+  // Modify the routing logic
   useEffect(() => {
-    if (!isLoaded) return
-    if (isCheckingUser) return
+    if (!isLoaded) return;
+    if (isCheckingUser) return;
 
-    if (!isSignedIn) {
-      router.replace('/sign-in')
-      return
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+
+    if (!isEffectivelySignedIn) {
+      router.replace('/sign-in');
+      return;
     }
 
-    const role = (user?.publicMetadata?.role as string) || 'user'
-    const correctRouteSegment = `(${role})`
+    // Always route guests to user role
+    const role = isGuest ? 'user' : ((user?.publicMetadata?.role as string) || 'user');
+    const correctRouteSegment = `(${role})`;
 
     if (segments[1] !== correctRouteSegment) {
-      setIsRouting(true)
-      router.replace(`/(home)/${correctRouteSegment}`)
-      setIsRouting(false)
+      setIsRouting(true);
+      router.replace(`/(home)/${correctRouteSegment}`);
+      setIsRouting(false);
     } else {
-      setIsRouting(false)
+      setIsRouting(false);
     }
-  }, [isLoaded, isSignedIn, isCheckingUser, user, segments])
+  }, [isLoaded, isSignedIn, isGuest, isCheckingUser, user, segments]);
 
   // 3) Show loading animation while in any loading state
   if (isRouting || !isLoaded || isCheckingUser) {

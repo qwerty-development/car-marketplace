@@ -1,3 +1,4 @@
+// app/(auth)/sign-in.tsx
 import React, { useEffect, useCallback, useState } from "react";
 import { useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
@@ -14,10 +15,12 @@ import {
   Alert,
   useColorScheme,
   Easing,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useOAuth } from "@clerk/clerk-expo";
 import { maybeCompleteAuthSession } from "expo-web-browser";
+import { useGuestUser } from '@/utils/GuestUserContext';
 
 maybeCompleteAuthSession();
 
@@ -183,6 +186,7 @@ export default function SignInPage() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { setGuestMode } = useGuestUser(); // Use the guest user context
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -191,6 +195,7 @@ export default function SignInPage() {
   const [passwordError, setPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGuestLoading, setIsGuestLoading] = useState(false); // New state for guest login loading
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
@@ -239,6 +244,23 @@ export default function SignInPage() {
       setIsLoading(false);
     }
   }, [isLoaded, signIn, emailAddress, password, setActive, router]);
+
+  // Handle guest login
+  const handleGuestSignIn = async () => {
+    setIsGuestLoading(true);
+    try {
+      await setGuestMode(true);
+      router.replace('/(home)/(user)');
+    } catch (err) {
+      console.error("Guest mode error:", err);
+      Alert.alert(
+        "Error",
+        "Failed to continue as guest. Please try again."
+      );
+    } finally {
+      setIsGuestLoading(false);
+    }
+  };
 
   return (
     <View
@@ -383,6 +405,31 @@ export default function SignInPage() {
           )}
         </TouchableOpacity>
 
+        {/* Guest Mode Divider */}
+        <View style={styles.divider}>
+          <View style={[styles.dividerLine, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
+          <Text style={[styles.dividerText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>OR</Text>
+          <View style={[styles.dividerLine, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
+        </View>
+
+        {/* Guest Mode Button */}
+        <TouchableOpacity
+          style={[styles.guestButton, {
+            borderColor: '#D55004',
+            opacity: isGuestLoading ? 0.7 : 1,
+          }]}
+          onPress={handleGuestSignIn}
+          disabled={isGuestLoading}
+        >
+          {isGuestLoading ? (
+            <ActivityIndicator color="#D55004" />
+          ) : (
+            <Text style={styles.guestButtonText}>
+              Continue as Guest
+            </Text>
+          )}
+        </TouchableOpacity>
+
         <SignInWithOAuth />
 
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>
@@ -408,3 +455,36 @@ export default function SignInPage() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  guestButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    paddingVertical: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  guestButtonText: {
+    color: '#D55004',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});
