@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "newArchEnabled": true,
     "icon": "./assets/images/logo.png",
-    "scheme": "com.qwertyapp.clerkexpoquickstart",
+    "scheme": "fleet",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/logo.png",
