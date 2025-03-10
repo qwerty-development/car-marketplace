@@ -38,7 +38,7 @@ const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
-  const { user, profile, signOut, updateUserProfile, updatePassword } = useAuth(); // Using Supabase Auth context
+  const { user, profile, signOut, updateUserProfile, updatePassword } = useAuth();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
