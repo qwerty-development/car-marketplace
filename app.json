@@ -1,108 +1,119 @@
 {
-	"expo": {
-		"name": "Fleet",
-		"slug": "clerk-expo-quickstart",
-		"version": "1.0.0",
-		"orientation": "portrait",
-		"newArchEnabled": true,
-		"icon": "./assets/images/logo.png",
-		"scheme": "fleet",
-		"userInterfaceStyle": "automatic",
-		"splash": {
-			"image": "./assets/images/logo.png",
-			"resizeMode": "contain",
-			"backgroundColor": "#000000"
-		},
-		"notification": {
-			"icon": "./assets/images/logo.png",
-			"color": "#D55004",
-			"iosDisplayInForeground": true,
-			"androidMode": "default",
-			"androidCollapsedTitle": "New Cars Available!"
-		},
-		"ios": {
-			"supportsTablet": true,
-			"config": {
-				"googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
-			},
-			"infoPlist": {
-				"UIBackgroundModes": ["remote-notification"],
-				"NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
-          "LSApplicationQueriesSchemes": ["whatsapp"]
-			},
-			"bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
-		},
-		"android": {
-			"adaptiveIcon": {
-				"foregroundImage": "./assets/images/logo.png",
-				"backgroundColor": "#ffffff"
-			},
-			"permissions": [
-				"android.permission.RECORD_AUDIO",
-				"android.permission.READ_EXTERNAL_STORAGE",
-				"android.permission.WRITE_EXTERNAL_STORAGE",
-				"android.permission.INTERNET",
-				"android.permission.RECEIVE_BOOT_COMPLETED",
-				"android.permission.VIBRATE",
-				"android.permission.SCHEDULE_EXACT_ALARM",
-				"android.permission.POST_NOTIFICATIONS",
-				"android.permission.RECORD_AUDIO",
-				"android.permission.READ_EXTERNAL_STORAGE",
-				"android.permission.WRITE_EXTERNAL_STORAGE",
-				"android.permission.INTERNET",
-				"android.permission.RECEIVE_BOOT_COMPLETED",
-				"android.permission.VIBRATE",
-				"android.permission.SCHEDULE_EXACT_ALARM",
-				"android.permission.POST_NOTIFICATIONS"
-			],
-			"package": "com.qwertyapp.clerkexpoquickstart"
-		},
-		"web": {
-			"bundler": "metro",
-			"output": "static",
-			"favicon": "./assets/images/favicon.png"
-		},
-		"plugins": [
-			"expo-router",
-			"expo-secure-store",
-			[
-				"expo-image-picker",
-				{
-					"photosPermission": "The app accesses your photos to let you upload car images."
-				}
-			],
-			[
-				"expo-file-system",
-				{
-					"filePermission": "The app needs access to files for image uploads."
-				}
-			],
-			"expo-font",
-			[
-				"expo-notifications",
-				{
-					"icon": "./assets/images/icon.png",
-					"color": "#D55004",
-					"sounds": ["./assets/sounds/notification.wav"],
-					"mode": "production"
-				}
-			]
-		],
-		"experiments": {
-			"typedRoutes": true
-		},
-		"extra": {
-			"router": {
-				"origin": false
-			},
-			"eas": {
-				"projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
-			}
-		},
-		"runtimeVersion": "1.0.0",
-		"updates": {
-			"url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
-		},
-		"owner": "qwerty-app"
-	}
+  "expo": {
+    "name": "Fleet",
+    "slug": "clerk-expo-quickstart",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "newArchEnabled": true,
+    "icon": "./assets/images/logo.png",
+    "scheme": "com.qwertyapp.clerkexpoquickstart",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "notification": {
+      "icon": "./assets/images/logo.png",
+      "color": "#D55004",
+      "iosDisplayInForeground": true,
+      "androidMode": "default",
+      "androidCollapsedTitle": "New Cars Available!"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"],
+        "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
+        "LSApplicationQueriesSchemes": ["whatsapp"],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.qwertyapp.clerkexpoquickstart"
+            ]
+          }
+        ]
+      },
+      "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "package": "com.qwertyapp.clerkexpoquickstart",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "com.qwertyapp.clerkexpoquickstart"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you upload car images."
+        }
+      ],
+      [
+        "expo-file-system",
+        {
+          "filePermission": "The app needs access to files for image uploads."
+        }
+      ],
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#D55004",
+          "sounds": ["./assets/sounds/notification.wav"],
+          "mode": "production"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+      }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+    },
+    "owner": "qwerty-app"
+  }
 }

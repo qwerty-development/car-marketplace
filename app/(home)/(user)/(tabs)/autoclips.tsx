@@ -19,7 +19,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import VideoControls from '@/components/VideoControls'
 import { supabase } from '@/utils/supabase'
 import { useIsFocused } from '@react-navigation/native'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import { formatDistanceToNow } from 'date-fns'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Heart, Pause, Play } from 'lucide-react-native'
@@ -271,7 +271,7 @@ const ClipItem: React.FC<ClipItemProps> = props => {
 export default function AutoClips() {
 	const { isDarkMode } = useTheme()
 	const isFocused = useIsFocused()
-	const { user } = useUser()
+	const { user } = useAuth()
 
 	const [allowVideoPlayback, setAllowVideoPlayback] = useState(false)
 

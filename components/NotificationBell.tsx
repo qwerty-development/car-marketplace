@@ -2,7 +2,7 @@
 import { NotificationService } from '@/services/NotificationService'
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -51,7 +51,7 @@ const NotificationBadge = ({ count }: { count: number }) => {
 export const NotificationBell = () => {
 	const { isDarkMode } = useTheme()
 	const [unreadCount, setUnreadCount] = useState(0)
-	const { user } = useUser()
+	const { user } = useAuth()
 	const router = useRouter()
 	const subscriptionRef = useRef<RealtimeChannel | null>(null)
 	const lastCount = useRef(0)

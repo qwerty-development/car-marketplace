@@ -1,6 +1,6 @@
 // app/(auth)/sign-in.tsx
 import React, { useEffect, useCallback, useState } from "react";
-import { useSignIn } from "@clerk/clerk-expo";
+import { useAuth } from "@/utils/AuthContext";
 import { Link, useRouter } from "expo-router";
 import {
   Text,
@@ -18,7 +18,6 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useOAuth } from "@clerk/clerk-expo";
 import { maybeCompleteAuthSession } from "expo-web-browser";
 import { useGuestUser } from '@/utils/GuestUserContext';
 
@@ -104,8 +103,7 @@ const SignInWithOAuth = () => {
     google: boolean;
     apple: boolean;
   }>({ google: false, apple: false });
-  const { startOAuthFlow: googleAuth } = useOAuth({ strategy: "oauth_google" });
-  const { startOAuthFlow: appleAuth } = useOAuth({ strategy: "oauth_apple" });
+  const { googleSignIn, appleSignIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -113,18 +111,17 @@ const SignInWithOAuth = () => {
   const onSelectAuth = async (strategy: "google" | "apple") => {
     try {
       setIsLoading((prev) => ({ ...prev, [strategy]: true }));
-      const selectedAuth = strategy === "google" ? googleAuth : appleAuth;
-      const { createdSessionId, setActive } = await selectedAuth();
 
-      if (createdSessionId) {
-        setActive && (await setActive({ session: createdSessionId }));
-        router.replace("/(home)");
+      if (strategy === "google") {
+        await googleSignIn();
+      } else if (strategy === "apple") {
+        await appleSignIn();
       }
     } catch (err) {
-      console.error("OAuth error:", err);
+      console.error(`${strategy} OAuth error:`, err);
       Alert.alert(
         "Authentication Error",
-        "Failed to authenticate with " + strategy.charAt(0).toUpperCase() + strategy.slice(1)
+        `Failed to authenticate with ${strategy.charAt(0).toUpperCase() + strategy.slice(1)}`
       );
     } finally {
       setIsLoading((prev) => ({ ...prev, [strategy]: false }));
@@ -182,11 +179,11 @@ const SignInWithOAuth = () => {
 
 // Main SignIn Component
 export default function SignInPage() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn, isLoaded } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { setGuestMode } = useGuestUser(); // Use the guest user context
+  const { setGuestMode } = useGuestUser();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -195,12 +192,12 @@ export default function SignInPage() {
   const [passwordError, setPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGuestLoading, setIsGuestLoading] = useState(false); // New state for guest login loading
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   const onSignInPress = useCallback(async () => {
-    if (!isLoaded || !signIn) return;
+    if (!isLoaded) return;
 
     let hasError = false;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -226,24 +223,23 @@ export default function SignInPage() {
 
     setIsLoading(true);
     try {
-      const signInAttempt = await signIn.create({
-        identifier: emailAddress,
+      const { error } = await signIn({
+        email: emailAddress,
         password,
       });
 
-      if (signInAttempt.status === "complete") {
-        await setActive({ session: signInAttempt.createdSessionId });
-        router.replace("/(home)");
+      if (error) {
+        setEmailError(error.message || "Sign in failed. Please try again.");
       } else {
-        setEmailError("Sign in failed. Please try again.");
+        router.replace("/(home)");
       }
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
-      setEmailError(err.errors?.[0]?.message || "An error occurred. Please try again.");
+      setEmailError(err.message || "An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, signIn, emailAddress, password, setActive, router]);
+  }, [isLoaded, signIn, emailAddress, password, router]);
 
   // Handle guest login
   const handleGuestSignIn = async () => {

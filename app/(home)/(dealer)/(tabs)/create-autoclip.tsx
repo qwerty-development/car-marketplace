@@ -12,7 +12,6 @@ import {
   StyleSheet
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -24,6 +23,7 @@ import PreviewAutoClipModal from '@/components/PreviewAutoClipModal'
 import { BlurView } from 'expo-blur'
 import EditAutoClipModal from '@/components/EditAutoClipModal'
 import { useScrollToTop } from '@react-navigation/native'
+import { useAuth } from '@/utils/AuthContext'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const VIDEO_WIDTH = (SCREEN_WIDTH - 32) / 2
@@ -265,7 +265,7 @@ const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode 
 
 
 export default function AutoClips() {
-  const { user } = useUser()
+  const { user } = useAuth()
   const { isDarkMode } = useTheme()
   const scrollRef = useRef(null)
   useScrollToTop(scrollRef)

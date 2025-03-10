@@ -23,7 +23,6 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-import { useUser } from "@clerk/clerk-expo";
 import {
   FontAwesome,
   Ionicons,
@@ -69,6 +68,7 @@ import {
   VEHICLE_TYPES,
 } from "@/components/ListingModal";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "@/utils/AuthContext";
 
 const SOURCE_OPTIONS = [
   { value: 'Company', label: 'Company Source', icon: 'office-building' },
@@ -393,7 +393,6 @@ const FeatureSelector = memo(
 
 export default function AddEditListing() {
   const { isDarkMode } = useTheme();
-  const { user } = useUser();
   const router = useRouter();
   const params = useLocalSearchParams<{
     dealershipId: string;

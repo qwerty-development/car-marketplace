@@ -1,6 +1,6 @@
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 import { formatDistanceToNow } from 'date-fns'
 import { VideoState, Video, ResizeMode } from 'expo-av'
@@ -188,7 +188,7 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 	const videoRefs = useRef<{ [key: number]: any }>({})
 	const isFocused = useLocalSearchParams()
 	const [globalMute, setGlobalMute] = useState(false)
-	const { user } = useUser()
+	const { user } = useAuth()
 	const [isLiked, setIsLiked] = useState<any>({})
 	const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
 		{}

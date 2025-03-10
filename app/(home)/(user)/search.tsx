@@ -13,8 +13,8 @@ import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/utils/supabase";
 import { useTheme } from "@/utils/ThemeContext";
-import { useUser } from '@clerk/clerk-expo';
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "@/utils/AuthContext";
 
 interface Suggestions {
   makes: string[];
@@ -46,7 +46,7 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 export default function SearchScreen() {
     const router = useRouter();
     const { isDarkMode } = useTheme();
-    const { user } = useUser();
+    const { user } = useAuth();
     const [searchQuery, setSearchQuery] = useState("");
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [suggestions, setSuggestions] = useState<Suggestions>({
@@ -55,26 +55,26 @@ export default function SearchScreen() {
     });
     const [showSuggestions, setShowSuggestions] = useState(false);
     const params = useLocalSearchParams<{ currentQuery?: string }>();
-  
+
     // Fetch recent searches when component mounts and when user changes
     useEffect(() => {
       if (user?.id) {
         fetchRecentSearches();
       }
     }, [user?.id]);
-  
+
     const fetchRecentSearches = async () => {
       if (!user?.id) return;
-      
+
       try {
         const { data, error } = await supabase
           .from("users")
           .select("recent_searches")
           .eq("id", user.id)
           .single();
-  
+
         if (error) throw error;
-        
+
         if (data?.recent_searches) {
           setRecentSearches(Array.isArray(data.recent_searches) ? data.recent_searches : []);
         }
@@ -82,45 +82,45 @@ export default function SearchScreen() {
         console.error("Error fetching recent searches:", err);
       }
     };
-  
+
     const removeSearchQuery = async (queryToRemove: string) => {
       if (!user?.id) return;
-  
+
       const updatedSearches = recentSearches.filter(query => query !== queryToRemove);
-      
+
       try {
         const { error } = await supabase
           .from("users")
           .update({ recent_searches: updatedSearches })
           .eq("id", user.id);
-  
+
         if (error) throw error;
         setRecentSearches(updatedSearches);
       } catch (err) {
         console.error("Error removing search query:", err);
       }
     };
-  
+
     const storeSearchQuery = async (newQuery: string) => {
       if (!user?.id || !newQuery.trim()) return;
-  
+
       const trimmedQuery = newQuery.trim();
       const filtered = recentSearches.filter(q => q !== trimmedQuery);
       const updated = [trimmedQuery, ...filtered].slice(0, 4);
-  
+
       try {
         const { error } = await supabase
           .from("users")
           .update({ recent_searches: updated })
           .eq("id", user.id);
-  
+
         if (error) throw error;
         setRecentSearches(updated);
       } catch (err) {
         console.error("Error updating recent searches:", err);
       }
     };
-  
+
     const fetchSuggestions = useCallback(async () => {
       const trimmedQuery = searchQuery.trim();
       if (!trimmedQuery) {
@@ -128,19 +128,19 @@ export default function SearchScreen() {
         setShowSuggestions(false);
         return;
       }
-  
+
       try {
         const { data, error } = await supabase
           .from("cars")
           .select("make, model")
           .or(`make.ilike.%${trimmedQuery}%,model.ilike.%${trimmedQuery}%`)
           .limit(20);
-  
+
         if (error) throw error;
-  
+
         const makesSet = new Set<string>();
         const modelsSet = new Set<string>();
-  
+
         data.forEach((row: any) => {
           if (row.make?.toLowerCase().includes(trimmedQuery.toLowerCase()) && row.make.trim()) {
             makesSet.add(row.make);
@@ -149,7 +149,7 @@ export default function SearchScreen() {
             modelsSet.add(row.model);
           }
         });
-  
+
         setSuggestions({
           makes: Array.from(makesSet),
           models: Array.from(modelsSet)
@@ -160,42 +160,42 @@ export default function SearchScreen() {
         setSuggestions({ makes: [], models: [] });
       }
     }, [searchQuery]);
-  
+
     useEffect(() => {
       const delayDebounce = setTimeout(() => {
         fetchSuggestions();
       }, 300);
       return () => clearTimeout(delayDebounce);
     }, [searchQuery, fetchSuggestions]);
-  
+
     const handleSearchSubmit = async () => {
         const trimmedQuery = searchQuery.trim();
         if (trimmedQuery) {
           await storeSearchQuery(trimmedQuery);
           router.replace({
             pathname: "/(home)/(user)/(tabs)",
-            params: { 
+            params: {
               searchQuery: trimmedQuery,
               timestamp: Date.now() // Add timestamp to force refresh
             }
           });
         }
       };
-      
+
       const handleSuggestionPress = async (suggestion: string) => {
         const trimmedQuery = suggestion.trim();
         if (trimmedQuery) {
           await storeSearchQuery(trimmedQuery);
           router.replace({
             pathname: "/(home)/(user)/(tabs)",
-            params: { 
+            params: {
               searchQuery: trimmedQuery,
               timestamp: Date.now() // Add timestamp to force refresh
             }
           });
         }
       };
-  
+
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
         <View style={styles.header}>
@@ -210,7 +210,7 @@ export default function SearchScreen() {
             Search
           </Text>
         </View>
-  
+
         <View style={[styles.searchBox, isDarkMode && styles.darkSearchBox]}>
           <FontAwesome
             name="search"
@@ -241,7 +241,7 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         </View>
-  
+
         {!showSuggestions && recentSearches.length > 0 && (
           <View style={styles.recentSearchesContainer}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
@@ -276,7 +276,7 @@ export default function SearchScreen() {
             ))}
           </View>
         )}
-  
+
         {showSuggestions && (
           <View style={styles.suggestionsContainer}>
             {suggestions.makes.length > 0 && (
@@ -302,7 +302,7 @@ export default function SearchScreen() {
                 ))}
               </>
             )}
-  
+
             {suggestions.models.length > 0 && (
               <>
                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText, styles.biggerSectionTitle]}>

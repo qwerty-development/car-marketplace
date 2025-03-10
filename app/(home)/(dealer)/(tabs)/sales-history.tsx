@@ -14,7 +14,6 @@ import {
   ActivityIndicator
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import { FontAwesome5, Ionicons } from '@expo/vector-icons'
@@ -26,6 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import EnhancedSalesChart from '@/components/FuturisticSalesChart'
 import { useScrollToTop } from '@react-navigation/native'
 import ExportSalesModal from '@/components/ExportSalesModal'
+import { useAuth } from '@/utils/AuthContext'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -674,7 +674,7 @@ const calculateKPIs = salesHistory => {
 
 export default function SalesHistoryPage() {
   const { isDarkMode } = useTheme()
-  const { user } = useUser()
+  const { user } = useAuth()
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [isLoading, setIsLoading] = useState(true)

@@ -8,7 +8,7 @@ import React, {
 import {
   View,
   FlatList,
-  TextInput,
+
   TouchableOpacity,
   StyleSheet,
   Text,
@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Animated,
   RefreshControl,
-  Platform,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
@@ -34,8 +33,8 @@ import { useScrollToTop } from "@react-navigation/native";
 import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
-import { BlurView } from "expo-blur";
-import { useUser } from "@clerk/clerk-expo";
+
+
 
 const ITEMS_PER_PAGE = 7;
 
@@ -95,7 +94,7 @@ export default function BrowseCarsPage() {
   useScrollToTop(flatListRef);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const { user } = useUser();
+
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   // --- New: suggestions state now groups makes and models ---

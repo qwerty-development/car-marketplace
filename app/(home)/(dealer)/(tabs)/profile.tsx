@@ -10,7 +10,7 @@ import {
   RefreshControl,
   TouchableOpacity
 } from 'react-native'
-import { useUser, useAuth } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import * as Location from 'expo-location'
@@ -31,10 +31,24 @@ import { Buffer } from 'buffer'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 
+interface FormData {
+  name: string
+  location: string
+  phone: string
+  logo: string
+  latitude: string
+  longitude: string
+}
+
+interface PasswordData {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
 export default function DealershipProfilePage() {
   const { isDarkMode } = useTheme()
-  const { user } = useUser()
-  const { signOut } = useAuth()
+  const { user, profile, signOut, updatePassword } = useAuth()
   const router = useRouter()
   const scrollRef = useRef<ScrollView>(null)
   const mapRef = useRef(null)
@@ -237,10 +251,14 @@ export default function DealershipProfilePage() {
     }
 
     try {
-      await user?.updatePassword({
+      // Using the updatePassword method from AuthContext
+      const { error } = await updatePassword({
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       })
+
+      if (error) throw error
+
       setPasswordData({
         currentPassword: '',
         newPassword: '',
@@ -249,6 +267,7 @@ export default function DealershipProfilePage() {
       setIsSecurityModalVisible(false)
       Alert.alert('Success', 'Password updated successfully')
     } catch (error) {
+      console.error('Error changing password:', error)
       Alert.alert('Error', 'Failed to update password')
     }
   }
@@ -345,7 +364,7 @@ export default function DealershipProfilePage() {
         isLoading={isLoading}
       />
 
-<SecurityModal
+      <SecurityModal
         visible={isSecurityModalVisible}
         onClose={() => setIsSecurityModalVisible(false)}
         isDarkMode={isDarkMode}

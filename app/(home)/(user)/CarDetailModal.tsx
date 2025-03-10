@@ -13,7 +13,6 @@ import {
 	Animated
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
-import { useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
@@ -24,6 +23,7 @@ import Modal from 'react-native-modal'
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import openWhatsApp from '@/utils/openWhatsapp'
+import { useAuth } from '@/utils/AuthContext'
 
 const { width, height } = Dimensions.get('window')
 
@@ -65,7 +65,7 @@ const CarDetailModal = memo(
 		if (!car) return null
 		const { isDarkMode } = useTheme()
 		const router = useRouter()
-		const { user } = useUser()
+		const { user } = useAuth()
 		const { isFavorite } = useFavorites()
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])

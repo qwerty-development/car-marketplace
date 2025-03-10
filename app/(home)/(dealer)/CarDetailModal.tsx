@@ -13,7 +13,7 @@ import {
 	Animated
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
@@ -64,7 +64,7 @@ const CarDetailModal = memo(
 		if (!car) return null
 		const { isDarkMode } = useTheme()
 		const router = useRouter()
-		const { user } = useUser()
+		const { user } = useAuth()
 		const { isFavorite } = useFavorites()
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])

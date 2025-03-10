@@ -15,7 +15,6 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useUser } from "@clerk/clerk-expo";
 import { supabase } from "@/utils/supabase";
 import { debounce } from "@/utils/debounce";
 import { useFavorites } from "@/utils/useFavorites";
@@ -24,6 +23,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "react-native";  // Use React Native's Image component for Android
 import AutoclipModal from "@/components/AutoclipModal";
+import { useAuth } from "@/utils/AuthContext";
 
 const { width } = Dimensions.get("window");
 
@@ -135,7 +135,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   const { isDarkMode } = useTheme();
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const [similarCars, setSimilarCars] = useState<any>([]);
   const [dealerCars, setDealerCars] = useState<any>([]);

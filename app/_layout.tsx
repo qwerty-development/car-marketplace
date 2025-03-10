@@ -1,8 +1,7 @@
 // app/_layout.tsx
 import { useState, useEffect, useCallback } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
-import { ClerkProvider, useAuth } from '@clerk/clerk-expo'
-import { tokenCache } from '@/cache'
+import { AuthProvider, useAuth } from '@/utils/AuthContext'
 import * as SplashScreen from 'expo-splash-screen'
 import { FavoritesProvider } from '@/utils/useFavorites'
 import { ThemeProvider } from '@/utils/ThemeContext'
@@ -15,7 +14,10 @@ import * as Notifications from 'expo-notifications'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import ErrorBoundary from 'react-native-error-boundary'
 import CustomSplashScreen from './CustomSplashScreen'
-import { GuestUserProvider, useGuestUser } from '@/utils/GuestUserContext';
+import { GuestUserProvider, useGuestUser } from '@/utils/GuestUserContext'
+import * as Linking from 'expo-linking'
+import { supabase } from '@/utils/supabase'
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -47,17 +49,68 @@ const queryClient = new QueryClient({
   }
 })
 
+// Handle deep links for Supabase Auth
+const DeepLinkHandler = () => {
+  useEffect(() => {
+    const handleDeepLink = async ({ url }: { url: string }) => {
+      // Handle Supabase auth redirects
+      if (url && (url.includes('auth/callback') || url.includes('reset-password'))) {
+        // Get access token and refresh token from URL
+        try {
+          const parsedUrl = Linking.parse(url);
+
+          // Extract tokens from URL fragments or query params
+          const params = parsedUrl.queryParams || {};
+          const accessToken = params.access_token;
+          const refreshToken = params.refresh_token;
+
+          if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken as string,
+              refresh_token: refreshToken as string,
+            });
+
+            if (error) {
+              console.error('Error setting session:', error);
+            }
+          }
+        } catch (error) {
+          console.error('Error handling deep link:', error);
+        }
+      }
+    };
+
+    // Set up the linking listener
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check for initial URLs
+    Linking.getInitialURL().then(url => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  return null;
+};
+
 // Check if environment variables are set correctly
 function EnvironmentVariablesCheck() {
   useEffect(() => {
     const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!projectId) {
       console.error('⚠️ EXPO_PUBLIC_PROJECT_ID is missing from environment variables!');
       console.error('Push notifications will not work without this value.');
-      console.error('Please add it to your .env file and app.config.js or app.json.');
-    } else {
-      console.log('✅ EXPO_PUBLIC_PROJECT_ID is configured:', projectId);
+    }
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('⚠️ Supabase configuration missing! Check your environment variables.');
+      console.error('Authentication will not work correctly without these values.');
     }
   }, []);
 
@@ -80,7 +133,7 @@ function NotificationsProvider() {
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { isGuest } = useGuestUser(); // Add this line
+  const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
@@ -90,7 +143,7 @@ function RootLayoutNav() {
     if (!isReady) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const isEffectivelySignedIn = isSignedIn || isGuest; // Update this line
+    const isEffectivelySignedIn = isSignedIn || isGuest;
 
     if (isEffectivelySignedIn && inAuthGroup) {
       router.replace('/(home)');
@@ -136,12 +189,11 @@ export default function RootLayout() {
   }, [])
 
   return (
-     <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <GuestUserProvider> {/* Add this line */}
-          <ClerkProvider
-            tokenCache={tokenCache}
-            publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+        <GuestUserProvider>
+          <AuthProvider>
+            <DeepLinkHandler />
             <QueryClientProvider client={queryClient}>
               <ThemeProvider>
                 <FavoritesProvider>
@@ -150,8 +202,8 @@ export default function RootLayout() {
                 </FavoritesProvider>
               </ThemeProvider>
             </QueryClientProvider>
-          </ClerkProvider>
-        </GuestUserProvider> {/* Add this line */}
+          </AuthProvider>
+        </GuestUserProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   )

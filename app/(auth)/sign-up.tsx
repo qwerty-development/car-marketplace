@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
-import { useSignUp } from '@clerk/clerk-expo';
+import { useAuth } from '@/utils/AuthContext';
 import { useRouter } from 'expo-router';
 import {
   Text,
@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useOAuth } from '@clerk/clerk-expo';
 import { maybeCompleteAuthSession } from 'expo-web-browser';
 
 maybeCompleteAuthSession();
@@ -101,8 +100,7 @@ const SignUpWithOAuth = () => {
     google: boolean;
     apple: boolean;
   }>({ google: false, apple: false });
-  const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' });
-  const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' });
+  const { googleSignIn, appleSignIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -110,12 +108,11 @@ const SignUpWithOAuth = () => {
   const onSelectAuth = async (strategy: 'google' | 'apple') => {
     try {
       setIsLoading(prev => ({ ...prev, [strategy]: true }));
-      const selectedAuth = strategy === 'google' ? googleAuth : appleAuth;
-      const { createdSessionId, setActive } = await selectedAuth();
 
-      if (createdSessionId) {
-        setActive && (await setActive({ session: createdSessionId }));
-        router.replace('/(home)');
+      if (strategy === 'google') {
+        await googleSignIn();
+      } else {
+        await appleSignIn();
       }
     } catch (err) {
       console.error('OAuth error:', err);
@@ -178,7 +175,7 @@ const SignUpWithOAuth = () => {
 };
 
 export default function SignUpScreen() {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { signUp, isLoaded } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -241,17 +238,30 @@ export default function SignUpScreen() {
 
     setIsLoading(true);
     try {
-      await signUp.create({
-        emailAddress,
+      const { error, needsEmailVerification } = await signUp({
+        email: emailAddress,
         password,
+        name,
       });
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      setPendingVerification(true);
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
+
+      if (error) throw error;
+
+      if (needsEmailVerification) {
+        setPendingVerification(true);
+        Alert.alert(
+          'Verification Email Sent',
+          'Please check your email for a verification link to complete your registration.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // If email verification not required, registration is complete
+        router.replace('/(home)');
+      }
+    } catch (error: any) {
+      console.error(JSON.stringify(error, null, 2));
       setErrors(prev => ({
         ...prev,
-        general: err.errors?.[0]?.message || 'Sign up failed. Please try again.',
+        general: error.message || 'Sign up failed. Please try again.',
       }));
     } finally {
       setIsLoading(false);
@@ -267,51 +277,29 @@ export default function SignUpScreen() {
 
     setIsLoading(true);
     try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
-        code,
-      });
-
-      if (completeSignUp.status !== 'complete') {
-        setErrors(prev => ({
-          ...prev,
-          code: 'Verification failed. Please try again.',
-        }));
-        return;
-      }
-
-      const { createdSessionId, createdUserId } = completeSignUp;
-
-      if (!createdSessionId || !createdUserId) {
-        setErrors(prev => ({
-          ...prev,
-          general: 'Failed to complete sign up. Please try again.',
-        }));
-        return;
-      }
-
-      await setActive({ session: createdSessionId });
-
-      const { error: supabaseError } = await supabase.from('users').insert({
-        id: createdUserId,
-        name: name,
+      const { error } = await supabase.auth.verifyOtp({
         email: emailAddress,
-        created_at: new Date().toISOString(),
+        token: code,
+        type: 'signup',
       });
 
-      if (supabaseError) {
-        console.error('Error creating user in Supabase:', supabaseError);
-        Alert.alert(
-          'Account Created',
-          'Your account was created successfully, but there was an issue saving additional information. You can update your profile later.'
-        );
-      }
+      if (error) throw error;
 
-      router.replace('/(home)');
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
+      Alert.alert(
+        'Success',
+        'Your account has been verified successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(home)'),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error(JSON.stringify(error, null, 2));
       setErrors(prev => ({
         ...prev,
-        general: err.errors?.[0]?.message || 'An error occurred. Please try again.',
+        code: error.message || 'Verification failed. Please try again.',
       }));
     } finally {
       setIsLoading(false);
@@ -326,10 +314,10 @@ export default function SignUpScreen() {
         backgroundColor: isDark ? '#000' : '#fff',
       }}
     >
-      <ScrollView 
-        contentContainerStyle={{ 
+      <ScrollView
+        contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: 24 
+          paddingBottom: 24
         }}
       >
         {/* Animated Background */}

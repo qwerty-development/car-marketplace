@@ -15,7 +15,7 @@ import {
 	Animated,
 	ScrollView
 } from 'react-native'
-import { useUser } from '@clerk/clerk-expo'
+
 import {
 	Ionicons,
 	MaterialCommunityIcons,

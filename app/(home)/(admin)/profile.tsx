@@ -1,393 +1,468 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import 'react-native-get-random-values'
+import React, { useState, useCallback, useRef } from 'react'
 import {
-	View,
-	Text,
-	TextInput,
-	TouchableOpacity,
-	Image,
-	ScrollView,
-	Alert,
-	RefreshControl,
-	ActivityIndicator,
-	Dimensions,
-	Platform
+  View,
+  Text,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  TextInput
 } from 'react-native'
-import { useUser, useClerk } from '@clerk/clerk-expo'
-import { useRouter } from 'expo-router'
-import { useTheme } from '@/utils/ThemeContext'
-import ThemeSwitch from '@/components/ThemeSwitch'
-import { Ionicons, MaterialIcons } from '@expo/vector-icons'
+import { useAuth } from '@/utils/AuthContext'
 import * as ImagePicker from 'expo-image-picker'
-import * as Clipboard from 'expo-clipboard'
+import * as FileSystem from 'expo-file-system'
+import { useTheme } from '@/utils/ThemeContext'
+import { NotificationBell } from '@/components/NotificationBell'
+import { useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { BlurView } from 'expo-blur'
-import * as Haptics from 'expo-haptics'
+import { useScrollToTop } from '@react-navigation/native'
+import { supabase } from '@/utils/supabase'
+import { Buffer } from 'buffer'
 
-const { width } = Dimensions.get('window')
+export default function AdminProfilePage() {
+  const { isDarkMode } = useTheme()
+  const { user, profile, updatePassword, updateUserProfile, signOut } = useAuth()
+  const router = useRouter()
+  const scrollRef = useRef<ScrollView>(null)
 
-const AdminProfilePage = () => {
-	const { user } = useUser()
-	const clerk = useClerk()
-	const router = useRouter()
-	const { isDarkMode } = useTheme()
-	const [refreshing, setRefreshing] = useState(false)
-	const [loading, setLoading] = useState(false)
-	const [adminInfo, setAdminInfo] = useState({
-		firstName: '',
-		lastName: '',
-		email: '',
-		role: 'Admin',
-		lastLogin: new Date().toISOString()
-	})
-	const [isEditMode, setIsEditMode] = useState(false)
-	const [isChangePasswordMode, setIsChangePasswordMode] = useState(false)
-	const [currentPassword, setCurrentPassword] = useState('')
-	const [newPassword, setNewPassword] = useState('')
-	const [confirmPassword, setConfirmPassword] = useState('')
+  useScrollToTop(scrollRef)
 
-	useEffect(() => {
-		if (user) {
-			setAdminInfo({
-				...adminInfo,
-				firstName: user.firstName || '',
-				lastName: user.lastName || '',
-				email: user.emailAddresses[0].emailAddress || ''
-			})
-		}
-	}, [user])
+  // State Management
+  const [isLoading, setIsLoading] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
-	const onRefresh = useCallback(async () => {
-		setRefreshing(true)
-		try {
-			await user?.reload()
-			setAdminInfo({
-				...adminInfo,
-				firstName: user?.firstName || '',
-				lastName: user?.lastName || '',
-				email: user?.emailAddresses[0].emailAddress || ''
-			})
-		} catch (error) {
-			console.error('Error refreshing user data:', error)
-			Alert.alert(
-				'Refresh Failed',
-				'Unable to refresh user data. Please try again.'
-			)
-		} finally {
-			setRefreshing(false)
-		}
-	}, [user])
+  const [formData, setFormData] = useState({
+    name: profile?.name || '',
+    email: user?.email || profile?.email || '',
+  })
 
-	const handleUpdateProfile = useCallback(async () => {
-		setLoading(true)
-		try {
-			await user?.update({
-				firstName: adminInfo.firstName,
-				lastName: adminInfo.lastName
-			})
-			Alert.alert('Success', 'Profile updated successfully')
-			setIsEditMode(false)
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-		} catch (error) {
-			console.error('Error updating profile:', error)
-			Alert.alert(
-				'Update Failed',
-				'Failed to update profile. Please check your connection and try again.'
-			)
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-		} finally {
-			setLoading(false)
-		}
-	}, [user, adminInfo])
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
 
-	const handleImagePicker = useCallback(async () => {
-		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-		if (status !== 'granted') {
-			Alert.alert(
-				'Permission Denied',
-				'Sorry, we need camera roll permissions to update your profile picture.'
-			)
-			return
-		}
+  // Modal States
+  const [isSecurityModalVisible, setIsSecurityModalVisible] = useState(false)
 
-		const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [1, 1],
-			quality: 0.5
-		})
+  // Initialize form data when profile/user data is loaded
+  React.useEffect(() => {
+    if (user || profile) {
+      setFormData({
+        name: profile?.name || user?.user_metadata?.name || '',
+        email: user?.email || profile?.email || '',
+      })
+    }
+  }, [user, profile])
 
-		if (!result.canceled && result.assets[0].uri) {
-			setLoading(true)
-			try {
-				await user?.setProfileImage({ file: result.assets[0].uri })
-				Alert.alert('Success', 'Profile picture updated successfully')
-				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-			} catch (error) {
-				console.error('Error updating profile picture:', error)
-				Alert.alert(
-					'Update Failed',
-					'Failed to update profile picture. Please try again.'
-				)
-				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-			} finally {
-				setLoading(false)
-			}
-		}
-	}, [user])
+  // Image handling
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please allow photo access.')
+        return
+      }
 
-	const handleSignOut = useCallback(async () => {
-		try {
-			await clerk.signOut()
-			router.replace('/(auth)/sign-in')
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-		} catch (error) {
-			console.error('Error signing out:', error)
-			Alert.alert('Sign Out Failed', 'Unable to sign out. Please try again.')
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-		}
-	}, [clerk, router])
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1
+      })
 
-	const handleChangePassword = useCallback(async () => {
-		if (newPassword !== confirmPassword) {
-			Alert.alert('Error', 'New passwords do not match')
-			return
-		}
+      if (!result.canceled && result.assets?.[0]) {
+        setIsUploading(true)
+        await handleImageUpload(result.assets[0].uri)
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image')
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
-		setLoading(true)
-		try {
-			await user?.updatePassword({
-				currentPassword,
-				newPassword
-			})
-			Alert.alert('Success', 'Password changed successfully')
-			setIsChangePasswordMode(false)
-			setCurrentPassword('')
-			setNewPassword('')
-			setConfirmPassword('')
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-		} catch (error) {
-			console.error('Error changing password:', error)
-			Alert.alert(
-				'Password Change Failed',
-				'Failed to change password. Please check your current password and try again.'
-			)
-			Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-		} finally {
-			setLoading(false)
-		}
-	}, [user, currentPassword, newPassword, confirmPassword])
+  const handleImageUpload = async (imageUri: string) => {
+    if (!user?.id) return
 
-	const ProfileImage = useMemo(
-		() => (
-			<TouchableOpacity onPress={handleImagePicker} className='items-center'>
-				<Image
-					source={{
-						uri: user?.imageUrl || 'https://via.placeholder.com/150'
-					}}
-					className='w-36 h-36 rounded-full border-4 border-white mb-6'
-				/>
-				<BlurView
-					intensity={80}
-					className='absolute bottom-5 right-[140px] bg-white rounded-full p-2'>
-					<Ionicons name='camera' size={24} color='#FF6B6B' />
-				</BlurView>
-			</TouchableOpacity>
-		),
-		[user?.imageUrl, handleImagePicker]
-	)
+    try {
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
+      const filePath = `${user.id}/${fileName}`
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64
+      })
 
-	const renderContent = () => {
-		if (isEditMode) {
-			return (
-				<>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={adminInfo.firstName}
-						onChangeText={text =>
-							setAdminInfo({ ...adminInfo, firstName: text })
-						}
-						placeholder='First Name'
-						placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
-					/>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={adminInfo.lastName}
-						onChangeText={text =>
-							setAdminInfo({ ...adminInfo, lastName: text })
-						}
-						placeholder='Last Name'
-						placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
-					/>
-					<View className='flex-row justify-between mt-4'>
-						<TouchableOpacity
-							className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
-							onPress={() => setIsEditMode(false)}>
-							<Text className='text-white font-bold text-lg'>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
-							onPress={handleUpdateProfile}>
-							<Text className='text-white font-bold text-lg'>Save</Text>
-						</TouchableOpacity>
-					</View>
-				</>
-			)
-		} else if (isChangePasswordMode) {
-			return (
-				<>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={currentPassword}
-						onChangeText={setCurrentPassword}
-						placeholder='Current Password'
-						placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
-						secureTextEntry
-					/>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={newPassword}
-						onChangeText={setNewPassword}
-						placeholder='New Password'
-						placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
-						secureTextEntry
-					/>
-					<TextInput
-						className={`${
-							isDarkMode ? 'bg-gray text-white' : 'bg-white text-black'
-						} p-4 rounded-xl mb-4`}
-						value={confirmPassword}
-						onChangeText={setConfirmPassword}
-						placeholder='Confirm New Password'
-						placeholderTextColor={isDarkMode ? 'gray' : 'darkgray'}
-						secureTextEntry
-					/>
-					<View className='flex-row justify-between mt-4'>
-						<TouchableOpacity
-							className='bg-pink-500 p-4 rounded-xl items-center flex-1 mr-2'
-							onPress={() => setIsChangePasswordMode(false)}>
-							<Text className='text-white font-bold text-lg'>Cancel</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							className='bg-green-600 p-4 rounded-xl items-center flex-1 ml-2'
-							onPress={handleChangePassword}>
-							<Text className='text-white font-bold text-lg'>Confirm</Text>
-						</TouchableOpacity>
-					</View>
-				</>
-			)
-		} else {
-			return (
-				<>
-					<View className='border border-red rounded-lg'>
-						<InfoRow label='First Name' value={adminInfo.firstName} />
-						<InfoRow label='Last Name' value={adminInfo.lastName} />
-						<InfoRow label='Email' value={adminInfo.email} />
-						<InfoRow
-							label='Last Login'
-							value={new Date(adminInfo.lastLogin).toLocaleString()}
-						/>
-					</View>
-					<TouchableOpacity
-						className='bg-blue-600 p-4 rounded-xl items-center mt-4'
-						onPress={() => setIsEditMode(true)}>
-						<Text className='text-white font-bold text-lg'>Edit Profile</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						className='bg-yellow-600 p-4 rounded-xl items-center mt-4'
-						onPress={() => setIsChangePasswordMode(true)}>
-						<Text className='text-white font-bold text-lg'>
-							Change Password
-						</Text>
-					</TouchableOpacity>
-				</>
-			)
-		}
-	}
+      const { error: uploadError } = await supabase.storage
+        .from('avatars') // Using avatars bucket for admin profiles
+        .upload(filePath, Buffer.from(base64, 'base64'), {
+          contentType: 'image/jpeg'
+        })
 
-	const InfoRow = useMemo(
-		() =>
-			({ label, value }: any) =>
-				(
-					<View className='flex-row justify-between items-center mb-4 border-b p-2 w-full  border-gray'>
-						<Text className={`${isDarkMode ? 'text-white' : 'text-gray'}`}>
-							{label}
-						</Text>
-						<Text
-							className={`${
-								isDarkMode ? 'text-red' : 'text-red'
-							} font-semibold`}>
-							{value}
-						</Text>
-					</View>
-				),
-		[isDarkMode]
-	)
+      if (uploadError) throw uploadError
 
-	return (
-		<ScrollView
-			className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'} mb-10`}
-			refreshControl={
-				<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-			}>
-			<LinearGradient
-				colors={isDarkMode ? ['#696969', '#D55004'] : ['#FF6B6B', '#FF8E53']}
-				start={{ x: 0, y: 0 }}
-				end={{ x: 1, y: 1 }}
-				className='pt-16 pb-8 rounded-b-[40px] shadow-lg'>
-				{ProfileImage}
-				<Text className='text-white text-2xl font-bold text-center mt-4'>
-					{adminInfo.firstName} {adminInfo.lastName}
-				</Text>
-				<Text className='text-white text-lg text-center'>{adminInfo.role}</Text>
-			</LinearGradient>
+      const { data: publicURLData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
 
-			<View className='px-6 mt-8'>
-				<View className='flex-row justify-between items-center mb-6'>
-					<Text
-						className={`text-3xl font-bold ${
-							isDarkMode ? 'text-white' : 'text-gray'
-						}`}>
-						Admin Profile
-					</Text>
-					<ThemeSwitch />
-				</View>
+      if (!publicURLData?.publicUrl) throw new Error('Failed to get public URL')
 
-				<BlurView
-					intensity={100}
-					tint={isDarkMode ? 'dark' : 'light'}
-					className={`rounded-3xl shadow-lg p-6 mb-8`}>
-					{renderContent()}
-				</BlurView>
+      // Update user_metadata with the avatar URL
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: publicURLData.publicUrl
+        }
+      })
 
-				<TouchableOpacity
-					className='flex-row items-center justify-between bg-rose-500 p-4 rounded-xl mb-5'
-					onPress={handleSignOut}>
-					<View className='flex-row items-center'>
-						<MaterialIcons name='logout' size={24} color='#FFFFFF' />
-						<Text className='text-white text-lg ml-4'>Sign Out</Text>
-					</View>
-					<Ionicons name='chevron-forward' size={24} color='#FFFFFF' />
-				</TouchableOpacity>
-			</View>
+      if (updateError) throw updateError
 
-			{loading && (
-				<BlurView
-					intensity={100}
-					tint={isDarkMode ? 'dark' : 'light'}
-					className='absolute inset-0 flex justify-center items-center'>
-					<ActivityIndicator size='large' color='#D55004' />
-				</BlurView>
-			)}
-		</ScrollView>
-	)
+      // Also update the profile record in our users table
+      await updateUserProfile({
+        avatar_url: publicURLData.publicUrl
+      })
+
+      Alert.alert('Success', 'Profile picture updated successfully')
+    } catch (error) {
+      console.error('Image upload error:', error)
+      Alert.alert('Error', 'Failed to upload image')
+    }
+  }
+
+  // Form handlers
+  const updateProfile = async () => {
+    setIsLoading(true)
+    try {
+      // Update user metadata in auth
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          name: formData.name
+        }
+      })
+
+      if (authError) throw authError
+
+      // Update user record in database
+      const { error: profileError } = await updateUserProfile({
+        name: formData.name
+      })
+
+      if (profileError) throw profileError
+
+      Alert.alert('Success', 'Profile updated successfully')
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Profile update error:', error)
+      Alert.alert('Error', 'Failed to update profile')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match')
+      return
+    }
+
+    try {
+      const { error } = await updatePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      })
+
+      if (error) throw error
+
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      })
+      setIsSecurityModalVisible(false)
+      Alert.alert('Success', 'Password updated successfully')
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update password')
+    }
+  }
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    // Refresh user data
+    const refreshUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // Refresh local form data
+          setFormData({
+            name: user.user_metadata?.name || profile?.name || '',
+            email: user.email || profile?.email || '',
+          })
+        }
+      } catch (error) {
+        console.error('Error refreshing user data:', error)
+      } finally {
+        setRefreshing(false)
+      }
+    }
+
+    refreshUserData()
+  }, [profile])
+
+  // Get avatar URL from user metadata or profile
+  const avatarUrl = user?.user_metadata?.avatar_url ||
+                    profile?.avatar_url ||
+                    'https://via.placeholder.com/150'
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
+    >
+      {/* Profile Header */}
+      <View className="relative">
+        <LinearGradient
+          colors={isDarkMode ? ['#D55004', '#1a1a1a'] : ['#D55004', '#ff8c00']}
+          className="pt-12 pb-24 rounded-b-[40px]"
+        >
+          <View className="items-center mt-6">
+            <View className="relative">
+              <Image
+                source={{
+                  uri: avatarUrl
+                }}
+                className="w-32 h-32 rounded-full border-4 border-white/20"
+              />
+              <TouchableOpacity
+                onPress={pickImage}
+                disabled={isUploading}
+                className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
+              >
+                {isUploading ? (
+                  <ActivityIndicator color="#D55004" size="small" />
+                ) : (
+                  <Ionicons name="camera" size={20} color="#D55004" />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <Text className="text-white text-xl font-semibold mt-4">
+              {formData.name}
+            </Text>
+            <Text className="text-white/80 text-sm">{formData.email}</Text>
+            <View className="bg-red/20 rounded-full px-4 py-1 mt-2">
+              <Text className="text-white font-medium">Administrator</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Settings Menu */}
+      <View className="p-6 space-y-4">
+        <Text className="text-neutral-500 font-medium uppercase text-xs tracking-wider mb-2">
+          Account Settings
+        </Text>
+
+        {/* Profile Edit Section */}
+        {isEditing ? (
+          <View className="bg-neutral-800 p-4 rounded-xl">
+            <Text className="text-white font-semibold text-lg mb-4">Edit Profile</Text>
+
+            <View className="mb-4">
+              <Text className="text-neutral-400 mb-1">Name</Text>
+              <TextInput
+                value={formData.name}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+                className="bg-neutral-700 text-white p-3 rounded-lg"
+                placeholderTextColor="#666"
+              />
+            </View>
+
+            <View className="mb-4">
+              <Text className="text-neutral-400 mb-1">Email</Text>
+              <TextInput
+                value={formData.email}
+                editable={false} // Email can't be changed
+                className="bg-neutral-700 text-neutral-500 p-3 rounded-lg"
+              />
+            </View>
+
+            <View className="flex-row space-x-4 mt-4">
+              <TouchableOpacity
+                onPress={() => setIsEditing(false)}
+                className="flex-1 bg-neutral-700 p-3 rounded-lg"
+              >
+                <Text className="text-white text-center">Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={updateProfile}
+                disabled={isLoading}
+                className="flex-1 bg-red p-3 rounded-lg"
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text className="text-white text-center">Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => setIsEditing(true)}
+            className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'}
+                p-4 rounded-xl flex-row items-center`}
+          >
+            <View className="bg-red/10 p-3 rounded-xl">
+              <Ionicons name="person" size={24} color="#D55004" />
+            </View>
+            <View className="ml-4 flex-1">
+              <Text className={`${isDarkMode ? 'text-white' : 'text-black'} font-semibold`}>
+                Edit Profile
+              </Text>
+              <Text className={`${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'} text-sm`}>
+                Update your personal information
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={isDarkMode ? 'white' : 'black'} />
+          </TouchableOpacity>
+        )}
+
+        {/* Security Settings */}
+        <TouchableOpacity
+          onPress={() => setIsSecurityModalVisible(true)}
+          className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'}
+              p-4 rounded-xl flex-row items-center`}
+        >
+          <View className="bg-indigo-500/10 p-3 rounded-xl">
+            <Ionicons name="shield" size={24} color="#D55004" />
+          </View>
+          <View className="ml-4 flex-1">
+            <Text className={`${isDarkMode ? 'text-white' : 'text-black'} font-semibold`}>
+              Security
+            </Text>
+            <Text className={`${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'} text-sm`}>
+              Change password and security settings
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={isDarkMode ? 'white' : 'black'} />
+        </TouchableOpacity>
+
+        {/* Admin Settings */}
+        <TouchableOpacity
+          onPress={() => router.push('/admin-settings')}
+          className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'}
+              p-4 rounded-xl flex-row items-center`}
+        >
+          <View className="bg-green-500/10 p-3 rounded-xl">
+            <Ionicons name="settings" size={24} color="#D55004" />
+          </View>
+          <View className="ml-4 flex-1">
+            <Text className={`${isDarkMode ? 'text-white' : 'text-black'} font-semibold`}>
+              Admin Settings
+            </Text>
+            <Text className={`${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'} text-sm`}>
+              System configuration and access controls
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={isDarkMode ? 'white' : 'black'} />
+        </TouchableOpacity>
+
+        {/* Sign Out */}
+        <TouchableOpacity
+          onPress={signOut}
+          className={`${isDarkMode ? 'bg-red/10' : 'bg-red/10'}
+              p-4 rounded-xl flex-row items-center mt-4`}
+        >
+          <View className="bg-red/20 p-3 rounded-xl">
+            <Ionicons name="log-out" size={24} color="#D55004" />
+          </View>
+          <View className="ml-4 flex-1">
+            <Text className="text-red font-semibold">
+              Sign Out
+            </Text>
+            <Text className={`${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'} text-sm`}>
+              Log out of your admin account
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Security Modal */}
+      <Modal
+        visible={isSecurityModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsSecurityModalVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View
+            className={`${isDarkMode ? 'bg-neutral-900' : 'bg-white'}
+                rounded-t-3xl p-6 h-2/3`}
+          >
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className={`${isDarkMode ? 'text-white' : 'text-black'} text-xl font-semibold`}>
+                Security Settings
+              </Text>
+              <TouchableOpacity onPress={() => setIsSecurityModalVisible(false)}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={isDarkMode ? 'white' : 'black'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View className="space-y-4">
+              <Text className={`${isDarkMode ? 'text-neutral-300' : 'text-neutral-700'} font-medium`}>
+                Change Password
+              </Text>
+
+              <TextInput
+                placeholder="Current Password"
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                secureTextEntry
+                value={passwordData.currentPassword}
+                onChangeText={(text) => setPasswordData(prev => ({ ...prev, currentPassword: text }))}
+                className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'} p-4 rounded-xl`}
+              />
+
+              <TextInput
+                placeholder="New Password"
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                secureTextEntry
+                value={passwordData.newPassword}
+                onChangeText={(text) => setPasswordData(prev => ({ ...prev, newPassword: text }))}
+                className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'} p-4 rounded-xl`}
+              />
+
+              <TextInput
+                placeholder="Confirm New Password"
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                secureTextEntry
+                value={passwordData.confirmPassword}
+                onChangeText={(text) => setPasswordData(prev => ({ ...prev, confirmPassword: text }))}
+                className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'} p-4 rounded-xl`}
+              />
+
+              <TouchableOpacity
+                onPress={handleChangePassword}
+                className="bg-red p-4 rounded-xl mt-4"
+              >
+                <Text className="text-white text-center font-semibold">Update Password</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
+  )
 }
-
-export default React.memo(AdminProfilePage)

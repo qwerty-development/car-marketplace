@@ -16,7 +16,6 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useUser } from "@clerk/clerk-expo";
 import { supabase } from "@/utils/supabase";
 import { debounce } from "@/utils/debounce";
 import { useFavorites } from "@/utils/useFavorites";
@@ -26,6 +25,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import AutoclipModal from "@/components/AutoclipModal";
 import openWhatsApp from "@/utils/openWhatsapp";
+import { useAuth } from "@/utils/AuthContext";
 
 const { width } = Dimensions.get("window");
 
@@ -143,7 +143,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   const { isDarkMode } = useTheme();
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAuth();
   const { isFavorite } = useFavorites();
   const [similarCars, setSimilarCars] = useState<any>([]);
   const [dealerCars, setDealerCars] = useState<any>([]);

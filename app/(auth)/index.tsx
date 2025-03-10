@@ -12,7 +12,11 @@ import {
   Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useOAuth } from '@clerk/clerk-expo';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
+import { supabase } from '@/utils/supabase';
+import { useAuth } from '@/utils/AuthContext';
+import { useGuestUser } from '@/utils/GuestUserContext'
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
@@ -189,33 +193,46 @@ export default function LandingPage() {
     google: false,
     apple: false,
   });
-  const { startOAuthFlow: googleAuth } = useOAuth({ strategy: 'oauth_google' });
-  const { startOAuthFlow: appleAuth } = useOAuth({ strategy: 'oauth_apple' });
+// ADD
+const { googleSignIn, appleSignIn } = useAuth();
+const { setGuestMode } = useGuestUser();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const handleSocialAuth = async (platform: 'google' | 'apple') => {
-    try {
-      setIsLoading(prev => ({ ...prev, [platform]: true }));
-      const auth = platform === 'google' ? googleAuth : appleAuth;
-      const { createdSessionId, setActive } = await auth();
+const handleSocialAuth = async (platform: 'google' | 'apple') => {
+  try {
+    setIsLoading(prev => ({ ...prev, [platform]: true }));
 
-      if (createdSessionId) {
-        setActive && (await setActive({ session: createdSessionId }));
-        router.replace('/(home)');
-      }
-    } catch (err) {
-      console.error(`${platform} OAuth error:`, err);
-      Alert.alert(
-        'Authentication Error',
-        `Failed to authenticate with ${
-          platform.charAt(0).toUpperCase() + platform.slice(1)
-        }`
-      );
-    } finally {
-      setIsLoading(prev => ({ ...prev, [platform]: false }));
+    if (platform === 'google') {
+      await googleSignIn();
+    } else {
+      await appleSignIn();
     }
-  };
+
+    // Successful authentication will be handled by the AuthContext
+    // which will update the app state and navigate accordingly
+  } catch (err) {
+    console.error(`${platform} OAuth error:`, err);
+    Alert.alert(
+      'Authentication Error',
+      `Failed to authenticate with ${
+        platform.charAt(0).toUpperCase() + platform.slice(1)
+      }`
+    );
+  } finally {
+    setIsLoading(prev => ({ ...prev, [platform]: false }));
+  }
+};
+
+const handleGuestMode = async () => {
+  try {
+    await setGuestMode(true);
+    router.replace('/(home)');
+  } catch (error) {
+    console.error('Error setting guest mode:', error);
+    Alert.alert('Error', 'Failed to continue as guest');
+  }
+};
 
   return (
     <View
@@ -327,7 +344,26 @@ export default function LandingPage() {
               Create Account
             </Text>
           </TouchableOpacity>
-
+<TouchableOpacity
+  onPress={handleGuestMode}
+  style={{
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: isDark ? 'rgba(213, 80, 4, 0.2)' : 'rgba(213, 80, 4, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  }}
+>
+  <Text style={{
+    color: '#D55004',
+    fontSize: 18,
+    fontWeight: '600'
+  }}>
+    Continue as Guest
+  </Text>
+</TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push('/forgot-password')}
             style={{ marginTop: 16 }}

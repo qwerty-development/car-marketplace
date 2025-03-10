@@ -14,7 +14,7 @@ import {
   Animated,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
-import { useUser, useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/utils/AuthContext"; // Changed from Clerk to Supabase Auth
 import * as ImagePicker from "expo-image-picker";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/utils/ThemeContext";
@@ -38,8 +38,7 @@ const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
-  const { user } = useUser();
-  const { signOut } = useAuth();
+  const { user, profile, signOut, updateUserProfile, updatePassword } = useAuth(); // Using Supabase Auth context
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
@@ -70,16 +69,18 @@ export default function UserProfileAndSupportPage() {
   useScrollToTop(scrollRef);
 
   useEffect(() => {
-    if (user && !isGuest) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-      setEmail(user.emailAddresses[0]?.emailAddress || "");
+    if (user && profile && !isGuest) {
+      // Extract first and last name from full name in profile
+      const nameParts = profile.name ? profile.name.split(' ') : ['', ''];
+      setFirstName(nameParts[0] || "");
+      setLastName(nameParts.slice(1).join(' ') || "");
+      setEmail(profile.email || user.email || "");
     } else if (isGuest) {
       setFirstName("Guest");
       setLastName("User");
       setEmail("guest@example.com");
     }
-  }, [user, isGuest]);
+  }, [user, profile, isGuest]);
 
   useEffect(() => {
     // Animate the guest banner entrance
@@ -92,6 +93,18 @@ export default function UserProfileAndSupportPage() {
       }).start();
     }
   }, [isGuest, bannerAnimation]);
+
+  // Helper function to decode Base64
+  const base64Decode = (base64String: string): Uint8Array => {
+    const byteCharacters = atob(base64String);
+    const byteNumbers = new Array(byteCharacters.length);
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+
+    return new Uint8Array(byteNumbers);
+  };
 
   const updateProfile = async (): Promise<void> => {
     // Only allow profile update for authenticated users
@@ -110,14 +123,16 @@ export default function UserProfileAndSupportPage() {
     try {
       if (!user) throw new Error("No user found");
 
-      await user.update({ firstName, lastName });
+      // Create full name from first and last name
       const fullName = `${firstName} ${lastName}`.trim();
-      const { error: supabaseError } = await supabase
-        .from("users")
-        .update({ name: fullName })
-        .eq("id", user.id);
 
-      if (supabaseError) throw supabaseError;
+      // Update user profile in Supabase database
+      const { error } = await updateUserProfile({
+        name: fullName
+      });
+
+      if (error) throw error;
+
       Alert.alert("Success", "Profile updated successfully");
       setIsEditMode(false);
     } catch (error) {
@@ -152,15 +167,36 @@ export default function UserProfileAndSupportPage() {
       if (!result.canceled && result.assets[0].base64) {
         const base64 = result.assets[0].base64;
         const mimeType = result.assets[0].mimeType || "image/jpeg";
-        const image = `data:${mimeType};base64,${base64}`;
-        await user?.setProfileImage({ file: image });
+
+        // First, upload to Supabase Storage
+        const fileName = `avatar-${user?.id}-${Date.now()}.jpg`;
+        const { error: uploadError, data } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, base64Decode(base64), {
+            contentType: mimeType,
+            upsert: true
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get the public URL of the uploaded image
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        const avatarUrl = urlData?.publicUrl;
+
+        // Update the user metadata with the new avatar URL
+        const { data: userData, error: userError } = await supabase.auth.updateUser({
+          data: { avatar_url: avatarUrl }
+        });
+
+        if (userError) throw userError;
+
         Alert.alert("Success", "Profile picture updated successfully");
       }
     } catch (err: any) {
       console.error("Error updating profile picture:", err);
       Alert.alert(
         "Error",
-        err.errors?.[0]?.message || "Failed to update profile picture"
+        err.message || "Failed to update profile picture"
       );
     }
   };
@@ -185,10 +221,14 @@ export default function UserProfileAndSupportPage() {
     }
 
     try {
-      await user?.updatePassword({
+      // Use updatePassword from AuthContext
+      const { error } = await updatePassword({
         currentPassword,
-        newPassword,
+        newPassword
       });
+
+      if (error) throw error;
+
       Alert.alert("Success", "Password changed successfully");
       setIsChangePasswordMode(false);
       setCurrentPassword("");
@@ -325,7 +365,9 @@ export default function UserProfileAndSupportPage() {
             <View className="items-center mt-6">
               <View className="relative">
                 <Image
-                  source={{ uri: isGuest ? DEFAULT_PROFILE_IMAGE : user?.imageUrl }}
+                  source={{ uri: isGuest
+                    ? DEFAULT_PROFILE_IMAGE
+                    : (user?.user_metadata?.avatar_url || DEFAULT_PROFILE_IMAGE) }}
                   className="w-32 h-32 rounded-full border-4 border-white/20"
                 />
                 <TouchableOpacity

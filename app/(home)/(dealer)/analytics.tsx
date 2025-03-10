@@ -12,7 +12,6 @@ import {
 	Platform
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit'
 import { router, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -23,6 +22,7 @@ import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import CarAnalyticsCard from '@/components/CarAnalyticsCard'
+import { useAuth } from '@/utils/AuthContext'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -36,7 +36,7 @@ const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack }: any) 
 		<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 		<View className='flex-row justify-between items-center'>
 		  <View className='flex-row items-center'>
-			<TouchableOpacity 
+			<TouchableOpacity
 			  onPress={router.back}
 			  className='mr-3'
 			>
@@ -273,7 +273,7 @@ const SubscriptionWarning = ({ daysLeft, isDarkMode }: any) => (
 
 export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
-	const { user } = useUser()
+	const { user } = useAuth()
 	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
 	const [analytics, setAnalytics] = useState(null)

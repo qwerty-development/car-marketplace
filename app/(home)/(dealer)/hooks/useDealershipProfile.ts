@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Alert } from 'react-native'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 
 export const useDealershipProfile = () => {
-  const { user } = useUser()
+  const { user } = useAuth()
   const [dealership, setDealership] = useState<Dealership | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

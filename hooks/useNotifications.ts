@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform, AppState } from 'react-native';
 import { NotificationService, NotificationType } from '@/services/NotificationService';
 import { router } from 'expo-router';
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth } from '@/utils/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '@/utils/supabase';
@@ -22,7 +22,7 @@ interface UseNotificationsReturn {
 }
 
 export function useNotifications(): UseNotificationsReturn {
-  const { user } = useUser();
+  const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isPermissionGranted, setIsPermissionGranted] = useState(false);

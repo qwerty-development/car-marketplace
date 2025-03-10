@@ -1,7 +1,7 @@
 // app/(home)/_layout.tsx
 import React, { useEffect, useState, useRef } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
-import { useAuth, useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import { supabase } from '@/utils/supabase'
 import { Alert, View, ActivityIndicator, useColorScheme, Animated } from 'react-native'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -64,12 +64,11 @@ function LoadingSkeleton() {
 }
 
 export default function HomeLayout() {
-  const { isLoaded, isSignedIn } = useAuth()
-  const { user } = useUser()
+  const { isLoaded, isSignedIn, user, profile } = useAuth()
   const router = useRouter()
   const segments = useSegments()
   const { isDarkMode } = useTheme()
-const { isGuest, guestId } = useGuestUser();
+  const { isGuest, guestId } = useGuestUser();
   const [isCheckingUser, setIsCheckingUser] = useState(true)
   const [isRouting, setIsRouting] = useState(true)
   const { registerForPushNotifications, refreshNotifications } = useNotifications()
@@ -98,13 +97,21 @@ const { isGuest, guestId } = useGuestUser();
 
         // Create user if they don't exist
         if (!existingUser) {
+          const email = isGuest
+            ? `guest_${guestId}@example.com`
+            : user?.email || '';
+
+          const name = isGuest
+            ? 'Guest User'
+            : profile?.name || user?.user_metadata?.name || '';
+
           const { error: insertError } = await supabase.from('users').insert([
             {
               id: userId,
-              name: isGuest ? 'Guest User' : `${user?.firstName} ${user?.lastName}`,
-              email: isGuest ? `guest_${guestId}@example.com` : user?.emailAddresses[0].emailAddress,
+              name: name,
+              email: email,
               favorite: [],
-              is_guest: isGuest // Add this field to track guest users
+              is_guest: isGuest
             }
           ]);
           if (insertError) throw insertError;
@@ -140,7 +147,7 @@ const { isGuest, guestId } = useGuestUser();
     } else {
       setIsCheckingUser(false);
     }
-  }, [isSignedIn, user, isGuest, guestId]);
+  }, [isSignedIn, user, isGuest, guestId, profile]);
 
   // Modify the routing logic
   useEffect(() => {
@@ -155,7 +162,14 @@ const { isGuest, guestId } = useGuestUser();
     }
 
     // Always route guests to user role
-    const role = isGuest ? 'user' : ((user?.publicMetadata?.role as string) || 'user');
+    let role = 'user';
+
+    if (!isGuest && user) {
+      // For authenticated users, check for role in user metadata
+      const userRole = user.user_metadata?.role as string;
+      role = userRole || 'user';
+    }
+
     const correctRouteSegment = `(${role})`;
 
     if (segments[1] !== correctRouteSegment) {

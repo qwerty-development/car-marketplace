@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '@/utils/ThemeContext'
 import { NotificationService } from '@/services/NotificationService'
-import { useUser } from '@clerk/clerk-expo'
 import { BlurView } from 'expo-blur'
 import { Ionicons } from '@expo/vector-icons'
 import Animated, {
@@ -25,6 +24,7 @@ import { FlashList } from '@shopify/flash-list'
 import { formatDistanceToNow } from 'date-fns'
 import * as Haptics from 'expo-haptics'
 import { useRouter, useNavigation } from 'expo-router'
+import { useAuth } from '@/utils/AuthContext'
 
 interface Notification {
 	id: string
@@ -43,7 +43,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
 export default function NotificationsScreen() {
 	const { isDarkMode } = useTheme()
-	const { user } = useUser()
+	const { user } = useAuth()
 	const router = useRouter()
 	const navigation = useNavigation()
 	const [notifications, setNotifications] = useState<Notification[]>([])

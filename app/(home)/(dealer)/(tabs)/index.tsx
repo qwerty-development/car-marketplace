@@ -18,7 +18,6 @@ import {
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
-import { useUser } from '@clerk/clerk-expo'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import ListingModal from '@/components/ListingModal'
@@ -29,6 +28,7 @@ import { BlurView } from 'expo-blur'
 import ModernPicker from '@/components/ModernPicker'
 import { useRouter } from 'expo-router'
   import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '@/utils/AuthContext'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -667,7 +667,7 @@ interface Dealership {
 
 export default function DealerListings() {
 	const { isDarkMode } = useTheme()
-	const { user } = useUser()
+	const { user } = useAuth()
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [listings, setListings] = useState<CarListing[]>([])
 	const [currentPage, setCurrentPage] = useState(1)

@@ -1,7 +1,7 @@
-// hooks/useFavorites.tsx
+// utils/useFavorites.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/utils/supabase';
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -19,7 +19,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
   children
 }) => {
   const [favorites, setFavorites] = useState<number[]>([]);
-  const { user } = useUser();
+  const { user } = useAuth();
   const { isGuest, guestId } = useGuestUser();
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -58,9 +58,8 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const toggleFavorite = async (carId: number): Promise<number> => {
     // Check if user is a guest, and show auth prompt if they are
-       if (isGuest) {
+    if (isGuest) {
       setShowAuthModal(true);
-
       return 0;
     }
 

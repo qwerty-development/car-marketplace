@@ -19,7 +19,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useCarDetails } from '@/hooks/useCarDetails'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@/utils/AuthContext'
 import { supabase } from '@/utils/supabase'
 
 const StyledView = styled(View)
@@ -100,7 +100,7 @@ export default function CarCard({
 	const { isDarkMode } = useTheme()
 	const fadeAnim = useRef(new Animated.Value(0)).current
 	const translateY = useRef(new Animated.Value(50)).current
-	const { user } = useUser()
+	const { user } = useAuth()
 	const router = useRouter()
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)

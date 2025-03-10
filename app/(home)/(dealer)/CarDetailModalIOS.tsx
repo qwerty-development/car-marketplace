@@ -15,7 +15,6 @@ import {
   Pressable
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
-import { useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
@@ -25,6 +24,7 @@ import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import { Image } from 'expo-image'
 import { Radius } from 'lucide-react-native'
+import { useAuth } from '@/utils/AuthContext'
 
 const { width, height } = Dimensions.get('window')
 
@@ -109,7 +109,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
-	const { user } = useUser()
+	const { user } = useAuth()
 	const { isFavorite } = useFavorites()
 	const [similarCars, setSimilarCars] = useState([])
 	const [dealerCars, setDealerCars] = useState([])

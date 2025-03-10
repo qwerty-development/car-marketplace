@@ -13,7 +13,6 @@ import {
 	Platform
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
-import { useUser } from '@clerk/clerk-expo'
 import { supabase } from '@/utils/supabase'
 import { debounce } from '@/utils/debounce'
 import { useFavorites } from '@/utils/useFavorites'
@@ -30,6 +29,7 @@ import Animated, {
 	useAnimatedGestureHandler
 } from 'react-native-reanimated'
 import { PanGestureHandler } from 'react-native-gesture-handler'
+import { useAuth } from '@/utils/AuthContext'
 
 const { width, height } = Dimensions.get('window')
 
@@ -71,7 +71,7 @@ const CarDetailModalIOS = memo(
 		if (!car) return null
 		const { isDarkMode } = useTheme()
 		const router = useRouter()
-		const { user } = useUser()
+		const { user } = useAuth()
 		const { isFavorite } = useFavorites()
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])
