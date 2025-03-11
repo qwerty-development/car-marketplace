@@ -265,20 +265,39 @@ export default function LandingPage() {
     checkAppleAuthAvailability();
   }, []);
 
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, google: true }));
-      await googleSignIn();
-    } catch (err) {
-      console.error('Google OAuth error:', err);
-      Alert.alert(
-        'Authentication Error',
-        'Failed to authenticate with Google'
-      );
-    } finally {
-      setIsLoading(prev => ({ ...prev, google: false }));
+const handleGoogleAuth = async () => {
+  try {
+    setIsLoading(prev => ({ ...prev, google: true }));
+
+    // Call googleSignIn and capture the result
+    const result = await googleSignIn();
+    console.log("Google sign-in result:", JSON.stringify(result));
+
+    // Evaluate success and navigate accordingly
+    if (result && result.success === true) {
+      console.log("Google authentication successful, navigating to home");
+      router.replace("/(home)");
+    } else {
+      console.log("Google authentication unsuccessful:",
+                 result ? `Result received but success=${result.success}` : "No result returned");
+
+      // Fallback check to ensure navigation even if success flag is missing
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        console.log("Session found despite unsuccessful result, navigating to home");
+        router.replace("/(home)");
+      }
     }
-  };
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    Alert.alert(
+      "Authentication Error",
+      "Failed to authenticate with Google"
+    );
+  } finally {
+    setIsLoading(prev => ({ ...prev, google: false }));
+  }
+};
 
   const handleAppleAuth = async () => {
     try {
