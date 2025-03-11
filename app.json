@@ -86,11 +86,18 @@
         }
       ],
       [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.439161642265-gd8vs69sk0upfitqmm28r5vbh8tsmvji"
+        }
+      ],
+      [
         "expo-file-system",
         {
           "filePermission": "The app needs access to files for image uploads."
         }
       ],
+
       "expo-font",
       [
         "expo-notifications",

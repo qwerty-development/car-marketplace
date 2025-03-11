@@ -7,7 +7,8 @@ import { Alert } from 'react-native';
 import { useGuestUser } from './GuestUserContext';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
-import * as Linking from 'expo-linking';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'
+
 
 interface AuthContextProps {
   session: Session | null;
@@ -73,6 +74,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     scheme: 'com.qwertyapp.clerkexpoquickstart',
     path: 'auth/callback'
   });
+
+  useEffect(() => {
+  // Configure Google Sign-In
+  GoogleSignin.configure({
+    // Do NOT include drive.readonly scope unless you need it
+    webClientId: '439161642265-88sg67qgrcop7vrdhkfnrt9vt7fjn0sm.apps.googleusercontent.com', // Required
+    offlineAccess: true, // If you need refresh token
+  });
+}, []);
 
   useEffect(() => {
     setIsLoaded(false);
@@ -276,37 +286,55 @@ const googleSignIn = async () => {
       await clearGuestMode();
     }
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    // Check if Play Services are available (Android only)
+    await GoogleSignin.hasPlayServices();
+
+    // Perform the sign-in
+    const userInfo = await GoogleSignin.signIn();
+
+    // Verify we have an ID token
+    if (!userInfo.idToken) {
+      throw new Error('No ID token present in Google Sign-In response');
+    }
+
+    // Sign in with Supabase using the ID token
+    const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
-      options: {
-        redirectTo: redirectUri,
-        skipBrowserRedirect: true,
-      },
+      token: userInfo.idToken,
     });
 
     if (error) throw error;
 
-    if (data?.url) {
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+    // Process user profile if sign-in was successful
+    if (data?.user) {
+      const userProfile = await processOAuthUser(data.session);
 
-      if (result.type === 'success') {
-        // Get the Supabase auth callback URL parameters
-        const { data: sessionData } = await supabase.auth.getSession();
-
-        if (sessionData?.session) {
-          // Process the user and get the created/existing profile
-          const userProfile = await processOAuthUser(sessionData.session);
-
-          // Set the profile directly if available
-          if (userProfile) {
-            setProfile(userProfile);
-          }
-        }
+      // Set profile if available
+      if (userProfile) {
+        setProfile(userProfile);
       }
+
+      setSession(data.session);
+      setUser(data.user);
+      return true;
     }
-  } catch (error) {
+
+    return false;
+  } catch (error: any) {
     console.error('Google sign in error:', error);
-    Alert.alert('Authentication Error', 'Failed to sign in with Google');
+
+    // Handle specific Google Sign-In errors
+    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+      console.log('User cancelled the login flow');
+    } else if (error.code === statusCodes.IN_PROGRESS) {
+      console.log('Google sign in operation already in progress');
+    } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      Alert.alert('Error', 'Google Play Services not available or outdated');
+    } else {
+      Alert.alert('Authentication Error', 'Failed to sign in with Google');
+    }
+
+    return false;
   }
 };
 

@@ -126,20 +126,25 @@ const SignInWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, google: true }));
-      await googleSignIn();
-    } catch (err) {
-      console.error("Google OAuth error:", err);
-      Alert.alert(
-        "Authentication Error",
-        "Failed to authenticate with Google"
-      );
-    } finally {
-      setIsLoading(prev => ({ ...prev, google: false }));
+const handleGoogleAuth = async () => {
+  try {
+    setIsLoading(prev => ({ ...prev, google: true }));
+    const success:any = await googleSignIn();
+
+    if (success) {
+      // Navigate to home screen
+      router.replace("/(home)");
     }
-  };
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    Alert.alert(
+      "Authentication Error",
+      "Failed to authenticate with Google"
+    );
+  } finally {
+    setIsLoading(prev => ({ ...prev, google: false }));
+  }
+};
 
   const handleAppleAuth = async () => {
     try {
