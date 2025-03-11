@@ -126,20 +126,48 @@ const SignInWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, google: true }));
-      await googleSignIn();
-    } catch (err) {
-      console.error("Google OAuth error:", err);
-      Alert.alert(
-        "Authentication Error",
-        "Failed to authenticate with Google"
-      );
-    } finally {
-      setIsLoading(prev => ({ ...prev, google: false }));
+const handleGoogleAuth = async () => {
+  try {
+    setIsLoading(prev => ({ ...prev, google: true }));
+
+    // Step 1: Call googleSignIn with detailed logging
+    console.log("Initiating Google sign-in flow");
+    const result = await googleSignIn();
+    console.log("Google sign-in result:", JSON.stringify(result));
+
+    // Step 2: Check for success and navigate
+    if (result && result.success === true) {
+      console.log("Authentication successful, navigating to home");
+
+      // Step 3: Add delay to ensure session is fully established
+      setTimeout(() => {
+        router.replace("/(home)");
+      }, 500);
+    } else {
+      console.log("Google authentication unsuccessful:",
+                 result ? `Result received but success=${result.success}` : "No result returned");
+
+      // Step 4: Final fallback - check Supabase session directly
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        console.log("Session found despite unsuccessful result, navigating to home");
+        setTimeout(() => {
+          router.replace("/(home)");
+        }, 500);
+      } else {
+        console.log("No session found, authentication failed completely");
+      }
     }
-  };
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    Alert.alert(
+      "Authentication Error",
+      "Failed to authenticate with Google"
+    );
+  } finally {
+    setIsLoading(prev => ({ ...prev, google: false }));
+  }
+};
 
   const handleAppleAuth = async () => {
     try {

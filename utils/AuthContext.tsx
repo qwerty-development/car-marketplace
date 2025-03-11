@@ -269,13 +269,13 @@ const appleSignIn = async () => {
   }
 };
 
-// Similarly for googleSignIn method
 const googleSignIn = async () => {
   try {
     if (isGuest) {
       await clearGuestMode();
     }
 
+    // Step 1: Initiate OAuth flow
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -287,26 +287,77 @@ const googleSignIn = async () => {
     if (error) throw error;
 
     if (data?.url) {
+      console.log("Opening auth session with URL:", data.url);
+
+      // Step 2: Open browser for authentication
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      console.log("WebBrowser result:", JSON.stringify(result));
 
       if (result.type === 'success') {
-        // Get the Supabase auth callback URL parameters
-        const { data: sessionData } = await supabase.auth.getSession();
+        // Step 3: Critical - force setSession with manually extracted token
+        try {
+          // Extract access token from URL hash fragment
+          const url = new URL(result.url);
+          const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove the # character
+          const accessToken = hashParams.get('access_token');
 
-        if (sessionData?.session) {
-          // Process the user and get the created/existing profile
-          const userProfile = await processOAuthUser(sessionData.session);
+          console.log("Extracted access token:", accessToken ? "Found" : "Not found");
 
-          // Set the profile directly if available
-          if (userProfile) {
-            setProfile(userProfile);
+          if (accessToken) {
+            // Step 4: Use setSession directly with the extracted token
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: hashParams.get('refresh_token') || '',
+            });
+
+            console.log("Manual setSession result:",
+                        sessionData ? "Session set successfully" : "Failed to set session",
+                        sessionError ? `Error: ${sessionError.message}` : "No error");
+
+            if (sessionError) throw sessionError;
+
+            if (sessionData.session) {
+              // Step 5: Update application state
+              setSession(sessionData.session);
+              setUser(sessionData.session.user);
+
+              // Step 6: Process user profile
+              const userProfile = await processOAuthUser(sessionData.session);
+              if (userProfile) {
+                setProfile(userProfile);
+              }
+
+              // Step 7: Return explicit success with user data
+              console.log("Authentication successful, returning success=true");
+              return { success: true, user: sessionData.session.user };
+            }
           }
+        } catch (extractError) {
+          console.error("Error processing authentication result:", extractError);
         }
       }
     }
+
+    // Step 8: Fall back to checking current session as safety mechanism
+    try {
+      const { data: currentSession } = await supabase.auth.getSession();
+      if (currentSession?.session?.user) {
+        console.log("Session exists despite flow issues, returning success=true");
+        setSession(currentSession.session);
+        setUser(currentSession.session.user);
+        return { success: true, user: currentSession.session.user };
+      }
+    } catch (sessionCheckError) {
+      console.error("Error checking current session:", sessionCheckError);
+    }
+
+    // Step 9: Return failure if all above steps fail
+    console.log("All authentication steps failed, returning success=false");
+    return { success: false };
   } catch (error) {
     console.error('Google sign in error:', error);
     Alert.alert('Authentication Error', 'Failed to sign in with Google');
+    return { success: false, error };
   }
 };
 
