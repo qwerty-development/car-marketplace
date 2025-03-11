@@ -1,4 +1,3 @@
-// app/(auth)/sign-in.tsx
 import React, { useEffect, useCallback, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { Link, useRouter } from "expo-router";
@@ -20,6 +19,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { maybeCompleteAuthSession } from "expo-web-browser";
 import { useGuestUser } from '@/utils/GuestUserContext';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { supabase } from '@/utils/supabase';
+
 
 maybeCompleteAuthSession();
 
@@ -103,36 +105,91 @@ const SignInWithOAuth = () => {
     google: boolean;
     apple: boolean;
   }>({ google: false, apple: false });
-  const { googleSignIn, appleSignIn } = useAuth();
+  const { googleSignIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
-  const onSelectAuth = async (strategy: "google" | "apple") => {
-    try {
-      setIsLoading((prev) => ({ ...prev, [strategy]: true }));
-
-      if (strategy === "google") {
-        await googleSignIn();
-      } else if (strategy === "apple") {
-        await appleSignIn();
+  // Check if Apple Authentication is available on this device
+  useEffect(() => {
+    const checkAppleAuthAvailability = async () => {
+      try {
+        const isAvailable = await AppleAuthentication.isAvailableAsync();
+        setAppleAuthAvailable(isAvailable);
+      } catch (error) {
+        console.log('Apple Authentication not available on this device');
+        setAppleAuthAvailable(false);
       }
+    };
+
+    checkAppleAuthAvailability();
+  }, []);
+
+  const handleGoogleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, google: true }));
+      await googleSignIn();
     } catch (err) {
-      console.error(`${strategy} OAuth error:`, err);
+      console.error("Google OAuth error:", err);
       Alert.alert(
         "Authentication Error",
-        `Failed to authenticate with ${strategy.charAt(0).toUpperCase() + strategy.slice(1)}`
+        "Failed to authenticate with Google"
       );
     } finally {
-      setIsLoading((prev) => ({ ...prev, [strategy]: false }));
+      setIsLoading(prev => ({ ...prev, google: false }));
+    }
+  };
+
+  const handleAppleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, apple: true }));
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // Sign in via Supabase Auth
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        // If successful, navigate to home
+        router.replace('/(home)');
+      } else {
+        throw new Error('No identity token received from Apple');
+      }
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled the sign-in flow, no need to show an error
+        console.log('User canceled Apple sign-in');
+      } else {
+        console.error("Apple OAuth error:", err);
+        Alert.alert(
+          "Authentication Error",
+          err.message || "Failed to authenticate with Apple"
+        );
+      }
+    } finally {
+      setIsLoading(prev => ({ ...prev, apple: false }));
     }
   };
 
   return (
     <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
+        {/* Google Authentication Button */}
         <TouchableOpacity
-          onPress={() => onSelectAuth("google")}
+          onPress={handleGoogleAuth}
           disabled={isLoading.google}
           style={{
             alignItems: 'center',
@@ -152,26 +209,64 @@ const SignInWithOAuth = () => {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => onSelectAuth("apple")}
-          disabled={isLoading.apple}
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-            borderWidth: 1,
-            borderColor: isDark ? '#374151' : '#E5E7EB',
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-          }}
-        >
-          {isLoading.apple ? (
-            <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
-          ) : (
-            <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
-          )}
-        </TouchableOpacity>
+        {/* Apple Authentication Button */}
+        {Platform.OS === 'ios' && appleAuthAvailable ? (
+          // On iOS, use native Apple Authentication button if available
+          <View style={{ width: 56, height: 56, overflow: 'hidden', borderRadius: 28 }}>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={isDark
+                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={28}
+              style={{
+                width: 56,
+                height: 56,
+                borderWidth: 1,
+                borderColor: isDark ? '#374151' : '#E5E7EB',
+              }}
+              onPress={handleAppleAuth}
+            />
+            {isLoading.apple && (
+              <View style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.4)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: 28,
+              }}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            )}
+          </View>
+        ) : (
+          // On Android or if Apple Authentication is not available, show a custom button
+          <TouchableOpacity
+            onPress={handleAppleAuth}
+            disabled={isLoading.apple || !appleAuthAvailable}
+            style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+              borderWidth: 1,
+              borderColor: isDark ? '#374151' : '#E5E7EB',
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              opacity: appleAuthAvailable ? 1 : 0.5,
+            }}
+          >
+            {isLoading.apple ? (
+              <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
+            ) : (
+              <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

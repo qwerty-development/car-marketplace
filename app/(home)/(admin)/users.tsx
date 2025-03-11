@@ -27,13 +27,32 @@ import { LinearGradient } from 'expo-linear-gradient'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
+import { supabase } from '@/utils/supabase'
 
+// Updated User interface for Supabase
 interface User {
+	id: string
+	email: string
+	user_metadata: {
+		name?: string;
+		role?: string;
+		full_name?: string;
+	}
+	created_at: string;
+	last_sign_in_at: string;
+	banned_until: string | null;
+	locked: boolean; // Add this if you're tracking locked status
+}
+
+// Updated interface for processed users to match component expectations
+interface ProcessedUser {
 	id: string
 	firstName: string
 	lastName: string
-	emailAddresses: { emailAddress: string }[]
-	publicMetadata: { role?: string }
+	email: string
+	user_metadata: {
+		role?: string;
+	}
 	imageUrl: string
 	lastSignInAt: number
 	createdAt: number
@@ -45,7 +64,7 @@ interface DealershipForm {
 	location: string
 	phone: string
 	subscriptionEndDate: Date
-	name: string // Added field
+	name: string
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity)
@@ -123,8 +142,8 @@ const UserItem = React.memo(
 		const canPromoteToDealer =
 			!item.banned &&
 			!item.locked &&
-			item.publicMetadata.role !== 'dealer' &&
-			item.publicMetadata.role !== 'admin'
+			item.user_metadata.role !== 'dealer' &&
+			item.user_metadata.role !== 'admin'
 
 		return (
 			<AnimatedTouchable
@@ -154,7 +173,7 @@ const UserItem = React.memo(
 							</Text>
 							<Text
 								className={`text-sm ${isDarkMode ? 'text-red' : 'text-gray'}`}>
-								{item.emailAddresses[0].emailAddress}
+								{item.email}
 							</Text>
 						</View>
 						<UserStatusBadge status={getUserStatus()} isDarkMode={isDarkMode} />
@@ -170,7 +189,7 @@ const UserItem = React.memo(
 								/>
 								<Text
 									className={`ml-1 ${isDarkMode ? 'text-red' : 'text-gray'}`}>
-									{item.publicMetadata.role || 'user'}
+									{item.user_metadata.role || 'user'}
 								</Text>
 							</View>
 							<View className='flex-row items-center'>
@@ -210,6 +229,7 @@ const UserItem = React.memo(
 		)
 	}
 )
+
 // Enhanced DealershipFormModal with better validation and UI
 const DealershipFormModal = React.memo(
 	({ visible, onClose, onSubmit, initialData, isDarkMode }: any) => {
@@ -433,12 +453,13 @@ const SearchBar = React.memo(
 		)
 	}
 )
+
 export default function AdminUserManagement() {
 	const { isDarkMode } = useTheme()
-	const [users, setUsers] = useState<User[]>([])
-	const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+	const [users, setUsers] = useState<ProcessedUser[]>([])
+	const [filteredUsers, setFilteredUsers] = useState<ProcessedUser[]>([])
 	const [search, setSearch] = useState('')
-	const [selectedUser, setSelectedUser] = useState<User | null>(null)
+	const [selectedUser, setSelectedUser] = useState<ProcessedUser | null>(null)
 	const [isLoading, setIsLoading] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
 	const [isDealershipFormVisible, setIsDealershipFormVisible] = useState(false)
@@ -459,27 +480,69 @@ export default function AdminUserManagement() {
 	const maxRetries = 3
 	const retryTimeout = useRef<NodeJS.Timeout>()
 
+	// Process Supabase users to match our component's expected format
+	const processSupabaseUsers = (data: User[]) => {
+		return data.map(user => {
+			// Extract first and last name from metadata or email
+			let firstName = '';
+			let lastName = '';
+
+			if (user.user_metadata?.name) {
+				const nameParts = user.user_metadata.name.split(' ');
+				firstName = nameParts[0] || '';
+				lastName = nameParts.slice(1).join(' ') || '';
+			} else if (user.user_metadata?.full_name) {
+				const nameParts = user.user_metadata.full_name.split(' ');
+				firstName = nameParts[0] || '';
+				lastName = nameParts.slice(1).join(' ') || '';
+			} else {
+				// Use email as fallback for the name
+				firstName = user.email.split('@')[0] || '';
+				lastName = '';
+			}
+
+			// Check if user is banned based on banned_until field
+			const isBanned = user.banned_until !== null &&
+				new Date(user.banned_until) > new Date();
+
+			return {
+				id: user.id,
+				firstName,
+				lastName,
+				email: user.email,
+				user_metadata: {
+					role: user.user_metadata?.role || 'user'
+				},
+				imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName + ' ' + lastName)}&background=random`,
+				lastSignInAt: user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : 0,
+				createdAt: Date.parse(user.created_at),
+				banned: isBanned,
+				locked: user.locked || false // Adjust based on how you track locked users
+			};
+		});
+	};
+
 	const fetchUsers = useCallback(
 		async (retryCount = 0) => {
 			try {
 				setIsLoading(true)
 				setError(null)
 
-				const response = await fetch(
-					`https://backend-car-marketplace.vercel.app/api/users`
-				)
+				// Fetch users from Supabase
+				const { data, error } = await supabase.auth.admin.listUsers();
 
-				if (!response.ok) {
-					throw new Error(
-						response.status === 500
-							? 'Server is temporarily unavailable'
-							: `Error: ${response.status}`
-					)
+				if (error) {
+					throw error;
 				}
 
-				const data = await response.json()
-				setUsers(data.data || [])
-				applyFiltersAndSort(data.data || [], filterConfig, sortConfig, search)
+				if (data && data.users) {
+					const processedUsers = processSupabaseUsers(data.users as User[]);
+					setUsers(processedUsers);
+					applyFiltersAndSort(processedUsers, filterConfig, sortConfig, search);
+				} else {
+					setUsers([]);
+					setFilteredUsers([]);
+				}
 			} catch (error: any) {
 				console.error('Error fetching users:', error)
 
@@ -521,7 +584,7 @@ export default function AdminUserManagement() {
 	// Enhanced filtering and sorting
 	const applyFiltersAndSort = useCallback(
 		(
-			users: User[],
+			users: ProcessedUser[],
 			filters: typeof filterConfig,
 			sort: typeof sortConfig,
 			searchTerm: string
@@ -531,7 +594,7 @@ export default function AdminUserManagement() {
 			// Apply filters
 			if (filters.role !== 'all') {
 				result = result.filter(
-					user => user.publicMetadata.role === filters.role
+					user => user.user_metadata.role === filters.role
 				)
 			}
 
@@ -557,9 +620,7 @@ export default function AdminUserManagement() {
 					user =>
 						user.firstName?.toLowerCase().includes(searchLower) ||
 						user.lastName?.toLowerCase().includes(searchLower) ||
-						user.emailAddresses[0].emailAddress
-							.toLowerCase()
-							.includes(searchLower)
+						user.email?.toLowerCase().includes(searchLower)
 				)
 			}
 
@@ -573,9 +634,7 @@ export default function AdminUserManagement() {
 						)
 						break
 					case 'email':
-						compareResult = a.emailAddresses[0].emailAddress.localeCompare(
-							b.emailAddresses[0].emailAddress
-						)
+						compareResult = a.email.localeCompare(b.email)
 						break
 					case 'createdAt':
 						compareResult = a.createdAt - b.createdAt
@@ -592,11 +651,11 @@ export default function AdminUserManagement() {
 		[]
 	)
 
-	// Enhanced role update with optimistic update and rollback
-	const handleSetRole = useCallback(async (user: User) => {
+	// Update this to work with Supabase role updating
+	const handleSetRole = useCallback(async (user: ProcessedUser) => {
 		if (
-			user.publicMetadata.role === 'admin' ||
-			user.publicMetadata.role === 'dealer'
+			user.user_metadata.role === 'admin' ||
+			user.user_metadata.role === 'dealer'
 		) {
 			Alert.alert(
 				'Not Allowed',
@@ -626,39 +685,64 @@ export default function AdminUserManagement() {
 			setUsers(current =>
 				current.map(u =>
 					u.id === selectedUser.id
-						? { ...u, publicMetadata: { ...u.publicMetadata, role: 'dealer' } }
+						? {
+								...u,
+								user_metadata: {
+									...u.user_metadata,
+									role: 'dealer'
+								}
+							}
 						: u
 				)
 			)
 
 			try {
-				const response = await fetch(
-					'https://backend-car-marketplace.vercel.app/api/setRole',
+				// 1. Update user role in auth.users metadata
+				const { error: authUpdateError } = await supabase.auth.admin.updateUserById(
+					selectedUser.id,
 					{
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							userId: selectedUser.id,
+						user_metadata: {
 							role: 'dealer',
-							...formData
-						})
+							// Preserve existing metadata fields
+							...(selectedUser.user_metadata || {})
+						}
 					}
-				)
+				);
 
-				if (!response.ok) {
-					throw new Error('Failed to update role')
-				}
+				if (authUpdateError) throw authUpdateError;
+
+				// 2. Update user role in public.users table
+				const { error: dbUpdateError } = await supabase
+					.from('users')
+					.update({ role: 'dealer' })
+					.eq('id', selectedUser.id);
+
+				if (dbUpdateError) throw dbUpdateError;
+
+				// 3. Create dealership entry
+				const { error: dealershipError } = await supabase
+					.from('dealerships')
+					.insert({
+						name: formData.name,
+						location: formData.location,
+						phone: formData.phone,
+						subscription_end_date: formData.subscriptionEndDate.toISOString().split('T')[0],
+						user_id: selectedUser.id
+					});
+
+				if (dealershipError) throw dealershipError;
 
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
 				Alert.alert('Success', 'User has been promoted to dealer successfully.')
 
 				// Refresh data
 				fetchUsers()
-			} catch (error) {
+			} catch (error: any) {
 				// Rollback on error
+				console.error('Error updating role:', error);
 				setUsers(previousUsers)
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-				Alert.alert('Error', 'Failed to update user role. Please try again.')
+				Alert.alert('Error', 'Failed to update user role: ' + error.message)
 			} finally {
 				setIsDealershipFormVisible(false)
 				setSelectedUser(null)
@@ -814,7 +898,7 @@ export default function AdminUserManagement() {
 							filterConfig.status === 'locked'
 								? 'bg-yellow-500/20'
 								: isDarkMode
-								? 'bg-gray'
+								?'bg-gray'
 								: 'bg-white'
 						}`}>
 						<Ionicons
@@ -852,7 +936,7 @@ export default function AdminUserManagement() {
 								Dealers
 							</Text>
 							<Text className='text-red text-lg font-bold'>
-								{users.filter(u => u.publicMetadata.role === 'dealer').length}
+								{users.filter(u => u.user_metadata.role === 'dealer').length}
 							</Text>
 						</View>
 						<View className='items-center'>
@@ -875,6 +959,216 @@ export default function AdminUserManagement() {
 		),
 		[isDarkMode, filterConfig, sortConfig, users]
 	)
+
+	// Helper function to update user roles directly
+	const updateUserRole = async (userId: string, newRole: string) => {
+		try {
+			// 1. Update user metadata in Supabase Auth
+			const { error: authError } = await supabase.auth.admin.updateUserById(
+				userId,
+				{
+					user_metadata: {
+						role: newRole
+					}
+				}
+			);
+
+			if (authError) throw authError;
+
+			// 2. Update role in database users table for consistency
+			const { error: dbError } = await supabase
+				.from('users')
+				.update({ role: newRole })
+				.eq('id', userId);
+
+			if (dbError) throw dbError;
+
+			// 3. Refresh the users list
+			fetchUsers();
+
+			return { success: true, error: null };
+		} catch (error: any) {
+			console.error('Error updating user role:', error);
+			return { success: false, error: error.message };
+		}
+	};
+
+	// Function to ban or unban a user
+	const toggleUserBan = async (userId: string, shouldBan: boolean) => {
+		try {
+			// Set banned_until to null (unban) or far future date (ban)
+			const bannedUntil = shouldBan
+				? new Date(2099, 11, 31).toISOString() // Ban until end of century
+				: null; // No ban (unban)
+
+			// Update user in Supabase Auth
+			const { error } = await supabase.auth.admin.updateUserById(
+				userId,
+				{
+					ban_duration: bannedUntil ? 'forever' : null
+				}
+			);
+
+			if (error) throw error;
+
+			// Refresh the user list
+			fetchUsers();
+
+			return { success: true, error: null };
+		} catch (error: any) {
+			console.error(`Error ${shouldBan ? 'banning' : 'unbanning'} user:`, error);
+			return { success: false, error: error.message };
+		}
+	};
+
+	// Function to handle user actions (role change, ban/unban, etc.)
+	const handleUserAction = (user: ProcessedUser, action: string) => {
+		switch (action) {
+			case 'make-dealer':
+				handleSetRole(user);
+				break;
+
+			case 'make-admin':
+				Alert.alert(
+					'Confirm Action',
+					`Are you sure you want to make ${user.firstName} ${user.lastName} an admin?`,
+					[
+						{ text: 'Cancel', style: 'cancel' },
+						{
+							text: 'Confirm',
+							onPress: async () => {
+								const result = await updateUserRole(user.id, 'admin');
+								if (result.success) {
+									Alert.alert('Success', 'User is now an admin.');
+								} else {
+									Alert.alert('Error', `Failed to update role: ${result.error}`);
+								}
+							}
+						}
+					]
+				);
+				break;
+
+			case 'make-user':
+				Alert.alert(
+					'Confirm Action',
+					`Are you sure you want to change ${user.firstName} ${user.lastName} back to a regular user?`,
+					[
+						{ text: 'Cancel', style: 'cancel' },
+						{
+							text: 'Confirm',
+							onPress: async () => {
+								const result = await updateUserRole(user.id, 'user');
+								if (result.success) {
+									Alert.alert('Success', 'Role changed to regular user.');
+								} else {
+									Alert.alert('Error', `Failed to update role: ${result.error}`);
+								}
+							}
+						}
+					]
+				);
+				break;
+
+			case 'ban-user':
+				Alert.alert(
+					'Confirm Action',
+					`Are you sure you want to ban ${user.firstName} ${user.lastName}? This will prevent them from logging in.`,
+					[
+						{ text: 'Cancel', style: 'cancel' },
+						{
+							text: 'Ban User',
+							style: 'destructive',
+							onPress: async () => {
+								const result = await toggleUserBan(user.id, true);
+								if (result.success) {
+									Alert.alert('Success', 'User has been banned.');
+								} else {
+									Alert.alert('Error', `Failed to ban user: ${result.error}`);
+								}
+							}
+						}
+					]
+				);
+				break;
+
+			case 'unban-user':
+				Alert.alert(
+					'Confirm Action',
+					`Are you sure you want to unban ${user.firstName} ${user.lastName}?`,
+					[
+						{ text: 'Cancel', style: 'cancel' },
+						{
+							text: 'Unban User',
+							onPress: async () => {
+								const result = await toggleUserBan(user.id, false);
+								if (result.success) {
+									Alert.alert('Success', 'User has been unbanned.');
+								} else {
+									Alert.alert('Error', `Failed to unban user: ${result.error}`);
+								}
+							}
+						}
+					]
+				);
+				break;
+		}
+	};
+
+	const handleUserPress = (user: ProcessedUser) => {
+		// Show action sheet for this user
+		const options = [];
+		const actions:any = [];
+
+		// Add appropriate options based on user's current status
+		if (user.user_metadata.role !== 'dealer' && user.user_metadata.role !== 'admin') {
+			options.push('Make Dealer');
+			actions.push('make-dealer');
+
+			options.push('Make Admin');
+			actions.push('make-admin');
+		}
+
+		if (user.user_metadata.role === 'dealer' || user.user_metadata.role === 'admin') {
+			options.push('Demote to Regular User');
+			actions.push('make-user');
+		}
+
+		if (!user.banned) {
+			options.push('Ban User');
+			actions.push('ban-user');
+		} else {
+			options.push('Unban User');
+			actions.push('unban-user');
+		}
+
+		// Always add cancel option
+		options.push('Cancel');
+
+		// Show alert with options
+		Alert.alert(
+			`${user.firstName} ${user.lastName}`,
+			`Role: ${user.user_metadata.role || 'user'}\nEmail: ${user.email}`,
+			options.map((option:any, index:any) => {
+				if (option === 'Cancel') {
+					return { text: option, style: 'cancel' };
+				}
+
+				if (option === 'Ban User') {
+					return {
+						text: option,
+						style: 'destructive',
+						onPress: () => handleUserAction(user, actions[index])
+					};
+				}
+
+				return {
+					text: option,
+					onPress: () => handleUserAction(user, actions[index])
+				};
+			})
+		);
+	};
 
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
@@ -901,7 +1195,7 @@ export default function AdminUserManagement() {
 					renderItem={({ item }) => (
 						<UserItem
 							item={item}
-							onPress={() => setSelectedUser(item)}
+							onPress={() => handleUserPress(item)}
 							onRoleChange={() => handleSetRole(item)}
 							isDarkMode={isDarkMode}
 						/>

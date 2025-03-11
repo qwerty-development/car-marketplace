@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
       setSuccessfulCreation(true);
       Alert.alert(
         'Reset Password',
-        'Check your email for a reset link. If you do not receive a link within a few minutes, please try again.',
+        'Check your email for a verification code.',
         [{ text: 'OK' }]
       );
     } catch (err: any) {

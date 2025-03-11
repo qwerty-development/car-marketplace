@@ -25,6 +25,7 @@ interface AuthContextProps {
   appleSignIn: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<{ error: Error | null }>;
+  updateUserRole: (userId: string, newRole: string) => Promise<{ error: Error | null }>;
 }
 
 interface UserProfile {
@@ -35,6 +36,7 @@ interface UserProfile {
   last_active: string;
   timezone: string;
   is_guest?: boolean;
+  role?: string;
 }
 
 interface SignInCredentials {
@@ -46,6 +48,7 @@ interface SignUpCredentials {
   email: string;
   password: string;
   name: string;
+  role?: string;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -125,26 +128,187 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     };
   }, [isGuest]);
 
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
+// Modified processOAuthUser function to handle first-time OAuth sign-ins
+const processOAuthUser = async (session: Session): Promise<UserProfile | null> => {
+  try {
+    // Check if user exists in database
+    const { data: existingUser, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    // If user doesn't exist in database, create entry with default role
+    if (fetchError && fetchError.code === 'PGRST116') {
+      // Extract user details from session
+      const userName = session.user.user_metadata.full_name ||
+                      session.user.user_metadata.name ||
+                      'User';
+
+      const newUser: Partial<UserProfile> = {
+        id: session.user.id,
+        name: userName,
+        email: session.user.email || '',
+        favorite: [],
+        last_active: new Date().toISOString(),
+        timezone: 'UTC',
+        role: 'user', // Default role
+      };
+
+      const { data: insertedUser, error: insertError } = await supabase
         .from('users')
-        .select('*')
-        .eq('id', userId)
+        .insert([newUser])
+        .select()
         .single();
 
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        return;
+      if (insertError) {
+        console.error('Error creating user after OAuth:', insertError);
+        return null;
       }
 
-      if (data) {
-        setProfile(data as UserProfile);
+      // If user exists but doesn't have a role in auth metadata, add default role
+      if (!session.user.user_metadata.role) {
+        await supabase.auth.updateUser({
+          data: { role: 'user' }
+        });
       }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
+
+      return insertedUser as UserProfile;
+    } else if (fetchError) {
+      // Handle other possible errors
+      console.error('Error fetching user profile:', fetchError);
+      return null;
     }
-  };
+
+    // If user exists but doesn't have a role in auth metadata, add default role
+    if (!session.user.user_metadata.role) {
+      await supabase.auth.updateUser({
+        data: { role: existingUser?.role || 'user' }
+      });
+    }
+
+    return existingUser as UserProfile;
+  } catch (error) {
+    console.error('Error processing OAuth user:', error);
+    return null;
+  }
+};
+
+// Modified fetchUserProfile function with fallback to create user if not found
+const fetchUserProfile = async (userId: string): Promise<void> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user profile:', error);
+
+      // If user not found, try to get session and create profile
+      if (error.code === 'PGRST116') {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          const createdProfile = await processOAuthUser(sessionData.session);
+          if (createdProfile) {
+            setProfile(createdProfile);
+            return;
+          }
+        }
+      }
+      return;
+    }
+
+    if (data) {
+      setProfile(data as UserProfile);
+    }
+  } catch (error) {
+    console.error('Error in fetchUserProfile:', error);
+  }
+};
+
+// Modified appleSignIn method
+const appleSignIn = async () => {
+  try {
+    if (isGuest) {
+      await clearGuestMode();
+    }
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) throw error;
+
+    if (data?.url) {
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+
+      if (result.type === 'success') {
+        // Get the Supabase auth callback URL parameters
+        const { data: sessionData } = await supabase.auth.getSession();
+
+        if (sessionData?.session) {
+          // Process the user and get the created/existing profile
+          const userProfile = await processOAuthUser(sessionData.session);
+
+          // Set the profile directly if available
+          if (userProfile) {
+            setProfile(userProfile);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Apple sign in error:', error);
+    Alert.alert('Authentication Error', 'Failed to sign in with Apple');
+  }
+};
+
+// Similarly for googleSignIn method
+const googleSignIn = async () => {
+  try {
+    if (isGuest) {
+      await clearGuestMode();
+    }
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) throw error;
+
+    if (data?.url) {
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+
+      if (result.type === 'success') {
+        // Get the Supabase auth callback URL parameters
+        const { data: sessionData } = await supabase.auth.getSession();
+
+        if (sessionData?.session) {
+          // Process the user and get the created/existing profile
+          const userProfile = await processOAuthUser(sessionData.session);
+
+          // Set the profile directly if available
+          if (userProfile) {
+            setProfile(userProfile);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Google sign in error:', error);
+    Alert.alert('Authentication Error', 'Failed to sign in with Google');
+  }
+};
 
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
@@ -159,6 +323,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       if (error) throw error;
 
+      if (data.user) {
+        await fetchUserProfile(data.user.id);
+      }
+
       return { error: null };
     } catch (error: any) {
       console.error('Sign in error:', error);
@@ -166,7 +334,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const signUp = async ({ email, password, name }: SignUpCredentials) => {
+  const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
     try {
       if (isGuest) {
         await clearGuestMode();
@@ -178,6 +346,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         options: {
           data: {
             name: name,
+            role: role,
           },
           emailRedirectTo: redirectUri,
         },
@@ -194,6 +363,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           favorite: [],
           last_active: new Date().toISOString(),
           timezone: 'UTC',
+          role: role,
         });
 
         if (insertError) {
@@ -275,67 +445,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const googleSignIn = async () => {
-    try {
-      if (isGuest) {
-        await clearGuestMode();
-      }
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-
-        if (result.type === 'success') {
-          const { url } = result;
-          // Get the Supabase auth callback URL parameters
-          await supabase.auth.getSession();
-        }
-      }
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      Alert.alert('Authentication Error', 'Failed to sign in with Google');
-    }
-  };
-
-  const appleSignIn = async () => {
-    try {
-      if (isGuest) {
-        await clearGuestMode();
-      }
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-
-        if (result.type === 'success') {
-          const { url } = result;
-          // Get the Supabase auth callback URL parameters
-          await supabase.auth.getSession();
-        }
-      }
-    } catch (error) {
-      console.error('Apple sign in error:', error);
-      Alert.alert('Authentication Error', 'Failed to sign in with Apple');
-    }
-  };
 
   const refreshSession = async () => {
     try {
@@ -354,6 +463,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     try {
       if (!user) throw new Error('No user is signed in');
 
+      // Update the user metadata in Supabase Auth if name is provided
+      if (data.name) {
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+          data: { name: data.name }
+        });
+
+        if (authUpdateError) {
+          console.error('Error updating auth user metadata:', authUpdateError);
+        }
+      }
+
+      // Update the profile in the database
       const { error } = await supabase
         .from('users')
         .update(data)
@@ -369,6 +490,51 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       return { error: null };
     } catch (error: any) {
       console.error('Update profile error:', error);
+      return { error };
+    }
+  };
+
+  const updateUserRole = async (userId: string, newRole: string) => {
+    try {
+      // Update role in auth metadata
+      const { error: metadataError } = await supabase.auth.admin.updateUserById(
+        userId,
+        { user_metadata: { role: newRole } }
+      );
+
+      if (metadataError) {
+        // Fall back to client-side update if admin is not available
+        const { error: clientUpdateError } = await supabase.auth.updateUser({
+          data: { role: newRole }
+        });
+        if (clientUpdateError) throw clientUpdateError;
+      }
+
+      // Also update role in users table for consistency
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', userId);
+
+      if (dbError) throw dbError;
+
+      // If updating the current user, reflect changes locally
+      if (user && userId === user.id) {
+        const updatedUser = { ...user };
+        updatedUser.user_metadata = {
+          ...updatedUser.user_metadata,
+          role: newRole
+        };
+        setUser(updatedUser);
+
+        if (profile) {
+          setProfile({ ...profile, role: newRole });
+        }
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Error updating user role:', error);
       return { error };
     }
   };
@@ -391,6 +557,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         appleSignIn,
         refreshSession,
         updateUserProfile,
+        updateUserRole
       }}
     >
       {children}

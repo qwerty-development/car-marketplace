@@ -125,36 +125,7 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user]);
 
-  // Set up realtime subscription for new notifications
-const setupRealtimeSubscription = useCallback(() => {
-  if (!user) return;
 
-  // Cleanup existing subscription
-  if (realtimeSubscription.current) {
-    console.log('Cleaning up previous realtime subscription');
-    realtimeSubscription.current.unsubscribe();
-  }
-
-  // Subscribe to real-time notifications with error tracking
-  try {
-    console.log('Setting up new realtime subscription');
-    realtimeSubscription.current = NotificationService.subscribeToRealtime(
-      user.id,
-      async (notification) => {
-        console.log('Processing realtime notification:', notification?.id);
-
-        // Update unread count
-        const newUnreadCount = await NotificationService.getUnreadCount(user.id);
-        setUnreadCount(newUnreadCount);
-
-        // Update badge count
-        await NotificationService.setBadgeCount(newUnreadCount);
-      }
-    );
-  } catch (error) {
-    console.error('Failed to set up realtime subscription:', error);
-  }
-}, [user]);
 
   // Register for push notifications
   const registerForNotifications = useCallback(async () => {
@@ -360,8 +331,7 @@ const setupRealtimeSubscription = useCallback(() => {
       notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
       responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
-      // Set up realtime subscription
-      setupRealtimeSubscription();
+
 
       // Get initial unread count
       await refreshNotifications();
@@ -420,7 +390,7 @@ const setupRealtimeSubscription = useCallback(() => {
     }
   }
 };
-  }, [user?.id, handleNotification, handleNotificationResponse, setupRealtimeSubscription, refreshNotifications, registerForNotifications]);
+  }, [user?.id, handleNotification, handleNotificationResponse, refreshNotifications, registerForNotifications]);
 
   return {
     unreadCount,

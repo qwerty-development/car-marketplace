@@ -10,14 +10,16 @@ import {
   Alert,
   useColorScheme,
   Easing,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/utils/AuthContext';
-import { useGuestUser } from '@/utils/GuestUserContext'
+import { useGuestUser } from '@/utils/GuestUserContext';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 const { width, height } = Dimensions.get('window');
 
@@ -140,8 +142,8 @@ const AnimatedLogo = () => {
   );
 };
 
-// Social Auth Button Component
-const SocialAuthButton = ({ onPress, isLoading, platform }:any) => {
+// Google Auth Button Component
+const GoogleAuthButton = ({ onPress, isLoading }:any) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -167,7 +169,7 @@ const SocialAuthButton = ({ onPress, isLoading, platform }:any) => {
       ) : (
         <>
           <Ionicons
-            name={`logo-${platform}`}
+            name="logo-google"
             size={24}
             color={isDark ? '#FFF' : '#000'}
             style={{ marginRight: 12 }}
@@ -179,7 +181,55 @@ const SocialAuthButton = ({ onPress, isLoading, platform }:any) => {
               fontWeight: '600',
             }}
           >
-            Continue with {platform.charAt(0).toUpperCase() + platform.slice(1)}
+            Continue with Google
+          </Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+// Custom Apple Button Component (for non-iOS or when native button is unavailable)
+const CustomAppleButton = ({ onPress, isLoading, isAvailable }:any) => {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={isLoading || !isAvailable}
+      style={{
+        width: '100%',
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+        borderWidth: 1,
+        borderColor: isDark ? '#374151' : '#E5E7EB',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+        opacity: isAvailable ? 1 : 0.5,
+      }}
+    >
+      {isLoading ? (
+        <ActivityIndicator color={isDark ? '#FFF' : '#000'} />
+      ) : (
+        <>
+          <Ionicons
+            name="logo-apple"
+            size={24}
+            color={isDark ? '#FFF' : '#000'}
+            style={{ marginRight: 12 }}
+          />
+          <Text
+            style={{
+              color: isDark ? '#FFF' : '#000',
+              fontSize: 18,
+              fontWeight: '600',
+            }}
+          >
+            Continue with Apple
           </Text>
         </>
       )}
@@ -192,47 +242,99 @@ export default function LandingPage() {
   const [isLoading, setIsLoading] = useState({
     google: false,
     apple: false,
+    guest: false,
   });
-// ADD
-const { googleSignIn, appleSignIn } = useAuth();
-const { setGuestMode } = useGuestUser();
+  const { googleSignIn } = useAuth();
+  const { setGuestMode } = useGuestUser();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
-const handleSocialAuth = async (platform: 'google' | 'apple') => {
-  try {
-    setIsLoading(prev => ({ ...prev, [platform]: true }));
+  // Check if Apple Authentication is available
+  useEffect(() => {
+    const checkAppleAuthAvailability = async () => {
+      try {
+        const isAvailable = await AppleAuthentication.isAvailableAsync();
+        setAppleAuthAvailable(isAvailable);
+      } catch (error) {
+        console.log('Apple Authentication not available on this device');
+        setAppleAuthAvailable(false);
+      }
+    };
 
-    if (platform === 'google') {
+    checkAppleAuthAvailability();
+  }, []);
+
+  const handleGoogleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, google: true }));
       await googleSignIn();
-    } else {
-      await appleSignIn();
+    } catch (err) {
+      console.error('Google OAuth error:', err);
+      Alert.alert(
+        'Authentication Error',
+        'Failed to authenticate with Google'
+      );
+    } finally {
+      setIsLoading(prev => ({ ...prev, google: false }));
     }
+  };
 
-    // Successful authentication will be handled by the AuthContext
-    // which will update the app state and navigate accordingly
-  } catch (err) {
-    console.error(`${platform} OAuth error:`, err);
-    Alert.alert(
-      'Authentication Error',
-      `Failed to authenticate with ${
-        platform.charAt(0).toUpperCase() + platform.slice(1)
-      }`
-    );
-  } finally {
-    setIsLoading(prev => ({ ...prev, [platform]: false }));
-  }
-};
+  const handleAppleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, apple: true }));
 
-const handleGuestMode = async () => {
-  try {
-    await setGuestMode(true);
-    router.replace('/(home)');
-  } catch (error) {
-    console.error('Error setting guest mode:', error);
-    Alert.alert('Error', 'Failed to continue as guest');
-  }
-};
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // Sign in via Supabase Auth
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        // If successful, navigate to home
+        router.replace('/(home)');
+      } else {
+        throw new Error('No identity token received from Apple');
+      }
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled the sign-in flow, no need to show an error
+        console.log('User canceled Apple sign-in');
+      } else {
+        console.error('Apple OAuth error:', err);
+        Alert.alert(
+          'Authentication Error',
+          err.message || 'Failed to authenticate with Apple'
+        );
+      }
+    } finally {
+      setIsLoading(prev => ({ ...prev, apple: false }));
+    }
+  };
+
+  const handleGuestMode = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, guest: true }));
+      await setGuestMode(true);
+      router.replace('/(home)');
+    } catch (error) {
+      console.error('Error setting guest mode:', error);
+      Alert.alert('Error', 'Failed to continue as guest');
+    } finally {
+      setIsLoading(prev => ({ ...prev, guest: false }));
+    }
+  };
 
   return (
     <View
@@ -290,17 +392,54 @@ const handleGuestMode = async () => {
 
         {/* Buttons Section */}
         <View style={{ width: '100%', gap: 16 }}>
-          {/* Social Auth Buttons */}
-          <SocialAuthButton
-            platform="google"
+          {/* Google Auth Button */}
+          <GoogleAuthButton
             isLoading={isLoading.google}
-            onPress={() => handleSocialAuth('google')}
+            onPress={handleGoogleAuth}
           />
-          <SocialAuthButton
-            platform="apple"
-            isLoading={isLoading.apple}
-            onPress={() => handleSocialAuth('apple')}
-          />
+
+          {/* Apple Auth Button */}
+          {Platform.OS === 'ios' && appleAuthAvailable ? (
+            <View style={{
+              width: '100%',
+              height: 56,
+              marginBottom: 16,
+              borderRadius: 28,
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={isDark
+                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={28}
+                style={{ width: '100%', height: 56 }}
+                onPress={handleAppleAuth}
+              />
+              {isLoading.apple && (
+                <View style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.4)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderRadius: 28,
+                }}>
+                  <ActivityIndicator size="small" color="#fff" />
+                </View>
+              )}
+            </View>
+          ) : (
+            <CustomAppleButton
+              isLoading={isLoading.apple}
+              onPress={handleAppleAuth}
+              isAvailable={appleAuthAvailable}
+            />
+          )}
 
           {/* Divider */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16 }}>
@@ -344,26 +483,33 @@ const handleGuestMode = async () => {
               Create Account
             </Text>
           </TouchableOpacity>
-<TouchableOpacity
-  onPress={handleGuestMode}
-  style={{
-    width: '100%',
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: isDark ? 'rgba(213, 80, 4, 0.2)' : 'rgba(213, 80, 4, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  }}
->
-  <Text style={{
-    color: '#D55004',
-    fontSize: 18,
-    fontWeight: '600'
-  }}>
-    Continue as Guest
-  </Text>
-</TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleGuestMode}
+            disabled={isLoading.guest}
+            style={{
+              width: '100%',
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isDark ? 'rgba(213, 80, 4, 0.2)' : 'rgba(213, 80, 4, 0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 8,
+            }}
+          >
+            {isLoading.guest ? (
+              <ActivityIndicator color="#D55004" />
+            ) : (
+              <Text style={{
+                color: '#D55004',
+                fontSize: 18,
+                fontWeight: '600'
+              }}>
+                Continue as Guest
+              </Text>
+            )}
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => router.push('/forgot-password')}
             style={{ marginTop: 16 }}

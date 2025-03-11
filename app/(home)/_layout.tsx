@@ -165,8 +165,8 @@ export default function HomeLayout() {
     let role = 'user';
 
     if (!isGuest && user) {
-      // For authenticated users, check for role in user metadata
-      const userRole = user.user_metadata?.role as string;
+
+      const userRole = profile?.role;
       role = userRole || 'user';
     }
 
