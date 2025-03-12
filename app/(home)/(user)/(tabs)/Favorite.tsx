@@ -39,16 +39,26 @@ import CompareButton from '@/components/CompareButton'
 // -----------------------
 // Custom Header Component
 // -----------------------
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-  const { isDarkMode } = useTheme()
-
+const CustomHeader = React.memo(({
+  title,
+  onComparePress,
+  canCompare,
+  isDarkMode
+}: {
+  title: string;
+  onComparePress: () => void;
+  canCompare: boolean;
+  isDarkMode: boolean;
+}) => {
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <View
         style={{
           flexDirection: 'row',
-          marginLeft: 24,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 24,
           marginBottom: Platform.OS === 'ios' ? -20 : 8
         }}
       >
@@ -60,10 +70,17 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
         >
           {title}
         </Text>
+
+        <CompareButton
+          onPress={onComparePress}
+          enabled={canCompare}
+          isDarkMode={isDarkMode}
+          inHeader={true}
+        />
       </View>
     </SafeAreaView>
   )
-})
+});
 
 interface Car {
   id: number
@@ -281,9 +298,10 @@ export default function Favorite() {
   // -----------------------
   // Compare Navigation Handler
   // -----------------------
-  const handleComparePress = useCallback(() => {
+ const handleComparePress = useCallback(() => {
     router.push('/CarComparison')
   }, [router])
+
 
   // -----------------------
   // Modal Rendering (Platform‑specific)
@@ -411,7 +429,12 @@ export default function Favorite() {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-      <CustomHeader title="Favorites" />
+      <CustomHeader
+        title="Favorites"
+        onComparePress={handleComparePress}
+        canCompare={canCompare && !isGuest}
+        isDarkMode={isDarkMode}
+      />
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View
@@ -453,17 +476,11 @@ export default function Favorite() {
             style={{ padding: 12, borderRadius: 999 }}
           />
 
-                 <CompareButton
-        onPress={handleComparePress}
-        enabled={true}
-        isDarkMode={isDarkMode}
-      />
         </View>
       </View>
 
       {renderContent()}
       {renderModal}
-
 
 
 

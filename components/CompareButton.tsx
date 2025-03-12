@@ -7,14 +7,20 @@ interface CompareButtonProps {
   onPress: () => void;
   enabled: boolean;
   isDarkMode: boolean;
+  inHeader?: boolean; // New prop to handle different styling when in header
 }
 
-const CompareButton: React.FC<CompareButtonProps> = ({ onPress, enabled, isDarkMode }) => {
+const CompareButton: React.FC<CompareButtonProps> = ({
+  onPress,
+  enabled,
+  isDarkMode,
+  inHeader = false
+}) => {
   // Animation for attention
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (enabled) {
+    if (enabled && !inHeader) { // Only animate when enabled and not in header
       // Create pulsing animation for the button when enabled
       const pulseAnimation = Animated.sequence([
         Animated.timing(scaleAnim, {
@@ -35,26 +41,32 @@ const CompareButton: React.FC<CompareButtonProps> = ({ onPress, enabled, isDarkM
         { iterations: 3 }
       ).start();
     }
-  }, [enabled, scaleAnim]);
+  }, [enabled, scaleAnim, inHeader]);
 
   return (
     <Animated.View style={[
-      styles.container,
+      inHeader ? styles.headerContainer : styles.container,
       {
-        transform: [{ scale: scaleAnim }],
+        transform: [{ scale: inHeader ? 1 : scaleAnim }],
         opacity: enabled ? 1 : 0.6
       }
     ]}>
       <TouchableOpacity
         style={[
           styles.button,
+          inHeader && styles.headerButton,
           { backgroundColor: enabled ? '#D55004' : isDarkMode ? '#333333' : '#CCCCCC' }
         ]}
         onPress={onPress}
         disabled={!enabled}
       >
-        <Ionicons name="git-compare-outline" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-        <Text style={styles.buttonText}>Compare Cars</Text>
+        <Ionicons
+          name="git-compare-outline"
+          size={inHeader ? 16 : 18}
+          color="#FFFFFF"
+          style={{ marginRight: inHeader ? 2 : 4 }}
+        />
+      <Text style={styles.buttonText}>Compare Cars</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -72,12 +84,24 @@ const styles = StyleSheet.create({
     elevation: 5,
     zIndex: 10,
   },
+  headerContainer: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 24,
+  },
+  headerButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 20,
   },
   buttonText: {
     color: '#FFFFFF',
