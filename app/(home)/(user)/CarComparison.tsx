@@ -37,6 +37,7 @@ import Animated, {
   withDelay,
   withSpring,
   useAnimatedScrollHandler,
+  SlideInDown,
 } from 'react-native-reanimated';
 import { supabase } from '@/utils/supabase';
 import { useFavorites } from '@/utils/useFavorites';
@@ -49,6 +50,7 @@ import {
 
   TextInput as RNTextInput
 } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
 
 
 
@@ -406,6 +408,8 @@ const getBetterValue = (attr: string, value1: any, value2: any): number => {
   }
 };
 
+
+
 // Calculate total cost of ownership (5-year estimate)
 const calculateTotalCostOfOwnership = (car: Car): number => {
   // Base variables
@@ -598,6 +602,8 @@ const CarPickerModal = ({
     });
   }, [cars, searchQuery, sortOption]);
 
+
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <BlurView
@@ -612,7 +618,7 @@ const CarPickerModal = ({
         />
 
         <Animated.View
-          entering={SlideInUp.springify()}
+          entering={SlideInDown}
           exiting={SlideOutDown}
           style={[
             styles.modalContent,
@@ -982,6 +988,8 @@ const ComparisonAttribute = ({
     });
   };
 
+  
+
   return (
     <View style={styles.comparisonRow}>
       {/* Attribute label */}
@@ -997,7 +1005,7 @@ const ComparisonAttribute = ({
         <Text style={[
           styles.attributeLabel,
           { color: isDarkMode ? '#ffffff' : '#000000' }
-        ]}>
+        ]} >
           {label}
         </Text>
       </View>
@@ -1105,6 +1113,8 @@ const ImageComparisonGallery = ({
     car1?.images?.length || 0,
     car2?.images?.length || 0
   );
+
+  
 
   if (!car1 || !car2 || maxImages === 0) return null;
 
@@ -2467,6 +2477,37 @@ export default function CarComparison() {
     });
   }, []);
 
+const CustomHeader = React.memo(
+  ({ title, onBack }: { title: string; onBack?: () => void }) => {
+    const { isDarkMode } = useTheme();
+
+    return (
+      <SafeAreaView
+        className={`bg-${isDarkMode ? "black" : "white"}`}
+      >
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+        <View className={`flex-row items-center ml-2  ${Platform.OS === "ios" ? "" : "mb-7"}`}>
+          {onBack && (
+            <Pressable onPress={onBack} className="p-2">
+              <ChevronLeft
+                size={24}
+                className={isDarkMode ? "text-white" : "text-black"}
+              />
+            </Pressable>
+          )}
+          <Text
+            className={`text-2xl ${
+              isDarkMode ? "text-white" : "text-black"
+            } font-bold ml-2`}
+          >
+            {title}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+);
+
   // Clear car handler
   const handleClearCar = useCallback((position: 'left' | 'right') => {
     setSelectedCars(prev => {
@@ -2596,7 +2637,7 @@ export default function CarComparison() {
         icon: 'car-estate'
       },
       {
-        label: 'Value Score',
+        label: 'Score',
         value1: Math.round(calculateValueScore(car1)),
         value2: Math.round(calculateValueScore(car2)),
         better: getBetterValue('value_score', calculateValueScore(car1), calculateValueScore(car2)),
@@ -2944,7 +2985,7 @@ export default function CarComparison() {
 
                 {/* Current value */}
                 <ComparisonAttribute
-                  label="Current Value"
+                  label="Value Now"
                   value1={selectedCars[0].price}
                   value2={selectedCars[1].price}
                   better={0} // Neutral comparison
@@ -2981,7 +3022,7 @@ export default function CarComparison() {
                       />
 
                       <ComparisonAttribute
-                        label="Total Depreciation"
+                        label="Total price drop"
                         value1={car1LossAmount}
                         value2={car2LossAmount}
                         better={betterDepreciation}
@@ -2991,7 +3032,7 @@ export default function CarComparison() {
                       />
 
                       <ComparisonAttribute
-                        label="Depreciation Rate"
+                        label="Price drop Rate"
                         value1={car1LossPercent.toFixed(1)}
                         value2={car2LossPercent.toFixed(1)}
                         better={betterDepreciation}
@@ -3076,7 +3117,7 @@ export default function CarComparison() {
                   return (
                     <>
                       <ComparisonAttribute
-                        label="Maintenance"
+                        label="Service"
                         value1={car1Maintenance}
                         value2={car2Maintenance}
                         better={getBetterValue('price', car1Maintenance, car2Maintenance)}
@@ -3098,7 +3139,7 @@ export default function CarComparison() {
                       />
 
                       <ComparisonAttribute
-                        label="Fuel/Energy"
+                        label="Usage"
                         value1={car1Fuel}
                         value2={car2Fuel}
                         better={getBetterValue('price', car1Fuel, car2Fuel)}
@@ -3109,7 +3150,7 @@ export default function CarComparison() {
                       />
 
                       <ComparisonAttribute
-                        label="Total Annual"
+                        label="Total"
                         value1={car1Total}
                         value2={car2Total}
                         better={getBetterValue('price', car1Total, car2Total)}
@@ -3159,32 +3200,13 @@ export default function CarComparison() {
   };
 
   return (
-    <SafeAreaView style={[
+    <View style={[
       styles.container,
       { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
     ]}>
-      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
 
       {/* Animated header */}
-      <Animated.View style={[styles.header, headerAnimatedStyle]} className='mt-4'>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={isDarkMode ? '#FFFFFF' : '#000000'}
-          />
-        </TouchableOpacity>
-        <Text style={[
-          styles.headerTitle,
-          { color: isDarkMode ? '#FFFFFF' : '#000000' }
-        ]}>
-          Car Comparison
-        </Text>
-        <View style={styles.placeholderRight} />
-      </Animated.View>
+<CustomHeader title={'Car Comparison'} onBack={() => router.back()}/>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -3407,7 +3429,7 @@ export default function CarComparison() {
         isDarkMode={isDarkMode}
         position={pickerPosition}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -3484,7 +3506,6 @@ const calculateFutureValue = (currentValue:any, currentAge:any, yearsToProject:a
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 70,
     marginBottom: 16,
   },
   carSelectionCard: {
