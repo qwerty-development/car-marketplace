@@ -62,11 +62,10 @@ const CompareButton: React.FC<CompareButtonProps> = ({
       >
         <Ionicons
           name="git-compare-outline"
-          size={inHeader ? 16 : 18}
+          size={inHeader ? 24 : 24}
           color="#FFFFFF"
           style={{ marginRight: inHeader ? 2 : 4 }}
         />
-      <Text style={styles.buttonText}>Compare Cars</Text>
       </TouchableOpacity>
     </Animated.View>
   );
