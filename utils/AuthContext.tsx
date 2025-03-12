@@ -138,42 +138,66 @@ const processOAuthUser = async (session: Session): Promise<UserProfile | null> =
       .eq('id', session.user.id)
       .single();
 
-    // If user doesn't exist in database, create entry with default role
-    if (fetchError && fetchError.code === 'PGRST116') {
-      // Extract user details from session
-      const userName = session.user.user_metadata.full_name ||
-                      session.user.user_metadata.name ||
-                      'User';
+// Replace the insert operation in the processOAuthUser function
+if (fetchError && fetchError.code === 'PGRST116') {
+  // Extract user details from session
+  const userName = session.user.user_metadata.full_name ||
+                  session.user.user_metadata.name ||
+                  'User';
 
-      const newUser: Partial<UserProfile> = {
-        id: session.user.id,
-        name: userName,
-        email: session.user.email || '',
-        favorite: [],
-        last_active: new Date().toISOString(),
-        timezone: 'UTC',
-        role: 'user', // Default role
-      };
+  const newUser: Partial<UserProfile> = {
+    id: session.user.id,
+    name: userName,
+    email: session.user.email || '',
+    favorite: [],
+    last_active: new Date().toISOString(),
+    timezone: 'UTC',
+    role: 'user', // Default role
+  };
 
-      const { data: insertedUser, error: insertError } = await supabase
+  // Use upsert instead of insert
+  const { data: upsertedUser, error: upsertError } = await supabase
+    .from('users')
+    .upsert([newUser], {
+      onConflict: 'id',
+      ignoreDuplicates: false
+    })
+    .select()
+    .single();
+
+  if (upsertError) {
+    // Check if it's a constraint violation
+    if (upsertError.code === '23505') {
+      console.log('User already exists, retrieving existing record');
+
+      // Retrieve the existing user record
+      const { data: existingUser, error: getError } = await supabase
         .from('users')
-        .insert([newUser])
-        .select()
+        .select('*')
+        .eq('id', session.user.id)
         .single();
 
-      if (insertError) {
-        console.error('Error creating user after OAuth:', insertError);
+      if (getError) {
+        console.error('Error retrieving existing user:', getError);
         return null;
       }
 
-      // If user exists but doesn't have a role in auth metadata, add default role
-      if (!session.user.user_metadata.role) {
-        await supabase.auth.updateUser({
-          data: { role: 'user' }
-        });
-      }
+      return existingUser as UserProfile;
+    } else {
+      console.error('Error upserting user after OAuth:', upsertError);
+      return null;
+    }
+  }
 
-      return insertedUser as UserProfile;
+  // If user exists but doesn't have a role in auth metadata, add default role
+  if (!session.user.user_metadata.role) {
+    await supabase.auth.updateUser({
+      data: { role: 'user' }
+    });
+  }
+
+  return upsertedUser as UserProfile;
+
     } else if (fetchError) {
       // Handle other possible errors
       console.error('Error fetching user profile:', fetchError);
@@ -406,21 +430,24 @@ const googleSignIn = async () => {
       if (error) throw error;
 
       // Create user in users table with the same ID
-      if (data.user) {
-        const { error: insertError } = await supabase.from('users').insert({
-          id: data.user.id,
-          name: name,
-          email: email,
-          favorite: [],
-          last_active: new Date().toISOString(),
-          timezone: 'UTC',
-          role: role,
-        });
+   if (data.user) {
+  const { error: upsertError } = await supabase.from('users').upsert([{
+    id: data.user.id,
+    name: name,
+    email: email,
+    favorite: [],
+    last_active: new Date().toISOString(),
+    timezone: 'UTC',
+    role: role,
+  }], {
+    onConflict: 'id',
+    ignoreDuplicates: false
+  });
 
-        if (insertError) {
-          console.error('Error creating user profile:', insertError);
-        }
-      }
+  if (upsertError && upsertError.code !== '23505') {
+    console.error('Error creating user profile:', upsertError);
+  }
+}
 
       // Determine if email verification is needed
       const needsEmailVerification = data.session === null;

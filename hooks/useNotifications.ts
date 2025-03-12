@@ -36,20 +36,34 @@ export function useNotifications(): UseNotificationsReturn {
   const appState = useRef(AppState.currentState);
 
   // Handler for token refresh events
-  const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
-    if (!user) return;
+const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
+  if (!user) return;
 
-    console.log('Expo push token refreshed:', pushToken.data);
-    try {
-      // Update token in Supabase
-      await NotificationService.updatePushToken(pushToken.data, user.id);
+  console.log('Expo push token refreshed:', pushToken.data);
+  try {
+    // Add verification that user exists in database
+    const { data: userExists, error: userCheckError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
 
-      // Update token in secure storage
-      await SecureStore.setItemAsync('expoPushToken', pushToken.data);
-    } catch (error) {
-      console.error('Error updating push token after refresh:', error);
+    if (userCheckError || !userExists) {
+      console.warn(`User ${user.id} does not exist in database yet, token refresh delayed`);
+      return; // Exit gracefully
     }
-  }, [user]);
+
+    // Update token in Supabase
+    const success = await NotificationService.updatePushToken(pushToken.data, user.id);
+
+    if (success) {
+      // Only update local storage if database update succeeded
+      await SecureStore.setItemAsync('expoPushToken', pushToken.data);
+    }
+  } catch (error) {
+    console.error('Error updating push token after refresh:', error);
+  }
+}, [user]);
 
   // Handler for received notifications
   const handleNotification = useCallback(async (notification: Notifications.Notification) => {
@@ -128,11 +142,35 @@ export function useNotifications(): UseNotificationsReturn {
 
 
   // Register for push notifications
-  const registerForNotifications = useCallback(async () => {
-    if (!user) return;
+const registerForNotifications = useCallback(async () => {
+  if (!user) return;
 
-    setLoading(true);
-    console.log('Starting notification registration process');
+  // Add verification step to ensure user exists in database
+  try {
+    const { data: userExists, error: userCheckError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (userCheckError || !userExists) {
+      console.warn(`User ${user.id} not yet fully created in database, delaying notification registration`);
+      // Schedule a retry after a short delay
+      setTimeout(() => {
+        console.log('Retrying notification registration after delay');
+        registerForNotifications();
+      }, 3000);
+      return;
+    }
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    setIsPermissionGranted(false);
+    setLoading(false);
+    return;
+  }
+
+  setLoading(true);
+  console.log('Starting notification registration process');
 
     try {
       // Check if we have project ID

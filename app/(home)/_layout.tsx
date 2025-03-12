@@ -76,71 +76,100 @@ export default function HomeLayout() {
 
   // 1) Check/Create Supabase user and handle notifications
   useEffect(() => {
-    const checkAndCreateUser = async () => {
-      if ((!user && !isGuest) || isSigningOut) return;
+const checkAndCreateUser = async () => {
+  if ((!user && !isGuest) || isSigningOut) return;
 
-      try {
-        const userId = isGuest ? `guest_${guestId}` : user?.id;
+  try {
+    const userId = isGuest ? `guest_${guestId}` : user?.id;
+    if (!userId) return;
 
-        if (!userId) return;
+    // Check if user exists in Supabase
+    const { data: existingUser, error: fetchError } = await supabase
+      .from('users')
+      .select()
+      .eq('id', userId)
+      .single();
 
-        // Check if user exists in Supabase
-        const { data: existingUser, error: fetchError } = await supabase
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
 
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          throw fetchError;
+    // Create user if they don't exist
+    if (!existingUser) {
+      const email = isGuest
+        ? `guest_${guestId}@example.com`
+        : user?.email || '';
+
+      const name = isGuest
+        ? 'Guest User'
+        : profile?.name || user?.user_metadata?.name || '';
+
+      // Use upsert with conflict handling
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert([
+          {
+            id: userId,
+            name: name,
+            email: email,
+            favorite: [],
+            is_guest: isGuest,
+            last_active: new Date().toISOString()
+          }
+        ], {
+          onConflict: 'id',  // Handle ID conflicts
+          ignoreDuplicates: false
+        });
+
+      if (upsertError) {
+        // Only throw for non-duplicate errors
+        if (upsertError.code !== '23505') {
+          throw upsertError;
+        } else {
+          console.log('User record already exists, continuing...');
         }
-
-        // Create user if they don't exist
-        if (!existingUser) {
-          const email = isGuest
-            ? `guest_${guestId}@example.com`
-            : user?.email || '';
-
-          const name = isGuest
-            ? 'Guest User'
-            : profile?.name || user?.user_metadata?.name || '';
-
-          const { error: insertError } = await supabase.from('users').insert([
-            {
-              id: userId,
-              name: name,
-              email: email,
-              favorite: [],
-              is_guest: isGuest
-            }
-          ]);
-          if (insertError) throw insertError;
-          console.log('Created new user in Supabase');
-        }
-
-        // Update last_active timestamp
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ last_active: new Date().toISOString() })
-          .eq('id', userId);
-
-        if (updateError) throw updateError;
-        console.log('Updated last_active for user in Supabase');
-
-        // Register for notifications (skip for guests or conditionally register)
-        if (!isGuest) {
-          await registerForPushNotifications();
-        }
-      } catch (error) {
-        console.error('Error in user sync:', error);
-        Alert.alert(
-          'Error',
-          'There was a problem setting up your account. Please try again later.'
-        );
-      } finally {
-        setIsCheckingUser(false);
+      } else {
+        console.log('Created new user in Supabase');
       }
-    };
+
+      // IMPORTANT: Add a delay before attempting push notification registration
+      // to ensure the user record is fully committed in the database
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Update last_active timestamp
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ last_active: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
+    console.log('Updated last_active for user in Supabase');
+
+    // Register for notifications ONLY after we've confirmed user exists
+    if (!isGuest) {
+      try {
+        await registerForPushNotifications();
+      } catch (notificationError) {
+        console.error('Error registering for push notifications:', notificationError);
+        // Don't throw this error - allow the user flow to continue
+      }
+    }
+  } catch (error: any) {
+    console.error('Error in user sync:', error);
+
+    // Only show alert for unexpected errors
+    if (!(error.code === '23505' && error.details?.includes('email')) &&
+        !(error.code === '23503')) { // Don't alert on FK violations
+      Alert.alert(
+        'Error',
+        'There was a problem setting up your account. Please try again later.'
+      );
+    }
+  } finally {
+    setIsCheckingUser(false);
+  }
+};
 
     if ((isSignedIn && user) || isGuest) {
       checkAndCreateUser();

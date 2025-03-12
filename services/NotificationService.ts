@@ -34,15 +34,33 @@ interface NotificationData {
 
 export class NotificationService {
   // Push notification registration
-  static async registerForPushNotificationsAsync(userId: string) {
-    console.log('Starting push notification registration for user:', userId);
-    let token;
+static async registerForPushNotificationsAsync(userId: string, maxRetries = 3) {
+  console.log('Starting push notification registration for user:', userId);
+  let token;
+  let retryCount = 0;
 
-    // Verify the device is physical (not a simulator/emulator)
-    if (!Device.isDevice) {
-      console.warn('Push notifications are not available on simulator/emulator');
-      return null;
+  // Verify the device is physical (not a simulator/emulator)
+  if (!Device.isDevice) {
+    console.warn('Push notifications are not available on simulator/emulator');
+    return null;
+  }
+
+  // First check if the user exists in the database
+  try {
+    const { data: userExists, error: userCheckError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (userCheckError || !userExists) {
+      console.warn(`User ${userId} does not exist in database yet, notification registration will be delayed`);
+      return null; // Exit gracefully rather than proceeding
     }
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    return null;
+  }
 
     try {
       // Check existing permissions
@@ -98,12 +116,27 @@ export class NotificationService {
       token = tokenResponse.data;
       console.log('Received push token:', token);
 
-      if (token) {
-        console.log('Updating push token in database');
-        await this.updatePushToken(token, userId);
+     if (token) {
+      console.log('Updating push token in database');
+
+      // Implement retry logic for token registration
+      let success = false;
+      while (!success && retryCount < maxRetries) {
+        success = await this.updatePushToken(token, userId);
+        if (!success) {
+          retryCount++;
+          console.log(`Token registration attempt ${retryCount} failed, retrying in 2 seconds...`);
+          // Wait 2 seconds before retrying
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
 
-      return token;
+      if (!success) {
+        console.error(`Failed to register token after ${maxRetries} attempts`);
+      }
+    }
+
+    return token;
     } catch (error) {
       console.error('Error in registerForPushNotificationsAsync:', error);
 
@@ -119,33 +152,51 @@ export class NotificationService {
   }
 
   // Update push token in database
-  static async updatePushToken(token: string, userId: string) {
-    try {
-      console.log(`Updating token ${token} for user ${userId}`);
+static async updatePushToken(token: string, userId: string) {
+  try {
+    console.log(`Updating token ${token} for user ${userId}`);
 
-      const { error } = await supabase
-        .from('user_push_tokens')
-        .upsert({
-          user_id: userId,
-          token,
-          device_type: Platform.OS,
-          last_updated: new Date().toISOString()
-        }, {
-          onConflict: 'token',
-        });
+    // CRITICAL: First verify that user exists in database before attempting token update
+    const { data: userExists, error: userCheckError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .single();
 
-      if (error) {
-        console.error('Supabase error in updatePushToken:', error);
-        throw error;
-      }
-
-      console.log('Push token successfully updated in database');
-      return true;
-    } catch (error) {
-      console.error('Error updating push token:', error);
-      return false;
+    if (userCheckError || !userExists) {
+      console.warn(`User ${userId} does not exist in database, delaying token registration`);
+      return false; // Exit gracefully rather than throwing an error
     }
+
+    // Proceed with token update only if user exists
+    const { error } = await supabase
+      .from('user_push_tokens')
+      .upsert({
+        user_id: userId,
+        token,
+        device_type: Platform.OS,
+        last_updated: new Date().toISOString()
+      }, {
+        onConflict: 'token',
+      });
+
+    if (error) {
+      // Handle specific error cases
+      if (error.code === '23503') { // Foreign key violation
+        console.error('Foreign key violation in updatePushToken - user may have been deleted');
+        return false;
+      }
+      console.error('Supabase error in updatePushToken:', error);
+      throw error;
+    }
+
+    console.log('Push token successfully updated in database');
+    return true;
+  } catch (error) {
+    console.error('Error updating push token:', error);
+    return false;
   }
+}
 
 
 
