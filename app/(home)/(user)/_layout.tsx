@@ -54,6 +54,15 @@ export default function RootLayout() {
               headerShown: true,
             }}
           />
+
+          <Stack.Screen
+  name="CarComparison"
+  options={{
+    animation: "slide_from_right",
+    headerShown: false,
+  }}
+/>
+
             <Stack.Screen
             name="CarDetailModalAndroid"
             options={{

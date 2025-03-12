@@ -34,6 +34,7 @@ import { useScrollToTop } from '@react-navigation/native'
 import SkeletonCarCard from '@/components/SkeletonCarCard'
 import { BlurView } from 'expo-blur'
 import { useGuestUser } from '@/utils/GuestUserContext'
+import CompareButton from '@/components/CompareButton'
 
 // -----------------------
 // Custom Header Component
@@ -100,6 +101,8 @@ export default function Favorite() {
   const [sortOption, setSortOption] = useState('')
   // Track whether we've fetched at least once to avoid re-skeletonizing on refresh
   const [hasFetched, setHasFetched] = useState(false)
+  // New state for tracking if comparison is possible
+  const [canCompare, setCanCompare] = useState(false)
 
   const scrollRef = useRef(null)
   useScrollToTop(scrollRef)
@@ -119,6 +122,7 @@ export default function Favorite() {
       setFavoriteCars([])
       setFilteredCars([])
       setSortedCars([])
+      setCanCompare(false) // Ensure comparison is disabled when no favorites
       if (firstLoad) setIsLoading(false)
       setHasFetched(true)
       return
@@ -146,9 +150,14 @@ export default function Favorite() {
 
       setFavoriteCars(carsData)
       setFilteredCars(carsData)
+
+      // Update canCompare state - need at least 2 available cars to compare
+      setCanCompare(carsData.length >= 2)
+
     } catch (error) {
       console.error('Error fetching favorite cars:', error)
       setError('Failed to fetch favorite cars. Please try again.')
+      setCanCompare(false)
     } finally {
       if (firstLoad) setIsLoading(false)
       setHasFetched(true)
@@ -268,6 +277,13 @@ export default function Favorite() {
     },
     []
   )
+
+  // -----------------------
+  // Compare Navigation Handler
+  // -----------------------
+  const handleComparePress = useCallback(() => {
+    router.push('/CarComparison')
+  }, [router])
 
   // -----------------------
   // Modal Rendering (Platform‑specific)
@@ -436,38 +452,49 @@ export default function Favorite() {
             initialValue={sortOption}
             style={{ padding: 12, borderRadius: 999 }}
           />
+
+                 <CompareButton
+        onPress={handleComparePress}
+        enabled={true}
+        isDarkMode={isDarkMode}
+      />
         </View>
       </View>
+
       {renderContent()}
       {renderModal}
-{isGuest && (
-  <View style={guestStyles.overlay} pointerEvents="auto">
-    <BlurView
-      intensity={80}
-      tint={isDarkMode ? 'dark' : 'light'}
-      style={StyleSheet.absoluteFill}
-    />
-    <View style={guestStyles.container}>
-      <Ionicons
-        name="lock-closed-outline"
-        size={56}
-        color="#ffffff"
-        style={guestStyles.icon}
-      />
-      <Text style={guestStyles.title}>You're browsing as a guest</Text>
-      <Text style={guestStyles.subtitle}>
-        Please sign in to access this feature.
-      </Text>
-      <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
-        <Text style={guestStyles.signInButtonText}>Sign In</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-)}
 
+
+
+
+      {isGuest && (
+        <View style={guestStyles.overlay} pointerEvents="auto">
+          <BlurView
+            intensity={80}
+            tint={isDarkMode ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={guestStyles.container}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={56}
+              color="#ffffff"
+              style={guestStyles.icon}
+            />
+            <Text style={guestStyles.title}>You're browsing as a guest</Text>
+            <Text style={guestStyles.subtitle}>
+              Please sign in to access this feature.
+            </Text>
+            <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
+              <Text style={guestStyles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
+
 // Common guest styles – can be placed in a separate file for reuse
 const guestStyles = StyleSheet.create({
   overlay: {
@@ -517,7 +544,6 @@ const guestStyles = StyleSheet.create({
     color: '#D55004',
   },
 });
-
 
 const styles = StyleSheet.create({
   headerContainer: {
