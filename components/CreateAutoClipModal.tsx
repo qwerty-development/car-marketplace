@@ -444,7 +444,7 @@ useEffect(() => {
             `
 				)
 				.eq('dealership_id', dealership!.id)
-				.in('status', ['available', 'pending'])
+				.eq('status', 'available')
 				.order('listed_at', { ascending: false })
 
 			if (error) throw error

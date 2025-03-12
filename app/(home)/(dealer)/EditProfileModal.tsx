@@ -18,6 +18,7 @@ interface EditProfileModalProps {
   formData: {
     name: string
     phone: string
+    location: string
   }
   setFormData: (data: any) => void
   onUpdate: () => Promise<void>
@@ -62,7 +63,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
           <View className="space-y-4">
             <TextInput
-             textAlignVertical="center"
+              textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -74,7 +75,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             />
 
             <TextInput
-             textAlignVertical="center"
+              textAlignVertical="center"
               className={`${
                 isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
               } p-4 rounded-xl`}
@@ -82,6 +83,19 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onChangeText={text => setFormData((prev: any) => ({ ...prev, phone: text }))}
               placeholder="Contact Number"
               keyboardType="phone-pad"
+              placeholderTextColor={isDarkMode ? '#999' : '#666'}
+              cursorColor="#D55004"
+            />
+
+            {/* New Location Field */}
+            <TextInput
+              textAlignVertical="center"
+              className={`${
+                isDarkMode ? 'bg-neutral-800 text-white' : 'bg-neutral-100 text-black'
+              } p-4 rounded-xl`}
+              value={formData.location}
+              onChangeText={text => setFormData((prev: any) => ({ ...prev, location: text }))}
+              placeholder="Location"
               placeholderTextColor={isDarkMode ? '#999' : '#666'}
               cursorColor="#D55004"
             />

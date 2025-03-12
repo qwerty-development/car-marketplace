@@ -32,15 +32,14 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
 import { Buffer } from "buffer";
-import DraggableFlatList from "react-native-draggable-flatlist";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { useTheme } from "@/utils/ThemeContext";
-import DateTimePicker from "@react-native-community/datetimepicker";
+
 import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import * as Haptics from "expo-haptics";
+import DateTimePicker from "@react-native-community/datetimepicker";
+
 import Animated, {
   FadeIn,
   FadeOut,
@@ -757,13 +756,14 @@ export default function AddEditListing() {
     );
   }, [initialData, dealership, isSubscriptionValid, router]);
 
-  const handleMarkAsSold = useCallback(async () => {
+const handleMarkAsSold = useCallback(
+  async (soldData = soldInfo) => {
     if (!initialData || !dealership || !isSubscriptionValid()) {
       setShowSoldModal(false);
       return;
     }
 
-    if (!soldInfo.price || !soldInfo.date || !soldInfo.buyer_name) {
+    if (!soldData.price || !soldData.date || !soldData.buyer_name) {
       Alert.alert(
         "Validation Error",
         "Please fill in all the required fields."
@@ -778,9 +778,9 @@ export default function AddEditListing() {
         .from("cars")
         .update({
           status: "sold",
-          sold_price: parseInt(soldInfo.price),
-          date_sold: soldInfo.date,
-          buyer_name: soldInfo.buyer_name,
+          sold_price: parseInt(soldData.price),
+          date_sold: soldData.date,
+          buyer_name: soldData.buyer_name,
         })
         .eq("id", initialData.id)
         .eq("dealership_id", dealership.id);
@@ -797,260 +797,279 @@ export default function AddEditListing() {
     } finally {
       setIsLoading(false);
     }
-  }, [initialData, dealership, isSubscriptionValid, soldInfo, router]);
+  },
+  [initialData, dealership, isSubscriptionValid, soldInfo, router]
+);
 
-  const SoldModal = () => {
-    const inputStyle = `w-full px-4 py-3 rounded-xl border mb-4 ${
-      isDarkMode
-        ? "border-neutral-700 bg-neutral-800 text-white"
-        : "border-neutral-200 bg-neutral-50 text-black"
-    }`;
 
-    return (
-      <Modal
-        visible={showSoldModal}
-        transparent={true}
-        animationType="slide"
-        statusBarTranslucent={true}
-        onRequestClose={() => setShowSoldModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={{ flex: 1 }}>
-            <BlurView
-              intensity={isDarkMode ? 30 : 20}
-              tint={isDarkMode ? "dark" : "light"}
+const SoldModal = () => {
+  const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
+  const [localBuyerName, setLocalBuyerName] = useState(soldInfo.buyer_name || "");
+  const [localDate, setLocalDate] = useState(soldInfo.date || new Date().toISOString().split("T")[0]);
+  const [showInlinePicker, setShowInlinePicker] = useState(false);
+
+  // Sync local state with soldInfo when modal opens
+  useEffect(() => {
+    if (showSoldModal) {
+      setLocalPrice(soldInfo.price || "");
+      setLocalBuyerName(soldInfo.buyer_name || "");
+      setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
+    }
+  }, [showSoldModal, soldInfo]);
+
+  const handleDateChange = (event, selectedDate) => {
+    // Only update if user confirms (event.type will be 'set')
+    if (event.type === "set" && selectedDate) {
+      setLocalDate(selectedDate.toISOString().split("T")[0]);
+    }
+    setShowInlinePicker(false);
+  };
+
+  const handleConfirm = () => {
+    if (!localPrice || !localBuyerName || !localDate) {
+      Alert.alert("Validation Error", "Please fill in all the required fields.");
+      return;
+    }
+    // Pass local values directly to the mark-as-sold function
+    handleMarkAsSold({ price: localPrice, buyer_name: localBuyerName, date: localDate });
+  };
+
+  return (
+    <Modal
+      visible={showSoldModal}
+      transparent={true}
+      animationType="slide"
+      statusBarTranslucent={true}
+      onRequestClose={() => setShowSoldModal(false)}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ flex: 1 }}>
+          <BlurView
+            intensity={isDarkMode ? 30 : 20}
+            tint={isDarkMode ? "dark" : "light"}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center"
+            }}
+          >
+            <View
               style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
+                width: "90%",
+                maxWidth: 400,
+                borderRadius: 24,
+                padding: 24,
+                backgroundColor: isDarkMode ? "#171717" : "#ffffff",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                elevation: 5
               }}
             >
+              {/* Header */}
               <View
                 style={{
-                  width: "90%",
-                  maxWidth: 400,
-                  borderRadius: 24,
-                  padding: 24,
-                  backgroundColor: isDarkMode ? "#171717" : "#ffffff",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 5,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 24
                 }}
               >
-                {/* Header */}
-                <View
+                <Text
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 24,
+                    fontSize: 20,
+                    fontWeight: "bold",
+                    color: isDarkMode ? "#ffffff" : "#000000"
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: "bold",
-                      color: isDarkMode ? "#ffffff" : "#000000",
-                    }}
-                  >
-                    Mark as Sold
-                  </Text>
-
-                  <TouchableOpacity onPress={() => setShowSoldModal(false)}>
-                    <Ionicons
-                      name="close-circle"
-                      size={24}
-                      color={isDarkMode ? "#FFFFFF" : "#000000"}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Selling Price */}
-                <View style={{ marginBottom: 16 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 8,
-                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                    }}
-                  >
-                    Selling Price
-                  </Text>
-                  <TextInput
-                    value={soldInfo.price}
-                    onChangeText={(text) =>
-                      setSoldInfo((prev) => ({ ...prev, price: text }))
-                    }
-                    placeholder="Enter selling price"
-                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                    keyboardType="numeric"
-                    style={{
-                      height: 50,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                      borderRadius: 12,
-                      color: isDarkMode ? "#ffffff" : "#000000",
-                      fontSize: 16,
-                    }}
+                  Mark as Sold
+                </Text>
+                <TouchableOpacity onPress={() => setShowSoldModal(false)}>
+                  <Ionicons
+                    name="close-circle"
+                    size={24}
+                    color={isDarkMode ? "#FFFFFF" : "#000000"}
                   />
-                </View>
-
-                {/* Buyer Name */}
-                <View style={{ marginBottom: 16 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 8,
-                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                    }}
-                  >
-                    Buyer Name
-                  </Text>
-                  <TextInput
-                    value={soldInfo.buyer_name}
-                    onChangeText={(text) =>
-                      setSoldInfo((prev) => ({ ...prev, buyer_name: text }))
-                    }
-                    placeholder="Enter buyer name"
-                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                    style={{
-                      height: 50,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                      borderRadius: 12,
-                      color: isDarkMode ? "#ffffff" : "#000000",
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-
-                {/* Sale Date */}
-                <View style={{ marginBottom: 24 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 8,
-                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                    }}
-                  >
-                    Sale Date
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowDatePicker(true)}
-                    style={{
-                      height: 50,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      justifyContent: "center",
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: soldInfo.date
-                          ? isDarkMode
-                            ? "#ffffff"
-                            : "#000000"
-                          : isDarkMode
-                          ? "#9CA3AF"
-                          : "#6B7280",
-                        fontSize: 16,
-                      }}
-                    >
-                      {soldInfo.date || "Select date"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Action Buttons */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    marginTop: 8,
-                  }}
-                >
-                  <TouchableOpacity
-                    onPress={() => setShowSoldModal(false)}
-                    style={{
-                      flex: 1,
-                      marginRight: 8,
-                      height: 56,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: isDarkMode ? "#ffffff" : "#000000",
-                        fontSize: 16,
-                        fontWeight: "600",
-                      }}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleMarkAsSold}
-                    style={{
-                      flex: 1,
-                      marginLeft: 8,
-                      height: 56,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "#16a34a",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "#ffffff",
-                        fontSize: 16,
-                        fontWeight: "600",
-                      }}
-                    >
-                      Confirm
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               </View>
-            </BlurView>
-          </View>
-        </TouchableWithoutFeedback>
 
-        <DateTimePickerModal
-          isVisible={showDatePicker}
-          mode="date"
-          date={soldInfo.date ? new Date(soldInfo.date) : new Date()}
-          onConfirm={(date) => {
-            setSoldInfo((prev) => ({
-              ...prev,
-              date: date.toISOString().split("T")[0],
-            }));
-            setShowDatePicker(false);
-          }}
-          onCancel={() => setShowDatePicker(false)}
-        />
-      </Modal>
-    );
-  };
+              {/* Selling Price */}
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 8,
+                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
+                  }}
+                >
+                  Selling Price
+                </Text>
+                <TextInput
+                  value={localPrice}
+                  onChangeText={setLocalPrice}
+                  placeholder="Enter selling price"
+                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                  keyboardType="numeric"
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                    borderRadius: 12,
+                    color: isDarkMode ? "#ffffff" : "#000000",
+                    fontSize: 16
+                  }}
+                />
+              </View>
+
+              {/* Buyer Name */}
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 8,
+                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
+                  }}
+                >
+                  Buyer Name
+                </Text>
+                <TextInput
+                  value={localBuyerName}
+                  onChangeText={setLocalBuyerName}
+                  placeholder="Enter buyer name"
+                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                    borderRadius: 12,
+                    color: isDarkMode ? "#ffffff" : "#000000",
+                    fontSize: 16
+                  }}
+                />
+              </View>
+
+              {/* Sale Date */}
+              <View style={{ marginBottom: 24 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 8,
+                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
+                  }}
+                >
+                  Sale Date
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowInlinePicker(true)}
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                    borderRadius: 12
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: localDate
+                        ? isDarkMode
+                          ? "#ffffff"
+                          : "#000000"
+                        : isDarkMode
+                        ? "#9CA3AF"
+                        : "#6B7280",
+                      fontSize: 16
+                    }}
+                  >
+                    {localDate || "Select date"}
+                  </Text>
+                </TouchableOpacity>
+                {showInlinePicker && (
+                  <DateTimePicker
+                    value={localDate ? new Date(localDate) : new Date()}
+                    mode="date"
+                    display="inline"
+                    onChange={handleDateChange}
+                    style={{ width: "100%" }}
+                  />
+                )}
+              </View>
+
+              {/* Action Buttons */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 8
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => setShowSoldModal(false)}
+                  style={{
+                    flex: 1,
+                    marginRight: 8,
+                    height: 56,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
+                    borderRadius: 12
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isDarkMode ? "#ffffff" : "#000000",
+                      fontSize: 16,
+                      fontWeight: "600"
+                    }}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirm}
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    height: 56,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#16a34a",
+                    borderRadius: 12
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#ffffff",
+                      fontSize: 16,
+                      fontWeight: "600"
+                    }}
+                  >
+                    Confirm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </BlurView>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+};
+
+
 
 
   const handleSubmit = useCallback(() => {
