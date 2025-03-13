@@ -121,11 +121,25 @@ const checkAndCreateUser = async () => {
           ignoreDuplicates: false
         });
 
+
       if (upsertError) {
         // Only throw for non-duplicate errors
         if (upsertError.code !== '23505') {
           throw upsertError;
         } else {
+            const { data: verifyUser, error: verifyError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', userId)
+    .single();
+
+  if (!verifyUser) {
+    console.error('User creation verification failed - database may have consistency issues');
+    // Add an additional longer delay for production environments
+    console.log('Adding extended delay to ensure database consistency...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+
           console.log('User record already exists, continuing...');
         }
       } else {

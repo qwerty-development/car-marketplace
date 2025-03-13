@@ -36,6 +36,16 @@ export class NotificationService {
   // Push notification registration
 static async registerForPushNotificationsAsync(userId: string, maxRetries = 5) {
   console.log('Starting push notification registration for user:', userId);
+const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+console.log('Environment check - project ID available:', !!projectId);
+console.log('Available env vars:', Object.keys(process.env).filter(k => k.startsWith('EXPO_')));
+
+// Additional verification - make sure this is the FIRST thing in the function
+if (!projectId) {
+  console.error('CRITICAL ERROR: Missing Expo project ID in environment variables');
+  console.error('This will prevent push notification registration');
+  return null;
+}
   let token;
   let retryCount = 0;
   let delay = 2000; // Initial delay 2 seconds
@@ -142,12 +152,13 @@ static async registerForPushNotificationsAsync(userId: string, maxRetries = 5) {
   }
 }
 
-  // Update push token in database
 static async updatePushToken(token: string, userId: string) {
   try {
     console.log(`Updating token ${token} for user ${userId}`);
 
-    // Implement exponential backoff for checking user existence
+    // Add direct database check with timing information
+    console.time('userExistenceCheck');
+
     let userExists = false;
     let retryCount = 0;
     const maxRetries = 5;
@@ -155,20 +166,25 @@ static async updatePushToken(token: string, userId: string) {
 
     while (!userExists && retryCount < maxRetries) {
       try {
+        console.log(`Checking user existence (attempt ${retryCount + 1}/${maxRetries})`);
+
         const { data, error } = await supabase
           .from('users')
-          .select('id')
+          .select('id, email, name')
           .eq('id', userId)
           .single();
 
+        console.log('User check result:', { exists: !!data, error: !!error });
+
         if (data) {
           userExists = true;
-          console.log(`User ${userId} confirmed in database after ${retryCount} retries`);
+          console.log(`User ${userId} confirmed in database: ${data.name} / ${data.email}`);
         } else {
           console.warn(`User ${userId} not found in database, retry ${retryCount + 1}/${maxRetries}`);
           retryCount++;
 
-          // Exponential backoff
+          // Exponential backoff with logging
+          console.log(`Waiting ${delay}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           delay *= 2;
         }
@@ -182,12 +198,17 @@ static async updatePushToken(token: string, userId: string) {
       }
     }
 
+    console.timeEnd('userExistenceCheck');
+
     if (!userExists) {
       console.error(`Failed to confirm user ${userId} in database after ${maxRetries} attempts`);
       return false;
     }
 
     // Proceed with token update only if user exists
+    console.log('User exists, proceeding with token update');
+    console.time('tokenUpdate');
+
     try {
       const { error } = await supabase
         .from('user_push_tokens')
@@ -199,6 +220,8 @@ static async updatePushToken(token: string, userId: string) {
         }, {
           onConflict: 'token',
         });
+
+      console.timeEnd('tokenUpdate');
 
       if (error) {
         // Handle specific error cases

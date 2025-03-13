@@ -36,7 +36,7 @@ export function useNotifications(): UseNotificationsReturn {
   const appState = useRef(AppState.currentState);
 
   // Handler for token refresh events
-const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
+const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
   if (!user) return;
 
   console.log('Expo push token refreshed:', pushToken.data);
@@ -110,7 +110,7 @@ const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoP
         data: response.notification.request.content.data
       });
 
-      const navigationData:any = await NotificationService.handleNotificationResponse(response);
+      const navigationData = await NotificationService.handleNotificationResponse(response);
       if (navigationData?.screen) {
         // Mark notification as read if it has an ID
         const notificationId = response.notification.request.content.data?.notificationId;
