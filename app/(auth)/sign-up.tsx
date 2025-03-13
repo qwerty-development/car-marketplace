@@ -345,41 +345,59 @@ export default function SignUpScreen() {
     return isValid;
   };
 
-  const onSignUpPress = async () => {
-    if (!isLoaded) return;
-    if (!validateInputs()) return;
+const onSignUpPress = async () => {
+  if (!isLoaded) return;
+  if (!validateInputs()) return;
 
-    setIsLoading(true);
-    try {
-      const { error, needsEmailVerification } = await signUp({
-        email: emailAddress,
-        password,
-        name,
-      });
+  setIsLoading(true);
+  try {
+    const { error, needsEmailVerification } = await signUp({
+      email: emailAddress,
+      password,
+      name,
+    });
 
-      if (error) throw error;
-
-      if (needsEmailVerification) {
-        setPendingVerification(true);
-        Alert.alert(
-          'Verification Email Sent',
-          'Please check your email for a verification link to complete your registration.',
-          [{ text: 'OK' }]
-        );
+    if (error) {
+      // Check for specific email-exists errors and display them in the email field
+      if (error.message.includes('already exists') ||
+          error.message.includes('already registered') ||
+          error.message.includes('already in use')) {
+        setErrors(prev => ({
+          ...prev,
+          email: error.message || 'This email is already registered. Please try signing in.',
+          general: '', // Clear general error since we're showing it in the email field
+        }));
       } else {
-        // If email verification not required, registration is complete
-        router.replace('/(home)');
+        // Other errors go to the general error field
+        setErrors(prev => ({
+          ...prev,
+          general: error.message || 'Sign up failed. Please try again.',
+        }));
       }
-    } catch (error: any) {
-      console.error(JSON.stringify(error, null, 2));
-      setErrors(prev => ({
-        ...prev,
-        general: error.message || 'Sign up failed. Please try again.',
-      }));
-    } finally {
-      setIsLoading(false);
+      return; // Exit early - don't proceed with the rest of the function
     }
-  };
+
+    if (needsEmailVerification) {
+      setPendingVerification(true);
+      Alert.alert(
+        'Verification Email Sent',
+        'Please check your email for a verification link to complete your registration.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      // If email verification not required, registration is complete
+      router.replace('/(home)');
+    }
+  } catch (error: any) {
+    console.error(JSON.stringify(error, null, 2));
+    setErrors(prev => ({
+      ...prev,
+      general: error.message || 'Sign up failed. Please try again.',
+    }));
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const onPressVerify = async () => {
     if (!isLoaded) return;
