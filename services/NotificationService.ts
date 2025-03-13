@@ -34,10 +34,11 @@ interface NotificationData {
 
 export class NotificationService {
   // Push notification registration
-static async registerForPushNotificationsAsync(userId: string, maxRetries = 3) {
+static async registerForPushNotificationsAsync(userId: string, maxRetries = 5) {
   console.log('Starting push notification registration for user:', userId);
   let token;
   let retryCount = 0;
+  let delay = 2000; // Initial delay 2 seconds
 
   // Verify the device is physical (not a simulator/emulator)
   if (!Device.isDevice) {
@@ -45,155 +46,178 @@ static async registerForPushNotificationsAsync(userId: string, maxRetries = 3) {
     return null;
   }
 
-  // First check if the user exists in the database
   try {
-    const { data: userExists, error: userCheckError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .single();
+    // Check existing permissions
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    console.log('Existing notification permission status:', existingStatus);
 
-    if (userCheckError || !userExists) {
-      console.warn(`User ${userId} does not exist in database yet, notification registration will be delayed`);
-      return null; // Exit gracefully rather than proceeding
+    let finalStatus = existingStatus;
+
+    // Request permissions if not already granted
+    if (existingStatus !== 'granted') {
+      console.log('Requesting notification permissions...');
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+      console.log('New permission status:', finalStatus);
     }
-  } catch (error) {
-    console.error('Error checking user existence:', error);
-    return null;
-  }
 
-    try {
-      // Check existing permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      console.log('Existing notification permission status:', existingStatus);
+    if (finalStatus !== 'granted') {
+      console.warn('Failed to get push notification permission');
+      return null;
+    }
 
-      let finalStatus = existingStatus;
-
-      // Request permissions if not already granted
-      if (existingStatus !== 'granted') {
-        console.log('Requesting notification permissions...');
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-        console.log('New permission status:', finalStatus);
-      }
-
-      if (finalStatus !== 'granted') {
-        console.warn('Failed to get push notification permission');
-        return null;
-      }
-
-      // Set up Android notification channel
-      if (Platform.OS === 'android') {
-        console.log('Setting up Android notification channel');
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#D55004',
-          sound: 'notification.wav',
-        });
-      }
-
-      // Skip token registration during sign out
-      if (isSigningOut) {
-        console.log('User is signing out, skipping token registration');
-        return null;
-      }
-
-      // Get project ID from environment variables
-      const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-      if (!projectId) {
-        console.error('EXPO_PUBLIC_PROJECT_ID is undefined. Push notifications will not work!');
-        throw new Error('Missing Expo project ID');
-      }
-
-      // Get push token
-      console.log('Getting Expo push token with project ID:', projectId);
-      const tokenResponse = await Notifications.getExpoPushTokenAsync({
-        projectId: projectId,
+    // Set up Android notification channel
+    if (Platform.OS === 'android') {
+      console.log('Setting up Android notification channel');
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#D55004',
+        sound: 'notification.wav',
       });
+    }
 
-      token = tokenResponse.data;
-      console.log('Received push token:', token);
+    // Skip token registration during sign out
+    if (isSigningOut) {
+      console.log('User is signing out, skipping token registration');
+      return null;
+    }
 
-     if (token) {
+    // Get project ID from environment variables
+    const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+    if (!projectId) {
+      console.error('EXPO_PUBLIC_PROJECT_ID is undefined. Push notifications will not work!');
+      console.error('Environment variables available:', Object.keys(process.env).filter(key => key.startsWith('EXPO_')));
+      throw new Error('Missing Expo project ID');
+    }
+
+    // Get push token
+    console.log('Getting Expo push token with project ID:', projectId);
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({
+      projectId: projectId,
+    });
+
+    token = tokenResponse.data;
+    console.log('Received push token:', token);
+
+    if (token) {
       console.log('Updating push token in database');
 
-      // Implement retry logic for token registration
+      // Implement retry logic for token registration with exponential backoff
       let success = false;
+      retryCount = 0;
+      delay = 2000; // Reset the delay for token registration attempts
+
       while (!success && retryCount < maxRetries) {
         success = await this.updatePushToken(token, userId);
         if (!success) {
           retryCount++;
-          console.log(`Token registration attempt ${retryCount} failed, retrying in 2 seconds...`);
-          // Wait 2 seconds before retrying
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.log(`Token registration attempt ${retryCount} failed, retrying in ${delay/1000} seconds...`);
+          // Exponential backoff with jitter
+          await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 1000));
+          delay *= 2;
         }
       }
 
       if (!success) {
         console.error(`Failed to register token after ${maxRetries} attempts`);
+      } else {
+        console.log(`Successfully registered token after ${retryCount > 0 ? retryCount : 1} ${retryCount === 0 ? 'attempt' : 'attempts'}`);
       }
     }
 
     return token;
-    } catch (error) {
-      console.error('Error in registerForPushNotificationsAsync:', error);
+  } catch (error) {
+    console.error('Error in registerForPushNotificationsAsync:', error);
 
-      // Additional debug info
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-
-      return null;
+    // Additional debug info
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
     }
+
+    return null;
   }
+}
 
   // Update push token in database
 static async updatePushToken(token: string, userId: string) {
   try {
     console.log(`Updating token ${token} for user ${userId}`);
 
-    // CRITICAL: First verify that user exists in database before attempting token update
-    const { data: userExists, error: userCheckError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .single();
+    // Implement exponential backoff for checking user existence
+    let userExists = false;
+    let retryCount = 0;
+    const maxRetries = 5;
+    let delay = 1000; // Start with 1 second
 
-    if (userCheckError || !userExists) {
-      console.warn(`User ${userId} does not exist in database, delaying token registration`);
-      return false; // Exit gracefully rather than throwing an error
+    while (!userExists && retryCount < maxRetries) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .single();
+
+        if (data) {
+          userExists = true;
+          console.log(`User ${userId} confirmed in database after ${retryCount} retries`);
+        } else {
+          console.warn(`User ${userId} not found in database, retry ${retryCount + 1}/${maxRetries}`);
+          retryCount++;
+
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+        }
+      } catch (error) {
+        console.error(`Error checking user existence (attempt ${retryCount + 1}):`, error);
+        retryCount++;
+
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+      }
+    }
+
+    if (!userExists) {
+      console.error(`Failed to confirm user ${userId} in database after ${maxRetries} attempts`);
+      return false;
     }
 
     // Proceed with token update only if user exists
-    const { error } = await supabase
-      .from('user_push_tokens')
-      .upsert({
-        user_id: userId,
-        token,
-        device_type: Platform.OS,
-        last_updated: new Date().toISOString()
-      }, {
-        onConflict: 'token',
-      });
+    try {
+      const { error } = await supabase
+        .from('user_push_tokens')
+        .upsert({
+          user_id: userId,
+          token,
+          device_type: Platform.OS,
+          last_updated: new Date().toISOString()
+        }, {
+          onConflict: 'token',
+        });
 
-    if (error) {
-      // Handle specific error cases
-      if (error.code === '23503') { // Foreign key violation
-        console.error('Foreign key violation in updatePushToken - user may have been deleted');
-        return false;
+      if (error) {
+        // Handle specific error cases
+        if (error.code === '23503') { // Foreign key violation
+          console.error('Foreign key violation in updatePushToken - user may have been deleted');
+          return false;
+        }
+        console.error('Supabase error in updatePushToken:', error);
+        throw error;
       }
-      console.error('Supabase error in updatePushToken:', error);
-      throw error;
-    }
 
-    console.log('Push token successfully updated in database');
-    return true;
+      console.log('Push token successfully updated in database');
+      return true;
+    } catch (error) {
+      console.error('Error during token upsert operation:', error);
+      return false;
+    }
   } catch (error) {
-    console.error('Error updating push token:', error);
+    console.error('Error in updatePushToken:', error);
     return false;
   }
 }

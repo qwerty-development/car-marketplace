@@ -36,7 +36,7 @@ export function useNotifications(): UseNotificationsReturn {
   const appState = useRef(AppState.currentState);
 
   // Handler for token refresh events
-const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
+const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
   if (!user) return;
 
   console.log('Expo push token refreshed:', pushToken.data);
@@ -110,7 +110,7 @@ const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushT
         data: response.notification.request.content.data
       });
 
-      const navigationData = await NotificationService.handleNotificationResponse(response);
+      const navigationData:any = await NotificationService.handleNotificationResponse(response);
       if (navigationData?.screen) {
         // Mark notification as read if it has an ID
         const notificationId = response.notification.request.content.data?.notificationId;
@@ -141,98 +141,121 @@ const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushT
 
 
 
-  // Register for push notifications
 const registerForNotifications = useCallback(async () => {
   if (!user) return;
 
   // Add verification step to ensure user exists in database
   try {
-    const { data: userExists, error: userCheckError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single();
+    setLoading(true);
+    console.log('Starting notification registration process for user:', user.id);
 
-    if (userCheckError || !userExists) {
-      console.warn(`User ${user.id} not yet fully created in database, delaying notification registration`);
-      // Schedule a retry after a short delay
-      setTimeout(() => {
-        console.log('Retrying notification registration after delay');
-        registerForNotifications();
-      }, 3000);
+    // Check if the user exists with exponential backoff
+    let userExists = false;
+    let retryCount = 0;
+    const maxRetries = 5;
+    let delay = 1000; // Start with 1 second
+
+    while (!userExists && retryCount < maxRetries) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+
+        if (data) {
+          userExists = true;
+          console.log(`User ${user.id} confirmed in database after ${retryCount} retries`);
+        } else {
+          console.warn(`User ${user.id} not yet in database, retry ${retryCount + 1}/${maxRetries}`);
+          retryCount++;
+
+          // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+        }
+      } catch (error) {
+        console.error(`Error checking user existence (attempt ${retryCount + 1}):`, error);
+        retryCount++;
+
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+      }
+    }
+
+    if (!userExists) {
+      console.error(`Failed to confirm user ${user.id} in database after ${maxRetries} attempts`);
+      setIsPermissionGranted(false);
+      setLoading(false);
       return;
     }
-  } catch (error) {
-    console.error('Error checking user existence:', error);
-    setIsPermissionGranted(false);
-    setLoading(false);
-    return;
-  }
 
-  setLoading(true);
-  console.log('Starting notification registration process');
+    // Proceed with permission checks and token registration...
+    // (Rest of the function remains the same)
 
-    try {
-      // Check if we have project ID
-      const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-      if (!projectId) {
-        console.error('EXPO_PUBLIC_PROJECT_ID is not defined in environment variables');
-        console.error('Push notifications will not work without this value');
+    // Check if we have project ID
+    const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+    if (!projectId) {
+      console.error('EXPO_PUBLIC_PROJECT_ID is not defined in environment variables');
+      console.error('Push notifications will not work without this value');
+      setLoading(false);
+      return;
+    }
+
+    console.log('Using project ID:', projectId);
+
+    // 1. Check permission status
+    const permissionStatus = await NotificationService.getPermissions();
+    console.log('Current permission status:', permissionStatus?.status);
+
+    if (permissionStatus?.status !== 'granted') {
+      console.log('Permission not granted, requesting...');
+      const newPermission = await NotificationService.requestPermissions();
+
+      if (newPermission?.status !== 'granted') {
+        console.log('Permission denied');
+        setIsPermissionGranted(false);
         setLoading(false);
         return;
       }
-
-      // 1. Check permission status
-      const permissionStatus = await NotificationService.getPermissions();
-      console.log('Current permission status:', permissionStatus?.status);
-
-      if (permissionStatus?.status !== 'granted') {
-        console.log('Permission not granted, requesting...');
-        const newPermission = await NotificationService.requestPermissions();
-
-        if (newPermission?.status !== 'granted') {
-          console.log('Permission denied');
-          setIsPermissionGranted(false);
-          setLoading(false);
-          return;
-        }
-      }
-
-      setIsPermissionGranted(true);
-      console.log('Notification permissions granted');
-
-      // 2. Get token
-      console.log('Getting Expo push token...');
-      const token = await NotificationService.registerForPushNotificationsAsync(user.id);
-
-      if (token) {
-        console.log('Successfully registered push token:', token);
-        await SecureStore.setItemAsync('expoPushToken', token);
-
-        // Remove any existing listener before adding a new one
-        if (pushTokenListener.current) {
-          pushTokenListener.current.remove();
-        }
-
-        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-      } else {
-        console.warn('Failed to get push token');
-      }
-    } catch (error) {
-      console.error('Error registering for notifications:', error);
-
-      // Additional error logging
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-
-      setIsPermissionGranted(false);
-    } finally {
-      setLoading(false);
     }
-  }, [user, handleTokenRefresh]);
+
+    setIsPermissionGranted(true);
+    console.log('Notification permissions granted');
+
+    // 2. Get token
+    console.log('Getting Expo push token...');
+    const token = await NotificationService.registerForPushNotificationsAsync(user.id);
+
+    if (token) {
+      console.log('Successfully registered push token:', token);
+      await SecureStore.setItemAsync('expoPushToken', token);
+
+      // Remove any existing listener before adding a new one
+      if (pushTokenListener.current) {
+        pushTokenListener.current.remove();
+      }
+
+      pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+    } else {
+      console.warn('Failed to get push token');
+    }
+  } catch (error) {
+    console.error('Error registering for notifications:', error);
+
+    // Additional error logging
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+
+    setIsPermissionGranted(false);
+  } finally {
+    setLoading(false);
+  }
+}, [user, handleTokenRefresh]);
 
   // Cleanup push token on logout
   const cleanupPushToken = useCallback(async () => {

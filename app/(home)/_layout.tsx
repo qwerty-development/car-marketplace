@@ -134,7 +134,7 @@ const checkAndCreateUser = async () => {
 
       // IMPORTANT: Add a delay before attempting push notification registration
       // to ensure the user record is fully committed in the database
-      await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
     // Update last_active timestamp
