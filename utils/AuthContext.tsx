@@ -21,7 +21,7 @@ interface AuthContextProps {
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (params: { currentPassword: string, newPassword: string }) => Promise<{ error: Error | null }>;
   verifyOtp: (email: string, token: string) => Promise<{ error: Error | null }>;
-  googleSignIn:any
+  googleSignIn: () => Promise<void>;
   appleSignIn: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<{ error: Error | null }>;
