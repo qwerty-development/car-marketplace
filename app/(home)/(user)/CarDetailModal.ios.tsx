@@ -925,8 +925,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             </Text>
 
             <View
-              className={`p-1 rounded-xl ${
-                isDarkMode ? "bg-[#121212]" : "bg-[#f9f9f9]"
+              className={`p-1 rounded-xl"
               }`}
             >
               {/* Tech Features */}
