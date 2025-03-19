@@ -28,6 +28,7 @@ import type { NotificationSettings } from "../types/type";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { useGuestUser } from '@/utils/GuestUserContext';
 import { BlurView } from "expo-blur";
+import Constants from 'expo-constants';
 
 const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
@@ -955,6 +956,17 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity>
         </View>
+
+        import Constants from 'expo-constants';
+
+// Inside your component's render method (or return statement)
+<Text className="text-center" style={{ fontSize: 12,  color: isDarkMode ? "#fff" : "#333" }}>
+  Version {Constants.expoConfig?.version }
+</Text>
+
+
+
+        
 
         {/* Sign Out Button */}
         {!isGuest&&<TouchableOpacity className="mt-2 p-5 mb-12" onPress={handleSignOut}>
