@@ -29,28 +29,39 @@ import { useAuth } from "@/utils/AuthContext";
 
 const { width } = Dimensions.get("window");
 
-const VEHICLE_FEATURES = [
-  { id: 'heated_seats', label: 'Heated Seats', icon: 'car-seat-heater' },
-  { id: 'keyless_entry', label: 'Keyless Entry', icon: 'key-wireless' },
-  { id: 'keyless_start', label: 'Keyless Start', icon: 'power' },
-  { id: 'power_mirrors', label: 'Power Mirrors', icon: 'car-side' },
-  { id: 'power_steering', label: 'Power Steering', icon: 'steering' },
-  { id: 'power_windows', label: 'Power Windows', icon: 'window-maximize' },
-  { id: 'backup_camera', label: 'Backup Camera', icon: 'camera' },
-  { id: 'bluetooth', label: 'Bluetooth', icon: 'bluetooth' },
-  { id: 'cruise_control', label: 'Cruise Control', icon: 'speedometer' },
-  { id: 'navigation', label: 'Navigation System', icon: 'map-marker' },
-  { id: 'sunroof', label: 'Sunroof', icon: 'weather-sunny' },
-  { id: 'leather_seats', label: 'Leather Seats', icon: 'car-seat' },
-  { id: 'third_row_seats', label: 'Third Row Seats', icon: 'seat-passenger' },
-  { id: 'parking_sensors', label: 'Parking Sensors', icon: 'parking' },
-  { id: 'lane_assist', label: 'Lane Departure Warning', icon: 'road-variant' },
-  { id: 'blind_spot', label: 'Blind Spot Monitoring', icon: 'eye-off' },
-  { id: 'apple_carplay', label: 'Apple CarPlay', icon: 'apple' },
-  { id: 'android_auto', label: 'Android Auto', icon: 'android' },
-  { id: 'premium_audio', label: 'Premium Audio', icon: 'speaker' },
-  { id: 'remote_start', label: 'Remote Start', icon: 'remote' },
-];
+const VEHICLE_FEATURES = {
+  tech: [
+    { id: "bluetooth", label: "Bluetooth", icon: "bluetooth" },
+    { id: "navigation", label: "Navigation System", icon: "map-marker" },
+    { id: "backup_camera", label: "Backup Camera", icon: "camera" },
+    { id: "apple_carplay", label: "Apple CarPlay", icon: "apple" },
+    { id: "android_auto", label: "Android Auto", icon: "android" },
+    { id: "premium_audio", label: "Premium Audio", icon: "speaker" },
+    { id: "remote_start", label: "Remote Start", icon: "remote" },
+    { id: "keyless_entry", label: "Keyless Entry", icon: "key-wireless" },
+    { id: "keyless_start", label: "Keyless Start", icon: "power" },
+  ],
+  safety: [
+    {
+      id: "lane_assist",
+      label: "Lane Departure Warning",
+      icon: "road-variant",
+    },
+    { id: "blind_spot", label: "Blind Spot Monitoring", icon: "eye-off" },
+    { id: "parking_sensors", label: "Parking Sensors", icon: "parking" },
+    { id: "backup_camera", label: "Backup Camera", icon: "camera" },
+    { id: "cruise_control", label: "Cruise Control", icon: "speedometer" },
+  ],
+  comfort: [
+    { id: "heated_seats", label: "Heated Seats", icon: "car-seat-heater" },
+    { id: "leather_seats", label: "Leather Seats", icon: "car-seat" },
+    { id: "third_row_seats", label: "Third Row Seats", icon: "seat-passenger" },
+    { id: "sunroof", label: "Sunroof", icon: "weather-sunny" },
+    { id: "power_mirrors", label: "Power Mirrors", icon: "car-side" },
+    { id: "power_steering", label: "Power Steering", icon: "steering" },
+    { id: "power_windows", label: "Power Windows", icon: "window-maximize" },
+  ],
+};
 
 const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
   const [loaded, setLoaded] = useState(false);
@@ -152,7 +163,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const [autoclips, setAutoclips] = useState<any>([]);
   const [selectedClip, setSelectedClip] = useState<any>(null);
   const [showClipModal, setShowClipModal] = useState<any>(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
+    null
+  );
 
   // Helper function to compute relative time from the listed_at property
   const getRelativeTime = (dateString: string) => {
@@ -472,9 +485,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }
   }, [car?.dealership_phone, car?.id, trackCallClick]);
 
-  const handleChat = useCallback(() => {
-    Alert.alert("Chat feature coming soon!");
-  }, []);
+
 
   const handleShare = useCallback(async () => {
     try {
@@ -584,20 +595,81 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       // Track the WhatsApp click first
       trackWhatsAppClick(car.id);
 
-      const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()} on Fleet`;
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
+      const cleanedPhoneNumber = car.dealership_phone
+        .toString()
+        .replace(/\D/g, "");
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
+        car.model
+      } listed for $${car.price.toLocaleString()} on Fleet`;
+      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
+        message
+      )}`;
 
       Linking.openURL(webURL).catch(() => {
         Alert.alert(
-          'Error',
-          'Unable to open WhatsApp. Please make sure it is installed on your device.'
+          "Error",
+          "Unable to open WhatsApp. Please make sure it is installed on your device."
         );
       });
     } else {
-      Alert.alert('Phone number not available');
+      Alert.alert("Phone number not available");
     }
   }, [car, trackWhatsAppClick]);
+
+  const FeatureCategory = ({ title, features, isDarkMode }: any) => {
+    if (features.length === 0) return null;
+
+    return (
+      <View className="mb-6 ">
+        <View className="flex-row items-center mb-3">
+          <View className="h-5 w-1 bg-red mr-2 rounded-full" />
+          <Text
+            className={`text-sm font-semibold ${
+              isDarkMode ? "text-white" : "text-black"
+            }`}
+          >
+            {title}
+          </Text>
+        </View>
+
+        {/* Horizontal scrollable features */}
+        <FlatList
+          data={features}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item, index) => `${title.toLowerCase()}-${index}`}
+          renderItem={({ item: feature, index }) => (
+            <View
+              className={`flex-row border-0.5 border-neutral-400 items-center mr-3 mb-1 px-3 py-2 rounded-lg ${
+                isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
+              }`}
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 1,
+                elevation: 1,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={feature.icon || "check-circle-outline"}
+                size={18}
+                color="#D55004"
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-medium`}
+              >
+                {feature.label}
+              </Text>
+            </View>
+          )}
+        />
+      </View>
+    );
+  };
 
   return (
     <View
@@ -635,29 +707,29 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         {/* Image Carousel  */}
         <View className="relative mb-6 overflow-visible">
           <View className="rounded-b-[20px] overflow-hidden">
-         <FlatList
-  data={car.images}
-  renderItem={({ item, index }) => (
-    <Pressable onPress={() => setSelectedImageIndex(index)}>
-      <View className="relative">
-        <OptimizedImage
-          source={{ uri: item }}
-          style={{ width: width, height: 350 }}
-        />
-        {/* Your overlay icons and other content */}
-      </View>
-    </Pressable>
-  )}
-  horizontal
-  pagingEnabled
-  showsHorizontalScrollIndicator={false}
-  onMomentumScrollEnd={(event) => {
-    const newIndex = Math.round(
-      event.nativeEvent.contentOffset.x / width
-    );
-    setActiveImageIndex(newIndex);
-  }}
-/>
+            <FlatList
+              data={car.images}
+              renderItem={({ item, index }) => (
+                <Pressable onPress={() => setSelectedImageIndex(index)}>
+                  <View className="relative">
+                    <OptimizedImage
+                      source={{ uri: item }}
+                      style={{ width: width, height: 350 }}
+                    />
+                    {/* Your overlay icons and other content */}
+                  </View>
+                </Pressable>
+              )}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / width
+                );
+                setActiveImageIndex(newIndex);
+              }}
+            />
 
             {/* Pagination Dots */}
             <View className="absolute bottom-8 left-0 right-0 flex-row justify-center z-10">
@@ -697,7 +769,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 className={`text-xl mt-6 mr-12 font-bold ${
                   isDarkMode ? "text-white" : "text-black"
                 }`}
-              numberOfLines={2}>
+                numberOfLines={2}
+              >
                 {car.make} {car.model}
               </Text>
               <Text
@@ -730,7 +803,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
-
             }}
           >
             <Text
@@ -824,59 +896,117 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </View>
 
         {/* Description */}
-     {car.description ? (   <View className="mt-8 px-4">
-              <Text
-                className={`text-lg font-bold ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-              >
-                Description
-              </Text>
-              <Text className={`${isDarkMode ? "text-white" : "text-black"} mt-3`}>
-                {car.description}
-              </Text>
-        </View>
-
-  ) : null}
-
-  {/* Features Section */}
-{car.features && car.features.length > 0 && (
-  <View className="mt-8 px-4">
-    <Text
-      className={`text-lg font-bold mb-3 ${
-        isDarkMode ? "text-white" : "text-black"
-      }`}
-    >
-      Features
-    </Text>
-    <View className="flex-row flex-wrap">
-      {car.features.map((featureId, index) => {
-        // Find the feature definition from a constant array (assumed to be defined)
-        const feature = VEHICLE_FEATURES.find(f => f.id === featureId);
-        if (!feature) return null;
-
-        return (
-          <View
-            key={index}
-            className={`flex-row items-center mr-2 mb-2 px-3 py-2 rounded-full ${isDarkMode ? "bg-[#1c1c1c]" : "bg-[#e9e9e9]"}`}
-          >
-            <MaterialCommunityIcons
-              name={feature.icon || "check-circle-outline"}
-              size={18}
-              color={isDarkMode ? "#D55004" : "#D55004"}
-              style={{ marginRight: 6 }}
-            />
-            <Text className={isDarkMode ? "text-white" : "text-black"}>
-              {feature.label || featureId}
+        {car.description ? (
+          <View className="mt-8 px-4">
+            <Text
+              className={`text-lg font-bold ${
+                isDarkMode ? "text-white" : "text-black"
+              }`}
+            >
+              Description
+            </Text>
+            <Text
+              className={`${isDarkMode ? "text-white" : "text-black"} mt-3`}
+            >
+              {car.description}
             </Text>
           </View>
-        );
-      })}
-    </View>
-  </View>
-)}
+        ) : null}
+
+        {/* Features Section */}
+        {car.features && car.features.length > 0 && (
+          <View className="mt-8 px-4">
+            <Text
+              className={`text-lg font-bold mb-4 ${
+                isDarkMode ? "text-white" : "text-black"
+              }`}
+            >
+              Features
+            </Text>
+
+            <View
+              className={`p-1 rounded-xl ${
+                isDarkMode ? "bg-[#121212]" : "bg-[#f9f9f9]"
+              }`}
+            >
+              {/* Tech Features */}
+              <FeatureCategory
+                title="Technology"
+                features={car.features
+                  .filter((featureId: string) =>
+                    VEHICLE_FEATURES.tech.some(
+                      (feature) => feature.id === featureId
+                    )
+                  )
+                  .map((featureId: string) => {
+                    const feature = VEHICLE_FEATURES.tech.find(
+                      (f) => f.id === featureId
+                    );
+                    return feature || null;
+                  })
+                  .filter(Boolean)}
+                isDarkMode={isDarkMode}
+              />
+
+              {/* Safety Features */}
+              <FeatureCategory
+                title="Safety"
+                features={car.features
+                  .filter((featureId: string) =>
+                    VEHICLE_FEATURES.safety.some(
+                      (feature) => feature.id === featureId
+                    )
+                  )
+                  .map((featureId: string) => {
+                    const feature = VEHICLE_FEATURES.safety.find(
+                      (f) => f.id === featureId
+                    );
+                    return feature || null;
+                  })
+                  .filter(Boolean)}
+                isDarkMode={isDarkMode}
+              />
+
+              {/* Comfort Features */}
+              <FeatureCategory
+                title="Comfort & Convenience"
+                features={car.features
+                  .filter((featureId: string) =>
+                    VEHICLE_FEATURES.comfort.some(
+                      (feature) => feature.id === featureId
+                    )
+                  )
+                  .map((featureId: string) => {
+                    const feature = VEHICLE_FEATURES.comfort.find(
+                      (f) => f.id === featureId
+                    );
+                    return feature || null;
+                  })
+                  .filter(Boolean)}
+                isDarkMode={isDarkMode}
+              />
+
+              {/* If no features are found in any category */}
+              {!car.features.some((featureId: string) =>
+                [
+                  ...VEHICLE_FEATURES.tech,
+                  ...VEHICLE_FEATURES.safety,
+                  ...VEHICLE_FEATURES.comfort,
+                ].some((feature) => feature.id === featureId)
+              ) && (
+                <Text
+                  className={`italic ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  No feature details available
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
         {/* Dealership Section */}
-        <View className="mt-8 px-4">
+        <View className=" px-4">
           <Text
             className={`text-lg font-bold ${
               isDarkMode ? "text-white" : "text-black"
@@ -895,12 +1025,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 description={car.dealership_location}
               />
             </MapView>
-          <TouchableOpacity
-            onPress={handleOpenInMaps}
-            className='absolute bottom-4 right-4 bg-red px-4 py-2 rounded-full flex-row items-center'>
-            <Ionicons name='navigate' size={16} color='white' />
-            <Text className='text-white ml-2'>Take Me There</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleOpenInMaps}
+              className="absolute bottom-4 right-4 bg-red px-4 py-2 rounded-full flex-row items-center"
+            >
+              <Ionicons name="navigate" size={16} color="white" />
+              <Text className="text-white ml-2">Take Me There</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1030,42 +1161,41 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
         isLiked={selectedClip?.liked_users?.includes(user?.id)}
       />
-     {selectedImageIndex !== null && (
-  <Modal
-    visible={true}
-    transparent={true}
-    onRequestClose={() => setSelectedImageIndex(null)}
-  >
-    <View style={styles.modalBackground}>
-      <TouchableOpacity
-        style={styles.closeButton}
-        onPress={() => setSelectedImageIndex(null)}
-      >
-        <Ionicons name="close" size={40} color="white" />
-      </TouchableOpacity>
-      <FlatList
-        data={car.images}
-        horizontal
-        pagingEnabled
-        initialScrollIndex={selectedImageIndex}
-        keyExtractor={(item, index) => index.toString()}
-        getItemLayout={(data, index) => ({
-          length: Dimensions.get("window").width,
-          offset: Dimensions.get("window").width * index,
-          index,
-        })}
-        renderItem={({ item }) => (
-          <Image
-            source={{ uri: item }}
-            style={styles.fullscreenImage}
-            contentFit="contain"
-          />
-        )}
-      />
-    </View>
-  </Modal>
-)}
-
+      {selectedImageIndex !== null && (
+        <Modal
+          visible={true}
+          transparent={true}
+          onRequestClose={() => setSelectedImageIndex(null)}
+        >
+          <View style={styles.modalBackground}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setSelectedImageIndex(null)}
+            >
+              <Ionicons name="close" size={40} color="white" />
+            </TouchableOpacity>
+            <FlatList
+              data={car.images}
+              horizontal
+              pagingEnabled
+              initialScrollIndex={selectedImageIndex}
+              keyExtractor={(item, index) => index.toString()}
+              getItemLayout={(data, index) => ({
+                length: Dimensions.get("window").width,
+                offset: Dimensions.get("window").width * index,
+                index,
+              })}
+              renderItem={({ item }) => (
+                <Image
+                  source={{ uri: item }}
+                  style={styles.fullscreenImage}
+                  contentFit="contain"
+                />
+              )}
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -1083,7 +1213,6 @@ const styles = StyleSheet.create({
   map: {
     height: 200,
     borderRadius: 10,
-
   },
   scrollContent: {
     flexGrow: 1,
@@ -1092,7 +1221,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 300,
   },
-    modalBackground: {
+  modalBackground: {
     flex: 1,
     backgroundColor: "black",
     justifyContent: "center",
