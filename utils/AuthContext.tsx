@@ -8,6 +8,8 @@ import { useGuestUser } from './GuestUserContext';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
+import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
+import { router } from 'expo-router';
 
 interface AuthContextProps {
   session: Session | null;
@@ -15,6 +17,7 @@ interface AuthContextProps {
   profile: UserProfile | null;
   isLoaded: boolean;
   isSignedIn: boolean;
+  isSigningOut: boolean;  // New property to track sign-out state
   signIn: (credentials: SignInCredentials) => Promise<{ error: Error | null }>;
   signUp: (credentials: SignUpCredentials) => Promise<{ error: Error | null, needsEmailVerification: boolean }>;
   signOut: () => Promise<void>;
@@ -66,6 +69,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isSigningOutState, setIsSigningOutState] = useState(false);
   const { isGuest, clearGuestMode } = useGuestUser();
 
   // For OAuth redirects
@@ -128,262 +132,403 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     };
   }, [isGuest]);
 
-// Modified processOAuthUser function to handle first-time OAuth sign-ins
-const processOAuthUser = async (session: Session): Promise<UserProfile | null> => {
-  try {
-    // Check if user exists in database
-    const { data: existingUser, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-// Replace the insert operation in the processOAuthUser function
-if (fetchError && fetchError.code === 'PGRST116') {
-  // Extract user details from session
-  const userName = session.user.user_metadata.full_name ||
-                  session.user.user_metadata.name ||
-                  'User';
-
-  const newUser: Partial<UserProfile> = {
-    id: session.user.id,
-    name: userName,
-    email: session.user.email || '',
-    favorite: [],
-    last_active: new Date().toISOString(),
-    timezone: 'UTC',
-    role: 'user', // Default role
-  };
-
-  // Use upsert instead of insert
-  const { data: upsertedUser, error: upsertError } = await supabase
-    .from('users')
-    .upsert([newUser], {
-      onConflict: 'id',
-      ignoreDuplicates: false
-    })
-    .select()
-    .single();
-
-  if (upsertError) {
-    // Check if it's a constraint violation
-    if (upsertError.code === '23505') {
-      console.log('User already exists, retrieving existing record');
-
-      // Retrieve the existing user record
-      const { data: existingUser, error: getError } = await supabase
+  // Modified processOAuthUser function to handle first-time OAuth sign-ins
+  const processOAuthUser = async (session: Session): Promise<UserProfile | null> => {
+    try {
+      // Check if user exists in database
+      const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single();
 
-      if (getError) {
-        console.error('Error retrieving existing user:', getError);
+      // Replace the insert operation in the processOAuthUser function
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // Extract user details from session
+        const userName = session.user.user_metadata.full_name ||
+                        session.user.user_metadata.name ||
+                        'User';
+
+        const newUser: Partial<UserProfile> = {
+          id: session.user.id,
+          name: userName,
+          email: session.user.email || '',
+          favorite: [],
+          last_active: new Date().toISOString(),
+          timezone: 'UTC',
+          role: 'user', // Default role
+        };
+
+        // Use upsert instead of insert
+        const { data: upsertedUser, error: upsertError } = await supabase
+          .from('users')
+          .upsert([newUser], {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          })
+          .select()
+          .single();
+
+        if (upsertError) {
+          // Check if it's a constraint violation
+          if (upsertError.code === '23505') {
+            console.log('User already exists, retrieving existing record');
+
+            // Retrieve the existing user record
+            const { data: existingUser, error: getError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (getError) {
+              console.error('Error retrieving existing user:', getError);
+              return null;
+            }
+
+            return existingUser as UserProfile;
+          } else {
+            console.error('Error upserting user after OAuth:', upsertError);
+            return null;
+          }
+        }
+
+        // If user exists but doesn't have a role in auth metadata, add default role
+        if (!session.user.user_metadata.role) {
+          await supabase.auth.updateUser({
+            data: { role: 'user' }
+          });
+        }
+
+        return upsertedUser as UserProfile;
+
+      } else if (fetchError) {
+        // Handle other possible errors
+        console.error('Error fetching user profile:', fetchError);
         return null;
       }
 
+      // If user exists but doesn't have a role in auth metadata, add default role
+      if (!session.user.user_metadata.role) {
+        await supabase.auth.updateUser({
+          data: { role: existingUser?.role || 'user' }
+        });
+      }
+
       return existingUser as UserProfile;
-    } else {
-      console.error('Error upserting user after OAuth:', upsertError);
+    } catch (error) {
+      console.error('Error processing OAuth user:', error);
       return null;
     }
-  }
+  };
 
-  // If user exists but doesn't have a role in auth metadata, add default role
-  if (!session.user.user_metadata.role) {
-    await supabase.auth.updateUser({
-      data: { role: 'user' }
-    });
-  }
+  // Modified fetchUserProfile function with fallback to create user if not found
+  const fetchUserProfile = async (userId: string): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-  return upsertedUser as UserProfile;
+      if (error) {
+        console.error('Error fetching user profile:', error);
 
-    } else if (fetchError) {
-      // Handle other possible errors
-      console.error('Error fetching user profile:', fetchError);
-      return null;
-    }
-
-    // If user exists but doesn't have a role in auth metadata, add default role
-    if (!session.user.user_metadata.role) {
-      await supabase.auth.updateUser({
-        data: { role: existingUser?.role || 'user' }
-      });
-    }
-
-    return existingUser as UserProfile;
-  } catch (error) {
-    console.error('Error processing OAuth user:', error);
-    return null;
-  }
-};
-
-// Modified fetchUserProfile function with fallback to create user if not found
-const fetchUserProfile = async (userId: string): Promise<void> => {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching user profile:', error);
-
-      // If user not found, try to get session and create profile
-      if (error.code === 'PGRST116') {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session) {
-          const createdProfile = await processOAuthUser(sessionData.session);
-          if (createdProfile) {
-            setProfile(createdProfile);
-            return;
+        // If user not found, try to get session and create profile
+        if (error.code === 'PGRST116') {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session) {
+            const createdProfile = await processOAuthUser(sessionData.session);
+            if (createdProfile) {
+              setProfile(createdProfile);
+              return;
+            }
           }
         }
+        return;
       }
+
+      if (data) {
+        setProfile(data as UserProfile);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    }
+  };
+
+  // Token cleanup helper function
+  const cleanupPushToken = async () => {
+    try {
+      // Get stored token
+      const token = await SecureStore.getItemAsync('expoPushToken');
+
+      if (token && user) {
+        console.log('Found push token to clean up');
+
+        // Attempt to delete from database
+        const { error } = await supabase
+          .from('user_push_tokens')
+          .delete()
+          .match({ user_id: user.id, token });
+
+        if (error) {
+          console.error('Error removing push token from database:', error);
+        }
+
+        // Remove from secure storage regardless of database success
+        await SecureStore.deleteItemAsync('expoPushToken');
+      }
+    } catch (error) {
+      console.error('Push token cleanup error:', error);
+      // Continue with sign out even if cleanup fails
+    }
+  };
+
+  // Local storage cleanup helper function
+  const cleanupLocalStorage = async () => {
+    try {
+      console.log('Cleaning up local storage');
+      // List of keys to clean up
+      const keysToClean = [
+        'supabase-auth-token',
+        'expoPushToken',
+        'lastActiveSession',
+        // Add any other auth-related keys here
+      ];
+
+      // Delete all keys in parallel
+      await Promise.all(
+        keysToClean.map(key =>
+          SecureStore.deleteItemAsync(key)
+            .catch(error => console.error(`Error deleting ${key}:`, error))
+        )
+      );
+
+      console.log('Local storage cleanup completed');
+    } catch (error) {
+      console.error('Local storage cleanup error:', error);
+    }
+  };
+
+  // Enhanced signOut function with robust error handling and retries
+  const signOut = async () => {
+    // Prevent multiple sign out attempts
+    if (isSigningOutState) {
+      console.log('Sign out already in progress, ignoring duplicate request');
       return;
     }
 
-    if (data) {
-      setProfile(data as UserProfile);
-    }
-  } catch (error) {
-    console.error('Error in fetchUserProfile:', error);
-  }
-};
+    try {
+      // Set signing out states
+      setIsSigningOutState(true);
+      setIsSigningOut(true);
 
-// Modified appleSignIn method
-const appleSignIn = async () => {
-  try {
-    if (isGuest) {
-      await clearGuestMode();
-    }
+      // First, route to sign-in screen immediately to prevent further interactions
+      router.replace('/(auth)/sign-in');
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: redirectUri,
-        skipBrowserRedirect: true,
-      },
-    });
+      console.log('Starting comprehensive sign out process');
 
-    if (error) throw error;
+      // 1. Clean up push notification token if user exists
+      if (user) {
+        try {
+          console.log('Cleaning up push notification tokens');
+          await cleanupPushToken();
+        } catch (tokenError) {
+          console.error('Error during push token cleanup:', tokenError);
+          // Continue with sign out even if token cleanup fails
+        }
+      }
 
-    if (data?.url) {
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      // 2. Execute sign out with retry logic
+      let signOutSuccess = false;
+      let signOutAttempt = 0;
+      const maxAttempts = 3;
 
-      if (result.type === 'success') {
-        // Get the Supabase auth callback URL parameters
-        const { data: sessionData } = await supabase.auth.getSession();
+      while (!signOutSuccess && signOutAttempt < maxAttempts) {
+        signOutAttempt++;
+        try {
+          console.log(`Supabase sign out attempt ${signOutAttempt}/${maxAttempts}`);
+          const { error } = await supabase.auth.signOut();
 
-        if (sessionData?.session) {
-          // Process the user and get the created/existing profile
-          const userProfile = await processOAuthUser(sessionData.session);
-
-          // Set the profile directly if available
-          if (userProfile) {
-            setProfile(userProfile);
+          if (error) {
+            console.error(`Sign out attempt ${signOutAttempt} failed:`, error);
+            // Wait before retrying with exponential backoff
+            if (signOutAttempt < maxAttempts) {
+              const delay = Math.pow(2, signOutAttempt) * 500; // 1s, 2s, 4s
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          } else {
+            signOutSuccess = true;
+            console.log('Supabase sign out successful');
+          }
+        } catch (error) {
+          console.error(`Sign out attempt ${signOutAttempt} error:`, error);
+          // Wait before retrying
+          if (signOutAttempt < maxAttempts) {
+            const delay = Math.pow(2, signOutAttempt) * 500;
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
+
+      // 3. Clean up local storage regardless of sign out success
+      await cleanupLocalStorage();
+
+      // 4. Reset auth context state
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+
+    } catch (error) {
+      console.error('Sign out process error:', error);
+
+      // Force clean up state even if there was an error
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+
+      // Brute force approach - if all else fails, force navigation to sign-in
+      router.replace('/(auth)/sign-in');
+    } finally {
+      // Always reset signing out state
+      setIsSigningOutState(false);
+      setIsSigningOut(false);
+      console.log('Sign out process completed');
     }
-  } catch (error) {
-    console.error('Apple sign in error:', error);
-    Alert.alert('Authentication Error', 'Failed to sign in with Apple');
-  }
-};
+  };
 
-const googleSignIn = async () => {
-  try {
-    if (isGuest) {
-      await clearGuestMode();
-    }
+  // Modified appleSignIn method
+  const appleSignIn = async () => {
+    try {
+      if (isGuest) {
+        await clearGuestMode();
+      }
 
-    // Step 1: Initiate OAuth flow
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUri,
-        skipBrowserRedirect: true,
-      },
-    });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    if (data?.url) {
-      console.log("Opening auth session with URL:", data.url);
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
-      // Step 2: Open browser for authentication
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-      console.log("WebBrowser result:", JSON.stringify(result));
+        if (result.type === 'success') {
+          // Get the Supabase auth callback URL parameters
+          const { data: sessionData } = await supabase.auth.getSession();
 
-      if (result.type === 'success') {
-        // Step 3: Critical - force setSession with manually extracted token
-        try {
-          // Extract access token from URL hash fragment
-          const url = new URL(result.url);
-          const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove the # character
-          const accessToken = hashParams.get('access_token');
+          if (sessionData?.session) {
+            // Process the user and get the created/existing profile
+            const userProfile = await processOAuthUser(sessionData.session);
 
-          console.log("Extracted access token:", accessToken ? "Found" : "Not found");
-
-          if (accessToken) {
-            // Step 4: Use setSession directly with the extracted token
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: hashParams.get('refresh_token') || '',
-            });
-
-            console.log("Manual setSession result:",
-                        sessionData ? "Session set successfully" : "Failed to set session",
-                        sessionError ? `Error: ${sessionError.message}` : "No error");
-
-            if (sessionError) throw sessionError;
-
-            if (sessionData.session) {
-              // Step 5: Update application state
-              setSession(sessionData.session);
-              setUser(sessionData.session.user);
-
-              // Step 6: Process user profile
-              const userProfile = await processOAuthUser(sessionData.session);
-              if (userProfile) {
-                setProfile(userProfile);
-              }
-
-              // Step 7: Return explicit success with user data
-              console.log("Authentication successful, returning success=true");
-              return { success: true, user: sessionData.session.user };
+            // Set the profile directly if available
+            if (userProfile) {
+              setProfile(userProfile);
             }
           }
-        } catch (extractError) {
-          console.error("Error processing authentication result:", extractError);
         }
       }
+    } catch (error) {
+      console.error('Apple sign in error:', error);
+      Alert.alert('Authentication Error', 'Failed to sign in with Apple');
     }
+  };
 
-    // Step 8: Fall back to checking current session as safety mechanism
+  const googleSignIn = async () => {
     try {
-      const { data: currentSession } = await supabase.auth.getSession();
-      if (currentSession?.session?.user) {
-        console.log("Session exists despite flow issues, returning success=true");
-        setSession(currentSession.session);
-        setUser(currentSession.session.user);
-        return { success: true, user: currentSession.session.user };
+      if (isGuest) {
+        await clearGuestMode();
       }
-    } catch (sessionCheckError) {
-      console.error("Error checking current session:", sessionCheckError);
-    }
 
-    // Step 9: Return failure if all above steps fail
-    console.log("All authentication steps failed, returning success=false");
-    return { success: false };
-  } catch (error) {
-    console.error('Google sign in error:', error);
-    Alert.alert('Authentication Error', 'Failed to sign in with Google');
-    return { success: false, error };
-  }
-};
+      // Step 1: Initiate OAuth flow
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        console.log("Opening auth session with URL:", data.url);
+
+        // Step 2: Open browser for authentication
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+        console.log("WebBrowser result:", JSON.stringify(result));
+
+        if (result.type === 'success') {
+          // Step 3: Critical - force setSession with manually extracted token
+          try {
+            // Extract access token from URL hash fragment
+            const url = new URL(result.url);
+            const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove the # character
+            const accessToken = hashParams.get('access_token');
+
+            console.log("Extracted access token:", accessToken ? "Found" : "Not found");
+
+            if (accessToken) {
+              // Step 4: Use setSession directly with the extracted token
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: hashParams.get('refresh_token') || '',
+              });
+
+              console.log("Manual setSession result:",
+                          sessionData ? "Session set successfully" : "Failed to set session",
+                          sessionError ? `Error: ${sessionError.message}` : "No error");
+
+              if (sessionError) throw sessionError;
+
+              if (sessionData.session) {
+                // Step 5: Update application state
+                setSession(sessionData.session);
+                setUser(sessionData.session.user);
+
+                // Step 6: Process user profile
+                const userProfile = await processOAuthUser(sessionData.session);
+                if (userProfile) {
+                  setProfile(userProfile);
+                }
+
+                // Step 7: Return explicit success with user data
+                console.log("Authentication successful, returning success=true");
+                return { success: true, user: sessionData.session.user };
+              }
+            }
+          } catch (extractError) {
+            console.error("Error processing authentication result:", extractError);
+          }
+        }
+      }
+
+      // Step 8: Fall back to checking current session as safety mechanism
+      try {
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (currentSession?.session?.user) {
+          console.log("Session exists despite flow issues, returning success=true");
+          setSession(currentSession.session);
+          setUser(currentSession.session.user);
+          return { success: true, user: currentSession.session.user };
+        }
+      } catch (sessionCheckError) {
+        console.error("Error checking current session:", sessionCheckError);
+      }
+
+      // Step 9: Return failure if all above steps fail
+      console.log("All authentication steps failed, returning success=false");
+      return { success: false };
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      Alert.alert('Authentication Error', 'Failed to sign in with Google');
+      return { success: false, error };
+    }
+  };
 
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
@@ -409,102 +554,91 @@ const googleSignIn = async () => {
     }
   };
 
-const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
-  try {
-    if (isGuest) {
-      await clearGuestMode();
-    }
-
-    // First, check if email already exists by attempting a passwordless sign-in
-    // This is a safe way to check email existence without security implications
-    const { error: emailCheckError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: false,  // Don't create a new user, just check if email exists
+  const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
+    try {
+      if (isGuest) {
+        await clearGuestMode();
       }
-    });
 
-    // If there's no error with error code 'user-not-found', then the user exists
-    if (!emailCheckError || (emailCheckError && emailCheckError.message !== 'User not found')) {
-      return {
-        error: new Error('An account with this email already exists. Please sign in instead.'),
-        needsEmailVerification: false
-      };
-    }
+      // First, check if email already exists by attempting a passwordless sign-in
+      // This is a safe way to check email existence without security implications
+      const { error: emailCheckError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,  // Don't create a new user, just check if email exists
+        }
+      });
 
-    // Proceed with signup if email doesn't exist
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name,
-          role: role,
-        },
-        emailRedirectTo: redirectUri,
-      },
-    });
-
-    if (error) {
-      // Handle specific error cases with clear messages
-      if (error.message?.includes('already registered')) {
+      // If there's no error with error code 'user-not-found', then the user exists
+      if (!emailCheckError || (emailCheckError && emailCheckError.message !== 'User not found')) {
         return {
           error: new Error('An account with this email already exists. Please sign in instead.'),
           needsEmailVerification: false
         };
       }
-      throw error;
-    }
 
-    // Create user in users table with the same ID
-    if (data.user) {
-      const { error: upsertError } = await supabase.from('users').upsert([{
-        id: data.user.id,
-        name: name,
-        email: email,
-        favorite: [],
-        last_active: new Date().toISOString(),
-        timezone: 'UTC',
-        role: role,
-      }], {
-        onConflict: 'id',
-        ignoreDuplicates: false
+      // Proceed with signup if email doesn't exist
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+            role: role,
+          },
+          emailRedirectTo: redirectUri,
+        },
       });
 
-      if (upsertError && upsertError.code !== '23505') {
-        console.error('Error creating user profile:', upsertError);
+      if (error) {
+        // Handle specific error cases with clear messages
+        if (error.message?.includes('already registered')) {
+          return {
+            error: new Error('An account with this email already exists. Please sign in instead.'),
+            needsEmailVerification: false
+          };
+        }
+        throw error;
       }
-    }
 
-    // Determine if email verification is needed
-    const needsEmailVerification = data.session === null;
+      // Create user in users table with the same ID
+      if (data.user) {
+        const { error: upsertError } = await supabase.from('users').upsert([{
+          id: data.user.id,
+          name: name,
+          email: email,
+          favorite: [],
+          last_active: new Date().toISOString(),
+          timezone: 'UTC',
+          role: role,
+        }], {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
 
-    return { error: null, needsEmailVerification };
-  } catch (error: any) {
-    console.error('Sign up error:', error);
+        if (upsertError && upsertError.code !== '23505') {
+          console.error('Error creating user profile:', upsertError);
+        }
+      }
 
-    // Improve error messaging for specific cases
-    if (error.message?.includes('already registered') ||
-        error.message?.includes('already in use') ||
-        error.message?.includes('already exists')) {
-      return {
-        error: new Error('An account with this email already exists. Please sign in instead.'),
-        needsEmailVerification: false
-      };
-    }
+      // Determine if email verification is needed
+      const needsEmailVerification = data.session === null;
 
-    return { error, needsEmailVerification: false };
-  }
-};
+      return { error: null, needsEmailVerification };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
 
-  const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-    } catch (error) {
-      console.error('Sign out error:', error);
+      // Improve error messaging for specific cases
+      if (error.message?.includes('already registered') ||
+          error.message?.includes('already in use') ||
+          error.message?.includes('already exists')) {
+        return {
+          error: new Error('An account with this email already exists. Please sign in instead.'),
+          needsEmailVerification: false
+        };
+      }
+
+      return { error, needsEmailVerification: false };
     }
   };
 
@@ -560,7 +694,6 @@ const signUp = async ({ email, password, name, role = 'user' }: SignUpCredential
       return { error };
     }
   };
-
 
   const refreshSession = async () => {
     try {
@@ -663,6 +796,7 @@ const signUp = async ({ email, password, name, role = 'user' }: SignUpCredential
         profile,
         isLoaded,
         isSignedIn: !!user,
+        isSigningOut: isSigningOutState,
         signIn,
         signUp,
         signOut,

@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import { AppState, Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { isSigningOut } from '../app/(home)/_layout';
+import * as SecureStore from 'expo-secure-store';
 
 // Set up notification handler - CRITICAL: MUST BE CALLED OUTSIDE OF ANY COMPONENT
 Notifications.setNotificationHandler({
@@ -392,4 +393,79 @@ static async updatePushToken(token: string, userId: string) {
       return 0;
     }
   }
+
+  static async cleanupPushToken(userId?: string) {
+  console.log('Starting robust push token cleanup');
+
+  try {
+    // Get token from secure storage
+    const token = await SecureStore.getItemAsync('expoPushToken');
+
+    if (!token) {
+      console.log('No push token found in storage, nothing to clean up');
+      return true;
+    }
+
+    console.log('Found push token to clean up:', token);
+
+    // Delete from Supabase with retry logic
+    let success = false;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (!success && retryCount < maxRetries) {
+      try {
+        let query = supabase.from('user_push_tokens').delete();
+
+        // If userId is provided, use it to narrow the deletion
+        if (userId) {
+          query = query.eq('user_id', userId);
+        }
+
+        // Always filter by token to ensure we're deleting the correct record
+        const { error } = await query.eq('token', token);
+
+        if (error) {
+          retryCount++;
+          console.error(`Token deletion attempt ${retryCount} failed:`, error);
+
+          if (retryCount < maxRetries) {
+            // Exponential backoff with jitter
+            const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        } else {
+          success = true;
+          console.log('Successfully removed push token from database');
+        }
+      } catch (error) {
+        retryCount++;
+        console.error(`Exception during token deletion attempt ${retryCount}:`, error);
+
+        if (retryCount < maxRetries) {
+          // Exponential backoff with jitter
+          const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // Regardless of database success, clean up local storage
+    await SecureStore.deleteItemAsync('expoPushToken');
+    console.log('Removed push token from secure storage');
+
+    return true;
+  } catch (error) {
+    console.error('Push token cleanup failed:', error);
+
+    // Attempt to clean local storage even if the rest failed
+    try {
+      await SecureStore.deleteItemAsync('expoPushToken');
+    } catch (storageError) {
+      console.error('Failed to clean token from storage:', storageError);
+    }
+
+    return false;
+  }
+}
 }

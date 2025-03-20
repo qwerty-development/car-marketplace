@@ -29,6 +29,8 @@ import openWhatsApp from "@/utils/openWhatsapp";
 import { useGuestUser } from '@/utils/GuestUserContext';
 import { BlurView } from "expo-blur";
 import Constants from 'expo-constants';
+import { SignOutOverlay } from '@/components/SignOutOverlay';
+import { coordinateSignOut } from '@/app/(home)/_layout';
 
 const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
@@ -39,13 +41,13 @@ const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
-  const { user, profile, signOut, updateUserProfile, updatePassword } = useAuth();
+  const { user, profile, signOut, updateUserProfile, updatePassword} = useAuth();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
-
+const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   // State Management
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -241,26 +243,64 @@ export default function UserProfileAndSupportPage() {
     }
   };
 
-  const handleSignOut = async (): Promise<void> => {
-    try {
-      setIsSigningOut(true);
+const handleSignOut = async (): Promise<void> => {
+  // Confirm with user before signing out
+  Alert.alert(
+    "Sign Out",
+    "Are you sure you want to sign out?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel"
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // Show overlay during sign out
+            setShowSignOutOverlay(true);
 
-      if (isGuest) {
-        // Handle guest user sign out
-        await clearGuestMode();
-        router.replace('/(auth)/sign-in');
-      } else {
-        // Handle regular user sign out
-        await cleanupPushToken();
-        await signOut();
+            if (isGuest) {
+              // Handle guest user sign out with coordination
+              await coordinateSignOut(router, async () => {
+                // Clean up guest mode
+                await clearGuestMode();
+              });
+            } else {
+              // Handle regular user sign out with coordination
+              await coordinateSignOut(router, async () => {
+                // First clean up push token
+                try {
+                  await cleanupPushToken();
+                } catch (tokenError) {
+                  console.error("Token cleanup error:", tokenError);
+                  // Continue with sign out even if token cleanup fails
+                }
+
+                // Then perform the actual sign out
+                await signOut();
+              });
+            }
+          } catch (error) {
+            console.error("Error during sign out:", error);
+
+            // Force navigation to sign-in on failure
+            router.replace('/(auth)/sign-in');
+
+            Alert.alert(
+              "Sign Out Issue",
+              "There was a problem signing out, but we've redirected you to the sign-in screen."
+            );
+          } finally {
+            // Hide overlay
+            setShowSignOutOverlay(false);
+          }
+        }
       }
-    } catch (error) {
-      console.error("Error during sign out:", error);
-      Alert.alert("Error", "Failed to sign out properly");
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
+    ]
+  );
+};
 
   // Handler for when guest user wants to sign in
   const handleSignIn = async (): Promise<void> => {
@@ -963,20 +1003,25 @@ export default function UserProfileAndSupportPage() {
 <Text className="text-center" style={{ fontSize: 12,  color: isDarkMode ? "#fff" : "#333" }}>
   Version {Constants.expoConfig?.version }
 </Text>
-
-
-
-        
-
         {/* Sign Out Button */}
-        {!isGuest&&<TouchableOpacity className="mt-2 p-5 mb-12" onPress={handleSignOut}>
-          <Text
-            className={`text-center text-red font-semibold border border-red p-4 rounded-2xl`}
-          >
-            Sign Out
-          </Text>
-        </TouchableOpacity>}
+        {!isGuest && (
+  <TouchableOpacity
+    className="mt-2 p-5 mb-12"
+    onPress={handleSignOut}
+    disabled={showSignOutOverlay} // Disable during sign-out
+  >
+    <Text
+      className={`text-center text-red font-semibold border border-red p-4 rounded-2xl ${
+        showSignOutOverlay ? 'opacity-50' : 'opacity-100'
+      }`}
+    >
+      {showSignOutOverlay ? 'Signing Out...' : 'Sign Out'}
+    </Text>
+  </TouchableOpacity>
+)}
+
       </ScrollView>
+<SignOutOverlay visible={showSignOutOverlay} />
     </View>
   );
 }
