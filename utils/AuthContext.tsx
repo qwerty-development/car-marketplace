@@ -747,93 +747,107 @@ const googleSignIn = async () => {
     }
   };
 
-  const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
-    try {
-      if (isGuest) {
-        await clearGuestMode();
-      }
-
-      // First, check if email already exists by attempting a passwordless sign-in
-      // This is a safe way to check email existence without security implications
-      const { error: emailCheckError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,  // Don't create a new user, just check if email exists
-        }
-      });
-
-      // If there's no error with error code 'user-not-found', then the user exists
-      if (!emailCheckError || (emailCheckError && emailCheckError.message !== 'User not found')) {
-        return {
-          error: new Error('An account with this email already exists. Please sign in instead.'),
-          needsEmailVerification: false
-        };
-      }
-
-      // Proceed with signup if email doesn't exist
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: name,
-            role: role,
-          },
-          emailRedirectTo: redirectUri,
-        },
-      });
-
-      if (error) {
-        // Handle specific error cases with clear messages
-        if (error.message?.includes('already registered')) {
-          return {
-            error: new Error('An account with this email already exists. Please sign in instead.'),
-            needsEmailVerification: false
-          };
-        }
-        throw error;
-      }
-
-      // Create user in users table with the same ID
-      if (data.user) {
-        const { error: upsertError } = await supabase.from('users').upsert([{
-          id: data.user.id,
-          name: name,
-          email: email,
-          favorite: [],
-          last_active: new Date().toISOString(),
-          timezone: 'UTC',
-          role: role,
-        }], {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
-
-        if (upsertError && upsertError.code !== '23505') {
-          console.error('Error creating user profile:', upsertError);
-        }
-      }
-
-      // Determine if email verification is needed
-      const needsEmailVerification = data.session === null;
-
-      return { error: null, needsEmailVerification };
-    } catch (error: any) {
-      console.error('Sign up error:', error);
-
-      // Improve error messaging for specific cases
-      if (error.message?.includes('already registered') ||
-          error.message?.includes('already in use') ||
-          error.message?.includes('already exists')) {
-        return {
-          error: new Error('An account with this email already exists. Please sign in instead.'),
-          needsEmailVerification: false
-        };
-      }
-
-      return { error, needsEmailVerification: false };
+// If the admin API approach doesn't work, use this simplified approach for the signUp function
+const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
+  try {
+    if (isGuest) {
+      await clearGuestMode();
     }
-  };
+
+    // 1. First check if email exists in users table
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingUser) {
+      return {
+        error: new Error('An account with this email already exists. Please sign in instead.'),
+        needsEmailVerification: false
+      };
+    }
+
+    // 2. Proceed with signup attempt
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name,
+          role: role,
+        },
+        emailRedirectTo: redirectUri,
+
+      },
+    });
+
+    if (error) {
+      // 3. Detect linked account errors
+      if (error.message.includes("Unable to validate email address") ||
+          (error.message.includes("already exists") && !error.message.includes("already registered"))) {
+        return {
+          error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
+          needsEmailVerification: false
+        };
+      }
+
+      // Regular duplicate email errors
+      if (error.message.includes('already registered') ||
+          error.message.includes('already in use') ||
+          error.message.includes('already exists')) {
+        return {
+          error: new Error('An account with this email already exists. Please sign in instead.'),
+          needsEmailVerification: false
+        };
+      }
+
+      throw error;
+    }
+
+    // 4. Create user in users table
+    if (data.user) {
+      const { error: upsertError } = await supabase.from('users').upsert([{
+        id: data.user.id,
+        name: name,
+        email: email,
+        favorite: [],
+        last_active: new Date().toISOString(),
+        timezone: 'UTC',
+        role: role,
+      }], {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      });
+
+      if (upsertError && upsertError.code !== '23505') {
+        console.error('Error creating user profile:', upsertError);
+      }
+    }
+
+    const needsEmailVerification = data.session === null;
+    return { error: null, needsEmailVerification, email: email };
+  } catch (error: any) {
+    console.error('Sign up error:', error);
+
+    // Improve error messaging for specific cases
+    if (error.message.includes("Unable to validate email address")) {
+      return {
+        error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
+        needsEmailVerification: false
+      };
+    } else if (error.message.includes('already registered') ||
+        error.message.includes('already in use') ||
+        error.message.includes('already exists')) {
+      return {
+        error: new Error('An account with this email already exists. Please sign in instead.'),
+        needsEmailVerification: false
+      };
+    }
+
+    return { error, needsEmailVerification: false };
+  }
+};
 
   const resetPassword = async (email: string) => {
     try {
@@ -872,21 +886,21 @@ const googleSignIn = async () => {
     }
   };
 
-  const verifyOtp = async (email: string, token: string) => {
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'signup',
-      });
+const verifyOtp = async (email: string, token: string) => {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'signup',
+    });
 
-      if (error) throw error;
-      return { error: null };
-    } catch (error: any) {
-      console.error('OTP verification error:', error);
-      return { error };
-    }
-  };
+    if (error) throw error;
+    return { error: null, data };
+  } catch (error: any) {
+    console.error('OTP verification error:', error);
+    return { error };
+  }
+};
 
   const refreshSession = async () => {
     try {

@@ -101,7 +101,7 @@ const SignUpWithOAuth = () => {
     google: boolean;
     apple: boolean;
   }>({ google: false, apple: false });
-  const { googleSignIn } = useAuth();
+  const { googleSignIn, appleSignIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -122,67 +122,45 @@ const SignUpWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
-const handleGoogleAuth = async () => {
-  try {
-    setIsLoading(prev => ({ ...prev, google: true }));
+  const handleGoogleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, google: true }));
 
-    // Step 1: Call googleSignIn and capture the result
-    const result = await googleSignIn();
-    console.log("Google sign-in result:", JSON.stringify(result));
+      // Step 1: Call googleSignIn and capture the result
+      const result = await googleSignIn();
+      console.log("Google sign-in result:", JSON.stringify(result));
 
-    // Step 2: Evaluate success and navigate accordingly
-    if (result && result.success === true) {
-      console.log("Google authentication successful, navigating to home");
-      router.replace("/(home)");
-    } else {
-      console.log("Google authentication unsuccessful:",
-                 result ? `Result received but success=${result.success}` : "No result returned");
-
-      // Step 3: Fallback session check
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session?.user) {
-        console.log("Session found despite unsuccessful result, navigating to home");
+      // Step 2: Evaluate success and navigate accordingly
+      if (result && result.success === true) {
+        console.log("Google authentication successful, navigating to home");
         router.replace("/(home)");
+      } else {
+        console.log("Google authentication unsuccessful:",
+                   result ? `Result received but success=${result.success}` : "No result returned");
+
+        // Step 3: Fallback session check
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          console.log("Session found despite unsuccessful result, navigating to home");
+          router.replace("/(home)");
+        }
       }
+    } catch (err) {
+      console.error("Google OAuth error:", err);
+      Alert.alert(
+        "Authentication Error",
+        "Failed to authenticate with Google"
+      );
+    } finally {
+      setIsLoading(prev => ({ ...prev, google: false }));
     }
-  } catch (err) {
-    console.error("Google OAuth error:", err);
-    Alert.alert(
-      "Authentication Error",
-      "Failed to authenticate with Google"
-    );
-  } finally {
-    setIsLoading(prev => ({ ...prev, google: false }));
-  }
-};
+  };
 
   const handleAppleAuth = async () => {
     try {
       setIsLoading(prev => ({ ...prev, apple: true }));
-
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-
-      // Sign in via Supabase Auth
-      if (credential.identityToken) {
-        const { error, data } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: credential.identityToken,
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        // If successful, navigate to home
-        router.replace('/(home)');
-      } else {
-        throw new Error('No identity token received from Apple');
-      }
+      await appleSignIn();
+      router.replace('/(home)');
     } catch (err: any) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
         // User canceled the sign-in flow, no need to show an error
@@ -288,7 +266,7 @@ const handleGoogleAuth = async () => {
 };
 
 export default function SignUpScreen() {
-  const { signUp, isLoaded } = useAuth();
+  const { signUp, verifyOtp, isLoaded } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -297,6 +275,7 @@ export default function SignUpScreen() {
   const [emailAddress, setEmailAddress] = useState('');
   const [password, setPassword] = useState('');
   const [pendingVerification, setPendingVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
   const [code, setCode] = useState('');
   const [errors, setErrors] = useState({
     name: '',
@@ -345,59 +324,60 @@ export default function SignUpScreen() {
     return isValid;
   };
 
-const onSignUpPress = async () => {
-  if (!isLoaded) return;
-  if (!validateInputs()) return;
+  const onSignUpPress = async () => {
+    if (!isLoaded) return;
+    if (!validateInputs()) return;
 
-  setIsLoading(true);
-  try {
-    const { error, needsEmailVerification } = await signUp({
-      email: emailAddress,
-      password,
-      name,
-    });
+    setIsLoading(true);
+    try {
+      const { error, needsEmailVerification, email } = await signUp({
+        email: emailAddress,
+        password,
+        name,
+      });
 
-    if (error) {
-      // Check for specific email-exists errors and display them in the email field
-      if (error.message.includes('already exists') ||
-          error.message.includes('already registered') ||
-          error.message.includes('already in use')) {
-        setErrors(prev => ({
-          ...prev,
-          email: error.message || 'This email is already registered. Please try signing in.',
-          general: '', // Clear general error since we're showing it in the email field
-        }));
-      } else {
-        // Other errors go to the general error field
-        setErrors(prev => ({
-          ...prev,
-          general: error.message || 'Sign up failed. Please try again.',
-        }));
+      if (error) {
+        // Check for specific email-exists errors and display them in the email field
+        if (error.message.includes('already exists') ||
+            error.message.includes('already registered') ||
+            error.message.includes('already in use')) {
+          setErrors(prev => ({
+            ...prev,
+            email: error.message || 'This email is already registered. Please try signing in.',
+            general: '', // Clear general error since we're showing it in the email field
+          }));
+        } else {
+          // Other errors go to the general error field
+          setErrors(prev => ({
+            ...prev,
+            general: error.message || 'Sign up failed. Please try again.',
+          }));
+        }
+        return; // Exit early - don't proceed with the rest of the function
       }
-      return; // Exit early - don't proceed with the rest of the function
-    }
 
-    if (needsEmailVerification) {
-      setPendingVerification(true);
-      Alert.alert(
-        'Verification Email Sent',
-        'Please check your email for a verification link to complete your registration.',
-        [{ text: 'OK' }]
-      );
-    } else {
-      // If email verification not required, registration is complete
-      router.replace('/(home)');
+      if (needsEmailVerification) {
+        setVerificationEmail(email || emailAddress);
+        setPendingVerification(true);
+        Alert.alert(
+          'Verification Code Sent',
+          'Please check your email for a verification code to complete your registration.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // If email verification not required, registration is complete
+        router.replace('/(home)');
+      }
+    } catch (error: any) {
+      console.error(JSON.stringify(error, null, 2));
+      setErrors(prev => ({
+        ...prev,
+        general: error.message || 'Sign up failed. Please try again.',
+      }));
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    console.error(JSON.stringify(error, null, 2));
-    setErrors(prev => ({
-      ...prev,
-      general: error.message || 'Sign up failed. Please try again.',
-    }));
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const onPressVerify = async () => {
     if (!isLoaded) return;
@@ -408,13 +388,11 @@ const onSignUpPress = async () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: emailAddress,
-        token: code,
-        type: 'signup',
-      });
+      const { error, data } = await verifyOtp(verificationEmail, code);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       Alert.alert(
         'Success',
@@ -439,7 +417,6 @@ const onSignUpPress = async () => {
 
   return (
     <View
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{
         flex: 1,
         backgroundColor: isDark ? '#000' : '#fff',
@@ -630,6 +607,15 @@ const onSignUpPress = async () => {
             </>
           ) : (
             <View style={{ gap: 16 }}>
+              <Text style={{
+                color: isDark ? '#E5E7EB' : '#4B5563',
+                textAlign: 'center',
+                marginBottom: 8
+              }}>
+                We've sent a verification code to {verificationEmail}.
+                Please enter it below to complete your registration.
+              </Text>
+
               <View>
                 <TextInput
                   style={{
@@ -640,12 +626,15 @@ const onSignUpPress = async () => {
                     borderRadius: 12,
                     borderWidth: 1,
                     borderColor: isDark ? '#374151' : '#E5E7EB',
+                    fontSize: 16,
+                    letterSpacing: 1
                   }}
                   value={code}
                   placeholder="Verification Code"
                   placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  onChangeText={setCode}
+                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, ''))}
                   keyboardType="number-pad"
+                  maxLength={6}
                   editable={!isLoading}
                 />
                 {errors.code && (
@@ -679,6 +668,15 @@ const onSignUpPress = async () => {
                     Verify Email
                   </Text>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setPendingVerification(false)}
+                style={{ alignSelf: 'center', marginTop: 8 }}
+              >
+                <Text style={{ color: '#D55004', fontWeight: '500' }}>
+                  Go Back
+                </Text>
               </TouchableOpacity>
             </View>
           )}
