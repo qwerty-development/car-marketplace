@@ -438,290 +438,97 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-const googleSignIn = async () => {
-  // Guard against multiple simultaneous sign-in attempts
-  if (isSigningOutState) {
-    console.warn('Sign-out in progress, cannot initiate sign-in');
-    return { success: false, error: new Error('Sign-out in progress') };
-  }
+  const googleSignIn = async () => {
+    try {
+      if (isGuest) {
+        await clearGuestMode();
+      }
 
-  // State management for the UI
-  const [isInProgress, setIsInProgress] = useState(false);
-  let authCancelled = false;
-  let authTimeoutId: NodeJS.Timeout | null = null;
+      // Step 1: Initiate OAuth flow
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
 
-  try {
-    // Set in-progress state for UI feedback
-    setIsInProgress(true);
+      if (error) throw error;
 
-    // Clear guest mode if applicable
-    if (isGuest) {
-      await clearGuestMode();
-    }
+      if (data?.url) {
+        console.log("Opening auth session with URL:", data.url);
 
-    // Configure timeout to prevent hanging operations
-    const authTimeout = new Promise<{ success: false, error: Error }>((_, reject) => {
-      authTimeoutId = setTimeout(() => {
-        if (!authCancelled) {
-          authCancelled = true;
-          reject({
-            success: false,
-            error: new Error('Google sign-in timed out')
-          });
-        }
-      }, 60000); // 60-second timeout
-    });
+        // Step 2: Open browser for authentication
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+        console.log("WebBrowser result:", JSON.stringify(result));
 
-    // Step 1: Initiate OAuth flow with retry logic
-    let oauthData = null;
-    let oauthError = null;
-    let retryCount = 0;
-    const maxRetries = 3;
+        if (result.type === 'success') {
+          // Step 3: Critical - force setSession with manually extracted token
+          try {
+            // Extract access token from URL hash fragment
+            const url = new URL(result.url);
+            const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove the # character
+            const accessToken = hashParams.get('access_token');
 
-    while (retryCount < maxRetries && !oauthData && !authCancelled) {
-      try {
-        console.log(`Initiating OAuth flow (attempt ${retryCount + 1}/${maxRetries})`);
+            console.log("Extracted access token:", accessToken ? "Found" : "Not found");
 
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: redirectUri,
-            skipBrowserRedirect: true,
-            queryParams: {
-              // Force re-consent to avoid cached credentials issues
-              prompt: retryCount > 0 ? 'consent' : 'select_account',
-              // Add timestamp to prevent caching issues
-              t: Date.now().toString()
-            },
-          },
-        });
+            if (accessToken) {
+              // Step 4: Use setSession directly with the extracted token
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: hashParams.get('refresh_token') || '',
+              });
 
-        if (error) {
-          console.error(`OAuth flow error (attempt ${retryCount + 1}):`, error);
-          oauthError = error;
-          retryCount++;
+              console.log("Manual setSession result:",
+                          sessionData ? "Session set successfully" : "Failed to set session",
+                          sessionError ? `Error: ${sessionError.message}` : "No error");
 
-          // Exponential backoff
-          if (retryCount < maxRetries) {
-            const delay = Math.min(1000 * Math.pow(2, retryCount) + Math.random() * 1000, 10000);
-            await new Promise(resolve => setTimeout(resolve, delay));
+              if (sessionError) throw sessionError;
+
+              if (sessionData.session) {
+                // Step 5: Update application state
+                setSession(sessionData.session);
+                setUser(sessionData.session.user);
+
+                // Step 6: Process user profile
+                const userProfile = await processOAuthUser(sessionData.session);
+                if (userProfile) {
+                  setProfile(userProfile);
+                }
+
+                // Step 7: Return explicit success with user data
+                console.log("Authentication successful, returning success=true");
+                return { success: true, user: sessionData.session.user };
+              }
+            }
+          } catch (extractError) {
+            console.error("Error processing authentication result:", extractError);
           }
-        } else {
-          oauthData = data;
-        }
-      } catch (e) {
-        console.error(`Exception in OAuth flow (attempt ${retryCount + 1}):`, e);
-        oauthError = e;
-        retryCount++;
-
-        // Exponential backoff
-        if (retryCount < maxRetries && !authCancelled) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount) + Math.random() * 1000, 10000);
-          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
-    }
 
-    // If all retries failed, throw the last error
-    if (!oauthData) {
-      throw oauthError || new Error('Failed to initiate Google sign-in after multiple attempts');
-    }
-
-    if (!oauthData.url) {
-      throw new Error('No authorization URL returned from Supabase');
-    }
-
-    console.log("Opening auth session with URL:", oauthData.url);
-
-    // Step 2: Open browser for authentication (with timeout protection)
-    const browserPromise = WebBrowser.openAuthSessionAsync(
-      oauthData.url,
-      redirectUri,
-      {
-        showInRecents: true,
-        // Force ephemeral session on iOS to prevent cookie-related issues
-
-      }
-    );
-
-    // Use Promise.race to handle timeout
-    const result = await Promise.race([
-      browserPromise,
-      authTimeout
-    ]) as WebBrowser.WebBrowserAuthSessionResult;
-
-    // Clear timeout if browser responded
-    if (authTimeoutId) {
-      clearTimeout(authTimeoutId);
-      authTimeoutId = null;
-    }
-
-    console.log("WebBrowser result type:", result.type);
-
-    // Handle user cancellation explicitly
-    if (result.type === 'cancel' || result.type === 'dismiss') {
-      console.log("User cancelled sign-in process");
-      return { success: false, cancelled: true };
-    }
-
-    if (result.type !== 'success' || !result.url) {
-      throw new Error(`Browser auth failed: ${result.type}`);
-    }
-
-    // Step 3: Multi-approach token handling - try several methods to extract and validate token
-    let sessionData = null;
-    let sessionError = null;
-
-    // Method 1: Extract from URL hash or query params
-    try {
-      console.log("Attempting token extraction from URL");
-      const url = new URL(result.url);
-
-      // Check for tokens in hash fragment (most common)
-      let accessToken = null;
-      let refreshToken = null;
-
-      if (url.hash) {
-        const hashParams = new URLSearchParams(url.hash.substring(1));
-        accessToken = hashParams.get('access_token');
-        refreshToken = hashParams.get('refresh_token');
-      }
-
-      // Fallback: Check for tokens in query parameters
-      if (!accessToken && url.searchParams.has('access_token')) {
-        accessToken = url.searchParams.get('access_token');
-        refreshToken = url.searchParams.get('refresh_token');
-      }
-
-      console.log("Extracted tokens:", accessToken ? "Access token found" : "No access token",
-                                       refreshToken ? "/ Refresh token found" : "/ No refresh token");
-
-      if (accessToken) {
-        // Method 1: Use setSession with extracted tokens
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
-        });
-
-        if (error) {
-          console.error("Manual setSession error:", error);
-          throw error;
-        }
-
-        if (data?.session) {
-          sessionData = data;
-          console.log("Successfully set session using extracted tokens");
-        } else {
-          console.error("setSession succeeded but no session data returned");
-        }
-      }
-    } catch (extractError) {
-      console.error("Error processing authentication result:", extractError);
-      sessionError = extractError;
-    }
-
-    // Method 2: If token extraction failed, try getting session directly
-    if (!sessionData) {
+      // Step 8: Fall back to checking current session as safety mechanism
       try {
-        console.log("Token extraction failed, attempting to get current session");
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("Error getting current session:", error);
-          throw error;
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (currentSession?.session?.user) {
+          console.log("Session exists despite flow issues, returning success=true");
+          setSession(currentSession.session);
+          setUser(currentSession.session.user);
+          return { success: true, user: currentSession.session.user };
         }
-
-        if (data?.session) {
-          sessionData = data;
-          console.log("Successfully retrieved session directly");
-        } else {
-          console.warn("getSession succeeded but returned no session");
-        }
-      } catch (getSessionError) {
-        console.error("Error getting current session:", getSessionError);
-        sessionError = sessionError || getSessionError;
-      }
-    }
-
-    // Method 3: If all else failed, try exchange code flow if present
-    if (!sessionData && result.url.includes('code=')) {
-      try {
-        console.log("Attempting to exchange authorization code");
-        // This approach is more complex and depends on your Supabase configuration
-        // Implement as needed based on your specific setup
-      } catch (codeExchangeError) {
-        console.error("Error exchanging authorization code:", codeExchangeError);
-        sessionError = sessionError || codeExchangeError;
-      }
-    }
-
-    // If we have session data, update application state
-    if (sessionData?.session) {
-      // Step 5: Update application state
-      setSession(sessionData.session);
-      setUser(sessionData.session.user);
-
-      // Step 6: Process user profile
-      console.log("Processing user profile");
-      const userProfile = await processOAuthUser(sessionData.session);
-      if (userProfile) {
-        setProfile(userProfile);
-        console.log("User profile processed successfully");
-      } else {
-        console.warn("Failed to process user profile");
+      } catch (sessionCheckError) {
+        console.error("Error checking current session:", sessionCheckError);
       }
 
-      console.log("Authentication successful");
-      return { success: true, user: sessionData.session.user };
+      // Step 9: Return failure if all above steps fail
+      console.log("All authentication steps failed, returning success=false");
+      return { success: false };
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      Alert.alert('Authentication Error', 'Failed to sign in with Google');
+      return { success: false, error };
     }
-
-    // If we got here with no session data, try one final fallback
-    console.log("Final fallback: checking session after short delay");
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Small delay to allow auth to complete
-
-    const { data: finalSessionCheck } = await supabase.auth.getSession();
-    if (finalSessionCheck?.session) {
-      setSession(finalSessionCheck.session);
-      setUser(finalSessionCheck.session.user);
-
-      const userProfile = await processOAuthUser(finalSessionCheck.session);
-      if (userProfile) {
-        setProfile(userProfile);
-      }
-
-      return { success: true, user: finalSessionCheck.session.user };
-    }
-
-    // If we still have no session, authentication failed
-    throw sessionError || new Error("Failed to authenticate after multiple approaches");
-
-  } catch (error) {
-    console.error('Google sign in error:', error);
-
-    // Clear any timeout if still active
-    if (authTimeoutId) {
-      clearTimeout(authTimeoutId);
-    }
-
-    // Clean up any partial authentication state
-    try {
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (cleanupError) {
-      console.error("Error cleaning up after failed sign-in:", cleanupError);
-    }
-
-    // Provide user feedback
-    Alert.alert(
-      'Authentication Error',
-      'Could not sign in with Google. Please try again later.'
-    );
-
-    return { success: false, error };
-  } finally {
-    // Always reset progress state
-    setIsInProgress(false);
-  }
-};
+  };
 
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
