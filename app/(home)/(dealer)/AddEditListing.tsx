@@ -264,7 +264,7 @@ const FeatureSelector = memo(
             <Animated.View
               entering={SlideInDown}
               exiting={SlideOutDown}
-              className={`h-[70%] rounded-t-3xl ${
+              className={`h-[85%] rounded-t-3xl ${
                 isDarkMode ? 'bg-black' : 'bg-white'
               }`}
             >

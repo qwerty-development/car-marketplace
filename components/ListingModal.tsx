@@ -344,7 +344,7 @@ export const BrandSelector = memo(
 						<Animated.View
 							entering={SlideInDown}
 							exiting={SlideOutDown}
-							className={`h-[60%] rounded-t-3xl ${
+							className={`h-[85%] rounded-t-3xl ${
 								isDarkMode ? 'bg-black' : 'bg-white'
 							}`}>
 							<View className='p-4'>
