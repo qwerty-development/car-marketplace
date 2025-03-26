@@ -18,6 +18,7 @@ import SuvPng from '@/assets/types/suv.png'
 import HatchbackPng from '@/assets/types/hatchback.png'
 import ConvertiblePng from '@/assets/types/convertible.png'
 import CoupePng from '@/assets/types/coupe.png'
+import classicPng from '@/assets/types/classic.png'
 
 
 const { width } = Dimensions.get('window')
@@ -31,6 +32,7 @@ const categories = [
 	{ name: 'Hatchback', image: HatchbackPng },
 	{ name: 'Coupe', image: CoupePng },
 	{ name: 'Convertible', image: ConvertiblePng },
+	{ name: 'Classic', image: classicPng },
 
 ]
 
