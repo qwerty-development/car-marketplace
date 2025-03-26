@@ -238,29 +238,70 @@ const EmptyState = ({ isDarkMode }) => (
   </View>
 )
 
-const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode }) => (
-  <View className='left-0 fixed right-0 flex-row justify-center items-center space-x-3'>
-    <TouchableOpacity
-      onPress={() => onPageChange(currentPage - 1)}
-      disabled={currentPage === 1}
-      className={`p-2 rounded-full bg-zinc-800/80 ${currentPage === 1 ? 'opacity-30' : ''}`}>
-      <Ionicons name="chevron-back" size={20} color={isDarkMode ? '#fff' : '#000'} />
-    </TouchableOpacity>
+const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode }) => {
+  // Define explicit styles to ensure visibility and proper positioning
+  const styles = StyleSheet.create({
+    container: {
+      position: 'absolute',
+      bottom: 70,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 8,
+      zIndex: 999, // Ensure highest z-index to prevent being hidden
+    },
+    button: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(39, 39, 42, 0.8)', // zinc-800 with opacity
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginHorizontal: 4,
+    },
+    disabledButton: {
+      opacity: 0.3,
+    },
+    paginationInfo: {
+      backgroundColor: 'rgba(39, 39, 42, 0.8)', // zinc-800 with opacity
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginHorizontal: 4,
+    },
+    paginationText: {
+      color: 'white',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+  });
 
-    <View className='bg-zinc-800/80 px-4 py-2 rounded-full'>
-      <Text className='text-white font-medium'>
-        {currentPage} / {totalPages}
-      </Text>
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={[styles.button, currentPage === 1 && styles.disabledButton]}
+        onPress={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}>
+        <Ionicons name="chevron-back" size={20} color="white" />
+      </TouchableOpacity>
+
+      <View style={styles.paginationInfo}>
+        <Text style={styles.paginationText}>
+          {currentPage} / {totalPages || 1}
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.button, currentPage === totalPages && styles.disabledButton]}
+        onPress={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}>
+        <Ionicons name="chevron-forward" size={20} color="white" />
+      </TouchableOpacity>
     </View>
-
-    <TouchableOpacity
-      onPress={() => onPageChange(currentPage + 1)}
-      disabled={currentPage === totalPages}
-      className={`p-2 rounded-full bg-zinc-800/80 ${currentPage === totalPages ? 'opacity-30' : ''}`}>
-      <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#000'} />
-    </TouchableOpacity>
-  </View>
-)
+  );
+};
 
 
 
@@ -442,12 +483,12 @@ const FloatingAddButton = () => {
   }
 
 return (
-  <LinearGradient
+ <LinearGradient
     colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
     style={{ flex: 1 }}>
 
     {/* Header with guaranteed z-index */}
-    <View style={{ zIndex: 10 }}>
+ <View style={{ zIndex: 10 }}>
       <CustomHeader title='AutoClips' dealership={dealershipData} />
     </View>
 
@@ -479,23 +520,21 @@ return (
         numColumns={2}
         contentContainerStyle={{
           padding: 8,
-          paddingBottom: Platform.OS === 'ios' ? 100 : 80,
-          paddingTop: 8 // Add padding to ensure content doesn't overlap header
+          paddingBottom: Platform.OS === 'ios' ? 100 : 80, // Ensure content isn't hidden behind pagination
+          paddingTop: 8
         }}
         onRefresh={handleRefresh}
         refreshing={refreshing}
         ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
-        ListFooterComponent={() => (
-          clips.length > 0 && (
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              isDarkMode={isDarkMode}
-            />
-          )
-        )}
       />
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          isDarkMode={isDarkMode}
+        />
+
 
       {/* Modals remain unchanged */}
       <CreateAutoClipModal
@@ -526,5 +565,5 @@ return (
       />
     </View>
   </LinearGradient>
-);
-}
+)
+      }

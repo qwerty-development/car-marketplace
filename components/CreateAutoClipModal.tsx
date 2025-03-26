@@ -317,12 +317,12 @@ const VideoPreview = React.memo(
 const Guidelines = React.memo(({ isDarkMode }) => {
 	const guidelines = [
 		{ icon: 'file-video', text: 'Video must be less than 50MB' },
-		{ icon: 'clock-outline', text: 'Maximum duration: 60 seconds' },
+		{ icon: 'clock-outline', text: 'Maximum duration: 20 seconds' },
 		{ icon: 'file-document', text: 'Supported formats: MP4, MOV' },
 		{ icon: 'text', text: 'Title must be at least 3 characters' },
 		{
 			icon: 'text-box',
-			text: 'Description must be at least 10 characters if provided'
+			text: 'Description must be at least 10 characters'
 		}
 	]
 
