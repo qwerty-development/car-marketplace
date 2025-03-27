@@ -65,7 +65,8 @@ export const CATEGORIES = [
 	{ value: 'Coupe', label: 'Coupe', icon: 'car-sports' },
 	{ value: 'Convertible', label: 'Convertible', icon: 'car-convertible' },
 	{ value: 'Hatchback', label: 'Hatchback', icon: 'car-hatchback' },
-	{ value: 'Sports', label: 'Sports', icon: 'car-sports' }
+	{ value: 'Sports', label: 'Sports', icon: 'car-sports' },
+	{ value: 'Classic', label: 'Classic', icon: 'car-convertible' }
 ]
 
 export const TRANSMISSIONS = [
@@ -344,7 +345,7 @@ export const BrandSelector = memo(
 						<Animated.View
 							entering={SlideInDown}
 							exiting={SlideOutDown}
-							className={`h-[60%] rounded-t-3xl ${
+							className={`h-[85%] rounded-t-3xl ${
 								isDarkMode ? 'bg-black' : 'bg-white'
 							}`}>
 							<View className='p-4'>

@@ -264,7 +264,7 @@ const FeatureSelector = memo(
             <Animated.View
               entering={SlideInDown}
               exiting={SlideOutDown}
-              className={`h-[70%] rounded-t-3xl ${
+              className={`h-[85%] rounded-t-3xl ${
                 isDarkMode ? 'bg-black' : 'bg-white'
               }`}
             >
@@ -1465,6 +1465,47 @@ const SoldModal = () => {
       />
     ))}
   </ScrollView>
+</View>
+{/* Add this after the technical specifications section */}
+<View className="mb-8">
+  <SectionHeader
+    title="Vehicle Description"
+    subtitle="Add details about the vehicle's history and features"
+    isDarkMode={isDarkMode}
+  />
+  
+  <Text
+    className={`text-sm font-medium mb-2 ${
+      isDarkMode ? "text-neutral-300" : "text-neutral-700"
+    }`}
+  >
+    Description
+  </Text>
+  <View
+    className={`rounded-2xl overflow-hidden ${
+      isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
+    }`}
+  >
+    <BlurView
+      intensity={isDarkMode ? 20 : 40}
+      tint={isDarkMode ? "dark" : "light"}
+      className="p-4"
+    >
+      <TextInput
+        multiline
+        numberOfLines={6}
+        textAlignVertical="top"
+        value={formData.description}
+        onChangeText={(text) => handleInputChange("description", text)}
+        placeholder="Enter details about the vehicle, its history, features, etc."
+        placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+        className={`w-full text-base ${
+          isDarkMode ? "text-white" : "text-black"
+        }`}
+        style={{ height: 120 }}
+      />
+    </BlurView>
+  </View>
 </View>
 
         <View className="mb-8">
