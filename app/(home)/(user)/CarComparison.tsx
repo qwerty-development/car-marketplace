@@ -824,15 +824,22 @@ export default function CarComparison() {
                     new Date().getFullYear() - selectedCars[0].year;
                   const car2Age =
                     new Date().getFullYear() - selectedCars[1].year;
+                  const car1Category =
+                    selectedCars[0].category || "Mass-Market";
+                  const car2Category =
+                    selectedCars[1].category || "Mass-Market";
+
                   const car1FutureValue = calculateFutureValue(
                     selectedCars[0].price,
                     car1Age,
-                    5
+                    5,
+                    car1Category
                   );
                   const car2FutureValue = calculateFutureValue(
                     selectedCars[1].price,
                     car2Age,
-                    5
+                    5,
+                    car2Category
                   );
                   const car1LossAmount =
                     selectedCars[0].price - car1FutureValue;
@@ -940,111 +947,119 @@ export default function CarComparison() {
 
                 {/* Calculate costs */}
                 {(() => {
-                  // Get category-specific estimates
-                  const getCategoryEstimate = (car: Car, costType: string) => {
-                    const category = car.category || "Sedan";
-                    const condition = car.condition || "Used";
-                    const fuelType = car.type || "Benzine";
+  // Calculate costs based on the revised TCO formula
+  const car1CostData = calculateTotalCostOfOwnership(selectedCars[0]);
+  const car2CostData = calculateTotalCostOfOwnership(selectedCars[1]);
+  
+  // Extract annual costs from breakdown
+  const car1Maintenance = car1CostData.breakdown.maintenance / 5; // convert 5-year to annual
+  const car2Maintenance = car2CostData.breakdown.maintenance / 5;
+  const car1Insurance = car1CostData.breakdown.insurance / 5;
+  const car2Insurance = car2CostData.breakdown.insurance / 5;
+  const car1Fuel = car1CostData.breakdown.fuel / 5;
+  const car2Fuel = car2CostData.breakdown.fuel / 5;
+  const car1Registration = car1CostData.breakdown.registration / 5; // Annual portion of registration
+  const car2Registration = car2CostData.breakdown.registration / 5;
+  
+  // Calculate annual totals
+  const car1Total = car1Maintenance + car1Insurance + car1Fuel + car1Registration;
+  const car2Total = car2Maintenance + car2Insurance + car2Fuel + car2Registration;
 
-                    switch (costType) {
-                      case "maintenance":
-                        return ANNUAL_COST_ESTIMATES.maintenance[condition];
-                      case "insurance":
-                        return (
-                          ANNUAL_COST_ESTIMATES.insurance[category] ||
-                          ANNUAL_COST_ESTIMATES.insurance["Sedan"]
-                        );
-                      case "fuel":
-                        const fuelData =
-                          ANNUAL_COST_ESTIMATES.fuelConsumption[fuelType] ||
-                          ANNUAL_COST_ESTIMATES.fuelConsumption["Benzine"];
-                        return fuelData[category] || fuelData["Sedan"];
-                      default:
-                        return 0;
-                    }
-                  };
+  return (
+    <>
+      {/* Show estimated annual mileage */}
+      <ComparisonAttribute
+        label="Est. Annual Mileage"
+        value1={car1CostData.breakdown.annualMileage}
+        value2={car2CostData.breakdown.annualMileage}
+        better={0} // Neutral comparison
+        isDarkMode={isDarkMode}
+        icon="road"
+        suffix=" km"
+      />
 
-                  // Calculate estimates
-                  const car1Maintenance = getCategoryEstimate(
-                    selectedCars[0],
-                    "maintenance"
-                  );
-                  const car2Maintenance = getCategoryEstimate(
-                    selectedCars[1],
-                    "maintenance"
-                  );
-                  const car1Insurance = getCategoryEstimate(
-                    selectedCars[0],
-                    "insurance"
-                  );
-                  const car2Insurance = getCategoryEstimate(
-                    selectedCars[1],
-                    "insurance"
-                  );
-                  const car1Fuel = getCategoryEstimate(selectedCars[0], "fuel");
-                  const car2Fuel = getCategoryEstimate(selectedCars[1], "fuel");
-                  const car1Total = car1Maintenance + car1Insurance + car1Fuel;
-                  const car2Total = car2Maintenance + car2Insurance + car2Fuel;
+      <ComparisonAttribute
+        label="Maintenance"
+        value1={car1Maintenance}
+        value2={car2Maintenance}
+        better={getBetterValue(
+          "price",
+          car1Maintenance,
+          car2Maintenance
+        )}
+        isDarkMode={isDarkMode}
+        icon="wrench"
+        prefix="$"
+        suffix="/yr"
+      />
 
-                  return (
-                    <>
-                      <ComparisonAttribute
-                        label="Service"
-                        value1={car1Maintenance}
-                        value2={car2Maintenance}
-                        better={getBetterValue(
-                          "price",
-                          car1Maintenance,
-                          car2Maintenance
-                        )}
-                        isDarkMode={isDarkMode}
-                        icon="wrench"
-                        prefix="$"
-                        suffix="/yr"
-                      />
+      <ComparisonAttribute
+        label="Insurance"
+        value1={car1Insurance}
+        value2={car2Insurance}
+        better={getBetterValue(
+          "price",
+          car1Insurance,
+          car2Insurance
+        )}
+        isDarkMode={isDarkMode}
+        icon="shield"
+        prefix="$"
+        suffix="/yr"
+      />
 
-                      <ComparisonAttribute
-                        label="Insurance"
-                        value1={car1Insurance}
-                        value2={car2Insurance}
-                        better={getBetterValue(
-                          "price",
-                          car1Insurance,
-                          car2Insurance
-                        )}
-                        isDarkMode={isDarkMode}
-                        icon="shield"
-                        prefix="$"
-                        suffix="/yr"
-                      />
+      <ComparisonAttribute
+        label="Fuel"
+        value1={car1Fuel}
+        value2={car2Fuel}
+        better={getBetterValue("price", car1Fuel, car2Fuel)}
+        isDarkMode={isDarkMode}
+        icon="gas-station"
+        prefix="$"
+        suffix="/yr"
+      />
+      
+      <ComparisonAttribute
+        label="Registration"
+        value1={car1Registration}
+        value2={car2Registration}
+        better={getBetterValue("price", car1Registration, car2Registration)}
+        isDarkMode={isDarkMode}
+        icon="file-document"
+        prefix="$"
+        suffix="/yr"
+      />
 
-                      <ComparisonAttribute
-                        label="Usage"
-                        value1={car1Fuel}
-                        value2={car2Fuel}
-                        better={getBetterValue("price", car1Fuel, car2Fuel)}
-                        isDarkMode={isDarkMode}
-                        icon="gas-station"
-                        prefix="$"
-                        suffix="/yr"
-                      />
-
-                      <ComparisonAttribute
-                        label="Total"
-                        value1={car1Total}
-                        value2={car2Total}
-                        better={getBetterValue("price", car1Total, car2Total)}
-                        isDarkMode={isDarkMode}
-                        icon="cash-multiple"
-                        prefix="$"
-                        suffix="/yr"
-                        showBar={true}
-                        maxValue={Math.max(car1Total, car2Total) * 1.1}
-                        isHigherBetter={false}
-                      />
-                    </>
-                  );
-                })()}
+      <ComparisonAttribute
+        label="Total Annual"
+        value1={car1Total}
+        value2={car2Total}
+        better={getBetterValue("price", car1Total, car2Total)}
+        isDarkMode={isDarkMode}
+        icon="cash-multiple"
+        prefix="$"
+        suffix="/yr"
+        showBar={true}
+        maxValue={Math.max(car1Total, car2Total) * 1.1}
+        isHigherBetter={false}
+      />
+      
+      <ComparisonAttribute
+        label="5 Year Total"
+        value1={car1CostData.total}
+        value2={car2CostData.total}
+        better={getBetterValue("price", car1CostData.total, car2CostData.total)}
+        isDarkMode={isDarkMode}
+        icon="calendar-range"
+        prefix="$"
+        suffix=""
+        showBar={true}
+        maxValue={Math.max(car1CostData.total, car2CostData.total) * 1.1}
+        isHigherBetter={false}
+      />
+    </>
+  );
+})()}
               </View>
 
               <Text
@@ -1122,7 +1137,7 @@ export default function CarComparison() {
                 { backgroundColor: isDarkMode ? "#1A1A1A" : "#F5F5F5" },
               ]}
               onPress={() => openCarPicker("left")}
-              activeOpacity={0.7} 
+              activeOpacity={0.7}
             >
               {selectedCars[0] ? (
                 <View style={styles.selectedCarContainer}>
@@ -1194,7 +1209,6 @@ export default function CarComparison() {
             </TouchableOpacity>
 
             {/* Comparison indicator */}
-
 
             {/* Right car */}
             <TouchableOpacity
@@ -1273,8 +1287,6 @@ export default function CarComparison() {
               )}
             </TouchableOpacity>
           </View>
-
-          
 
           {/* Comparison content */}
           {selectedCars[0] && selectedCars[1] ? (

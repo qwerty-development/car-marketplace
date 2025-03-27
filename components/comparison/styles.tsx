@@ -975,6 +975,44 @@ const styles = StyleSheet.create({
     legendText: {
       fontSize: 12,
     },
+
+    costBreakdownContainer: {
+      marginTop: 16,
+      borderRadius: 8,
+      padding: 16,
+    },
+    costBreakdownTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 12,
+    },
+    costBreakdownHeader: {
+      flexDirection: 'row',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: '#333333',
+    },
+    costBreakdownRow: {
+      flexDirection: 'row',
+      paddingVertical: 10,
+      borderBottomWidth: 0.5,
+      borderBottomColor: '#333333',
+    },
+    costBreakdownCategory: {
+      flex: 2,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    costBreakdownValue: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    costBreakdownTotal: {
+      marginTop: 8,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: '#444444',
+    },
   
     // TextInput
     textInput: {

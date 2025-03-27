@@ -8,6 +8,34 @@ interface FeatureMetadata {
     };
   }
 
+  export const CAR_CATEGORIES = {
+    SUPERCAR: 'Supercar',
+    HIGH_PERFORMANCE: 'High-Performance',
+    LUXURY: 'Luxury',
+    MASS_MARKET: 'Mass-Market',
+    ELECTRIC: 'Electric',
+    SUV: 'SUV',
+    TRUCK: 'Truck',
+    SEDAN: 'Sedan',
+    HATCHBACK: 'Hatchback',
+    COUPE: 'Coupe'
+    // Add any other categories from your database
+  };
+
+  export const CATEGORY_RETENTION_RATES = {
+    'Supercar': { min: 0.75, max: 0.90, avg: 0.825 },
+    'High-Performance': { min: 0.60, max: 0.75, avg: 0.675 },
+    'Luxury': { min: 0.45, max: 0.60, avg: 0.525 },
+    'Mass-Market': { min: 0.40, max: 0.55, avg: 0.475 },
+    'Electric': { min: 0.35, max: 0.55, avg: 0.45 },
+    'SUV': { min: 0.42, max: 0.58, avg: 0.50 },
+    'Sedan': { min: 0.40, max: 0.55, avg: 0.475 },
+    'Truck': { min: 0.45, max: 0.65, avg: 0.55 },
+    'Hatchback': { min: 0.38, max: 0.52, avg: 0.45 },
+    'Coupe': { min: 0.42, max: 0.60, avg: 0.51 }
+    // Add other categories as needed
+  };
+
 export const FEATURE_METADATA: FeatureMetadata = {
     "heated_seats": {
       label: "Heated Seats",
@@ -223,15 +251,36 @@ export const FEATURE_METADATA: FeatureMetadata = {
   // Annual cost estimates
   export const ANNUAL_COST_ESTIMATES:any = {
     "maintenance": {
+      "Supercar": { min: 2500, max: 5000, avg: 3750 },
+      "High-Performance": { min: 1000, max: 2500, avg: 1750 },
+      "Luxury": { min: 800, max: 2000, avg: 1400 },
+      "Mass-Market": { min: 500, max: 1000, avg: 750 },
+      "Electric": { min: 500, max: 1200, avg: 850 },
+      "SUV": { min: 700, max: 1800, avg: 1250 },
+      "Sedan": { min: 600, max: 1500, avg: 1050 },
+      "Truck": { min: 800, max: 1800, avg: 1300 },
+      "Hatchback": { min: 500, max: 1300, avg: 900 },
+      "Coupe": { min: 600, max: 1500, avg: 1050 },
       "New": 500,
       "Used": 1200
     },
     "insurance": {
-      "Sedan": 1200,
-      "SUV": 1400,
-      "Coupe": 1500,
-      "Hatchback": 1100,
-      "Truck": 1600
+      "Supercar": { min: 3000, max: 6000, avg: 4500 },
+      "High-Performance": { min: 2000, max: 4000, avg: 3000 },
+      "Luxury": { min: 1500, max: 3500, avg: 2500 },
+      "Mass-Market": { min: 800, max: 2000, avg: 1400 },
+      "Electric": { min: 1500, max: 4000, avg: 2750 },
+      "SUV": { min: 1400, max: 3200, avg: 2300 },
+      "Sedan": { min: 1000, max: 2500, avg: 1750 },
+      "Truck": { min: 1200, max: 2800, avg: 2000 },
+      "Hatchback": { min: 900, max: 2200, avg: 1550 },
+      "Coupe": { min: 1100, max: 3000, avg: 2050 },
+      // Keep existing values for backward compatibility
+      "Sedan-old": 1200,
+      "SUV-old": 1400,
+      "Coupe-old": 1500,
+      "Hatchback-old": 1100,
+      "Truck-old": 1600
     },
     "fuelConsumption": {
       "Benzine": {
