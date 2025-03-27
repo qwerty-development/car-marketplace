@@ -8,6 +8,13 @@ import { useAuth } from '@/utils/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '@/utils/supabase';
+import Constants from 'expo-constants';
+
+// Storage key for push token
+const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
+
+// Maximum registration attempts
+const MAX_REGISTRATION_ATTEMPTS = 3;
 
 interface UseNotificationsReturn {
   unreadCount: number;
@@ -34,36 +41,39 @@ export function useNotifications(): UseNotificationsReturn {
   const lastHandledNotification = useRef<string>();
   const pushTokenListener = useRef<any>();
   const appState = useRef(AppState.currentState);
+  const registrationAttempts = useRef(0);
+  const registrationTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Handler for token refresh events
-const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
-  if (!user) return;
+  // Handler for token refresh events with improved error handling
+  const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
+    if (!user?.id) return;
 
-  console.log('Expo push token refreshed:', pushToken.data);
-  try {
-    // Add verification that user exists in database
-    const { data: userExists, error: userCheckError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single();
+    console.log('Expo push token refreshed:', pushToken.data);
 
-    if (userCheckError || !userExists) {
-      console.warn(`User ${user.id} does not exist in database yet, token refresh delayed`);
-      return; // Exit gracefully
+    try {
+      // Save token to secure storage immediately for resilience
+      await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, pushToken.data);
+      console.log('Saved refreshed token to secure storage');
+
+      // Skip database update during sign-out
+      if (isSigningOut) {
+        console.log('Skipping database update during sign-out');
+        return;
+      }
+
+      // Try to update token in database
+      const success = await NotificationService.updatePushToken(pushToken.data, user.id);
+
+      if (!success) {
+        console.warn('Token database update failed, but token is preserved in storage');
+      } else {
+        console.log('Token successfully updated in database and storage');
+      }
+    } catch (error) {
+      console.error('Error handling token refresh:', error);
+      // Even if there's an error, we've already saved to SecureStore
     }
-
-    // Update token in Supabase
-    const success = await NotificationService.updatePushToken(pushToken.data, user.id);
-
-    if (success) {
-      // Only update local storage if database update succeeded
-      await SecureStore.setItemAsync('expoPushToken', pushToken.data);
-    }
-  } catch (error) {
-    console.error('Error updating push token after refresh:', error);
-  }
-}, [user]);
+  }, [user?.id]);
 
   // Handler for received notifications
   const handleNotification = useCallback(async (notification: Notifications.Notification) => {
@@ -110,7 +120,7 @@ const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoP
         data: response.notification.request.content.data
       });
 
-      const navigationData:any = await NotificationService.handleNotificationResponse(response);
+      const navigationData = await NotificationService.handleNotificationResponse(response);
       if (navigationData?.screen) {
         // Mark notification as read if it has an ID
         const notificationId = response.notification.request.content.data?.notificationId;
@@ -139,158 +149,196 @@ const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoP
     }
   }, [user]);
 
-
-
-const registerForNotifications = useCallback(async () => {
-  if (!user) return;
-
-  // Add verification step to ensure user exists in database
-  try {
-    setLoading(true);
-    console.log('Starting notification registration process for user:', user.id);
-
-    // Check if the user exists with exponential backoff
-    let userExists = false;
-    let retryCount = 0;
-    const maxRetries = 5;
-    let delay = 1000; // Start with 1 second
-
-    while (!userExists && retryCount < maxRetries) {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', user.id)
-          .single();
-
-        if (data) {
-          userExists = true;
-          console.log(`User ${user.id} confirmed in database after ${retryCount} retries`);
-        } else {
-          console.warn(`User ${user.id} not yet in database, retry ${retryCount + 1}/${maxRetries}`);
-          retryCount++;
-
-          // Exponential backoff: 1s, 2s, 4s, 8s, 16s
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2;
-        }
-      } catch (error) {
-        console.error(`Error checking user existence (attempt ${retryCount + 1}):`, error);
-        retryCount++;
-
-        // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2;
-      }
-    }
-
-    if (!userExists) {
-      console.error(`Failed to confirm user ${user.id} in database after ${maxRetries} attempts`);
-      setIsPermissionGranted(false);
-      setLoading(false);
+  // Simplified registration function with automatic retry and fallback mechanisms
+  const registerForNotifications = useCallback(async () => {
+    if (!user?.id) {
+      console.log('No user ID available, skipping notification registration');
       return;
     }
 
-    // Proceed with permission checks and token registration...
-    // (Rest of the function remains the same)
+    // Clear any existing registration timer
+    if (registrationTimer.current) {
+      clearTimeout(registrationTimer.current);
+      registrationTimer.current = null;
+    }
 
-    // Check if we have project ID
-    const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-    if (!projectId) {
-      console.error('EXPO_PUBLIC_PROJECT_ID is not defined in environment variables');
-      console.error('Push notifications will not work without this value');
-      setLoading(false);
+    // Prevent excessive registration attempts
+    if (registrationAttempts.current >= MAX_REGISTRATION_ATTEMPTS) {
+      console.log(`Max registration attempts (${MAX_REGISTRATION_ATTEMPTS}) reached, stopping`);
       return;
     }
 
-    console.log('Using project ID:', projectId);
+    registrationAttempts.current++;
+    console.log(`Push notification registration attempt ${registrationAttempts.current}/${MAX_REGISTRATION_ATTEMPTS}`);
 
-    // 1. Check permission status
-    const permissionStatus = await NotificationService.getPermissions();
-    console.log('Current permission status:', permissionStatus?.status);
-
-    if (permissionStatus?.status !== 'granted') {
-      console.log('Permission not granted, requesting...');
-      const newPermission = await NotificationService.requestPermissions();
-
-      if (newPermission?.status !== 'granted') {
-        console.log('Permission denied');
-        setIsPermissionGranted(false);
-        setLoading(false);
-        return;
-      }
-    }
-
-    setIsPermissionGranted(true);
-    console.log('Notification permissions granted');
-
-    // 2. Get token
-    console.log('Getting Expo push token...');
-    const token = await NotificationService.registerForPushNotificationsAsync(user.id);
-
-    if (token) {
-      console.log('Successfully registered push token:', token);
-      await SecureStore.setItemAsync('expoPushToken', token);
-
-      // Remove any existing listener before adding a new one
-      if (pushTokenListener.current) {
-        pushTokenListener.current.remove();
-      }
-
-      pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-    } else {
-      console.warn('Failed to get push token');
-    }
-  } catch (error) {
-    console.error('Error registering for notifications:', error);
-
-    // Additional error logging
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-
-    setIsPermissionGranted(false);
-  } finally {
-    setLoading(false);
-  }
-}, [user, handleTokenRefresh]);
-
-  // Cleanup push token on logout
-  const cleanupPushToken = useCallback(async () => {
-    if (!user) return;
-
-    console.log('Starting push token cleanup process');
     try {
-      // Get token from secure storage
-      const token = await SecureStore.getItemAsync('expoPushToken');
+      setLoading(true);
+
+      // Check if we have project ID or fallback
+      let projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+
+      // Try to get from Constants if env var is missing
+      if (!projectId) {
+        try {
+          // @ts-ignore - Accessing potentially undefined properties
+          const expoConfig = Constants.expoConfig || Constants.manifest;
+          projectId = expoConfig?.extra?.projectId || expoConfig?.id || expoConfig?.slug;
+
+          if (projectId) {
+            console.log('Using project ID from Constants:', projectId);
+          } else {
+            console.error('Project ID not found in environment or Constants');
+          }
+        } catch (constError) {
+          console.error('Error accessing Constants:', constError);
+        }
+      }
+
+      if (!projectId) {
+        console.error('No project ID available, push notifications will not work');
+        // Continue anyway to attempt with default or hardcoded project ID
+      }
+
+      // 1. Check permission status
+      const permissionStatus = await NotificationService.getPermissions();
+      console.log('Current permission status:', permissionStatus?.status);
+
+      if (permissionStatus?.status !== 'granted') {
+        console.log('Permission not granted, requesting...');
+        const newPermission = await NotificationService.requestPermissions();
+
+        if (newPermission?.status !== 'granted') {
+          console.log('Permission denied by user');
+          setIsPermissionGranted(false);
+          setLoading(false);
+          return;
+        }
+      }
+
+      setIsPermissionGranted(true);
+      console.log('Notification permissions granted');
+
+      // 2. Get token - simplified flow directly using NotificationService
+      console.log('Getting Expo push token...');
+      const token = await NotificationService.registerForPushNotificationsAsync(user.id);
 
       if (token) {
-        console.log('Cleaning up push token:', token);
+        console.log('Successfully registered push token:', token);
 
-        // Delete token from database
-        const { error } = await supabase
-          .from('user_push_tokens')
-          .delete()
-          .match({ user_id: user.id, token });
-
-        if (error) {
-          console.error('Error deleting push token from database:', error);
-        } else {
-          console.log('Token successfully removed from database');
+        // Remove any existing listener before adding a new one
+        if (pushTokenListener.current) {
+          pushTokenListener.current.remove();
         }
 
-        // Remove token from secure storage
-        await SecureStore.deleteItemAsync('expoPushToken');
-        console.log('Token removed from secure storage');
+        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+
+        // Registration successful, reset attempt counter
+        registrationAttempts.current = 0;
       } else {
-        console.warn('No push token found in secure storage to cleanup');
+        console.warn('Failed to get push token');
+
+        // Schedule retry with exponential backoff (max 1 minute)
+        const delay = Math.min(5000 * Math.pow(2, registrationAttempts.current - 1), 60000);
+        console.log(`Scheduling retry in ${delay}ms`);
+
+        registrationTimer.current = setTimeout(() => {
+          registerForNotifications();
+        }, delay);
       }
     } catch (error) {
-      console.error('Error cleaning up push token:', error);
+      console.error('Error registering for notifications:', error);
+
+      // Log detailed error information
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+
+      setIsPermissionGranted(false);
+
+      // Schedule retry with exponential backoff (max 1 minute)
+      const delay = Math.min(5000 * Math.pow(2, registrationAttempts.current - 1), 60000);
+      console.log(`Scheduling retry after error in ${delay}ms`);
+
+      registrationTimer.current = setTimeout(() => {
+        registerForNotifications();
+      }, delay);
+    } finally {
+      setLoading(false);
     }
-  }, [user]);
+  }, [user?.id, handleTokenRefresh]);
+
+  // Cleanup push token on logout with improved reliability
+  const cleanupPushToken = useCallback(async () => {
+    console.log('Starting push token cleanup process');
+
+    try {
+      // Clear any pending registration timer
+      if (registrationTimer.current) {
+        clearTimeout(registrationTimer.current);
+        registrationTimer.current = null;
+      }
+
+      // Get token from secure storage
+      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+
+      if (token) {
+        console.log('Found push token to clean up:', token);
+
+        // If we have a user ID, use it for targeted deletion
+        if (user?.id) {
+          try {
+            // Delete token from database
+            const { error } = await supabase
+              .from('user_push_tokens')
+              .delete()
+              .match({ user_id: user.id, token });
+
+            if (error) {
+              console.error('Error deleting push token from database:', error);
+            } else {
+              console.log('Token successfully removed from database');
+            }
+          } catch (dbError) {
+            console.error('Database error during token cleanup:', dbError);
+          }
+        } else {
+          // If no user ID, try deletion by token only
+          try {
+            const { error } = await supabase
+              .from('user_push_tokens')
+              .delete()
+              .eq('token', token);
+
+            if (error) {
+              console.error('Error deleting token without user ID:', error);
+            }
+          } catch (tokenError) {
+            console.error('Error in token-only deletion:', tokenError);
+          }
+        }
+
+        // Always remove from secure storage regardless of database success
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        console.log('Token removed from secure storage');
+      } else {
+        console.log('No push token found in secure storage to cleanup');
+      }
+
+      // Reset registration attempts counter
+      registrationAttempts.current = 0;
+    } catch (error) {
+      console.error('Error cleaning up push token:', error);
+
+      // Attempt storage cleanup regardless
+      try {
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      } catch (storageError) {
+        console.error('Failed to clean token from storage:', storageError);
+      }
+    }
+  }, [user?.id]);
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -360,22 +408,57 @@ const registerForNotifications = useCallback(async () => {
   // Handle app state changes (refresh when app comes to foreground)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
+      const previousState = appState.current;
+      appState.current = nextAppState;
+
+      // App coming to foreground from background or inactive
       if (
-        appState.current.match(/inactive|background/) &&
+        (previousState.match(/inactive|background/) || previousState === 'unknown') &&
         nextAppState === 'active' &&
         user?.id
       ) {
         console.log('App has come to foreground, refreshing notifications');
         refreshNotifications();
-      }
 
-      appState.current = nextAppState;
+        // Check/retry token registration if permission is granted
+        if (isPermissionGranted && registrationAttempts.current < MAX_REGISTRATION_ATTEMPTS) {
+          console.log('Checking push token on app foreground');
+
+          // Check if we have a valid token in storage and database
+          SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY).then(async (storedToken) => {
+            if (!storedToken) {
+              console.log('No stored token found on app foreground, initiating registration');
+              registerForNotifications();
+              return;
+            }
+
+            // Verify token exists in database
+            try {
+              const { data } = await supabase
+                .from('user_push_tokens')
+                .select('token')
+                .eq('user_id', user.id)
+                .eq('token', storedToken)
+                .single();
+
+              if (!data) {
+                console.log('Token in storage but not in database, re-registering');
+                registerForNotifications();
+              }
+            } catch (error) {
+              console.error('Error verifying token on app foreground:', error);
+            }
+          }).catch(error => {
+            console.error('Error checking token on app foreground:', error);
+          });
+        }
+      }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [refreshNotifications, user]);
+  }, [refreshNotifications, user, isPermissionGranted, registerForNotifications]);
 
   // Set up notification listeners and initial data fetch
   useEffect(() => {
@@ -392,66 +475,85 @@ const registerForNotifications = useCallback(async () => {
       notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
       responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
-
-
       // Get initial unread count
       await refreshNotifications();
 
       // Check if we have a token stored and validate it
       try {
-        const storedToken = await SecureStore.getItemAsync('expoPushToken');
+        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
         if (storedToken) {
           console.log('Found stored push token:', storedToken);
 
           // Verify token is still valid in database
-          const { data } = await supabase
-            .from('user_push_tokens')
-            .select('token')
-            .eq('user_id', user.id)
-            .eq('token', storedToken)
-            .single();
+          try {
+            const { data } = await supabase
+              .from('user_push_tokens')
+              .select('token')
+              .eq('user_id', user.id)
+              .eq('token', storedToken)
+              .single();
 
-          if (!data) {
-            console.log('Stored token not found in database, re-registering...');
+            if (!data) {
+              console.log('Stored token not found in database, re-registering...');
+              await registerForNotifications();
+            } else {
+              console.log('Token validated in database');
+              setIsPermissionGranted(true);
+
+              // Add token listener even if token already exists
+              if (pushTokenListener.current) {
+                pushTokenListener.current.remove();
+              }
+              pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+            }
+          } catch (dbError) {
+            console.error('Error verifying token in database:', dbError);
+            // Continue with registration anyway
             await registerForNotifications();
-          } else {
-            console.log('Token validated in database');
-            setIsPermissionGranted(true);
           }
         } else {
-          console.log('No stored token found, will need to register');
-          // Don't auto-register here, let the app call registerForPushNotifications
+          console.log('No stored token found, registering for notifications');
+          // Auto-register here for better reliability
+          await registerForNotifications();
         }
       } catch (error) {
-        console.error('Error verifying token:', error);
+        console.error('Error during token verification:', error);
+        // Try registration despite the error
+        await registerForNotifications();
       }
     };
 
     initialize();
 
- return () => {
-  mounted = false;
-  console.log('Cleaning up notification listeners and subscriptions');
+    return () => {
+      mounted = false;
+      console.log('Cleaning up notification listeners and subscriptions');
 
-  if (notificationListener.current) {
-    Notifications.removeNotificationSubscription(notificationListener.current);
-  }
-  if (responseListener.current) {
-    Notifications.removeNotificationSubscription(responseListener.current);
-  }
-  if (pushTokenListener.current) {
-    pushTokenListener.current.remove();
-  }
-  if (realtimeSubscription.current) {
-    try {
-      console.log('Unsubscribing from realtime notifications');
-      realtimeSubscription.current.unsubscribe();
-    } catch (error) {
-      console.error('Error during subscription cleanup:', error);
-    }
-  }
-};
-  }, [user?.id, handleNotification, handleNotificationResponse, refreshNotifications, registerForNotifications]);
+      // Clear any pending registration timer
+      if (registrationTimer.current) {
+        clearTimeout(registrationTimer.current);
+        registrationTimer.current = null;
+      }
+
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+      if (pushTokenListener.current) {
+        pushTokenListener.current.remove();
+      }
+      if (realtimeSubscription.current) {
+        try {
+          console.log('Unsubscribing from realtime notifications');
+          realtimeSubscription.current.unsubscribe();
+        } catch (error) {
+          console.error('Error during subscription cleanup:', error);
+        }
+      }
+    };
+  }, [user?.id, handleNotification, handleNotificationResponse, refreshNotifications, registerForNotifications, handleTokenRefresh]);
 
   return {
     unreadCount,

@@ -20,7 +20,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
-import ListingModal from '@/components/ListingModal'
+
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useScrollToTop } from '@react-navigation/native'
 import { debounce } from 'lodash'

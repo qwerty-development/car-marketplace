@@ -25,7 +25,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+      }
     }
   },
   "submit": {

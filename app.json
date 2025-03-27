@@ -106,6 +106,7 @@
       "typedRoutes": true
     },
     "extra": {
+       "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
       "router": {
         "origin": false
       },
