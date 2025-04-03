@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   View,
   Text,
@@ -58,10 +58,9 @@ interface Dealership {
   user_id: string
 }
 
-const CustomHeader = ({ title, dealership }:any) => {
+const CustomHeader = React.memo(({ title, dealership }) => {
   const { isDarkMode } = useTheme();
 
-  // Define standardized styles
   const styles = StyleSheet.create({
     container: {
       backgroundColor: isDarkMode ? 'black' : 'white',
@@ -117,9 +116,9 @@ const CustomHeader = ({ title, dealership }:any) => {
       </View>
     </SafeAreaView>
   );
-};
+});
 
-const VideoItem = ({
+const VideoItem = React.memo(({
   item,
   onPress,
   isDarkMode,
@@ -134,25 +133,20 @@ const VideoItem = ({
   onToggleStatus: (clip: AutoClip) => void
   onEdit: (clip: AutoClip) => void
 }) => {
-  const [isHovered, setIsHovered] = useState(false)
-
   return (
     <TouchableOpacity
       onPress={onPress}
       className='relative mb-4 mx-1'
       style={{ width: VIDEO_WIDTH }}
-      onPressIn={() => setIsHovered(true)}
-      onPressOut={() => setIsHovered(false)}>
+      activeOpacity={0.9}>
       <View className='rounded-2xl overflow-hidden shadow-lg'>
-        <Video
-          source={{ uri: item.video_url }}
+        <Image
+          source={{ uri: item.thumbnail_url || item.video_url }}
           style={{
             width: VIDEO_WIDTH,
             height: VIDEO_HEIGHT
           }}
-          resizeMode='cover'
-          shouldPlay={false}
-          isMuted={true}
+          contentFit="cover"
         />
 
         <LinearGradient
@@ -218,9 +212,9 @@ const VideoItem = ({
       </View>
     </TouchableOpacity>
   )
-}
+});
 
-const EmptyState = ({ isDarkMode }) => (
+const EmptyState = React.memo(({ isDarkMode }) => (
   <View className='flex-1 justify-center items-center p-8'>
     <View className='bg-neutral-100 dark:bg-neutral-800 rounded-full p-6 mb-4'>
       <Ionicons
@@ -236,10 +230,9 @@ const EmptyState = ({ isDarkMode }) => (
       Create your first AutoClip by tapping the + button below
     </Text>
   </View>
-)
+));
 
-const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode }) => {
-  // Define explicit styles to ensure visibility and proper positioning
+const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, isDarkMode, isPageLoading }) => {
   const styles = StyleSheet.create({
     container: {
       position: 'absolute',
@@ -250,13 +243,13 @@ const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode 
       justifyContent: 'center',
       alignItems: 'center',
       paddingVertical: 8,
-      zIndex: 999, // Ensure highest z-index to prevent being hidden
+      zIndex: 999,
     },
     button: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: 'rgba(39, 39, 42, 0.8)', // zinc-800 with opacity
+      backgroundColor: 'rgba(39, 39, 42, 0.8)',
       justifyContent: 'center',
       alignItems: 'center',
       marginHorizontal: 4,
@@ -265,11 +258,13 @@ const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode 
       opacity: 0.3,
     },
     paginationInfo: {
-      backgroundColor: 'rgba(39, 39, 42, 0.8)', // zinc-800 with opacity
+      backgroundColor: 'rgba(39, 39, 42, 0.8)',
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: 20,
       marginHorizontal: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     paginationText: {
       color: 'white',
@@ -281,49 +276,32 @@ const PaginationControls = ({ currentPage, totalPages, onPageChange, isDarkMode 
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={[styles.button, currentPage === 1 && styles.disabledButton]}
-        onPress={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}>
+        style={[styles.button, (currentPage === 1 || isPageLoading) && styles.disabledButton]}
+        onPress={() => !isPageLoading && onPageChange(currentPage - 1)}
+        disabled={currentPage === 1 || isPageLoading}>
         <Ionicons name="chevron-back" size={20} color="white" />
       </TouchableOpacity>
 
       <View style={styles.paginationInfo}>
+        {isPageLoading ? (
+          <ActivityIndicator size="small" color="white" style={{ marginRight: 8 }} />
+        ) : null}
         <Text style={styles.paginationText}>
           {currentPage} / {totalPages || 1}
         </Text>
       </View>
 
       <TouchableOpacity
-        style={[styles.button, currentPage === totalPages && styles.disabledButton]}
-        onPress={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}>
+        style={[styles.button, (currentPage === totalPages || isPageLoading) && styles.disabledButton]}
+        onPress={() => !isPageLoading && onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages || isPageLoading}>
         <Ionicons name="chevron-forward" size={20} color="white" />
       </TouchableOpacity>
     </View>
   );
-};
+});
 
-
-
-export default function AutoClips() {
-  const { user } = useAuth()
-  const { isDarkMode } = useTheme()
-  const scrollRef = useRef(null)
-  useScrollToTop(scrollRef)
-
-  const [clips, setClips] = useState<AutoClip[]>([])
-  const [dealershipData, setDealershipData] = useState<Dealership | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [dealership, setDealership] = useState<{ id: number } | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [selectedClip, setSelectedClip] = useState<AutoClip | null>(null)
-  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
-  const [previewVisible, setPreviewVisible] = useState(false)
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false)
-  const [clipToEdit, setClipToEdit] = useState<AutoClip | null>(null)
-
-  // Add button with correct z-index and positioning
-const FloatingAddButton = () => {
+const FloatingAddButton = React.memo(() => {
   const { isDarkMode } = useTheme();
 
   const buttonStyles = StyleSheet.create({
@@ -331,12 +309,12 @@ const FloatingAddButton = () => {
       position: 'absolute',
       top: Platform.OS === 'ios' ? 56 : 48,
       right: 24,
-      zIndex: 20, // Higher than header
+      zIndex: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 3.84,
-      elevation: 5, // For Android shadow
+      elevation: 5,
     },
     button: {
       width: 44,
@@ -359,73 +337,187 @@ const FloatingAddButton = () => {
       </TouchableOpacity>
     </View>
   );
-};
+});
+
+export default function AutoClips() {
+  const { user } = useAuth()
+  const { isDarkMode } = useTheme()
+  const scrollRef = useRef(null)
+  useScrollToTop(scrollRef)
+
+  const [clips, setClips] = useState<AutoClip[]>([])
+  const [dealershipData, setDealershipData] = useState<Dealership | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [dealership, setDealership] = useState<{ id: number } | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [isPageLoading, setIsPageLoading] = useState(false)
+  const [selectedClip, setSelectedClip] = useState<AutoClip | null>(null)
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
+  const [previewVisible, setPreviewVisible] = useState(false)
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false)
+  const [clipToEdit, setClipToEdit] = useState<AutoClip | null>(null)
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
-  useEffect(() => {
-    if (user) {
-      fetchDealershipAndClips()
-    }
-  }, [user, currentPage])
+  // Cache for loaded pages
+  const [cachedPages, setCachedPages] = useState<{[key: number]: AutoClip[]}>({})
 
-  const fetchDealershipAndClips = async () => {
+  // Track if dealership data has been loaded
+  const [dealershipLoaded, setDealershipLoaded] = useState(false)
+
+  // Separate fetch for dealership data
+  const fetchDealershipData = useCallback(async () => {
+    if (dealershipLoaded) return { success: true, dealershipId: dealership?.id }
+
     try {
-      const { data: dealershipData, error: dealershipError } = await supabase
+      const { data, error } = await supabase
         .from('dealerships')
         .select('*')
         .eq('user_id', user!.id)
         .single()
 
-      if (dealershipError) throw dealershipError
-      setDealershipData(dealershipData)
-      setDealership({ id: dealershipData.id })
+      if (error) throw error
 
-      // Get total count for pagination
-      const { count, error: countError } = await supabase
+      setDealershipData(data)
+      setDealership({ id: data.id })
+      setDealershipLoaded(true)
+
+      return { success: true, dealershipId: data.id }
+    } catch (error) {
+      console.error('Error fetching dealership:', error)
+      Alert.alert('Error', 'Failed to load dealership data')
+      return { success: false, dealershipId: null }
+    }
+  }, [user, dealershipLoaded, dealership?.id])
+
+  // Separate fetch for total count
+  const fetchTotalCount = useCallback(async (dealershipId: number) => {
+    try {
+      const { count, error } = await supabase
         .from('auto_clips')
         .select('id', { count: 'exact' })
-        .eq('dealership_id', dealershipData.id)
+        .eq('dealership_id', dealershipId)
 
-      if (countError) throw countError
-      setTotalPages(Math.ceil(count! / ITEMS_PER_PAGE))
+      if (error) throw error
 
-      // Get paginated clips
-      const { data: clipsData, error: clipsError } = await supabase
+      const pages = Math.ceil((count || 0) / ITEMS_PER_PAGE)
+      setTotalPages(pages || 1)
+      return { success: true, totalPages: pages || 1 }
+    } catch (error) {
+      console.error('Error fetching count:', error)
+      return { success: false, totalPages: 1 }
+    }
+  }, [])
+
+  // Fetch clips for a specific page
+  const fetchPageClips = useCallback(async (dealershipId: number, page: number) => {
+    // Check if page is already cached
+    if (cachedPages[page] && !refreshing) {
+      setClips(cachedPages[page])
+      return { success: true }
+    }
+
+    setIsPageLoading(true)
+
+    try {
+      const { data, error } = await supabase
         .from('auto_clips')
         .select(`
           *,
           car:cars(make, model, year)
         `)
-        .eq('dealership_id', dealershipData.id)
+        .eq('dealership_id', dealershipId)
         .order('created_at', { ascending: false })
-        .range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1)
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
 
-      if (clipsError) throw clipsError
-      setClips(clipsData)
+      if (error) throw error
+
+      // Update cache and current clips
+      setCachedPages(prev => ({ ...prev, [page]: data }))
+      setClips(data)
+
+      return { success: true }
     } catch (error) {
-      console.error('Error:', error)
-      Alert.alert('Error', 'Failed to load AutoClips')
+      console.error('Error fetching clips:', error)
+      return { success: false }
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setIsPageLoading(false)
     }
-  }
+  }, [cachedPages, refreshing])
 
-  const handleRefresh = () => {
+  // Initialize data on component mount
+  useEffect(() => {
+    if (user) {
+      const initializeData = async () => {
+        setLoading(true)
+
+        // Step 1: Get dealership data
+        const dealershipResult = await fetchDealershipData()
+        if (!dealershipResult.success) {
+          setLoading(false)
+          return
+        }
+
+        // Step 2: Get total count
+        const countResult = await fetchTotalCount(dealershipResult.dealershipId)
+        if (!countResult.success) {
+          setLoading(false)
+          return
+        }
+
+        // Step 3: Get clips for first page
+        await fetchPageClips(dealershipResult.dealershipId, 1)
+
+        setLoading(false)
+      }
+
+      initializeData()
+    }
+  }, [user, fetchDealershipData, fetchTotalCount, fetchPageClips])
+
+  // Handle page changes
+  useEffect(() => {
+    const loadPage = async () => {
+      if (dealership?.id) {
+        await fetchPageClips(dealership.id, currentPage)
+      }
+    }
+
+    if (!loading && dealership?.id) {
+      loadPage()
+    }
+  }, [currentPage, dealership?.id, loading, fetchPageClips])
+
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true)
-    setCurrentPage(1)
-    fetchDealershipAndClips()
-  }
 
-  const handlePageChange = (page: number) => {
+    // Clear cache on refresh
+    setCachedPages({})
+
+    if (dealership?.id) {
+      // Refresh count first
+      await fetchTotalCount(dealership.id)
+
+      // Then refresh current page
+      await fetchPageClips(dealership.id, currentPage)
+    }
+
+    setRefreshing(false)
+  }, [dealership?.id, currentPage, fetchTotalCount, fetchPageClips])
+
+  // Handle page change with debounce to prevent rapid changes
+  const handlePageChange = useCallback((page: number) => {
+    if (isPageLoading) return
+
     setCurrentPage(page)
     scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
-  }
+  }, [isPageLoading])
 
-  const handleDelete = async (clipId: number) => {
+  // Handle delete with cache update
+  const handleDelete = useCallback(async (clipId: number) => {
     Alert.alert(
       'Delete AutoClip',
       'Are you sure you want to delete this clip?',
@@ -443,20 +535,27 @@ const FloatingAddButton = () => {
 
               if (error) throw error
 
-              // Refresh the current page after deletion
-              fetchDealershipAndClips()
+              // Clear cache and refresh data
+              setCachedPages({})
+
+              if (dealership?.id) {
+                await fetchTotalCount(dealership.id)
+                await fetchPageClips(dealership.id, currentPage)
+              }
+
               Alert.alert('Success', 'AutoClip deleted successfully')
             } catch (error) {
-              console.error('Error:', error)
+              console.error('Error deleting clip:', error)
               Alert.alert('Error', 'Failed to delete AutoClip')
             }
           }
         }
       ]
     )
-  }
+  }, [dealership?.id, currentPage, fetchTotalCount, fetchPageClips])
 
-  const toggleStatus = async (clip: AutoClip) => {
+  // Toggle status with cache update
+  const toggleStatus = useCallback(async (clip: AutoClip) => {
     const newStatus = clip.status === 'published' ? 'draft' : 'published'
     try {
       const { error } = await supabase
@@ -466,104 +565,163 @@ const FloatingAddButton = () => {
 
       if (error) throw error
 
-      // Refresh the current page after status update
-      fetchDealershipAndClips()
+      // Update cache for current page
+      const updatedClips = clips.map(c =>
+        c.id === clip.id ? { ...c, status: newStatus } : c
+      )
+
+      setClips(updatedClips)
+      setCachedPages(prev => ({
+        ...prev,
+        [currentPage]: updatedClips
+      }))
+
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error updating status:', error)
       Alert.alert('Error', 'Failed to update status')
     }
-  }
+  }, [clips, currentPage])
 
+  // Loading indicator with message
   if (loading) {
     return (
-      <View className='flex-1 justify-center items-center'>
+      <LinearGradient
+        colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size='large' color='#D55004' />
-      </View>
+        <Text className={`mt-4 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>
+          Loading AutoClips...
+        </Text>
+      </LinearGradient>
     )
   }
 
-return (
- <LinearGradient
-    colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
-    style={{ flex: 1 }}>
+  return (
+    <LinearGradient
+      colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
+      style={{ flex: 1 }}>
 
-    {/* Header with guaranteed z-index */}
- <View style={{ zIndex: 10 }}>
-      <CustomHeader title='AutoClips' dealership={dealershipData} />
-    </View>
+      {/* Header with guaranteed z-index */}
+      <View style={{ zIndex: 10 }}>
+        <CustomHeader title='AutoClips' dealership={dealershipData} />
+      </View>
 
-    {/* Add Button with higher z-index */}
-    <FloatingAddButton />
+      {/* Add Button with higher z-index */}
+      <View style={{
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? 56 : 48,
+        right: 24,
+        zIndex: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+      }}>
+        <TouchableOpacity
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: isDarkMode ? 'white' : 'black',
+            backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onPress={() => setIsCreateModalVisible(true)}>
+          <FontAwesome name='plus' size={24} color='#D55004' />
+        </TouchableOpacity>
+      </View>
 
-    {/* Content with lower z-index */}
-    <View style={{ flex: 1, zIndex: 5 }} className='mt-3'>
-      <FlatList
-        ref={scrollRef}
-        data={clips}
-        renderItem={({ item }) => (
-          <VideoItem
-            item={item}
-            onPress={() => {
-              setSelectedClip(item)
-              setPreviewVisible(true)
-            }}
-            isDarkMode={isDarkMode}
-            onDelete={handleDelete}
-            onToggleStatus={toggleStatus}
-            onEdit={clip => {
-              setClipToEdit(clip)
-              setIsEditModalVisible(true)
-            }}
-          />
-        )}
-        keyExtractor={item => item.id.toString()}
-        numColumns={2}
-        contentContainerStyle={{
-          padding: 8,
-          paddingBottom: Platform.OS === 'ios' ? 100 : 80, // Ensure content isn't hidden behind pagination
-          paddingTop: 8
-        }}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
-        ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
-      />
+      {/* Content with lower z-index */}
+      <View style={{ flex: 1, zIndex: 5 }} className='mt-3'>
+        {isPageLoading && !refreshing ? (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30 }}>
+            <BlurView
+              intensity={80}
+              tint={isDarkMode ? 'dark' : 'light'}
+              style={{ padding: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+              <ActivityIndicator size="small" color="#D55004" style={{ marginRight: 8 }} />
+              <Text style={{ color: isDarkMode ? 'white' : 'black' }}>
+                Loading page {currentPage}...
+              </Text>
+            </BlurView>
+          </View>
+        ) : null}
+
+        <FlatList
+          ref={scrollRef}
+          data={clips}
+          renderItem={({ item }) => (
+            <VideoItem
+              item={item}
+              onPress={() => {
+                setSelectedClip(item)
+                setPreviewVisible(true)
+              }}
+              isDarkMode={isDarkMode}
+              onDelete={handleDelete}
+              onToggleStatus={toggleStatus}
+              onEdit={clip => {
+                setClipToEdit(clip)
+                setIsEditModalVisible(true)
+              }}
+            />
+          )}
+          keyExtractor={item => item.id.toString()}
+          numColumns={2}
+          contentContainerStyle={{
+            padding: 8,
+            paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+            paddingTop: 8
+          }}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
+          ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
+          maxToRenderPerBatch={8}  // Optimize rendering batches
+          windowSize={5}           // Reduce rendering window
+          removeClippedSubviews={true} // Remove offscreen components
+        />
 
         <PaginationControls
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={handlePageChange}
           isDarkMode={isDarkMode}
+          isPageLoading={isPageLoading}
         />
 
+        {/* Modals */}
+        <CreateAutoClipModal
+          isVisible={isCreateModalVisible}
+          onClose={() => setIsCreateModalVisible(false)}
+          dealership={dealership}
+          onSuccess={handleRefresh}
+        />
 
-      {/* Modals remain unchanged */}
-      <CreateAutoClipModal
-        isVisible={isCreateModalVisible}
-        onClose={() => setIsCreateModalVisible(false)}
-        dealership={dealership}
-        onSuccess={handleRefresh}
-      />
-      <PreviewAutoClipModal
-        clip={selectedClip}
-        isVisible={previewVisible}
-        onClose={() => {
-          setPreviewVisible(false)
-          setSelectedClip(null)
-        }}
-        onDelete={handleDelete}
-        onToggleStatus={toggleStatus}
-        onEdit={handleRefresh}
-      />
-      <EditAutoClipModal
-        isVisible={isEditModalVisible}
-        onClose={() => {
-          setIsEditModalVisible(false)
-          setClipToEdit(null)
-        }}
-        clip={clipToEdit}
-        onSuccess={handleRefresh}
-      />
-    </View>
-  </LinearGradient>
-)
-      }
+        <PreviewAutoClipModal
+          clip={selectedClip}
+          isVisible={previewVisible}
+          onClose={() => {
+            setPreviewVisible(false)
+            setSelectedClip(null)
+          }}
+          onDelete={handleDelete}
+          onToggleStatus={toggleStatus}
+          onEdit={handleRefresh}
+        />
+
+        <EditAutoClipModal
+          isVisible={isEditModalVisible}
+          onClose={() => {
+            setIsEditModalVisible(false)
+            setClipToEdit(null)
+          }}
+          clip={clipToEdit}
+          onSuccess={handleRefresh}
+        />
+      </View>
+    </LinearGradient>
+  )
+}

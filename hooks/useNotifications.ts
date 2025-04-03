@@ -9,6 +9,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '@/utils/supabase';
 import Constants from 'expo-constants';
+import { isSigningOut } from '@/app/(home)/_layout';
 
 // Storage key for push token
 const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';

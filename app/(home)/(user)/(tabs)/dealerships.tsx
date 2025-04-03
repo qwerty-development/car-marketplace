@@ -176,8 +176,10 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
       <View
         style={{
           flexDirection: "row",
-          marginLeft: 24,
-          marginBottom: Platform.OS === "ios" ? -20 : 8,
+          justifyContent: "space-between", // Changed from marginLeft to proper justification
+          alignItems: "center", // Added alignment
+          paddingHorizontal: 24, // Changed from marginLeft to paddingHorizontal
+          marginBottom: Platform.OS === "ios" ? -10 : 8,
         }}
       >
         <Text
@@ -188,6 +190,8 @@ const CustomHeader = React.memo(({ title }: { title: string }) => {
         >
           {title}
         </Text>
+        {/* Right side placeholder to maintain consistency with Favorites */}
+        <View style={{ width: 24 }} />
       </View>
     </SafeAreaView>
   );
@@ -492,7 +496,7 @@ export default function DealershipListPage() {
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
-      <CustomHeader title="Dealerships" />
+    <CustomHeader title="Dealerships" />
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View

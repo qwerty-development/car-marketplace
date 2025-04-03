@@ -73,6 +73,35 @@ export const ComparisonAttribute = ({
   const progressAnim2 = useRef(new RNAnimated.Value(0)).current;
   const highlightAnim = useRef(new RNAnimated.Value(0)).current;
 
+  // Automatically determine which is better if not specified
+  const determineBetter = () => {
+    if (better !== 0) return better; // Use provided value if not equal
+
+    // Auto-determine better if values are different
+    if (value1 === value2 || value1 === null || value2 === null ||
+        value1 === undefined || value2 === undefined) {
+      return 0; // Equal or incomparable
+    }
+
+    // For numeric values
+    if (typeof value1 === 'number' && typeof value2 === 'number') {
+      // Consider the comparison direction based on what's better
+      if (label.toLowerCase().includes('price') ||
+          label.toLowerCase().includes('cost') ||
+          label.toLowerCase().includes('mileage')) {
+        // Lower is better for price, cost, mileage
+        return value1 < value2 ? 1 : 2;
+      } else {
+        // For most other metrics, higher is better (year, power, features, etc.)
+        return value1 > value2 ? 1 : 2;
+      }
+    }
+
+    return 0; // Default: equal
+  };
+
+  const effectiveBetter = determineBetter();
+
   // Start animations when component mounts
   useEffect(() => {
     // Only animate if we're showing bars and have a max value
@@ -98,7 +127,7 @@ export const ComparisonAttribute = ({
     }
 
     // Highlight animation for the better value
-    if (better > 0) {
+    if (effectiveBetter > 0) {
       RNAnimated.sequence([
         RNAnimated.timing(highlightAnim, {
           toValue: 1,
@@ -117,7 +146,7 @@ export const ComparisonAttribute = ({
     value2,
     maxValue,
     showBar,
-    better,
+    effectiveBetter,
     progressAnim1,
     progressAnim2,
     highlightAnim,
@@ -167,8 +196,14 @@ export const ComparisonAttribute = ({
 
   return (
     <View style={styles.comparisonRow}>
-      {/* Attribute label */}
-      <View style={styles.attributeLabelContainer}>
+      {/* Attribute label with improved text handling */}
+      <View style={[
+        styles.attributeLabelContainer,
+        {
+          flex: 1.2,  // Increased flex to allow more space for labels
+          marginRight: 8, // Add margin to ensure separation from value cells
+        }
+      ]}>
         {icon && (
           <MaterialCommunityIcons
             name={icon as any}
@@ -180,33 +215,46 @@ export const ComparisonAttribute = ({
         <Text
           style={[
             styles.attributeLabel,
-            { color: isDarkMode ? "#ffffff" : "#000000" },
+            {
+              color: isDarkMode ? "#ffffff" : "#000000",
+              flexShrink: 1,  // Allow text to shrink
+            }
           ]}
+          numberOfLines={2}  // Allow up to 2 lines for long text
+          ellipsizeMode="tail"  // Add ellipsis (...) for text truncation
         >
           {label}
         </Text>
       </View>
 
       {/* Values and indicators */}
-      <View style={styles.valuesContainer}>
+      <View style={[styles.valuesContainer, { flex: 2 }]}>
         {/* Left value */}
         <RNAnimated.View
           style={[
             styles.valueCell,
             {
               backgroundColor:
-                better === 1
+                effectiveBetter === 1
                   ? getBetterBgColorAnimated(true)
                   : getBetterBgColor(false),
             },
           ]}
         >
           <Text
-            style={[styles.valueText, { color: getBetterColor(better === 1) }]}
+            style={[
+              styles.valueText,
+              {
+                color: getBetterColor(effectiveBetter === 1),
+                fontSize: 13,  // Slightly smaller font to accommodate long values
+              }
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {formatValue(value1)}
           </Text>
-          {better === 1 && (
+          {effectiveBetter === 1 && (
             <AntDesign
               name="checkcircle"
               size={16}
@@ -227,10 +275,10 @@ export const ComparisonAttribute = ({
                       outputRange: ["0%", "100%"],
                     }),
                     backgroundColor: isHigherBetter
-                      ? better === 1
+                      ? effectiveBetter === 1
                         ? "#4ADE80"
                         : "#60A5FA"
-                      : better === 1
+                      : effectiveBetter === 1
                       ? "#4ADE80"
                       : "#F87171",
                   },
@@ -246,18 +294,26 @@ export const ComparisonAttribute = ({
             styles.valueCell,
             {
               backgroundColor:
-                better === 2
+                effectiveBetter === 2
                   ? getBetterBgColorAnimated(true)
                   : getBetterBgColor(false),
             },
           ]}
         >
           <Text
-            style={[styles.valueText, { color: getBetterColor(better === 2) }]}
+            style={[
+              styles.valueText,
+              {
+                color: getBetterColor(effectiveBetter === 2),
+                fontSize: 13,  // Slightly smaller font to accommodate long values
+              }
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {formatValue(value2)}
           </Text>
-          {better === 2 && (
+          {effectiveBetter === 2 && (
             <AntDesign
               name="checkcircle"
               size={16}
@@ -278,10 +334,10 @@ export const ComparisonAttribute = ({
                       outputRange: ["0%", "100%"],
                     }),
                     backgroundColor: isHigherBetter
-                      ? better === 2
+                      ? effectiveBetter === 2
                         ? "#4ADE80"
                         : "#60A5FA"
-                      : better === 2
+                      : effectiveBetter === 2
                       ? "#4ADE80"
                       : "#F87171",
                   },
@@ -449,7 +505,8 @@ export const ImageComparisonGallery = ({
   );
 };
 
-// Feature comparison component
+
+
 export const FeatureComparison = ({
   car1Features = [],
   car2Features = [],
@@ -510,7 +567,7 @@ export const FeatureComparison = ({
           category: "technology" as "technology",
         };
 
-        // Importance-based styling
+        // Importance-based styling with defaults for all features
         const getImportanceStyle = () => {
           switch (metadata.importance) {
             case "high":
@@ -523,9 +580,11 @@ export const FeatureComparison = ({
                 borderLeftWidth: 2,
                 borderLeftColor: "#60A5FA", // Blue for medium importance
               };
+            case "low":
             default:
               return {
-                borderLeftWidth: 0,
+                borderLeftWidth: 1,
+                borderLeftColor: "#9CA3AF", // Gray for low importance or unspecified
               };
           }
         };
@@ -544,14 +603,17 @@ export const FeatureComparison = ({
                   : hasCar1 && hasCar2
                   ? "rgba(16, 185, 129, 0.05)"
                   : "transparent",
+                borderRadius: 8, // Added rounded corners
+                marginHorizontal: 2, // Slight margin to make rounded corners more visible
               },
             ]}
           >
-            <View style={styles.featureInfo}>
+            <View style={[styles.featureInfo, { alignItems: 'center' }]}>
               <MaterialCommunityIcons
                 name={(metadata.icon as any) || "check-circle-outline"}
                 size={20}
                 color={isDarkMode ? "#ffffff" : "#000000"}
+                style={{ marginRight: 12 }} // Consistent margin
               />
               <View style={styles.featureTextContainer}>
                 <Text
@@ -644,13 +706,6 @@ export const ValueComparisonChart = ({
       maxValue: 5,
       higherIsBetter: true,
     },
-    {
-      label: "5-Yr Cost",
-      car1Value: calculateTotalCostOfOwnership(car1) / 10000,
-      car2Value: calculateTotalCostOfOwnership(car2) / 10000,
-      maxValue: 10,
-      higherIsBetter: false,
-    },
   ];
 
   return (
@@ -671,16 +726,37 @@ export const ValueComparisonChart = ({
 
       <View style={styles.valueMetricsContainer}>
         {metrics.map((metric, index) => {
-          // Calculate width percentage for each bar (max 90% of container width)
-          const maxBarWidth = 90; // percentage
-          const car1BarWidth = Math.min(
-            maxBarWidth,
-            (metric.car1Value / metric.maxValue) * maxBarWidth
-          );
-          const car2BarWidth = Math.min(
-            maxBarWidth,
-            (metric.car2Value / metric.maxValue) * maxBarWidth
-          );
+          // Calculate the percentages based on the total sum
+          const totalValue = metric.car1Value + metric.car2Value;
+
+          // Handle edge cases for zero or equal values
+          let car1Percentage, car2Percentage;
+
+          if (totalValue === 0) {
+            // If both values are 0, distribute evenly
+            car1Percentage = 50;
+            car2Percentage = 50;
+          } else if (metric.car1Value === metric.car2Value) {
+            // If values are identical, distribute evenly
+            car1Percentage = 50;
+            car2Percentage = 50;
+          } else {
+            // Normal case: calculate proportional percentages
+            car1Percentage = (metric.car1Value / totalValue) * 100;
+            car2Percentage = (metric.car2Value / totalValue) * 100;
+          }
+
+          // Ensure minimum visibility (5%) even if value is very small but not zero
+          if (metric.car1Value > 0 && car1Percentage < 5) car1Percentage = 5;
+          if (metric.car2Value > 0 && car2Percentage < 5) car2Percentage = 5;
+
+          // Adjust if sum exceeds 100% after minimum visibility adjustment
+          if (car1Percentage + car2Percentage > 100) {
+            const excess = (car1Percentage + car2Percentage) - 100;
+            // Reduce proportionally from both
+            car1Percentage -= (excess * car1Percentage) / (car1Percentage + car2Percentage);
+            car2Percentage -= (excess * car2Percentage) / (car1Percentage + car2Percentage);
+          }
 
           // Determine which value is better
           const car1IsBetter = metric.higherIsBetter
@@ -692,16 +768,12 @@ export const ValueComparisonChart = ({
 
           // Calculate formatted values
           const car1FormattedValue =
-            metric.label === "5-Yr Cost"
-              ? `$${Math.round(metric.car1Value * 10000).toLocaleString()}`
-              : metric.label === "Price Ratio"
+            metric.label === "Price Ratio"
               ? metric.car1Value.toFixed(1)
               : Math.round(metric.car1Value);
 
           const car2FormattedValue =
-            metric.label === "5-Yr Cost"
-              ? `$${Math.round(metric.car2Value * 10000).toLocaleString()}`
-              : metric.label === "Price Ratio"
+            metric.label === "Price Ratio"
               ? metric.car2Value.toFixed(1)
               : Math.round(metric.car2Value);
 
@@ -722,7 +794,7 @@ export const ValueComparisonChart = ({
                   style={[
                     styles.valueBar1,
                     {
-                      width: `${car1BarWidth}%`,
+                      width: `${car1Percentage}%`,
                       backgroundColor: car1IsBetter ? "#FF6B00" : "#FF9D4D",
                       borderTopRightRadius: 0,
                       borderBottomRightRadius: 0,
@@ -739,7 +811,7 @@ export const ValueComparisonChart = ({
                   style={[
                     styles.valueBar2,
                     {
-                      width: `${car2BarWidth}%`,
+                      width: `${car2Percentage}%`,
                       backgroundColor: car2IsBetter ? "#60A5FA" : "#93C5FD",
                       borderTopLeftRadius: 0,
                       borderBottomLeftRadius: 0,
@@ -765,6 +837,8 @@ export const ValueComparisonChart = ({
               styles.legendText,
               { color: isDarkMode ? "#bbbbbb" : "#666666" },
             ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {car1.make} {car1.model}
           </Text>
@@ -777,6 +851,8 @@ export const ValueComparisonChart = ({
               styles.legendText,
               { color: isDarkMode ? "#bbbbbb" : "#666666" },
             ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {car2.make} {car2.model}
           </Text>

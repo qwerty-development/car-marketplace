@@ -68,7 +68,7 @@ const VideoControls = ({
   }
 
   // Calculate responsive bottom position for side controls
-  const sideControlsBottomPosition = isSmallDevice ? 90 : 160
+  const sideControlsBottomPosition = isSmallDevice ? 90 : 210
 
   const handleLikePress = () => {
     if (isGuest) {
@@ -86,33 +86,33 @@ const VideoControls = ({
         style={{
           opacity,
           zIndex: 60,
-          bottom: isSmallDevice ? 4 : 5
+          bottom: isSmallDevice ? 7 : 10
         }}
         onLayout={e => setProgressWidth(e.nativeEvent.layout.width - 32)}>
         <View>
-          <TouchableOpacity
-            className="h-8 justify-center"
-            onPress={handleScrubbing}
-            activeOpacity={1}>
-            <View className="h-1 w-full bg-neutral-600 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-red"
-                style={{ width: `${(currentTime / duration) * 100}%` }}
-              />
-              <View
-                className="absolute top-1/2 h-4 w-4 bg-red rounded-full shadow-lg"
-                style={{
-                  left: `${(currentTime / duration) * 100}%`,
-                  transform: [{ translateY: -8 }]
-                }}
-              />
-            </View>
-          </TouchableOpacity>
+         <TouchableOpacity
+  className="h-6 justify-center"
+  onPress={handleScrubbing}
+  activeOpacity={1}>
+  <View className="h-1 w-full bg-neutral-600 rounded-full overflow-hidden">
+             <View
+      className="h-full bg-red"
+      style={{ width: `${(currentTime / duration) * 100}%` }}
+    />
+    <View
+      className="absolute top-1/2 h-4 w-4 bg-red rounded-full shadow-lg"
+      style={{
+        left: `${(currentTime / duration) * 100}%`,
+        transform: [{ translateY: -8 }]
+      }}
+    />
+  </View>
+</TouchableOpacity>
 
-          <View className="flex-row justify-between mt-1 bg-black/20">
-            <Text className="text-white text-xs">{formatTime(currentTime)}</Text>
-            <Text className="text-white text-xs">{formatTime(duration)}</Text>
-          </View>
+<View className="flex-row justify-between mt-[-2]">
+  <Text className="text-white text-xs">{formatTime(currentTime)}</Text>
+  <Text className="text-white text-xs">{formatTime(duration)}</Text>
+</View>
         </View>
       </Animated.View>
 

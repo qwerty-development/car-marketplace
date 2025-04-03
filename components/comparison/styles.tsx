@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     scrollView: {
       flex: 1,
     },
-  
+
     // Loading state styles
     loadingContainer: {
       flex: 1,
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
       marginTop: 12,
       fontSize: 16,
     },
-  
+
     // Car selection styles
     carSelectionContainer: {
       flexDirection: 'row',
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
       borderRadius: 15,
       padding: 2,
     },
-  
+
     // Placeholder and empty state styles
     placeholderContainer: {
       paddingHorizontal: 16,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
       fontWeight: '600',
       fontSize: 14,
     },
-  
+
     // Comparison content styles
     comparisonContent: {
       paddingHorizontal: 16,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
       fontSize: 14,
       textAlign: 'center',
     },
-  
+
     // Comparison row styles
     comparisonRow: {
       flexDirection: 'row',
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     progressBar: {
       height: '100%',
     },
-  
+
     // Feature header styles
     featureHeader: {
       flexDirection: 'row',
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
       fontSize: 14,
       fontWeight: '500',
     },
-  
+
     // Feature comparison styles
     featureComparisonContainer: {
       paddingTop: 8,
@@ -327,6 +327,7 @@ const styles = StyleSheet.create({
     },
     featureTextContainer: {
       marginLeft: 12,
+      marginTop:5,
       flex: 1,
     },
     featureLabel: {
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       justifyContent: 'center',
     },
-  
+
     // Summary component styles
     summaryContainer: {
       padding: 8,
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
       fontSize: 14,
       lineHeight: 20,
     },
-  
+
     // Pros & Cons styles
     prosConsContainer: {
       marginBottom: 16,
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
       fontSize: 12,
       fontStyle: 'italic',
     },
-  
+
     // Use cases styles
     useCasesContainer: {
       borderRadius: 12,
@@ -516,7 +517,7 @@ const styles = StyleSheet.create({
       fontStyle: 'italic',
       textAlign: 'center',
     },
-  
+
     // Image gallery styles
     imageGalleryContainer: {
       marginBottom: 16,
@@ -573,7 +574,7 @@ const styles = StyleSheet.create({
       marginHorizontal: 16,
       fontSize: 14,
     },
-  
+
     // Radar chart styles
     radarChartContainer: {
       margin: 8,
@@ -591,7 +592,7 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       justifyContent: 'center',
     },
-  
+
     // Cost of ownership styles
     costComparisonContainer: {
       marginBottom: 16,
@@ -655,9 +656,10 @@ const styles = StyleSheet.create({
       fontWeight: 'bold',
     },
     costInsight: {
+
       padding: 12,
       borderRadius: 8,
-      marginBottom: 8,
+      marginVertical: 8,
     },
     costInsightText: {
       fontSize: 13,
@@ -667,7 +669,7 @@ const styles = StyleSheet.create({
       fontSize: 10,
       fontStyle: 'italic',
     },
-  
+
     // Empty states
     emptyFeaturesContainer: {
       padding: 20,
@@ -690,7 +692,7 @@ const styles = StyleSheet.create({
       textAlign: 'center',
       marginTop: 16,
     },
-  
+
     // Modal styles
     modalBlurContainer: {
       flex: 1,
@@ -728,7 +730,7 @@ const styles = StyleSheet.create({
       right: 16,
       top: 12,
     },
-  
+
     // Search and sort styles
     searchSortContainer: {
       paddingHorizontal: 16,
@@ -774,7 +776,7 @@ const styles = StyleSheet.create({
       fontSize: 12,
       fontWeight: '500',
     },
-  
+
     // Car list styles
     carList: {
       padding: 16,
@@ -846,7 +848,7 @@ const styles = StyleSheet.create({
       fontWeight: 'bold',
       fontSize: 14,
     },
-  
+
     // Share button
     shareButtonContainer: {
       position: 'absolute',
@@ -867,7 +869,7 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.2,
       shadowRadius: 3,
     },
-  
+
     // Tab navigation
     tabContainer: {
       flexDirection: 'row',
@@ -884,7 +886,7 @@ const styles = StyleSheet.create({
       fontWeight: '500',
       fontSize: 14,
     },
-  
+
     // Value comparison chart
     valueChartContainer: {
       padding: 12,
@@ -965,6 +967,8 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       alignItems: 'center',
       marginHorizontal: 8,
+      flexShrink: 1,
+      maxWidth:'50%'
     },
     legendColor: {
       width: 12,
@@ -973,6 +977,7 @@ const styles = StyleSheet.create({
       marginRight: 4,
     },
     legendText: {
+
       fontSize: 12,
     },
 
@@ -1013,7 +1018,7 @@ const styles = StyleSheet.create({
       borderTopWidth: 1,
       borderTopColor: '#444444',
     },
-  
+
     // TextInput
     textInput: {
       padding: 0,

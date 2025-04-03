@@ -1,1049 +1,1343 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
-	View,
-	Text,
-	Image,
-	ActivityIndicator,
-	TouchableOpacity,
-	TextInput,
-	RefreshControl,
-	Animated,
-	Dimensions,
-	StatusBar,
-	Platform,
-	StyleSheet,
-	FlatList
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  Alert,
+  TextInput,
+  StatusBar,
+  Pressable,
+  ActivityIndicator
 } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { router, useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
-import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
-import CarDetailModalIOS from './CarDetailModalIOS'
+import CarDetailModal from '@/app/(home)/(dealer)/CarDetailModal'
+import CarDetailModalIOS from './CarDetailModal.ios'
 import { useFavorites } from '@/utils/useFavorites'
-import { Ionicons } from '@expo/vector-icons'
+import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
-import RNPickerSelect from 'react-native-picker-select'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { BlurView } from 'expo-blur'
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps'
+import MapView, { Marker } from 'react-native-maps'
 import * as Linking from 'expo-linking'
-import { Video, ResizeMode } from 'expo-av'
-import { formatDistanceToNow } from 'date-fns'
+import DealershipAutoClips from '@/components/DealershipAutoClips'
+import SortPicker from '@/components/SortPicker'
+import ErrorBoundary from 'react-native-error-boundary'
 
 const ITEMS_PER_PAGE = 10
-const { width } = Dimensions.get('window')
+
+interface FilterState {
+  searchQuery: string
+  sortOption: string
+  priceRange?: [number, number]
+  yearRange?: [number, number]
+}
+
+// Safe Image component with error handling
+const SafeImage = ({ source, style, fallbackColor = '#333' }:any) => {
+  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  return (
+    <View style={[style, { overflow: 'hidden', backgroundColor: fallbackColor }]}>
+      {!hasError ? (
+        <Image
+          source={source}
+          style={[style, { opacity: isLoaded ? 1 : 0.5 }]}
+          onError={() => setHasError(true)}
+          onLoad={() => setIsLoaded(true)}
+          defaultSource={require('@/assets/placeholder.jpg')}
+        />
+      ) : (
+        <View style={[style, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Ionicons name="image-outline" size={style.height ? style.height/3 : 40} color="#999" />
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Error fallback component
+const ErrorFallback = ({ error, resetError }:any) => (
+  <View style={{
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f8f8'
+  }}>
+    <Ionicons name="alert-circle-outline" size={50} color="#D55004" />
+    <Text style={{
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginTop: 20,
+      color: '#333'
+    }}>
+      Something went wrong
+    </Text>
+    <Text style={{
+      marginTop: 10,
+      textAlign: 'center',
+      color: '#666'
+    }}>
+      We're having trouble displaying this content
+    </Text>
+    <TouchableOpacity
+      style={{
+        marginTop: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        backgroundColor: '#D55004',
+        borderRadius: 8
+      }}
+      onPress={resetError}
+    >
+      <Text style={{ color: 'white', fontWeight: 'bold' }}>Try Again</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+const CustomHeader = React.memo(
+  ({ title, onBack }: { title: string; onBack?: () => void }) => {
+    const { isDarkMode } = useTheme();
+
+    return (
+      <SafeAreaView style={{
+        backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+      }}>
+        <StatusBar
+          barStyle={isDarkMode ? "light-content" : "dark-content"}
+          backgroundColor={isDarkMode ? '#000000' : '#FFFFFF'}
+          translucent={true}
+        />
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 8,
+          paddingBottom: 8
+        }}>
+          {onBack && (
+            <TouchableOpacity
+              onPress={onBack}
+              style={{ padding: 8 }}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={28}
+                color={isDarkMode ? "#FFFFFF" : "#000000"}
+              />
+            </TouchableOpacity>
+          )}
+          <Text style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            marginLeft: 8,
+            color: isDarkMode ? "#FFFFFF" : "#000000"
+          }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {title || 'Dealership Details'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+);
 
 interface Dealership {
-	id: number
-	name: string
-	logo: string
-	phone: string
-	location: string
-	longitude: number
-	latitude: number
+  id: number
+  name: string
+  logo: string
+  phone: string
+  location: string
+  longitude: number
+  latitude: number
 }
 
 interface Car {
-	id: number
-	make: string
-	model: string
-	year: number
-	price: number
-	images: string[]
-	description: string
-	condition: 'New' | 'Used'
-	mileage: number
-	color: string
-	transmission: 'Manual' | 'Automatic'
-	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
-}
-interface AutoClip {
-	id: number
-	title: string
-	description: string
-	video_url: string
-	status: 'published' | 'draft'
-	car_id: number
-	dealership_id: number
-	created_at: Date
-	car: {
-		year: number
-		make: string
-		model: string
-	}
+  id: number
+  make: string
+  model: string
+  year: number
+  price: number
+  images: string[]
+  description: string
+  condition: 'New' | 'Used'
+  mileage: number
+  color: string
+  transmission: 'Manual' | 'Automatic'
+  drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
+  listed_at: string
+  likes: number
+  views: number
 }
 
-const CustomHeader = React.memo(
-	({ title, onBack }: { title: string; onBack: () => void }) => {
-		const { isDarkMode } = useTheme()
-		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-
-		return (
-			<SafeAreaView
-				edges={['top']}
-				className={`${isDarkMode ? 'bg-black' : 'bg-white'}`}>
-				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-				<View className='flex-row items-center px-4 mb-1'>
-					<TouchableOpacity onPress={onBack}>
-						<Ionicons name='arrow-back' size={24} color={iconColor} />
-					</TouchableOpacity>
-					<Text
-						className={`ml-4 text-lg font-bold mx-auto ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						{title}
-					</Text>
-				</View>
-			</SafeAreaView>
-		)
-	}
-)
-
-// Modified DealershipMapView component
+// Enhanced DealershipMapView with more robust error handling
 const DealershipMapView = ({ dealership, isDarkMode }: any) => {
-	const mapRef = useRef<any>(null)
-	const [mapReady, setMapReady] = useState(false)
-	const isIOS = Platform.OS === 'ios'
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
+  const [isMapVisible, setIsMapVisible] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const mapTimeout = useRef<NodeJS.Timeout | null>(null);
 
-	const handleMapReady = () => {
-		setMapReady(true)
-		if (mapRef.current) {
-			mapRef.current.fitToSuppliedMarkers(['dealershipMarker'], {
-				edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-				animated: true
-			})
-		}
-	}
+  useEffect(() => {
+    // Set a timeout to show map after a delay to ensure UI is responsive
+    const timeout = setTimeout(() => {
+      setIsMapVisible(true);
+    }, 500);
 
-	const openInMaps = () => {
-		const scheme = Platform.select({
-			ios: 'maps:0,0?q=',
-			android: 'geo:0,0?q='
-		})
-		const latLng = `${dealership.latitude},${dealership.longitude}`
-		const label = encodeURIComponent(dealership.name)
-		const url: any = Platform.select({
-			ios: `${scheme}${label}@${latLng}`,
-			android: `${scheme}${latLng}(${label})`
-		})
-		Linking.openURL(url)
-	}
+    // Set a timeout to handle cases where map doesn't load properly
+    mapTimeout.current = setTimeout(() => {
+      if (!isLoaded) {
+        setMapError(true);
+        console.log('Map loading timed out');
+      }
+    }, 7000);
 
-	return (
-		<View className='h-64 rounded-lg overflow-hidden'>
-			<MapView
-				ref={mapRef}
-				provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
-				style={{ flex: 1 }}
-				initialRegion={{
-					latitude: dealership.latitude || 37.7749,
-					longitude: dealership.longitude || -122.4194,
-					latitudeDelta: 0.02,
-					longitudeDelta: 0.02
-				}}
-				onMapReady={handleMapReady}
-				showsUserLocation={true}
-				showsMyLocationButton={isIOS ? false : true}
-				showsCompass={true}
-				mapType={isDarkMode ? 'mutedStandard' : 'standard'}
-				className={isDarkMode ? 'opacity-90' : 'opacity-100'}>
-				{mapReady && (
-					<Marker
-						identifier='dealershipMarker'
-						coordinate={{
-							latitude: dealership.latitude || 37.7749,
-							longitude: dealership.longitude || -122.4194
-						}}>
-						<View className='items-center'>
-							<Image
-								source={{ uri: dealership.logo }}
-								className='w-12 h-12 rounded-full border-2 border-red'
-							/>
-							{isIOS && (
-								<View className='bg-white/90 dark:bg-gray/90 px-3 py-2 rounded-lg mt-2 shadow-lg'>
-									<Text className='text-sm font-bold text-red text-center'>
-										{dealership.name}
-									</Text>
-								</View>
-							)}
-						</View>
-						{!isIOS && (
-							<Callout tooltip>
-								<BlurView
-									intensity={90}
-									tint={isDarkMode ? 'dark' : 'light'}
-									className='rounded-xl overflow-hidden shadow-lg'>
-									<View className='p-4 min-w-[250px]'>
-										<View className='flex-row items-center mb-2'>
-											<Image
-												source={{ uri: dealership.logo }}
-												className='w-8 h-8 rounded-full mr-2'
-											/>
-											<Text className='text-lg font-bold text-red flex-1'>
-												{dealership.name}
-											</Text>
-										</View>
+    return () => {
+      clearTimeout(timeout);
+      if (mapTimeout.current) clearTimeout(mapTimeout.current);
+    };
+  }, []);
 
-										<View className='flex-row items-center mb-2'>
-											<Ionicons
-												name='location-outline'
-												size={16}
-												color={isDarkMode ? '#fff' : '#000'}
-												className='mr-2'
-											/>
-											<Text
-												className={`text-sm ${
-													isDarkMode ? 'text-white' : 'text-black'
-												} flex-1`}>
-												{dealership.location}
-											</Text>
-										</View>
+  // Safe validation of coordinates
+  const hasValidCoordinates = useMemo(() => {
+    try {
+      if (!dealership?.latitude || !dealership?.longitude) return false;
+      const lat = parseFloat(dealership.latitude);
+      const lng = parseFloat(dealership.longitude);
+      return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+    } catch (error) {
+      console.error('Error validating coordinates:', error);
+      return false;
+    }
+  }, [dealership]);
 
-										{dealership.phone && (
-											<View className='flex-row items-center'>
-												<Ionicons
-													name='call-outline'
-													size={16}
-													color={isDarkMode ? '#fff' : '#000'}
-													className='mr-2'
-												/>
-												<Text
-													className={`text-sm ${
-														isDarkMode ? 'text-white' : 'text-black'
-													}`}>
-													{dealership.phone}
-												</Text>
-											</View>
-										)}
+  const handleMapReady = useCallback(() => {
+    setIsMapReady(true);
+    setIsLoaded(true);
+    if (mapTimeout.current) {
+      clearTimeout(mapTimeout.current);
+      mapTimeout.current = null;
+    }
+  }, []);
 
-										<TouchableOpacity
-											className='bg-red mt-3 py-2 rounded-lg'
-											onPress={openInMaps}>
-											<Text className='text-white text-center font-semibold'>
-												Get Directions
-											</Text>
-										</TouchableOpacity>
-									</View>
-								</BlurView>
-							</Callout>
-						)}
-					</Marker>
-				)}
-			</MapView>
+  const handleMapError = useCallback(() => {
+    setMapError(true);
+    console.error('Map failed to load');
+  }, []);
 
-			<TouchableOpacity
-				onPress={openInMaps}
-				className='absolute bottom-4 right-4 bg-red/90 px-4 py-2 rounded-full
-                  flex-row items-center shadow-lg border border-white/20'>
-				<Ionicons name='navigate' size={20} color='white' />
-				<Text className='text-white text-sm font-semibold ml-2'>
-					Directions
-				</Text>
-			</TouchableOpacity>
-		</View>
-	)
-}
+  // If coordinates are invalid or map has error, show placeholder
+  if (!hasValidCoordinates || mapError) {
+    return (
+      <View style={{
+        height: 256,
+        borderRadius: 16,
+        backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <Ionicons
+          name='map-outline'
+          size={48}
+          color={isDarkMode ? '#666' : '#999'}
+        />
+        <Text style={{
+          color: isDarkMode ? '#999' : '#666',
+          marginTop: 16,
+          textAlign: 'center',
+          paddingHorizontal: 16,
+        }}>
+          {mapError ? 'Unable to load map' : 'Location not available'}
+        </Text>
+      </View>
+    );
+  }
 
-const DealershipAutoClips = ({ dealershipId }: { dealershipId: string }) => {
-	const [autoClips, setAutoClips] = useState<AutoClip[]>([])
-	const [isPlaying, setIsPlaying] = useState<{ [key: number]: boolean }>({})
-	const videoRefs = useRef<{ [key: number]: any }>({})
-	const isFocused = useLocalSearchParams()
-	const getFormattedPostDate = useCallback((createdAt: any) => {
-		return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
-	}, [])
+  // Parse coordinates safely
+  let lat = 0, lng = 0;
+  try {
+    lat = parseFloat(dealership.latitude);
+    lng = parseFloat(dealership.longitude);
+  } catch (error) {
+    console.error('Error parsing coordinates:', error);
+    return (
+      <View style={{
+        height: 256,
+        borderRadius: 16,
+        backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <Ionicons
+          name='map-outline'
+          size={48}
+          color={isDarkMode ? '#666' : '#999'}
+        />
+        <Text style={{
+          color: isDarkMode ? '#999' : '#666',
+          marginTop: 16,
+          textAlign: 'center',
+          paddingHorizontal: 16,
+        }}>
+          Invalid location coordinates
+        </Text>
+      </View>
+    );
+  }
 
-	useEffect(() => {
-		const fetchDealershipClips = async () => {
-			try {
-				const { data: clipsData, error: clipsError } = await supabase
-					.from('auto_clips')
-					.select('*,cars(year,make,model)')
-					.eq('dealership_id', dealershipId)
-					.eq('status', 'published')
-					.limit(5) // Limit to 5 clips
+  const region = {
+    latitude: lat,
+    longitude: lng,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01
+  };
 
-				if (clipsError) throw clipsError
+  // Handle map opening for directions
+  const handleOpenMaps = useCallback(() => {
+    try {
+      const googleMapsUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
+      Linking.openURL(googleMapsUrl).catch(() => {
+        // Fallback to web URL if native maps doesn't work
+        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+      });
+    } catch (error) {
+      console.error('Error opening maps:', error);
+      Alert.alert('Error', 'Could not open maps application');
+    }
+  }, [lat, lng]);
 
-				setAutoClips(clipsData || [])
-			} catch (error) {
-				console.error('Error fetching dealership clips:', error)
-			}
-		}
+  return (
+    <View style={{
+      height: 256,
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
+    }}>
+      {!isMapVisible ? (
+        // Show loading state
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#D55004" />
+          <Text style={{ marginTop: 12, color: isDarkMode ? '#fff' : '#000' }}>
+            Loading map...
+          </Text>
+        </View>
+      ) : (
+        <ErrorBoundary FallbackComponent={({ error }) => (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
+          }}>
+            <Ionicons name="warning" size={48} color={isDarkMode ? '#666' : '#999'} />
+            <Text style={{
+              color: isDarkMode ? '#999' : '#666',
+              marginTop: 16,
+              textAlign: 'center',
+              paddingHorizontal: 16,
+            }}>
+              Error loading map
+            </Text>
+          </View>
+        )}>
+          <MapView
+            provider="google"
+            style={{ flex: 1 }}
+            initialRegion={region}
+            onMapReady={handleMapReady}
+            onError={handleMapError}
+            liteMode={true} // Use lite mode on Android for better performance
+          >
+            {isMapReady && (
+              <Marker
+                coordinate={{
+                  latitude: lat,
+                  longitude: lng
+                }}
+              >
+                <View style={{
+                  backgroundColor: '#fff',
+                  borderRadius: 20,
+                  padding: 4,
+                  borderWidth: 2,
+                  borderColor: '#fff'
+                }}>
+                  {dealership.logo ? (
+                    <SafeImage
+                      source={{ uri: dealership.logo }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20
+                      }}
+                      fallbackColor="#D55004"
+                    />
+                  ) : (
+                    <Ionicons name="business" size={24} color="#D55004" />
+                  )}
+                </View>
+              </Marker>
+            )}
+          </MapView>
 
-		if (dealershipId) {
-			fetchDealershipClips()
-		}
-	}, [dealershipId])
+          <TouchableOpacity
+            onPress={handleOpenMaps}
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              backgroundColor: '#D55004',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 24,
+              flexDirection: 'row',
+              alignItems: 'center',
+              elevation: 3
+            }}
+          >
+            <Ionicons name='navigate' size={16} color='white' />
+            <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
+          </TouchableOpacity>
+        </ErrorBoundary>
+      )}
+    </View>
+  );
+};
 
-	useEffect(() => {
-		// Pause all videos when the screen is not focused
-		if (!isFocused) {
-			Object.values(videoRefs.current).forEach(async ref => {
-				try {
-					await ref?.pauseAsync()
-				} catch (error) {
-					console.error('Error pausing video:', error)
-				}
-			})
-		}
-	}, [isFocused])
+const DealershipDetails = () => {
+  const { isDarkMode } = useTheme();
+  const { dealershipId } = useLocalSearchParams<{ dealershipId: string }>();
+  const [dealership, setDealership] = useState<Dealership | null>(null);
+  const [cars, setCars] = useState<Car[]>([]);
+  const [isDealershipLoading, setIsDealershipLoading] = useState(true);
+  const [isCarsLoading, setIsCarsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedCar, setSelectedCar] = useState<Car | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const scrollY = new Animated.Value(0);
+  const [filters, setFilters] = useState<FilterState>({
+    searchQuery: '',
+    sortOption: ''
+  });
+  const [filteredCars, setFilteredCars] = useState<Car[]>([]);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [dealershipError, setDealershipError] = useState(false);
+  const [carsError, setCarsError] = useState(false);
+  const [mapSectionVisible, setMapSectionVisible] = useState(false);
+  const [autoclipSectionVisible, setAutoclipSectionVisible] = useState(false);
 
-	const handleVideoPress = async (clipId: number) => {
-		const videoRef = videoRefs.current[clipId]
-		if (!videoRef) return
+  // Debounce the search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(filters.searchQuery);
+    }, 300);
 
-		const newPlayingState = !isPlaying[clipId]
-		setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
+    return () => clearTimeout(timer);
+  }, [filters.searchQuery]);
 
-		try {
-			if (newPlayingState) {
-				await videoRef.playAsync()
-			} else {
-				await videoRef.pauseAsync()
-			}
-		} catch (error) {
-			console.error('Error handling video playback:', error)
-		}
-	}
+  // Theme for gradient background
+  const bgGradient: [string, string] = isDarkMode
+    ? ['#000000', '#1c1c1c']
+    : ['#FFFFFF', '#F0F0F0'];
 
-	const renderItem = ({ item, index }: { item: AutoClip; index: number }) => {
-		const formattedPostDate = getFormattedPostDate(item.created_at)
+  // Staggered loading of heavy components
+  useEffect(() => {
+    // Delay loading of map component to prevent blocking UI thread
+    const mapTimer = setTimeout(() => {
+      setMapSectionVisible(true);
+    }, 1000);
 
-		return (
-			<TouchableOpacity
-				activeOpacity={1}
-				onPress={() => handleVideoPress(item.id)}
-				style={styles.clipContainer}>
-				<Video
-					ref={ref => (videoRefs.current[item.id] = ref)}
-					source={{ uri: item.video_url }}
-					style={styles.video}
-					resizeMode={ResizeMode.COVER}
-					shouldPlay={isPlaying[item.id]}
-					isLooping
-					isMuted={false} // Or manage mute state as needed
-				/>
-				<View style={styles.infoContainer}>
-					<Text style={styles.title}>
-						{item?.car?.year} {item?.car?.make} {item?.car?.model}
-					</Text>
-					<Text style={styles.description}>{item.description}</Text>
-					<Text style={styles.postDate}>{formattedPostDate}</Text>
-				</View>
-			</TouchableOpacity>
-		)
-	}
+    // Delay loading of autoclips to further improve initial loading
+    const autoclipTimer = setTimeout(() => {
+      setAutoclipSectionVisible(true);
+    }, 2000);
 
-	return (
-		<View style={styles.container}>
-			<Text style={styles.header}>AutoClips</Text>
-			<FlatList
-				data={autoClips}
-				renderItem={renderItem}
-				keyExtractor={item => item.id.toString()}
-				horizontal
-				showsHorizontalScrollIndicator={false}
-			/>
-		</View>
-	)
-}
+    return () => {
+      clearTimeout(mapTimer);
+      clearTimeout(autoclipTimer);
+    };
+  }, []);
 
-export default function DealershipDetails() {
-	const { isDarkMode } = useTheme()
-	const { dealershipId } = useLocalSearchParams<{ dealershipId: string }>()
-	const router = useRouter()
-	const [dealership, setDealership] = useState<Dealership | null>(null)
-	const [cars, setCars] = useState<Car[]>([])
-	const [isDealershipLoading, setIsDealershipLoading] = useState(true)
-	const [isCarsLoading, setIsCarsLoading] = useState(true)
-	const [isRefreshing, setIsRefreshing] = useState(false)
-	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-	const [isModalVisible, setIsModalVisible] = useState(false)
-	const [currentPage, setCurrentPage] = useState(1)
-	const [totalPages, setTotalPages] = useState(1)
-	const { toggleFavorite, isFavorite } = useFavorites()
-	const [searchQuery, setSearchQuery] = useState('')
-	const [filterMake, setFilterMake] = useState('')
-	const [filterModel, setFilterModel] = useState('')
-	const [filterCondition, setFilterCondition] = useState('')
-	const [sortBy, setSortBy] = useState('listed_at')
-	const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-	const [makes, setMakes] = useState<string[]>([])
-	const [models, setModels] = useState<string[]>([])
-	const scrollY = new Animated.Value(0)
+  // Fetch dealership details with robust error handling
+  const fetchDealershipDetails = useCallback(async () => {
+    if (!dealershipId) {
+      setDealershipError(true);
+      setIsDealershipLoading(false);
+      return;
+    }
 
-	const bgGradient = isDarkMode
-		? ['#000000', '#1c1c1c']
-		: ['#FFFFFF', '#F0F0F0']
-	const textColor = isDarkMode ? 'text-white' : 'text-black'
-	const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-	const cardBgColor = isDarkMode ? 'bg-night' : 'bg-white'
+    setIsDealershipLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('dealerships')
+        .select('*')
+        .eq('id', dealershipId)
+        .single();
 
-	const fetchDealershipDetails = useCallback(async () => {
-		setIsDealershipLoading(true)
-		try {
-			const { data, error } = await supabase
-				.from('dealerships')
-				.select('*')
-				.eq('id', dealershipId)
-				.single()
+      if (error) throw error;
 
-			if (error) throw error
-			setDealership(data)
-		} catch (error) {
-			console.error('Error fetching dealership details:', error)
-		} finally {
-			setIsDealershipLoading(false)
-		}
-	}, [dealershipId])
+      if (!data) {
+        console.error('No dealership found with ID:', dealershipId);
+        setDealershipError(true);
+      } else {
+        setDealership(data);
+      }
+    } catch (error) {
+      console.error('Error fetching dealership details:', error);
+      setDealershipError(true);
+    } finally {
+      setIsDealershipLoading(false);
+    }
+  }, [dealershipId]);
 
-	const fetchDealershipCars = useCallback(
-		async (page = 1, refresh = false) => {
-			if (refresh) {
-				setIsRefreshing(true)
-			} else {
-				setIsCarsLoading(true)
-			}
+  // Initial load
+  useEffect(() => {
+    fetchDealershipDetails();
+  }, [fetchDealershipDetails]);
 
-			try {
-				let query = supabase
-					.from('cars')
-					.select('*', { count: 'exact' })
-					.eq('status', 'available')
-					.eq('dealership_id', dealershipId)
+  // Fetch cars with enhanced error handling
+  const fetchDealershipCars = useCallback(
+    async (page = 1, refresh = false, preserveSort = false) => {
+      if (!dealershipId) {
+        setCarsError(true);
+        setIsCarsLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
 
-				if (searchQuery) {
-					query = query.or(
-						`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`
-					)
-				}
-				if (filterMake) query = query.eq('make', filterMake)
-				if (filterModel) query = query.eq('model', filterModel)
-				if (filterCondition) query = query.eq('condition', filterCondition)
+      const currentSort = preserveSort ? filters.sortOption : '';
+      if (refresh) {
+        setIsRefreshing(true);
+      } else if (!refresh && page === 1) {
+        setIsCarsLoading(true);
+      }
 
-				query = query
-					.order(sortBy, { ascending: sortOrder === 'asc' })
-					.range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
+      try {
+        let query = supabase
+          .from('cars')
+          .select(
+            `*, dealerships (name,logo,phone,location,latitude,longitude)`,
+            { count: 'exact' }
+          )
+          .eq('status', 'available')
+          .eq('dealership_id', dealershipId);
 
-				const { data, count, error } = await query
+        // Apply sorting based on filter options
+        switch (filters.sortOption) {
+          case 'price_asc':
+            query = query.order('price', { ascending: true });
+            break;
+          case 'price_desc':
+            query = query.order('price', { ascending: false });
+            break;
+          case 'year_asc':
+            query = query.order('year', { ascending: true });
+            break;
+          case 'year_desc':
+            query = query.order('year', { ascending: false });
+            break;
+          case 'mileage_asc':
+            query = query.order('mileage', { ascending: true });
+            break;
+          case 'mileage_desc':
+            query = query.order('mileage', { ascending: false });
+            break;
+          default:
+            query = query.order('listed_at', { ascending: false });
+        }
 
-				if (error) throw error
+        // First get the total count
+        const { count, error: countError } = await query;
 
-				setCars(prevCars => (page === 1 ? data : [...prevCars, ...data]))
-				setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
-				setCurrentPage(page)
-			} catch (error) {
-				console.error('Error fetching dealership cars:', error)
-			} finally {
-				setIsCarsLoading(false)
-				setIsRefreshing(false)
-			}
-		},
-		[
-			dealershipId,
-			searchQuery,
-			filterMake,
-			filterModel,
-			filterCondition,
-			sortBy,
-			sortOrder
-		]
-	)
+        if (countError) throw countError;
 
-	const fetchMakes = useCallback(async () => {
-		try {
-			const { data, error } = await supabase
-				.from('cars')
-				.select('make')
-				.eq('dealership_id', dealershipId)
-				.order('make')
+        const totalItems = count || 0;
+        const calculatedTotalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+        const safePageNumber = Math.min(page, calculatedTotalPages || 1);
+        const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE;
+        const endRange = Math.min(
+          safePageNumber * ITEMS_PER_PAGE - 1,
+          Math.max(totalItems - 1, 0)
+        );
 
-			if (error) throw error
+        // Now fetch the actual data for this page
+        const { data, error } = await query.range(startRange, endRange);
 
-			const uniqueMakes = [...new Set(data?.map(item => item.make))]
-			setMakes(uniqueMakes)
-		} catch (error) {
-			console.error('Error fetching makes:', error)
-		}
-	}, [dealershipId])
+        if (error) throw error;
 
-	const fetchModels = useCallback(
-		async (make: string) => {
-			try {
-				const { data, error } = await supabase
-					.from('cars')
-					.select('model')
-					.eq('dealership_id', dealershipId)
-					.eq('make', make)
-					.order('model')
+        // Process the data safely with null checks
+        const processedCars =
+          data?.map(item => ({
+            ...item,
+            dealership_name: item.dealerships?.name,
+            dealership_logo: item.dealerships?.logo,
+            dealership_phone: item.dealerships?.phone,
+            dealership_location: item.dealerships?.location,
+            dealership_latitude: item.dealerships?.latitude,
+            dealership_longitude: item.dealerships?.longitude
+          })) || [];
 
-				if (error) throw error
+        // Update state based on whether this is a fresh load or pagination
+        if (safePageNumber === 1 || refresh) {
+          setCars(processedCars);
+        } else {
+          setCars(prevCars => [...prevCars, ...processedCars]);
+        }
 
-				const uniqueModels = [...new Set(data?.map(item => item.model))]
-				setModels(uniqueModels)
-			} catch (error) {
-				console.error('Error fetching models:', error)
-			}
-		},
-		[dealershipId]
-	)
+        setTotalPages(calculatedTotalPages || 1);
+        setCurrentPage(safePageNumber);
+        setCarsError(false);
+      } catch (error) {
+        console.error('Error fetching dealership cars:', error);
+        setCarsError(true);
+      } finally {
+        setIsCarsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [dealershipId, filters.sortOption]
+  );
 
-	useEffect(() => {
-		fetchDealershipDetails()
-		fetchMakes()
-	}, [fetchDealershipDetails, fetchMakes])
+  // Filter and sort cars client-side
+  useEffect(() => {
+    try {
+      let result = [...cars];
 
-	useEffect(() => {
-		fetchDealershipCars(1, true)
-	}, [fetchDealershipCars])
+      // Apply search filter if there's a search term
+      if (debouncedSearchTerm) {
+        const searchTerms = debouncedSearchTerm.toLowerCase().split(' ');
+        result = result.filter(car => {
+          // Skip invalid cars
+          if (!car) return false;
 
-	const handleCarPress = useCallback((car: Car) => {
-		setSelectedCar(car)
-		setIsModalVisible(true)
-	}, [])
+          const searchableFields = [
+            car.make,
+            car.model,
+            car.year?.toString(),
+            car.condition,
+            car.transmission,
+            car.color
+          ].filter(Boolean); // Filter out undefined fields
 
-	const handleFavoritePress = useCallback(
-		async (carId: number) => {
-			const newLikesCount = await toggleFavorite(carId)
-			setCars(prevCars =>
-				prevCars.map(car =>
-					car.id === carId ? { ...car, likes: newLikesCount } : car
-				)
-			)
-		},
-		[toggleFavorite]
-	)
+          return searchTerms.every(term =>
+            searchableFields.some(field =>
+              field && field.toLowerCase().includes(term)
+            )
+          );
+        });
+      }
 
-	const handleViewUpdate = useCallback(
-		(carId: number, newViewCount: number) => {
-			setCars(prevCars =>
-				prevCars.map(car =>
-					car.id === carId ? { ...car, views: newViewCount } : car
-				)
-			)
-		},
-		[]
-	)
+      // Apply local sorting if needed
+      if (filters.sortOption && result.length > 0) {
+        result.sort((a, b) => {
+          try {
+            switch (filters.sortOption) {
+              case 'price_asc':
+                return (a.price || 0) - (b.price || 0);
+              case 'price_desc':
+                return (b.price || 0) - (a.price || 0);
+              case 'year_asc':
+                return (a.year || 0) - (b.year || 0);
+              case 'year_desc':
+                return (b.year || 0) - (a.year || 0);
+              case 'mileage_asc':
+                return (a.mileage || 0) - (b.mileage || 0);
+              case 'mileage_desc':
+                return (b.mileage || 0) - (a.mileage || 0);
+              default:
+                if (a.listed_at && b.listed_at) {
+                  return new Date(b.listed_at).getTime() - new Date(a.listed_at).getTime();
+                }
+                return 0;
+            }
+          } catch (error) {
+            console.error('Error sorting cars:', error);
+            return 0;
+          }
+        });
+      }
 
-	const handleRefresh = useCallback(() => {
-		setIsRefreshing(true)
-		Promise.all([
-			fetchDealershipDetails(),
-			fetchDealershipCars(1, true),
-			fetchMakes()
-		]).then(() => {
-			setIsRefreshing(false)
-		})
-	}, [fetchDealershipDetails, fetchDealershipCars, fetchMakes])
+      setFilteredCars(result);
+    } catch (error) {
+      console.error('Error filtering/sorting cars:', error);
+      // In case of error, just use the original unfiltered list
+      setFilteredCars(cars);
+    }
+  }, [cars, debouncedSearchTerm, filters.sortOption]);
 
-	const handleLoadMore = useCallback(() => {
-		if (currentPage < totalPages && !isCarsLoading) {
-			fetchDealershipCars(currentPage + 1)
-		}
-	}, [currentPage, totalPages, isCarsLoading, fetchDealershipCars])
+  // Initial cars load
+  useEffect(() => {
+    // Load car data with slight delay to ensure UI is responsive first
+    const timer = setTimeout(() => {
+      fetchDealershipCars(1, true);
+    }, 300);
 
-	const handleSearch = useCallback(() => {
-		setCurrentPage(1)
-		fetchDealershipCars(1, true)
-	}, [fetchDealershipCars])
+    return () => clearTimeout(timer);
+  }, []);
 
-	const handleMakeFilter = useCallback(
-		(value: any) => {
-			setFilterMake(value)
-			setFilterModel('')
-			fetchModels(value)
-			setCurrentPage(1)
-			fetchDealershipCars(1, true)
-		},
-		[fetchModels, fetchDealershipCars]
-	)
+  // Handle car selection for modal
+  const handleCarPress = useCallback((car: Car) => {
+    if (!car) return;
+    setSelectedCar(car);
+    setIsModalVisible(true);
+  }, []);
 
-	const handleModelFilter = useCallback(
-		(value: string) => {
-			setFilterModel(value)
-			setCurrentPage(1)
-			fetchDealershipCars(1, true)
-		},
-		[fetchDealershipCars]
-	)
+  // Handle favorite toggle
+  const handleFavoritePress = useCallback(
+    async (carId: number) => {
+      try {
+        if (!carId) return;
+        const newLikesCount = await toggleFavorite(carId);
+        setCars(prevCars =>
+          prevCars.map(car =>
+            car.id === carId ? { ...car, likes: newLikesCount } : car
+          )
+        );
+      } catch (error) {
+        console.error('Error toggling favorite:', error);
+      }
+    },
+    [toggleFavorite]
+  );
 
-	const handleConditionFilter = useCallback(
-		(value: string) => {
-			setFilterCondition(value)
-			setCurrentPage(1)
-			fetchDealershipCars(1, true)
-		},
-		[fetchDealershipCars]
-	)
+  // Update view count
+  const handleViewUpdate = useCallback(
+    (carId: number, newViewCount: number) => {
+      if (!carId) return;
+      setCars(prevCars =>
+        prevCars.map(car =>
+          car.id === carId ? { ...car, views: newViewCount } : car
+        )
+      );
+    },
+    []
+  );
 
-	const handleSort = useCallback(
-		(value: string) => {
-			if (value === null) {
-				setSortBy('listed_at')
-				setSortOrder('desc')
-			} else {
-				const [newSortBy, newSortOrder] = value.split('_')
-				setSortBy(newSortBy)
-				setSortOrder(newSortOrder as 'asc' | 'desc')
-			}
-			setCurrentPage(1)
-			fetchDealershipCars(1, true)
-		},
-		[fetchDealershipCars]
-	)
+  // Load more cars for pagination
+  const handleLoadMore = useCallback(() => {
+    if (currentPage < totalPages && !isCarsLoading && !carsError) {
+      console.log(`Loading more cars, page ${currentPage + 1} of ${totalPages}`);
+      fetchDealershipCars(currentPage + 1, false, true);
+    }
+  }, [currentPage, totalPages, isCarsLoading, carsError, fetchDealershipCars]);
 
-	const renderModal = useMemo(() => {
-		const ModalComponent =
-			Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
-		return (
-			<ModalComponent
-				isVisible={isModalVisible}
-				car={selectedCar}
-				onClose={() => setIsModalVisible(false)}
-				onFavoritePress={() =>
-					selectedCar && handleFavoritePress(selectedCar.id)
-				}
-				isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
-				onViewUpdate={handleViewUpdate}
-				setSelectedCar={setSelectedCar}
-				setIsModalVisible={setIsModalVisible}
-			/>
-		)
-	}, [
-		isModalVisible,
-		selectedCar,
-		handleFavoritePress,
-		isFavorite,
-		handleViewUpdate
-	])
+  // Memoize modal component to prevent unnecessary re-renders
+  const renderModal = useMemo(() => {
+    if (!selectedCar) return null;
 
-	const renderCarItem = useCallback(
-		({ item }: { item: Car }) => (
-			<CarCard
-				car={item}
-				onPress={() => handleCarPress(item)}
-				onFavoritePress={() => handleFavoritePress(item.id)}
-				isFavorite={isFavorite(item.id)}
-				isDealer
-			/>
-		),
-		[handleCarPress, handleFavoritePress, isFavorite]
-	)
+    const ModalComponent =
+      Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal;
 
-	const FilterSection = () => {
-		const [isExpanded, setIsExpanded] = useState(false)
-		const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+    return (
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <ModalComponent
+          isVisible={isModalVisible}
+          car={selectedCar}
+          onClose={() => {
+            setIsModalVisible(false);
+            // Use a short delay before clearing the selected car to prevent flicker
+            setTimeout(() => setSelectedCar(null), 300);
+          }}
+          onFavoritePress={() =>
+            selectedCar && handleFavoritePress(selectedCar.id)
+          }
+          isFavorite={!!selectedCar && isFavorite(selectedCar.id)}
+          onViewUpdate={handleViewUpdate}
+          setSelectedCar={setSelectedCar}
+          setIsModalVisible={setIsModalVisible}
+        />
+      </ErrorBoundary>
+    );
+  }, [
+    isModalVisible,
+    selectedCar,
+    handleFavoritePress,
+    isFavorite,
+    handleViewUpdate
+  ]);
 
-		const handleLocalSearch = () => {
-			setSearchQuery(localSearchQuery)
-			handleSearch()
-		}
+  // Render car card items for the list
+  const renderCarItem = useCallback(
+    ({ item }: { item: Car }) => {
+      // Skip rendering if item is invalid
+      if (!item || !item.id) return null;
 
-		const handleCancelSearch = () => {
-			setLocalSearchQuery('')
-			setSearchQuery('')
-			handleSearch()
-		}
+      return (
+        <ErrorBoundary FallbackComponent={() => (
+          <View style={{
+            height: 200,
+            margin: 10,
+            backgroundColor: isDarkMode ? '#1c1c1c' : '#f0f0f0',
+            borderRadius: 12,
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Ionicons name="car" size={40} color="#999" />
+            <Text style={{ marginTop: 10, color: isDarkMode ? '#999' : '#666' }}>
+              Failed to load car
+            </Text>
+          </View>
+        )}>
+          <CarCard
+            car={item}
+            onPress={() => handleCarPress(item)}
+            onFavoritePress={() => handleFavoritePress(item.id)}
+            isFavorite={isFavorite(item.id)}
+            isDealer={true}
+          />
+        </ErrorBoundary>
+      );
+    },
+    [handleCarPress, handleFavoritePress, isFavorite, isDarkMode]
+  );
 
-		return (
-			<BlurView
-				intensity={80}
-				tint={isDarkMode ? 'dark' : 'light'}
-				style={styles.container}>
-				<View style={styles.searchContainer}>
-					<TextInput
-           textAlignVertical="center"
-						style={[styles.searchInput, isDarkMode && styles.darkText]}
-						placeholder='Search cars...'
-						placeholderTextColor={isDarkMode ? '#888' : '#555'}
-						value={localSearchQuery}
-						onChangeText={setLocalSearchQuery}
-						className='border border-red '
-					/>
-					{localSearchQuery !== '' && (
-						<TouchableOpacity
-							onPress={handleCancelSearch}
-							style={styles.cancelButton}>
-							<Ionicons
-								name='close-circle'
-								size={24}
-								color={isDarkMode ? '#fff' : '#000'}
-							/>
-						</TouchableOpacity>
-					)}
-					<TouchableOpacity
-						onPress={handleLocalSearch}
-						style={styles.searchButton}>
-						<Ionicons name='search' size={24} color='white' />
-					</TouchableOpacity>
-					<TouchableOpacity
-						onPress={() => setIsExpanded(!isExpanded)}
-						style={styles.expandButton}>
-						<Ionicons
-							name={isExpanded ? 'chevron-up' : 'chevron-down'}
-							size={24}
-							color='white'
-						/>
-					</TouchableOpacity>
-				</View>
+  // Handle call button press
+  const handleCall = useCallback(() => {
+    if (!dealership?.phone) {
+      Alert.alert('Error', 'Phone number not available');
+      return;
+    }
 
-				{isExpanded && (
-					<View style={styles.filtersContainer}>
-						<View style={styles.filterRow}>
-							<FilterPicker
-								label='Make'
-								value={filterMake}
-								items={makes.map(make => ({ label: make, value: make }))}
-								onValueChange={handleMakeFilter}
-								isDarkMode={isDarkMode}
-							/>
-							<FilterPicker
-								label='Model'
-								value={filterModel}
-								items={models.map(model => ({ label: model, value: model }))}
-								onValueChange={handleModelFilter}
-								isDarkMode={isDarkMode}
-							/>
-						</View>
-						<View style={styles.filterRow}>
-							<FilterPicker
-								label='Condition'
-								value={filterCondition}
-								items={[
-									{ label: 'New', value: 'New' },
-									{ label: 'Used', value: 'Used' }
-								]}
-								onValueChange={handleConditionFilter}
-								isDarkMode={isDarkMode}
-							/>
-							<FilterPicker
-								label='Sort By'
-								value={`${sortBy}_${sortOrder}`}
-								items={[
-									{ label: 'Price: Low to High', value: 'price_asc' },
-									{ label: 'Price: High to Low', value: 'price_desc' },
-									{ label: 'Mileage: Low to High', value: 'mileage_asc' },
-									{ label: 'Mileage: High to Low', value: 'mileage_desc' }
-								]}
-								onValueChange={handleSort}
-								isDarkMode={isDarkMode}
-							/>
-						</View>
-					</View>
-				)}
-			</BlurView>
-		)
-	}
+    try {
+      Linking.openURL(`tel:${dealership.phone}`);
+    } catch (error) {
+      console.error('Error making call:', error);
+      Alert.alert('Error', 'Could not initiate call');
+    }
+  }, [dealership]);
 
-	const FilterPicker = ({
-		label,
-		value,
-		items,
-		onValueChange,
-		isDarkMode
-	}: any) => (
-		<View style={styles.pickerContainer}>
-			<Text style={[styles.pickerLabel, isDarkMode && styles.darkText]}>
-				{label}
-			</Text>
-			<RNPickerSelect
-				onValueChange={onValueChange}
-				items={items}
-				placeholder={{ label: `All ${label}s`, value: null }}
-				value={value}
-				style={pickerSelectStyles(isDarkMode)}
-				useNativeAndroidPickerStyle={false}
-				Icon={() => (
-					<Ionicons
-						name='chevron-down'
-						size={24}
-						color={isDarkMode ? '#fff' : '#000'}
-					/>
-				)}
-			/>
-		</View>
-	)
-	const handleCall = useCallback(() => {
-		if (dealership?.phone) {
-			Linking.openURL(`tel:${dealership.phone}`)
-		}
-	}, [dealership])
+  // Handle WhatsApp button press
+  const handleWhatsApp = useCallback(() => {
+    if (!dealership?.phone) {
+      Alert.alert('Error', 'Phone number not available');
+      return;
+    }
 
-	const handleWhatsApp = useCallback(() => {
-		if (dealership?.phone) {
-			const whatsappUrl = `https://wa.me/+961${dealership.phone}`
-			Linking.openURL(whatsappUrl)
-		}
-	}, [dealership])
+    try {
+      const whatsappUrl = `https://wa.me/+961${dealership.phone}`;
+      Linking.openURL(whatsappUrl).catch(() => {
+        Alert.alert('Error', 'Could not open WhatsApp. Please make sure the app is installed.');
+      });
+    } catch (error) {
+      console.error('Error opening WhatsApp:', error);
+      Alert.alert('Error', 'Could not open WhatsApp');
+    }
+  }, [dealership]);
 
-	const renderHeader = useMemo(
-		() => (
-			<>
-				{dealership && (
-					<View
-						className={`${
-							isDarkMode ? 'bg-light-text' : 'bg-white'
-						} rounded-lg shadow-md p-4 mb-4 border border-red`}>
-						<Image
-							source={{ uri: dealership.logo }}
-							className='w-24 h-24 rounded-full self-center mb-4'
-						/>
-						<Text
-							className={`text-2xl font-bold ${textColor} text-center mb-2`}>
-							{dealership.name}
-						</Text>
-						<View className='flex-row justify-center space-x-4 mb-4'>
-							<TouchableOpacity
-								onPress={handleCall}
-								className='bg-green-500 px-4 py-2 rounded-full flex-row items-center'>
-								<Ionicons name='call-outline' size={20} color='white' />
-								<Text className='text-white ml-2'>Call</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								onPress={handleWhatsApp}
-								className='bg-blue-500 px-4 py-2 rounded-full flex-row items-center'>
-								<Ionicons name='logo-whatsapp' size={20} color='white' />
-								<Text className='text-white ml-2'>WhatsApp</Text>
-							</TouchableOpacity>
-						</View>
-						<View className='flex-row items-center justify-center mb-4'>
-							<Ionicons name='location-outline' size={20} color={iconColor} />
-							<Text className={`${textColor} ml-2`}>{dealership.location}</Text>
-						</View>
-						{/* <MapView
-							style={{
-								height: 200,
-								borderRadius: 10,
-								marginVertical: 10,
-								width: width - 64
-							}}
-							region={{
-								latitude: dealership.latitude || 37.7749,
-								longitude: dealership.longitude || -122.4194,
-								latitudeDelta: 0.01,
-								longitudeDelta: 0.01
-							}}>
-							<Marker
-								coordinate={{
-									latitude: dealership.latitude || 37.7749,
-									longitude: dealership.longitude || -122.4194
-								}}
-								title={dealership.name}
-								description={dealership.location}
-							/>
-						</MapView> */}
+  // Render list header content with dealership info and search
+  const renderHeader = useCallback(() => {
+    if (isDealershipLoading) {
+      return (
+        <View style={{ padding: 20, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#D55004" />
+          <Text style={{ marginTop: 16, color: isDarkMode ? 'white' : 'black' }}>
+            Loading dealership details...
+          </Text>
+        </View>
+      );
+    }
 
-						<DealershipMapView
-							dealership={dealership}
-							isDarkMode={isDarkMode}
-						/>
-					</View>
-				)}
-				<DealershipAutoClips dealershipId={dealershipId} />
-				<FilterSection />
-				<Text className={`text-xl font-bold ${textColor} mb-4`}>
-					Available Cars ({cars.length})
-				</Text>
-			</>
-		),
-		[
-			dealership,
-			cardBgColor,
-			textColor,
-			iconColor,
-			isDarkMode,
-			searchQuery,
-			handleSearch,
-			makes,
-			models,
-			filterMake,
-			filterModel,
-			filterCondition,
-			sortBy,
-			sortOrder,
-			handleMakeFilter,
-			handleModelFilter,
-			handleConditionFilter,
-			handleSort,
-			cars.length,
-			dealershipId
-		]
-	)
+    if (dealershipError || !dealership) {
+      return (
+        <View style={{
+          padding: 20,
+          alignItems: 'center',
+          backgroundColor: isDarkMode ? '#1A1A1A' : '#F7F7F7',
+          margin: 16,
+          borderRadius: 12,
+        }}>
+          <Ionicons name="alert-circle-outline" size={48} color="#D55004" />
+          <Text style={{
+            marginTop: 16,
+            color: isDarkMode ? 'white' : 'black',
+            fontWeight: 'bold',
+            fontSize: 16
+          }}>
+            Error Loading Dealership
+          </Text>
+          <Text style={{
+            marginTop: 8,
+            color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+            textAlign: 'center'
+          }}>
+            We couldn't load the dealership details. Please try again later.
+          </Text>
+          <TouchableOpacity
+            style={{
+              marginTop: 16,
+              backgroundColor: '#D55004',
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8
+            }}
+            onPress={fetchDealershipDetails}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
-	return (
-		<LinearGradient colors={bgGradient} className='flex-1'>
-			<CustomHeader
-				title={dealership?.name || 'Dealership'}
-				onBack={() => router.back()}
-			/>
-			<Animated.FlatList
-				data={cars}
-				renderItem={renderCarItem}
-				keyExtractor={item => `${item.id}-${item.make}-${item.model}`}
-				showsVerticalScrollIndicator={false}
-				onEndReached={handleLoadMore}
-				onEndReachedThreshold={0.1}
-				refreshControl={
-					<RefreshControl
-						refreshing={isRefreshing}
-						onRefresh={handleRefresh}
-						tintColor={isDarkMode ? '#ffffff' : '#000000'}
-						colors={['#D55004']}
-					/>
-				}
-				ListHeaderComponent={renderHeader}
-				ListFooterComponent={() =>
-					isCarsLoading ? (
-						<View className='py-4'>
-							<ActivityIndicator size='large' color='#D55004' />
-						</View>
-					) : null
-				}
-				contentContainerStyle={{
-					paddingHorizontal: 0
-				}}
-				onScroll={Animated.event(
-					[{ nativeEvent: { contentOffset: { y: scrollY } } }],
-					{ useNativeDriver: false }
-				)}
-				scrollEventThrottle={16}
-			/>
-			{renderModal}
-		</LinearGradient>
-	)
-}
+    return (
+      <>
+        <View style={{ marginBottom: 24 }}>
+          {/* Dealership Info Card */}
+          <View style={{
+            paddingHorizontal: 16,
+            paddingBottom: 24,
+            marginTop: 16,
+          }}>
+            <View style={{
+              backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
+              borderRadius: 24,
+              padding: 20,
+              elevation: 4
+            }}>
+              {/* Logo and Info Row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* Dealership Logo */}
+                <View style={{ position: 'relative' }}>
+                  <View style={{
+                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    borderRadius: 16,
+                    padding: 4
+                  }}>
+                    <SafeImage
+                      source={{ uri: dealership.logo }}
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#D55004',
+                      }}
+                      fallbackColor={isDarkMode ? '#333' : '#e0e0e0'}
+                    />
+                  </View>
+                </View>
 
-const pickerSelectStyles = (isDarkMode: any) =>
-	StyleSheet.create({
-		inputIOS: {
-			fontSize: 16,
-			paddingVertical: 12,
-			paddingHorizontal: 10,
-			borderWidth: 1,
-			borderColor: isDarkMode ? '#555' : '#d1d1d1',
-			borderRadius: 8,
-			color: isDarkMode ? '#fff' : '#000',
-			paddingRight: 30,
-			backgroundColor: isDarkMode
-				? 'rgba(80, 80, 80, 0.5)'
-				: 'rgba(255, 255, 255, 0.5)'
-		},
-		inputAndroid: {
-			fontSize: 16,
-			paddingHorizontal: 10,
-			paddingVertical: 8,
-			borderWidth: 1,
-			borderColor: isDarkMode ? '#555' : '#d1d1d1',
-			borderRadius: 8,
-			color: isDarkMode ? '#fff' : '#000',
-			paddingRight: 30,
-			backgroundColor: isDarkMode
-				? 'rgba(80, 80, 80, 0.5)'
-				: 'rgba(255, 255, 255, 0.5)'
-		},
-		iconContainer: {
-			top: 10,
-			right: 12
-		}
-	})
+                {/* Dealership Information */}
+                <View style={{ marginLeft: 16, flex: 1 }}>
+                  <Text style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: isDarkMode ? '#FFFFFF' : '#000000'
+                  }}
+                    numberOfLines={2}
+                  >
+                    {dealership?.name || 'Unknown Dealership'}
+                  </Text>
 
-const styles = StyleSheet.create({
-	container: {
-		borderRadius: 16,
-		overflow: 'hidden',
-		marginBottom: 16
-	},
-	searchContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		padding: 12
-	},
-	searchInput: {
-		flex: 1,
-		height: 40,
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
-		borderRadius: 20,
-		paddingHorizontal: 16,
-		paddingRight: 40, // Add space for the cancel button
-		marginRight: 8,
-		color: '#000'
-	},
-	cancelButton: {
-		position: 'absolute',
-		right: 110, // Adjust this value to position the cancel button correctly
-		top: 20,
-		zIndex: 1
-	},
-	searchButton: {
-		backgroundColor: '#D55004',
-		borderRadius: 20,
-		padding: 8,
-		marginRight: 8
-	},
-	expandButton: {
-		backgroundColor: '#D55004',
-		borderRadius: 20,
-		padding: 8
-	},
-	filtersContainer: {
-		padding: 12
-	},
-	filterRow: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginBottom: 12
-	},
-	pickerContainer: {
-		flex: 1,
-		marginHorizontal: 4
-	},
-	pickerLabel: {
-		fontSize: 14,
-		marginBottom: 4,
-		color: '#000'
-	},
-	darkText: {
-		color: '#fff'
-	},
-	header: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginBottom: 10,
-		marginLeft: 10
-	},
-	clipContainer: {
-		width: width * 0.6, // Adjust width as needed
-		height: 200, // Adjust height as needed
-		marginRight: 10,
-		borderRadius: 10,
-		overflow: 'hidden'
-	},
-	video: {
-		width: '100%',
-		height: '100%'
-	},
-	infoContainer: {
-		position: 'absolute',
-		bottom: 0,
-		left: 0,
-		right: 0,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		padding: 10
-	},
-	title: {
-		color: '#D55004',
-		fontSize: 16,
-		fontWeight: 'bold'
-	},
-	description: {
-		color: 'white',
-		fontSize: 14
-	},
-	postDate: {
-		color: 'white',
-		fontSize: 12,
-		marginTop: 5
-	}
-})
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 4,
+                    backgroundColor: 'rgba(128,128,128,0.1)',
+                    borderRadius: 16,
+                    paddingHorizontal: 12,
+                    paddingVertical: 4,
+                    alignSelf: 'flex-start'
+                  }}>
+                    <Ionicons
+                      name='location-outline'
+                      size={14}
+                      color='#D55004'
+                    />
+                    <Text style={{
+                      marginLeft: 4,
+                      fontSize: 14,
+                      color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)'
+                    }} numberOfLines={1}>
+                      {dealership.location || 'Location not available'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Stats Row */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-around',
+                marginTop: 16,
+                marginBottom: 8,
+                paddingHorizontal: 8
+              }}>
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{
+                    fontSize: 12,
+                    color: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)'
+                  }}>
+                    Available Cars
+                  </Text>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: isDarkMode ? '#FFFFFF' : '#000000'
+                  }}>
+                    {filteredCars.length}
+                  </Text>
+                </View>
+
+                <View style={{
+                  height: '100%',
+                  width: 1,
+                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'
+                }}/>
+
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{
+                    fontSize: 12,
+                    color: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)'
+                  }}>
+                    Since
+                  </Text>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: isDarkMode ? '#FFFFFF' : '#000000'
+                  }}>
+                    {dealership.created_at ? new Date(dealership.created_at).getFullYear() : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginTop: 16
+              }}>
+                <TouchableOpacity
+                  onPress={handleCall}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    marginRight: 8
+                  }}>
+                  <View style={{
+                    backgroundColor: 'rgba(213,80,4,0.1)',
+                    borderRadius: 999,
+                    padding: 4
+                  }}>
+                    <Ionicons name='call-outline' size={18} color='#D55004' />
+                  </View>
+                  <Text style={{
+                    marginLeft: 4,
+                    fontWeight: '500',
+                    color: isDarkMode ? '#FFFFFF' : '#000000'
+                  }}>
+                    Call
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleWhatsApp}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#25D366',
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    marginLeft: 8,
+                    elevation: 2
+                  }}>
+                  <Ionicons name='logo-whatsapp' size={18} color='white' />
+                  <Text style={{
+                    marginLeft: 4,
+                    color: 'white',
+                    fontWeight: '500'
+                  }}>
+                    WhatsApp
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Map View - Conditionally rendered */}
+          {mapSectionVisible && (
+            <View style={{ paddingHorizontal: 16, marginBottom: 32 }}>
+              <DealershipMapView
+                dealership={dealership}
+                isDarkMode={isDarkMode}
+              />
+            </View>
+          )}
+
+          {/* AutoClips Section - Conditionally rendered */}
+          {autoclipSectionVisible && (
+            <ErrorBoundary FallbackComponent={() => (
+              <View style={{
+                padding: 16,
+                backgroundColor: isDarkMode ? '#1A1A1A' : '#F7F7F7',
+                margin: 16,
+                borderRadius: 12,
+                alignItems: 'center'
+              }}>
+                <Ionicons name="videocam-off" size={40} color="#999" />
+                <Text style={{
+                  marginTop: 8,
+                  color: isDarkMode ? '#999' : '#666',
+                  textAlign: 'center'
+                }}>
+                  Could not load autoclips
+                </Text>
+              </View>
+            )}>
+              <DealershipAutoClips dealershipId={dealershipId} />
+            </ErrorBoundary>
+          )}
+        </View>
+
+        {/* Search and Sort Section */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 16,
+            columnGap: 8,
+          }}>
+            <View style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: isDarkMode ? '#555' : '#ccc',
+              borderRadius: 999,
+              paddingHorizontal: 16,
+            }}>
+              <FontAwesome
+                name="search"
+                size={20}
+                color={isDarkMode ? "white" : "black"}
+              />
+              <TextInput
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 8,
+                  color: isDarkMode ? 'white' : 'black',
+                }}
+                placeholder='Search cars...'
+                placeholderTextColor={isDarkMode ? '#999999' : '#666666'}
+                textAlignVertical="center"
+                value={filters.searchQuery}
+                onChangeText={text =>
+                  setFilters(prev => ({ ...prev, searchQuery: text }))
+                }
+              />
+              {filters.searchQuery ? (
+                <TouchableOpacity
+                  style={{ padding: 8 }}
+                  onPress={() =>
+                    setFilters(prev => ({ ...prev, searchQuery: '' }))
+                  }>
+                  <Ionicons
+                    name='close-circle'
+                    size={20}
+                    color={isDarkMode ? '#FFFFFF' : '#666666'}
+                  />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <View style={{ width: 48, height: 48, justifyContent: 'center', alignItems: 'center' }}>
+              <SortPicker
+                onValueChange={(value: any) => {
+                  setFilters(prev => ({ ...prev, sortOption: value }));
+                }}
+                initialValue={filters.sortOption}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Available Cars Header */}
+        <View style={{
+          paddingHorizontal: 24,
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Text style={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            color: isDarkMode ? '#FFFFFF' : '#000000'
+          }}>
+            Available Cars
+          </Text>
+          <Text style={{
+            color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'
+          }}>
+            {filteredCars.length} vehicles
+          </Text>
+        </View>
+
+        {/* Show loading or error states for cars section */}
+        {isCarsLoading && currentPage === 1 && (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#D55004" />
+            <Text style={{ marginTop: 16, color: isDarkMode ? 'white' : 'black' }}>
+              Loading available cars...
+            </Text>
+          </View>
+        )}
+
+        {carsError && filteredCars.length === 0 && (
+          <View style={{
+            padding: 20,
+            alignItems: 'center',
+            margin: 16,
+            backgroundColor: isDarkMode ? '#1A1A1A' : '#F7F7F7',
+            borderRadius: 12
+          }}>
+            <Ionicons name="warning-outline" size={48} color="#D55004" />
+            <Text style={{
+              marginTop: 16,
+              color: isDarkMode ? 'white' : 'black',
+              fontWeight: 'bold',
+              fontSize: 16
+            }}>
+              Couldn't Load Cars
+            </Text>
+            <Text style={{
+              marginTop: 8,
+              color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+              textAlign: 'center'
+            }}>
+              There was a problem loading the cars for this dealership.
+            </Text>
+            <TouchableOpacity
+              style={{
+                marginTop: 16,
+                backgroundColor: '#D55004',
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                borderRadius: 8
+              }}
+              onPress={() => fetchDealershipCars(1, true)}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!isCarsLoading && !carsError && filteredCars.length === 0 && (
+          <View style={{
+            padding: 20,
+            alignItems: 'center',
+            margin: 16,
+            backgroundColor: isDarkMode ? '#1A1A1A' : '#F7F7F7',
+            borderRadius: 12
+          }}>
+            <Ionicons name="car-outline" size={48} color="#999" />
+            <Text style={{
+              marginTop: 16,
+              color: isDarkMode ? 'white' : 'black',
+              fontWeight: 'bold',
+              fontSize: 16
+            }}>
+              No Cars Available
+            </Text>
+            <Text style={{
+              marginTop: 8,
+              color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+              textAlign: 'center'
+            }}>
+              This dealership doesn't have any cars available at the moment, or none match your search criteria.
+            </Text>
+          </View>
+        )}
+      </>
+    );
+  }, [
+    dealership,
+    isDarkMode,
+    filters,
+    filteredCars.length,
+    fetchDealershipCars,
+    isDealershipLoading,
+    dealershipError,
+    isCarsLoading,
+    carsError,
+    mapSectionVisible,
+    autoclipSectionVisible,
+    handleCall,
+    handleWhatsApp,
+    dealershipId
+  ]);
+
+  // Main render with error boundary
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <LinearGradient colors={bgGradient} style={{ flex: 1 }}>
+        {/* Header */}
+        <CustomHeader
+          title={dealership?.name || 'Dealership Details'}
+          onBack={() => router.back()}
+        />
+
+        {/* Car List */}
+        <Animated.FlatList
+          data={filteredCars}
+          renderItem={renderCarItem}
+          keyExtractor={item => `${item.id}-${item.make}-${item.model}`}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListHeaderComponent={renderHeader}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
+          scrollEventThrottle={16}
+          windowSize={5} // Optimize memory usage
+          maxToRenderPerBatch={5}
+          initialNumToRender={5}
+          removeClippedSubviews={true}
+          ListFooterComponent={
+            isCarsLoading && currentPage > 1 ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#D55004" />
+                <Text style={{ marginTop: 8, color: isDarkMode ? 'white' : 'black' }}>
+                  Loading more...
+                </Text>
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            !isCarsLoading && !carsError ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: isDarkMode ? 'white' : 'black' }}>
+                  No cars available
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+
+        {/* Car Detail Modal */}
+        {renderModal}
+      </LinearGradient>
+    </ErrorBoundary>
+  );
+};
+
+export default DealershipDetails;

@@ -539,26 +539,40 @@ useEffect(() => {
 	}, [fetchData, user])
 
 	// Pause videos when not focused
-	useEffect(() => {
-		const resetVideoPlayback = async (ref: React.RefObject<Video>) => {
-			try {
-				await ref?.current?.pauseAsync()
-				await ref?.current?.setPositionAsync(0)
-			} catch (err) {
-				console.error('Error resetting video playback:', err)
-			}
-		}
-		if (!isFocused) {
-			Object.values(videoRefs.current).forEach(resetVideoPlayback)
-			setVideoProgress({})
-			setVideoDuration({})
-		}
-		return () => {
-			Object.values(videoRefs.current).forEach(resetVideoPlayback)
-			setVideoProgress({})
-			setVideoDuration({})
-		}
-	}, [isFocused])
+useEffect(() => {
+    // When focus changes but component remains mounted
+    if (!isFocused) {
+        // Handle with Promise.all for proper async operation
+        Promise.all(
+            Object.values(videoRefs.current).map(async (ref) => {
+                if (!ref?.current) return;
+                try {
+                    await ref.current.pauseAsync();
+                    await ref.current.setPositionAsync(0);
+                } catch (err) {
+                    console.log('Video reset operation:', err);
+                }
+            })
+        ).catch(err => console.error('Error during video reset:', err));
+
+        setVideoProgress({});
+        setVideoDuration({});
+    }
+
+    // When unmounting - only pause videos, don't attempt to seek
+    return () => {
+        // We can't use await in cleanup, so handle each individually
+        Object.values(videoRefs.current).forEach(ref => {
+            if (ref?.current) {
+                // Only pause, don't seek position during unmount
+                ref.current.pauseAsync().catch(() => {});
+            }
+        });
+
+        setVideoProgress({});
+        setVideoDuration({});
+    };
+}, [isFocused]);
 
 	// VIDEO TAP / LIKE / MUTE LOGIC
 	const handleVideoPress = useCallback(
