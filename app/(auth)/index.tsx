@@ -11,6 +11,7 @@ import {
   useColorScheme,
   Easing,
   Platform,
+  ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -356,7 +357,7 @@ const handleGoogleAuth = async () => {
   };
 
   return (
-    <View
+    <ScrollView
       style={{
         flex: 1,
         backgroundColor: isDark ? '#000' : '#fff',
@@ -546,7 +547,7 @@ const handleGoogleAuth = async () => {
         </View>
 
         {/* Terms & Privacy */}
-        <Text
+       <Text
           style={{
             color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
             textAlign: 'center',
@@ -555,10 +556,20 @@ const handleGoogleAuth = async () => {
           }}
         >
           By continuing, you agree to our{' '}
-          <Text style={{ color: '#D55004' }}>Terms of Service</Text> and{' '}
-          <Text style={{ color: '#D55004' }}>Privacy Policy</Text>
+          <Text
+            style={{ color: '#D55004' }}
+            onPress={() => router.push('/terms-of-service')}
+          >
+            Terms of Service
+          </Text> and{' '}
+          <Text
+            style={{ color: '#D55004' }}
+            onPress={() => router.push('/privacy-policy')}
+          >
+            Privacy Policy
+          </Text>
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }

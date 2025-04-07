@@ -32,6 +32,8 @@ export default function UnAuthenticatedLayout() {
       <Stack.Screen name='forgot-password' options={{ headerShown: false }} />
       <Stack.Screen name='sign-in' options={{ headerShown: false }} />
       <Stack.Screen name='sign-up' options={{ headerShown: false }} />
+      <Stack.Screen name='terms-of-service' options={{ headerShown: false }} />
+      <Stack.Screen name='privacy-policy' options={{ headerShown: false }} />
     </Stack>
   )
 }
