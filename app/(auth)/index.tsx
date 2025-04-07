@@ -21,6 +21,7 @@ import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import Constants from 'expo-constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -570,6 +571,12 @@ const handleGoogleAuth = async () => {
           </Text>
         </Text>
       </View>
+      import Constants from 'expo-constants';
+
+// Inside your component's render method (or return statement)
+<Text className="text-center text-red" style={{ fontSize: 12, }}>
+  Version {Constants.expoConfig?.version }
+</Text>
     </ScrollView>
   );
 }

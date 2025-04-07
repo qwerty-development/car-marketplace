@@ -21,6 +21,7 @@ import { maybeCompleteAuthSession } from "expo-web-browser";
 import { useGuestUser } from '@/utils/GuestUserContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
+import Constants from "expo-constants";
 
 
 maybeCompleteAuthSession();
@@ -571,6 +572,12 @@ export default function SignInPage() {
           </Text>
         </TouchableOpacity>
       </View>
+      import Constants from 'expo-constants';
+
+// Inside your component's render method (or return statement)
+<Text className="text-center text-red" style={{ fontSize: 12, }}>
+  Version {Constants.expoConfig?.version }
+</Text>
     </View>
   );
 }

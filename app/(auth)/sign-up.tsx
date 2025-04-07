@@ -17,6 +17,7 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
@@ -340,6 +341,12 @@ export default function PrivacyPolicyScreen() {
           </TouchableOpacity>
         </Section>
       </Animated.ScrollView>
+      import Constants from 'expo-constants';
+
+// Inside your component's render method (or return statement)
+<Text className="text-center text-red" style={{ fontSize: 12, }}>
+  Version {Constants.expoConfig?.version }
+</Text>
     </SafeAreaView>
   );
 }
