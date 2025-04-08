@@ -1,432 +1,560 @@
 // hooks/useNotifications.ts
 import { useEffect, useRef, useCallback, useState } from 'react';
 import * as Notifications from 'expo-notifications';
-import { Platform, AppState, AppStateStatus } from 'react-native';
-import { NotificationService } from '@/services/NotificationService'; // Keep type import if needed elsewhere
+import { Platform, AppState } from 'react-native';
+import { NotificationService, NotificationType } from '@/services/NotificationService';
 import { router } from 'expo-router';
 import { useAuth } from '@/utils/AuthContext';
-
+import { RealtimeChannel } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import { supabase } from '@/utils/supabase';
+import Constants from 'expo-constants';
+import { isSigningOut } from '@/app/(home)/_layout';
+
+// Storage key for push token
+const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
+
+// Maximum registration attempts
+const MAX_REGISTRATION_ATTEMPTS = 3;
 
 interface UseNotificationsReturn {
   unreadCount: number;
-  isPermissionGranted: boolean | null; // Use null for initial unknown state
+  isPermissionGranted: boolean;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: string) => Promise<void>;
   refreshNotifications: () => Promise<void>;
-  loading: boolean; // Indicates loading for initial setup/refresh
-  requestPermissions: () => Promise<boolean>; // Expose explicit permission request
-  registerPushToken: () => Promise<void>; // Expose explicit registration trigger
-   registerForPushNotifications: any // Expose explicit registration trigger
+  loading: boolean;
+  cleanupPushToken: () => Promise<void>;
+  registerForPushNotifications: () => Promise<void>;
 }
 
 export function useNotifications(): UseNotificationsReturn {
-  const { user, session } = useAuth(); // Use session for a more definitive "logged in" state
+  const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true); // Start loading true initially
-  const [isPermissionGranted, setIsPermissionGranted] = useState<boolean | null>(null); // Initial state unknown
+  const [loading, setLoading] = useState(false);
+  const [isPermissionGranted, setIsPermissionGranted] = useState(false);
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
-  const pushTokenListener = useRef<Notifications.Subscription>(); // Listener for Expo token refreshes
-  const appState = useRef<AppStateStatus>(AppState.currentState);
-  // Refs to prevent duplicate handling
-  const lastHandledNotificationId = useRef<string>();
-  const lastHandledResponseId = useRef<string>();
-  // Ref to track if initial registration attempt was made for the current session
-  const initialRegistrationAttempted = useRef(false);
+  const lastNotificationResponse = useRef<Notifications.NotificationResponse>();
+  const realtimeSubscription = useRef<RealtimeChannel>();
+  const initialCheckDone = useRef(false);
+  const lastHandledNotification = useRef<string>();
+  const pushTokenListener = useRef<any>();
+  const appState = useRef(AppState.currentState);
+  const registrationAttempts = useRef(0);
+  const registrationTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // Handler for token refresh events with improved error handling
+  const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
+    if (!user?.id) return;
 
-  // --- Core Logic ---
-
-  // Request Permissions Manually
-
-
-  // Handle Expo Token Refresh Events
-  const handleTokenRefresh:any = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
-
-    if (!user?.id || !session) {
-        console.log('[useNotifications] Skipping token refresh handling: No authenticated user/session.');
-        return;
-    }
-
-    const timestamp = new Date().toISOString();
-    const newToken = pushToken.data;
-    console.log(`[${timestamp}] [useNotifications] ENTERING handleTokenRefresh for token ${newToken.substring(0,10)}...`);
+    console.log('Expo push token refreshed:', pushToken.data);
 
     try {
-        // Immediately save to SecureStore via Service (or directly if preferred)
-        await SecureStore.setItemAsync('expoPushToken', newToken); // Use the constant if defined
-        console.log('[useNotifications] Saved refreshed token to SecureStore.');
+      // Save token to secure storage immediately for resilience
+      await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, pushToken.data);
+      console.log('Saved refreshed token to secure storage');
 
-        // REMOVED: isSigningOut check. Update should happen if logged in.
-
-        // Update token in database via Service
-        console.log('[useNotifications] Updating refreshed token in database...');
-        const success = await NotificationService.updatePushTokenInDatabase(newToken, user.id);
-
-        if (success) {
-            console.log('[useNotifications] Refreshed token successfully updated in database.');
-        } else {
-            console.warn('[useNotifications] Database update failed for refreshed token (token saved locally).');
-            // Consider adding retry logic here if needed, though the Service might handle it
-        }
-    } catch (error) {
-        console.error('[useNotifications] Error handling token refresh:', error);
-        // Token is saved locally, but DB update failed.
-    }
-  }, [user?.id, session]); // Depends on user and session
-  // Register Push Token (Called on login, permission grant, or app foreground)
-  const registerPushToken = useCallback(async () => {
-    // **Critical Check:** Only proceed if user is authenticated
-    if (!user?.id || !session) {
-        console.log('[useNotifications] Skipping token registration: No authenticated user/session.');
+      // Skip database update during sign-out
+      if (isSigningOut) {
+        console.log('Skipping database update during sign-out');
         return;
-    }
+      }
 
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [useNotifications] ENTERING registerPushToken`);
-    setLoading(true);
-     try {
-        const token = await NotificationService.registerForPushNotificationsAsync(user.id);
+      // Try to update token in database
+      const success = await NotificationService.updatePushToken(pushToken.data, user.id);
 
-        if (token) {
-            console.log('[useNotifications] Push token registration successful (or using existing valid token).');
-            setIsPermissionGranted(true); // If registration succeeded, permission must be granted
-
-            // --- CORRECTED LISTENER LOGIC ---
-            // 1. Remove any potentially existing listener before adding a new one.
-            //    This prevents duplicates if registerPushToken is called multiple times.
-            if (pushTokenListener.current) {
-                console.log('[useNotifications] Removing existing push token listener.');
-                Notifications.removePushTokenSubscription(pushTokenListener.current);
-                pushTokenListener.current = undefined; // Explicitly clear the ref
-            }
-
-            // 2. Add the new listener for token refreshes from Expo.
-            console.log('[useNotifications] Adding new Expo push token refresh listener.');
-            pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-            // --- END CORRECTED LISTENER LOGIC ---
-
-        } else {
-            console.warn('[useNotifications] Push token registration ultimately failed after retries or permission denial.');
-            // Check final permission status again, as it might have been denied during the process
-            const finalPermissions = await NotificationService.getPermissions();
-            setIsPermissionGranted(finalPermissions?.status === 'granted');
-        }
+      if (!success) {
+        console.warn('Token database update failed, but token is preserved in storage');
+      } else {
+        console.log('Token successfully updated in database and storage');
+      }
     } catch (error) {
-        console.error('[useNotifications] Unexpected error during registerPushToken call:', error);
-        // Log the specific error details if possible
-        if (error instanceof Error) {
-            console.error(`[useNotifications] Error Details: Name=${error.name}, Message=${error.message}, Stack=${error.stack}`);
-        }
-        setIsPermissionGranted(false); // Assume failure means no permission or other critical error
-    } finally {
-        setLoading(false);
-        initialRegistrationAttempted.current = true; // Mark that an attempt was made for this session
+      console.error('Error handling token refresh:', error);
+      // Even if there's an error, we've already saved to SecureStore
     }
-  }, [user?.id, session, handleTokenRefresh]); // Depends on user, session, and the refresh handler
+  }, [user?.id]);
 
-
-
-  const requestPermissions = useCallback(async (): Promise<boolean> => {
-    console.log('[useNotifications] Explicitly requesting permissions...');
-    const permissions = await NotificationService.requestPermissions();
-    const granted = permissions?.status === 'granted';
-    setIsPermissionGranted(granted);
-    if (granted) {
-        console.log('[useNotifications] Permissions granted via explicit request.');
-        // If permissions are granted, attempt registration immediately
-        await registerPushToken();
-    } else {
-        console.warn('[useNotifications] Permissions denied via explicit request.');
-    }
-    return granted;
-  }, [registerPushToken]); // Depends on registerPushToken
-
-  // Handle Incoming Notifications (App in foreground/background)
+  // Handler for received notifications
   const handleNotification = useCallback(async (notification: Notifications.Notification) => {
-    const notificationId = notification.request.identifier;
+    if (!user) return;
 
-    // Prevent duplicate handling
-    if (lastHandledNotificationId.current === notificationId) {
+    // Avoid duplicate handling
+    if (lastHandledNotification.current === notification.request.identifier) {
       return;
     }
-    lastHandledNotificationId.current = notificationId;
+    lastHandledNotification.current = notification.request.identifier;
 
-    console.log('[useNotifications] Notification received:', {
-        id: notificationId,
+    try {
+      console.log('Notification received:', {
         title: notification.request.content.title,
         body: notification.request.content.body,
         data: notification.request.content.data
-    });
+      });
 
-    // Refresh unread count when a notification arrives
-    if (user?.id) {
-        try {
-            const newUnreadCount = await NotificationService.getUnreadCount(user.id);
-            setUnreadCount(newUnreadCount);
-            await NotificationService.setBadgeCount(newUnreadCount); // Update badge
-        } catch (error) {
-            console.error('[useNotifications] Error updating count/badge on notification received:', error);
-        }
-    } else {
-         console.warn('[useNotifications] Received notification but user ID unavailable to refresh count.');
+      // Update unread count
+      const newUnreadCount = await NotificationService.getUnreadCount(user.id);
+      setUnreadCount(newUnreadCount);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(newUnreadCount);
+    } catch (error) {
+      console.error('Error handling notification:', error);
     }
-  }, [user?.id]); // Depends on user ID to refresh count
+  }, [user]);
 
-
-  // Handle User Tapping Notification
+  // Handler for when user taps on a notification
   const handleNotificationResponse = useCallback(async (response: Notifications.NotificationResponse) => {
-    const responseId = response.notification.request.identifier;
+    if (!user) return;
 
-    // Prevent duplicate handling
-    if (lastHandledResponseId.current === responseId) {
+    // Avoid duplicate handling
+    if (lastNotificationResponse.current?.notification.request.identifier ===
+        response.notification.request.identifier) {
       return;
     }
-    lastHandledResponseId.current = responseId;
+    lastNotificationResponse.current = response;
 
-    console.log('[useNotifications] User responded to notification:', {
-        id: responseId,
-        action: response.actionIdentifier, // e.g., 'default'
+    try {
+      console.log('User responded to notification:', {
         title: response.notification.request.content.title,
         data: response.notification.request.content.data
-    });
+      });
+
+      const navigationData = await NotificationService.handleNotificationResponse(response);
+      if (navigationData?.screen) {
+        // Mark notification as read if it has an ID
+        const notificationId = response.notification.request.content.data?.notificationId;
+        if (notificationId) {
+          await NotificationService.markAsRead(notificationId);
+          const newUnreadCount = await NotificationService.getUnreadCount(user.id);
+          setUnreadCount(newUnreadCount);
+
+          // Update badge count
+          await NotificationService.setBadgeCount(newUnreadCount);
+        }
+
+        // Navigate to the specified screen
+        console.log(`Navigating to ${navigationData.screen}`, navigationData.params);
+        if (navigationData.params) {
+          router.push({
+            pathname: navigationData.screen,
+            params: navigationData.params
+          });
+        } else {
+          router.push(navigationData.screen);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling notification response:', error);
+    }
+  }, [user]);
+
+  // Simplified registration function with automatic retry and fallback mechanisms
+  const registerForNotifications = useCallback(async () => {
+    if (!user?.id) {
+      console.log('No user ID available, skipping notification registration');
+      return;
+    }
+
+    // Clear any existing registration timer
+    if (registrationTimer.current) {
+      clearTimeout(registrationTimer.current);
+      registrationTimer.current = null;
+    }
+
+    // Prevent excessive registration attempts
+    if (registrationAttempts.current >= MAX_REGISTRATION_ATTEMPTS) {
+      console.log(`Max registration attempts (${MAX_REGISTRATION_ATTEMPTS}) reached, stopping`);
+      return;
+    }
+
+    registrationAttempts.current++;
+    console.log(`Push notification registration attempt ${registrationAttempts.current}/${MAX_REGISTRATION_ATTEMPTS}`);
 
     try {
-        const navigationData = await NotificationService.handleNotificationResponse(response);
+      setLoading(true);
 
-        // Mark as read if the notification came from our system (has notificationId in data)
-        const backendNotificationId = response.notification.request.content.data?.notificationId as string | undefined;
-        if (backendNotificationId && user?.id) {
-            console.log(`[useNotifications] Marking notification ${backendNotificationId} as read.`);
-            await NotificationService.markAsRead(backendNotificationId);
-            // Refresh count after marking read
-            const newUnreadCount = await NotificationService.getUnreadCount(user.id);
-            setUnreadCount(newUnreadCount);
-            await NotificationService.setBadgeCount(newUnreadCount);
+      // Check if we have project ID or fallback
+      let projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+
+      // Try to get from Constants if env var is missing
+      if (!projectId) {
+        try {
+          // @ts-ignore - Accessing potentially undefined properties
+          const expoConfig = Constants.expoConfig || Constants.manifest;
+          projectId = expoConfig?.extra?.projectId || expoConfig?.id || expoConfig?.slug;
+
+          if (projectId) {
+            console.log('Using project ID from Constants:', projectId);
+          } else {
+            console.error('Project ID not found in environment or Constants');
+          }
+        } catch (constError) {
+          console.error('Error accessing Constants:', constError);
+        }
+      }
+
+      if (!projectId) {
+        console.error('No project ID available, push notifications will not work');
+        // Continue anyway to attempt with default or hardcoded project ID
+      }
+
+      // 1. Check permission status
+      const permissionStatus = await NotificationService.getPermissions();
+      console.log('Current permission status:', permissionStatus?.status);
+
+      if (permissionStatus?.status !== 'granted') {
+        console.log('Permission not granted, requesting...');
+        const newPermission = await NotificationService.requestPermissions();
+
+        if (newPermission?.status !== 'granted') {
+          console.log('Permission denied by user');
+          setIsPermissionGranted(false);
+          setLoading(false);
+          return;
+        }
+      }
+
+      setIsPermissionGranted(true);
+      console.log('Notification permissions granted');
+
+      // 2. Get token - simplified flow directly using NotificationService
+      console.log('Getting Expo push token...');
+      const token = await NotificationService.registerForPushNotificationsAsync(user.id);
+
+      if (token) {
+        console.log('Successfully registered push token:', token);
+
+        // Remove any existing listener before adding a new one
+        if (pushTokenListener.current) {
+          pushTokenListener.current.remove();
         }
 
-        // Navigate if screen data is present
-        if (navigationData?.screen) {
-            console.log(`[useNotifications] Navigating to ${navigationData.screen}`, navigationData.params);
-            // Use appropriate navigation method (push or replace)
-            router.push({
-                pathname: navigationData.screen,
-                params: navigationData.params
-            });
-        }
+        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+
+        // Registration successful, reset attempt counter
+        registrationAttempts.current = 0;
+      } else {
+        console.warn('Failed to get push token');
+
+        // Schedule retry with exponential backoff (max 1 minute)
+        const delay = Math.min(5000 * Math.pow(2, registrationAttempts.current - 1), 60000);
+        console.log(`Scheduling retry in ${delay}ms`);
+
+        registrationTimer.current = setTimeout(() => {
+          registerForNotifications();
+        }, delay);
+      }
     } catch (error) {
-        console.error('[useNotifications] Error handling notification response:', error);
+      console.error('Error registering for notifications:', error);
+
+      // Log detailed error information
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+
+      setIsPermissionGranted(false);
+
+      // Schedule retry with exponential backoff (max 1 minute)
+      const delay = Math.min(5000 * Math.pow(2, registrationAttempts.current - 1), 60000);
+      console.log(`Scheduling retry after error in ${delay}ms`);
+
+      registrationTimer.current = setTimeout(() => {
+        registerForNotifications();
+      }, delay);
+    } finally {
+      setLoading(false);
     }
-  }, [user?.id]); // Depends on user ID for marking read
+  }, [user?.id, handleTokenRefresh]);
 
+  // Cleanup push token on logout with improved reliability
+  const cleanupPushToken = useCallback(async () => {
+    console.log('Starting push token cleanup process');
 
-  // --- Data Fetching and Actions ---
+    try {
+      // Clear any pending registration timer
+      if (registrationTimer.current) {
+        clearTimeout(registrationTimer.current);
+        registrationTimer.current = null;
+      }
 
-  // Refresh Unread Count (and check permissions)
+      // Get token from secure storage
+      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+
+      if (token) {
+        console.log('Found push token to clean up:', token);
+
+        // If we have a user ID, use it for targeted deletion
+        if (user?.id) {
+          try {
+            // Delete token from database
+            const { error } = await supabase
+              .from('user_push_tokens')
+              .delete()
+              .match({ user_id: user.id, token });
+
+            if (error) {
+              console.error('Error deleting push token from database:', error);
+            } else {
+              console.log('Token successfully removed from database');
+            }
+          } catch (dbError) {
+            console.error('Database error during token cleanup:', dbError);
+          }
+        } else {
+          // If no user ID, try deletion by token only
+          try {
+            const { error } = await supabase
+              .from('user_push_tokens')
+              .delete()
+              .eq('token', token);
+
+            if (error) {
+              console.error('Error deleting token without user ID:', error);
+            }
+          } catch (tokenError) {
+            console.error('Error in token-only deletion:', tokenError);
+          }
+        }
+
+        // Always remove from secure storage regardless of database success
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        console.log('Token removed from secure storage');
+      } else {
+        console.log('No push token found in secure storage to cleanup');
+      }
+
+      // Reset registration attempts counter
+      registrationAttempts.current = 0;
+    } catch (error) {
+      console.error('Error cleaning up push token:', error);
+
+      // Attempt storage cleanup regardless
+      try {
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      } catch (storageError) {
+        console.error('Failed to clean token from storage:', storageError);
+      }
+    }
+  }, [user?.id]);
+
+  // Mark notification as read
+  const markAsRead = useCallback(async (notificationId: string) => {
+    if (!user) return;
+
+    try {
+      await NotificationService.markAsRead(notificationId);
+      const newUnreadCount = await NotificationService.getUnreadCount(user.id);
+      setUnreadCount(newUnreadCount);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(newUnreadCount);
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }, [user]);
+
+  // Mark all notifications as read
+  const markAllAsRead = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      await NotificationService.markAllAsRead(user.id);
+      setUnreadCount(0);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  }, [user]);
+
+  // Delete notification
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    if (!user) return;
+
+    try {
+      await NotificationService.deleteNotification(notificationId);
+      const newUnreadCount = await NotificationService.getUnreadCount(user.id);
+      setUnreadCount(newUnreadCount);
+
+      // Update badge count
+      await NotificationService.setBadgeCount(newUnreadCount);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  }, [user]);
+
+  // Refresh notifications (update unread count)
   const refreshNotifications = useCallback(async () => {
-    if (!user?.id || !session) {
-        console.log("[useNotifications] Skipping refresh: No authenticated user.");
-        setUnreadCount(0); // Reset count if logged out
-        setIsPermissionGranted(null); // Reset permission state
-        setLoading(false);
-        return;
-    }
+    if (!user) return;
 
-    console.log('[useNotifications] Refreshing notification status...');
     setLoading(true);
     try {
-        // Check permissions first
-        const permissions = await NotificationService.getPermissions();
-        const granted = permissions?.status === 'granted';
-        setIsPermissionGranted(granted);
-        console.log(`[useNotifications] Permission status on refresh: ${granted}`);
+      const count = await NotificationService.getUnreadCount(user.id);
+      setUnreadCount(count);
 
-        // Fetch unread count
-        const count = await NotificationService.getUnreadCount(user.id);
-        setUnreadCount(count);
-        console.log(`[useNotifications] Unread count: ${count}`);
-
-        // Update badge count
-        await NotificationService.setBadgeCount(count);
-
+      // Update badge count
+      await NotificationService.setBadgeCount(count);
     } catch (error) {
-        console.error('[useNotifications] Error refreshing notifications:', error);
-        // Set default/error states
-        setUnreadCount(0);
-        setIsPermissionGranted(false);
+      console.error('Error refreshing notifications:', error);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-  }, [user?.id, session]); // Depends on user and session
+  }, [user]);
 
-
-  // Mark Single Notification as Read
-  const markAsRead = useCallback(async (notificationId: string) => {
-    if (!user?.id) return;
-    console.log(`[useNotifications] Marking notification ${notificationId} as read via action.`);
-    try {
-        const success = await NotificationService.markAsRead(notificationId);
-        if (success) {
-            // Optimistic update or refresh
-            // setUnreadCount(prev => Math.max(0, prev - 1)); // Optimistic
-            await refreshNotifications(); // More reliable
-        }
-    } catch (error) {
-        console.error('[useNotifications] Error marking notification as read:', error);
-    }
-  }, [user?.id, refreshNotifications]);
-
-
-  // Mark All Notifications as Read
-  const markAllAsRead = useCallback(async () => {
-    if (!user?.id) return;
-    console.log(`[useNotifications] Marking all notifications as read for user ${user.id}.`);
-    try {
-        const success = await NotificationService.markAllAsRead(user.id);
-        if (success) {
-            setUnreadCount(0); // Update state directly
-            await NotificationService.setBadgeCount(0); // Update badge
-        } else {
-             await refreshNotifications(); // Refresh if failed
-        }
-    } catch (error) {
-        console.error('[useNotifications] Error marking all notifications as read:', error);
-    }
-  }, [user?.id, refreshNotifications]);
-
-
-  // Delete Notification
-  const deleteNotification = useCallback(async (notificationId: string) => {
-    if (!user?.id) return;
-     console.log(`[useNotifications] Deleting notification ${notificationId}.`);
-    try {
-        const success = await NotificationService.deleteNotification(notificationId);
-        if (success) {
-            // Refresh count after deletion
-            await refreshNotifications();
-        }
-    } catch (error) {
-        console.error('[useNotifications] Error deleting notification:', error);
-    }
-  }, [user?.id, refreshNotifications]);
-
-
-  // --- Effects ---
-
-  // Effect for App State Changes (Foregrounding)
+  // Handle app state changes (refresh when app comes to foreground)
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-        const previousState = appState.current;
-        appState.current = nextAppState;
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const previousState = appState.current;
+      appState.current = nextAppState;
 
-        console.log(`[useNotifications] App state changed from ${previousState} to ${nextAppState}`);
+      // App coming to foreground from background or inactive
+      if (
+        (previousState.match(/inactive|background/) || previousState === 'unknown') &&
+        nextAppState === 'active' &&
+        user?.id
+      ) {
+        console.log('App has come to foreground, refreshing notifications');
+        refreshNotifications();
 
-        if (
-            previousState.match(/inactive|background/) &&
-            nextAppState === 'active' &&
-            user?.id && // Only refresh/re-register if logged in
-            session
-        ) {
-            console.log('[useNotifications] App has come to foreground.');
-            // Refresh notification count and status
-            refreshNotifications();
+        // Check/retry token registration if permission is granted
+        if (isPermissionGranted && registrationAttempts.current < MAX_REGISTRATION_ATTEMPTS) {
+          console.log('Checking push token on app foreground');
 
-            // Check if registration should be attempted/verified
-            // e.g., if permissions were granted but maybe token failed previously
-            if (isPermissionGranted === true && initialRegistrationAttempted.current) {
-                 console.log('[useNotifications] Re-validating/attempting token registration on foreground...');
-                 // Use registerPushToken as it handles all checks internally
-                 registerPushToken();
-            } else if (isPermissionGranted === null) {
-                // If permission state is unknown, check it on foreground
-                 console.log('[useNotifications] Checking permission status on foreground...');
-                 NotificationService.getPermissions().then(p => setIsPermissionGranted(p?.status === 'granted'));
+          // Check if we have a valid token in storage and database
+          SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY).then(async (storedToken) => {
+            if (!storedToken) {
+              console.log('No stored token found on app foreground, initiating registration');
+              registerForNotifications();
+              return;
             }
+
+            // Verify token exists in database
+            try {
+              const { data } = await supabase
+                .from('user_push_tokens')
+                .select('token')
+                .eq('user_id', user.id)
+                .eq('token', storedToken)
+                .single();
+
+              if (!data) {
+                console.log('Token in storage but not in database, re-registering');
+                registerForNotifications();
+              }
+            } catch (error) {
+              console.error('Error verifying token on app foreground:', error);
+            }
+          }).catch(error => {
+            console.error('Error checking token on app foreground:', error);
+          });
         }
+      }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [user?.id, session, isPermissionGranted, refreshNotifications, registerPushToken]); // Dependencies
+  }, [refreshNotifications, user, isPermissionGranted, registerForNotifications]);
 
-
-  // Effect for User Authentication Changes & Initial Setup
+  // Set up notification listeners and initial data fetch
   useEffect(() => {
-    // Reset state if user logs out
-    if (!user?.id || !session) {
-        console.log('[useNotifications] User logged out or session invalid. Resetting state.');
-        setUnreadCount(0);
-        setLoading(false);
-        setIsPermissionGranted(null);
-        initialRegistrationAttempted.current = false; // Reset attempt flag
-        // Cleanup listeners specific to a user session
-        if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
-        if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
-        if (pushTokenListener.current) Notifications.removePushTokenSubscription(pushTokenListener.current);
-        notificationListener.current = undefined;
-        responseListener.current = undefined;
-        pushTokenListener.current = undefined;
-        // Cleanup token from DB/Storage is handled by the logout flow calling NotificationService.cleanupPushToken
-        return;
-    }
+    if (!user?.id) return;
 
-    // --- User is logged in ---
     let mounted = true;
-    console.log(`[useNotifications] User ${user.id} authenticated. Initializing notifications.`);
-    setLoading(true);
-    initialRegistrationAttempted.current = false; // Reset attempt flag for new session
 
     const initialize = async () => {
-        if (!mounted) return;
+      if (!mounted) return;
 
-        // 1. Refresh counts and check initial permission status
-        await refreshNotifications(); // This also sets initial isPermissionGranted and loading states
+      console.log('Setting up notification listeners for user:', user.id);
 
-        // 2. Attempt registration if permissions seem granted or unknown (let Service handle checks)
-        // We fetch permissions again *inside* registerPushToken if needed
-        // Only attempt registration automatically once per session start
-        if (!initialRegistrationAttempted.current) {
-           await registerPushToken(); // This now handles permissions, token, db, retries
+      // Set up notification listeners
+      notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+
+      // Get initial unread count
+      await refreshNotifications();
+
+      // Check if we have a token stored and validate it
+      try {
+        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        if (storedToken) {
+          console.log('Found stored push token:', storedToken);
+
+          // Verify token is still valid in database
+          try {
+            const { data } = await supabase
+              .from('user_push_tokens')
+              .select('token')
+              .eq('user_id', user.id)
+              .eq('token', storedToken)
+              .single();
+
+            if (!data) {
+              console.log('Stored token not found in database, re-registering...');
+              await registerForNotifications();
+            } else {
+              console.log('Token validated in database');
+              setIsPermissionGranted(true);
+
+              // Add token listener even if token already exists
+              if (pushTokenListener.current) {
+                pushTokenListener.current.remove();
+              }
+              pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+            }
+          } catch (dbError) {
+            console.error('Error verifying token in database:', dbError);
+            // Continue with registration anyway
+            await registerForNotifications();
+          }
+        } else {
+          console.log('No stored token found, registering for notifications');
+          // Auto-register here for better reliability
+          await registerForNotifications();
         }
-
-
-        // 3. Setup listeners (only if not already setup for this session)
-        if (mounted && !notificationListener.current) {
-            console.log('[useNotifications] Setting up notification listeners...');
-            notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
-            responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
-            // pushTokenListener is setup inside registerPushToken upon success
-        }
+      } catch (error) {
+        console.error('Error during token verification:', error);
+        // Try registration despite the error
+        await registerForNotifications();
+      }
     };
 
     initialize();
 
-    // Cleanup function for when user changes or component unmounts
     return () => {
-        mounted = false;
-        console.log('[useNotifications] Cleaning up listeners for user change or unmount.');
-        // Remove listeners added in this effect
-          if (notificationListener.current) {
-            Notifications.removeNotificationSubscription(notificationListener.current);
-            notificationListener.current = undefined;
-         }
-         if (responseListener.current) {
-            Notifications.removeNotificationSubscription(responseListener.current);
-            responseListener.current = undefined;
-         }
+      mounted = false;
+      console.log('Cleaning up notification listeners and subscriptions');
 
-         if (pushTokenListener.current) {
-            console.log('[useNotifications] Cleaning up push token listener on effect cleanup.');
-            Notifications.removePushTokenSubscription(pushTokenListener.current);
-            pushTokenListener.current = undefined;
-         }
+      // Clear any pending registration timer
+      if (registrationTimer.current) {
+        clearTimeout(registrationTimer.current);
+        registrationTimer.current = null;
+      }
+
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+      if (pushTokenListener.current) {
+        pushTokenListener.current.remove();
+      }
+      if (realtimeSubscription.current) {
+        try {
+          console.log('Unsubscribing from realtime notifications');
+          realtimeSubscription.current.unsubscribe();
+        } catch (error) {
+          console.error('Error during subscription cleanup:', error);
+        }
+      }
     };
-    // Rerun when user.id or session changes
-  }, [user?.id, session, refreshNotifications, registerPushToken, handleNotification, handleNotificationResponse]);
-
+  }, [user?.id, handleNotification, handleNotificationResponse, refreshNotifications, registerForNotifications, handleTokenRefresh]);
 
   return {
     unreadCount,
@@ -436,8 +564,7 @@ export function useNotifications(): UseNotificationsReturn {
     deleteNotification,
     refreshNotifications,
     loading,
-    requestPermissions,
-    registerForPushNotifications: registerPushToken,
-    registerPushToken
+    cleanupPushToken,
+    registerForPushNotifications: registerForNotifications
   };
 }
