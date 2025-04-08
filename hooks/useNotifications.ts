@@ -270,76 +270,38 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user?.id, handleTokenRefresh]);
 
-  // Cleanup push token on logout with improved reliability
-  const cleanupPushToken = useCallback(async () => {
-    console.log('Starting push token cleanup process');
-
-    try {
-      // Clear any pending registration timer
-      if (registrationTimer.current) {
-        clearTimeout(registrationTimer.current);
-        registrationTimer.current = null;
-      }
-
-      // Get token from secure storage
-      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-
-      if (token) {
-        console.log('Found push token to clean up:', token);
-
-        // If we have a user ID, use it for targeted deletion
-        if (user?.id) {
-          try {
-            // Delete token from database
-            const { error } = await supabase
-              .from('user_push_tokens')
-              .delete()
-              .match({ user_id: user.id, token });
-
-            if (error) {
-              console.error('Error deleting push token from database:', error);
-            } else {
-              console.log('Token successfully removed from database');
-            }
-          } catch (dbError) {
-            console.error('Database error during token cleanup:', dbError);
-          }
-        } else {
-          // If no user ID, try deletion by token only
-          try {
-            const { error } = await supabase
-              .from('user_push_tokens')
-              .delete()
-              .eq('token', token);
-
-            if (error) {
-              console.error('Error deleting token without user ID:', error);
-            }
-          } catch (tokenError) {
-            console.error('Error in token-only deletion:', tokenError);
-          }
-        }
-
-        // Always remove from secure storage regardless of database success
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        console.log('Token removed from secure storage');
-      } else {
-        console.log('No push token found in secure storage to cleanup');
-      }
-
-      // Reset registration attempts counter
-      registrationAttempts.current = 0;
-    } catch (error) {
-      console.error('Error cleaning up push token:', error);
-
-      // Attempt storage cleanup regardless
-      try {
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      } catch (storageError) {
-        console.error('Failed to clean token from storage:', storageError);
-      }
+const cleanupPushToken = useCallback(async () => {
+  try {
+    // Clear any pending registration timer
+    if (registrationTimer.current) {
+      clearTimeout(registrationTimer.current);
+      registrationTimer.current = null;
     }
-  }, [user?.id]);
+
+    // Get stored token
+    const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+
+    if (token && user) {
+      console.log('Found push token to clean up');
+
+      // Attempt to delete from database
+      const { error } = await supabase
+        .from('user_push_tokens')
+        .delete()
+        .match({ user_id: user.id, token });
+
+      if (error) {
+        console.error('Error removing push token from database:', error);
+      }
+
+      // Remove from secure storage regardless of database success
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.error('Push token cleanup error:', error);
+    // Continue with sign out even if cleanup fails
+  }
+}, [user]);
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -406,60 +368,123 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user]);
 
-  // Handle app state changes (refresh when app comes to foreground)
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      const previousState = appState.current;
-      appState.current = nextAppState;
+const verifyAndRepairTokenRegistration = useCallback(async () => {
+  if (!user?.id) return;
 
-      // App coming to foreground from background or inactive
-      if (
-        (previousState.match(/inactive|background/) || previousState === 'unknown') &&
-        nextAppState === 'active' &&
-        user?.id
-      ) {
-        console.log('App has come to foreground, refreshing notifications');
-        refreshNotifications();
+  console.log('Running token verification and repair process');
 
-        // Check/retry token registration if permission is granted
-        if (isPermissionGranted && registrationAttempts.current < MAX_REGISTRATION_ATTEMPTS) {
-          console.log('Checking push token on app foreground');
+  try {
+    // Get stored token
+    const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+    if (!storedToken) {
+      console.log('No stored token found during verification, initiating registration');
+      await registerForNotifications();
+      return;
+    }
 
-          // Check if we have a valid token in storage and database
-          SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY).then(async (storedToken) => {
-            if (!storedToken) {
-              console.log('No stored token found on app foreground, initiating registration');
-              registerForNotifications();
-              return;
-            }
+    // Check if token exists in database
+    try {
+      const { data, error } = await supabase
+        .from('user_push_tokens')
+        .select('token, last_updated')
+        .eq('user_id', user.id)
+        .eq('token', storedToken)
+        .maybeSingle();
 
-            // Verify token exists in database
-            try {
-              const { data } = await supabase
-                .from('user_push_tokens')
-                .select('token')
-                .eq('user_id', user.id)
-                .eq('token', storedToken)
-                .single();
+      if (error) {
+        console.error('Error checking token in database:', error);
+        // Continue with verification despite error
+      }
 
-              if (!data) {
-                console.log('Token in storage but not in database, re-registering');
-                registerForNotifications();
-              }
-            } catch (error) {
-              console.error('Error verifying token on app foreground:', error);
-            }
-          }).catch(error => {
-            console.error('Error checking token on app foreground:', error);
-          });
+      if (!data) {
+        console.log('Token exists in storage but not in database - repairing');
+
+        // Attempt direct token registration
+        const success = await NotificationService.updatePushToken(storedToken, user.id);
+
+        if (success) {
+          console.log('Token registration repaired successfully');
+        } else {
+          console.warn('Token repair failed, falling back to full registration');
+          await registerForNotifications();
+        }
+      } else {
+        // Token exists, check if it's stale (older than 7 days)
+        const lastUpdated = new Date(data.last_updated);
+        const now = new Date();
+        const differenceInDays = (now.getTime() - lastUpdated.getTime()) / (1000 * 3600 * 24);
+
+        if (differenceInDays > 7) {
+          console.log('Token exists but is stale, refreshing registration');
+          const success = await NotificationService.updatePushToken(storedToken, user.id);
+          if (!success) {
+            console.warn('Token refresh failed, falling back to full registration');
+            await registerForNotifications();
+          }
+        } else {
+          console.log('Token verification completed, token is valid and up-to-date');
         }
       }
-    });
+    } catch (dbError) {
+      console.error('Exception during token verification:', dbError);
+      // Try re-registration as fallback
+      await registerForNotifications();
+    }
+  } catch (error) {
+    console.error('Error in token verification and repair:', error);
+  }
+}, [user?.id, registerForNotifications]);
 
-    return () => {
-      subscription.remove();
-    };
-  }, [refreshNotifications, user, isPermissionGranted, registerForNotifications]);
+
+// Add this effect to useNotifications.ts to periodically check token
+useEffect(() => {
+  if (!user?.id) return;
+
+  // Set up periodic token verification
+  const tokenCheckIntervalMs = 24 * 60 * 60 * 1000; // Once per day
+  const intervalId = setInterval(() => {
+    // Only run check if app is in foreground
+    if (AppState.currentState === 'active') {
+      console.log('Running scheduled token verification check');
+      verifyAndRepairTokenRegistration();
+    }
+  }, tokenCheckIntervalMs);
+
+  // Also run once on mount after a short delay
+  const initialCheckTimeoutId = setTimeout(() => {
+    console.log('Running initial token verification check');
+    verifyAndRepairTokenRegistration();
+  }, 10000); // Wait 10 seconds after mount to avoid competing with other initialization
+
+  return () => {
+    clearInterval(intervalId);
+    clearTimeout(initialCheckTimeoutId);
+  };
+}, [user?.id, verifyAndRepairTokenRegistration]);
+  // Handle app state changes (refresh when app comes to foreground)
+useEffect(() => {
+  const subscription = AppState.addEventListener('change', nextAppState => {
+    const previousState = appState.current;
+    appState.current = nextAppState;
+
+    // App coming to foreground from background or inactive
+    if (
+      (previousState.match(/inactive|background/) || previousState === 'unknown') &&
+      nextAppState === 'active' &&
+      user?.id
+    ) {
+      console.log('App has come to foreground, refreshing notifications');
+      refreshNotifications();
+
+      // Run token verification and repair process on app foregrounding
+      verifyAndRepairTokenRegistration();
+    }
+  });
+
+  return () => {
+    subscription.remove();
+  };
+}, [refreshNotifications, user, verifyAndRepairTokenRegistration]);
 
   // Set up notification listeners and initial data fetch
   useEffect(() => {
