@@ -34,100 +34,244 @@ interface NotificationData {
   notificationId?: string;
 }
 
-// Store key for push token
+// Storage keys
 const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
+const PUSH_TOKEN_TIMESTAMP_KEY = 'expoPushTokenTimestamp';
+const PUSH_TOKEN_REGISTRATION_ATTEMPTS = 'pushTokenRegistrationAttempts';
 
-// Database operation timeout
-const DB_OPERATION_TIMEOUT = 10000; // 10 seconds
+// Constants
+const DB_OPERATION_TIMEOUT = 5000; // 15 seconds
+const MAX_RETRIES = 5;
+const TOKEN_REFRESH_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const FORCE_REGISTER_DEV = true; // Force registration in development
+const DEBUG_MODE = __DEV__ || true; // Enable debug mode in dev and initially in prod
 
 export class NotificationService {
-  // Get project ID safely
+  private static debugLog(message: string, data?: any): void {
+    if (DEBUG_MODE) {
+      const timestamp = new Date().toISOString();
+      const logPrefix = `[NotificationService ${timestamp}]`;
+
+      if (data) {
+        console.log(`${logPrefix} ${message}`, data);
+      } else {
+        console.log(`${logPrefix} ${message}`);
+      }
+    }
+  }
+
+  private static async recordError(context: string, error: any): Promise<void> {
+    try {
+      this.debugLog(`ERROR in ${context}:`, error);
+
+      // Save error to secure storage for diagnostics
+      const errorLog = await SecureStore.getItemAsync('notificationErrors') || '[]';
+      const errors = JSON.parse(errorLog);
+
+      errors.push({
+        timestamp: new Date().toISOString(),
+        context,
+        error: error?.message || String(error),
+        stack: error?.stack
+      });
+
+      // Keep last 10 errors only
+      if (errors.length > 10) {
+        errors.shift();
+      }
+
+      await SecureStore.setItemAsync('notificationErrors', JSON.stringify(errors));
+    } catch (e) {
+      console.error('Failed to record error:', e);
+    }
+  }
+
+  // Get project ID with enhanced reliability
   private static getProjectId(): string {
     // First try environment variable
     const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
 
     if (envProjectId) {
+      this.debugLog('Using project ID from environment:', envProjectId);
       return envProjectId;
     }
 
-    // Fallback to Constants (more reliable in production)
+    // Try app.json/app.config.js via Constants
     try {
-      // @ts-ignore - This is available in Expo but might not be typed correctly
+      // Multiple fallback paths to find the project ID
       const expoConstants = Constants.expoConfig || Constants.manifest;
 
-      // Try to get project ID from various possible locations
-      const constantsProjectId =
-        // @ts-ignore - Accessing potentially undefined properties
-        expoConstants?.extra?.projectId ||
-        expoConstants?.id ||
-        expoConstants?.slug;
+      if (expoConstants) {
+        // Check extra configuration first (most reliable location)
+        const extraProjectId = expoConstants.extra?.projectId;
+        if (extraProjectId) {
+          this.debugLog('Using project ID from Constants.expoConfig.extra:', extraProjectId);
+          return extraProjectId;
+        }
 
-      if (constantsProjectId) {
-        console.log('Using project ID from Constants:', constantsProjectId);
-        return constantsProjectId;
+        // Check EAS project ID
+        const easProjectId = expoConstants.extra?.eas?.projectId;
+        if (easProjectId) {
+          this.debugLog('Using project ID from Constants.expoConfig.extra.eas:', easProjectId);
+          return easProjectId;
+        }
+
+        // Check direct projectId property
+        const directProjectId = expoConstants.projectId;
+        if (directProjectId) {
+          this.debugLog('Using project ID from Constants.expoConfig.projectId:', directProjectId);
+          return directProjectId;
+        }
+
+        // Try the ID property
+        if (expoConstants.id) {
+          this.debugLog('Using ID from Constants.expoConfig.id:', expoConstants.id);
+          return expoConstants.id;
+        }
+
+        // Try the slug property
+        if (expoConstants.slug) {
+          this.debugLog('Using slug from Constants.expoConfig.slug:', expoConstants.slug);
+          return expoConstants.slug;
+        }
       }
     } catch (error) {
-      console.error('Error accessing Constants:', error);
+      this.recordError('getProjectId', error);
     }
 
-    // Last resort - use hardcoded project ID if available
-    // REPLACE THIS WITH YOUR ACTUAL PROJECT ID
+    // Last resort - use hardcoded project ID from eas.json
     const hardcodedProjectId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-    console.warn('Using hardcoded project ID as fallback. This is not recommended for production.');
+    this.debugLog('Using HARDCODED project ID as fallback:', hardcodedProjectId);
     return hardcodedProjectId;
   }
 
-  // Push notification registration with improved error handling and fallbacks
-  static async registerForPushNotificationsAsync(userId: string, maxRetries = 3) {
-    console.log('Starting push notification registration for user:', userId);
+  // Create timeout promise to prevent hanging operations
+  private static timeoutPromise<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> {
+    let timeoutHandle: NodeJS.Timeout;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(`Operation '${operationName}' timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
 
-    // Use promise with timeout to prevent hanging operations
-    const timeoutPromise = (promise, timeoutMs) => {
-      let timeoutHandle;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error('Operation timed out')), timeoutMs);
-      });
+    return Promise.race([
+      promise,
+      timeoutPromise
+    ]).finally(() => clearTimeout(timeoutHandle));
+  }
 
-      return Promise.race([
-        promise,
-        timeoutPromise
-      ]).finally(() => clearTimeout(timeoutHandle));
-    };
+  // Validate push token format
+  private static isValidPushToken(token: string): boolean {
+    if (!token) return false;
 
-    // Verify the device is physical (not a simulator/emulator)
-    if (!Device.isDevice) {
-      console.warn('Push notifications are not available on simulator/emulator');
+    // Expo push tokens follow a specific format
+    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+    const validExpoFormat = validExpoTokenFormat.test(token);
+
+    // FCM tokens (for APNs via FCM) are typically longer alphanumeric strings
+    const validFCMFormat = /^[a-zA-Z0-9\-_:]{140,250}$/.test(token);
+
+    // APNs tokens are hex strings of a specific length
+    const validAPNsFormat = /^[a-f0-9]{64}$/.test(token);
+
+    const isValid = validExpoFormat || validFCMFormat || validAPNsFormat;
+
+    if (!isValid) {
+      this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
+    }
+
+    return isValid;
+  }
+
+  // Check if token needs refresh (older than 7 days)
+  private static async tokenNeedsRefresh(): Promise<boolean> {
+    try {
+      const timestampStr = await SecureStore.getItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      if (!timestampStr) return true;
+
+      const timestamp = parseInt(timestampStr, 10);
+      const now = Date.now();
+
+      return (now - timestamp) > TOKEN_REFRESH_INTERVAL;
+    } catch (error) {
+      this.recordError('tokenNeedsRefresh', error);
+      return true; // Refresh on error
+    }
+  }
+
+  // Save token with timestamp
+  private static async saveTokenToStorage(token: string): Promise<void> {
+    try {
+      await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, token);
+      await SecureStore.setItemAsync(PUSH_TOKEN_TIMESTAMP_KEY, Date.now().toString());
+      this.debugLog('Token saved to secure storage');
+    } catch (error) {
+      this.recordError('saveTokenToStorage', error);
+      throw error; // Re-throw as this is critical
+    }
+  }
+
+  // Production-ready push token registration
+  static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
+    // Skip for dev/simulator unless forced
+    if (!Device.isDevice && !FORCE_REGISTER_DEV) {
+      this.debugLog('Push notifications not available on simulator/emulator');
       return null;
     }
 
+    // Skip during sign-out
+    if (isSigningOut) {
+      this.debugLog('User is signing out, skipping token registration');
+      return null;
+    }
+
+    this.debugLog(`Starting push notification registration for user: ${userId}`);
+    const startTime = Date.now();
+
     try {
-      // 1. Check and request permissions with better error handling
+      // 1. OPTIMIZATION: Check for existing valid token first
+      if (!forceRefresh) {
+        const existingToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        const needsRefresh = await this.tokenNeedsRefresh();
+
+        if (existingToken && this.isValidPushToken(existingToken) && !needsRefresh) {
+          this.debugLog('Using existing valid token:', existingToken);
+
+          // Verify token exists in database without blocking main flow
+          this.verifyTokenInDatabase(existingToken, userId).catch(error => {
+            this.recordError('verifyTokenInDatabase', error);
+          });
+
+          return existingToken;
+        }
+      }
+
+      // 2. PERMISSIONS: Check and request with better error handling
       let permissionStatus;
       try {
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        console.log('Existing notification permission status:', existingStatus);
+        this.debugLog('Existing notification permission status:', existingStatus);
 
         if (existingStatus !== 'granted') {
-          console.log('Requesting notification permissions...');
+          this.debugLog('Requesting notification permissions...');
           const { status } = await Notifications.requestPermissionsAsync();
           permissionStatus = status;
-          console.log('New permission status:', permissionStatus);
+          this.debugLog('New permission status:', permissionStatus);
         } else {
           permissionStatus = existingStatus;
         }
       } catch (permError) {
-        console.error('Error checking permissions:', permError);
-        permissionStatus = 'denied'; // Fail safely
-      }
-
-      if (permissionStatus !== 'granted') {
-        console.warn('Push notification permission not granted');
+        this.recordError('checkPermissions', permError);
         return null;
       }
 
-      // 2. Set up Android notification channel
+      if (permissionStatus !== 'granted') {
+        this.debugLog('Push notification permission not granted');
+        return null;
+      }
+
+      // 3. ANDROID CHANNEL: Set up Android notification channel
       if (Platform.OS === 'android') {
-        console.log('Setting up Android notification channel');
         try {
           await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
@@ -136,179 +280,341 @@ export class NotificationService {
             lightColor: '#D55004',
             sound: 'notification.wav',
           });
+          this.debugLog('Android notification channel set up successfully');
         } catch (channelError) {
-          console.error('Error setting up notification channel:', channelError);
-          // Continue despite channel error - it's not fatal
+          this.recordError('setupAndroidChannel', channelError);
+          // Continue - non-fatal error
         }
       }
 
-      // Skip token registration during sign out
-      if (isSigningOut) {
-        console.log('User is signing out, skipping token registration');
-        return null;
-      }
-
-      // 3. Get project ID with fallback mechanisms
+      // 4. TOKEN GENERATION: Get project ID with fallback mechanisms
       const projectId = this.getProjectId();
-      console.log('Using project ID for push notifications:', projectId);
+      this.debugLog('Using project ID for push notifications:', projectId);
 
-      // 4. Get push token with error handling
-      let token;
+      // 5. Get push token with error handling
+      let token: string | null = null;
+      let tokenError: any = null;
+
       try {
-        console.log('Getting Expo push token...');
-        const tokenResponse = await Notifications.getExpoPushTokenAsync({
-          projectId: projectId,
-        });
+        this.debugLog('Getting Expo push token...');
+        const tokenResponse = await this.timeoutPromise(
+          Notifications.getExpoPushTokenAsync({
+            projectId: projectId,
+          }),
+          15000, // 15 second timeout
+          'getExpoPushTokenAsync'
+        );
 
         token = tokenResponse.data;
-        console.log('Successfully received push token:', token);
+
+        // Validate token format
+        if (!this.isValidPushToken(token)) {
+          throw new Error(`Invalid token format: ${token?.substring(0, 10)}...`);
+        }
+
+        this.debugLog('Successfully received push token');
 
         // Immediately save token to SecureStore for resilience
-        await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, token);
-      } catch (tokenError) {
-        console.error('Error getting push token:', tokenError);
+        await this.saveTokenToStorage(token);
+      } catch (error) {
+        tokenError = error;
+        this.recordError('getExpoPushToken', error);
 
-        // Try to recover token from storage if available
+        // Try to recover token from storage as fallback
         try {
           const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-          if (storedToken) {
-            console.log('Using previously stored token as fallback:', storedToken);
+          if (storedToken && this.isValidPushToken(storedToken)) {
+            this.debugLog('Using previously stored token as fallback:', storedToken);
             token = storedToken;
           }
         } catch (storageError) {
-          console.error('Error reading token from storage:', storageError);
+          this.recordError('getStoredToken', storageError);
         }
-
-        if (!token) return null;
       }
 
-      // 5. Register token in database with simplified retry logic
+      if (!token) {
+        this.debugLog('Failed to get push token');
+        return null;
+      }
+
+      // 6. STORE TOKEN: Register in database with enhanced retry logic
       let registered = false;
-      let retryCount = 0;
+      const maxAttempts = MAX_RETRIES;
 
-      while (!registered && retryCount < maxRetries) {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          console.log(`Token registration attempt ${retryCount + 1}/${maxRetries}`);
+          this.debugLog(`Token database registration attempt ${attempt}/${maxAttempts}`);
 
-          // Use a timeout to prevent hanging
-          registered = await timeoutPromise(
+          // Use timeout to prevent hanging
+          registered = await this.timeoutPromise(
             this.updatePushToken(token, userId),
-            DB_OPERATION_TIMEOUT
+            DB_OPERATION_TIMEOUT,
+            `updatePushToken-attempt-${attempt}`
           );
 
           if (registered) {
-            console.log('Successfully registered token in database');
+            this.debugLog('Successfully registered token in database');
+
+            // Record successful registration
+            try {
+              await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
+            } catch (e) {
+              // Non-critical error
+            }
+
             break;
           }
         } catch (dbError) {
-          console.error(`Error during token registration attempt ${retryCount + 1}:`, dbError);
-        }
+          this.recordError(`tokenRegistration-attempt-${attempt}`, dbError);
 
-        retryCount++;
-        if (retryCount < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          if (attempt === maxAttempts) {
+            // Last attempt failed - will return token anyway but log the issue
+            this.debugLog('All database registration attempts failed');
+
+            // Record for future diagnostics
+            try {
+              await SecureStore.setItemAsync(
+                PUSH_TOKEN_REGISTRATION_ATTEMPTS,
+                JSON.stringify({
+                  attempts: maxAttempts,
+                  lastError: dbError?.message || String(dbError),
+                  timestamp: new Date().toISOString()
+                })
+              );
+            } catch (e) {
+              // Non-critical error
+            }
+          } else {
+            // Exponential backoff with jitter for retries
+            const delay = Math.min(1000 * Math.pow(2, attempt), 8000) + Math.random() * 1000;
+            this.debugLog(`Retrying after ${Math.round(delay)}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
       }
 
-      // Even if registration fails, return the token
-      // This allows notifications to work even if the database operation fails
+      // 7. PERFORMANCE LOGGING: Log completion time
+      const duration = Date.now() - startTime;
+      this.debugLog(`Token registration completed in ${duration}ms, database registered: ${registered}`);
+
+      // Even if database registration fails, return the token
+      // This allows notifications to work even if database operation fails
       return token;
-
     } catch (error) {
-      console.error('Fatal error in registerForPushNotificationsAsync:', error);
-
-      // Log detailed error information
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-
+      this.recordError('registerForPushNotificationsAsync', error);
       return null;
     }
   }
 
-  // Update push token in database with simplified approach
-  static async updatePushToken(token: string, userId: string): Promise<boolean> {
-    if (!token || !userId) {
-      console.error('Invalid token or userId for updatePushToken');
-      return false;
-    }
-
-    console.log(`Updating token for user ${userId}`);
-
+  // Verify token exists in database and add if missing
+  private static async verifyTokenInDatabase(token: string, userId: string): Promise<boolean> {
     try {
-      // Simplified approach - try direct upsert first
-      const { error } = await supabase
-        .from('user_push_tokens')
-        .upsert({
-          user_id: userId,
-          token,
-          device_type: Platform.OS,
-          last_updated: new Date().toISOString()
-        }, {
-          onConflict: 'token',
-        });
+      // Only perform this check if not signing out
+      if (isSigningOut) return false;
 
-      if (!error) {
-        console.log('Push token successfully updated in database');
-        return true;
-      }
+      this.debugLog(`Verifying token in database for user ${userId}`);
 
-      // If direct upsert fails, check if it's a foreign key issue
-      if (error.code === '23503') { // Foreign key violation
-        console.error('Foreign key violation - user may not exist in database');
-
-        // Check if user exists and create if needed
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (!userData) {
-          console.log('User not found in database, token registration will be retried later');
-          return false;
-        }
-
-        // Try upsert again
-        const { error: retryError } = await supabase
+      // Check if token exists in database
+      const { data, error } = await this.timeoutPromise(
+        supabase
           .from('user_push_tokens')
-          .upsert({
-            user_id: userId,
-            token,
-            device_type: Platform.OS,
-            last_updated: new Date().toISOString()
-          }, {
-            onConflict: 'token',
-          });
+          .select('token')
+          .eq('user_id', userId)
+          .eq('token', token)
+          .single(),
+        10000,
+        'verifyTokenQuery'
+      );
 
-        if (retryError) {
-          console.error('Error in second token upsert attempt:', retryError);
-          return false;
-        }
-
-        console.log('Push token successfully updated on second attempt');
-        return true;
+      // Token not in database, add it
+      if (error || !data) {
+        this.debugLog('Token not found in database, adding it');
+        return await this.updatePushToken(token, userId);
       }
 
-      console.error('Supabase error in updatePushToken:', error);
-      return false;
+      // Token already exists, update last_updated
+      this.debugLog('Token verified in database, updating timestamp');
+      const { error: updateError } = await this.timeoutPromise(
+        supabase
+          .from('user_push_tokens')
+          .update({ last_updated: new Date().toISOString() })
+          .eq('user_id', userId)
+          .eq('token', token),
+        10000,
+        'tokenTimestampUpdate'
+      );
+
+      if (updateError) {
+        this.recordError('updateTokenTimestamp', updateError);
+      }
+
+      return true;
     } catch (error) {
-      console.error('Exception in updatePushToken:', error);
+      this.recordError('verifyTokenInDatabase', error);
       return false;
     }
   }
 
-  // Rest of the methods...
+  // Update push token in database with improved error handling
+  static async updatePushToken(token: string, userId: string): Promise<boolean> {
+    if (!token || !userId) {
+      this.debugLog('Invalid token or userId for updatePushToken');
+      return false;
+    }
+
+    if (!this.isValidPushToken(token)) {
+      this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
+      return false;
+    }
+
+    if (isSigningOut) {
+      this.debugLog('User is signing out, skipping token update');
+      return false;
+    }
+
+    this.debugLog(`Updating token for user ${userId}`);
+
+    try {
+      // Try to ensure user exists first for enhanced reliability
+      try {
+        const { data: userData, error: userError } = await this.timeoutPromise(
+          supabase
+            .from('users')
+            .select('id')
+            .eq('id', userId)
+            .single(),
+          10000,
+          'checkUserExists'
+        );
+
+        if (userError || !userData) {
+          this.debugLog('User not found in database, token registration will fail');
+          return false;
+        }
+      } catch (userCheckError) {
+        this.recordError('checkUserExists', userCheckError);
+        // Continue anyway - user might exist
+      }
+
+      // Step 1: Try to delete any duplicate tokens for this user
+      try {
+        await this.timeoutPromise(
+          supabase
+            .from('user_push_tokens')
+            .delete()
+            .eq('token', token),
+          10000,
+          'deleteExistingToken'
+        );
+
+        this.debugLog('Cleaned up any existing token records');
+      } catch (cleanupError) {
+        this.recordError('cleanupExistingTokens', cleanupError);
+        // Continue anyway - not critical
+      }
+
+      // Step 2: Insert new token with retry
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const { error } = await this.timeoutPromise(
+            supabase
+              .from('user_push_tokens')
+              .insert({
+                user_id: userId,
+                token,
+                device_type: Platform.OS,
+                last_updated: new Date().toISOString()
+              }),
+            10000,
+            `insertNewToken-attempt-${attempt}`
+          );
+
+          if (!error) {
+            this.debugLog('Push token successfully inserted in database');
+            return true;
+          }
+
+          // If insert fails with foreign key error or duplicate
+          if (error.code === '23503' || error.code === '23505') {
+            // Try upsert as fallback
+            this.debugLog('Insert failed, trying upsert...');
+            const { error: upsertError } = await this.timeoutPromise(
+              supabase
+                .from('user_push_tokens')
+                .upsert({
+                  user_id: userId,
+                  token,
+                  device_type: Platform.OS,
+                  last_updated: new Date().toISOString()
+                }, {
+                  onConflict: 'token',
+                }),
+              10000,
+              'upsertTokenFallback'
+            );
+
+            if (!upsertError) {
+              this.debugLog('Push token successfully upserted in database');
+              return true;
+            }
+
+            this.recordError('upsertTokenFallback', upsertError);
+          } else {
+            this.recordError(`insertToken-attempt-${attempt}`, error);
+          }
+
+          // If not the last attempt, wait before retrying
+          if (attempt < 3) {
+            const delay = 1000 * Math.pow(2, attempt);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        } catch (insertError) {
+          this.recordError(`insertToken-attempt-${attempt}`, insertError);
+
+          // If not the last attempt, wait before retrying
+          if (attempt < 3) {
+            const delay = 1000 * Math.pow(2, attempt);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      // All attempts failed, last resort: try raw SQL insert
+      try {
+        const { error: rawError } = await this.timeoutPromise(
+          supabase.rpc('force_insert_token', {
+            p_user_id: userId,
+            p_token: token,
+            p_device_type: Platform.OS
+          }),
+          10000,
+          'forceInsertTokenRPC'
+        );
+
+        if (!rawError) {
+          this.debugLog('Push token successfully inserted using RPC');
+          return true;
+        }
+
+        this.recordError('forceInsertTokenRPC', rawError);
+      } catch (rpcError) {
+        this.recordError('forceInsertTokenRPC', rpcError);
+      }
+
+      return false;
+    } catch (error) {
+      this.recordError('updatePushToken', error);
+      return false;
+    }
+  }
+
   // Handle notification response (when user taps notification)
   static async handleNotificationResponse(response: Notifications.NotificationResponse) {
     try {
-      console.log('Handling notification response:', response.notification.request.identifier);
+      this.debugLog('Handling notification response:', response.notification.request.identifier);
 
       const data = response.notification.request.content.data as NotificationData;
-      console.log('Notification data:', data);
+      this.debugLog('Notification data:', data);
 
       if (data?.screen) {
         return {
@@ -318,7 +624,7 @@ export class NotificationService {
       }
       return null;
     } catch (error) {
-      console.error('Error in handleNotificationResponse:', error);
+      this.recordError('handleNotificationResponse', error);
       return null;
     }
   }
@@ -328,7 +634,7 @@ export class NotificationService {
     try {
       return await Notifications.getBadgeCountAsync();
     } catch (error) {
-      console.error('Error getting badge count:', error);
+      this.recordError('getBadgeCount', error);
       return 0;
     }
   }
@@ -338,7 +644,7 @@ export class NotificationService {
       await Notifications.setBadgeCountAsync(count);
       return true;
     } catch (error) {
-      console.error('Error setting badge count:', error);
+      this.recordError('setBadgeCount', error);
       return false;
     }
   }
@@ -347,22 +653,22 @@ export class NotificationService {
   static async getPermissions() {
     try {
       const permissions = await Notifications.getPermissionsAsync();
-      console.log('Current notification permissions:', permissions);
+      this.debugLog('Current notification permissions:', permissions);
       return permissions;
     } catch (error) {
-      console.error('Error getting permissions:', error);
+      this.recordError('getPermissions', error);
       return null;
     }
   }
 
   static async requestPermissions() {
     try {
-      console.log('Requesting notification permissions...');
+      this.debugLog('Requesting notification permissions...');
       const permissions = await Notifications.requestPermissionsAsync();
-      console.log('Permission request result:', permissions);
+      this.debugLog('Permission request result:', permissions);
       return permissions;
     } catch (error) {
-      console.error('Error requesting permissions:', error);
+      this.recordError('requestPermissions', error);
       return null;
     }
   }
@@ -373,7 +679,7 @@ export class NotificationService {
       await Notifications.cancelAllScheduledNotificationsAsync();
       return true;
     } catch (error) {
-      console.error('Error canceling notifications:', error);
+      this.recordError('cancelAllNotifications', error);
       return false;
     }
   }
@@ -396,7 +702,7 @@ export class NotificationService {
         hasMore: count ? count > page * limit : false
       };
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      this.recordError('fetchNotifications', error);
       return {
         notifications: [],
         total: 0,
@@ -416,7 +722,7 @@ export class NotificationService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      this.recordError('markAsRead', error);
       return false;
     }
   }
@@ -433,7 +739,7 @@ export class NotificationService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      this.recordError('markAllAsRead', error);
       return false;
     }
   }
@@ -449,7 +755,7 @@ export class NotificationService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      this.recordError('deleteNotification', error);
       return false;
     }
   }
@@ -466,31 +772,31 @@ export class NotificationService {
       if (error) throw error;
       return count || 0;
     } catch (error) {
-      console.error('Error getting unread count:', error);
+      this.recordError('getUnreadCount', error);
       return 0;
     }
   }
 
+  // Improved cleanup function with robust error handling
   static async cleanupPushToken(userId?: string) {
-    console.log('Starting robust push token cleanup');
+    this.debugLog('Starting push token cleanup process');
 
     try {
       // Get token from secure storage
       const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
 
       if (!token) {
-        console.log('No push token found in storage, nothing to clean up');
+        this.debugLog('No push token found in storage, nothing to clean up');
         return true;
       }
 
-      console.log('Found push token to clean up:', token);
+      this.debugLog('Found push token to clean up');
 
       // Delete from Supabase with retry logic
       let success = false;
-      let retryCount = 0;
       const maxRetries = 3;
 
-      while (!success && retryCount < maxRetries) {
+      for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
         try {
           let query = supabase.from('user_push_tokens').delete();
 
@@ -500,49 +806,127 @@ export class NotificationService {
           }
 
           // Always filter by token to ensure we're deleting the correct record
-          const { error } = await query.eq('token', token);
+          const { error } = await this.timeoutPromise(
+            query.eq('token', token),
+            10000,
+            `deleteToken-attempt-${retryCount + 1}`
+          );
 
           if (error) {
-            retryCount++;
-            console.error(`Token deletion attempt ${retryCount} failed:`, error);
+            this.recordError(`deleteToken-attempt-${retryCount + 1}`, error);
 
-            if (retryCount < maxRetries) {
+            if (retryCount < maxRetries - 1) {
               // Exponential backoff with jitter
-              const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
+              const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           } else {
             success = true;
-            console.log('Successfully removed push token from database');
+            this.debugLog('Successfully removed push token from database');
+            break;
           }
         } catch (error) {
-          retryCount++;
-          console.error(`Exception during token deletion attempt ${retryCount}:`, error);
+          this.recordError(`deleteToken-attempt-${retryCount + 1}`, error);
 
-          if (retryCount < maxRetries) {
+          if (retryCount < maxRetries - 1) {
             // Exponential backoff with jitter
-            const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
+            const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
 
-      // Regardless of database success, clean up local storage
+      // Always remove from secure storage regardless of database success
       await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      console.log('Removed push token from secure storage');
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
+      this.debugLog('Removed push token from secure storage');
 
       return true;
     } catch (error) {
-      console.error('Push token cleanup failed:', error);
+      this.recordError('cleanupPushToken', error);
 
       // Attempt to clean local storage even if the rest failed
       try {
         await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
       } catch (storageError) {
-        console.error('Failed to clean token from storage:', storageError);
+        this.recordError('cleanupTokenStorage', storageError);
       }
 
       return false;
+    }
+  }
+
+  // Get diagnostic information for debugging
+  static async getDiagnostics(): Promise<any> {
+    try {
+      const diagnostics: Record<string, any> = {
+        timestamp: new Date().toISOString(),
+        device: {
+          platform: Platform.OS,
+          version: Platform.Version,
+          isDevice: Device.isDevice,
+          brand: Device.brand,
+          modelName: Device.modelName
+        },
+        tokens: {
+          hasStoredToken: false,
+          tokenAge: null,
+          tokenFormat: null
+        },
+        permissions: null,
+        errors: []
+      };
+
+      // Get token information
+      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      const timestamp = await SecureStore.getItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      const attempts = await SecureStore.getItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
+
+      if (token) {
+        diagnostics.tokens.hasStoredToken = true;
+        diagnostics.tokens.tokenFormat = this.isValidPushToken(token);
+        diagnostics.tokens.tokenPreview = token.substring(0, 5) + '...' + token.substring(token.length - 5);
+      }
+
+      if (timestamp) {
+        const tokenDate = new Date(parseInt(timestamp, 10));
+        diagnostics.tokens.tokenAge = Math.floor((Date.now() - parseInt(timestamp, 10)) / (1000 * 60 * 60 * 24));
+        diagnostics.tokens.tokenTimestamp = tokenDate.toISOString();
+      }
+
+      if (attempts) {
+        try {
+          diagnostics.tokens.registrationAttempts = JSON.parse(attempts);
+        } catch (e) {
+          diagnostics.tokens.registrationAttempts = attempts;
+        }
+      }
+
+      // Get permission status
+      try {
+        const permissions = await Notifications.getPermissionsAsync();
+        diagnostics.permissions = permissions;
+      } catch (e) {
+        diagnostics.permissions = { error: String(e) };
+      }
+
+      // Get error logs
+      try {
+        const errorLogs = await SecureStore.getItemAsync('notificationErrors');
+        if (errorLogs) {
+          diagnostics.errors = JSON.parse(errorLogs);
+        }
+      } catch (e) {
+        diagnostics.errors = [{ error: 'Failed to parse error logs' }];
+      }
+
+      return diagnostics;
+    } catch (error) {
+      this.recordError('getDiagnostics', error);
+      return { error: String(error) };
     }
   }
 }
