@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import * as SecureStore from 'expo-secure-store';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { useGuestUser } from './GuestUserContext';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -222,67 +222,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const ensurePushTokenRegistration = async (userId: string) => {
-  if (!userId) return;
-
-  console.log('Ensuring push token is registered after user creation/login');
-
-  try {
-    // First verify user exists in the database
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error || !data) {
-      console.error('Error or user not found during token registration check:', error);
-      return;
-    }
-const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
-    // Then check if we already have a token in secure storage
-    const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-
-    if (storedToken) {
-      console.log('Found stored token, ensuring it is registered in database');
-
-      // Check if this token is already in the database
-      const { data: tokenData } = await supabase
-        .from('user_push_tokens')
-        .select('token')
-        .eq('user_id', userId)
-        .eq('token', storedToken)
-        .maybeSingle();
-
-      if (!tokenData) {
-        console.log('Token not in database, registering it');
-
-        // Register directly
-        const { error: registerError } = await supabase
-          .from('user_push_tokens')
-          .upsert({
-            user_id: userId,
-            token: storedToken,
-            device_type: Platform.OS,
-            last_updated: new Date().toISOString()
-          }, {
-            onConflict: 'token',
-          });
-
-        if (registerError) {
-          console.error('Error registering existing token:', registerError);
-        } else {
-          console.log('Successfully registered existing token');
-        }
-      } else {
-        console.log('Token already registered in database');
-      }
-    }
-  } catch (error) {
-    console.error('Error in ensurePushTokenRegistration:', error);
-  }
-};
-
   // Modified fetchUserProfile function with fallback to create user if not found
   const fetchUserProfile = async (userId: string): Promise<void> => {
     try {
@@ -311,7 +250,6 @@ const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
 
       if (data) {
         setProfile(data as UserProfile);
-         await ensurePushTokenRegistration(userId);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);

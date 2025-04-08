@@ -77,70 +77,13 @@ export class NotificationService {
     return hardcodedProjectId;
   }
 
-  static async ensureUserExists(userId: string): Promise<boolean> {
-  if (!userId) return false;
-
-  console.log(`Ensuring user ${userId} exists in the database`);
-
-  try {
-    // Check if user exists
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error checking user existence:', error);
-      return false;
-    }
-
-    if (data) {
-      console.log('User found in database');
-      return true;
-    }
-
-    console.warn('User not found in database - this should not happen');
-
-    // Try to get user data from auth system
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session?.user) {
-      console.error('No auth session available');
-      return false;
-    }
-
-    // Create minimal user record as fallback
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert({
-        id: userId,
-        email: sessionData.session.user.email || 'unknown@example.com',
-        name: sessionData.session.user.user_metadata?.name || 'Unknown User',
-        favorite: [],
-        last_active: new Date().toISOString(),
-        timezone: 'UTC'
-      });
-
-    if (insertError) {
-      console.error('Error creating fallback user record:', insertError);
-      return false;
-    }
-
-    console.log('Created fallback user record');
-    return true;
-  } catch (error) {
-    console.error('Exception in ensureUserExists:', error);
-    return false;
-  }
-}
-
   // Push notification registration with improved error handling and fallbacks
   static async registerForPushNotificationsAsync(userId: string, maxRetries = 3) {
     console.log('Starting push notification registration for user:', userId);
 
     // Use promise with timeout to prevent hanging operations
-    const timeoutPromise = (promise: Promise<boolean>, timeoutMs: number | undefined) => {
-      let timeoutHandle: string | number | NodeJS.Timeout | undefined;
+    const timeoutPromise = (promise, timeoutMs) => {
+      let timeoutHandle;
       const timeoutPromise = new Promise((_, reject) => {
         timeoutHandle = setTimeout(() => reject(new Error('Operation timed out')), timeoutMs);
       });
@@ -151,17 +94,11 @@ export class NotificationService {
       ]).finally(() => clearTimeout(timeoutHandle));
     };
 
-
+    // Verify the device is physical (not a simulator/emulator)
     if (!Device.isDevice) {
       console.warn('Push notifications are not available on simulator/emulator');
       return null;
     }
-
-      const userExists = await this.ensureUserExists(userId);
-  if (!userExists) {
-    console.error('Cannot register token - user does not exist in database');
-    return null;
-  }
 
     try {
       // 1. Check and request permissions with better error handling
@@ -292,47 +229,17 @@ export class NotificationService {
     }
   }
 
+  // Update push token in database with simplified approach
+  static async updatePushToken(token: string, userId: string): Promise<boolean> {
+    if (!token || !userId) {
+      console.error('Invalid token or userId for updatePushToken');
+      return false;
+    }
 
-static async updatePushToken(token: string, userId: string): Promise<boolean> {
-  if (!token || !userId) {
-    console.error('Invalid token or userId for updatePushToken');
-    return false;
-  }
-
-  console.log(`Updating token for user ${userId}: ${token.substring(0, 10)}...`);
-
-  // Track attempts for detailed logging
-  let attempts = 0;
-  const maxAttempts = 5;
-  const initialBackoffMs = 1000;
-
-  const attemptUpdate = async (): Promise<boolean> => {
-    attempts++;
-    console.log(`Token update attempt ${attempts}/${maxAttempts}`);
+    console.log(`Updating token for user ${userId}`);
 
     try {
-      // First check if the user exists in the database
-      const { data: userExists, error: userCheckError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (userCheckError || !userExists) {
-        console.warn(`User ${userId} not found in database during token registration`);
-
-        // If this is not the last attempt, try again with backoff
-        if (attempts < maxAttempts) {
-          const backoffMs = initialBackoffMs * Math.pow(2, attempts - 1);
-          console.log(`Backing off for ${backoffMs}ms before retry`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
-          return await attemptUpdate();
-        }
-
-        return false;
-      }
-
-      // User exists, now perform the token upsert
+      // Simplified approach - try direct upsert first
       const { error } = await supabase
         .from('user_push_tokens')
         .upsert({
@@ -349,34 +256,50 @@ static async updatePushToken(token: string, userId: string): Promise<boolean> {
         return true;
       }
 
-      console.error('Error updating token in database:', error);
+      // If direct upsert fails, check if it's a foreign key issue
+      if (error.code === '23503') { // Foreign key violation
+        console.error('Foreign key violation - user may not exist in database');
 
-      // If this is not the last attempt, try again with backoff
-      if (attempts < maxAttempts) {
-        const backoffMs = initialBackoffMs * Math.pow(2, attempts - 1);
-        console.log(`Backing off for ${backoffMs}ms before retry`);
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-        return await attemptUpdate();
+        // Check if user exists and create if needed
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (!userData) {
+          console.log('User not found in database, token registration will be retried later');
+          return false;
+        }
+
+        // Try upsert again
+        const { error: retryError } = await supabase
+          .from('user_push_tokens')
+          .upsert({
+            user_id: userId,
+            token,
+            device_type: Platform.OS,
+            last_updated: new Date().toISOString()
+          }, {
+            onConflict: 'token',
+          });
+
+        if (retryError) {
+          console.error('Error in second token upsert attempt:', retryError);
+          return false;
+        }
+
+        console.log('Push token successfully updated on second attempt');
+        return true;
       }
 
+      console.error('Supabase error in updatePushToken:', error);
       return false;
     } catch (error) {
-      console.error(`Exception in token update attempt ${attempts}:`, error);
-
-      // If this is not the last attempt, try again with backoff
-      if (attempts < maxAttempts) {
-        const backoffMs = initialBackoffMs * Math.pow(2, attempts - 1);
-        console.log(`Backing off for ${backoffMs}ms before retry`);
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-        return await attemptUpdate();
-      }
-
+      console.error('Exception in updatePushToken:', error);
       return false;
     }
-  };
-  return await attemptUpdate();
-}
-
+  }
 
   // Rest of the methods...
   // Handle notification response (when user taps notification)
@@ -548,79 +471,78 @@ static async updatePushToken(token: string, userId: string): Promise<boolean> {
     }
   }
 
-// Add this method to NotificationService class
-static async cleanupPushToken(userId?: string) {
-  console.log('Starting robust push token cleanup');
+  static async cleanupPushToken(userId?: string) {
+    console.log('Starting robust push token cleanup');
 
-  try {
-    // Get token from secure storage
-    const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+    try {
+      // Get token from secure storage
+      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
 
-    if (!token) {
-      console.log('No push token found in storage, nothing to clean up');
-      return true;
-    }
+      if (!token) {
+        console.log('No push token found in storage, nothing to clean up');
+        return true;
+      }
 
-    console.log('Found push token to clean up:', token);
+      console.log('Found push token to clean up:', token);
 
-    // Delete from Supabase with retry logic
-    let success = false;
-    let retryCount = 0;
-    const maxRetries = 3;
+      // Delete from Supabase with retry logic
+      let success = false;
+      let retryCount = 0;
+      const maxRetries = 3;
 
-    while (!success && retryCount < maxRetries) {
-      try {
-        let query = supabase.from('user_push_tokens').delete();
+      while (!success && retryCount < maxRetries) {
+        try {
+          let query = supabase.from('user_push_tokens').delete();
 
-        // If userId is provided, use it to narrow the deletion
-        if (userId) {
-          query = query.eq('user_id', userId);
-        }
+          // If userId is provided, use it to narrow the deletion
+          if (userId) {
+            query = query.eq('user_id', userId);
+          }
 
-        // Always filter by token to ensure we're deleting the correct record
-        const { error } = await query.eq('token', token);
+          // Always filter by token to ensure we're deleting the correct record
+          const { error } = await query.eq('token', token);
 
-        if (error) {
+          if (error) {
+            retryCount++;
+            console.error(`Token deletion attempt ${retryCount} failed:`, error);
+
+            if (retryCount < maxRetries) {
+              // Exponential backoff with jitter
+              const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          } else {
+            success = true;
+            console.log('Successfully removed push token from database');
+          }
+        } catch (error) {
           retryCount++;
-          console.error(`Token deletion attempt ${retryCount} failed:`, error);
+          console.error(`Exception during token deletion attempt ${retryCount}:`, error);
 
           if (retryCount < maxRetries) {
             // Exponential backoff with jitter
             const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
             await new Promise(resolve => setTimeout(resolve, delay));
           }
-        } else {
-          success = true;
-          console.log('Successfully removed push token from database');
-        }
-      } catch (error) {
-        retryCount++;
-        console.error(`Exception during token deletion attempt ${retryCount}:`, error);
-
-        if (retryCount < maxRetries) {
-          // Exponential backoff with jitter
-          const delay = Math.pow(2, retryCount) * 500 + Math.random() * 200;
-          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
-    }
 
-    // Regardless of database success, clean up local storage
-    await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-    console.log('Removed push token from secure storage');
-
-    return true;
-  } catch (error) {
-    console.error('Push token cleanup failed:', error);
-
-    // Attempt to clean local storage even if the rest failed
-    try {
+      // Regardless of database success, clean up local storage
       await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-    } catch (storageError) {
-      console.error('Failed to clean token from storage:', storageError);
-    }
+      console.log('Removed push token from secure storage');
 
-    return false;
+      return true;
+    } catch (error) {
+      console.error('Push token cleanup failed:', error);
+
+      // Attempt to clean local storage even if the rest failed
+      try {
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      } catch (storageError) {
+        console.error('Failed to clean token from storage:', storageError);
+      }
+
+      return false;
+    }
   }
-}
 }
