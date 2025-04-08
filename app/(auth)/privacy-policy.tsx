@@ -144,35 +144,7 @@ export default function PrivacyPolicyScreen() {
         { backgroundColor: isDark ? '#000' : '#fff' }
       ]}
     >
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Floating Header */}
-      <Animated.View style={[
-        styles.floatingHeader,
-        { opacity: headerOpacity,
-          backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }
-      ]}>
-        <BlurView
-          intensity={80}
-          tint={isDark ? 'dark' : 'light'}
-          style={styles.blurView}
-        >
-          <Text style={[styles.floatingTitle, { color: isDark ? '#fff' : '#000' }]}>
-            Privacy Policy
-          </Text>
-        </BlurView>
-      </Animated.View>
-
-      {/* Back Button */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={[
-          styles.backButton,
-          { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-        ]}
-      >
-        <Ionicons name="chevron-back" size={24} color={isDark ? '#fff' : '#000'} />
-      </TouchableOpacity>
 
       {/* Content */}
       <Animated.ScrollView
