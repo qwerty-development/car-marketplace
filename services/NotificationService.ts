@@ -11,8 +11,8 @@ import Constants from 'expo-constants';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
+     shouldPlaySound: false,
+    shouldSetBadge: false,
   }),
 });
 
@@ -86,64 +86,56 @@ export class NotificationService {
     }
   }
 
-  // Get project ID with enhanced reliability
-  private static getProjectId(): string {
-    // First try environment variable
-    const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
 
-    if (envProjectId) {
-      this.debugLog('Using project ID from environment:', envProjectId);
-      return envProjectId;
-    }
-
-    // Try app.json/app.config.js via Constants
-    try {
-      // Multiple fallback paths to find the project ID
-      const expoConstants = Constants.expoConfig || Constants.manifest;
-
-      if (expoConstants) {
-        // Check extra configuration first (most reliable location)
-        const extraProjectId = expoConstants.extra?.projectId;
-        if (extraProjectId) {
-          this.debugLog('Using project ID from Constants.expoConfig.extra:', extraProjectId);
-          return extraProjectId;
-        }
-
-        // Check EAS project ID
-        const easProjectId = expoConstants.extra?.eas?.projectId;
-        if (easProjectId) {
-          this.debugLog('Using project ID from Constants.expoConfig.extra.eas:', easProjectId);
-          return easProjectId;
-        }
-
-        // Check direct projectId property
-        const directProjectId = expoConstants.projectId;
-        if (directProjectId) {
-          this.debugLog('Using project ID from Constants.expoConfig.projectId:', directProjectId);
-          return directProjectId;
-        }
-
-        // Try the ID property
-        if (expoConstants.id) {
-          this.debugLog('Using ID from Constants.expoConfig.id:', expoConstants.id);
-          return expoConstants.id;
-        }
-
-        // Try the slug property
-        if (expoConstants.slug) {
-          this.debugLog('Using slug from Constants.expoConfig.slug:', expoConstants.slug);
-          return expoConstants.slug;
-        }
-      }
-    } catch (error) {
-      this.recordError('getProjectId', error);
-    }
-
-    // Last resort - use hardcoded project ID from eas.json
-    const hardcodedProjectId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-    this.debugLog('Using HARDCODED project ID as fallback:', hardcodedProjectId);
-    return hardcodedProjectId;
+private static getProjectId(): string {
+  const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+  if (envProjectId) {
+    console.log('Using project ID from environment:', envProjectId);
+    return envProjectId;
   }
+
+  try {
+    // 2.1 Try the dedicated easConfig property (new in more recent versions)
+    const easConfigProjectId = Constants?.easConfig?.projectId;
+    if (easConfigProjectId) {
+      console.log('Using project ID from Constants.easConfig:', easConfigProjectId);
+      return easConfigProjectId;
+    }
+
+    // 2.2 Access manifest/expoConfig object with fallback
+    const expoConstants = Constants.expoConfig || Constants.manifest;
+    if (expoConstants) {
+      // 2.3 Check extra.eas.projectId (common in newer EAS builds)
+      const easProjectId = expoConstants.extra?.eas?.projectId;
+      if (easProjectId) {
+        console.log('Using project ID from Constants.expoConfig.extra.eas:', easProjectId);
+        return easProjectId;
+      }
+
+      // 2.4 Check extra.projectId (common in app.json/app.config.js configuration)
+      const extraProjectId = expoConstants.extra?.projectId;
+      if (extraProjectId) {
+        console.log('Using project ID from Constants.expoConfig.extra:', extraProjectId);
+        return extraProjectId;
+      }
+
+      // 2.5 Check direct projectId property
+      const directProjectId = expoConstants.projectId;
+      if (directProjectId) {
+        console.log('Using project ID from Constants.expoConfig.projectId:', directProjectId);
+        return directProjectId;
+      }
+    }
+  } catch (error) {
+    console.error('Error accessing Constants for project ID:', error);
+  }
+
+  // 3. Last resort - use hardcoded project ID from eas.json
+  // This should match the projectId in eas.json
+  const hardcodedProjectId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+  console.warn('Using HARDCODED project ID as fallback. This is not recommended for production.');
+  return hardcodedProjectId;
+}
 
   // Create timeout promise to prevent hanging operations
   private static timeoutPromise<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> {
