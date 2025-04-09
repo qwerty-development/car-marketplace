@@ -1,4 +1,4 @@
-// app/(home)/(user)/notifications.tsx
+// app/(home)/(user)/notifications.tsx - REPLACEMENT CODE
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
 	View,
@@ -10,7 +10,6 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '@/utils/ThemeContext'
-import { NotificationService } from '@/services/NotificationService'
 import { BlurView } from 'expo-blur'
 import { Ionicons } from '@expo/vector-icons'
 import Animated, {
@@ -25,6 +24,7 @@ import { formatDistanceToNow } from 'date-fns'
 import * as Haptics from 'expo-haptics'
 import { useRouter, useNavigation } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
+import { useNotifications } from '@/hooks/useNotifications' // Updated import
 
 interface Notification {
 	id: string
@@ -47,7 +47,6 @@ export default function NotificationsScreen() {
 	const router = useRouter()
 	const navigation = useNavigation()
 	const [notifications, setNotifications] = useState<Notification[]>([])
-	const [loading, setLoading] = useState(true)
 	const [refreshing, setRefreshing] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [page, setPage] = useState(1)
@@ -56,10 +55,21 @@ export default function NotificationsScreen() {
 	const mounted = useRef(true)
 	const [notificationsScreenKey, setNotificationsScreenKey] = useState(0)
 
+	// Use the enhanced notification hook
+	const {
+		loading,
+		markAsRead,
+		markAllAsRead,
+		deleteNotification,
+		refreshNotifications
+	} = useNotifications()
+
 	// Force remount on blur/focus
 	useEffect(() => {
 		const unsubscribeFocus = navigation.addListener('focus', () => {
 			setNotificationsScreenKey(prevKey => prevKey + 1)
+			// Refresh unread count when screen is focused
+			onRefresh()
 		})
 
 		const unsubscribeBlur = navigation.addListener('blur', () => {
@@ -78,6 +88,7 @@ export default function NotificationsScreen() {
 
 			try {
 				setError(null)
+				const { NotificationService } = await import('@/services/NotificationService')
 				const { notifications: newNotifications, hasMore: more } =
 					await NotificationService.fetchNotifications(user.id, {
 						page: pageNum,
@@ -91,6 +102,9 @@ export default function NotificationsScreen() {
 					setHasMore(more)
 					setPage(pageNum)
 				}
+
+				// Refresh unread count using the hook's method
+				refreshNotifications()
 			} catch (error) {
 				console.error('Error fetching notifications:', error)
 				if (mounted.current) {
@@ -98,12 +112,11 @@ export default function NotificationsScreen() {
 				}
 			} finally {
 				if (mounted.current) {
-					setLoading(false)
 					setRefreshing(false)
 				}
 			}
 		},
-		[user]
+		[user, refreshNotifications]
 	)
 
 	// Initial fetch
@@ -127,7 +140,8 @@ export default function NotificationsScreen() {
 
 	const handleMarkAsRead = useCallback(async (notificationId: string) => {
 		try {
-			await NotificationService.markAsRead(notificationId)
+			// Use the hook's markAsRead method instead
+			await markAsRead(notificationId)
 			setNotifications(prev =>
 				prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
 			)
@@ -135,29 +149,31 @@ export default function NotificationsScreen() {
 		} catch (error) {
 			console.error('Error marking notification as read:', error)
 		}
-	}, [])
+	}, [markAsRead])
 
 	const handleMarkAllAsRead = useCallback(async () => {
 		if (!user) return
 
 		try {
-			await NotificationService.markAllAsRead(user.id)
+			// Use the hook's markAllAsRead method instead
+			await markAllAsRead()
 			setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
 			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
 		} catch (error) {
 			console.error('Error marking all as read:', error)
 		}
-	}, [user])
+	}, [user, markAllAsRead])
 
 	const handleDelete = useCallback(async (notificationId: string) => {
 		try {
-			await NotificationService.deleteNotification(notificationId)
+			// Use the hook's deleteNotification method instead
+			await deleteNotification(notificationId)
 			setNotifications(prev => prev.filter(n => n.id !== notificationId))
 			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
 		} catch (error) {
 			console.error('Error deleting notification:', error)
 		}
-	}, [])
+	}, [deleteNotification])
 
 	const handleNotificationPress = useCallback(
 		(notification: Notification) => {
@@ -169,7 +185,6 @@ export default function NotificationsScreen() {
 			// Navigate if there's a destination
 			if (notification.data?.screen) {
 				router.replace({
-					// Use router.replace()
 					pathname: notification.data.screen,
 					params: notification.data.params
 				})
@@ -181,11 +196,6 @@ export default function NotificationsScreen() {
 	const renderNotification = useCallback(
 		({ item: notification }: { item: Notification }) => {
 			const renderRightActions = (progress: any, dragX: any) => {
-				const trans = dragX.interpolate({
-					inputRange: [-100, 0],
-					outputRange: [1, 0]
-				})
-
 				return (
 					<View className='flex-row'>
 						{!notification.is_read && (
@@ -215,10 +225,7 @@ export default function NotificationsScreen() {
 
 			return (
 				<Animated.View
-					key={notification.id} // Use key for better list item management
-					// Consider simplifying or removing these animations for testing:
-					// entering={FadeInDown}
-					// exiting={FadeOutUp}
+					key={notification.id}
 					className='mx-4 mb-4'>
 					<Swipeable
 						ref={ref => ref && (swipeableRefs.current[notification.id] = ref)}
@@ -227,7 +234,6 @@ export default function NotificationsScreen() {
 						<TouchableOpacity
 							onPress={() => handleNotificationPress(notification)}
 							className='overflow-hidden'>
-							{/* Consider conditional BlurView rendering */}
 							<BlurView
 								intensity={isDarkMode ? 40 : 60}
 								tint={isDarkMode ? 'dark' : 'light'}
