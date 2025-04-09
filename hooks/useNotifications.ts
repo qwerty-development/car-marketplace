@@ -592,105 +592,115 @@ export function useNotifications(): UseNotificationsReturn {
     };
   }, [user?.id, registerForPushNotifications, debugLog]);
 
-  // App state change handling with robust token verification
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      const previousState = appState.current;
-      appState.current = nextAppState;
+useEffect(() => {
+  const subscription = AppState.addEventListener('change', nextAppState => {
+    const previousState = appState.current;
+    appState.current = nextAppState;
 
-      // App coming to foreground from background or inactive
-      if (
-        (previousState.match(/inactive|background/) || previousState === 'unknown') &&
-        nextAppState === 'active' &&
-        user?.id
-      ) {
-        debugLog('App has come to foreground');
+    // App coming to foreground from background or inactive
+    if (
+      (previousState.match(/inactive|background/) || previousState === 'unknown') &&
+      nextAppState === 'active' &&
+      user?.id
+    ) {
+      debugLog('App has come to foreground');
 
-        // Always refresh notifications when coming to foreground
-        refreshNotifications();
+      // Use an immediately invoked async function to handle both operations
+      (async () => {
+        try {
+          // First refresh notifications to update the internal count for in-app display
+          await refreshNotifications();
 
-        // If a token refresh or registration has been pending, force it now
-        if (forceRegistrationOnNextForeground.current) {
-          debugLog('Forced registration pending, executing now');
-          registerForPushNotifications(true);
-          forceRegistrationOnNextForeground.current = false;
+          // Then reset badge count to 0 when app comes to foreground
+          debugLog('Resetting badge count to 0 as app is now in foreground');
+          await NotificationService.setBadgeCount(0);
+        } catch (error) {
+          debugLog('Error handling foreground badge reset:', error);
+        }
+      })();
+
+      // If a token refresh or registration has been pending, force it now
+      if (forceRegistrationOnNextForeground.current) {
+        debugLog('Forced registration pending, executing now');
+        registerForPushNotifications(true);
+        forceRegistrationOnNextForeground.current = false;
+        return;
+      }
+
+      // Regular token verification when app comes to foreground
+      (async () => {
+        // Get registration state
+        const regState = await getRegistrationState();
+
+        // If registered recently (within 12 hours), skip verification
+        if (regState?.registered) {
+          const timeSinceLastSuccess = Date.now() - regState.lastAttemptTime;
+          if (timeSinceLastSuccess < 12 * 60 * 60 * 1000) {
+            debugLog('Recent successful registration, skipping verification');
+            return;
+          }
+        }
+
+        // Otherwise verify token in database
+        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        if (!storedToken) {
+          debugLog('No stored token found, initiating registration');
+          registerForPushNotifications();
           return;
         }
 
-        // Regular token verification when app comes to foreground
-        (async () => {
-          // Get registration state
-          const regState = await getRegistrationState();
+        // Basic validation before database check
+        if (!storedToken.includes('[') && !storedToken.includes(']') && storedToken.length < 10) {
+          debugLog('Invalid token format, initiating new registration');
+          registerForPushNotifications(true);
+          return;
+        }
 
-          // If registered recently (within 12 hours), skip verification
-          if (regState?.registered) {
-            const timeSinceLastSuccess = Date.now() - regState.lastAttemptTime;
-            if (timeSinceLastSuccess < 12 * 60 * 60 * 1000) {
-              debugLog('Recent successful registration, skipping verification');
-              return;
-            }
-          }
+        try {
+          debugLog('Verifying token in database');
+          const { data } = await supabase
+            .from('user_push_tokens')
+            .select('token')
+            .eq('user_id', user.id)
+            .eq('token', storedToken)
+            .single();
 
-          // Otherwise verify token in database
-          const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-          if (!storedToken) {
-            debugLog('No stored token found, initiating registration');
-            registerForPushNotifications();
-            return;
-          }
-
-          // Basic validation before database check
-          if (!storedToken.includes('[') && !storedToken.includes(']') && storedToken.length < 10) {
-            debugLog('Invalid token format, initiating new registration');
+          if (!data) {
+            debugLog('Token in storage but not in database, re-registering');
             registerForPushNotifications(true);
-            return;
+          } else {
+            debugLog('Token verified in database');
+
+            // Update last verified timestamp
+            await saveRegistrationState({
+              lastAttemptTime: Date.now(),
+              attempts: 0,
+              registered: true
+            });
           }
+        } catch (error) {
+          debugLog('Error verifying token on app foreground:', error);
 
-          try {
-            debugLog('Verifying token in database');
-            const { data } = await supabase
-              .from('user_push_tokens')
-              .select('token')
-              .eq('user_id', user.id)
-              .eq('token', storedToken)
-              .single();
-
-            if (!data) {
-              debugLog('Token in storage but not in database, re-registering');
-              registerForPushNotifications(true);
-            } else {
-              debugLog('Token verified in database');
-
-              // Update last verified timestamp
-              await saveRegistrationState({
-                lastAttemptTime: Date.now(),
-                attempts: 0,
-                registered: true
-              });
-            }
-          } catch (error) {
-            debugLog('Error verifying token on app foreground:', error);
-
-            // Only force registration if it's been a while since last attempt
-            if (!regState || Date.now() - regState.lastAttemptTime > 60 * 60 * 1000) {
-              registerForPushNotifications();
-            }
+          // Only force registration if it's been a while since last attempt
+          if (!regState || Date.now() - regState.lastAttemptTime > 60 * 60 * 1000) {
+            registerForPushNotifications();
           }
-        })();
-      }
-    });
+        }
+      })();
+    }
+  });
 
-    return () => {
-      subscription.remove();
-    };
-  }, [
-    refreshNotifications,
-    registerForPushNotifications,
-    user,
-    getRegistrationState,
-    saveRegistrationState,
-    debugLog
-  ]);
+  return () => {
+    subscription.remove();
+  };
+}, [
+  refreshNotifications,
+  registerForPushNotifications,
+  user,
+  getRegistrationState,
+  saveRegistrationState,
+  debugLog
+]);
 
   // Set up notification system on mount/unmount
   useEffect(() => {
