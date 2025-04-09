@@ -44,12 +44,7 @@ export default function UserProfileAndSupportPage() {
   const { user, profile, signOut, updateUserProfile, updatePassword} = useAuth();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-const {
-  unreadCount,
-  cleanupPushToken,
-  refreshNotifications,
-  loading
-} = useNotifications();
+  const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
 const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
@@ -404,39 +399,33 @@ const handleSignOut = async (): Promise<void> => {
       >
         {/* Header Section */}
         <View className="relative">
-      <LinearGradient
-  colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
-  className="pt-12 pb-24 rounded-b-[40px]"
->
-  {/* Header row with notification bell */}
-  <View className="flex-row justify-end px-4">
-    {!isGuest && <NotificationBell />}
-  </View>
-
-  {/* Profile information */}
-  <View className="items-center mt-6">
-    <View className="relative">
-      <Image
-        source={{ uri: isGuest
-          ? DEFAULT_PROFILE_IMAGE
-          : (user?.user_metadata?.avatar_url || DEFAULT_PROFILE_IMAGE) }}
-        className="w-32 h-32 rounded-full border-4 border-white/20"
-      />
-      <TouchableOpacity
-        onPress={onPickImage}
-        className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
-      >
-        <Ionicons name="camera" size={20} color="#D55004" />
-      </TouchableOpacity>
-    </View>
-    <Text className="text-white text-xl font-semibold mt-4">
-      {isGuest ? "Guest User" : `${firstName} ${lastName}`}
-    </Text>
-    <Text className="text-white/80 text-sm">
-      {isGuest ? "" : email}
-    </Text>
-  </View>
-</LinearGradient>
+          <LinearGradient
+            colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
+            className="pt-12 pb-24 rounded-b-[40px]"
+          >
+            <View className="items-center mt-6">
+              <View className="relative">
+                <Image
+                  source={{ uri: isGuest
+                    ? DEFAULT_PROFILE_IMAGE
+                    : (user?.user_metadata?.avatar_url || DEFAULT_PROFILE_IMAGE) }}
+                  className="w-32 h-32 rounded-full border-4 border-white/20"
+                />
+                <TouchableOpacity
+                  onPress={onPickImage}
+                  className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
+                >
+                  <Ionicons name="camera" size={20} color="#D55004" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-white text-xl font-semibold mt-4">
+                {isGuest ? "Guest User" : `${firstName} ${lastName}`}
+              </Text>
+              <Text className="text-white/80 text-sm">
+                {isGuest ? "" : email}
+              </Text>
+            </View>
+          </LinearGradient>
         </View>
 
         {/* Quick Actions */}
