@@ -649,6 +649,14 @@ useEffect(() => {
           return;
         }
 
+        // CRITICAL FIX: Add explicit check for Expo token format
+        const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+        if (!validExpoTokenFormat.test(storedToken)) {
+          debugLog('WARNING: Stored token is not in Expo format, forcing re-registration');
+          registerForPushNotifications(true);
+          return;
+        }
+
         // Basic validation before database check
         if (!storedToken.includes('[') && !storedToken.includes(']') && storedToken.length < 10) {
           debugLog('Invalid token format, initiating new registration');
