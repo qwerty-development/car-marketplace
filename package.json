@@ -17,6 +17,7 @@
     "@expo/vector-icons": "^14.0.4",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "^8.2.0",
+    "@react-native-community/netinfo": "11.4.1",
     "@react-native-community/slider": "4.5.5",
     "@react-native-picker/picker": "2.9.0",
     "@rneui/themed": "^4.0.0-rc.8",
@@ -55,7 +56,6 @@
     "expo-video-thumbnails": "~9.0.3",
     "expo-web-browser": "~14.0.2",
     "ffmpeg": "^0.0.4",
-    "ffmpeg-kit-react-native": "^6.0.2",
     "lodash": "^4.17.21",
     "lottie-react-native": "7.1.0",
     "lucide-react": "^0.427.0",
@@ -101,8 +101,7 @@
     "react-query": "^3.39.3",
     "recharts": "^2.15.0",
     "supabase": "^1.204.3",
-    "uuid": "^11.1.0",
-    "@react-native-community/netinfo": "11.4.1"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
