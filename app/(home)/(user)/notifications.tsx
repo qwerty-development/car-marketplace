@@ -750,7 +750,7 @@ const renderMinimalHeader = useCallback(() => {
                         color={
                           (category === 'all' && !selectedCategory) || category === selectedCategory
                             ? 'white'
-                            : isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                            : isDarkMode ? 'text-neutral-100' : 'text-black'
                         }
                         style={{ marginRight: 4 }}
                       />
@@ -759,7 +759,7 @@ const renderMinimalHeader = useCallback(() => {
                       className={
                         (category === 'all' && !selectedCategory) || category === selectedCategory
                           ? 'text-white'
-                          : isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          : isDarkMode ? 'text-neutral-400' : 'text-black'
                       }>
                       {category === 'all' ? 'All categories' : category}
                     </Text>
@@ -950,7 +950,7 @@ const renderMinimalHeader = useCallback(() => {
   // FAB for clearing all notifications
   const renderFAB = useCallback(() => {
     // Only show FAB if there are notifications and not in selection mode
-    if (notifications.length === 0 || isSelectionMode) return null;
+    // if (notifications.length === 0 || isSelectionMode) return null;
   
     return (
       <Animated.View
@@ -958,7 +958,7 @@ const renderMinimalHeader = useCallback(() => {
           fabStyle,
           {
             position: 'absolute',
-            bottom: Math.max(20, insets.bottom + 20),
+            bottom: Math.max(20, insets.bottom + 32),
             right: 16,
           }
         ]}
