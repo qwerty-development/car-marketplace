@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Animated, Dimensions, StyleSheet, useColorScheme, Image } from 'react-native';
+import { Audio } from 'expo-av';
 import { supabase } from '@/utils/supabase';
 
 const { width } = Dimensions.get('window');
@@ -74,6 +75,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   const [currentLogoIndex, setCurrentLogoIndex] = useState(0);
   const [showFleetLogo, setShowFleetLogo] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
   
   const screenOpacity = useRef(new Animated.Value(0)).current;
   const carLogoOpacity = useRef(new Animated.Value(1)).current;
@@ -81,6 +83,29 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   const fleetLogoOpacity = useRef(new Animated.Value(0)).current;
   const fleetLogoScale = useRef(new Animated.Value(0.8)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
+
+  // Load sound
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        const { sound: carSound } = await Audio.Sound.createAsync(
+          require('../assets/car-sound.wav'),
+          { shouldPlay: false }
+        );
+        setSound(carSound);
+      } catch (error) {
+        console.error('Error loading sound:', error);
+      }
+    };
+
+    loadSound();
+
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, []);
 
   // Preload initial data
   useEffect(() => {
@@ -159,6 +184,8 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
           useNativeDriver: true,
         }).start(() => {
           setShowFleetLogo(true);
+          // Play sound when Fleet logo appears
+          playSound();
           showFinalAnimation();
         });
       }
@@ -177,6 +204,17 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
         useNativeDriver: true,
       })
     ]).start();
+  };
+
+  const playSound = async () => {
+    try {
+      if (sound) {
+        await sound.setPositionAsync(0); // Reset to beginning in case it was played before
+        await sound.playAsync();
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
   };
 
   const showFinalAnimation = () => {
@@ -208,6 +246,10 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
         useNativeDriver: true,
       })
     ]).start(() => {
+      // Stop sound if it's still playing when animation ends
+      if (sound) {
+        sound.stopAsync();
+      }
       onAnimationComplete();
     });
   };
