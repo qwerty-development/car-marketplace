@@ -487,16 +487,18 @@ export default function NotificationsScreen() {
           <TouchableOpacity
             onPress={() => handleNotificationPress(notification)}
             onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               if (!isSelectionMode) {
                 toggleSelectionMode();
                 toggleNotificationSelection(notification.id);
               }
             }}
+            delayLongPress={300}
             className='overflow-hidden'>
             <BlurView
               intensity={isDarkMode ? 40 : 60}
               tint={isDarkMode ? 'dark' : 'light'}
-              className={`p-4 rounded-xl ${
+              className={`p-4 rounded-2xl ${
                 isSelected ? 'border-2 border-red' :
                 !notification.is_read ? 'border-l-4 border-red' : ''
               }`}>
@@ -545,14 +547,8 @@ export default function NotificationsScreen() {
                       )}
                     </View>
                   ) : (
-                    !notification.is_read ? (
-                      <TouchableOpacity 
-                        onPress={() => handleMarkAsRead(notification.id)}
-                        className='p-2'>
-                        <Ionicons name='chevron-down-outline' size={20} color={isDarkMode ? 'white' : 'gray'} />
-                      </TouchableOpacity>
-                    ) : (
-                      <View className='w-6 h-6' /> // Empty space for alignment
+                    !notification.is_read && (
+                      <View className='w-3 h-3 rounded-full bg-red' />
                     )
                   )}
                 </View>
@@ -564,7 +560,6 @@ export default function NotificationsScreen() {
     },
     [
       isDarkMode,
-      handleMarkAsRead,
       handleNotificationPress,
       isSelectionMode,
       selectedNotifications,
@@ -573,7 +568,6 @@ export default function NotificationsScreen() {
       getNotificationTypeInfo
     ]
   )
-
   const renderSectionHeader = useCallback(({ title }: { title: string }) => {
     return (
       <Animated.View
@@ -588,6 +582,49 @@ export default function NotificationsScreen() {
       </Animated.View>
     );
   }, [isDarkMode]);
+
+  const renderHeader = useCallback(() => {
+    const hasUnread = notifications.some(n => !n.is_read);
+    
+    return (
+      <View className="flex-row justify-between items-center px-4 py-3">
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          className="p-2">
+          <Ionicons
+            name="chevron-down"
+            size={24}
+            color={isDarkMode ? 'white' : 'black'}
+          />
+        </TouchableOpacity>
+        
+        {hasUnread && !isSelectionMode && (
+          <TouchableOpacity
+            onPress={handleMarkAllAsRead}
+            className='flex-row items-center bg-red/10 px-4 py-2 rounded-full'>
+            <Ionicons name='checkmark-done-outline' size={18} color='#D55004' />
+            <Text className='text-red ml-2 font-medium'>Read all</Text>
+          </TouchableOpacity>
+        )}
+        
+        {isSelectionMode ? (
+          <TouchableOpacity onPress={toggleSelectionMode}>
+            <Ionicons name="close" size={24} color={isDarkMode ? 'white' : 'black'} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={toggleFilterMenu}>
+            <Ionicons 
+              name="filter" 
+              size={24} 
+              color={filterType !== 'all' || selectedCategory || sortType !== 'newest' 
+                ? '#D55004' 
+                : isDarkMode ? 'white' : 'black'} 
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }, [isDarkMode, notifications, isSelectionMode, handleMarkAllAsRead, toggleSelectionMode, toggleFilterMenu, filterType, selectedCategory, sortType]);
 
 // Add this to the renderMinimalHeader function
 const renderMinimalHeader = useCallback(() => {
@@ -763,24 +800,9 @@ const renderMinimalHeader = useCallback(() => {
   }, []);
 
   const ListHeader = useCallback(() => {
-    const hasUnread = notifications.some(n => !n.is_read);
-  
     return (
       <View className="pt-2">
         <FilterMenu />
-  
-        {hasUnread && !isSelectionMode && (
-          <Animated.View
-            entering={FadeInDown}
-            className='mx-4 my-3'>
-            <TouchableOpacity
-              onPress={handleMarkAllAsRead}
-              className='flex-row justify-center items-center bg-red/10 border border-red/30 px-4 py-3 rounded-xl'>
-              <Ionicons name='checkmark-done-outline' size={20} color='#D55004' />
-              <Text className='text-red ml-2 font-medium'>Mark all as read</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
   
         {/* Filter applied indicator */}
         {(filterType !== 'all' || selectedCategory || sortType !== 'newest') && (
@@ -822,9 +844,6 @@ const renderMinimalHeader = useCallback(() => {
       </View>
     )
   }, [
-    notifications,
-    handleMarkAllAsRead,
-    isSelectionMode,
     filterType,
     selectedCategory,
     sortType,
@@ -930,20 +949,20 @@ const renderMinimalHeader = useCallback(() => {
 
   // FAB for clearing all notifications
   const renderFAB = useCallback(() => {
-    // Only show FAB if there are notifications
+    // Only show FAB if there are notifications and not in selection mode
     if (notifications.length === 0 || isSelectionMode) return null;
   
     return (
       <Animated.View
-        style={[fabStyle]}
-        className='absolute'
-        layout={Layout.springify()}
-        entering={FadeIn.delay(500).springify()}
-        pointerEvents="box-none"
-        style={{
-          bottom: insets.bottom + 50,
-          right: 16,
-        }}>
+        style={[
+          fabStyle,
+          {
+            position: 'absolute',
+            bottom: Math.max(20, insets.bottom + 20),
+            right: 16,
+          }
+        ]}
+        entering={FadeIn.delay(500).springify()}>
         <TouchableOpacity
           onPress={handleClearAll}
           className='bg-red w-12 h-12 rounded-full justify-center items-center shadow-lg'
@@ -953,6 +972,52 @@ const renderMinimalHeader = useCallback(() => {
       </Animated.View>
     );
   }, [notifications.length, isSelectionMode, fabStyle, insets.bottom, handleClearAll]);
+
+  const renderSelectionModeHeader = useCallback(() => {
+    return (
+      <Animated.View
+        entering={FadeInDown}
+        className='flex-row justify-between items-center px-4 py-3'>
+        <TouchableOpacity onPress={toggleSelectionMode}>
+          <Ionicons
+            name='close'
+            size={24}
+            color={isDarkMode ? 'white' : 'black'}
+          />
+        </TouchableOpacity>
+        
+        <Text
+          className={`text-base font-semibold ${
+            isDarkMode ? 'text-white' : 'text-black'
+          }`}>
+          {selectedNotifications.length} selected
+        </Text>
+        
+        <View className='flex-row'>
+          {selectedNotifications.length > 0 && (
+            <>
+              <TouchableOpacity
+                onPress={() => handleBulkAction('markAsRead')}
+                className='mr-4'>
+                <Ionicons
+                  name='checkmark-done'
+                  size={24}
+                  color={isDarkMode ? 'white' : 'black'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleBulkAction('delete')}>
+                <Ionicons
+                  name='trash'
+                  size={24}
+                  color={isDarkMode ? 'white' : 'black'}
+                />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </Animated.View>
+    );
+  }, [isDarkMode, toggleSelectionMode, selectedNotifications.length, handleBulkAction]);
 
   // This allows us to render a custom list with sections
   const renderContent = useCallback(() => {
@@ -1009,7 +1074,7 @@ const renderMinimalHeader = useCallback(() => {
       <SafeAreaView
         className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
         edges={['top']}>
-        {renderMinimalHeader()}
+        {isSelectionMode ? renderSelectionModeHeader() : renderHeader()}
         {renderContent()}
         {renderFAB()}
       </SafeAreaView>
