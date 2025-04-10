@@ -354,64 +354,57 @@ export default function UserProfileAndSupportPage() {
     }
   };
 
-  const handleSignOut = async (): Promise<void> => {
-    // Confirm with user before signing out
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Show overlay during sign out
-              setShowSignOutOverlay(true);
 
-              if (isGuest) {
-                // Handle guest user sign out with coordination
-                await coordinateSignOut(router, async () => {
-                  // Clean up guest mode
-                  await clearGuestMode();
-                });
-              } else {
-                // Handle regular user sign out with coordination
-                await coordinateSignOut(router, async () => {
-                  // First clean up push token (this now marks the token as signed_in: false instead of deleting)
-                  try {
-                    await cleanupPushToken();
-                  } catch (tokenError) {
-                    console.error("Token cleanup error:", tokenError);
-                    // Continue with sign out even if token cleanup fails
-                  }
+const handleSignOut = async (): Promise<void> => {
+  // Confirm with user before signing out
+  Alert.alert(
+    "Sign Out",
+    "Are you sure you want to sign out?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel"
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // Show overlay during sign out
+            setShowSignOutOverlay(true);
 
-                  // Then perform the actual sign out
-                  await signOut();
-                });
-              }
-            } catch (error) {
-              console.error("Error during sign out:", error);
-
-              // Force navigation to sign-in on failure
-              router.replace('/(auth)/sign-in');
-
-              Alert.alert(
-                "Sign Out Issue",
-                "There was a problem signing out, but we've redirected you to the sign-in screen."
-              );
-            } finally {
-              // Hide overlay
-              setShowSignOutOverlay(false);
+            if (isGuest) {
+              // Handle guest user sign out with coordination
+              await coordinateSignOut(router, async () => {
+                // Clean up guest mode
+                await clearGuestMode();
+              });
+            } else {
+              // Handle regular user sign out with coordination
+              // SIMPLIFIED: Only call signOut which now properly handles token status
+              await coordinateSignOut(router, async () => {
+                await signOut();
+              });
             }
+          } catch (error) {
+            console.error("Error during sign out:", error);
+
+            // Force navigation to sign-in on failure
+            router.replace('/(auth)/sign-in');
+
+            Alert.alert(
+              "Sign Out Issue",
+              "There was a problem signing out, but we've redirected you to the sign-in screen."
+            );
+          } finally {
+            // Hide overlay
+            setShowSignOutOverlay(false);
           }
         }
-      ]
-    );
-  };
+      }
+    ]
+  );
+};
 
   // Handler for when guest user wants to sign in
   const handleSignIn = async (): Promise<void> => {

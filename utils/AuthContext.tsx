@@ -256,59 +256,64 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  // Token cleanup helper function
-  const cleanupPushToken = async () => {
-    try {
-      // Get stored token
-      const token = await SecureStore.getItemAsync('expoPushToken');
 
-      if (token && user) {
-        console.log('Found push token to clean up');
+const cleanupPushToken = async () => {
+  try {
+    // Get stored token
+    const token = await SecureStore.getItemAsync('expoPushToken');
 
-        // Attempt to delete from database
-        const { error } = await supabase
-          .from('user_push_tokens')
-          .delete()
-          .match({ user_id: user.id, token });
+    if (token && user) {
+      console.log('Found push token to update during sign-out');
 
-        if (error) {
-          console.error('Error removing push token from database:', error);
-        }
+      // Update token status instead of deleting it
+      const { error } = await supabase
+        .from('user_push_tokens')
+        .update({
+          signed_in: false,
+          // Keep it active so notifications can still be received
+          active: true,
+          last_updated: new Date().toISOString()
+        })
+        .match({ user_id: user.id, token });
 
-        // Remove from secure storage regardless of database success
-        await SecureStore.deleteItemAsync('expoPushToken');
+      if (error) {
+        console.error('Error updating push token status:', error);
+      } else {
+        console.log('Successfully marked token as signed out');
       }
-    } catch (error) {
-      console.error('Push token cleanup error:', error);
-      // Continue with sign out even if cleanup fails
+
+      // DO NOT delete the token from SecureStore to support reuse
     }
-  };
+  } catch (error) {
+    console.error('Push token status update error:', error);
+    // Continue with sign out even if token update fails
+  }
+};
 
-  // Local storage cleanup helper function
-  const cleanupLocalStorage = async () => {
-    try {
-      console.log('Cleaning up local storage');
-      // List of keys to clean up
-      const keysToClean = [
-        'supabase-auth-token',
-        'expoPushToken',
-        'lastActiveSession',
-        // Add any other auth-related keys here
-      ];
+// REPLACE the existing cleanupLocalStorage function with this implementation
+const cleanupLocalStorage = async () => {
+  try {
+    console.log('Cleaning up auth-related local storage');
+    // List of keys to clean up, EXCLUDING push token-related keys
+    const keysToClean = [
+      'supabase-auth-token',
+      'lastActiveSession',
+      // Explicitly NOT including 'expoPushToken' or related keys
+    ];
 
-      // Delete all keys in parallel
-      await Promise.all(
-        keysToClean.map(key =>
-          SecureStore.deleteItemAsync(key)
-            .catch(error => console.error(`Error deleting ${key}:`, error))
-        )
-      );
+    // Delete only auth-related keys in parallel
+    await Promise.all(
+      keysToClean.map(key =>
+        SecureStore.deleteItemAsync(key)
+          .catch(error => console.error(`Error deleting ${key}:`, error))
+      )
+    );
 
-      console.log('Local storage cleanup completed');
-    } catch (error) {
-      console.error('Local storage cleanup error:', error);
-    }
-  };
+    console.log('Auth-related local storage cleanup completed');
+  } catch (error) {
+    console.error('Local storage cleanup error:', error);
+  }
+};
 
   // Enhanced signOut function with robust error handling and retries
   const signOut = async () => {
