@@ -10,6 +10,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
 import { router } from 'expo-router';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface AuthContextProps {
   session: Session | null;
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSigningOutState, setIsSigningOutState] = useState(false);
   const { isGuest, clearGuestMode } = useGuestUser();
+  const { cleanupPushToken } = useNotifications();
 
   // For OAuth redirects
   const redirectUri = makeRedirectUri({
@@ -256,33 +258,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  // Token cleanup helper function
-  const cleanupPushToken = async () => {
-    try {
-      // Get stored token
-      const token = await SecureStore.getItemAsync('expoPushToken');
-
-      if (token && user) {
-        console.log('Found push token to clean up');
-
-        // Attempt to delete from database
-        const { error } = await supabase
-          .from('user_push_tokens')
-          .delete()
-          .match({ user_id: user.id, token });
-
-        if (error) {
-          console.error('Error removing push token from database:', error);
-        }
-
-        // Remove from secure storage regardless of database success
-        await SecureStore.deleteItemAsync('expoPushToken');
-      }
-    } catch (error) {
-      console.error('Push token cleanup error:', error);
-      // Continue with sign out even if cleanup fails
-    }
-  };
 
   // Local storage cleanup helper function
   const cleanupLocalStorage = async () => {

@@ -335,7 +335,6 @@ export class NotificationService {
         // Update token status in database
         const success = await this.updateTokenStatus(userId, token, {
           signed_in: false,
-          active: true // Keep it active for future push notifications
         });
 
         if (success) {
