@@ -485,6 +485,7 @@ export default function NotificationsScreen() {
           layout={Layout.springify()}
           className='mx-4 rounded-3xl mb-4'>
           <TouchableOpacity
+          
             onPress={() => handleNotificationPress(notification)}
             onLongPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -494,11 +495,11 @@ export default function NotificationsScreen() {
               }
             }}
             delayLongPress={300}
-            className='overflow-hidden'>
+            className='overflow-hidden rounded-3xl '>
             <BlurView
               intensity={isDarkMode ? 40 : 60}
               tint={isDarkMode ? 'dark' : 'light'}
-              className={`p-4 rounded-2xl ${
+              className={`p-4 rounded-3xl ${
                 isSelected ? 'border-2 border-red' :
                 !notification.is_read ? 'border-l-4 border-red' : ''
               }`}>
