@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "1.2.54",
+    "version": "1.2.7",
     "orientation": "portrait",
     "newArchEnabled": true,
     "icon": "./assets/images/logo.png",
@@ -16,9 +16,11 @@
     "notification": {
       "icon": "./assets/images/logo.png",
       "color": "#D55004",
+      "sound":"./assets/sounds/notification.wav",
       "iosDisplayInForeground": true,
       "androidMode": "default",
       "androidCollapsedTitle": "New Cars Available!"
+    
     },
     "ios": {
       "supportsTablet": true,

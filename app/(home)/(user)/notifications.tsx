@@ -104,7 +104,6 @@ export default function NotificationsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const swipeableRefs = useRef<{ [key: string]: Swipeable }>({})
   const mounted = useRef(true)
   const scrollRef = useRef<ScrollView>(null)
   const [notificationsScreenKey, setNotificationsScreenKey] = useState(0)
@@ -478,123 +477,90 @@ export default function NotificationsScreen() {
     ({ item: notification }: { item: Notification }) => {
       const isSelected = selectedNotifications.includes(notification.id);
       const typeInfo = getNotificationTypeInfo(notification.type);
-
-      const renderRightActions = (progress: any, dragX: any) => {
-        return (
-          <View className='flex-row'>
-            {!notification.is_read && (
-              <Animated.View entering={SlideInRight} exiting={SlideOutRight}>
-                <TouchableOpacity
-                  className='bg-yellow-600 justify-center items-center w-16 h-full'
-                  onPress={() => {
-                    swipeableRefs.current[notification.id]?.close()
-                    handleMarkAsRead(notification.id)
-                  }}>
-                  <Ionicons
-                    name='checkmark-circle-outline'
-                    size={24}
-                    color='white'
-                  />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-            <TouchableOpacity
-              className='bg-red justify-center items-center w-16 h-full'
-              onPress={() => handleDelete(notification.id)}>
-              <Ionicons name='trash-outline' size={24} color='white' />
-            </TouchableOpacity>
-          </View>
-        )
-      }
-
+  
       return (
         <Animated.View
           key={notification.id}
           entering={FadeInDown.delay(100).springify()}
           layout={Layout.springify()}
-          className='mx-4 mb-4'>
-          <Swipeable
-            ref={ref => ref && (swipeableRefs.current[notification.id] = ref)}
-            renderRightActions={renderRightActions}
-            enabled={!isSelectionMode}
-            overshootRight={false}>
-            <TouchableOpacity
-              onPress={() => handleNotificationPress(notification)}
-              onLongPress={() => {
-                if (!isSelectionMode) {
-                  toggleSelectionMode();
-                  toggleNotificationSelection(notification.id);
-                }
-              }}
-              className='overflow-hidden'>
-              <BlurView
-                intensity={isDarkMode ? 40 : 60}
-                tint={isDarkMode ? 'dark' : 'light'}
-                className={`p-4 rounded-xl ${
-                  isSelected ? 'border-2 border-red' :
-                  !notification.is_read ? 'border-l-4 border-red' : ''
-                }`}>
-                <View className='flex-row items-start'>
-                  {/* Icon based on notification type */}
-                  <View
-                    className='mr-3 mt-1 w-8 h-8 rounded-full justify-center items-center'
-                    style={{ backgroundColor: `${typeInfo.color}20` }}>
-                    <Ionicons
-                      name={typeInfo.icon as any}
-                      size={16}
-                      color={typeInfo.color}
-                    />
-                  </View>
-
-                  <View className='flex-1 mr-2'>
-                    <Text
-                      numberOfLines={2}
-                      className={`font-semibold text-base mb-1 ${
-                        isDarkMode ? 'text-white' : 'text-black'
-                      }`}>
-                      {notification.title}
-                    </Text>
-                    <Text
-                      numberOfLines={3}
-                      className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      {notification.message}
-                    </Text>
-                    <Text
-                      className={`text-xs mt-2 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                      {formatDistanceToNow(new Date(notification.created_at), {
-                        addSuffix: true
-                      })}
-                    </Text>
-                  </View>
-
-                  <View className='flex-row items-center'>
-                    {isSelectionMode ? (
-                      <View className={`w-6 h-6 rounded-full border-2 justify-center items-center ${
-                        isSelected ? 'bg-red border-red' : isDarkMode ? 'border-white' : 'border-gray-400'
-                      }`}>
-                        {isSelected && (
-                          <Ionicons name='checkmark' size={16} color='white' />
-                        )}
-                      </View>
-                    ) : (
-                      !notification.is_read && (
-                        <View className='w-3 h-3 rounded-full bg-red' />
-                      )
-                    )}
-                  </View>
+          className='mx-4 rounded-3xl mb-4'>
+          <TouchableOpacity
+          
+            onPress={() => handleNotificationPress(notification)}
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              if (!isSelectionMode) {
+                toggleSelectionMode();
+                toggleNotificationSelection(notification.id);
+              }
+            }}
+            delayLongPress={300}
+            className='overflow-hidden rounded-3xl '>
+            <BlurView
+              intensity={isDarkMode ? 40 : 60}
+              tint={isDarkMode ? 'dark' : 'light'}
+              className={`p-4 rounded-3xl ${
+                isSelected ? 'border-2 border-red' :
+                !notification.is_read ? 'border-l-4 border-red' : ''
+              }`}>
+              <View className='flex-row items-start'>
+                {/* Icon based on notification type */}
+                <View
+                  className='mr-3 mt-1 w-8 h-8 rounded-full justify-center items-center'
+                  style={{ backgroundColor: `${typeInfo.color}20` }}>
+                  <Ionicons
+                    name={typeInfo.icon as any}
+                    size={16}
+                    color={typeInfo.color}
+                  />
                 </View>
-              </BlurView>
-            </TouchableOpacity>
-          </Swipeable>
+  
+                <View className='flex-1 mr-2'>
+                  <Text
+                    numberOfLines={2}
+                    className={`font-semibold text-base mb-1 ${
+                      isDarkMode ? 'text-white' : 'text-black'
+                    }`}>
+                    {notification.title}
+                  </Text>
+                  <Text
+                    numberOfLines={3}
+                    className={`${isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}`}>
+                    {notification.message}
+                  </Text>
+                  <Text
+                    className={`text-xs mt-2 ${
+                      isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
+                    }`}>
+                    {formatDistanceToNow(new Date(notification.created_at), {
+                      addSuffix: true
+                    })}
+                  </Text>
+                </View>
+  
+                <View className='flex-row items-center'>
+                  {isSelectionMode ? (
+                    <View className={`w-6 h-6 rounded-full border-2 justify-center items-center ${
+                      isSelected ? 'bg-red border-red' : isDarkMode ? 'border-white' : 'border-neutral-400'
+                    }`}>
+                      {isSelected && (
+                        <Ionicons name='checkmark' size={16} color='white' />
+                      )}
+                    </View>
+                  ) : (
+                    !notification.is_read && (
+                      <View className='w-3 h-3 rounded-full bg-red' />
+                    )
+                  )}
+                </View>
+              </View>
+            </BlurView>
+          </TouchableOpacity>
         </Animated.View>
       )
     },
     [
       isDarkMode,
-      handleMarkAsRead,
-      handleDelete,
       handleNotificationPress,
       isSelectionMode,
       selectedNotifications,
@@ -603,21 +569,85 @@ export default function NotificationsScreen() {
       getNotificationTypeInfo
     ]
   )
-
   const renderSectionHeader = useCallback(({ title }: { title: string }) => {
     return (
       <Animated.View
         entering={FadeIn.delay(200)}
-        className='mx-4 mt-6 mb-2'>
+        className='mx-4 mt-8 mb-3'> {/* Increased top margin */}
         <Text
-          className={`text-sm font-medium ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
+          className={`text-sm font-medium uppercase tracking-wider ${
+            isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
+          }`}> {/* Added uppercase and tracking-wider for better visual hierarchy */}
           {title}
         </Text>
       </Animated.View>
     );
   }, [isDarkMode]);
+
+  const renderHeader = useCallback(() => {
+    const hasUnread = notifications.some(n => !n.is_read);
+    
+    return (
+      <View className="flex-row justify-between items-center px-4 py-3">
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          className="p-2">
+          <Ionicons
+            name="chevron-down"
+            size={24}
+            color={isDarkMode ? 'white' : 'black'}
+          />
+        </TouchableOpacity>
+        
+        {hasUnread && !isSelectionMode && (
+          <TouchableOpacity
+            onPress={handleMarkAllAsRead}
+            className='flex-row items-center bg-red/10 px-4 py-2 rounded-full'>
+            <Ionicons name='checkmark-done-outline' size={18} color='#D55004' />
+            <Text className='text-red ml-2 font-medium'>Read all</Text>
+          </TouchableOpacity>
+        )}
+        
+        {isSelectionMode ? (
+          <TouchableOpacity onPress={toggleSelectionMode}>
+            <Ionicons name="close" size={24} color={isDarkMode ? 'white' : 'black'} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={toggleFilterMenu}>
+            <Ionicons 
+              name="filter" 
+              size={24} 
+              color={filterType !== 'all' || selectedCategory || sortType !== 'newest' 
+                ? '#D55004' 
+                : isDarkMode ? 'white' : 'black'} 
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }, [isDarkMode, notifications, isSelectionMode, handleMarkAllAsRead, toggleSelectionMode, toggleFilterMenu, filterType, selectedCategory, sortType]);
+
+// Add this to the renderMinimalHeader function
+const renderMinimalHeader = useCallback(() => {
+  return (
+    <View className="items-center">
+      {/* Pull down indicator */}
+      <View className="w-12 h-1 bg-neutral-400/30 rounded-full my-2" />
+      
+      <View className="flex-row justify-end items-center w-full px-4 py-2">
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          className="p-2 rounded-full bg-neutral-200/30">
+          <Ionicons
+            name="chevron-down"
+            size={24}
+            color={isDarkMode ? 'white' : 'black'}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}, [isDarkMode, router]);
 
   const renderNotificationGroup = useCallback((group: NotificationGroup, index: number) => {
     return (
@@ -634,7 +664,7 @@ export default function NotificationsScreen() {
     return (
       <Animated.View
         style={[filterMenuStyle]}
-        className={`mx-4 rounded-xl overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        className={`mx-4 rounded-xl overflow-hidden ${isDarkMode ? 'bg-neutral-800' : 'bg-white'}`}>
         <ScrollView className='p-4'>
           <Text className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
             Filter by
@@ -644,9 +674,9 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               onPress={() => setFilter('all')}
               className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'all' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                filterType === 'all' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={filterType === 'all' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={filterType === 'all' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 All
               </Text>
             </TouchableOpacity>
@@ -654,9 +684,9 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               onPress={() => setFilter('unread')}
               className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'unread' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                filterType === 'unread' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={filterType === 'unread' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={filterType === 'unread' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Unread
               </Text>
             </TouchableOpacity>
@@ -664,9 +694,9 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               onPress={() => setFilter('read')}
               className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'read' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                filterType === 'read' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={filterType === 'read' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={filterType === 'read' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Read
               </Text>
             </TouchableOpacity>
@@ -680,9 +710,9 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               onPress={() => setSort('newest')}
               className={`mr-2 px-3 py-1 rounded-full ${
-                sortType === 'newest' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                sortType === 'newest' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={sortType === 'newest' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={sortType === 'newest' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Newest first
               </Text>
             </TouchableOpacity>
@@ -690,9 +720,9 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               onPress={() => setSort('oldest')}
               className={`mr-2 px-3 py-1 rounded-full ${
-                sortType === 'oldest' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                sortType === 'oldest' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={sortType === 'oldest' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={sortType === 'oldest' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Oldest first
               </Text>
             </TouchableOpacity>
@@ -712,7 +742,7 @@ export default function NotificationsScreen() {
                     className={`mr-2 mb-2 px-3 py-1 rounded-full flex-row items-center ${
                       (category === 'all' && !selectedCategory) || category === selectedCategory
                         ? 'bg-red'
-                        : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                        : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
                     }`}>
                     {category !== 'all' && (
                       <Ionicons
@@ -721,7 +751,7 @@ export default function NotificationsScreen() {
                         color={
                           (category === 'all' && !selectedCategory) || category === selectedCategory
                             ? 'white'
-                            : isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                            : isDarkMode ? 'text-neutral-100' : 'text-black'
                         }
                         style={{ marginRight: 4 }}
                       />
@@ -730,7 +760,7 @@ export default function NotificationsScreen() {
                       className={
                         (category === 'all' && !selectedCategory) || category === selectedCategory
                           ? 'text-white'
-                          : isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          : isDarkMode ? 'text-neutral-400' : 'text-black'
                       }>
                       {category === 'all' ? 'All categories' : category}
                     </Text>
@@ -771,29 +801,14 @@ export default function NotificationsScreen() {
   }, []);
 
   const ListHeader = useCallback(() => {
-    const hasUnread = notifications.some(n => !n.is_read);
-    const unreadNotifications = notifications.filter(n => !n.is_read).length;
-
     return (
-      <View>
+      <View className="pt-2">
         <FilterMenu />
-
-        {hasUnread && !isSelectionMode && (
-          <Animated.View
-            entering={FadeInDown}
-            className='flex-row justify-end px-4 py-2 mt-2'>
-            <TouchableOpacity
-              onPress={handleMarkAllAsRead}
-              className='flex-row items-center bg-red px-4 py-2 rounded-full'>
-              <Ionicons name='checkmark-done-outline' size={20} color='white' />
-              <Text className='text-white ml-2 font-medium'>Mark all as read</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-
+  
         {/* Filter applied indicator */}
         {(filterType !== 'all' || selectedCategory || sortType !== 'newest') && (
           <View className='flex-row flex-wrap px-4 py-2'>
+            {/* Filter indicators remain unchanged */}
             {filterType !== 'all' && (
               <View className='bg-red/20 rounded-full px-3 py-1 mr-2 mb-1 flex-row items-center'>
                 <Ionicons name={filterType === 'unread' ? 'radio-button-off' : 'checkmark-circle'} size={14} color="#D55004" />
@@ -802,7 +817,8 @@ export default function NotificationsScreen() {
                 </Text>
               </View>
             )}
-
+  
+            {/* Other filter indicators remain the same */}
             {selectedCategory && (
               <View className='bg-red/20 rounded-full px-3 py-1 mr-2 mb-1 flex-row items-center'>
                 <Ionicons
@@ -815,7 +831,7 @@ export default function NotificationsScreen() {
                 </Text>
               </View>
             )}
-
+  
             {sortType !== 'newest' && (
               <View className='bg-red/20 rounded-full px-3 py-1 mr-2 mb-1 flex-row items-center'>
                 <Ionicons name='arrow-up' size={14} color="#D55004" />
@@ -829,9 +845,6 @@ export default function NotificationsScreen() {
       </View>
     )
   }, [
-    notifications,
-    handleMarkAllAsRead,
-    isSelectionMode,
     filterType,
     selectedCategory,
     sortType,
@@ -849,7 +862,7 @@ export default function NotificationsScreen() {
           />
           <Text
             className={`mt-4 text-lg ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
             }`}>
             {error}
           </Text>
@@ -873,7 +886,7 @@ export default function NotificationsScreen() {
           />
           <Text
             className={`mt-4 text-center px-8 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
             }`}>
             No notifications match your current filters
           </Text>
@@ -901,7 +914,7 @@ export default function NotificationsScreen() {
       <Animated.View
         entering={FadeIn.delay(300)}
         className='flex-1 justify-center items-center py-20'>
-        <View className='w-24 h-24 rounded-full bg-gray-100 justify-center items-center mb-4'>
+        <View className='w-24 h-24 rounded-full bg-neutral-100 justify-center items-center mb-4'>
           <Ionicons
             name='notifications-off-outline'
             size={48}
@@ -914,7 +927,7 @@ export default function NotificationsScreen() {
         </Text>
         <Text
           className={`text-center px-12 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
           }`}>
           We'll notify you when there's activity related to your favorite cars and dealerships
         </Text>
@@ -933,12 +946,39 @@ export default function NotificationsScreen() {
 
   const showLoading = loading && notifications.length === 0;
 
-  // Selection mode header
-  const renderSelectionHeader = useCallback(() => {
+
+
+  // FAB for clearing all notifications
+  const renderFAB = useCallback(() => {
+    // Only show FAB if there are notifications and not in selection mode
+    // if (notifications.length === 0 || isSelectionMode) return null;
+  
+    return (
+      <Animated.View
+        style={[
+          fabStyle,
+          {
+            position: 'absolute',
+            bottom: Math.max(20, insets.bottom + 32),
+            right: 16,
+          }
+        ]}
+        entering={FadeIn.delay(500).springify()}>
+        <TouchableOpacity
+          onPress={handleClearAll}
+          className='bg-red w-12 h-12 rounded-full justify-center items-center shadow-lg'
+          style={Platform.OS === 'ios' ? styles.iosShadow : styles.androidShadow}>
+          <Ionicons name="trash-outline" size={24} color="white" />
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }, [notifications.length, isSelectionMode, fabStyle, insets.bottom, handleClearAll]);
+
+  const renderSelectionModeHeader = useCallback(() => {
     return (
       <Animated.View
         entering={FadeInDown}
-        className='flex-row justify-between items-center px-4 py-2 border-b border-red'>
+        className='flex-row justify-between items-center px-4 py-3'>
         <TouchableOpacity onPress={toggleSelectionMode}>
           <Ionicons
             name='close'
@@ -946,12 +986,14 @@ export default function NotificationsScreen() {
             color={isDarkMode ? 'white' : 'black'}
           />
         </TouchableOpacity>
+        
         <Text
-          className={`text-xl font-semibold ${
+          className={`text-base font-semibold ${
             isDarkMode ? 'text-white' : 'text-black'
           }`}>
           {selectedNotifications.length} selected
         </Text>
+        
         <View className='flex-row'>
           {selectedNotifications.length > 0 && (
             <>
@@ -976,93 +1018,7 @@ export default function NotificationsScreen() {
         </View>
       </Animated.View>
     );
-  }, [
-    isDarkMode,
-    toggleSelectionMode,
-    selectedNotifications.length,
-    handleBulkAction
-  ]);
-
-  // Regular header
-  const renderRegularHeader = useCallback(() => {
-    return (
-      <Animated.View
-        style={[headerStyle]}
-        className='flex-row justify-between items-center px-4 py-2 border-b border-red'>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons
-            name='arrow-back'
-            size={24}
-            color={isDarkMode ? 'white' : 'black'}
-          />
-        </TouchableOpacity>
-        <Text
-          className={`text-xl font-semibold ${
-            isDarkMode ? 'text-white' : 'text-black'
-          }`}>
-          Notifications
-        </Text>
-        <View className='flex-row'>
-          <TouchableOpacity onPress={toggleFilterMenu} className='relative mr-5'>
-            <Ionicons
-              name='filter'
-              size={24}
-              color={
-                filterType !== 'all' || selectedCategory || sortType !== 'newest'
-                  ? '#D55004'
-                  : isDarkMode ? 'white' : 'black'
-              }
-            />
-            {(filterType !== 'all' || selectedCategory || sortType !== 'newest') && (
-              <View className='absolute -top-1 -right-1 w-2 h-2 bg-red rounded-full' />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={toggleSelectionMode}>
-            <Ionicons
-              name='checkmark-circle-outline'
-              size={24}
-              color={isDarkMode ? 'white' : 'black'}
-            />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-    );
-  }, [
-    isDarkMode,
-    router,
-    toggleFilterMenu,
-    toggleSelectionMode,
-    filterType,
-    selectedCategory,
-    sortType,
-    headerStyle
-  ]);
-
-  // FAB for clearing all notifications
-  const renderFAB = useCallback(() => {
-    // Only show FAB if there are notifications
-    if (notifications.length === 0 || isSelectionMode) return null;
-
-    return (
-      <Animated.View
-        style={[fabStyle]}
-        className='absolute'
-        layout={Layout.springify()}
-        entering={FadeIn.delay(500).springify()}
-        pointerEvents="box-none"
-        style={{
-          bottom: insets.bottom + 50,
-          right: 16,
-        }}>
-        <TouchableOpacity
-          onPress={handleClearAll}
-          className='bg-red w-12 h-12 rounded-full justify-center items-center shadow-lg'
-          style={Platform.OS === 'ios' ? styles.iosShadow : styles.androidShadow}>
-          <Ionicons name="trash-outline" size={24} color="white" />
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }, [notifications.length, isSelectionMode, fabStyle, insets.bottom, handleClearAll]);
+  }, [isDarkMode, toggleSelectionMode, selectedNotifications.length, handleBulkAction]);
 
   // This allows us to render a custom list with sections
   const renderContent = useCallback(() => {
@@ -1071,6 +1027,7 @@ export default function NotificationsScreen() {
         ref={scrollRef}
         contentContainerStyle={{
           flexGrow: 1,
+          paddingTop: 10, // Add padding to the top
           paddingBottom: insets.bottom + 60 // Extra padding for FAB
         }}
         refreshControl={
@@ -1088,12 +1045,12 @@ export default function NotificationsScreen() {
         ) : (
           <ListEmptyComponent />
         )}
-
+  
         {/* Load more indicator */}
         {hasMore && notifications.length > 0 && (
           <View className='py-6 items-center'>
             <ActivityIndicator color='#D55004' />
-            <Text className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <Text className={`mt-2 ${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'}`}>
               Loading more...
             </Text>
           </View>
@@ -1118,12 +1075,9 @@ export default function NotificationsScreen() {
       <SafeAreaView
         className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
         edges={['top']}>
-        {isSelectionMode ? renderSelectionHeader() : renderRegularHeader()}
-
+        {isSelectionMode ? renderSelectionModeHeader() : renderHeader()}
         {renderContent()}
-
         {renderFAB()}
-
       </SafeAreaView>
     </GestureHandlerRootView>
   )
