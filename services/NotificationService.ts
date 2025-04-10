@@ -36,6 +36,7 @@ interface NotificationData {
 const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
 const PUSH_TOKEN_TIMESTAMP_KEY = 'expoPushTokenTimestamp';
 const PUSH_TOKEN_REGISTRATION_ATTEMPTS = 'pushTokenRegistrationAttempts';
+const REGISTRATION_STATE_KEY = 'notificationRegistrationState'; // Add this li
 
 // Constants
 const DB_OPERATION_TIMEOUT = 5000; // 15 seconds
@@ -57,6 +58,49 @@ export class NotificationService {
       }
     }
   }
+
+  // Add this method to NotificationService class
+static async forceTokenVerification(userId: string): Promise<boolean> {
+  try {
+    this.debugLog(`Force verifying push token for user ${userId}`);
+
+    // Get token from storage
+    const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+
+    if (!token) {
+      this.debugLog('No token in storage, registration needed');
+      return false;
+    }
+
+    // Check if token exists in database
+    const { data, error } = await this.timeoutPromise(
+      supabase
+        .from('user_push_tokens')
+        .select('token')
+        .eq('user_id', userId)
+        .eq('token', token)
+        .single(),
+      10000,
+      'forceVerifyTokenQuery'
+    );
+
+    // If token not in database or error, registration needed
+    if (error || !data) {
+      this.debugLog('Token not found in database, registration needed');
+      // Delete token from storage to ensure clean registration
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      return false;
+    }
+
+    this.debugLog('Token verified in database, no registration needed');
+    return true;
+  } catch (error) {
+    this.recordError('forceTokenVerification', error);
+    // On error, assume registration is needed
+    return false;
+  }
+}
 
   private static async recordError(context: string, error: any): Promise<void> {
     try {
@@ -872,86 +916,165 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
   }
 
   // Improved cleanup function with robust error handling
-  static async cleanupPushToken(userId?: string) {
-    this.debugLog('Starting push token cleanup process');
+// Replace the existing cleanupPushToken method in NotificationService
+static async cleanupPushToken(userId?: string) {
+  this.debugLog('Starting comprehensive push token cleanup process');
 
-    try {
-      // Get token from secure storage
-      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+  try {
+    // Get token from secure storage
+    const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
 
-      if (!token) {
-        this.debugLog('No push token found in storage, nothing to clean up');
-        return true;
-      }
+    // Create a cleanup task list for more reliable cleanup
+    const cleanupTasks = [];
 
+    // 1. Database cleanup task - add to task list
+    if (token) {
       this.debugLog('Found push token to clean up');
 
-      // Delete from Supabase with retry logic
-      let success = false;
-      const maxRetries = 3;
+      if (userId) {
+        // If we have userId, create a specific cleanup task
+        cleanupTasks.push(async () => {
+          try {
+            let success = false;
+            for (let retryCount = 0; retryCount < 3; retryCount++) {
+              try {
+                const { error } = await this.timeoutPromise(
+                  supabase
+                    .from('user_push_tokens')
+                    .delete()
+                    .eq('user_id', userId)
+                    .eq('token', token),
+                  10000,
+                  `deleteUserToken-attempt-${retryCount + 1}`
+                );
 
-      for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
-        try {
-          let query = supabase.from('user_push_tokens').delete();
+                if (!error) {
+                  success = true;
+                  this.debugLog('Successfully removed user push token from database');
+                  break;
+                }
 
-          // If userId is provided, use it to narrow the deletion
-          if (userId) {
-            query = query.eq('user_id', userId);
-          }
-
-          // Always filter by token to ensure we're deleting the correct record
-          const { error } = await this.timeoutPromise(
-            query.eq('token', token),
-            10000,
-            `deleteToken-attempt-${retryCount + 1}`
-          );
-
-          if (error) {
-            this.recordError(`deleteToken-attempt-${retryCount + 1}`, error);
-
-            if (retryCount < maxRetries - 1) {
-              // Exponential backoff with jitter
-              const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
-              await new Promise(resolve => setTimeout(resolve, delay));
+                if (retryCount < 2) {
+                  const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                }
+              } catch (error) {
+                this.recordError(`deleteUserToken-attempt-${retryCount + 1}`, error);
+              }
             }
-          } else {
-            success = true;
-            this.debugLog('Successfully removed push token from database');
-            break;
-          }
-        } catch (error) {
-          this.recordError(`deleteToken-attempt-${retryCount + 1}`, error);
 
-          if (retryCount < maxRetries - 1) {
-            // Exponential backoff with jitter
-            const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
-            await new Promise(resolve => setTimeout(resolve, delay));
+            // As a fallback, try removing by token only
+            if (!success) {
+              try {
+                await this.timeoutPromise(
+                  supabase
+                    .from('user_push_tokens')
+                    .delete()
+                    .eq('token', token),
+                  10000,
+                  'fallbackTokenDelete'
+                );
+
+                this.debugLog('Token-only deletion completed as fallback');
+              } catch (error) {
+                this.recordError('fallbackTokenDelete', error);
+              }
+            }
+          } catch (error) {
+            this.recordError('databaseCleanupTask', error);
+          }
+        });
+      } else {
+        // If no userId, create a token-only cleanup task
+        cleanupTasks.push(async () => {
+          try {
+            for (let retryCount = 0; retryCount < 3; retryCount++) {
+              try {
+                const { error } = await this.timeoutPromise(
+                  supabase
+                    .from('user_push_tokens')
+                    .delete()
+                    .eq('token', token),
+                  10000,
+                  `deleteToken-attempt-${retryCount + 1}`
+                );
+
+                if (!error) {
+                  this.debugLog('Successfully removed token from database');
+                  break;
+                }
+
+                if (retryCount < 2) {
+                  const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                }
+              } catch (error) {
+                this.recordError(`deleteToken-attempt-${retryCount + 1}`, error);
+              }
+            }
+          } catch (error) {
+            this.recordError('tokenCleanupTask', error);
+          }
+        });
+      }
+    }
+
+    // 2. Always add local storage cleanup task
+    cleanupTasks.push(async () => {
+      try {
+        // IMPORTANT: The key list must be comprehensive to ensure all token data is removed
+        const keysToDelete = [
+          PUSH_TOKEN_STORAGE_KEY,
+          PUSH_TOKEN_TIMESTAMP_KEY,
+          PUSH_TOKEN_REGISTRATION_ATTEMPTS,
+          'pushTokenRefreshTime',
+          'notificationRegistrationState',
+          REGISTRATION_STATE_KEY
+        ];
+
+        for (const key of keysToDelete) {
+          try {
+            await SecureStore.deleteItemAsync(key);
+            this.debugLog(`Deleted key from storage: ${key}`);
+          } catch (keyError) {
+            this.recordError(`deleteKey-${key}`, keyError);
           }
         }
+
+        this.debugLog('Completed local storage token cleanup');
+      } catch (error) {
+        this.recordError('localStorageCleanupTask', error);
       }
+    });
 
-      // Always remove from secure storage regardless of database success
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
-      this.debugLog('Removed push token from secure storage');
+    // Execute all cleanup tasks in parallel
+    await Promise.all(cleanupTasks.map(task => task()));
 
-      return true;
-    } catch (error) {
-      this.recordError('cleanupPushToken', error);
+    this.debugLog('Push token cleanup process completed successfully');
+    return true;
+  } catch (error) {
+    this.recordError('cleanupPushToken', error);
 
-      // Attempt to clean local storage even if the rest failed
-      try {
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
-      } catch (storageError) {
-        this.recordError('cleanupTokenStorage', storageError);
-      }
+    // Final emergency cleanup attempt
+    try {
+      const keysToDelete = [
+        PUSH_TOKEN_STORAGE_KEY,
+        PUSH_TOKEN_TIMESTAMP_KEY,
+        PUSH_TOKEN_REGISTRATION_ATTEMPTS,
+        'pushTokenRefreshTime',
+        'notificationRegistrationState',
+        REGISTRATION_STATE_KEY,
+      ];
 
-      return false;
+      await Promise.all(keysToDelete.map(key => SecureStore.deleteItemAsync(key).catch(() => {})));
+      this.debugLog('Emergency storage cleanup completed');
+    } catch (finalError) {
+      this.recordError('emergencyCleanup', finalError);
     }
+
+    return false;
   }
+}
 
   // Get diagnostic information for debugging
   static async getDiagnostics(): Promise<any> {

@@ -591,6 +591,7 @@ export function useNotifications(): UseNotificationsReturn {
     };
   }, [user?.id, registerForPushNotifications, debugLog]);
 
+// Find the AppState useEffect and replace the token verification part with this implementation
 useEffect(() => {
   const subscription = AppState.addEventListener('change', nextAppState => {
     const previousState = appState.current;
@@ -610,7 +611,7 @@ useEffect(() => {
           // First refresh notifications to update the internal count for in-app display
           await refreshNotifications();
 
-          // Then reset badge count to 0 when app comes to foreground
+          // Reset badge count to 0 when app comes to foreground
           debugLog('Resetting badge count to 0 as app is now in foreground');
           await NotificationService.setBadgeCount(0);
         } catch (error) {
@@ -626,71 +627,37 @@ useEffect(() => {
         return;
       }
 
-      // Regular token verification when app comes to foreground
+      // Enhanced token verification with database check first
       (async () => {
-        // Get registration state
-        const regState = await getRegistrationState();
+        try {
+          debugLog('Performing token verification after app foregrounded');
 
-        // If registered recently (within 12 hours), skip verification
-        if (regState?.registered) {
-          const timeSinceLastSuccess = Date.now() - regState.lastAttemptTime;
-          if (timeSinceLastSuccess < 12 * 60 * 60 * 1000) {
-            debugLog('Recent successful registration, skipping verification');
+          // IMPORTANT: Always verify against database first before checking local state
+          const isTokenValid = await NotificationService.forceTokenVerification(user.id);
+
+          if (!isTokenValid) {
+            debugLog('Token verification failed on app foreground, forcing registration');
+            registerForPushNotifications(true);
             return;
           }
-        }
 
-        // Otherwise verify token in database
-        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        if (!storedToken) {
-          debugLog('No stored token found, initiating registration');
-          registerForPushNotifications();
-          return;
-        }
+          // Token exists and is valid, update registration state to reflect this
+          debugLog('Token verified in database after foreground');
+          await saveRegistrationState({
+            lastAttemptTime: Date.now(),
+            attempts: 0,
+            registered: true
+          });
 
-        // CRITICAL FIX: Add explicit check for Expo token format
-        const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-        if (!validExpoTokenFormat.test(storedToken)) {
-          debugLog('WARNING: Stored token is not in Expo format, forcing re-registration');
-          registerForPushNotifications(true);
-          return;
-        }
-
-        // Basic validation before database check
-        if (!storedToken.includes('[') && !storedToken.includes(']') && storedToken.length < 10) {
-          debugLog('Invalid token format, initiating new registration');
-          registerForPushNotifications(true);
-          return;
-        }
-
-        try {
-          debugLog('Verifying token in database');
-          const { data } = await supabase
-            .from('user_push_tokens')
-            .select('token')
-            .eq('user_id', user.id)
-            .eq('token', storedToken)
-            .single();
-
-          if (!data) {
-            debugLog('Token in storage but not in database, re-registering');
-            registerForPushNotifications(true);
-          } else {
-            debugLog('Token verified in database');
-
-            // Update last verified timestamp
-            await saveRegistrationState({
-              lastAttemptTime: Date.now(),
-              attempts: 0,
-              registered: true
-            });
-          }
         } catch (error) {
-          debugLog('Error verifying token on app foreground:', error);
+          debugLog('Error during token verification on app foreground:', error);
+
+          // Get registration state as a fallback
+          const regState = await getRegistrationState();
 
           // Only force registration if it's been a while since last attempt
-          if (!regState || Date.now() - regState.lastAttemptTime > 60 * 60 * 1000) {
-            registerForPushNotifications();
+          if (!regState || Date.now() - regState.lastAttemptTime > 30 * 60 * 1000) { // 30 mins
+            registerForPushNotifications(true);
           }
         }
       })();
@@ -715,88 +682,66 @@ useEffect(() => {
 
     let mounted = true;
 
-    const initialize = async () => {
-      if (!mounted) return;
+const initialize = async () => {
+  if (!mounted) return;
 
-      debugLog('Setting up notification system for user:', user.id);
+  debugLog('Setting up notification system for user:', user.id);
 
-      // Set up notification listeners
-      notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
-      responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+  // Set up notification listeners
+  notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
+  responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
-      // Get initial unread count
-      await refreshNotifications();
+  // Get initial unread count
+  await refreshNotifications();
 
-      // Get diagnostic information
-      try {
-        const diagInfo = await NotificationService.getDiagnostics();
-        setDiagnosticInfo(diagInfo);
-      } catch (e) {
-        // Non-critical
-      }
+  // Get diagnostic information
+  try {
+    const diagInfo = await NotificationService.getDiagnostics();
+    setDiagnosticInfo(diagInfo);
+  } catch (e) {
+    // Non-critical
+  }
 
-      // Enhanced token initialization procedure
-      try {
-        // First check if we have a registration state
-        const regState = await getRegistrationState();
+  // Enhanced token initialization procedure with database verification
+  try {
+    // STEP 1: FORCE DATABASE VERIFICATION FIRST - This is the key fix
+    debugLog('Performing force verification against database');
 
-        if (regState?.registered) {
-          debugLog('Found existing registration state:', regState);
+    // Add this new call to the NotificationService method we created
+    const isTokenValid = await NotificationService.forceTokenVerification(user.id);
 
-          // If registered within last 24 hours, just verify token
-          const timeSinceLastSuccess = Date.now() - regState.lastAttemptTime;
+    if (!isTokenValid) {
+      // Token either doesn't exist or isn't in database - force registration
+      debugLog('Token verification failed, forcing registration');
+      await registerForPushNotifications(true); // Force registration
+      return;
+    }
 
-          if (timeSinceLastSuccess < 24 * 60 * 60 * 1000) {
-            // Get the token
-            const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+    // Token is valid and exists in database, continue with normal flow
+    debugLog('Token verified in database, setting up listeners');
+    setIsPermissionGranted(true);
 
-            if (storedToken) {
-              debugLog('Using existing token, last registration was recent');
-              setIsPermissionGranted(true);
+    // Set up token refresh listener
+    if (pushTokenListener.current) {
+      pushTokenListener.current.remove();
+    }
+    pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
 
-              // Add token listener for refreshes
-              if (pushTokenListener.current) {
-                pushTokenListener.current.remove();
-              }
-              pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+    // Update registration state to reflect verification
+    await saveRegistrationState({
+      lastAttemptTime: Date.now(),
+      attempts: 0,
+      registered: true
+    });
 
-              // Verify token in database asynchronously without blocking UI
-              setTimeout(() => {
-                if (mounted) {
-                  supabase
-                    .from('user_push_tokens')
-                    .select('token')
-                    .eq('user_id', user.id)
-                    .eq('token', storedToken)
-                    .single()
-                    .then(({ data }) => {
-                      if (!data && mounted) {
-                        debugLog('Token not in database despite registration state');
-                        registerForPushNotifications(true);
-                      }
-                    })
-                    .catch(() => {
-                      // Continue without blocking UI
-                    });
-                }
-              }, 5000);
-
-              return;
-            }
-          }
-        }
-
-        // No recent registration state or no token, do full registration
-        debugLog('No recent registration state found, starting full registration');
-        await registerForPushNotifications();
-      } catch (error) {
-        debugLog('Error during token initialization:', error);
-        // Try registration despite the error
-        await registerForPushNotifications();
-      } finally {
-        initialSetupComplete.current = true;
-      }
-    };
+  } catch (error) {
+    debugLog('Error during token initialization:', error);
+    // On any error, force registration
+    await registerForPushNotifications(true);
+  } finally {
+    initialSetupComplete.current = true;
+  }
+};
 
     initialize();
 
