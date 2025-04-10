@@ -72,6 +72,19 @@ static async forceTokenVerification(userId: string): Promise<boolean> {
       return false;
     }
 
+    // CRITICAL CHECK: Verify it's a proper Expo format token
+    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+    if (!validExpoTokenFormat.test(token)) {
+      this.debugLog('Token in storage is not in Expo format, registration needed');
+      // Delete token from storage to ensure clean registration
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      return false;
+    }
+
+    // Clean up any invalid formats in database
+    await this.cleanupInvalidTokenFormats(userId);
+
     // Check if token exists in database
     const { data, error } = await this.timeoutPromise(
       supabase
@@ -201,24 +214,23 @@ private static isValidPushToken(token: string): boolean {
   const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
   const isExpoToken = validExpoTokenFormat.test(token);
 
-  // APNs tokens are hex strings of a specific length
+  // These formats are detected but no longer considered valid
   const isApnsToken = /^[a-f0-9]{64}$/.test(token);
-
-  // FCM tokens are typically longer alphanumeric strings
   const isFcmToken = /^[a-zA-Z0-9\-_:]{140,250}$/.test(token);
 
   // Log token type for diagnostics
   if (isExpoToken) {
     this.debugLog('Token validated as Expo Push Token format');
   } else if (isApnsToken) {
-    this.debugLog('WARNING: Detected raw APNs token format - may not work with Expo Push Service');
+    this.debugLog('INVALID: Detected raw APNs token format - will not be stored');
   } else if (isFcmToken) {
-    this.debugLog('WARNING: Detected FCM token format - may not work with Expo Push Service');
+    this.debugLog('INVALID: Detected FCM token format - will not be stored');
   } else {
     this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
   }
 
-  return isExpoToken || isApnsToken || isFcmToken;
+  // CRITICAL CHANGE: Only return true for Expo tokens
+  return isExpoToken;
 }
 
 private static async migrateToExpoToken(oldToken: string, userId: string): Promise<string | null> {
@@ -277,6 +289,65 @@ private static async migrateToExpoToken(oldToken: string, userId: string): Promi
   }
 }
 
+static async cleanupInvalidTokenFormats(userId: string): Promise<boolean> {
+  try {
+    this.debugLog(`Running cleanup for invalid token formats for user: ${userId}`);
+
+    // 1. Get all tokens for this user
+    const { data, error } = await this.timeoutPromise(
+      supabase
+        .from('user_push_tokens')
+        .select('token')
+        .eq('user_id', userId),
+      10000,
+      'getTokensForCleanup'
+    );
+
+    if (error || !data || data.length === 0) {
+      return true; // No tokens or error, nothing to clean
+    }
+
+    // 2. Filter for non-Expo format tokens
+    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+    const invalidTokens = data
+      .map((record: { token: any; }) => record.token)
+      .filter((token: string) => !validExpoTokenFormat.test(token));
+
+    if (invalidTokens.length === 0) {
+      this.debugLog('No invalid token formats found for cleanup');
+      return true;
+    }
+
+    this.debugLog(`Found ${invalidTokens.length} invalid tokens to clean up`);
+
+    // 3. Delete all invalid tokens
+    for (const token of invalidTokens) {
+      try {
+        const { error } = await this.timeoutPromise(
+          supabase
+            .from('user_push_tokens')
+            .delete()
+            .eq('token', token),
+          10000,
+          `deleteInvalidToken-${token.substring(0, 5)}`
+        );
+
+        if (error) {
+          this.recordError(`deleteInvalidToken-${token.substring(0, 5)}`, error);
+        } else {
+          this.debugLog(`Successfully removed invalid token: ${token.substring(0, 5)}...`);
+        }
+      } catch (tokenError) {
+        this.recordError(`deleteInvalidToken-${token.substring(0, 5)}`, tokenError);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    this.recordError('cleanupInvalidTokenFormats', error);
+    return false;
+  }
+}
   // Check if token needs refresh (older than 7 days)
   private static async tokenNeedsRefresh(): Promise<boolean> {
     try {
@@ -322,13 +393,14 @@ static async registerForPushNotificationsAsync(userId: string, forceRefresh = fa
   const startTime = Date.now();
 
   try {
-    // 1. OPTIMIZATION: Check for existing valid token first
+  const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+     await this.cleanupInvalidTokenFormats(userId);
     if (!forceRefresh) {
       const existingToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
       const needsRefresh = await this.tokenNeedsRefresh();
 
       // Add specific check for Expo token format
-      const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+
       const isExpoToken = existingToken && validExpoTokenFormat.test(existingToken);
 
       if (existingToken && this.isValidPushToken(existingToken) && !needsRefresh) {
@@ -541,7 +613,7 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
 
     this.debugLog(`Verifying token in database for user ${userId}`);
 
-    // Check if it's an Expo token format
+    // Check if it's an Expo token format - STRICT ENFORCEMENT
     const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
     if (!validExpoTokenFormat.test(token)) {
       this.debugLog('Non-Expo token format detected during verification, triggering migration');
@@ -549,8 +621,11 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
       if (newToken) {
         return true; // Migration successful
       }
-      // Continue with verification if migration fails
+      return false; // Migration failed, need new registration
     }
+
+    // Clean up any existing invalid formats
+    await this.cleanupInvalidTokenFormats(userId);
 
     // Check if token exists in database
     const { data, error } = await this.timeoutPromise(
@@ -600,6 +675,7 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
       return false;
     }
 
+
     if (!this.isValidPushToken(token)) {
       this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
       return false;
@@ -634,7 +710,8 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
         // Continue anyway - user might exist
       }
 
-      // Step 1: Try to delete any duplicate tokens for this user
+    await this.cleanupInvalidTokenFormats(userId);
+
       try {
         await this.timeoutPromise(
           supabase

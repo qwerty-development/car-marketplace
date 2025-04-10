@@ -14,7 +14,7 @@ import NetInfo from '@react-native-community/netinfo';
 // Storage key for push token
 const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
 const REGISTRATION_STATE_KEY = 'notificationRegistrationState';
-
+  const PUSH_TOKEN_TIMESTAMP_KEY = 'expoPushTokenTimestamp';
 // Maximum registration attempts
 const MAX_REGISTRATION_ATTEMPTS = 5;
 const REGISTRATION_TIMEOUT = 0.1 * 60 * 1000; // 3 minutes
@@ -619,6 +619,21 @@ useEffect(() => {
         }
       })();
 
+      (async () => {
+  const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+  if (storedToken) {
+    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+    if (!validExpoTokenFormat.test(storedToken)) {
+      debugLog('CRITICAL: Detected non-Expo token format in storage after app foreground');
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      await NotificationService.cleanupInvalidTokenFormats(user.id);
+      registerForPushNotifications(true);
+      return;
+    }
+  }
+})();
+
       // If a token refresh or registration has been pending, force it now
       if (forceRegistrationOnNextForeground.current) {
         debugLog('Forced registration pending, executing now');
@@ -701,6 +716,24 @@ const initialize = async () => {
   } catch (e) {
     // Non-critical
   }
+
+  try {
+  const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+  if (storedToken) {
+
+    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+    if (!validExpoTokenFormat.test(storedToken)) {
+      debugLog('WARNING: Stored token is not in Expo format, forcing cleanup and re-registration');
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      await NotificationService.cleanupInvalidTokenFormats(user.id);
+      await registerForPushNotifications(true);
+      return;
+    }
+  }
+} catch (e) {
+  // Non-critical, proceed with normal verification
+}
 
   // Enhanced token initialization procedure with database verification
   try {
