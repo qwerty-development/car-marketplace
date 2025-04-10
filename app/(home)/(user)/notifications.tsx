@@ -483,7 +483,7 @@ export default function NotificationsScreen() {
           key={notification.id}
           entering={FadeInDown.delay(100).springify()}
           layout={Layout.springify()}
-          className='mx-4 mb-4'>
+          className='mx-4 rounded-3xl mb-4'>
           <TouchableOpacity
             onPress={() => handleNotificationPress(notification)}
             onLongPress={() => {
@@ -524,12 +524,12 @@ export default function NotificationsScreen() {
                   </Text>
                   <Text
                     numberOfLines={3}
-                    className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    className={`${isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}`}>
                     {notification.message}
                   </Text>
                   <Text
                     className={`text-xs mt-2 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
                     }`}>
                     {formatDistanceToNow(new Date(notification.created_at), {
                       addSuffix: true
@@ -540,7 +540,7 @@ export default function NotificationsScreen() {
                 <View className='flex-row items-center'>
                   {isSelectionMode ? (
                     <View className={`w-6 h-6 rounded-full border-2 justify-center items-center ${
-                      isSelected ? 'bg-red border-red' : isDarkMode ? 'border-white' : 'border-gray-400'
+                      isSelected ? 'bg-red border-red' : isDarkMode ? 'border-white' : 'border-neutral-400'
                     }`}>
                       {isSelected && (
                         <Ionicons name='checkmark' size={16} color='white' />
@@ -575,7 +575,7 @@ export default function NotificationsScreen() {
         className='mx-4 mt-8 mb-3'> {/* Increased top margin */}
         <Text
           className={`text-sm font-medium uppercase tracking-wider ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
           }`}> {/* Added uppercase and tracking-wider for better visual hierarchy */}
           {title}
         </Text>
@@ -631,12 +631,12 @@ const renderMinimalHeader = useCallback(() => {
   return (
     <View className="items-center">
       {/* Pull down indicator */}
-      <View className="w-12 h-1 bg-gray-400/30 rounded-full my-2" />
+      <View className="w-12 h-1 bg-neutral-400/30 rounded-full my-2" />
       
       <View className="flex-row justify-end items-center w-full px-4 py-2">
         <TouchableOpacity 
           onPress={() => router.back()} 
-          className="p-2 rounded-full bg-gray-200/30">
+          className="p-2 rounded-full bg-neutral-200/30">
           <Ionicons
             name="chevron-down"
             size={24}
@@ -663,7 +663,7 @@ const renderMinimalHeader = useCallback(() => {
     return (
       <Animated.View
         style={[filterMenuStyle]}
-        className={`mx-4 rounded-xl overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        className={`mx-4 rounded-xl overflow-hidden ${isDarkMode ? 'bg-neutral-800' : 'bg-white'}`}>
         <ScrollView className='p-4'>
           <Text className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
             Filter by
@@ -673,9 +673,9 @@ const renderMinimalHeader = useCallback(() => {
             <TouchableOpacity
               onPress={() => setFilter('all')}
               className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'all' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                filterType === 'all' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={filterType === 'all' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={filterType === 'all' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 All
               </Text>
             </TouchableOpacity>
@@ -683,9 +683,9 @@ const renderMinimalHeader = useCallback(() => {
             <TouchableOpacity
               onPress={() => setFilter('unread')}
               className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'unread' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                filterType === 'unread' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={filterType === 'unread' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={filterType === 'unread' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Unread
               </Text>
             </TouchableOpacity>
@@ -693,9 +693,9 @@ const renderMinimalHeader = useCallback(() => {
             <TouchableOpacity
               onPress={() => setFilter('read')}
               className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'read' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                filterType === 'read' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={filterType === 'read' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={filterType === 'read' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Read
               </Text>
             </TouchableOpacity>
@@ -709,9 +709,9 @@ const renderMinimalHeader = useCallback(() => {
             <TouchableOpacity
               onPress={() => setSort('newest')}
               className={`mr-2 px-3 py-1 rounded-full ${
-                sortType === 'newest' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                sortType === 'newest' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={sortType === 'newest' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={sortType === 'newest' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Newest first
               </Text>
             </TouchableOpacity>
@@ -719,9 +719,9 @@ const renderMinimalHeader = useCallback(() => {
             <TouchableOpacity
               onPress={() => setSort('oldest')}
               className={`mr-2 px-3 py-1 rounded-full ${
-                sortType === 'oldest' ? 'bg-red' : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                sortType === 'oldest' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}>
-              <Text className={sortType === 'oldest' ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+              <Text className={sortType === 'oldest' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
                 Oldest first
               </Text>
             </TouchableOpacity>
@@ -741,7 +741,7 @@ const renderMinimalHeader = useCallback(() => {
                     className={`mr-2 mb-2 px-3 py-1 rounded-full flex-row items-center ${
                       (category === 'all' && !selectedCategory) || category === selectedCategory
                         ? 'bg-red'
-                        : isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                        : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
                     }`}>
                     {category !== 'all' && (
                       <Ionicons
@@ -861,7 +861,7 @@ const renderMinimalHeader = useCallback(() => {
           />
           <Text
             className={`mt-4 text-lg ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
             }`}>
             {error}
           </Text>
@@ -885,7 +885,7 @@ const renderMinimalHeader = useCallback(() => {
           />
           <Text
             className={`mt-4 text-center px-8 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
             }`}>
             No notifications match your current filters
           </Text>
@@ -913,7 +913,7 @@ const renderMinimalHeader = useCallback(() => {
       <Animated.View
         entering={FadeIn.delay(300)}
         className='flex-1 justify-center items-center py-20'>
-        <View className='w-24 h-24 rounded-full bg-gray-100 justify-center items-center mb-4'>
+        <View className='w-24 h-24 rounded-full bg-neutral-100 justify-center items-center mb-4'>
           <Ionicons
             name='notifications-off-outline'
             size={48}
@@ -926,7 +926,7 @@ const renderMinimalHeader = useCallback(() => {
         </Text>
         <Text
           className={`text-center px-12 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
           }`}>
           We'll notify you when there's activity related to your favorite cars and dealerships
         </Text>
@@ -1049,7 +1049,7 @@ const renderMinimalHeader = useCallback(() => {
         {hasMore && notifications.length > 0 && (
           <View className='py-6 items-center'>
             <ActivityIndicator color='#D55004' />
-            <Text className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <Text className={`mt-2 ${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'}`}>
               Loading more...
             </Text>
           </View>
