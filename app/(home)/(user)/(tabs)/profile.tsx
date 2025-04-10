@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Animated,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
-import { useAuth } from "@/utils/AuthContext"; // Changed from Clerk to Supabase Auth
+import { useAuth } from "@/utils/AuthContext";
 import * as ImagePicker from "expo-image-picker";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/utils/ThemeContext";
@@ -31,6 +31,7 @@ import { BlurView } from "expo-blur";
 import Constants from 'expo-constants';
 import { SignOutOverlay } from '@/components/SignOutOverlay';
 import { coordinateSignOut } from '@/app/(home)/_layout';
+import * as SecureStore from 'expo-secure-store';
 
 const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
@@ -44,15 +45,16 @@ export default function UserProfileAndSupportPage() {
   const { user, profile, signOut, updateUserProfile, updatePassword} = useAuth();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-const {
-  unreadCount,
-  cleanupPushToken,
-  refreshNotifications,
-  loading
-} = useNotifications();
+  const {
+    unreadCount,
+    cleanupPushToken,
+    refreshNotifications,
+    loading: notificationsLoading
+  } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
-const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
+  const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
+
   // State Management
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -62,19 +64,116 @@ const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] =
-    useState(false);
-  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] =
-    useState(false);
-  const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettings>({
-      pushNotifications: true,
-      emailNotifications: true,
-      marketingUpdates: false,
-      newCarAlerts: true,
-    });
+  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] = useState(false);
+  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] = useState(false);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    pushNotifications: true,
+    emailNotifications: true,
+    marketingUpdates: false,
+    newCarAlerts: true,
+  });
 
   useScrollToTop(scrollRef);
+
+  // Fetch token status from database to update UI
+  const fetchTokenStatus = useCallback(async () => {
+    if (!user?.id || isGuest) return;
+
+    try {
+      setLoading(true);
+      // Get the token from storage
+      const token = await SecureStore.getItemAsync('expoPushToken');
+
+      if (!token) {
+        console.log('No token found when checking status');
+        return;
+      }
+
+      // Check token status in database
+      const { data } = await supabase
+        .from('user_push_tokens')
+        .select('active')
+        .eq('user_id', user.id)
+        .eq('token', token)
+        .single();
+
+      if (data) {
+        setPushNotificationsEnabled(data.active);
+        // Update local notification settings state to match
+        setNotificationSettings(prev => ({
+          ...prev,
+          pushNotifications: data.active
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching token status:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, isGuest]);
+
+  // Function to toggle push notification status
+  const togglePushNotifications = async (enabled: boolean) => {
+    if (!user?.id || isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to manage notifications.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn }
+        ]
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setPushNotificationsEnabled(enabled);
+
+      // Also update the notification settings state
+      setNotificationSettings(prev => ({
+        ...prev,
+        pushNotifications: enabled
+      }));
+
+      // Get the token from storage
+      const token = await SecureStore.getItemAsync('expoPushToken');
+
+      if (!token) {
+        console.log('No token found when toggling status');
+        return;
+      }
+
+      // Update token active status in database
+      const { error } = await supabase
+        .from('user_push_tokens')
+        .update({ active: enabled })
+        .eq('user_id', user.id)
+        .eq('token', token);
+
+      if (error) {
+        console.error('Error updating token status:', error);
+        setPushNotificationsEnabled(!enabled); // Revert UI state on error
+        setNotificationSettings(prev => ({
+          ...prev,
+          pushNotifications: !enabled
+        }));
+        Alert.alert('Error', 'Failed to update notification settings');
+      }
+    } catch (error) {
+      console.error('Error updating token status:', error);
+      setPushNotificationsEnabled(!enabled); // Revert UI state on error
+      setNotificationSettings(prev => ({
+        ...prev,
+        pushNotifications: !enabled
+      }));
+      Alert.alert('Error', 'Failed to update notification settings');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (user && profile && !isGuest) {
@@ -89,6 +188,13 @@ const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
       setEmail("guest@example.com");
     }
   }, [user, profile, isGuest]);
+
+  // Fetch token status when component mounts
+  useEffect(() => {
+    if (user?.id && !isGuest) {
+      fetchTokenStatus();
+    }
+  }, [user?.id, isGuest, fetchTokenStatus]);
 
   useEffect(() => {
     // Animate the guest banner entrance
@@ -248,64 +354,64 @@ const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
     }
   };
 
-const handleSignOut = async (): Promise<void> => {
-  // Confirm with user before signing out
-  Alert.alert(
-    "Sign Out",
-    "Are you sure you want to sign out?",
-    [
-      {
-        text: "Cancel",
-        style: "cancel"
-      },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // Show overlay during sign out
-            setShowSignOutOverlay(true);
+  const handleSignOut = async (): Promise<void> => {
+    // Confirm with user before signing out
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Show overlay during sign out
+              setShowSignOutOverlay(true);
 
-            if (isGuest) {
-              // Handle guest user sign out with coordination
-              await coordinateSignOut(router, async () => {
-                // Clean up guest mode
-                await clearGuestMode();
-              });
-            } else {
-              // Handle regular user sign out with coordination
-              await coordinateSignOut(router, async () => {
-                // First clean up push token
-                try {
-                  await cleanupPushToken();
-                } catch (tokenError) {
-                  console.error("Token cleanup error:", tokenError);
-                  // Continue with sign out even if token cleanup fails
-                }
+              if (isGuest) {
+                // Handle guest user sign out with coordination
+                await coordinateSignOut(router, async () => {
+                  // Clean up guest mode
+                  await clearGuestMode();
+                });
+              } else {
+                // Handle regular user sign out with coordination
+                await coordinateSignOut(router, async () => {
+                  // First clean up push token (this now marks the token as signed_in: false instead of deleting)
+                  try {
+                    await cleanupPushToken();
+                  } catch (tokenError) {
+                    console.error("Token cleanup error:", tokenError);
+                    // Continue with sign out even if token cleanup fails
+                  }
 
-                // Then perform the actual sign out
-                await signOut();
-              });
+                  // Then perform the actual sign out
+                  await signOut();
+                });
+              }
+            } catch (error) {
+              console.error("Error during sign out:", error);
+
+              // Force navigation to sign-in on failure
+              router.replace('/(auth)/sign-in');
+
+              Alert.alert(
+                "Sign Out Issue",
+                "There was a problem signing out, but we've redirected you to the sign-in screen."
+              );
+            } finally {
+              // Hide overlay
+              setShowSignOutOverlay(false);
             }
-          } catch (error) {
-            console.error("Error during sign out:", error);
-
-            // Force navigation to sign-in on failure
-            router.replace('/(auth)/sign-in');
-
-            Alert.alert(
-              "Sign Out Issue",
-              "There was a problem signing out, but we've redirected you to the sign-in screen."
-            );
-          } finally {
-            // Hide overlay
-            setShowSignOutOverlay(false);
           }
         }
-      }
-    ]
-  );
-};
+      ]
+    );
+  };
 
   // Handler for when guest user wants to sign in
   const handleSignIn = async (): Promise<void> => {
@@ -342,6 +448,13 @@ const handleSignOut = async (): Promise<void> => {
       return;
     }
 
+    // Special handling for push notifications toggle
+    if (key === 'pushNotifications') {
+      togglePushNotifications(!notificationSettings.pushNotifications);
+      return;
+    }
+
+    // Handle other notification settings normally
     setNotificationSettings((prev) => ({
       ...prev,
       [key]: !prev[key],
@@ -367,32 +480,30 @@ const handleSignOut = async (): Promise<void> => {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
-{isGuest && (
-  <View style={guestStyles.overlay} pointerEvents="auto">
-    <BlurView
-      intensity={80}
-      tint={isDarkMode ? 'dark' : 'light'}
-      style={StyleSheet.absoluteFill}
-    />
-    <Animated.View style={[guestStyles.container, bannerAnimatedStyle]}>
-      <Ionicons
-        name="lock-closed-outline"
-        size={56}
-        color="#ffffff"
-        style={guestStyles.icon}
-      />
-      <Text style={guestStyles.title}>You're browsing as a guest</Text>
-      <Text style={guestStyles.subtitle}>
-        Please sign in to access this feature.
-      </Text>
-      <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
-        <Text style={guestStyles.signInButtonText}>Sign In</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  </View>
-)}
-
-
+      {isGuest && (
+        <View style={guestStyles.overlay} pointerEvents="auto">
+          <BlurView
+            intensity={80}
+            tint={isDarkMode ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          <Animated.View style={[guestStyles.container, bannerAnimatedStyle]}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={56}
+              color="#ffffff"
+              style={guestStyles.icon}
+            />
+            <Text style={guestStyles.title}>You're browsing as a guest</Text>
+            <Text style={guestStyles.subtitle}>
+              Please sign in to access this feature.
+            </Text>
+            <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
+              <Text style={guestStyles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
 
       <ScrollView
         className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
@@ -404,39 +515,39 @@ const handleSignOut = async (): Promise<void> => {
       >
         {/* Header Section */}
         <View className="relative">
-      <LinearGradient
-  colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
-  className="pt-12 pb-24 rounded-b-[40px]"
->
-  {/* Header row with notification bell */}
-  <View className="flex-row justify-end px-4">
-    {!isGuest && <NotificationBell />}
-  </View>
+          <LinearGradient
+            colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
+            className="pt-12 pb-24 rounded-b-[40px]"
+          >
+            {/* Header row with notification bell */}
+            <View className="flex-row justify-end px-4">
+              {!isGuest && <NotificationBell />}
+            </View>
 
-  {/* Profile information */}
-  <View className="items-center mt-6">
-    <View className="relative">
-      <Image
-        source={{ uri: isGuest
-          ? DEFAULT_PROFILE_IMAGE
-          : (user?.user_metadata?.avatar_url || DEFAULT_PROFILE_IMAGE) }}
-        className="w-32 h-32 rounded-full border-4 border-white/20"
-      />
-      <TouchableOpacity
-        onPress={onPickImage}
-        className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
-      >
-        <Ionicons name="camera" size={20} color="#D55004" />
-      </TouchableOpacity>
-    </View>
-    <Text className="text-white text-xl font-semibold mt-4">
-      {isGuest ? "Guest User" : `${firstName} ${lastName}`}
-    </Text>
-    <Text className="text-white/80 text-sm">
-      {isGuest ? "" : email}
-    </Text>
-  </View>
-</LinearGradient>
+            {/* Profile information */}
+            <View className="items-center mt-6">
+              <View className="relative">
+                <Image
+                  source={{ uri: isGuest
+                    ? DEFAULT_PROFILE_IMAGE
+                    : (user?.user_metadata?.avatar_url || DEFAULT_PROFILE_IMAGE) }}
+                  className="w-32 h-32 rounded-full border-4 border-white/20"
+                />
+                <TouchableOpacity
+                  onPress={onPickImage}
+                  className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
+                >
+                  <Ionicons name="camera" size={20} color="#D55004" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-white text-xl font-semibold mt-4">
+                {isGuest ? "Guest User" : `${firstName} ${lastName}`}
+              </Text>
+              <Text className="text-white/80 text-sm">
+                {isGuest ? "" : email}
+              </Text>
+            </View>
+          </LinearGradient>
         </View>
 
         {/* Quick Actions */}
@@ -568,7 +679,7 @@ const handleSignOut = async (): Promise<void> => {
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to manage notifications" : "Your choice of beeps"}
+                {isGuest ? "Sign in to manage notifications" : "Control push notifications and alerts"}
               </Text>
             </View>
             <Ionicons
@@ -764,7 +875,7 @@ const handleSignOut = async (): Promise<void> => {
           </View>
         </Modal>
 
-        {/* Notification Settings Modal */}
+        {/* Notification Settings Modal - Updated with functional push notification toggle */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -795,43 +906,102 @@ const handleSignOut = async (): Promise<void> => {
                 </TouchableOpacity>
               </View>
 
-              {(
-                Object.keys(notificationSettings) as Array<keyof NotificationSettings>
+              {/* Push Notification Toggle - Controls token active status */}
+              <TouchableOpacity
+                onPress={() => togglePushNotifications(!pushNotificationsEnabled)}
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                    p-4 rounded-xl flex-row items-center justify-between mb-4`}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons
+                    name={pushNotificationsEnabled ? "notifications" : "notifications-off"}
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                  <Text
+                    className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                  >
+                    Push Notifications
+                  </Text>
+                </View>
+                <View
+                  className={`w-6 h-6 rounded-full ${
+                    pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
+                  }`}
+                />
+              </TouchableOpacity>
 
-              ).map((key) => (
+              {/* Explanation text */}
+              <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm mt-2 mb-4`}>
+                {pushNotificationsEnabled
+                  ? "You will receive push notifications about car listings, price changes, and other updates."
+                  : "You have disabled push notifications. You won't receive alerts about new listings or updates."}
+              </Text>
+
+              {loading && (
+                <View className="items-center py-2">
+                  <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm`}>
+                    Updating settings...
+                  </Text>
+                </View>
+              )}
+
+              {/* Additional notification options can remain but separated */}
+              <View className="mt-6">
+                <Text className={`${isDarkMode ? "text-white/90" : "text-gray-800"} font-semibold mb-4`}>
+                  Other Notification Types
+                </Text>
+
+                {/* Email notifications toggle */}
                 <TouchableOpacity
-                  key={key}
-                  onPress={() => toggleNotification(key)}
+                  onPress={() => toggleNotification('emailNotifications')}
                   className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                       p-4 rounded-xl flex-row items-center justify-between mb-4`}
                 >
                   <View className="flex-row items-center">
                     <Ionicons
-                      name={
-                        notificationSettings[key]
-                          ? "notifications"
-                          : "notifications-off"
-                      }
+                      name={notificationSettings.emailNotifications ? "mail" : "mail-outline"}
                       size={24}
                       color={isDarkMode ? "#fff" : "#000"}
                     />
                     <Text
-                      className={`ml-3 ${
-                        isDarkMode ? "text-white" : "text-black"
-                      }`}
+                      className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
                     >
-                      {key
-                        .replace(/([A-Z])/g, " $1")
-                        .replace(/^./, (str) => str.toUpperCase())}
+                      Email Notifications
                     </Text>
                   </View>
                   <View
                     className={`w-6 h-6 rounded-full ${
-                      notificationSettings[key] ? "bg-green-500" : "bg-gray-400"
+                      notificationSettings.emailNotifications ? "bg-green-500" : "bg-gray-400"
                     }`}
                   />
                 </TouchableOpacity>
-              ))}
+
+                {/* Marketing updates toggle */}
+                <TouchableOpacity
+                  onPress={() => toggleNotification('marketingUpdates')}
+                  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                      p-4 rounded-xl flex-row items-center justify-between mb-4`}
+                >
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={notificationSettings.marketingUpdates ? "megaphone" : "megaphone-outline"}
+                      size={24}
+                      color={isDarkMode ? "#fff" : "#000"}
+                    />
+                    <Text
+                      className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                    >
+                      Marketing Updates
+                    </Text>
+                  </View>
+                  <View
+                    className={`w-6 h-6 rounded-full ${
+                      notificationSettings.marketingUpdates ? "bg-green-500" : "bg-gray-400"
+                    }`}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -1008,31 +1178,29 @@ const handleSignOut = async (): Promise<void> => {
           </TouchableOpacity>
         </View>
 
-        import Constants from 'expo-constants';
+        {/* Version Information */}
+        <Text className="text-center mb-4" style={{ fontSize: 12, color: isDarkMode ? "#fff" : "#333" }}>
+          Version {Constants.expoConfig?.version || '1.0.0'}
+        </Text>
 
-// Inside your component's render method (or return statement)
-<Text className="text-center" style={{ fontSize: 12,  color: isDarkMode ? "#fff" : "#333" }}>
-  Version {Constants.expoConfig?.version }
-</Text>
         {/* Sign Out Button */}
         {!isGuest && (
-  <TouchableOpacity
-    className="mt-2 p-5 mb-12"
-    onPress={handleSignOut}
-    disabled={showSignOutOverlay} // Disable during sign-out
-  >
-    <Text
-      className={`text-center text-red font-semibold border border-red p-4 rounded-2xl ${
-        showSignOutOverlay ? 'opacity-50' : 'opacity-100'
-      }`}
-    >
-      {showSignOutOverlay ? 'Signing Out...' : 'Sign Out'}
-    </Text>
-  </TouchableOpacity>
-)}
-
+          <TouchableOpacity
+            className="mt-2 p-5 mb-12"
+            onPress={handleSignOut}
+            disabled={showSignOutOverlay} // Disable during sign-out
+          >
+            <Text
+              className={`text-center text-red font-semibold border border-red p-4 rounded-2xl ${
+                showSignOutOverlay ? 'opacity-50' : 'opacity-100'
+              }`}
+            >
+              {showSignOutOverlay ? 'Signing Out...' : 'Sign Out'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
-<SignOutOverlay visible={showSignOutOverlay} />
+      <SignOutOverlay visible={showSignOutOverlay} />
     </View>
   );
 }
@@ -1064,54 +1232,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-guestBannerContainer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,      // Cover full height
-    left: 0,
-    right: 0,       // Cover full width
-    zIndex: 1000,   // Ensure it sits on top of everything
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  guestBanner: {
-    backgroundColor: "rgba(213, 80, 4, 0.85)",
-    borderRadius: 12,
-    padding: 20,
-    width: "80%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  guestBannerTitle: {
-    color: "#FFF",
-    fontWeight: "bold",
-    fontSize: 18,
-    textAlign: "center",
-  },
-  guestBannerSubtitle: {
-    color: "#FFF",
-    opacity: 0.8,
-    fontSize: 14,
-    marginVertical: 8,
-    textAlign: "center",
-  },
-  signInButton: {
-    backgroundColor: "#FFF",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  signInButtonText: {
-    color: "#D55004",
-    fontWeight: "bold",
-  },
 });
+
 // Common guest styles – can be placed in a separate file for reuse
 const guestStyles = StyleSheet.create({
   overlay: {

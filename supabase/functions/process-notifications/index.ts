@@ -140,17 +140,17 @@ async function handlePushNotificationReceipts(
             });
 
             // Handle DeviceNotRegistered error
-            if (receipt.details?.error === 'DeviceNotRegistered') {
-              const ticket = tickets.find(t => t.id === receiptId);
-              if (ticket && ticket.message) {
-                await supabase
-                  .from('user_push_tokens')
-                  .delete()
-                  .eq('token', ticket.message.to);
+     if (receipt.details?.error === 'DeviceNotRegistered') {
+  const ticket = tickets.find(t => t.id === receiptId);
+  if (ticket && ticket.message) {
+    await supabase
+      .from('user_push_tokens')
+      .update({ active: false })
+      .eq('token', ticket.message.to);
 
-                console.log(`Deleted unregistered token: ${ticket.message.to}`);
-              }
-            }
+    console.log(`Marked unregistered token as inactive: ${ticket.message.to}`);
+  }
+}
           } else {
             console.log(`Receipt ${receiptId} status: ${receipt.status}`);
           }
@@ -243,10 +243,12 @@ Deno.serve(async (req) => {
     record = fetchedRecord;
 
     // Get the user's push tokens
-    const { data: userTokensData, error: userTokenError } = await supabase
-      .from('user_push_tokens')
-      .select('token')
-      .eq('user_id', record.user_id);
+ const { data: userTokensData, error: userTokenError } = await supabase
+  .from('user_push_tokens')
+  .select('token, id')
+  .eq('user_id', record.user_id)
+  .eq('signed_in', true)
+  .eq('active', true);
 
     if (userTokenError || !userTokensData?.length) {
       console.error('Push tokens not found:', userTokenError);
@@ -288,10 +290,12 @@ Deno.serve(async (req) => {
           console.error('Invalid push token:', tokenData.token);
 
           // Delete invalid token immediately
-          await supabase
-            .from('user_push_tokens')
-            .delete()
-            .eq('token', tokenData.token);
+await supabase
+  .from('user_push_tokens')
+  .update({ active: false })
+  .eq('token', tokenData.token);
+
+console.log(`Marked invalid token as inactive: ${tokenData.token}`);
 
           continue; // Skip to the next token
         }
@@ -479,13 +483,13 @@ Deno.serve(async (req) => {
 
         // Handle DeviceNotRegistered error
         if (error === 'DeviceNotRegistered' && ticket.message?.to) {
-          await supabase
-            .from('user_push_tokens')
-            .delete()
-            .eq('token', ticket.message.to);
+  await supabase
+    .from('user_push_tokens')
+    .update({ active: false })
+    .eq('token', ticket.message.to);
 
-          console.log(`Deleted unregistered token: ${ticket.message.to}`);
-        }
+  console.log(`Marked unregistered token as inactive: ${ticket.message.to}`);
+}
       }
     }
 

@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-     shouldPlaySound: false,
+    shouldPlaySound: false,
     shouldSetBadge: false,
   }),
 });
@@ -35,15 +35,13 @@ interface NotificationData {
 // Storage keys
 const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
 const PUSH_TOKEN_TIMESTAMP_KEY = 'expoPushTokenTimestamp';
-const PUSH_TOKEN_REGISTRATION_ATTEMPTS = 'pushTokenRegistrationAttempts';
-const REGISTRATION_STATE_KEY = 'notificationRegistrationState'; // Add this li
+const PUSH_TOKEN_ID_KEY = 'expoPushTokenId';
 
 // Constants
-const DB_OPERATION_TIMEOUT = 5000; // 15 seconds
-const MAX_RETRIES = 5;
-const TOKEN_REFRESH_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TOKEN_REFRESH_INTERVAL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const FORCE_REGISTER_DEV = true; // Force registration in development
 const DEBUG_MODE = __DEV__ || true; // Enable debug mode in dev and initially in prod
+const DB_TIMEOUT = 10000; // 10 seconds for database operations
 
 export class NotificationService {
   private static debugLog(message: string, data?: any): void {
@@ -58,62 +56,6 @@ export class NotificationService {
       }
     }
   }
-
-  // Add this method to NotificationService class
-static async forceTokenVerification(userId: string): Promise<boolean> {
-  try {
-    this.debugLog(`Force verifying push token for user ${userId}`);
-
-    // Get token from storage
-    const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-
-    if (!token) {
-      this.debugLog('No token in storage, registration needed');
-      return false;
-    }
-
-    // CRITICAL CHECK: Verify it's a proper Expo format token
-    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-    if (!validExpoTokenFormat.test(token)) {
-      this.debugLog('Token in storage is not in Expo format, registration needed');
-      // Delete token from storage to ensure clean registration
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-      return false;
-    }
-
-    // Clean up any invalid formats in database
-    await this.cleanupInvalidTokenFormats(userId);
-
-    // Check if token exists in database
-    const { data, error } = await this.timeoutPromise(
-      supabase
-        .from('user_push_tokens')
-        .select('token')
-        .eq('user_id', userId)
-        .eq('token', token)
-        .single(),
-      10000,
-      'forceVerifyTokenQuery'
-    );
-
-    // If token not in database or error, registration needed
-    if (error || !data) {
-      this.debugLog('Token not found in database, registration needed');
-      // Delete token from storage to ensure clean registration
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-      return false;
-    }
-
-    this.debugLog('Token verified in database, no registration needed');
-    return true;
-  } catch (error) {
-    this.recordError('forceTokenVerification', error);
-    // On error, assume registration is needed
-    return false;
-  }
-}
 
   private static async recordError(context: string, error: any): Promise<void> {
     try {
@@ -141,56 +83,47 @@ static async forceTokenVerification(userId: string): Promise<boolean> {
     }
   }
 
-
-private static getProjectId(): string {
-  const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-  if (envProjectId) {
-    console.log('Using project ID from environment:', envProjectId);
-    return envProjectId;
-  }
-
-  try {
-    // 2.1 Try the dedicated easConfig property (new in more recent versions)
-    const easConfigProjectId = Constants?.easConfig?.projectId;
-    if (easConfigProjectId) {
-      console.log('Using project ID from Constants.easConfig:', easConfigProjectId);
-      return easConfigProjectId;
+  private static getProjectId(): string {
+    const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+    if (envProjectId) {
+      return envProjectId;
     }
 
-    // 2.2 Access manifest/expoConfig object with fallback
-    const expoConstants = Constants.expoConfig || Constants.manifest;
-    if (expoConstants) {
-      // 2.3 Check extra.eas.projectId (common in newer EAS builds)
-      const easProjectId = expoConstants.extra?.eas?.projectId;
-      if (easProjectId) {
-        console.log('Using project ID from Constants.expoConfig.extra.eas:', easProjectId);
-        return easProjectId;
+    try {
+      // Try the dedicated easConfig property
+      const easConfigProjectId = Constants?.easConfig?.projectId;
+      if (easConfigProjectId) {
+        return easConfigProjectId;
       }
 
-      // 2.4 Check extra.projectId (common in app.json/app.config.js configuration)
-      const extraProjectId = expoConstants.extra?.projectId;
-      if (extraProjectId) {
-        console.log('Using project ID from Constants.expoConfig.extra:', extraProjectId);
-        return extraProjectId;
-      }
+      // Access manifest/expoConfig object with fallback
+      const expoConstants = Constants.expoConfig || Constants.manifest;
+      if (expoConstants) {
+        // Check extra.eas.projectId
+        const easProjectId = expoConstants.extra?.eas?.projectId;
+        if (easProjectId) {
+          return easProjectId;
+        }
 
-      // 2.5 Check direct projectId property
-      const directProjectId = expoConstants.projectId;
-      if (directProjectId) {
-        console.log('Using project ID from Constants.expoConfig.projectId:', directProjectId);
-        return directProjectId;
+        // Check extra.projectId
+        const extraProjectId = expoConstants.extra?.projectId;
+        if (extraProjectId) {
+          return extraProjectId;
+        }
+
+        // Check direct projectId property
+        const directProjectId = expoConstants.projectId;
+        if (directProjectId) {
+          return directProjectId;
+        }
       }
+    } catch (error) {
+      console.error('Error accessing Constants for project ID:', error);
     }
-  } catch (error) {
-    console.error('Error accessing Constants for project ID:', error);
-  }
 
-  // 3. Last resort - use hardcoded project ID from eas.json
-  // This should match the projectId in eas.json
-  const hardcodedProjectId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-  console.warn('Using HARDCODED project ID as fallback. This is not recommended for production.');
-  return hardcodedProjectId;
-}
+    // Last resort - use hardcoded project ID from eas.json
+    return 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+  }
 
   // Create timeout promise to prevent hanging operations
   private static timeoutPromise<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> {
@@ -207,148 +140,14 @@ private static getProjectId(): string {
     ]).finally(() => clearTimeout(timeoutHandle));
   }
 
-private static isValidPushToken(token: string): boolean {
-  if (!token) return false;
-
-  // Expo push tokens follow a specific format
-  const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-  const isExpoToken = validExpoTokenFormat.test(token);
-
-  // These formats are detected but no longer considered valid
-  const isApnsToken = /^[a-f0-9]{64}$/.test(token);
-  const isFcmToken = /^[a-zA-Z0-9\-_:]{140,250}$/.test(token);
-
-  // Log token type for diagnostics
-  if (isExpoToken) {
-    this.debugLog('Token validated as Expo Push Token format');
-  } else if (isApnsToken) {
-    this.debugLog('INVALID: Detected raw APNs token format - will not be stored');
-  } else if (isFcmToken) {
-    this.debugLog('INVALID: Detected FCM token format - will not be stored');
-  } else {
-    this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
-  }
-
-  // CRITICAL CHANGE: Only return true for Expo tokens
-  return isExpoToken;
-}
-
-private static async migrateToExpoToken(oldToken: string, userId: string): Promise<string | null> {
-  this.debugLog(`Migrating non-Expo token to Expo format: ${oldToken.substring(0, 5)}...`);
-
-  try {
-    // 1. Delete the old token from database
-    await this.timeoutPromise(
-      supabase
-        .from('user_push_tokens')
-        .delete()
-        .eq('token', oldToken),
-      10000,
-      'deleteOldToken'
-    );
-
-    // 2. Clear token from secure storage
-    await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-    await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-
-    // 3. Force new Expo token registration
-    const projectId = this.getProjectId();
-
-    const tokenResponse = await this.timeoutPromise(
-      Notifications.getExpoPushTokenAsync({
-        projectId: projectId,
-      }),
-      15000,
-      'getNewExpoPushToken'
-    );
-
-    const newToken = tokenResponse.data;
-
-    // Verify we got a proper Expo token
+  // Validate token format - only accept Expo tokens
+  private static isValidExpoToken(token: string): boolean {
+    if (!token) return false;
     const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-    if (!validExpoTokenFormat.test(newToken)) {
-      throw new Error(`Received invalid Expo token format: ${newToken.substring(0, 10)}...`);
-    }
-
-    // 4. Save the new token
-    await this.saveTokenToStorage(newToken);
-
-    // 5. Register in database
-    const success = await this.updatePushToken(newToken, userId);
-
-    if (success) {
-      this.debugLog('Successfully migrated to Expo token format');
-      return newToken;
-    } else {
-      this.debugLog('Database registration of migrated token failed');
-      return newToken; // Still return token as it might work for push
-    }
-  } catch (error) {
-    this.recordError('migrateToExpoToken', error);
-    return null;
+    return validExpoTokenFormat.test(token);
   }
-}
 
-static async cleanupInvalidTokenFormats(userId: string): Promise<boolean> {
-  try {
-    this.debugLog(`Running cleanup for invalid token formats for user: ${userId}`);
-
-    // 1. Get all tokens for this user
-    const { data, error } = await this.timeoutPromise(
-      supabase
-        .from('user_push_tokens')
-        .select('token')
-        .eq('user_id', userId),
-      10000,
-      'getTokensForCleanup'
-    );
-
-    if (error || !data || data.length === 0) {
-      return true; // No tokens or error, nothing to clean
-    }
-
-    // 2. Filter for non-Expo format tokens
-    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-    const invalidTokens = data
-      .map((record: { token: any; }) => record.token)
-      .filter((token: string) => !validExpoTokenFormat.test(token));
-
-    if (invalidTokens.length === 0) {
-      this.debugLog('No invalid token formats found for cleanup');
-      return true;
-    }
-
-    this.debugLog(`Found ${invalidTokens.length} invalid tokens to clean up`);
-
-    // 3. Delete all invalid tokens
-    for (const token of invalidTokens) {
-      try {
-        const { error } = await this.timeoutPromise(
-          supabase
-            .from('user_push_tokens')
-            .delete()
-            .eq('token', token),
-          10000,
-          `deleteInvalidToken-${token.substring(0, 5)}`
-        );
-
-        if (error) {
-          this.recordError(`deleteInvalidToken-${token.substring(0, 5)}`, error);
-        } else {
-          this.debugLog(`Successfully removed invalid token: ${token.substring(0, 5)}...`);
-        }
-      } catch (tokenError) {
-        this.recordError(`deleteInvalidToken-${token.substring(0, 5)}`, tokenError);
-      }
-    }
-
-    return true;
-  } catch (error) {
-    this.recordError('cleanupInvalidTokenFormats', error);
-    return false;
-  }
-}
-  // Check if token needs refresh (older than 7 days)
+  // Check if token needs refresh (older than the refresh interval)
   private static async tokenNeedsRefresh(): Promise<boolean> {
     try {
       const timestampStr = await SecureStore.getItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
@@ -364,11 +163,16 @@ static async cleanupInvalidTokenFormats(userId: string): Promise<boolean> {
     }
   }
 
-  // Save token with timestamp
-  private static async saveTokenToStorage(token: string): Promise<void> {
+  // Save token details to secure storage
+  private static async saveTokenToStorage(token: string, tokenId?: string): Promise<void> {
     try {
       await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, token);
       await SecureStore.setItemAsync(PUSH_TOKEN_TIMESTAMP_KEY, Date.now().toString());
+
+      if (tokenId) {
+        await SecureStore.setItemAsync(PUSH_TOKEN_ID_KEY, tokenId);
+      }
+
       this.debugLog('Token saved to secure storage');
     } catch (error) {
       this.recordError('saveTokenToStorage', error);
@@ -376,450 +180,349 @@ static async cleanupInvalidTokenFormats(userId: string): Promise<boolean> {
     }
   }
 
-static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
-  // Skip for dev/simulator unless forced
-  if (!Device.isDevice && !FORCE_REGISTER_DEV) {
-    this.debugLog('Push notifications not available on simulator/emulator');
-    return null;
-  }
+  // Core verification function to check if a token exists and is valid
+  static async forceTokenVerification(userId: string): Promise<{
+    isValid: boolean;
+    tokenId?: string;
+    token?: string;
+  }> {
+    try {
+      this.debugLog(`Verifying push token for user ${userId}`);
 
-  // Skip during sign-out
-  if (isSigningOut) {
-    this.debugLog('User is signing out, skipping token registration');
-    return null;
-  }
+      // Get token from storage
+      const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      const storedTokenId = await SecureStore.getItemAsync(PUSH_TOKEN_ID_KEY);
 
-  this.debugLog(`Starting push notification registration for user: ${userId}`);
-  const startTime = Date.now();
+      if (!storedToken) {
+        this.debugLog('No token in storage, registration needed');
+        return { isValid: false };
+      }
 
-  try {
-  const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-     await this.cleanupInvalidTokenFormats(userId);
-    if (!forceRefresh) {
-      const existingToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      const needsRefresh = await this.tokenNeedsRefresh();
+      // Verify it's a proper Expo format token
+      if (!this.isValidExpoToken(storedToken)) {
+        this.debugLog('Token in storage is not in Expo format, registration needed');
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+        return { isValid: false };
+      }
 
-      // Add specific check for Expo token format
+      // If we have a token ID in storage, check that specific token
+      if (storedTokenId) {
+        const { data: tokenData, error: tokenError } = await this.timeoutPromise(
+          supabase
+            .from('user_push_tokens')
+            .select('id, token, active')
+            .eq('id', storedTokenId)
+            .single(),
+          DB_TIMEOUT,
+          'verifySpecificToken'
+        );
 
-      const isExpoToken = existingToken && validExpoTokenFormat.test(existingToken);
-
-      if (existingToken && this.isValidPushToken(existingToken) && !needsRefresh) {
-        // Only use existing token if it's in Expo format
-        if (isExpoToken) {
-          this.debugLog('Using existing valid Expo token:', existingToken);
-
-          // Verify token exists in database without blocking main flow
-          this.verifyTokenInDatabase(existingToken, userId).catch(error => {
-            this.recordError('verifyTokenInDatabase', error);
-          });
-
-          return existingToken;
-        } else {
-          this.debugLog('Stored token is not in Expo format, forcing refresh');
-          forceRefresh = true;
+        if (!tokenError && tokenData && tokenData.token === storedToken) {
+          this.debugLog('Found matching token by ID in database');
+          return {
+            isValid: true,
+            tokenId: tokenData.id,
+            token: tokenData.token
+          };
         }
       }
-    }
 
-    // 2. PERMISSIONS: Check and request with better error handling
-    let permissionStatus;
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      this.debugLog('Existing notification permission status:', existingStatus);
+      // Check if stored token exists in database
+      const { data: tokenByValue, error: valueError } = await this.timeoutPromise(
+        supabase
+          .from('user_push_tokens')
+          .select('id, token, active')
+          .eq('user_id', userId)
+          .eq('token', storedToken)
+          .single(),
+        DB_TIMEOUT,
+        'verifyTokenByValue'
+      );
 
-      if (existingStatus !== 'granted') {
-        this.debugLog('Requesting notification permissions...');
-        const { status } = await Notifications.requestPermissionsAsync();
-        permissionStatus = status;
-        this.debugLog('New permission status:', permissionStatus);
-      } else {
-        permissionStatus = existingStatus;
+      if (!valueError && tokenByValue) {
+        this.debugLog('Found matching token by value in database');
+        return {
+          isValid: true,
+          tokenId: tokenByValue.id,
+          token: tokenByValue.token
+        };
       }
-    } catch (permError) {
-      this.recordError('checkPermissions', permError);
-      return null;
-    }
 
-    if (permissionStatus !== 'granted') {
-      this.debugLog('Push notification permission not granted');
-      return null;
-    }
+      // Look for any active token for this user/device
+      const { data: activeTokens, error: activeError } = await this.timeoutPromise(
+        supabase
+          .from('user_push_tokens')
+          .select('id, token, active')
+          .eq('user_id', userId)
+          .eq('device_type', Platform.OS)
+          .eq('active', true)
+          .order('last_updated', { ascending: false })
+          .limit(1),
+        DB_TIMEOUT,
+        'findActiveToken'
+      );
 
-    // 3. ANDROID CHANNEL: Set up Android notification channel
-    if (Platform.OS === 'android') {
-      try {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#D55004',
-          sound: 'notification.wav',
+      if (!activeError && activeTokens && activeTokens.length > 0) {
+        const activeToken = activeTokens[0];
+        if (this.isValidExpoToken(activeToken.token)) {
+          this.debugLog('Found active token for user/device, reusing');
+
+          // Update local storage with this token
+          await this.saveTokenToStorage(activeToken.token, activeToken.id);
+
+          return {
+            isValid: true,
+            tokenId: activeToken.id,
+            token: activeToken.token
+          };
+        }
+      }
+
+      // No valid token found
+      this.debugLog('No valid token found in database, registration needed');
+      return { isValid: false };
+    } catch (error) {
+      this.recordError('forceTokenVerification', error);
+      return { isValid: false };
+    }
+  }
+
+  // Update user's token status
+  static async updateTokenStatus(userId: string, token: string, status: { signed_in?: boolean, active?: boolean }): Promise<boolean> {
+    try {
+      if (!token || !userId) {
+        return false;
+      }
+
+      const updates: any = {
+        last_updated: new Date().toISOString(),
+        ...status
+      };
+
+      const { error } = await this.timeoutPromise(
+        supabase
+          .from('user_push_tokens')
+          .update(updates)
+          .eq('user_id', userId)
+          .eq('token', token),
+        DB_TIMEOUT,
+        'updateTokenStatus'
+      );
+
+      if (error) {
+        this.recordError('updateTokenStatus', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      this.recordError('updateTokenStatus', error);
+      return false;
+    }
+  }
+
+  // Marks user as signed out by updating the database
+  static async markTokenAsSignedOut(userId: string): Promise<boolean> {
+    try {
+      this.debugLog(`Marking tokens as signed out for user ${userId}`);
+
+      // Get token from storage
+      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+
+      if (token && this.isValidExpoToken(token)) {
+        // Update token status in database
+        const success = await this.updateTokenStatus(userId, token, {
+          signed_in: false,
+          active: true // Keep it active for future push notifications
         });
-        this.debugLog('Android notification channel set up successfully');
-      } catch (channelError) {
-        this.recordError('setupAndroidChannel', channelError);
-        // Continue - non-fatal error
+
+        if (success) {
+          this.debugLog('Successfully marked token as signed out');
+        } else {
+          this.debugLog('Failed to update token status in database');
+        }
       }
+
+      // Clear token from secure storage
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+
+      return true;
+    } catch (error) {
+      this.recordError('markTokenAsSignedOut', error);
+      return false;
+    }
+  }
+
+  // Register for push notifications and get token
+  static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
+    if (!Device.isDevice && !FORCE_REGISTER_DEV) {
+      this.debugLog('Push notifications not available on simulator/emulator');
+      return null;
     }
 
-    // 4. TOKEN GENERATION: Get project ID with fallback mechanisms
-    const projectId = this.getProjectId();
-    this.debugLog('Using project ID for push notifications:', projectId);
+    if (isSigningOut) {
+      this.debugLog('User is signing out, skipping token registration');
+      return null;
+    }
 
-    // 5. Get push token with error handling
-    let token: string | null = null;
-    let tokenError: any = null;
+    this.debugLog(`Starting push notification registration for user: ${userId}`);
 
     try {
-      this.debugLog('Getting Expo push token...');
+      // 1. Check for existing valid token in database first
+      if (!forceRefresh) {
+        const verification = await this.forceTokenVerification(userId);
+
+        if (verification.isValid && verification.token) {
+          this.debugLog('Using existing verified token from database');
+
+          // Mark as signed in and active
+          await this.updateTokenStatus(userId, verification.token, {
+            signed_in: true,
+            active: true
+          });
+
+          // Update local storage
+          await this.saveTokenToStorage(verification.token, verification.tokenId);
+
+          return verification.token;
+        }
+      }
+
+      // 2. Request permissions
+      let permissionStatus;
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          permissionStatus = status;
+        } else {
+          permissionStatus = existingStatus;
+        }
+      } catch (permError) {
+        this.recordError('checkPermissions', permError);
+        return null;
+      }
+
+      if (permissionStatus !== 'granted') {
+        this.debugLog('Push notification permission not granted');
+        return null;
+      }
+
+      // 3. Set up Android notification channel
+      if (Platform.OS === 'android') {
+        try {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#D55004',
+            sound: 'notification.wav',
+          });
+        } catch (channelError) {
+          this.recordError('setupAndroidChannel', channelError);
+        }
+      }
+
+      // 4. Get project ID
+      const projectId = this.getProjectId();
+
+      // 5. Get new Expo push token
+      this.debugLog('Getting new Expo push token...');
       const tokenResponse = await this.timeoutPromise(
         Notifications.getExpoPushTokenAsync({
           projectId: projectId,
         }),
-        15000, // 15 second timeout
+        15000,
         'getExpoPushTokenAsync'
       );
 
-      token = tokenResponse.data;
+      const token = tokenResponse.data;
 
-      // Enhanced token format validation
-      const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-      if (!validExpoTokenFormat.test(token)) {
-        this.debugLog(`WARNING: Received token is not in Expo format: ${token?.substring(0, 10)}...`);
-
-        // Attempt to recover proper Expo token format
-        this.debugLog('Attempting to recover proper Expo token format...');
-        const recoveryResponse = await this.timeoutPromise(
-          Notifications.getExpoPushTokenAsync({
-            projectId: projectId,
-          }),
-          15000,
-          'getExpoPushTokenRecovery'
-        );
-
-        const recoveredToken = recoveryResponse.data;
-        if (validExpoTokenFormat.test(recoveredToken)) {
-          this.debugLog('Successfully recovered proper Expo token format');
-          token = recoveredToken;
-        } else {
-          throw new Error(`Unable to obtain token in Expo format, received: ${token?.substring(0, 10)}...`);
-        }
+      // Verify token format
+      if (!this.isValidExpoToken(token)) {
+        throw new Error(`Received invalid token format: ${token}`);
       }
 
-      this.debugLog('Successfully received push token in Expo format');
-
-      // Immediately save token to SecureStore for resilience
+      // Save to storage immediately
       await this.saveTokenToStorage(token);
-    } catch (error) {
-      tokenError = error;
-      this.recordError('getExpoPushToken', error);
 
-      // Try to recover token from storage as fallback
-      try {
-        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-        if (storedToken && validExpoTokenFormat.test(storedToken)) {
-          this.debugLog('Using previously stored Expo token as fallback:', storedToken);
-          token = storedToken;
-        } else if (storedToken && this.isValidPushToken(storedToken)) {
-          this.debugLog('WARNING: Stored token is not in Expo format, token may not work properly');
-          // Still use it as a last resort, but log the warning
-          token = storedToken;
-        }
-      } catch (storageError) {
-        this.recordError('getStoredToken', storageError);
-      }
-    }
+      // 6. Register in database
+      const { data: tokensData, error: tokensError } = await this.timeoutPromise(
+        supabase
+          .from('user_push_tokens')
+          .select('id, token')
+          .eq('user_id', userId)
+          .eq('token', token),
+        DB_TIMEOUT,
+        'checkExistingToken'
+      );
 
-    if (!token) {
-      this.debugLog('Failed to get push token');
-      return null;
-    }
+      let tokenId;
 
-    // 6. STORE TOKEN: Register in database with enhanced retry logic
-    let registered = false;
-    const maxAttempts = MAX_RETRIES;
+      // If token already exists, update it
+      if (!tokensError && tokensData && tokensData.length > 0) {
+        tokenId = tokensData[0].id;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        this.debugLog(`Token database registration attempt ${attempt}/${maxAttempts}`);
-
-        // Use timeout to prevent hanging
-        registered = await this.timeoutPromise(
-          this.updatePushToken(token, userId),
-          DB_OPERATION_TIMEOUT,
-          `updatePushToken-attempt-${attempt}`
-        );
-
-        if (registered) {
-          this.debugLog('Successfully registered token in database');
-
-          // Record successful registration
-          try {
-            await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
-          } catch (e) {
-            // Non-critical error
-          }
-
-          break;
-        }
-      } catch (dbError) {
-        this.recordError(`tokenRegistration-attempt-${attempt}`, dbError);
-
-        if (attempt === maxAttempts) {
-          // Last attempt failed - will return token anyway but log the issue
-          this.debugLog('All database registration attempts failed');
-
-          // Record for future diagnostics
-          try {
-            await SecureStore.setItemAsync(
-              PUSH_TOKEN_REGISTRATION_ATTEMPTS,
-              JSON.stringify({
-                attempts: maxAttempts,
-                lastError: dbError?.message || String(dbError),
-                timestamp: new Date().toISOString()
-              })
-            );
-          } catch (e) {
-            // Non-critical error
-          }
-        } else {
-          // Exponential backoff with jitter for retries
-          const delay = Math.min(1000 * Math.pow(2, attempt), 8000) + Math.random() * 1000;
-          this.debugLog(`Retrying after ${Math.round(delay)}ms`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-
-    // 7. PERFORMANCE LOGGING: Log completion time
-    const duration = Date.now() - startTime;
-    this.debugLog(`Token registration completed in ${duration}ms, database registered: ${registered}`);
-
-    // Even if database registration fails, return the token
-    // This allows notifications to work even if database operation fails
-    return token;
-  } catch (error) {
-    this.recordError('registerForPushNotificationsAsync', error);
-    return null;
-  }
-}
-
-  // Verify token exists in database and add if missing
-private static async verifyTokenInDatabase(token: string, userId: string): Promise<boolean> {
-  try {
-    // Skip if signing out
-    if (isSigningOut) return false;
-
-    this.debugLog(`Verifying token in database for user ${userId}`);
-
-    // Check if it's an Expo token format - STRICT ENFORCEMENT
-    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-    if (!validExpoTokenFormat.test(token)) {
-      this.debugLog('Non-Expo token format detected during verification, triggering migration');
-      const newToken = await this.migrateToExpoToken(token, userId);
-      if (newToken) {
-        return true; // Migration successful
-      }
-      return false; // Migration failed, need new registration
-    }
-
-    // Clean up any existing invalid formats
-    await this.cleanupInvalidTokenFormats(userId);
-
-    // Check if token exists in database
-    const { data, error } = await this.timeoutPromise(
-      supabase
-        .from('user_push_tokens')
-        .select('token')
-        .eq('user_id', userId)
-        .eq('token', token)
-        .single(),
-      10000,
-      'verifyTokenQuery'
-    );
-
-    // Token not in database, add it
-    if (error || !data) {
-      this.debugLog('Token not found in database, adding it');
-      return await this.updatePushToken(token, userId);
-    }
-
-    // Token exists, update timestamp
-    this.debugLog('Token verified in database, updating timestamp');
-    const { error: updateError } = await this.timeoutPromise(
-      supabase
-        .from('user_push_tokens')
-        .update({ last_updated: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('token', token),
-      10000,
-      'tokenTimestampUpdate'
-    );
-
-    if (updateError) {
-      this.recordError('updateTokenTimestamp', updateError);
-    }
-
-    return true;
-  } catch (error) {
-    this.recordError('verifyTokenInDatabase', error);
-    return false;
-  }
-}
-
-  // Update push token in database with improved error handling
-  static async updatePushToken(token: string, userId: string): Promise<boolean> {
-    if (!token || !userId) {
-      this.debugLog('Invalid token or userId for updatePushToken');
-      return false;
-    }
-
-
-    if (!this.isValidPushToken(token)) {
-      this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
-      return false;
-    }
-
-    if (isSigningOut) {
-      this.debugLog('User is signing out, skipping token update');
-      return false;
-    }
-
-    this.debugLog(`Updating token for user ${userId}`);
-
-    try {
-      // Try to ensure user exists first for enhanced reliability
-      try {
-        const { data: userData, error: userError } = await this.timeoutPromise(
-          supabase
-            .from('users')
-            .select('id')
-            .eq('id', userId)
-            .single(),
-          10000,
-          'checkUserExists'
-        );
-
-        if (userError || !userData) {
-          this.debugLog('User not found in database, token registration will fail');
-          return false;
-        }
-      } catch (userCheckError) {
-        this.recordError('checkUserExists', userCheckError);
-        // Continue anyway - user might exist
-      }
-
-    await this.cleanupInvalidTokenFormats(userId);
-
-      try {
-        await this.timeoutPromise(
+        const { error: updateError } = await this.timeoutPromise(
           supabase
             .from('user_push_tokens')
-            .delete()
-            .eq('token', token),
-          10000,
-          'deleteExistingToken'
+            .update({
+              signed_in: true,
+              active: true,
+              last_updated: new Date().toISOString()
+            })
+            .eq('id', tokenId),
+          DB_TIMEOUT,
+          'updateExistingToken'
         );
 
-        this.debugLog('Cleaned up any existing token records');
-      } catch (cleanupError) {
-        this.recordError('cleanupExistingTokens', cleanupError);
-        // Continue anyway - not critical
+        if (updateError) {
+          this.recordError('updateExistingToken', updateError);
+        } else {
+          this.debugLog('Updated existing token record');
+        }
       }
+      // Otherwise insert new token
+      else {
+        const { data: insertData, error: insertError } = await this.timeoutPromise(
+          supabase
+            .from('user_push_tokens')
+            .insert({
+              user_id: userId,
+              token,
+              device_type: Platform.OS,
+              signed_in: true,
+              active: true,
+              last_updated: new Date().toISOString()
+            })
+            .select('id'),
+          DB_TIMEOUT,
+          'insertNewToken'
+        );
 
-      // Step 2: Insert new token with retry
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const { error } = await this.timeoutPromise(
-            supabase
-              .from('user_push_tokens')
-              .insert({
-                user_id: userId,
-                token,
-                device_type: Platform.OS,
-                last_updated: new Date().toISOString()
-              }),
-            10000,
-            `insertNewToken-attempt-${attempt}`
-          );
-
-          if (!error) {
-            this.debugLog('Push token successfully inserted in database');
-            return true;
-          }
-
-          // If insert fails with foreign key error or duplicate
-          if (error.code === '23503' || error.code === '23505') {
-            // Try upsert as fallback
-            this.debugLog('Insert failed, trying upsert...');
-            const { error: upsertError } = await this.timeoutPromise(
-              supabase
-                .from('user_push_tokens')
-                .upsert({
-                  user_id: userId,
-                  token,
-                  device_type: Platform.OS,
-                  last_updated: new Date().toISOString()
-                }, {
-                  onConflict: 'token',
-                }),
-              10000,
-              'upsertTokenFallback'
-            );
-
-            if (!upsertError) {
-              this.debugLog('Push token successfully upserted in database');
-              return true;
-            }
-
-            this.recordError('upsertTokenFallback', upsertError);
-          } else {
-            this.recordError(`insertToken-attempt-${attempt}`, error);
-          }
-
-          // If not the last attempt, wait before retrying
-          if (attempt < 3) {
-            const delay = 1000 * Math.pow(2, attempt);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        } catch (insertError) {
-          this.recordError(`insertToken-attempt-${attempt}`, insertError);
-
-          // If not the last attempt, wait before retrying
-          if (attempt < 3) {
-            const delay = 1000 * Math.pow(2, attempt);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
+        if (insertError) {
+          this.recordError('insertNewToken', insertError);
+        } else if (insertData && insertData.length > 0) {
+          tokenId = insertData[0].id;
+          this.debugLog('Inserted new token record');
         }
       }
 
-      // All attempts failed, last resort: try raw SQL insert
-      try {
-        const { error: rawError } = await this.timeoutPromise(
-          supabase.rpc('force_insert_token', {
-            p_user_id: userId,
-            p_token: token,
-            p_device_type: Platform.OS
-          }),
-          10000,
-          'forceInsertTokenRPC'
-        );
-
-        if (!rawError) {
-          this.debugLog('Push token successfully inserted using RPC');
-          return true;
-        }
-
-        this.recordError('forceInsertTokenRPC', rawError);
-      } catch (rpcError) {
-        this.recordError('forceInsertTokenRPC', rpcError);
+      // Save token ID to storage if available
+      if (tokenId) {
+        await SecureStore.setItemAsync(PUSH_TOKEN_ID_KEY, tokenId);
       }
 
-      return false;
+      this.debugLog('Token registration completed successfully');
+      return token;
     } catch (error) {
-      this.recordError('updatePushToken', error);
-      return false;
+      this.recordError('registerForPushNotificationsAsync', error);
+      return null;
     }
   }
 
@@ -829,7 +532,6 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
       this.debugLog('Handling notification response:', response.notification.request.identifier);
 
       const data = response.notification.request.content.data as NotificationData;
-      this.debugLog('Notification data:', data);
 
       if (data?.screen) {
         return {
@@ -868,7 +570,6 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
   static async getPermissions() {
     try {
       const permissions = await Notifications.getPermissionsAsync();
-      this.debugLog('Current notification permissions:', permissions);
       return permissions;
     } catch (error) {
       this.recordError('getPermissions', error);
@@ -878,9 +579,7 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
 
   static async requestPermissions() {
     try {
-      this.debugLog('Requesting notification permissions...');
       const permissions = await Notifications.requestPermissionsAsync();
-      this.debugLog('Permission request result:', permissions);
       return permissions;
     } catch (error) {
       this.recordError('requestPermissions', error);
@@ -978,7 +677,7 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
   // Get unread count
   static async getUnreadCount(userId: string) {
     try {
-      const { data, error, count } = await supabase
+      const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact' })
         .eq('user_id', userId)
@@ -992,166 +691,44 @@ private static async verifyTokenInDatabase(token: string, userId: string): Promi
     }
   }
 
-  // Improved cleanup function with robust error handling
-// Replace the existing cleanupPushToken method in NotificationService
-static async cleanupPushToken(userId?: string) {
-  this.debugLog('Starting comprehensive push token cleanup process');
+  // Improved cleanup function that marks tokens as signed out instead of deleting
+  static async cleanupPushToken(userId: string): Promise<boolean> {
+    this.debugLog('Starting push token cleanup process for sign out');
 
-  try {
-    // Get token from secure storage
-    const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-
-    // Create a cleanup task list for more reliable cleanup
-    const cleanupTasks = [];
-
-    // 1. Database cleanup task - add to task list
-    if (token) {
-      this.debugLog('Found push token to clean up');
-
-      if (userId) {
-        // If we have userId, create a specific cleanup task
-        cleanupTasks.push(async () => {
-          try {
-            let success = false;
-            for (let retryCount = 0; retryCount < 3; retryCount++) {
-              try {
-                const { error } = await this.timeoutPromise(
-                  supabase
-                    .from('user_push_tokens')
-                    .delete()
-                    .eq('user_id', userId)
-                    .eq('token', token),
-                  10000,
-                  `deleteUserToken-attempt-${retryCount + 1}`
-                );
-
-                if (!error) {
-                  success = true;
-                  this.debugLog('Successfully removed user push token from database');
-                  break;
-                }
-
-                if (retryCount < 2) {
-                  const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
-                  await new Promise(resolve => setTimeout(resolve, delay));
-                }
-              } catch (error) {
-                this.recordError(`deleteUserToken-attempt-${retryCount + 1}`, error);
-              }
-            }
-
-            // As a fallback, try removing by token only
-            if (!success) {
-              try {
-                await this.timeoutPromise(
-                  supabase
-                    .from('user_push_tokens')
-                    .delete()
-                    .eq('token', token),
-                  10000,
-                  'fallbackTokenDelete'
-                );
-
-                this.debugLog('Token-only deletion completed as fallback');
-              } catch (error) {
-                this.recordError('fallbackTokenDelete', error);
-              }
-            }
-          } catch (error) {
-            this.recordError('databaseCleanupTask', error);
-          }
-        });
-      } else {
-        // If no userId, create a token-only cleanup task
-        cleanupTasks.push(async () => {
-          try {
-            for (let retryCount = 0; retryCount < 3; retryCount++) {
-              try {
-                const { error } = await this.timeoutPromise(
-                  supabase
-                    .from('user_push_tokens')
-                    .delete()
-                    .eq('token', token),
-                  10000,
-                  `deleteToken-attempt-${retryCount + 1}`
-                );
-
-                if (!error) {
-                  this.debugLog('Successfully removed token from database');
-                  break;
-                }
-
-                if (retryCount < 2) {
-                  const delay = Math.pow(2, retryCount + 1) * 500 + Math.random() * 200;
-                  await new Promise(resolve => setTimeout(resolve, delay));
-                }
-              } catch (error) {
-                this.recordError(`deleteToken-attempt-${retryCount + 1}`, error);
-              }
-            }
-          } catch (error) {
-            this.recordError('tokenCleanupTask', error);
-          }
-        });
-      }
-    }
-
-    // 2. Always add local storage cleanup task
-    cleanupTasks.push(async () => {
-      try {
-        // IMPORTANT: The key list must be comprehensive to ensure all token data is removed
-        const keysToDelete = [
-          PUSH_TOKEN_STORAGE_KEY,
-          PUSH_TOKEN_TIMESTAMP_KEY,
-          PUSH_TOKEN_REGISTRATION_ATTEMPTS,
-          'pushTokenRefreshTime',
-          'notificationRegistrationState',
-          REGISTRATION_STATE_KEY
-        ];
-
-        for (const key of keysToDelete) {
-          try {
-            await SecureStore.deleteItemAsync(key);
-            this.debugLog(`Deleted key from storage: ${key}`);
-          } catch (keyError) {
-            this.recordError(`deleteKey-${key}`, keyError);
-          }
-        }
-
-        this.debugLog('Completed local storage token cleanup');
-      } catch (error) {
-        this.recordError('localStorageCleanupTask', error);
-      }
-    });
-
-    // Execute all cleanup tasks in parallel
-    await Promise.all(cleanupTasks.map(task => task()));
-
-    this.debugLog('Push token cleanup process completed successfully');
-    return true;
-  } catch (error) {
-    this.recordError('cleanupPushToken', error);
-
-    // Final emergency cleanup attempt
     try {
+      // Mark token as signed out in database instead of deleting
+      const success = await this.markTokenAsSignedOut(userId);
+
+      // Clean up local storage
       const keysToDelete = [
         PUSH_TOKEN_STORAGE_KEY,
         PUSH_TOKEN_TIMESTAMP_KEY,
-        PUSH_TOKEN_REGISTRATION_ATTEMPTS,
-        'pushTokenRefreshTime',
-        'notificationRegistrationState',
-        REGISTRATION_STATE_KEY,
+        PUSH_TOKEN_ID_KEY
       ];
 
-      await Promise.all(keysToDelete.map(key => SecureStore.deleteItemAsync(key).catch(() => {})));
-      this.debugLog('Emergency storage cleanup completed');
-    } catch (finalError) {
-      this.recordError('emergencyCleanup', finalError);
-    }
+      await Promise.all(keysToDelete.map(key =>
+        SecureStore.deleteItemAsync(key).catch(error =>
+          this.recordError(`deleteStorageKey-${key}`, error)
+        )
+      ));
 
-    return false;
+      this.debugLog('Token cleanup process completed successfully');
+      return success;
+    } catch (error) {
+      this.recordError('cleanupPushToken', error);
+
+      // Emergency local storage cleanup
+      try {
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+        await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+      } catch (storageError) {
+        this.recordError('emergencyStorageCleanup', storageError);
+      }
+
+      return false;
+    }
   }
-}
 
   // Get diagnostic information for debugging
   static async getDiagnostics(): Promise<any> {
@@ -1167,6 +744,7 @@ static async cleanupPushToken(userId?: string) {
         },
         tokens: {
           hasStoredToken: false,
+          tokenId: null,
           tokenAge: null,
           tokenFormat: null
         },
@@ -1176,27 +754,23 @@ static async cleanupPushToken(userId?: string) {
 
       // Get token information
       const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      const tokenId = await SecureStore.getItemAsync(PUSH_TOKEN_ID_KEY);
       const timestamp = await SecureStore.getItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-      const attempts = await SecureStore.getItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
 
       if (token) {
         diagnostics.tokens.hasStoredToken = true;
-        diagnostics.tokens.tokenFormat = this.isValidPushToken(token);
+        diagnostics.tokens.tokenFormat = this.isValidExpoToken(token);
         diagnostics.tokens.tokenPreview = token.substring(0, 5) + '...' + token.substring(token.length - 5);
+      }
+
+      if (tokenId) {
+        diagnostics.tokens.tokenId = tokenId;
       }
 
       if (timestamp) {
         const tokenDate = new Date(parseInt(timestamp, 10));
         diagnostics.tokens.tokenAge = Math.floor((Date.now() - parseInt(timestamp, 10)) / (1000 * 60 * 60 * 24));
         diagnostics.tokens.tokenTimestamp = tokenDate.toISOString();
-      }
-
-      if (attempts) {
-        try {
-          diagnostics.tokens.registrationAttempts = JSON.parse(attempts);
-        } catch (e) {
-          diagnostics.tokens.registrationAttempts = attempts;
-        }
       }
 
       // Get permission status

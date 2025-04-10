@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch users with their timezones and valid push tokens
+    // MODIFIED: Added conditions for signed_in and active tokens
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select(`
@@ -68,7 +69,9 @@ Deno.serve(async (req) => {
         timezone,
         user_push_tokens!inner(token)
       `)
-      .neq('user_push_tokens.token', null);
+      .neq('user_push_tokens.token', null)
+      .eq('user_push_tokens.signed_in', true)
+      .eq('user_push_tokens.active', true);
 
     if (usersError) throw usersError;
 
