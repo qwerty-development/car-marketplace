@@ -115,65 +115,82 @@ export default function UserProfileAndSupportPage() {
   }, [user?.id, isGuest]);
 
   // Function to toggle push notification status
-  const togglePushNotifications = async (enabled: boolean) => {
-    if (!user?.id || isGuest) {
-      Alert.alert(
-        "Feature Not Available",
-        "Please sign in to manage notifications.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn }
-        ]
-      );
+// Function to toggle push notification status
+const togglePushNotifications = async (enabled: boolean) => {
+  if (!user?.id || isGuest) {
+    Alert.alert(
+      "Feature Not Available",
+      "Please sign in to manage notifications.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Sign In", onPress: handleSignIn }
+      ]
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+    
+    // Update local state immediately for responsive UI
+    setPushNotificationsEnabled(enabled);
+    setNotificationSettings(prev => ({
+      ...prev,
+      pushNotifications: enabled
+    }));
+
+    // Get the token from secure storage
+    const token = await SecureStore.getItemAsync('expoPushToken');
+
+    if (!token) {
+      console.log('No push token found in secure storage');
+      Alert.alert('Error', 'Push notification token not found. Please restart the app.');
       return;
     }
 
-    try {
-      setLoading(true);
-      setPushNotificationsEnabled(enabled);
+    console.log(`Updating token status to: ${enabled} for token: ${token.substring(0, 10)}...`);
 
-      // Also update the notification settings state
-      setNotificationSettings(prev => ({
-        ...prev,
-        pushNotifications: enabled
-      }));
+    // Update token active status in database
+    const { data, error } = await supabase
+      .from('user_push_tokens')
+      .update({ active: enabled })
+      .eq('user_id', user.id)
+      .eq('token', token);
 
-      // Get the token from storage
-      const token = await SecureStore.getItemAsync('expoPushToken');
-
-      if (!token) {
-        console.log('No token found when toggling status');
-        return;
-      }
-
-      // Update token active status in database
-      const { error } = await supabase
-        .from('user_push_tokens')
-        .update({ active: enabled })
-        .eq('user_id', user.id)
-        .eq('token', token);
-
-      if (error) {
-        console.error('Error updating token status:', error);
-        setPushNotificationsEnabled(!enabled); // Revert UI state on error
-        setNotificationSettings(prev => ({
-          ...prev,
-          pushNotifications: !enabled
-        }));
-        Alert.alert('Error', 'Failed to update notification settings');
-      }
-    } catch (error) {
+    if (error) {
       console.error('Error updating token status:', error);
-      setPushNotificationsEnabled(!enabled); // Revert UI state on error
+      
+      // Revert UI state on error
+      setPushNotificationsEnabled(!enabled);
       setNotificationSettings(prev => ({
         ...prev,
         pushNotifications: !enabled
       }));
-      Alert.alert('Error', 'Failed to update notification settings');
-    } finally {
-      setLoading(false);
+      
+      Alert.alert('Error', 'Failed to update notification settings. Please try again.');
+    } else {
+      console.log('Successfully updated push notification status');
+      
+      // On success, refresh the notifications count if needed
+      if (enabled) {
+        refreshNotifications();
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error in togglePushNotifications:', error);
+    
+    // Revert UI state on error
+    setPushNotificationsEnabled(!enabled);
+    setNotificationSettings(prev => ({
+      ...prev,
+      pushNotifications: !enabled
+    }));
+    
+    Alert.alert('Error', 'An unexpected error occurred while updating notification settings.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (user && profile && !isGuest) {
@@ -354,57 +371,64 @@ export default function UserProfileAndSupportPage() {
     }
   };
 
+  const handleSignOut = async (): Promise<void> => {
+    // Confirm with user before signing out
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Show overlay during sign out
+              setShowSignOutOverlay(true);
 
-const handleSignOut = async (): Promise<void> => {
-  // Confirm with user before signing out
-  Alert.alert(
-    "Sign Out",
-    "Are you sure you want to sign out?",
-    [
-      {
-        text: "Cancel",
-        style: "cancel"
-      },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // Show overlay during sign out
-            setShowSignOutOverlay(true);
+              if (isGuest) {
+                // Handle guest user sign out with coordination
+                await coordinateSignOut(router, async () => {
+                  // Clean up guest mode
+                  await clearGuestMode();
+                });
+              } else {
+                // Handle regular user sign out with coordination
+                await coordinateSignOut(router, async () => {
+                  // First clean up push token (this now marks the token as signed_in: false instead of deleting)
+                  try {
+                    await cleanupPushToken();
+                  } catch (tokenError) {
+                    console.error("Token cleanup error:", tokenError);
+                    // Continue with sign out even if token cleanup fails
+                  }
 
-            if (isGuest) {
-              // Handle guest user sign out with coordination
-              await coordinateSignOut(router, async () => {
-                // Clean up guest mode
-                await clearGuestMode();
-              });
-            } else {
-              // Handle regular user sign out with coordination
-              // SIMPLIFIED: Only call signOut which now properly handles token status
-              await coordinateSignOut(router, async () => {
-                await signOut();
-              });
+                  // Then perform the actual sign out
+                  await signOut();
+                });
+              }
+            } catch (error) {
+              console.error("Error during sign out:", error);
+
+              // Force navigation to sign-in on failure
+              router.replace('/(auth)/sign-in');
+
+              Alert.alert(
+                "Sign Out Issue",
+                "There was a problem signing out, but we've redirected you to the sign-in screen."
+              );
+            } finally {
+              // Hide overlay
+              setShowSignOutOverlay(false);
             }
-          } catch (error) {
-            console.error("Error during sign out:", error);
-
-            // Force navigation to sign-in on failure
-            router.replace('/(auth)/sign-in');
-
-            Alert.alert(
-              "Sign Out Issue",
-              "There was a problem signing out, but we've redirected you to the sign-in screen."
-            );
-          } finally {
-            // Hide overlay
-            setShowSignOutOverlay(false);
           }
         }
-      }
-    ]
-  );
-};
+      ]
+    );
+  };
 
   // Handler for when guest user wants to sign in
   const handleSignIn = async (): Promise<void> => {
@@ -869,135 +893,156 @@ const handleSignOut = async (): Promise<void> => {
         </Modal>
 
         {/* Notification Settings Modal - Updated with functional push notification toggle */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={isNotificationSettingsVisible}
-          onRequestClose={() => setIsNotificationSettingsVisible(false)}
+{/* Notification Settings Modal - Updated with functional push notification toggle */}
+<Modal
+  animationType="slide"
+  transparent={true}
+  visible={isNotificationSettingsVisible}
+  onRequestClose={() => setIsNotificationSettingsVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <TouchableWithoutFeedback onPress={() => closeModal(setIsNotificationSettingsVisible)}>
+      <View style={styles.modalBackground} />
+    </TouchableWithoutFeedback>
+    <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+      <View className="flex-row justify-between items-center mb-6">
+        <Text
+          className={`text-xl font-semibold ${
+            isDarkMode ? "text-white" : "text-black"
+          }`}
         >
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => closeModal(setIsNotificationSettingsVisible)}>
-              <View style={styles.modalBackground} />
-            </TouchableWithoutFeedback>
-            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
-              <View className="flex-row justify-between items-center mb-6">
-                <Text
-                  className={`text-xl font-semibold ${
-                    isDarkMode ? "text-white" : "text-black"
-                  }`}
-                >
-                  Notification Settings
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsNotificationSettingsVisible(false)}
-                >
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
-                </TouchableOpacity>
-              </View>
+          Notification Settings
+        </Text>
+        <TouchableOpacity
+          onPress={() => setIsNotificationSettingsVisible(false)}
+        >
+          <Ionicons
+            name="close"
+            size={24}
+            color={isDarkMode ? "#fff" : "#000"}
+          />
+        </TouchableOpacity>
+      </View>
 
-              {/* Push Notification Toggle - Controls token active status */}
-              <TouchableOpacity
-                onPress={() => togglePushNotifications(!pushNotificationsEnabled)}
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                    p-4 rounded-xl flex-row items-center justify-between mb-4`}
-              >
-                <View className="flex-row items-center">
-                  <Ionicons
-                    name={pushNotificationsEnabled ? "notifications" : "notifications-off"}
-                    size={24}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
-                  <Text
-                    className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-                  >
-                    Push Notifications
-                  </Text>
-                </View>
-                <View
-                  className={`w-6 h-6 rounded-full ${
-                    pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
-                  }`}
-                />
-              </TouchableOpacity>
+      {/* Push Notification Toggle - Controls token active status */}
+      <TouchableOpacity
+        onPress={() => togglePushNotifications(!pushNotificationsEnabled)}
+        className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+            p-4 rounded-xl flex-row items-center justify-between mb-4`}
+        disabled={loading}
+      >
+        <View className="flex-row items-center">
+          <Ionicons
+            name={pushNotificationsEnabled ? "notifications" : "notifications-off"}
+            size={24}
+            color={pushNotificationsEnabled ? "#22c55e" : (isDarkMode ? "#fff" : "#000")}
+          />
+          <Text
+            className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+          >
+            Push Notifications
+          </Text>
+        </View>
+        <View
+          className={`w-12 h-6 rounded-full flex justify-center ${
+            pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
+          }`}
+        >
+          <View 
+            className={`w-5 h-5 rounded-full bg-white shadow-md ${
+              pushNotificationsEnabled ? "ml-6" : "ml-1"
+            }`} 
+          />
+        </View>
+      </TouchableOpacity>
 
-              {/* Explanation text */}
-              <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm mt-2 mb-4`}>
-                {pushNotificationsEnabled
-                  ? "You will receive push notifications about car listings, price changes, and other updates."
-                  : "You have disabled push notifications. You won't receive alerts about new listings or updates."}
-              </Text>
+      {/* Explanation text */}
+      <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm mt-2 mb-4`}>
+        {pushNotificationsEnabled
+          ? "You will receive push notifications about car listings, price changes, and other updates."
+          : "You have disabled push notifications. You won't receive alerts about new listings or updates."}
+      </Text>
 
-              {loading && (
-                <View className="items-center py-2">
-                  <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm`}>
-                    Updating settings...
-                  </Text>
-                </View>
-              )}
+      {loading && (
+        <View className="items-center py-2">
+          <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm flex-row items-center`}>
+            <Ionicons name="sync" size={16} color={isDarkMode ? "#fff" : "#000"} className="animate-spin mr-2" />
+            Updating settings...
+          </Text>
+        </View>
+      )}
 
-              {/* Additional notification options can remain but separated */}
-              <View className="mt-6">
-                <Text className={`${isDarkMode ? "text-white/90" : "text-gray-800"} font-semibold mb-4`}>
-                  Other Notification Types
-                </Text>
+      {/* Additional notification options can remain but separated */}
+      <View className="mt-6">
+        <Text className={`${isDarkMode ? "text-white/90" : "text-gray-800"} font-semibold mb-4`}>
+          Other Notification Types
+        </Text>
 
-                {/* Email notifications toggle */}
-                <TouchableOpacity
-                  onPress={() => toggleNotification('emailNotifications')}
-                  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                      p-4 rounded-xl flex-row items-center justify-between mb-4`}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={notificationSettings.emailNotifications ? "mail" : "mail-outline"}
-                      size={24}
-                      color={isDarkMode ? "#fff" : "#000"}
-                    />
-                    <Text
-                      className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-                    >
-                      Email Notifications
-                    </Text>
-                  </View>
-                  <View
-                    className={`w-6 h-6 rounded-full ${
-                      notificationSettings.emailNotifications ? "bg-green-500" : "bg-gray-400"
-                    }`}
-                  />
-                </TouchableOpacity>
-
-                {/* Marketing updates toggle */}
-                <TouchableOpacity
-                  onPress={() => toggleNotification('marketingUpdates')}
-                  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                      p-4 rounded-xl flex-row items-center justify-between mb-4`}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={notificationSettings.marketingUpdates ? "megaphone" : "megaphone-outline"}
-                      size={24}
-                      color={isDarkMode ? "#fff" : "#000"}
-                    />
-                    <Text
-                      className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-                    >
-                      Marketing Updates
-                    </Text>
-                  </View>
-                  <View
-                    className={`w-6 h-6 rounded-full ${
-                      notificationSettings.marketingUpdates ? "bg-green-500" : "bg-gray-400"
-                    }`}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+        {/* Email notifications toggle */}
+        <TouchableOpacity
+          onPress={() => toggleNotification('emailNotifications')}
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+              p-4 rounded-xl flex-row items-center justify-between mb-4`}
+        >
+          <View className="flex-row items-center">
+            <Ionicons
+              name={notificationSettings.emailNotifications ? "mail" : "mail-outline"}
+              size={24}
+              color={notificationSettings.emailNotifications ? "#3b82f6" : (isDarkMode ? "#fff" : "#000")}
+            />
+            <Text
+              className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+            >
+              Email Notifications
+            </Text>
           </View>
-        </Modal>
+          <View
+            className={`w-12 h-6 rounded-full flex justify-center ${
+              notificationSettings.emailNotifications ? "bg-blue-500" : "bg-gray-400"
+            }`}
+          >
+            <View 
+              className={`w-5 h-5 rounded-full bg-white shadow-md ${
+                notificationSettings.emailNotifications ? "ml-6" : "ml-1"
+              }`} 
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* Marketing updates toggle */}
+        <TouchableOpacity
+          onPress={() => toggleNotification('marketingUpdates')}
+          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+              p-4 rounded-xl flex-row items-center justify-between mb-4`}
+        >
+          <View className="flex-row items-center">
+            <Ionicons
+              name={notificationSettings.marketingUpdates ? "megaphone" : "megaphone-outline"}
+              size={24}
+              color={notificationSettings.marketingUpdates ? "#ec4899" : (isDarkMode ? "#fff" : "#000")}
+            />
+            <Text
+              className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+            >
+              Marketing Updates
+            </Text>
+          </View>
+          <View
+            className={`w-12 h-6 rounded-full flex justify-center ${
+              notificationSettings.marketingUpdates ? "bg-pink-500" : "bg-gray-400"
+            }`}
+          >
+            <View 
+              className={`w-5 h-5 rounded-full bg-white shadow-md ${
+                notificationSettings.marketingUpdates ? "ml-6" : "ml-1"
+              }`} 
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
 
         {/* Change Password Modal */}
         <Modal

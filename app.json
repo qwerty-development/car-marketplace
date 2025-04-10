@@ -9,12 +9,12 @@
     "scheme": "fleet",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/logo.png",
+      "image": "./assets/images/app-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
     "notification": {
-      "icon": "./assets/images/logo.png",
+      "icon": "./assets/images/app-icon.png",
       "color": "#D55004",
       "sound":"./assets/sounds/notification.wav",
       "iosDisplayInForeground": true,

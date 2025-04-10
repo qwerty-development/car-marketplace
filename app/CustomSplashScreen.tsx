@@ -48,18 +48,30 @@ const AnimatedLogo: React.FC<AnimatedLogoProps> = ({ index, opacity, translateY 
   );
 };
 
-const FleetText: React.FC<{ opacity: Animated.Value }> = ({ opacity }) => (
-  <Animated.Text
+// Updated FleetText component to use logo-text.png with left-to-right reveal
+// Modified FleetText component to separate native and JS driven animations
+const FleetText: React.FC<{ opacity: Animated.Value, revealWidth: Animated.Value }> = ({ opacity, revealWidth }) => (
+  <Animated.View
     style={[
-      styles.fleetText,
-      {
-        color: '#D55004',
-        opacity,
-      },
+      styles.fleetTextContainer,
+      { opacity }
     ]}
   >
-    FLEET
-  </Animated.Text>
+    <Animated.View
+      style={[
+        {
+          width: revealWidth,
+          overflow: 'hidden'
+        }
+      ]}
+    >
+      <Image
+        source={require('../assets/logo-text.png')}
+        style={styles.fleetTextImage}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  </Animated.View>
 );
 
 interface SplashScreenProps {
@@ -76,6 +88,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   const [showFleetLogo, setShowFleetLogo] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [textWidth, setTextWidth] = useState(0);
   
   const screenOpacity = useRef(new Animated.Value(0)).current;
   const carLogoOpacity = useRef(new Animated.Value(1)).current;
@@ -83,6 +96,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   const fleetLogoOpacity = useRef(new Animated.Value(0)).current;
   const fleetLogoScale = useRef(new Animated.Value(0.8)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
+  const textRevealWidth = useRef(new Animated.Value(0)).current;
 
   // Load sound
   useEffect(() => {
@@ -218,7 +232,11 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   };
 
   const showFinalAnimation = () => {
-    Animated.sequence([
+    // Set the text width once we know it (for reveal animation)
+    setTextWidth(width * 0.7); // Assuming text image takes about 70% of screen width
+    
+    // Split animations into native-driven and JS-driven groups
+    const nativeAnimations = Animated.sequence([
       Animated.parallel([
         Animated.timing(fleetLogoOpacity, {
           toValue: 1,
@@ -235,23 +253,37 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
       Animated.delay(400),
       Animated.timing(textOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 100,
         useNativeDriver: true,
       }),
       Animated.delay(800),
-      // Final fade out of entire screen
       Animated.timing(screenOpacity, {
         toValue: 0,
         duration: 500,
         useNativeDriver: true,
       })
-    ]).start(() => {
+    ]);
+    
+    // Separate animation for width reveal (JS-driven)
+    const jsAnimations = Animated.sequence([
+      Animated.delay(800), // Wait for logo animations and delay
+      Animated.timing(textRevealWidth, {
+        toValue: width * 0.7,
+        duration: 400,
+        useNativeDriver: false,
+      })
+    ]);
+    
+    // Start both animation groups
+    nativeAnimations.start(() => {
       // Stop sound if it's still playing when animation ends
       if (sound) {
         sound.stopAsync();
       }
       onAnimationComplete();
     });
+    
+    jsAnimations.start();
   };
 
   return (
@@ -286,7 +318,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
               resizeMode="contain"
             />
           </Animated.View>
-          <FleetText opacity={textOpacity} />
+          <FleetText opacity={textOpacity} revealWidth={textRevealWidth} />
         </View>
       )}
     </Animated.View>
@@ -324,10 +356,14 @@ const styles = StyleSheet.create({
     width: width * 0.7,
     height: width * 0.7,
   },
-  fleetText: {
-    fontSize: 56,
-    fontWeight: 'bold',
-    letterSpacing: 12,
+  fleetTextContainer: {
+    height: 60, // Fixed height for the text image container
+    justifyContent: 'center',
+    alignItems: 'flex-start', // This ensures the image stays left-aligned during reveal
+  },
+  fleetTextImage: {
+    height: 60,
+    width: width * 0.7, // Same as the final width in the animation
   },
 });
 
