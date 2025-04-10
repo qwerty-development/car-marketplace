@@ -1,4 +1,3 @@
-// services/NotificationService.ts
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, AppState } from 'react-native';
@@ -7,7 +6,6 @@ import { isSigningOut } from '../app/(home)/_layout';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
-// Set up notification handler - CRITICAL: MUST BE CALLED OUTSIDE OF ANY COMPONENT
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -152,28 +150,88 @@ private static getProjectId(): string {
     ]).finally(() => clearTimeout(timeoutHandle));
   }
 
-  // Validate push token format
-  private static isValidPushToken(token: string): boolean {
-    if (!token) return false;
+private static isValidPushToken(token: string): boolean {
+  if (!token) return false;
 
-    // Expo push tokens follow a specific format
+  // Expo push tokens follow a specific format
+  const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+  const isExpoToken = validExpoTokenFormat.test(token);
+
+  // APNs tokens are hex strings of a specific length
+  const isApnsToken = /^[a-f0-9]{64}$/.test(token);
+
+  // FCM tokens are typically longer alphanumeric strings
+  const isFcmToken = /^[a-zA-Z0-9\-_:]{140,250}$/.test(token);
+
+  // Log token type for diagnostics
+  if (isExpoToken) {
+    this.debugLog('Token validated as Expo Push Token format');
+  } else if (isApnsToken) {
+    this.debugLog('WARNING: Detected raw APNs token format - may not work with Expo Push Service');
+  } else if (isFcmToken) {
+    this.debugLog('WARNING: Detected FCM token format - may not work with Expo Push Service');
+  } else {
+    this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
+  }
+
+  return isExpoToken || isApnsToken || isFcmToken;
+}
+
+private static async migrateToExpoToken(oldToken: string, userId: string): Promise<string | null> {
+  this.debugLog(`Migrating non-Expo token to Expo format: ${oldToken.substring(0, 5)}...`);
+
+  try {
+    // 1. Delete the old token from database
+    await this.timeoutPromise(
+      supabase
+        .from('user_push_tokens')
+        .delete()
+        .eq('token', oldToken),
+      10000,
+      'deleteOldToken'
+    );
+
+    // 2. Clear token from secure storage
+    await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
+    await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+
+    // 3. Force new Expo token registration
+    const projectId = this.getProjectId();
+
+    const tokenResponse = await this.timeoutPromise(
+      Notifications.getExpoPushTokenAsync({
+        projectId: projectId,
+      }),
+      15000,
+      'getNewExpoPushToken'
+    );
+
+    const newToken = tokenResponse.data;
+
+    // Verify we got a proper Expo token
     const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
-    const validExpoFormat = validExpoTokenFormat.test(token);
-
-    // FCM tokens (for APNs via FCM) are typically longer alphanumeric strings
-    const validFCMFormat = /^[a-zA-Z0-9\-_:]{140,250}$/.test(token);
-
-    // APNs tokens are hex strings of a specific length
-    const validAPNsFormat = /^[a-f0-9]{64}$/.test(token);
-
-    const isValid = validExpoFormat || validFCMFormat || validAPNsFormat;
-
-    if (!isValid) {
-      this.debugLog(`Invalid token format: ${token.substring(0, 10)}...`);
+    if (!validExpoTokenFormat.test(newToken)) {
+      throw new Error(`Received invalid Expo token format: ${newToken.substring(0, 10)}...`);
     }
 
-    return isValid;
+    // 4. Save the new token
+    await this.saveTokenToStorage(newToken);
+
+    // 5. Register in database
+    const success = await this.updatePushToken(newToken, userId);
+
+    if (success) {
+      this.debugLog('Successfully migrated to Expo token format');
+      return newToken;
+    } else {
+      this.debugLog('Database registration of migrated token failed');
+      return newToken; // Still return token as it might work for push
+    }
+  } catch (error) {
+    this.recordError('migrateToExpoToken', error);
+    return null;
   }
+}
 
   // Check if token needs refresh (older than 7 days)
   private static async tokenNeedsRefresh(): Promise<boolean> {
@@ -203,31 +261,36 @@ private static getProjectId(): string {
     }
   }
 
-  // Production-ready push token registration
-  static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
-    // Skip for dev/simulator unless forced
-    if (!Device.isDevice && !FORCE_REGISTER_DEV) {
-      this.debugLog('Push notifications not available on simulator/emulator');
-      return null;
-    }
+static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
+  // Skip for dev/simulator unless forced
+  if (!Device.isDevice && !FORCE_REGISTER_DEV) {
+    this.debugLog('Push notifications not available on simulator/emulator');
+    return null;
+  }
 
-    // Skip during sign-out
-    if (isSigningOut) {
-      this.debugLog('User is signing out, skipping token registration');
-      return null;
-    }
+  // Skip during sign-out
+  if (isSigningOut) {
+    this.debugLog('User is signing out, skipping token registration');
+    return null;
+  }
 
-    this.debugLog(`Starting push notification registration for user: ${userId}`);
-    const startTime = Date.now();
+  this.debugLog(`Starting push notification registration for user: ${userId}`);
+  const startTime = Date.now();
 
-    try {
-      // 1. OPTIMIZATION: Check for existing valid token first
-      if (!forceRefresh) {
-        const existingToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        const needsRefresh = await this.tokenNeedsRefresh();
+  try {
+    // 1. OPTIMIZATION: Check for existing valid token first
+    if (!forceRefresh) {
+      const existingToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      const needsRefresh = await this.tokenNeedsRefresh();
 
-        if (existingToken && this.isValidPushToken(existingToken) && !needsRefresh) {
-          this.debugLog('Using existing valid token:', existingToken);
+      // Add specific check for Expo token format
+      const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+      const isExpoToken = existingToken && validExpoTokenFormat.test(existingToken);
+
+      if (existingToken && this.isValidPushToken(existingToken) && !needsRefresh) {
+        // Only use existing token if it's in Expo format
+        if (isExpoToken) {
+          this.debugLog('Using existing valid Expo token:', existingToken);
 
           // Verify token exists in database without blocking main flow
           this.verifyTokenInDatabase(existingToken, userId).catch(error => {
@@ -235,217 +298,256 @@ private static getProjectId(): string {
           });
 
           return existingToken;
-        }
-      }
-
-      // 2. PERMISSIONS: Check and request with better error handling
-      let permissionStatus;
-      try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        this.debugLog('Existing notification permission status:', existingStatus);
-
-        if (existingStatus !== 'granted') {
-          this.debugLog('Requesting notification permissions...');
-          const { status } = await Notifications.requestPermissionsAsync();
-          permissionStatus = status;
-          this.debugLog('New permission status:', permissionStatus);
         } else {
-          permissionStatus = existingStatus;
-        }
-      } catch (permError) {
-        this.recordError('checkPermissions', permError);
-        return null;
-      }
-
-      if (permissionStatus !== 'granted') {
-        this.debugLog('Push notification permission not granted');
-        return null;
-      }
-
-      // 3. ANDROID CHANNEL: Set up Android notification channel
-      if (Platform.OS === 'android') {
-        try {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#D55004',
-            sound: 'notification.wav',
-          });
-          this.debugLog('Android notification channel set up successfully');
-        } catch (channelError) {
-          this.recordError('setupAndroidChannel', channelError);
-          // Continue - non-fatal error
+          this.debugLog('Stored token is not in Expo format, forcing refresh');
+          forceRefresh = true;
         }
       }
+    }
 
-      // 4. TOKEN GENERATION: Get project ID with fallback mechanisms
-      const projectId = this.getProjectId();
-      this.debugLog('Using project ID for push notifications:', projectId);
+    // 2. PERMISSIONS: Check and request with better error handling
+    let permissionStatus;
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      this.debugLog('Existing notification permission status:', existingStatus);
 
-      // 5. Get push token with error handling
-      let token: string | null = null;
-      let tokenError: any = null;
+      if (existingStatus !== 'granted') {
+        this.debugLog('Requesting notification permissions...');
+        const { status } = await Notifications.requestPermissionsAsync();
+        permissionStatus = status;
+        this.debugLog('New permission status:', permissionStatus);
+      } else {
+        permissionStatus = existingStatus;
+      }
+    } catch (permError) {
+      this.recordError('checkPermissions', permError);
+      return null;
+    }
 
+    if (permissionStatus !== 'granted') {
+      this.debugLog('Push notification permission not granted');
+      return null;
+    }
+
+    // 3. ANDROID CHANNEL: Set up Android notification channel
+    if (Platform.OS === 'android') {
       try {
-        this.debugLog('Getting Expo push token...');
-        const tokenResponse = await this.timeoutPromise(
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#D55004',
+          sound: 'notification.wav',
+        });
+        this.debugLog('Android notification channel set up successfully');
+      } catch (channelError) {
+        this.recordError('setupAndroidChannel', channelError);
+        // Continue - non-fatal error
+      }
+    }
+
+    // 4. TOKEN GENERATION: Get project ID with fallback mechanisms
+    const projectId = this.getProjectId();
+    this.debugLog('Using project ID for push notifications:', projectId);
+
+    // 5. Get push token with error handling
+    let token: string | null = null;
+    let tokenError: any = null;
+
+    try {
+      this.debugLog('Getting Expo push token...');
+      const tokenResponse = await this.timeoutPromise(
+        Notifications.getExpoPushTokenAsync({
+          projectId: projectId,
+        }),
+        15000, // 15 second timeout
+        'getExpoPushTokenAsync'
+      );
+
+      token = tokenResponse.data;
+
+      // Enhanced token format validation
+      const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+      if (!validExpoTokenFormat.test(token)) {
+        this.debugLog(`WARNING: Received token is not in Expo format: ${token?.substring(0, 10)}...`);
+
+        // Attempt to recover proper Expo token format
+        this.debugLog('Attempting to recover proper Expo token format...');
+        const recoveryResponse = await this.timeoutPromise(
           Notifications.getExpoPushTokenAsync({
             projectId: projectId,
           }),
-          15000, // 15 second timeout
-          'getExpoPushTokenAsync'
+          15000,
+          'getExpoPushTokenRecovery'
         );
 
-        token = tokenResponse.data;
-
-        // Validate token format
-        if (!this.isValidPushToken(token)) {
-          throw new Error(`Invalid token format: ${token?.substring(0, 10)}...`);
-        }
-
-        this.debugLog('Successfully received push token');
-
-        // Immediately save token to SecureStore for resilience
-        await this.saveTokenToStorage(token);
-      } catch (error) {
-        tokenError = error;
-        this.recordError('getExpoPushToken', error);
-
-        // Try to recover token from storage as fallback
-        try {
-          const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-          if (storedToken && this.isValidPushToken(storedToken)) {
-            this.debugLog('Using previously stored token as fallback:', storedToken);
-            token = storedToken;
-          }
-        } catch (storageError) {
-          this.recordError('getStoredToken', storageError);
+        const recoveredToken = recoveryResponse.data;
+        if (validExpoTokenFormat.test(recoveredToken)) {
+          this.debugLog('Successfully recovered proper Expo token format');
+          token = recoveredToken;
+        } else {
+          throw new Error(`Unable to obtain token in Expo format, received: ${token?.substring(0, 10)}...`);
         }
       }
 
-      if (!token) {
-        this.debugLog('Failed to get push token');
-        return null;
-      }
+      this.debugLog('Successfully received push token in Expo format');
 
-      // 6. STORE TOKEN: Register in database with enhanced retry logic
-      let registered = false;
-      const maxAttempts = MAX_RETRIES;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          this.debugLog(`Token database registration attempt ${attempt}/${maxAttempts}`);
-
-          // Use timeout to prevent hanging
-          registered = await this.timeoutPromise(
-            this.updatePushToken(token, userId),
-            DB_OPERATION_TIMEOUT,
-            `updatePushToken-attempt-${attempt}`
-          );
-
-          if (registered) {
-            this.debugLog('Successfully registered token in database');
-
-            // Record successful registration
-            try {
-              await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
-            } catch (e) {
-              // Non-critical error
-            }
-
-            break;
-          }
-        } catch (dbError) {
-          this.recordError(`tokenRegistration-attempt-${attempt}`, dbError);
-
-          if (attempt === maxAttempts) {
-            // Last attempt failed - will return token anyway but log the issue
-            this.debugLog('All database registration attempts failed');
-
-            // Record for future diagnostics
-            try {
-              await SecureStore.setItemAsync(
-                PUSH_TOKEN_REGISTRATION_ATTEMPTS,
-                JSON.stringify({
-                  attempts: maxAttempts,
-                  lastError: dbError?.message || String(dbError),
-                  timestamp: new Date().toISOString()
-                })
-              );
-            } catch (e) {
-              // Non-critical error
-            }
-          } else {
-            // Exponential backoff with jitter for retries
-            const delay = Math.min(1000 * Math.pow(2, attempt), 8000) + Math.random() * 1000;
-            this.debugLog(`Retrying after ${Math.round(delay)}ms`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-      }
-
-      // 7. PERFORMANCE LOGGING: Log completion time
-      const duration = Date.now() - startTime;
-      this.debugLog(`Token registration completed in ${duration}ms, database registered: ${registered}`);
-
-      // Even if database registration fails, return the token
-      // This allows notifications to work even if database operation fails
-      return token;
+      // Immediately save token to SecureStore for resilience
+      await this.saveTokenToStorage(token);
     } catch (error) {
-      this.recordError('registerForPushNotificationsAsync', error);
+      tokenError = error;
+      this.recordError('getExpoPushToken', error);
+
+      // Try to recover token from storage as fallback
+      try {
+        const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+        const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+        if (storedToken && validExpoTokenFormat.test(storedToken)) {
+          this.debugLog('Using previously stored Expo token as fallback:', storedToken);
+          token = storedToken;
+        } else if (storedToken && this.isValidPushToken(storedToken)) {
+          this.debugLog('WARNING: Stored token is not in Expo format, token may not work properly');
+          // Still use it as a last resort, but log the warning
+          token = storedToken;
+        }
+      } catch (storageError) {
+        this.recordError('getStoredToken', storageError);
+      }
+    }
+
+    if (!token) {
+      this.debugLog('Failed to get push token');
       return null;
     }
+
+    // 6. STORE TOKEN: Register in database with enhanced retry logic
+    let registered = false;
+    const maxAttempts = MAX_RETRIES;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        this.debugLog(`Token database registration attempt ${attempt}/${maxAttempts}`);
+
+        // Use timeout to prevent hanging
+        registered = await this.timeoutPromise(
+          this.updatePushToken(token, userId),
+          DB_OPERATION_TIMEOUT,
+          `updatePushToken-attempt-${attempt}`
+        );
+
+        if (registered) {
+          this.debugLog('Successfully registered token in database');
+
+          // Record successful registration
+          try {
+            await SecureStore.deleteItemAsync(PUSH_TOKEN_REGISTRATION_ATTEMPTS);
+          } catch (e) {
+            // Non-critical error
+          }
+
+          break;
+        }
+      } catch (dbError) {
+        this.recordError(`tokenRegistration-attempt-${attempt}`, dbError);
+
+        if (attempt === maxAttempts) {
+          // Last attempt failed - will return token anyway but log the issue
+          this.debugLog('All database registration attempts failed');
+
+          // Record for future diagnostics
+          try {
+            await SecureStore.setItemAsync(
+              PUSH_TOKEN_REGISTRATION_ATTEMPTS,
+              JSON.stringify({
+                attempts: maxAttempts,
+                lastError: dbError?.message || String(dbError),
+                timestamp: new Date().toISOString()
+              })
+            );
+          } catch (e) {
+            // Non-critical error
+          }
+        } else {
+          // Exponential backoff with jitter for retries
+          const delay = Math.min(1000 * Math.pow(2, attempt), 8000) + Math.random() * 1000;
+          this.debugLog(`Retrying after ${Math.round(delay)}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // 7. PERFORMANCE LOGGING: Log completion time
+    const duration = Date.now() - startTime;
+    this.debugLog(`Token registration completed in ${duration}ms, database registered: ${registered}`);
+
+    // Even if database registration fails, return the token
+    // This allows notifications to work even if database operation fails
+    return token;
+  } catch (error) {
+    this.recordError('registerForPushNotificationsAsync', error);
+    return null;
   }
+}
 
   // Verify token exists in database and add if missing
-  private static async verifyTokenInDatabase(token: string, userId: string): Promise<boolean> {
-    try {
-      // Only perform this check if not signing out
-      if (isSigningOut) return false;
+private static async verifyTokenInDatabase(token: string, userId: string): Promise<boolean> {
+  try {
+    // Skip if signing out
+    if (isSigningOut) return false;
 
-      this.debugLog(`Verifying token in database for user ${userId}`);
+    this.debugLog(`Verifying token in database for user ${userId}`);
 
-      // Check if token exists in database
-      const { data, error } = await this.timeoutPromise(
-        supabase
-          .from('user_push_tokens')
-          .select('token')
-          .eq('user_id', userId)
-          .eq('token', token)
-          .single(),
-        10000,
-        'verifyTokenQuery'
-      );
-
-      // Token not in database, add it
-      if (error || !data) {
-        this.debugLog('Token not found in database, adding it');
-        return await this.updatePushToken(token, userId);
+    // Check if it's an Expo token format
+    const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+    if (!validExpoTokenFormat.test(token)) {
+      this.debugLog('Non-Expo token format detected during verification, triggering migration');
+      const newToken = await this.migrateToExpoToken(token, userId);
+      if (newToken) {
+        return true; // Migration successful
       }
-
-      // Token already exists, update last_updated
-      this.debugLog('Token verified in database, updating timestamp');
-      const { error: updateError } = await this.timeoutPromise(
-        supabase
-          .from('user_push_tokens')
-          .update({ last_updated: new Date().toISOString() })
-          .eq('user_id', userId)
-          .eq('token', token),
-        10000,
-        'tokenTimestampUpdate'
-      );
-
-      if (updateError) {
-        this.recordError('updateTokenTimestamp', updateError);
-      }
-
-      return true;
-    } catch (error) {
-      this.recordError('verifyTokenInDatabase', error);
-      return false;
+      // Continue with verification if migration fails
     }
+
+    // Check if token exists in database
+    const { data, error } = await this.timeoutPromise(
+      supabase
+        .from('user_push_tokens')
+        .select('token')
+        .eq('user_id', userId)
+        .eq('token', token)
+        .single(),
+      10000,
+      'verifyTokenQuery'
+    );
+
+    // Token not in database, add it
+    if (error || !data) {
+      this.debugLog('Token not found in database, adding it');
+      return await this.updatePushToken(token, userId);
+    }
+
+    // Token exists, update timestamp
+    this.debugLog('Token verified in database, updating timestamp');
+    const { error: updateError } = await this.timeoutPromise(
+      supabase
+        .from('user_push_tokens')
+        .update({ last_updated: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('token', token),
+      10000,
+      'tokenTimestampUpdate'
+    );
+
+    if (updateError) {
+      this.recordError('updateTokenTimestamp', updateError);
+    }
+
+    return true;
+  } catch (error) {
+    this.recordError('verifyTokenInDatabase', error);
+    return false;
   }
+}
 
   // Update push token in database with improved error handling
   static async updatePushToken(token: string, userId: string): Promise<boolean> {
