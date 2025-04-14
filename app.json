@@ -10,8 +10,7 @@
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/app-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "resizeMode": "contain"
     },
     "notification": {
       "icon": "./assets/images/app-icon.png",

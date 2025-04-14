@@ -604,7 +604,7 @@ const togglePushNotifications = async (enabled: boolean) => {
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to edit your profile" : "Update your personal information"}
+                {isGuest ? "Sign in to edit your profile" : "Update your infos"}
               </Text>
             </View>
             <Ionicons
@@ -650,7 +650,7 @@ const togglePushNotifications = async (enabled: boolean) => {
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to access security settings" : "Password and privacy settings"}
+                {isGuest ? "Sign in to access security settings" : "Password and privacy"}
               </Text>
             </View>
             <Ionicons
@@ -696,7 +696,7 @@ const togglePushNotifications = async (enabled: boolean) => {
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to manage notifications" : "Control push notifications and alerts"}
+                {isGuest ? "Sign in to manage notifications" : "Control alerts"}
               </Text>
             </View>
             <Ionicons

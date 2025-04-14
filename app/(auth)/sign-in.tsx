@@ -216,27 +216,7 @@ const handleGoogleAuth = async () => {
   return (
     <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
-        {/* Google Authentication Button */}
-        <TouchableOpacity
-          onPress={handleGoogleAuth}
-          disabled={isLoading.google}
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-            borderWidth: 1,
-            borderColor: isDark ? '#374151' : '#E5E7EB',
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-          }}
-        >
-          {isLoading.google ? (
-            <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
-          ) : (
-            <Ionicons name="logo-google" size={24} color={isDark ? '#fff' : '#000'} />
-          )}
-        </TouchableOpacity>
+
 
         {/* Apple Authentication Button */}
         {Platform.OS === 'ios' && appleAuthAvailable ? (
@@ -295,7 +275,30 @@ const handleGoogleAuth = async () => {
               <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
             )}
           </TouchableOpacity>
+
+          
         )}
+                {/* Google Authentication Button */}
+                <TouchableOpacity
+          onPress={handleGoogleAuth}
+          disabled={isLoading.google}
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+            borderWidth: 1,
+            borderColor: isDark ? '#374151' : '#E5E7EB',
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+          }}
+        >
+          {isLoading.google ? (
+            <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
+          ) : (
+            <Ionicons name="logo-google" size={24} color={isDark ? '#fff' : '#000'} />
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -419,7 +422,7 @@ export default function SignInPage() {
             textAlign: 'center',
           }}
         >
-          Sign In
+          Welcome Back! 👋
         </Text>
 
         <View style={{ marginBottom: 16, gap: 16 }}>
@@ -526,29 +529,7 @@ export default function SignInPage() {
         </TouchableOpacity>
 
         {/* Guest Mode Divider */}
-        <View style={styles.divider}>
-          <View style={[styles.dividerLine, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
-          <Text style={[styles.dividerText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>OR</Text>
-          <View style={[styles.dividerLine, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
-        </View>
 
-        {/* Guest Mode Button */}
-        <TouchableOpacity
-          style={[styles.guestButton, {
-            borderColor: '#D55004',
-            opacity: isGuestLoading ? 0.7 : 1,
-          }]}
-          onPress={handleGuestSignIn}
-          disabled={isGuestLoading}
-        >
-          {isGuestLoading ? (
-            <ActivityIndicator color="#D55004" />
-          ) : (
-            <Text style={styles.guestButtonText}>
-              Continue as Guest
-            </Text>
-          )}
-        </TouchableOpacity>
 
         <SignInWithOAuth />
 

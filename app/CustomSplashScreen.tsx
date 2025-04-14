@@ -48,9 +48,12 @@ const AnimatedLogo: React.FC<AnimatedLogoProps> = ({ index, opacity, translateY 
   );
 };
 
-// Updated FleetText component to use logo-text.png with left-to-right reveal
-// Modified FleetText component to separate native and JS driven animations
-const FleetText: React.FC<{ opacity: Animated.Value, revealWidth: Animated.Value }> = ({ opacity, revealWidth }) => (
+// Updated FleetText component to handle theme-based color inversion
+const FleetText: React.FC<{ 
+  opacity: Animated.Value, 
+  revealWidth: Animated.Value,
+  isDarkMode: boolean
+}> = ({ opacity, revealWidth, isDarkMode }) => (
   <Animated.View
     style={[
       styles.fleetTextContainer,
@@ -67,7 +70,10 @@ const FleetText: React.FC<{ opacity: Animated.Value, revealWidth: Animated.Value
     >
       <Image
         source={require('../assets/logo-text.png')}
-        style={styles.fleetTextImage}
+        style={[
+          styles.fleetTextImage,
+          isDarkMode && { tintColor: '#FFFFFF' } // Invert text color for dark mode
+        ]}
         resizeMode="contain"
       />
     </Animated.View>
@@ -97,6 +103,13 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   const fleetLogoScale = useRef(new Animated.Value(0.8)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textRevealWidth = useRef(new Animated.Value(0)).current;
+
+  // Get the appropriate logo based on theme
+  const getLogoSource = () => {
+    return isDarkMode 
+      ? require('../assets/images/light-logo.png')  // White logo for dark mode
+      : require('../assets/images/dark-logo.png');  // Dark logo for light mode
+  };
 
   // Load sound
   useEffect(() => {
@@ -313,12 +326,16 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
             ]}
           >
             <Image
-              source={require('../assets/logo.png')}
+              source={getLogoSource()}
               style={styles.fleetLogo}
               resizeMode="contain"
             />
           </Animated.View>
-          <FleetText opacity={textOpacity} revealWidth={textRevealWidth} />
+          <FleetText 
+            opacity={textOpacity} 
+            revealWidth={textRevealWidth} 
+            isDarkMode={isDarkMode} 
+          />
         </View>
       )}
     </Animated.View>

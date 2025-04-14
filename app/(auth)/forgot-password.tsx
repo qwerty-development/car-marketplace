@@ -253,7 +253,7 @@ const CustomHeader = ({ title, onBack }) => {
 
   return (
     <LinearGradient
-      colors={['rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0)']}
+      colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']}
       style={{ position: 'absolute', left: 0, right: 0, zIndex: 10 }}>
       <SafeAreaView edges={['top']}>
         <View className='flex-row items-center justify-between py-4 px-4'>
@@ -264,7 +264,7 @@ const CustomHeader = ({ title, onBack }) => {
             <Ionicons
               name='chevron-back'
               size={24}
-              color='white'
+              color='black'
             />
           </TouchableOpacity>
           <Animated.Text
@@ -661,7 +661,6 @@ export default function ForgotPasswordPage() {
 
       {/* Header */}
       <CustomHeader
-        title="Reset Password"
         onBack={() => router.back()}
       />
 

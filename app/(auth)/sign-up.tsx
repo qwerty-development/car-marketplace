@@ -458,7 +458,7 @@ export default function SignUpScreen() {
               marginBottom: 8,
             }}
       >
-            {pendingVerification ? 'Verify Email' : 'Sign Up'}
+            {pendingVerification ? 'Verify Email' : 'Create Account'}
           </Text>
 
           {!pendingVerification ? (
