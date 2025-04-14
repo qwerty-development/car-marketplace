@@ -384,7 +384,9 @@ export default function DealershipListPage() {
       const { data, error } = await supabase
         .from("dealerships")
         .select("*, cars!inner(count)") // Using !inner to ensure we count all cars
-        .eq('cars.status', 'available'); // Add filter for available cars only
+        .eq('cars.status', 'available')
+        .gte("subscription_end_date", new Date().toISOString())
+          .order("name")
 
       if (error) throw error;
 
