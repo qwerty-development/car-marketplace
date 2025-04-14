@@ -490,8 +490,6 @@ export class NotificationService {
               user_id: userId,
               token,
               device_type: Platform.OS,
-              signed_in: true,
-              active: true,
               last_updated: new Date().toISOString()
             })
             .select('id'),
