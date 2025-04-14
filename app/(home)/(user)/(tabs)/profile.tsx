@@ -131,7 +131,7 @@ const togglePushNotifications = async (enabled: boolean) => {
 
   try {
     setLoading(true);
-    
+
     // Update local state immediately for responsive UI
     setPushNotificationsEnabled(enabled);
     setNotificationSettings(prev => ({
@@ -159,18 +159,18 @@ const togglePushNotifications = async (enabled: boolean) => {
 
     if (error) {
       console.error('Error updating token status:', error);
-      
+
       // Revert UI state on error
       setPushNotificationsEnabled(!enabled);
       setNotificationSettings(prev => ({
         ...prev,
         pushNotifications: !enabled
       }));
-      
+
       Alert.alert('Error', 'Failed to update notification settings. Please try again.');
     } else {
       console.log('Successfully updated push notification status');
-      
+
       // On success, refresh the notifications count if needed
       if (enabled) {
         refreshNotifications();
@@ -178,14 +178,14 @@ const togglePushNotifications = async (enabled: boolean) => {
     }
   } catch (error) {
     console.error('Error in togglePushNotifications:', error);
-    
+
     // Revert UI state on error
     setPushNotificationsEnabled(!enabled);
     setNotificationSettings(prev => ({
       ...prev,
       pushNotifications: !enabled
     }));
-    
+
     Alert.alert('Error', 'An unexpected error occurred while updating notification settings.');
   } finally {
     setLoading(false);
@@ -948,10 +948,10 @@ const togglePushNotifications = async (enabled: boolean) => {
             pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
           }`}
         >
-          <View 
+          <View
             className={`w-5 h-5 rounded-full bg-white shadow-md ${
               pushNotificationsEnabled ? "ml-6" : "ml-1"
-            }`} 
+            }`}
           />
         </View>
       </TouchableOpacity>
@@ -1001,10 +1001,10 @@ const togglePushNotifications = async (enabled: boolean) => {
               notificationSettings.emailNotifications ? "bg-blue-500" : "bg-gray-400"
             }`}
           >
-            <View 
+            <View
               className={`w-5 h-5 rounded-full bg-white shadow-md ${
                 notificationSettings.emailNotifications ? "ml-6" : "ml-1"
-              }`} 
+              }`}
             />
           </View>
         </TouchableOpacity>
@@ -1032,10 +1032,10 @@ const togglePushNotifications = async (enabled: boolean) => {
               notificationSettings.marketingUpdates ? "bg-pink-500" : "bg-gray-400"
             }`}
           >
-            <View 
+            <View
               className={`w-5 h-5 rounded-full bg-white shadow-md ${
                 notificationSettings.marketingUpdates ? "ml-6" : "ml-1"
-              }`} 
+              }`}
             />
           </View>
         </TouchableOpacity>

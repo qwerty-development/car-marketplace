@@ -90,39 +90,39 @@ const TRANSMISSION_OPTIONS = [
 // Drivetrain Options
 // Drivetrain Options
 const DRIVETRAIN_OPTIONS = [
-  { 
-    label: "FWD", 
-    value: "FWD", 
-    getImage: (isDark: boolean) => isDark ? 
-      require("../../../assets/drivetrain/fwdD.png") : 
-      require("../../../assets/drivetrain/fwd.png") 
+  {
+    label: "FWD",
+    value: "FWD",
+    getImage: (isDark: boolean) => isDark ?
+      require("../../../assets/drivetrain/fwdD.png") :
+      require("../../../assets/drivetrain/fwd.png")
   },
-  { 
-    label: "RWD", 
-    value: "RWD", 
-    getImage: (isDark: boolean) => isDark ? 
-      require("../../../assets/drivetrain/rwdD.png") : 
+  {
+    label: "RWD",
+    value: "RWD",
+    getImage: (isDark: boolean) => isDark ?
+      require("../../../assets/drivetrain/rwdD.png") :
       require("../../../assets/drivetrain/rwd.png")
   },
-  { 
-    label: "AWD", 
-    value: "AWD", 
-    getImage: (isDark: boolean) => isDark ? 
-      require("../../../assets/drivetrain/awdD.png") : 
+  {
+    label: "AWD",
+    value: "AWD",
+    getImage: (isDark: boolean) => isDark ?
+      require("../../../assets/drivetrain/awdD.png") :
       require("../../../assets/drivetrain/awd.png")
   },
-  { 
-    label: "4WD", 
-    value: "4WD", 
-    getImage: (isDark: boolean) => isDark ? 
-      require("../../../assets/drivetrain/4wdD.png") : 
+  {
+    label: "4WD",
+    value: "4WD",
+    getImage: (isDark: boolean) => isDark ?
+      require("../../../assets/drivetrain/4wdD.png") :
       require("../../../assets/drivetrain/4wd.png")
   },
-  { 
-    label: "4x4", 
-    value: "4x4", 
-    getImage: (isDark: boolean) => isDark ? 
-      require("../../../assets/drivetrain/4x4D.png") : 
+  {
+    label: "4x4",
+    value: "4x4",
+    getImage: (isDark: boolean) => isDark ?
+      require("../../../assets/drivetrain/4x4D.png") :
       require("../../../assets/drivetrain/4x4.png")
   },
 ];
@@ -516,6 +516,9 @@ const BrandSelector = memo(
 // --------------------
 // Model Selector Component (Multi‑select)
 // --------------------
+// --------------------
+// Enhanced Model Selector Component (Multi‑select)
+// --------------------
 interface ModelSelectorProps {
   make: string[];
   selectedModels: string[];
@@ -525,94 +528,601 @@ interface ModelSelectorProps {
 
 const ModelSelector = memo(
   ({ make, selectedModels, onSelectModel, isDarkMode }: ModelSelectorProps) => {
-    const [models, setModels] = useState<string[]>([]);
+    const [modelsByMake, setModelsByMake] = useState<Record<string, string[]>>({});
+    const [showAllModels, setShowAllModels] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [selectedMake, setSelectedMake] = useState<string | null>(null);
 
+    // Fetch models for all selected makes
     useEffect(() => {
       const fetchModels = async () => {
         if (!make || make.length === 0) {
-          setModels([]);
+          setModelsByMake({});
           return;
         }
-        const { data, error } = await supabase
-          .from("cars")
-          .select("model")
-          .eq("status","available")
-          .in("make", make)
-          .order("model");
 
+        setIsLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from("cars")
+            .select("make, model")
+            .eq("status", "available")
+            .in("make", make)
+            .order("model");
 
-        if (!error && data) {
-          const uniqueModels = Array.from(
-            new Set(data.map((item: { model: string }) => item.model))
-          );
-          setModels(uniqueModels);
+          if (!error && data) {
+            // Group models by make
+            const groupedModels: Record<string, string[]> = {};
+
+            data.forEach((item: { make: string; model: string }) => {
+              if (!groupedModels[item.make]) {
+                groupedModels[item.make] = [];
+              }
+
+              // Only add unique models
+              if (!groupedModels[item.make].includes(item.model)) {
+                groupedModels[item.make].push(item.model);
+              }
+            });
+
+            setModelsByMake(groupedModels);
+          }
+        } catch (error) {
+          console.error("Error fetching models:", error);
+        } finally {
+          setIsLoading(false);
         }
       };
+
       fetchModels();
     }, [make]);
 
-    if (!make || make.length === 0) return null;
+    // Get all models across all makes
+    const allModels = useMemo(() => {
+      return Object.values(modelsByMake).flat();
+    }, [modelsByMake]);
 
-    const handleModelPress = (model: string) => {
+    // Count total models
+    const totalModelsCount = useMemo(() => allModels.length, [allModels]);
+
+    // Filter models by search query
+    const filteredModels = useMemo(() => {
+      if (!searchQuery.trim()) {
+        return modelsByMake;
+      }
+
+      const filtered: Record<string, string[]> = {};
+      Object.entries(modelsByMake).forEach(([makeName, models]) => {
+        const matchingModels = models.filter(model =>
+          model.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        if (matchingModels.length > 0) {
+          filtered[makeName] = matchingModels;
+        }
+      });
+
+      return filtered;
+    }, [modelsByMake, searchQuery]);
+
+    // Handler to toggle model selection
+    const handleModelToggle = useCallback((model: string) => {
       if (selectedModels.includes(model)) {
-        onSelectModel(selectedModels.filter((m) => m !== model));
+        onSelectModel(selectedModels.filter(m => m !== model));
       } else {
         onSelectModel([...selectedModels, model]);
       }
-    };
+    }, [selectedModels, onSelectModel]);
 
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginBottom: 24 }}
-      >
-        {models.map((model, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => handleModelPress(model)}
-            style={{ marginRight: 16 }}
+    // Handler to toggle all models from a make
+    const handleSelectAllFromMake = useCallback((makeName: string) => {
+      const modelsFromMake = modelsByMake[makeName] || [];
+
+      // Check if all models from this make are already selected
+      const allSelected = modelsFromMake.every(model => selectedModels.includes(model));
+
+      if (allSelected) {
+        // Deselect all models from this make
+        onSelectModel(selectedModels.filter(model => !modelsFromMake.includes(model)));
+      } else {
+        // Select all models from this make that aren't already selected
+        const modelsToAdd = modelsFromMake.filter(model => !selectedModels.includes(model));
+        onSelectModel([...selectedModels, ...modelsToAdd]);
+      }
+    }, [modelsByMake, selectedModels, onSelectModel]);
+
+    // Render a "chip" for each selected model
+    const renderSelectedModels = () => {
+      if (selectedModels.length === 0) {
+        return (
+          <Text
+            style={{
+              fontSize: 14,
+              color: isDarkMode ? "#aaa" : "#777",
+              marginVertical: 12,
+              fontStyle: "italic"
+            }}
           >
-            <BlurView
-              intensity={isDarkMode ? 20 : 40}
-              tint={isDarkMode ? "dark" : "light"}
-              style={{ borderRadius: 12 }}
-            >
-              <LinearGradient
-                colors={
-                  selectedModels.includes(model)
-                    ? ["#D55004", "#FF6B00"]
-                    : isDarkMode
-                    ? ["#1c1c1c", "#2d2d2d"]
-                    : ["#f5f5f5", "#e5e5e5"]
-                }
+            No models selected
+          </Text>
+        );
+      }
+
+      return (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginVertical: 12 }}
+          contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap" }}
+        >
+          {selectedModels.map(model => {
+            // Find which make this model belongs to
+            const makeName = Object.entries(modelsByMake).find(
+              ([_, models]) => models.includes(model)
+            )?.[0] || "";
+
+            return (
+              <View
+                key={model}
                 style={{
-                  paddingHorizontal: 24,
-                  paddingVertical: 16,
-                  borderRadius: 12,
+                  flexDirection: "row",
                   alignItems: "center",
+                  backgroundColor: isDarkMode ? "#333" : "#f0f0f0",
+                  borderRadius: 20,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  marginRight: 8,
+                  marginBottom: 8,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? "#555" : "#ddd",
                 }}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
               >
                 <Text
                   style={{
-                    fontSize: 16,
-                    fontWeight: "500",
-                    color: selectedModels.includes(model)
-                      ? "white"
-                      : isDarkMode
-                      ? "white"
-                      : "black",
+                    color: isDarkMode ? "#fff" : "#000",
+                    fontSize: 14,
+                    marginRight: 4,
                   }}
                 >
                   {model}
+                  <Text style={{ fontSize: 12, color: isDarkMode ? "#aaa" : "#777" }}>
+                    {makeName ? ` (${makeName})` : ""}
+                  </Text>
                 </Text>
-              </LinearGradient>
-            </BlurView>
+                <TouchableOpacity
+                  onPress={() => handleModelToggle(model)}
+                  style={{ padding: 2 }}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={18}
+                    color={isDarkMode ? "#ccc" : "#666"}
+                  />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </ScrollView>
+      );
+    };
+
+    if (!make || make.length === 0) return null;
+
+    // Render the main component
+    return (
+      <View style={{ marginBottom: 24 }}>
+        <View style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8
+        }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "500",
+              color: isDarkMode ? "white" : "black",
+            }}
+          >
+            Models
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowAllModels(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: isDarkMode ? "#333" : "#f0f0f0",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+            }}
+          >
+            <Text style={{ color: "#D55004", marginRight: 4 }}>
+              View All {totalModelsCount > 0 ? `(${totalModelsCount})` : ""}
+            </Text>
+            <FontAwesome
+              name="chevron-right"
+              size={12}
+              color="#D55004"
+            />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
+
+        {/* Show selected models as chips */}
+        {renderSelectedModels()}
+
+        {/* Selection count badge */}
+        {selectedModels.length > 0 && (
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 4,
+          }}>
+            <Text style={{
+              fontSize: 14,
+              color: isDarkMode ? "#aaa" : "#777"
+            }}>
+              {selectedModels.length} model{selectedModels.length !== 1 ? "s" : ""} selected
+            </Text>
+
+            {selectedModels.length > 1 && (
+              <TouchableOpacity
+                onPress={() => onSelectModel([])}
+                style={{ padding: 6 }}
+              >
+                <Text style={{ color: "#D55004", fontSize: 14 }}>
+                  Clear All
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Modal for all models */}
+        <Modal
+          visible={showAllModels}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowAllModels(false)}
+        >
+          <BlurView
+            intensity={isDarkMode ? 20 : 40}
+            tint={isDarkMode ? "dark" : "light"}
+            style={{ flex: 1 }}
+          >
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => setShowAllModels(false)}
+            />
+            <Animated.View
+              entering={SlideInDown}
+              exiting={SlideOutDown}
+              style={{
+                height: "75%",
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                backgroundColor: isDarkMode ? "black" : "white",
+              }}
+            >
+              <View style={{ padding: 16 }}>
+                {/* Modal header with handle */}
+                <View style={{ alignItems: "center", marginBottom: 8 }}>
+                  <View
+                    style={{
+                      width: 64,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#ccc",
+                    }}
+                  />
+                </View>
+
+                {/* Modal title and close button */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 20,
+                      fontWeight: "bold",
+                      color: isDarkMode ? "white" : "black",
+                    }}
+                  >
+                    Select Models
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowAllModels(false)}
+                    style={{ padding: 8 }}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      color={isDarkMode ? "white" : "black"}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Search bar */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#555" : "#ccc",
+                    borderRadius: 24,
+                    paddingHorizontal: 16,
+                    height: 48,
+                    marginBottom: 16,
+                  }}
+                >
+                  <FontAwesome
+                    name="search"
+                    size={20}
+                    color={isDarkMode ? "white" : "black"}
+                  />
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      marginLeft: 12,
+                      color: isDarkMode ? "white" : "black",
+                    }}
+                    placeholder="Search models..."
+                    placeholderTextColor={isDarkMode ? "gray" : "gray"}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery ? (
+                    <TouchableOpacity
+                      onPress={() => setSearchQuery("")}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={isDarkMode ? "white" : "black"}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {/* Models count or filter info */}
+                <View style={{ marginBottom: 16 }}>
+                  {searchQuery ? (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: isDarkMode ? "#aaa" : "#555",
+                      }}
+                    >
+                      Showing results for "{searchQuery}"
+                    </Text>
+                  ) : (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: isDarkMode ? "#aaa" : "#555",
+                      }}
+                    >
+                      {selectedModels.length} model{selectedModels.length !== 1 ? "s" : ""} selected
+                    </Text>
+                  )}
+                </View>
+
+                {/* Mobile style tabs for makes */}
+                {make.length > 1 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setSelectedMake(null)}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        marginRight: 8,
+                        borderRadius: 20,
+                        backgroundColor: selectedMake === null
+                          ? "#D55004"
+                          : isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: selectedMake === null
+                            ? "white"
+                            : isDarkMode ? "white" : "black",
+                        }}
+                      >
+                        All Makes
+                      </Text>
+                    </TouchableOpacity>
+
+                    {make.map(makeName => (
+                      <TouchableOpacity
+                        key={makeName}
+                        onPress={() => setSelectedMake(makeName)}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          marginRight: 8,
+                          borderRadius: 20,
+                          backgroundColor: selectedMake === makeName
+                            ? "#D55004"
+                            : isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: selectedMake === makeName
+                              ? "white"
+                              : isDarkMode ? "white" : "black",
+                          }}
+                        >
+                          {makeName}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {/* Models list */}
+                <ScrollView style={{ maxHeight: 500 }}>
+                  {isLoading ? (
+                    <ActivityIndicator size="large" color="#D55004" style={{ marginTop: 20 }} />
+                  ) : Object.keys(filteredModels).length === 0 ? (
+                    <View style={{ padding: 20, alignItems: "center" }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color: isDarkMode ? "#aaa" : "#555",
+                          textAlign: "center",
+                        }}
+                      >
+                        {searchQuery
+                          ? `No models found matching "${searchQuery}"`
+                          : "No models available for the selected make(s)"}
+                      </Text>
+                    </View>
+                  ) : (
+                    Object.entries(filteredModels)
+                      // Filter by selected make if one is selected
+                      .filter(([makeName]) => selectedMake === null || makeName === selectedMake)
+                      .map(([makeName, models]) => (
+                        <View key={makeName} style={{ marginBottom: 20 }}>
+                          {/* Make header with select all option */}
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: 8,
+                              paddingBottom: 8,
+                              borderBottomWidth: 1,
+                              borderBottomColor: isDarkMode ? "#333" : "#eee",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 18,
+                                fontWeight: "600",
+                                color: isDarkMode ? "white" : "black",
+                              }}
+                            >
+                              {makeName}
+                            </Text>
+
+                            <TouchableOpacity
+                              onPress={() => handleSelectAllFromMake(makeName)}
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 16,
+                                backgroundColor: isDarkMode ? "#333" : "#f0f0f0",
+                              }}
+                            >
+                              <Text style={{ color: "#D55004", fontSize: 14 }}>
+                                {models.every(model => selectedModels.includes(model))
+                                  ? "Deselect All"
+                                  : "Select All"}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Model grid */}
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-start",
+                            }}
+                          >
+                            {models.map(model => (
+                              <TouchableOpacity
+                                key={`${makeName}-${model}`}
+                                onPress={() => handleModelToggle(model)}
+                                style={{
+                                  width: "48%", // Approx 2 columns
+                                  marginBottom: 10,
+                                  marginRight: "2%",
+                                }}
+                              >
+                                <BlurView
+                                  intensity={isDarkMode ? 20 : 40}
+                                  tint={isDarkMode ? "dark" : "light"}
+                                  style={{ borderRadius: 12 }}
+                                >
+                                  <LinearGradient
+                                    colors={
+                                      selectedModels.includes(model)
+                                        ? ["#D55004", "#FF6B00"]
+                                        : isDarkMode
+                                        ? ["#1c1c1c", "#2d2d2d"]
+                                        : ["#f5f5f5", "#e5e5e5"]
+                                    }
+                                    style={{
+                                      padding: 12,
+                                      borderRadius: 12,
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                    }}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                  >
+                                    <Text
+                                      style={{
+                                        flex: 1,
+                                        fontSize: 16,
+                                        color: selectedModels.includes(model)
+                                          ? "white"
+                                          : isDarkMode
+                                          ? "white"
+                                          : "black",
+                                        fontWeight: selectedModels.includes(model) ? "500" : "normal",
+                                      }}
+                                      numberOfLines={1}
+                                    >
+                                      {model}
+                                    </Text>
+                                    {selectedModels.includes(model) && (
+                                      <View
+                                        style={{
+                                          width: 20,
+                                          height: 20,
+                                          borderRadius: 10,
+                                          backgroundColor: "white",
+                                          justifyContent: "center",
+                                          alignItems: "center",
+                                          marginLeft: 8,
+                                        }}
+                                      >
+                                        <Ionicons name="checkmark" size={14} color="#D55004" />
+                                      </View>
+                                    )}
+                                  </LinearGradient>
+                                </BlurView>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))
+                  )}
+                  <View style={{ height: 60 }} />
+                </ScrollView>
+              </View>
+            </Animated.View>
+          </BlurView>
+        </Modal>
+      </View>
     );
   }
 );
@@ -885,10 +1395,10 @@ const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorS
         <View style={{ padding: 8 }}>
           <LinearGradient
             colors={color.gradient}
-            style={{ 
-              width: 64, 
-              height: 64, 
-              borderRadius: 12, 
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 12,
               marginBottom: 8,
               borderWidth: 2,
               borderColor: selectedColor.includes(color.name)
@@ -1275,7 +1785,7 @@ const DealershipSelector = memo(
                             color={filters.dealership.includes(dealer.id)
                               ? "#D55004"
                               : isDarkMode
-                              ? "white" 
+                              ? "white"
                               : "black"}
                           />
                         )}
