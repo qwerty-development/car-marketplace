@@ -335,7 +335,6 @@ export class NotificationService {
         // Update token status in database
         const success = await this.updateTokenStatus(userId, token, {
           signed_in: false,
-          active: true // Keep it active for future push notifications
         });
 
         if (success) {
@@ -379,11 +378,8 @@ export class NotificationService {
         if (verification.isValid && verification.token) {
           this.debugLog('Using existing verified token from database');
 
-          // Mark as signed in and active
-          await this.updateTokenStatus(userId, verification.token, {
-            signed_in: true,
-            active: true
-          });
+
+
 
           // Update local storage
           await this.saveTokenToStorage(verification.token, verification.tokenId);
@@ -472,8 +468,6 @@ export class NotificationService {
           supabase
             .from('user_push_tokens')
             .update({
-              signed_in: true,
-              active: true,
               last_updated: new Date().toISOString()
             })
             .eq('id', tokenId),

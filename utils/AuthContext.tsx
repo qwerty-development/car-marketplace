@@ -10,6 +10,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
 import { router } from 'expo-router';
+import { NotificationService } from '@/services/NotificationService';
 
 interface AuthContextProps {
   session: Session | null;
@@ -259,34 +260,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
 const cleanupPushToken = async () => {
   try {
-    // Get stored token
-    const token = await SecureStore.getItemAsync('expoPushToken');
+    if (!user) {
+      console.log('No user to clean up push token for');
+      return;
+    }
 
-    if (token && user) {
-      console.log('Found push token to update during sign-out');
+    console.log('Cleaning up push token via NotificationService');
+    const success = await NotificationService.cleanupPushToken(user.id);
 
-      // Update token status instead of deleting it
-      const { error } = await supabase
-        .from('user_push_tokens')
-        .update({
-          signed_in: false,
-          // Keep it active so notifications can still be received
-          active: true,
-          last_updated: new Date().toISOString()
-        })
-        .match({ user_id: user.id, token });
-
-      if (error) {
-        console.error('Error updating push token status:', error);
-      } else {
-        console.log('Successfully marked token as signed out');
-      }
-
-      // DO NOT delete the token from SecureStore to support reuse
+    if (success) {
+      console.log('Successfully marked push token as signed out');
+    } else {
+      console.log('Failed to mark push token as signed out');
     }
   } catch (error) {
-    console.error('Push token status update error:', error);
-    // Continue with sign out even if token update fails
+    console.error('Push token cleanup error:', error);
+    // Continue with sign out even if token cleanup fails
   }
 };
 
