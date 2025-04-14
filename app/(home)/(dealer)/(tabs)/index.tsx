@@ -667,7 +667,7 @@ interface Dealership {
 
 export default function DealerListings() {
 	const { isDarkMode } = useTheme()
-	const { user } = useAuth()
+	const { user,profile } = useAuth()
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [listings, setListings] = useState<CarListing[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
@@ -1221,7 +1221,7 @@ const ListingCard = useMemo(
     colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
     style={{ flex: 1 }}>
     {/* Header */}
-    <CustomHeader title='My Cars' />
+    <CustomHeader title={`Hello ${profile?.name} 👋`} />
 
     {/* Subscription Warning */}
     {(subscriptionExpired || showWarning) && (
