@@ -1035,6 +1035,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </View>
 
         {/* Similar Cars Section */}
+        <View className="mb-40">
+
+        
         {similarCars.length > 0 && (
           <View className="mt-8 px-4">
             <Text
@@ -1060,7 +1063,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         )}
 
         {dealerCars.length > 0 && (
-          <View className="mt-8 px-4 mb-40">
+          <View className="mt-8 px-4">
             <Text
               className={`text-lg font-bold ${
                 isDarkMode ? "text-white" : "text-black"
@@ -1078,6 +1081,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             />
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Bottom Action Bar */}
