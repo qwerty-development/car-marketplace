@@ -100,24 +100,7 @@ export function useNotifications(): UseNotificationsReturn {
       const verification = await NotificationService.forceTokenVerification(user.id);
 
       if (verification.isValid && verification.token === pushToken.data) {
-        // Token already in database, just update status
-        const success = await NotificationService.updateTokenStatus(user.id, pushToken.data, {
-          signed_in: true,
-          active: true
-        });
-
-        if (success) {
-          debugLog('Token status updated in database');
-
-          // Update registration state
-          await saveRegistrationState({
-            lastAttemptTime: Date.now(),
-            attempts: 0,
-            registered: true
-          });
-        } else {
-          debugLog('Failed to update token status in database');
-        }
+       console.log('Token verified successfully, no action needed');
       } else {
         // Token not in database or different, register it
         await registerForPushNotifications(true);
@@ -576,13 +559,7 @@ export function useNotifications(): UseNotificationsReturn {
 
             debugLog('Token verified on app foreground, updating status');
 
-            // Update token status to ensure it's marked as signed in
-            if (verification.token) {
-              await NotificationService.updateTokenStatus(user.id, verification.token, {
-                signed_in: true,
-                active: true
-              });
-            }
+
 
             // Update registration state
             await saveRegistrationState({
@@ -650,10 +627,7 @@ export function useNotifications(): UseNotificationsReturn {
           debugLog('Found valid token during initialization');
 
           // Update token status
-          await NotificationService.updateTokenStatus(user.id, verification.token, {
-            signed_in: true,
-            active: true
-          });
+
 
           // Set up token refresh listener
           if (pushTokenListener.current) {
