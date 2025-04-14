@@ -61,7 +61,7 @@ interface Filters {
   dealership?: string | string[];
   make?: string | string[];
   model?: string | string[];
-  condition?: string | string[];
+  condition?: string | string[]; // Already exists
   yearRange?: [number, number];
   color?: string | string[];
   transmission?: string | string[];
@@ -71,6 +71,8 @@ interface Filters {
   categories?: string[];
   specialFilter?: "newArrivals" | "mostPopular" | "bestDeals";
   sortBy?: string;
+  source?: string | string[]; // Add this line
+  fuelType?: string | string[]; // Add this line
 }
 
 // Define a suggestion type to group makes and models.
@@ -319,6 +321,30 @@ export default function BrowseCarsPage() {
             currentFilters.drivetrain
           );
         }
+        if (
+  Array.isArray(currentFilters.source) &&
+  currentFilters.source.length > 0
+) {
+  queryBuilder = queryBuilder.in("source", currentFilters.source);
+} else if (
+  typeof currentFilters.source === "string" &&
+  currentFilters.source
+) {
+  queryBuilder = queryBuilder.eq("source", currentFilters.source);
+}
+
+// Fuel Type filter (uses the 'type' field in database)
+if (
+  Array.isArray(currentFilters.fuelType) &&
+  currentFilters.fuelType.length > 0
+) {
+  queryBuilder = queryBuilder.in("type", currentFilters.fuelType);
+} else if (
+  typeof currentFilters.fuelType === "string" &&
+  currentFilters.fuelType
+) {
+  queryBuilder = queryBuilder.eq("type", currentFilters.fuelType);
+}
 
         // Price Range
         if (currentFilters.priceRange) {
@@ -347,6 +373,7 @@ export default function BrowseCarsPage() {
             `drivetrain.ilike.%${cleanQuery}%`,
             `type.ilike.%${cleanQuery}%`,
             `condition.ilike.%${cleanQuery}%`,
+             `source.ilike.%${cleanQuery}%`,
           ];
 
           // If the user input is numeric (year, price, mileage), add specific conditions

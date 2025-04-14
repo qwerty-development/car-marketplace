@@ -32,11 +32,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
 import { Buffer } from "buffer";
-
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useTheme } from "@/utils/ThemeContext";
-
 import { BlurView } from "expo-blur";
-
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -531,88 +529,112 @@ export default function AddEditListing() {
     []
   );
 
-  const handleImagePick = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
+const handleImagePick = useCallback(async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    Alert.alert(
+      "Permission Denied",
+      "Sorry, we need camera roll permissions to make this work!"
+    );
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsMultipleSelection: true,
+    quality: 0.8, // This quality setting affects initial selection, not final upload
+  });
+
+  if (!result.canceled && result.assets && result.assets.length > 0) {
+    setIsUploading(true);
+    try {
+      await handleMultipleImageUpload(result.assets);
+    } catch (error) {
+      console.error("Error uploading images:", error);
       Alert.alert(
-        "Permission Denied",
-        "Sorry, we need camera roll permissions to make this work!"
+        "Upload Failed",
+        "Failed to upload images. Please try again."
       );
-      return;
+    } finally {
+      setIsUploading(false);
     }
+  }
+}, [dealership]);
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
+const processImage = async (uri: string): Promise<string> => {
+  try {
+    // Calculate target dimensions (max width/height of 1200px while preserving aspect ratio)
+    const MAX_DIMENSION = 1200;
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setIsUploading(true);
-      try {
-        await handleMultipleImageUpload(result.assets);
-      } catch (error) {
-        console.error("Error uploading images:", error);
-        Alert.alert(
-          "Upload Failed",
-          "Failed to upload images. Please try again."
-        );
-      } finally {
-        setIsUploading(false);
-      }
-    }
-  }, [dealership]);
+    // Process the image with ImageManipulator - resize based on longest dimension to preserve aspect ratio
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: MAX_DIMENSION } }], // Only specify width to maintain aspect ratio
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compress to 70% quality
+    );
 
-  const handleMultipleImageUpload = useCallback(
-    async (assets: any[]) => {
-      if (!dealership) return;
+    return result.uri;
+  } catch (error) {
+    console.error('Error processing image:', error);
+    // If processing fails, return original URI as fallback
+    return uri;
+  }
+};
 
-      const uploadPromises = assets.map(
-        async (asset: { uri: string }, index: number) => {
-          try {
-            const fileName = `${Date.now()}_${Math.random()
-              .toString(36)
-              .substring(7)}_${index}.jpg`;
-            const filePath = `${dealership.id}/${fileName}`;
+// 3. Modify the handleMultipleImageUpload function to use the image processing
+const handleMultipleImageUpload = useCallback(
+  async (assets: any[]) => {
+    if (!dealership) return;
 
-            const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: FileSystem.EncodingType.Base64,
+    const uploadPromises = assets.map(
+      async (asset: { uri: string }, index: number) => {
+        try {
+          // Process the image before upload
+          const processedUri = await processImage(asset.uri);
+
+          const fileName = `${Date.now()}_${Math.random()
+            .toString(36)
+            .substring(7)}_${index}.jpg`;
+          const filePath = `${dealership.id}/${fileName}`;
+
+          const base64 = await FileSystem.readAsStringAsync(processedUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          const { data, error } = await supabase.storage
+            .from("cars")
+            .upload(filePath, Buffer.from(base64, "base64"), {
+              contentType: "image/jpeg",
             });
 
-            const { data, error } = await supabase.storage
-              .from("cars")
-              .upload(filePath, Buffer.from(base64, "base64"), {
-                contentType: "image/jpeg",
-              });
+          if (error) throw error;
 
-            if (error) throw error;
+          const { data: publicURLData } = supabase.storage
+            .from("cars")
+            .getPublicUrl(filePath);
 
-            const { data: publicURLData } = supabase.storage
-              .from("cars")
-              .getPublicUrl(filePath);
+          if (!publicURLData) throw new Error("Error getting public URL");
 
-            if (!publicURLData) throw new Error("Error getting public URL");
-
-            return publicURLData.publicUrl;
-          } catch (error) {
-            console.error("Error uploading image:", error);
-            return null;
-          }
+          return publicURLData.publicUrl;
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          return null;
         }
-      );
+      }
+    );
 
-      const uploadedUrls = await Promise.all(uploadPromises);
-      const successfulUploads = uploadedUrls.filter((url) => url !== null);
+    const uploadedUrls = await Promise.all(uploadPromises);
+    const successfulUploads = uploadedUrls.filter((url) => url !== null);
 
-      setModalImages((prev: any) => [...successfulUploads, ...prev]);
-      setFormData((prev: { images: any }) => ({
-        ...prev,
-        images: [...successfulUploads, ...(prev.images || [])],
-      }));
-      setHasChanges(true); // Mark changes as made
-    },
-    [dealership]
-  );
+    setModalImages((prev: any) => [...successfulUploads, ...prev]);
+    setFormData((prev: { images: any }) => ({
+      ...prev,
+      images: [...successfulUploads, ...(prev.images || [])],
+    }));
+    setHasChanges(true);
+  },
+  [dealership]
+);
 
   const handleImageRemove = useCallback(async (imageUrl: string) => {
     try {
@@ -1473,7 +1495,7 @@ const SoldModal = () => {
     subtitle="Add details about the vehicle's history and features"
     isDarkMode={isDarkMode}
   />
-  
+
   <Text
     className={`text-sm font-medium mb-2 ${
       isDarkMode ? "text-neutral-300" : "text-neutral-700"

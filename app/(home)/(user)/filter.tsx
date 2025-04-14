@@ -33,6 +33,29 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
+// Condition Options
+const CONDITION_OPTIONS = [
+  { label: "New", value: "New", icon: "car-cog" },
+  { label: "Used", value: "Used", icon: "car-arrow-right" },
+];
+
+// Source Options
+const SOURCE_OPTIONS = [
+  { label: "GCC", value: "GCC", icon: "flag" },
+  { label: "Company", value: "Company", icon: "office-building" },
+  { label: "US", value: "US", icon: "flag-variant" },
+  { label: "Canada", value: "Canada", icon: "flag-variant" },
+  { label: "Europe", value: "Europe", icon: "earth" },
+];
+
+// Fuel Type Options
+const FUEL_TYPE_OPTIONS = [
+  { label: "Benzine", value: "Benzine", icon: "gas-station" },
+  { label: "Diesel", value: "Diesel", icon: "fuel" },
+  { label: "Electric", value: "Electric", icon: "lightning-bolt" },
+  { label: "Hybrid", value: "Hybrid", icon: "leaf" },
+];
+
 // Quick Filters Configuration
 const QUICK_FILTERS = [
   {
@@ -1819,21 +1842,23 @@ const DealershipSelector = memo(
 // Main Filter Page Component
 // --------------------
 interface FilterProps {
-dealership: string[];
-dealershipName: string[];
-make: string[];
-model: string[];
-condition: string[];
-priceRange: number[];
-mileageRange: number[];
-yearRange: number[];
-color: string[];
-transmission: string[];
-drivetrain: string[];
-categories: string[];
-quickFilter: any;
-specialFilter?: string;
-sortBy?: string;
+  dealership: string[];
+  dealershipName: string[];
+  make: string[];
+  model: string[];
+  condition: string[]; // Added
+  source: string[]; // Added
+  fuelType: string[]; // Added
+  priceRange: number[];
+  mileageRange: number[];
+  yearRange: number[];
+  color: string[];
+  transmission: string[];
+  drivetrain: string[];
+  categories: string[];
+  quickFilter: any;
+  specialFilter?: string;
+  sortBy?: string;
 }
 
 const FilterPage = () => {
@@ -1843,21 +1868,22 @@ const params = useLocalSearchParams();
 const [dealerships, setDealerships] = useState<any[]>([]);
 const [filterCount, setFilterCount] = useState<number>(0);
 
-// Updated default filters using arrays for multi‑select fields:
 const defaultFilters: FilterProps = {
-dealership: [],
-dealershipName: [],
-make: [],
-model: [],
-condition: [],
-priceRange: [0, 1000000],
-mileageRange: [0, 500000],
-yearRange: [1900, new Date().getFullYear()],
-color: [],
-transmission: [],
-drivetrain: [],
-categories: [],
-quickFilter: null,
+  dealership: [],
+  dealershipName: [],
+  make: [],
+  model: [],
+  condition: [], // Added
+  source: [], // Added
+  fuelType: [], // Added
+  priceRange: [0, 1000000],
+  mileageRange: [0, 500000],
+  yearRange: [1900, new Date().getFullYear()],
+  color: [],
+  transmission: [],
+  drivetrain: [],
+  categories: [],
+  quickFilter: null,
 };
 
 const [filters, setFilters] = useState<FilterProps>(() => {
@@ -1922,6 +1948,17 @@ if (filters.make.length > 0) {
 if (filters.model.length > 0) {
   supabaseFilter.model = filters.model;
 }
+
+  if (filters.condition.length > 0) {
+    supabaseFilter.condition = filters.condition;
+  }
+  if (filters.source.length > 0) {
+    supabaseFilter.source = filters.source;
+  }
+  if (filters.fuelType.length > 0) {
+    supabaseFilter.fuelType = filters.fuelType;
+  }
+
 if (filters.color.length > 0) {
   supabaseFilter.color = filters.color;
 }
@@ -1995,6 +2032,15 @@ if (supabaseFilter.dealership) {
               if (supabaseFilter.specialFilter === 'newArrivals') {
               query = query.order('created_at', { ascending: false });
       }
+        if (supabaseFilter.condition) {
+      query = query.in('condition', supabaseFilter.condition);
+    }
+    if (supabaseFilter.source) {
+      query = query.in('source', supabaseFilter.source);
+    }
+    if (supabaseFilter.fuelType) {
+      query = query.in('type', supabaseFilter.fuelType); // Assuming 'type' is the field name for fuel type
+    }
 
 
   const { count, error } = await query;
@@ -2028,6 +2074,9 @@ if (filters.transmission.length > 0) count++;
 if (filters.drivetrain.length > 0) count++;
 if (filters.categories.length > 0) count++;
 if (filters.quickFilter !== null) count++;
+  if (filters.condition.length > 0) count++;
+  if (filters.source.length > 0) count++;
+  if (filters.fuelType.length > 0) count++;
 
 return count > 0;
 }, [filters]);
@@ -2343,6 +2392,122 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
   />
 ))}
       </ScrollView>
+      <LinearGradient
+  colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 0 }}
+  style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
+/>
+
+{/* Condition Options */}
+<SectionHeader
+  title="Condition"
+  subtitle="Choose vehicle condition"
+  isDarkMode={isDarkMode}
+/>
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  style={{ marginBottom: 24 }}
+>
+  {CONDITION_OPTIONS.map((option) => (
+    <SelectionCard
+      key={option.value}
+      label={option.label}
+      icon={option.icon}
+      isSelected={filters.condition.includes(option.value)}
+      onSelect={() =>
+        setFilters((prev: FilterProps) => ({
+          ...prev,
+          condition: prev.condition.includes(option.value)
+            ? prev.condition.filter(
+                (val: string) => val !== option.value
+              )
+            : [...prev.condition, option.value],
+        }))
+      }
+      isDarkMode={isDarkMode}
+    />
+  ))}
+</ScrollView>
+
+<LinearGradient
+  colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 0 }}
+  style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
+/>
+
+{/* Source Options */}
+<SectionHeader
+  title="Source"
+  subtitle="Choose vehicle origin"
+  isDarkMode={isDarkMode}
+/>
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  style={{ marginBottom: 24 }}
+>
+  {SOURCE_OPTIONS.map((option) => (
+    <SelectionCard
+      key={option.value}
+      label={option.label}
+      icon={option.icon}
+      isSelected={filters.source.includes(option.value)}
+      onSelect={() =>
+        setFilters((prev: FilterProps) => ({
+          ...prev,
+          source: prev.source.includes(option.value)
+            ? prev.source.filter(
+                (val: string) => val !== option.value
+              )
+            : [...prev.source, option.value],
+        }))
+      }
+      isDarkMode={isDarkMode}
+    />
+  ))}
+</ScrollView>
+
+<LinearGradient
+  colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 0 }}
+  style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
+/>
+
+{/* Fuel Type Options */}
+<SectionHeader
+  title="Fuel Type"
+  subtitle="Choose vehicle fuel type"
+  isDarkMode={isDarkMode}
+/>
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  style={{ marginBottom: 24 }}
+>
+  {FUEL_TYPE_OPTIONS.map((option) => (
+    <SelectionCard
+      key={option.value}
+      label={option.label}
+      icon={option.icon}
+      isSelected={filters.fuelType.includes(option.value)}
+      onSelect={() =>
+        setFilters((prev: FilterProps) => ({
+          ...prev,
+          fuelType: prev.fuelType.includes(option.value)
+            ? prev.fuelType.filter(
+                (val: string) => val !== option.value
+              )
+            : [...prev.fuelType, option.value],
+        }))
+      }
+      isDarkMode={isDarkMode}
+    />
+  ))}
+</ScrollView>
 
       <LinearGradient
         colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
