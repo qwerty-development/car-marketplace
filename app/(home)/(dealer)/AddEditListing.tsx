@@ -938,6 +938,7 @@ const handleMultipleImageUpload = useCallback(
               // Direct file upload for Android to avoid base64 memory issues
               try {
                 const { error } = await supabase.storage
+                const { error } = await supabase.storage
                   .from("cars")
                   .upload(filePath, processedUri, uploadOptions);
 
@@ -1002,7 +1003,7 @@ const handleMultipleImageUpload = useCallback(
       const successfulUploads = results.filter(url => url !== null);
 
       if (successfulUploads.length === 0) {
-        throw new Error("No images were successfully uploaded");
+        throw new Error("No images uploaded");
       }
 
       console.log(`Upload complete: ${successfulUploads.length}/${totalImages} images successful`);
