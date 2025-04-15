@@ -372,7 +372,7 @@ const FeatureSelector = memo(
 
 
 
-function AddEditListing() {
+export default function AddEditListing() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -2117,35 +2117,5 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
 
       <SoldModal />
     </SafeAreaView>
-  );
-}
-
-export default function AddEditListingWithErrorBoundary() {
-  return (
-    <ErrorBoundary
-      FallbackComponent={({ error, resetError }) => (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 20 }}>
-            Something went wrong
-          </Text>
-          <Text style={{ marginBottom: 20, textAlign: 'center' }}>
-            We encountered an error while loading this page. Please try again.
-          </Text>
-          <TouchableOpacity
-            onPress={resetError}
-            style={{
-              backgroundColor: '#D55004',
-              paddingVertical: 12,
-              paddingHorizontal: 20,
-              borderRadius: 8
-            }}
-          >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    >
-      <AddEditListing />
-    </ErrorBoundary>
   );
 }
