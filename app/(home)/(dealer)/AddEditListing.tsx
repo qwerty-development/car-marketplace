@@ -37,6 +37,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { BlurView } from "expo-blur";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import ErrorBoundary from 'react-native-error-boundary';
 
 import Animated, {
   FadeIn,
@@ -388,7 +389,7 @@ const FeatureSelector = memo(
 
 
 
-export default function AddEditListing() {
+function AddEditListing() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -460,6 +461,28 @@ export default function AddEditListing() {
     }
   }, [hasChanges, router, handleSubmit, initialData]);
 
+
+const safeSetModalImages = (updater:any) => {
+  try {
+    // Check if we're about to set a very large array
+    const newImages = typeof updater === 'function'
+      ? updater(modalImages)
+      : updater;
+
+    if (Array.isArray(newImages) && newImages.length > 20) {
+      console.warn('Attempting to set too many images:', newImages.length);
+      // Limit to 20 images
+      setModalImages(newImages.slice(0, 20));
+    } else {
+      setModalImages(updater);
+    }
+  } catch (error) {
+    console.error('Error in safeSetModalImages:', error);
+  }
+};
+
+// Use this instead of direct setModalImages calls
+
   // Fetch dealership and car data if editing
   useEffect(() => {
     const fetchData = async () => {
@@ -494,7 +517,7 @@ export default function AddEditListing() {
               features: carData.features || [],
           });
 
-          setModalImages(carData.images || []);
+          safeSetModalImages(carData.images || []);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -528,113 +551,290 @@ export default function AddEditListing() {
     },
     []
   );
-
-const handleImagePick = useCallback(async () => {
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== "granted") {
-    Alert.alert(
-      "Permission Denied",
-      "Sorry, we need camera roll permissions to make this work!"
-    );
-    return;
+const processImage = async (uri: string): Promise<string> => {
+  if (!uri) {
+    console.warn("Empty URI provided to processImage");
+    return "";
   }
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsMultipleSelection: true,
-    quality: 0.8, // This quality setting affects initial selection, not final upload
-  });
+  try {
+    // Add file size check to dynamically adjust compression
+    const fileInfo = await FileSystem.getInfoAsync(uri);
 
-  if (!result.canceled && result.assets && result.assets.length > 0) {
-    setIsUploading(true);
+    // Dynamic optimization based on file size
+    let MAX_DIMENSION = 1200;
+    let compressionLevel = 0.7;
+
+    if (fileInfo.exists && fileInfo.size) {
+      // For very large images (>5MB), use more aggressive compression
+      if (fileInfo.size > 5 * 1024 * 1024) {
+        MAX_DIMENSION = 1000;
+        compressionLevel = 0.6;
+      }
+
+      // For extremely large images (>10MB), use even more aggressive compression
+      if (fileInfo.size > 10 * 1024 * 1024) {
+        MAX_DIMENSION = 800;
+        compressionLevel = 0.5;
+      }
+    }
+
+    // Use a try-catch specifically for the manipulation to isolate ImageManipulator issues
     try {
-      await handleMultipleImageUpload(result.assets);
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: MAX_DIMENSION } }],
+        { compress: compressionLevel, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      if (!result || !result.uri) {
+        throw new Error("Image processing returned invalid result");
+      }
+
+      return result.uri;
+    } catch (manipulationError) {
+      console.error('ImageManipulator specific error:', manipulationError);
+      // If the specific manipulation fails, return original URI
+      return uri;
+    }
+  } catch (error) {
+    console.error('Error in processImage function:', error);
+    // Return original URI as fallback, with additional safety check
+    return uri || "";
+  }
+};
+
+const handleMultipleImageUpload = useCallback(
+  async (assets: any[]) => {
+    if (!dealership) return;
+    if (assets.length === 0) return;
+
+    setIsUploading(true);
+
+    try {
+      // Process images in batches with platform-specific batch size
+      const results = [];
+      // Use smaller batch size on Android which is more memory-constrained
+      const batchSize = Platform.OS === 'android' ? 2 : 3;
+
+      console.log(`Processing ${assets.length} images in batches of ${batchSize}`);
+
+      for (let i = 0; i < assets.length; i += batchSize) {
+        // Log progress for debugging
+        console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(assets.length/batchSize)}`);
+
+        const batch = assets.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
+          const index = i + batchIndex; // Global index for better filename uniqueness
+          try {
+            // Process the image before upload
+            const processedUri = await processImage(asset.uri);
+            if (!processedUri) return null;
+
+            // More unique filename pattern with milliseconds for better uniqueness
+            const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000000)}_${index}.jpg`;
+            const filePath = `${dealership.id}/${fileName}`;
+
+            // Platform-specific upload strategy
+            if (Platform.OS === 'android') {
+              // For Android, try direct file upload if possible to avoid base64 memory issues
+              try {
+                const { data, error } = await supabase.storage
+                  .from("cars")
+                  .upload(filePath, processedUri, {
+                    contentType: "image/jpeg",
+                  });
+
+                if (error) throw error;
+              } catch (directUploadError) {
+                // Fall back to base64 if direct upload fails
+                console.log('Direct upload failed, falling back to base64:', directUploadError);
+                const base64 = await FileSystem.readAsStringAsync(processedUri, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+
+                const { data, error } = await supabase.storage
+                  .from("cars")
+                  .upload(filePath, Buffer.from(base64, "base64"), {
+                    contentType: "image/jpeg",
+                  });
+
+                if (error) throw error;
+              }
+            } else {
+              // iOS base64 approach
+              const base64 = await FileSystem.readAsStringAsync(processedUri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+
+              const { data, error } = await supabase.storage
+                .from("cars")
+                .upload(filePath, Buffer.from(base64, "base64"), {
+                  contentType: "image/jpeg",
+                });
+
+              if (error) throw error;
+            }
+
+            // Get public URL
+            const { data: publicURLData } = supabase.storage
+              .from("cars")
+              .getPublicUrl(filePath);
+
+            if (!publicURLData) throw new Error("Error getting public URL");
+
+            return publicURLData.publicUrl;
+          } catch (error) {
+            console.error(`Error uploading image ${index}:`, error);
+            return null;
+          }
+        });
+
+        // Wait for the current batch to complete before moving to next batch
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+
+        // Give more time for garbage collection between batches on Android
+        await new Promise(resolve => setTimeout(resolve, Platform.OS === 'android' ? 300 : 100));
+
+        // Explicitly suggest garbage collection (might help in some JS engines)
+        if (global.gc) {
+          try {
+            global.gc();
+          } catch (e) {
+            console.log('Manual GC failed:', e);
+          }
+        }
+      }
+
+      const successfulUploads = results.filter((url) => url !== null);
+
+      if (successfulUploads.length === 0) {
+        throw new Error("No images were successfully uploaded");
+      }
+
+      console.log(`Successfully uploaded ${successfulUploads.length} of ${assets.length} images`);
+
+      safeSetModalImages((prev: any) => [...successfulUploads, ...prev]);
+      setFormData((prev: { images: any }) => ({
+        ...prev,
+        images: [...successfulUploads, ...(prev.images || [])],
+      }));
+      setHasChanges(true);
     } catch (error) {
-      console.error("Error uploading images:", error);
+      console.error('Error in image upload process:', error);
       Alert.alert(
-        "Upload Failed",
-        "Failed to upload images. Please try again."
+        "Upload Error",
+        "Some images failed to upload. Please try again with fewer or smaller images."
       );
     } finally {
       setIsUploading(false);
     }
-  }
-}, [dealership]);
-
-const processImage = async (uri: string): Promise<string> => {
-  try {
-    // Calculate target dimensions (max width/height of 1200px while preserving aspect ratio)
-    const MAX_DIMENSION = 1200;
-
-    // Process the image with ImageManipulator - resize based on longest dimension to preserve aspect ratio
-    const result = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: MAX_DIMENSION } }], // Only specify width to maintain aspect ratio
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compress to 70% quality
-    );
-
-    return result.uri;
-  } catch (error) {
-    console.error('Error processing image:', error);
-    // If processing fails, return original URI as fallback
-    return uri;
-  }
-};
-
-// 3. Modify the handleMultipleImageUpload function to use the image processing
-const handleMultipleImageUpload = useCallback(
-  async (assets: any[]) => {
-    if (!dealership) return;
-
-    const uploadPromises = assets.map(
-      async (asset: { uri: string }, index: number) => {
-        try {
-          // Process the image before upload
-          const processedUri = await processImage(asset.uri);
-
-          const fileName = `${Date.now()}_${Math.random()
-            .toString(36)
-            .substring(7)}_${index}.jpg`;
-          const filePath = `${dealership.id}/${fileName}`;
-
-          const base64 = await FileSystem.readAsStringAsync(processedUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          const { data, error } = await supabase.storage
-            .from("cars")
-            .upload(filePath, Buffer.from(base64, "base64"), {
-              contentType: "image/jpeg",
-            });
-
-          if (error) throw error;
-
-          const { data: publicURLData } = supabase.storage
-            .from("cars")
-            .getPublicUrl(filePath);
-
-          if (!publicURLData) throw new Error("Error getting public URL");
-
-          return publicURLData.publicUrl;
-        } catch (error) {
-          console.error("Error uploading image:", error);
-          return null;
-        }
-      }
-    );
-
-    const uploadedUrls = await Promise.all(uploadPromises);
-    const successfulUploads = uploadedUrls.filter((url) => url !== null);
-
-    setModalImages((prev: any) => [...successfulUploads, ...prev]);
-    setFormData((prev: { images: any }) => ({
-      ...prev,
-      images: [...successfulUploads, ...(prev.images || [])],
-    }));
-    setHasChanges(true);
   },
-  [dealership]
+  [dealership, processImage]
 );
+
+const handleImagePick = useCallback(async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Sorry, we need camera roll permissions to make this work!"
+      );
+      return;
+    }
+
+    // Check current images count
+    if (modalImages.length >= 10) {
+      Alert.alert(
+        "Maximum Images",
+        "You can upload a maximum of 10 images per listing."
+      );
+      return;
+    }
+
+    // Calculate how many more can be added
+    const remainingSlots = 10 - modalImages.length;
+
+    // Platform specific selectionLimit - Android has more memory issues
+    const maxSelection = Platform.OS === 'android' ?
+      Math.min(remainingSlots, 4) : // Limit to 4 for Android
+      remainingSlots;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: maxSelection > 1,
+      selectionLimit: maxSelection,
+      quality: Platform.OS === 'android' ? 0.7 : 0.8, // Lower quality on Android
+      exif: false, // Don't need EXIF data
+      // Add specific parameters for Android
+      base64: false, // Don't request base64 in picker to save memory
+      allowsEditing: false, // Disable editing to avoid additional memory use
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      // Add file size check for warnings
+      try {
+        let totalSize = 0;
+        let largeImageCount = 0;
+
+        // Check file sizes
+        for (const asset of result.assets) {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          if (fileInfo.exists && fileInfo.size) {
+            totalSize += fileInfo.size;
+            if (fileInfo.size > 5 * 1024 * 1024) { // > 5MB
+              largeImageCount++;
+            }
+          }
+        }
+
+        // Warn about large images on Android
+        if (Platform.OS === 'android' && (totalSize > 20 * 1024 * 1024 || largeImageCount > 0)) {
+          Alert.alert(
+            "Large Images Detected",
+            "Some selected images are very large, which may cause slowness. Images will be compressed during upload.",
+            [{ text: "Proceed Anyway", onPress: () => {
+              // Continue with upload
+              setIsUploading(true);
+              handleMultipleImageUpload(result.assets)
+                .finally(() => setIsUploading(false));
+            }}],
+            { cancelable: true }
+          );
+          return;
+        }
+      } catch (sizeCheckError) {
+        console.error("Error checking image sizes:", sizeCheckError);
+        // Continue even if size check fails
+      }
+
+      // Proceed with normal flow
+      setIsUploading(true);
+      try {
+        await handleMultipleImageUpload(result.assets);
+      } catch (error) {
+        console.error("Error uploading images:", error);
+        Alert.alert(
+          "Upload Failed",
+          "Failed to upload images. Please try again with fewer or smaller images."
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  } catch (error) {
+    console.error("Error in image picker:", error);
+    Alert.alert(
+      "Error",
+      Platform.OS === 'android' ?
+        "Failed to open image picker. Try selecting fewer images or restarting the app." :
+        "Failed to open image picker."
+    );
+  }
+}, [dealership, modalImages.length, handleMultipleImageUpload]);
+
 
   const handleImageRemove = useCallback(async (imageUrl: string) => {
     try {
@@ -645,8 +845,8 @@ const handleMultipleImageUpload = useCallback(
 
       if (error) throw error;
 
-      setModalImages((prevImages) =>
-        prevImages.filter((url) => url !== imageUrl)
+      safeSetModalImages((prevImages: any[]) =>
+        prevImages.filter((url: string) => url !== imageUrl)
       );
       setFormData((prev: { images: any[] }) => ({
         ...prev,
@@ -660,7 +860,7 @@ const handleMultipleImageUpload = useCallback(
   }, []);
 
   const handleImageReorder = useCallback((newOrder: string[]) => {
-    setModalImages(newOrder);
+    safeSetModalImages(newOrder);
     setFormData((prev: any) => ({
       ...prev,
       images: newOrder,
@@ -839,13 +1039,24 @@ const SoldModal = () => {
     }
   }, [showSoldModal, soldInfo]);
 
-  const handleDateChange = (event, selectedDate) => {
-    // Only update if user confirms (event.type will be 'set')
-    if (event.type === "set" && selectedDate) {
+const handleDateChange = (event: any, selectedDate: { toISOString: () => string; }) => {
+  // Hide the picker first to prevent UI issues
+  setShowInlinePicker(false);
+
+  // Handle both Android and iOS patterns safely
+  // On Android, cancelled = undefined selectedDate
+  // On iOS, we get an event.type
+  if (selectedDate) {
+    try {
+      // Add safety checks before using date methods
       setLocalDate(selectedDate.toISOString().split("T")[0]);
+    } catch (error) {
+      console.warn("Date formatting error:", error);
+      // Fallback to current date
+      setLocalDate(new Date().toISOString().split("T")[0]);
     }
-    setShowInlinePicker(false);
-  };
+  }
+};
 
   const handleConfirm = () => {
     if (!localPrice || !localBuyerName || !localDate) {
@@ -1629,7 +1840,7 @@ const SoldModal = () => {
 
         if (currentFeatures.includes(featureId)) {
           // Remove feature if already selected
-          updatedFeatures = currentFeatures.filter(id => id !== featureId);
+          updatedFeatures = currentFeatures.filter((id: any) => id !== featureId);
         } else {
           // Add feature if not selected
           updatedFeatures = [...currentFeatures, featureId];
@@ -1697,26 +1908,65 @@ const SoldModal = () => {
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  {formData.date_bought
-                    ? format(new Date(formData.date_bought), "PPP")
-                    : "Select purchase date"}
+                 {formData.date_bought ? (
+  <Text
+    className={`ml-3 text-base ${
+      isDarkMode ? "text-white" : "text-black"
+    }`}
+  >
+    {(() => {
+      try {
+        const dateObj = new Date(formData.date_bought);
+        return !isNaN(dateObj.getTime())
+          ? format(dateObj, "PPP")
+          : "Select purchase date";
+      } catch (error) {
+        console.warn("Date display error:", error);
+        return "Select purchase date";
+      }
+    })()}
+  </Text>
+) : (
+  <Text
+    className={`ml-3 text-base ${
+      isDarkMode ? "text-neutral-400" : "text-neutral-500"
+    }`}
+  >
+    Select purchase date
+  </Text>
+)}
                 </Text>
               </BlurView>
             </View>
           </TouchableOpacity>
 
-          <DateTimePickerModal
-            isVisible={showDatePicker}
-            mode="date"
-            date={
-              formData.date_bought ? new Date(formData.date_bought) : new Date()
-            }
-            onConfirm={(selectedDate) => {
-              handleInputChange("date_bought", selectedDate.toISOString());
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
+        <DateTimePickerModal
+  isVisible={showDatePicker}
+  mode="date"
+  date={
+    formData.date_bought && !isNaN(new Date(formData.date_bought).getTime())
+      ? new Date(formData.date_bought)
+      : new Date()
+  }
+  onConfirm={(selectedDate) => {
+    try {
+      // Add safety check before calling toISOString
+      if (selectedDate && !isNaN(selectedDate.getTime())) {
+        handleInputChange("date_bought", selectedDate.toISOString());
+      } else {
+        handleInputChange("date_bought", new Date().toISOString());
+      }
+    } catch (error) {
+      console.warn("Date handling error:", error);
+      handleInputChange("date_bought", new Date().toISOString());
+    }
+    setShowDatePicker(false);
+  }}
+  onCancel={() => setShowDatePicker(false)}
+   isDarkModeEnabled={isDarkMode}
+  cancelButtonTestID="cancel-button"
+  confirmButtonTestID="confirm-button"
+/>
 
           <NeumorphicInput
             label="Bought From"
@@ -1773,5 +2023,35 @@ const SoldModal = () => {
 
       <SoldModal />
     </SafeAreaView>
+  );
+}
+
+export default function AddEditListingWithErrorBoundary() {
+  return (
+    <ErrorBoundary
+      FallbackComponent={({ error, resetError }) => (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 20 }}>
+            Something went wrong
+          </Text>
+          <Text style={{ marginBottom: 20, textAlign: 'center' }}>
+            We encountered an error while loading this page. Please try again.
+          </Text>
+          <TouchableOpacity
+            onPress={resetError}
+            style={{
+              backgroundColor: '#D55004',
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              borderRadius: 8
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    >
+      <AddEditListing />
+    </ErrorBoundary>
   );
 }
