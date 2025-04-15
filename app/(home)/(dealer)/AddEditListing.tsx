@@ -938,7 +938,6 @@ const handleMultipleImageUpload = useCallback(
               // Direct file upload for Android to avoid base64 memory issues
               try {
                 const { error } = await supabase.storage
-                const { error } = await supabase.storage
                   .from("cars")
                   .upload(filePath, processedUri, uploadOptions);
 
