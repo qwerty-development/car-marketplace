@@ -48,7 +48,9 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 	const { isDarkMode } = useTheme()
 
 	return (
-		<View className=''>
+		<View className={`${
+			isDarkMode ? '' : 'bg-white'
+		}`}>
 			<Text
 				className={`text-xl font-bold mb-4 ml-3  ${
 					isDarkMode ? 'text-white' : 'text-black'
