@@ -1,14 +1,16 @@
 // app/(home)/(user)/CarDetails.tsx
-import React, { useEffect, useState, useCallback, Suspense } from 'react'
-import { View, ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity } from 'react-native'
+import React, { useEffect, useState, useCallback, Suspense, useRef } from 'react'
+import { View, ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, AppState } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import { useCarDetails } from '@/hooks/useCarDetails'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
-import CarDetailScreen from './CarDetailModal'
 import ErrorBoundary from 'react-native-error-boundary'
 import { Ionicons } from '@expo/vector-icons'
+
+// Lazy load the detail screen component to improve initial load time
+const CarDetailScreen = React.lazy(() => import('./CarDetailModal'))
 
 // Error fallback component for handling component failures gracefully
 const ErrorFallback = ({ error, resetError }:any) => (
@@ -38,6 +40,42 @@ export default function CarDetailsPage() {
   const { isDarkMode } = useTheme()
   const carId = params.carId as string
   const isDealer = params.isDealerView === 'true'
+  const [appState, setAppState] = useState(AppState.currentState)
+
+  // Refs to track mounting state and loading timeout
+  const isMountedRef = useRef(true)
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const dataLoadedRef = useRef(false)
+
+  // Performance monitoring
+  const [loadTimes, setLoadTimes] = useState<{
+    start: number;
+    dataLoaded?: number;
+    renderComplete?: number;
+  }>({ start: Date.now() })
+
+  // Handle app state changes to optimize resource usage
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      setAppState(nextAppState)
+    })
+
+    return () => {
+      subscription.remove()
+    }
+  }, [])
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+      // Clear the timeout if component unmounts
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   const handleFavoritePress = useCallback(
     async (carId: any) => {
@@ -59,6 +97,21 @@ export default function CarDetailsPage() {
   const handleRetry = useCallback(() => {
     setLoadError(null)
     setIsLoading(true)
+    setLoadTimes({ start: Date.now() })
+    dataLoadedRef.current = false
+
+    // Reset the timeout on retry
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current)
+    }
+
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current && !dataLoadedRef.current) {
+        setLoadError(new Error('Loading timeout - please try again'))
+        setIsLoading(false)
+      }
+    }, 15000)
+
     loadCarDetails()
   }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,6 +135,15 @@ export default function CarDetailsPage() {
             // Validate that parsed data is usable
             if (prefetchedCar && prefetchedCar.id) {
               setCar(prefetchedCar)
+              setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }))
+
+              // Mark data as loaded and clear the timeout
+              dataLoadedRef.current = true
+              if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current)
+                loadingTimeoutRef.current = null
+              }
+
               setIsLoading(false)
               return
             }
@@ -102,53 +164,73 @@ export default function CarDetailsPage() {
         throw new Error('Car not found')
       }
 
+      if (!isMountedRef.current) return; // Ensure component is still mounted
+
       setCar(fetchedCar)
+      setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }))
       setLoadError(null)
+
+      // Mark data as loaded and clear the timeout
+      dataLoadedRef.current = true
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+
     } catch (error) {
+      if (!isMountedRef.current) return; // Ensure component is still mounted
+
       console.error('Error loading car details:', error)
       setLoadError(error instanceof Error ? error : new Error('Failed to load car details'))
     } finally {
-      setIsLoading(false)
+      if (isMountedRef.current) {
+        setIsLoading(false)
+      }
     }
   }, [carId, params.prefetchedData, prefetchCarDetails])
 
-  // Load car details on mount
+  // Load car details on mount with proper cleanup and timeout handling
   useEffect(() => {
-    let isMounted = true
+    setIsLoading(true)
+    setLoadError(null)
+    setLoadTimes({ start: Date.now() })
+    dataLoadedRef.current = false
 
-    const initializeCarDetails = async () => {
-      if (!isMounted) return
-
-      setIsLoading(true)
-      setLoadError(null)
-
-      try {
-        await loadCarDetails()
-      } catch (error) {
-        if (isMounted) {
-          console.error('Unhandled error in car details initialization:', error)
-        }
-      }
+    // Start the loading timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current)
     }
 
-    initializeCarDetails()
-
-    // Add a timeout to prevent indefinite loading
-    const loadingTimeout = setTimeout(() => {
-      if (isMounted && isLoading) {
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current && !dataLoadedRef.current) {
+        console.log('Loading timeout occurred')
         setLoadError(new Error('Loading timeout - please try again'))
         setIsLoading(false)
       }
     }, 15000) // 15 second timeout
 
+    loadCarDetails()
+
+    // Cleanup function: clear timeout if component unmounts or deps change
     return () => {
-      isMounted = false
-      clearTimeout(loadingTimeout)
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
     }
   }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
+  // Optimize memory usage when app goes to background
+  useEffect(() => {
+    if (appState !== 'active' && car) {
+      // Clear unnecessary data when app is in background
+      if (car.similarCars) car.similarCars = [];
+      if (car.dealerCars) car.dealerCars = [];
+    }
+  }, [appState, car]);
 
+  // Render with proper loading states and error handling
   return (
     <View
       style={[
@@ -169,21 +251,65 @@ export default function CarDetailsPage() {
             Loading car details...
           </Text>
         </View>
+      ) : loadError ? (
+        <View style={[
+          styles.errorContainer,
+          { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
+        ]}>
+          <Ionicons name="alert-circle-outline" size={50} color="#D55004" />
+          <Text style={{
+            fontSize: 18,
+            fontWeight: 'bold',
+            marginTop: 20,
+            color: isDarkMode ? '#FFFFFF' : '#000000'
+          }}>
+            Error Loading Car
+          </Text>
+          <Text style={{
+            marginTop: 10,
+            textAlign: 'center',
+            marginBottom: 20,
+            color: isDarkMode ? '#CCCCCC' : '#666666'
+          }}>
+            {loadError.message || 'Something went wrong'}
+          </Text>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={handleRetry}
+          >
+            <Text style={styles.resetButtonText}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
       ) : car ? (
         <ErrorBoundary
           FallbackComponent={ErrorFallback}
           onError={(error) => console.error("CarDetailScreen crashed:", error)}
         >
-          <View style={[
-            styles.screenContainer,
-            { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
-          ]}>
-            <CarDetailScreen
-              car={car}
-              isDealer={isDealer}
-              onFavoritePress={handleFavoritePress}
-            />
-          </View>
+          <Suspense fallback={
+            <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
+              <ActivityIndicator size="large" color="#D55004" />
+              <Text style={{ marginTop: 16, color: isDarkMode ? '#CCCCCC' : '#666666' }}>
+                Preparing car details...
+              </Text>
+            </View>
+          }>
+            <View style={[
+              styles.screenContainer,
+              { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
+            ]}>
+              <CarDetailScreen
+                car={car}
+                isDealer={isDealer}
+                onFavoritePress={handleFavoritePress}
+              />
+            </View>
+          </Suspense>
         </ErrorBoundary>
       ) : (
         <View style={[

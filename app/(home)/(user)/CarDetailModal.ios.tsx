@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+// app/(home)/(user)/CarDetailModal.ios.tsx
+import React, { useCallback, useEffect, useState, useRef, memo, useMemo } from "react";
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   FlatList,
   Dimensions,
   Linking,
@@ -14,21 +14,29 @@ import {
   AppState,
   Modal,
   Pressable,
+  InteractionManager,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/utils/supabase";
 import { debounce } from "@/utils/debounce";
 import { useFavorites } from "@/utils/useFavorites";
-import MapView, { Marker } from "react-native-maps";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
-import AutoclipModal from "@/components/AutoclipModal";
-import openWhatsApp from "@/utils/openWhatsapp";
 import { useAuth } from "@/utils/AuthContext";
+let MapView: any;
+let MapViewMarker: any;
 
-const { width } = Dimensions.get("window");
+// Lazy load heavy components
+const AutoclipModal = React.lazy(() => import("@/components/AutoclipModal"));
+const EmptyMapComponent = (props: any) => <View {...props} />;
+EmptyMapComponent.Marker = (props: any) => <View {...props} />;
 
+
+const { width, height } = Dimensions.get("window");
+
+// Feature definitions - moved outside component to prevent re-creation
 const VEHICLE_FEATURES = {
   tech: [
     { id: "bluetooth", label: "Bluetooth", icon: "bluetooth" },
@@ -42,11 +50,7 @@ const VEHICLE_FEATURES = {
     { id: "keyless_start", label: "Keyless Start", icon: "power" },
   ],
   safety: [
-    {
-      id: "lane_assist",
-      label: "Lane Departure Warning",
-      icon: "road-variant",
-    },
+    { id: "lane_assist", label: "Lane Departure Warning", icon: "road-variant" },
     { id: "blind_spot", label: "Blind Spot Monitoring", icon: "eye-off" },
     { id: "parking_sensors", label: "Parking Sensors", icon: "parking" },
     { id: "backup_camera", label: "Backup Camera", icon: "camera" },
@@ -63,16 +67,28 @@ const VEHICLE_FEATURES = {
   ],
 };
 
-const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
+// Memoized image component with improved loading strategy
+const OptimizedImage = memo(({ source, style, onLoad, contentFit = "cover" }: any) => {
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
   const handleLoad = useCallback(() => {
     setLoaded(true);
     onLoad?.();
   }, [onLoad]);
 
-  const blurhash =
-    "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
+  const handleError = useCallback(() => {
+    setError(true);
+    console.log("Image failed to load:", source?.uri);
+  }, [source?.uri]);
+
+  // Use a lightweight blurhash
+  const blurhash = "LBAdAqof00WV_3V@00og00j[";
+
+  // Return empty view immediately if no valid source
+  if (!source || !source.uri) {
+    return <View style={style} />;
+  }
 
   return (
     <View style={[style, { overflow: "hidden" }]}>
@@ -85,12 +101,24 @@ const OptimizedImage = React.memo(({ source, style, onLoad }: any) => {
           },
         ]}
         onLoad={handleLoad}
-        recyclingKey={`${source.uri}`}
+        onError={handleError}
         placeholder={blurhash}
-        contentFit="cover"
-        transition={200}
+        contentFit={contentFit}
+        transition={150}
         cachePolicy="memory-disk"
+        recyclingKey={`${source.uri}`}
+        fadeDuration={300}
       />
+      {error && (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { justifyContent: "center", alignItems: "center", backgroundColor: "#f0f0f0" },
+          ]}
+        >
+          <Ionicons name="image-outline" size={24} color="#999" />
+        </View>
+      )}
     </View>
   );
 });
@@ -116,19 +144,30 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
   }
 };
 
-const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (
-  <TouchableOpacity onPress={onPress} className="items-center mx-2">
+// Memoized simple components
+const ActionButton = memo(({ icon, onPress, text, isDarkMode }: any) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={{ alignItems: "center", marginHorizontal: 8 }}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
     <Ionicons
       name={icon}
       size={27}
       color={isDarkMode ? "#FFFFFF" : "#000000"}
     />
   </TouchableOpacity>
-);
+));
 
-const TechnicalDataItem = ({ icon, label, value, isDarkMode, isLast }: any) => (
-  <View className={`flex-row items-center mx-4 py-3 relative`}>
-    <View className="w-8">
+const TechnicalDataItem = memo(({ icon, label, value, isDarkMode, isLast }: any) => (
+  <View style={{
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    paddingVertical: 12,
+    position: "relative"
+  }}>
+    <View style={{ width: 32 }}>
       <Ionicons
         name={icon}
         size={24}
@@ -136,41 +175,115 @@ const TechnicalDataItem = ({ icon, label, value, isDarkMode, isLast }: any) => (
       />
     </View>
     <Text
-      className={`flex-1 text-sm ${isDarkMode ? "text-white" : "text-black"}`}
+      style={{
+        flex: 1,
+        fontSize: 14,
+        color: isDarkMode ? "white" : "black",
+      }}
     >
       {label}
     </Text>
-    <Text className="dark:text-white font-semibold text-sm">{value}</Text>
+    <Text style={{
+      fontWeight: "600",
+      fontSize: 14,
+      color: isDarkMode ? "white" : "black",
+    }}>
+      {value || "N/A"}
+    </Text>
 
     {!isLast && (
-      <View className="absolute bottom-0 w-full h-[1] bg-[#c9c9c9]" />
+      <View style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: "#c9c9c9",
+      }} />
     )}
   </View>
-);
+));
 
-const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
-  if (!car) return null;
-  console.log(onFavoritePress);
+// Memoized feature category component
+const FeatureCategory = memo(({ title, features, isDarkMode }: any) => {
+  if (!features || features.length === 0) return null;
 
-  const { isDarkMode } = useTheme();
-  const router = useRouter();
-  const { user } = useAuth();
-  const { isFavorite } = useFavorites();
-  const [similarCars, setSimilarCars] = useState<any>([]);
-  const [dealerCars, setDealerCars] = useState<any>([]);
-  const scrollViewRef = useRef<any>(null);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [autoclips, setAutoclips] = useState<any>([]);
-  const [selectedClip, setSelectedClip] = useState<any>(null);
-  const [showClipModal, setShowClipModal] = useState<any>(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
-    null
+  return (
+    <View style={{ marginBottom: 24 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+        <View style={{
+          height: 20,
+          width: 4,
+          backgroundColor: "#D55004",
+          marginRight: 8,
+          borderRadius: 2
+        }} />
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: "600",
+            color: isDarkMode ? "white" : "black",
+          }}
+        >
+          {title}
+        </Text>
+      </View>
+
+      <FlatList
+        data={features}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item, index) => `${title.toLowerCase()}-${index}`}
+        initialNumToRender={3}
+        maxToRenderPerBatch={5}
+        windowSize={3}
+        removeClippedSubviews={Platform.OS === 'android'}
+        renderItem={({ item: feature }) => (
+          <View
+            style={{
+              flexDirection: "row",
+              borderWidth: 0.5,
+              borderColor: isDarkMode ? "#444" : "#ccc",
+              alignItems: "center",
+              marginRight: 12,
+              marginBottom: 4,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: isDarkMode ? "#1c1c1c" : "#f5f5f5",
+            }}
+          >
+            <MaterialCommunityIcons
+              name={feature.icon || "check-circle-outline"}
+              size={18}
+              color="#D55004"
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={{
+                color: isDarkMode ? "white" : "black",
+                fontWeight: "500",
+              }}
+            >
+              {feature.label}
+            </Text>
+          </View>
+        )}
+      />
+    </View>
   );
+});
 
-  // Helper function to compute relative time from the listed_at property
-  const getRelativeTime = (dateString: string) => {
+// Helper function for relative time
+const getRelativeTime = (dateString: string) => {
+  if (!dateString) return "Recently";
+
+  try {
     const now = new Date();
     const postedDate = new Date(dateString);
+
+    if (isNaN(postedDate.getTime())) return "Recently";
+
     const seconds = Math.floor((now.getTime() - postedDate.getTime()) / 1000);
 
     let interval = Math.floor(seconds / 31536000);
@@ -198,11 +311,129 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
     }
     return Math.floor(seconds) + " seconds ago";
-  };
+  } catch (error) {
+    console.error("Error computing relative time:", error);
+    return "Recently";
+  }
+};
 
-  // Add fetchAutoclips function
+// Main component with performance optimizations
+const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
+  if (!car) return null;
+
+  const { isDarkMode } = useTheme();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isFavorite } = useFavorites();
+  const scrollViewRef = useRef<FlatList>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+
+  // Split state into critical and non-critical groups
+  const [criticalState, setCriticalState] = useState({
+    autoclips: [],
+    selectedClip: null,
+    showClipModal: false,
+  });
+
+  const [nonCriticalState, setNonCriticalState] = useState({
+    similarCars: [],
+    dealerCars: [],
+    isMapVisible: false,
+  });
+
+  // Track which sections have loaded
+  const [loadingStatus, setLoadingStatus] = useState({
+    imagesLoaded: false,
+    autoclipsLoaded: false,
+    similarCarsLoaded: false,
+    dealerCarsLoaded: false,
+  });
+
+  // App state tracking for background optimization
+  const appStateRef = useRef(AppState.currentState);
+  const [isActive, setIsActive] = useState(true);
+
+  // Performance tracking
+  const performanceRef = useRef({
+    startTime: Date.now(),
+    firstImageLoaded: 0,
+    criticalContentLoaded: 0,
+  });
+
+  // Track app state changes to optimize resource usage
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const currentState = appStateRef.current;
+      appStateRef.current = nextAppState;
+
+      if (currentState.match(/inactive|background/) && nextAppState === 'active') {
+        // App came to foreground
+        setIsActive(true);
+      } else if (nextAppState.match(/inactive|background/)) {
+        // App went to background
+        setIsActive(false);
+
+        // Clear memory-intensive data
+        setNonCriticalState(prev => ({
+          ...prev,
+          similarCars: [],
+          dealerCars: [],
+          isMapVisible: false,
+        }));
+
+        // Release image cache if app goes to background
+        if (Platform.OS === 'ios') {
+          try {
+            Image.clearMemoryCache();
+          } catch (e) {
+            console.error("Failed to clear image cache:", e);
+          }
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Adds performance tracking to initial load
+  useEffect(() => {
+    const trackPerformance = () => {
+      const { startTime, firstImageLoaded, criticalContentLoaded } = performanceRef.current;
+      const now = Date.now();
+
+      if (__DEV__) {
+        console.log(`[Performance] CarDetail:
+          First mount: ${now - startTime}ms
+          First image: ${firstImageLoaded ? firstImageLoaded - startTime : 'Not loaded'}ms
+          Critical content: ${criticalContentLoaded ? criticalContentLoaded - startTime : 'Not loaded'}ms
+        `);
+      }
+    };
+
+    // Schedule tracking to run after first render completes
+    const timeout = setTimeout(trackPerformance, 3000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Handle first image loaded
+  const handleFirstImageLoaded = useCallback(() => {
+    if (performanceRef.current.firstImageLoaded === 0) {
+      performanceRef.current.firstImageLoaded = Date.now();
+
+      setLoadingStatus(prev => ({
+        ...prev,
+        imagesLoaded: true
+      }));
+    }
+  }, []);
+
+  // Staggered data loading strategy - only load autoclips initially
   const fetchAutoclips = useCallback(async () => {
-    if (!car) return;
+    if (!car || !car.id) return;
 
     try {
       const { data, error } = await supabase
@@ -213,68 +444,106 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setAutoclips(data || []);
+
+      setCriticalState(prev => ({
+        ...prev,
+        autoclips: data || []
+      }));
+
+      setLoadingStatus(prev => ({
+        ...prev,
+        autoclipsLoaded: true
+      }));
     } catch (error) {
       console.error("Error fetching autoclips:", error);
+      setCriticalState(prev => ({
+        ...prev,
+        autoclips: []
+      }));
+
+      setLoadingStatus(prev => ({
+        ...prev,
+        autoclipsLoaded: true
+      }));
     }
-  }, [car]);
-
-  // Add to useEffect for initial fetch
-  useEffect(() => {
-    if (car) {
-      fetchAutoclips();
-    }
-  }, [car, fetchAutoclips]);
-
-  const handleClipLike = useCallback(
-    async (clipId: any) => {
-      if (!user) return;
-
-      try {
-        const { data: newLikesCount, error } = await supabase.rpc(
-          "toggle_autoclip_like",
-          {
-            clip_id: clipId,
-            user_id: user.id,
-          }
-        );
-
-        if (error) throw error;
-
-        setAutoclips((prev: any[]) =>
-          prev.map((clip: { id: any; liked_users: string[] }) =>
-            clip.id === clipId
-              ? {
-                  ...clip,
-                  likes: newLikesCount,
-                  liked_users: clip.liked_users?.includes(user.id)
-                    ? clip.liked_users.filter((id: string) => id !== user.id)
-                    : [...(clip.liked_users || []), user.id],
-                }
-              : clip
-          )
-        );
-      } catch (error) {
-        console.error("Error toggling autoclip like:", error);
-      }
-    },
-    [user]
-  );
+  }, [car?.id]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("memoryWarning", () => {
-      // Clear non-essential data
-      setSimilarCars([]);
-      setDealerCars([]);
+  // Only load on iOS and when visible
+  if (Platform.OS === 'ios' && nonCriticalState.isMapVisible) {
+    import('react-native-maps').then(module => {
+      MapView = module.default;
+      MapViewMarker = module.Marker;
+      // Force re-render
+      setNonCriticalState(prev => ({...prev}));
+    }).catch(error => {
+      console.error('Error loading maps:', error);
     });
+  }
+}, [nonCriticalState.isMapVisible]);
 
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
+  // Load critical data on mount
+  useEffect(() => {
+    if (car && car.id) {
+      // Track critical content load
+      if (performanceRef.current.criticalContentLoaded === 0) {
+        performanceRef.current.criticalContentLoaded = Date.now();
+      }
+
+      // Fetch autoclips with slight delay to prioritize UI rendering
+      InteractionManager.runAfterInteractions(() => {
+        fetchAutoclips();
+      });
+
+      // Track view after a slight delay to prioritize UI
+      const trackViewTimer = setTimeout(() => {
+        if (user && car.id) {
+          trackCarView(car.id, user.id);
+        }
+      }, 1000);
+
+      return () => clearTimeout(trackViewTimer);
+    }
+  }, [car?.id, user?.id]);
+
+  // Delayed loading of non-critical data (similar cars, dealer cars)
+  useEffect(() => {
+    if (!car || !car.id) return;
+
+    // Only load these once critical content is loaded and app is active
+    if (loadingStatus.imagesLoaded && loadingStatus.autoclipsLoaded && isActive) {
+      // Staggered loading of similar cars
+      const similarCarsTimer = setTimeout(() => {
+        fetchSimilarCars();
+      }, 1500);
+
+      // Staggered loading of dealer cars
+      const dealerCarsTimer = setTimeout(() => {
+        fetchDealerCars();
+      }, 2500);
+
+      // Show map with even more delay
+      const mapTimer = setTimeout(() => {
+        setNonCriticalState(prev => ({
+          ...prev,
+          isMapVisible: true
+        }));
+      }, 3000);
+
+      return () => {
+        clearTimeout(similarCarsTimer);
+        clearTimeout(dealerCarsTimer);
+        clearTimeout(mapTimer);
+      };
+    }
+  }, [car?.id, loadingStatus.imagesLoaded, loadingStatus.autoclipsLoaded, isActive]);
+
+  // Track view API call
   const trackCarView = useCallback(
     async (carId: any, userId: any) => {
+      if (!carId || !userId) return;
+
       try {
         const { data, error } = await supabase.rpc("track_car_view", {
           car_id: carId,
@@ -293,61 +562,56 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     [onViewUpdate]
   );
 
-  // Track call button clicks
-  const trackCallClick = useCallback(
-    async (carId: number) => {
-      if (!user) return;
+  // Handle clip like with debouncing
+  const handleClipLike = useCallback(
+    debounce(async (clipId: any) => {
+      if (!user || !clipId) return;
 
       try {
-        const { data, error } = await supabase.rpc("track_car_call", {
-          car_id: carId,
-          user_id: user.id,
-        });
+        const { data: newLikesCount, error } = await supabase.rpc(
+          "toggle_autoclip_like",
+          {
+            clip_id: clipId,
+            user_id: user.id,
+          }
+        );
 
         if (error) throw error;
-        console.log(`Call count updated: ${data}`);
-      } catch (error) {
-        console.error("Error tracking call click:", error);
-      }
-    },
-    [user]
-  );
 
-  // Track WhatsApp button clicks
-  const trackWhatsAppClick = useCallback(
-    async (carId: number) => {
-      if (!user) return;
+        setCriticalState(prev => {
+          const updatedAutoclips = prev.autoclips.map((clip: any) =>
+            clip.id === clipId
+              ? {
+                  ...clip,
+                  likes: newLikesCount,
+                  liked_users: clip.liked_users?.includes(user.id)
+                    ? clip.liked_users.filter((id: string) => id !== user.id)
+                    : [...(clip.liked_users || []), user.id],
+                }
+              : clip
+          );
 
-      try {
-        const { data, error } = await supabase.rpc("track_car_whatsapp", {
-          car_id: carId,
-          user_id: user.id,
+          return {
+            ...prev,
+            autoclips: updatedAutoclips
+          };
         });
-
-        if (error) throw error;
-        console.log(`WhatsApp count updated: ${data}`);
       } catch (error) {
-        console.error("Error tracking WhatsApp click:", error);
+        console.error("Error toggling autoclip like:", error);
       }
-    },
-    [user]
+    }, 300),
+    [user, supabase]
   );
 
-  useEffect(() => {
-    if (car && user) {
-      trackCarView(car.id, user.id);
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({ y: 0, animated: false });
-      }
-    }
-  }, [car, user, trackCarView]);
-
+  // Fetch similar cars with error handling and optimization
   const fetchSimilarCars = useCallback(async () => {
+    if (!car || !car.id || !car.make) return;
+
     try {
       // First, try to find cars with same make, model, and year
       let { data: exactMatches, error: exactMatchError } = await supabase
         .from("cars")
-        .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
+        .select("id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo, phone, location, latitude, longitude)")
         .eq("make", car.make)
         .eq("model", car.model)
         .eq("year", car.year)
@@ -359,155 +623,219 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       if (exactMatches && exactMatches.length > 0) {
         const newCars = exactMatches.map((item) => ({
-          ...item,
-          dealership_name: item.dealerships.name,
-          dealership_logo: item.dealerships.logo,
-          dealership_phone: item.dealerships.phone,
-          dealership_location: item.dealerships.location,
-          dealership_latitude: item.dealerships.latitude,
-          dealership_longitude: item.dealerships.longitude,
-          listed_at: item.listed_at,
+          id: item.id,
+          make: item.make,
+          model: item.model,
+          year: item.year,
+          price: item.price,
+          images: item.images,
+          dealership_id: item.dealership_id,
+          dealership_name: item.dealerships?.name,
+          dealership_logo: item.dealerships?.logo,
+          dealership_phone: item.dealerships?.phone,
+          dealership_location: item.dealerships?.location,
+          dealership_latitude: item.dealerships?.latitude,
+          dealership_longitude: item.dealerships?.longitude,
         }));
-        setSimilarCars(newCars);
+
+        setNonCriticalState(prev => ({
+          ...prev,
+          similarCars: newCars
+        }));
+
+        setLoadingStatus(prev => ({
+          ...prev,
+          similarCarsLoaded: true
+        }));
+
         return;
       }
 
       // If no exact matches, fall back to similarly priced cars
-      const { data: priceMatches, error: priceMatchError } = await supabase
-        .from("cars")
-        .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
-        .neq("id", car.id)
-        .eq("status", "available")
-        .gte("price", Math.floor(car.price * 0.8))
-        .lte("price", Math.floor(car.price * 1.2))
-        .limit(5);
+      if (car.price) {
+        const { data: priceMatches, error: priceMatchError } = await supabase
+          .from("cars")
+          .select("id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo, phone, location, latitude, longitude)")
+          .neq("id", car.id)
+          .eq("status", "available")
+          .gte("price", Math.floor(car.price * 0.8))
+          .lte("price", Math.floor(car.price * 1.2))
+          .limit(5);
 
-      if (priceMatchError) throw priceMatchError;
+        if (priceMatchError) throw priceMatchError;
 
-      if (priceMatches && priceMatches.length > 0) {
-        const newCars = priceMatches.map((item) => ({
-          ...item,
-          dealership_name: item.dealerships.name,
-          dealership_logo: item.dealerships.logo,
-          dealership_phone: item.dealerships.phone,
-          dealership_location: item.dealerships.location,
-          dealership_latitude: item.dealerships.latitude,
-          dealership_longitude: item.dealerships.longitude,
-          listed_at: item.listed_at,
-        }));
-        setSimilarCars(newCars);
-      } else {
-        setSimilarCars([]);
+        if (priceMatches && priceMatches.length > 0) {
+          const newCars = priceMatches.map((item) => ({
+            id: item.id,
+            make: item.make,
+            model: item.model,
+            year: item.year,
+            price: item.price,
+            images: item.images && item.images.length > 0 ? [item.images[0]] : [], // Only load first image
+            dealership_id: item.dealership_id,
+            dealership_name: item.dealerships?.name,
+            dealership_logo: item.dealerships?.logo,
+          }));
+
+          setNonCriticalState(prev => ({
+            ...prev,
+            similarCars: newCars
+          }));
+        }
       }
+
+      setLoadingStatus(prev => ({
+        ...prev,
+        similarCarsLoaded: true
+      }));
     } catch (error) {
       console.error("Error fetching similar cars:", error);
-      setSimilarCars([]);
-    }
-  }, [car.id, car.make, car.model, car.year, car.price]);
-
-  const fetchDealerCars = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("cars")
-      .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
-      .eq("dealership_id", car.dealership_id)
-      .eq("status", "available")
-      .neq("id", car.id)
-      .limit(5);
-
-    if (data) {
-      const newCars = data.map((item) => ({
-        ...item,
-        dealership_name: item.dealerships.name,
-        dealership_logo: item.dealerships.logo,
-        dealership_phone: item.dealerships.phone,
-        dealership_location: item.dealerships.location,
-        dealership_latitude: item.dealerships.latitude,
-        dealership_longitude: item.dealerships.longitude,
-        listed_at: item.listed_at,
+      setNonCriticalState(prev => ({
+        ...prev,
+        similarCars: []
       }));
-      setDealerCars(newCars);
-    }
-    if (error) console.error("Error fetching dealer cars:", error);
-  }, [car.dealership_id, car.id]);
 
-  useEffect(() => {
-    return () => {
-      // Clear image cache on unmount
-      if (Platform.OS === "ios") {
-        Image.clearMemoryCache();
+      setLoadingStatus(prev => ({
+        ...prev,
+        similarCarsLoaded: true
+      }));
+    }
+  }, [car?.id, car?.make, car?.model, car?.year, car?.price]);
+
+  // Fetch dealer cars with error handling and optimization
+  const fetchDealerCars = useCallback(async () => {
+    if (!car || !car.dealership_id || !car.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("cars")
+        .select("id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo)")
+        .eq("dealership_id", car.dealership_id)
+        .neq("id", car.id)
+        .eq("status", "available")
+        .limit(5);
+
+      if (error) throw error;
+
+      if (data) {
+        const newCars = data.map((item) => ({
+          id: item.id,
+          make: item.make,
+          model: item.model,
+          year: item.year,
+          price: item.price,
+          images: item.images && item.images.length > 0 ? [item.images[0]] : [], // Only load first image
+          dealership_id: item.dealership_id,
+          dealership_name: item.dealerships?.name,
+          dealership_logo: item.dealerships?.logo,
+        }));
+
+        setNonCriticalState(prev => ({
+          ...prev,
+          dealerCars: newCars
+        }));
       }
-    };
-  }, []);
 
-  useEffect(() => {
-    if (car) {
-      // Optional: Add small delay for smoother transition
-      const timer = setTimeout(() => {
-        fetchSimilarCars();
-      }, 100);
-      return () => clearTimeout(timer);
+      setLoadingStatus(prev => ({
+        ...prev,
+        dealerCarsLoaded: true
+      }));
+    } catch (error) {
+      console.error("Error fetching dealer cars:", error);
+      setNonCriticalState(prev => ({
+        ...prev,
+        dealerCars: []
+      }));
+
+      setLoadingStatus(prev => ({
+        ...prev,
+        dealerCarsLoaded: true
+      }));
     }
-  }, [car, fetchSimilarCars]);
+  }, [car?.dealership_id, car?.id]);
 
-  // Fetch dealer cars after initial render (or after a slight delay)
-  useEffect(() => {
-    if (car) {
-      // Optional: Stagger the loading slightly
-      const timer = setTimeout(() => {
-        fetchDealerCars();
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [car, fetchDealerCars]);
-
+  // Optimized navigation to dealership details
   const handleDealershipPress = useCallback(() => {
-    router.push({
-      pathname: "/(home)/(user)/DealershipDetails",
-      params: { dealershipId: car.dealership_id },
-    });
-  }, [router, car.dealership_id]);
+    if (!car.dealership_id) return;
 
-  const debouncedTrackCarView = useCallback(
-    debounce((carId: any, userId: any) => {
-      trackCarView(carId, userId);
-    }, 1000),
-    [trackCarView]
+    InteractionManager.runAfterInteractions(() => {
+      router.push({
+        pathname: "/(home)/(user)/DealershipDetails",
+        params: { dealershipId: car.dealership_id },
+      });
+    });
+  }, [router, car?.dealership_id]);
+
+  // Tracking functions for analytics - all debounced
+  const trackCallClick = useCallback(
+    debounce(async (carId: number) => {
+      if (!user?.id || !carId) return;
+
+      try {
+        await supabase.rpc("track_car_call", {
+          car_id: carId,
+          user_id: user.id,
+        });
+      } catch (error) {
+        console.error("Error tracking call click:", error);
+      }
+    }, 500),
+    [user?.id]
   );
 
+  const trackWhatsAppClick = useCallback(
+    debounce(async (carId: number) => {
+      if (!user?.id || !carId) return;
+
+      try {
+        await supabase.rpc("track_car_whatsapp", {
+          car_id: carId,
+          user_id: user.id,
+        });
+      } catch (error) {
+        console.error("Error tracking WhatsApp click:", error);
+      }
+    }, 500),
+    [user?.id]
+  );
+
+  // Action handlers with error protection
   const handleCall = useCallback(() => {
-    if (car.dealership_phone) {
-      // Track the call click first
-      trackCallClick(car.id);
-      // Then proceed with the call
-      Linking.openURL(`tel:${car.dealership_phone}`);
-    } else {
+    if (!car || !car.dealership_phone) {
       Alert.alert("Phone number not available");
+      return;
     }
-  }, [car?.dealership_phone, car?.id, trackCallClick]);
 
+    // Track the call click first
+    trackCallClick(car.id);
 
+    // Then proceed with the call
+    Linking.openURL(`tel:${car.dealership_phone}`).catch(err => {
+      console.error("Error opening phone app:", err);
+      Alert.alert("Error", "Could not open phone app");
+    });
+  }, [car?.id, car?.dealership_phone, trackCallClick]);
 
   const handleShare = useCallback(async () => {
+    if (!car) return;
+
     try {
       await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${
-          car.model
-        } for $${car.price.toLocaleString()}!
-        at ${car.dealership_name} in ${car.dealership_location}
-        `,
+        message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price ? car.price.toLocaleString() : 'N/A'}!
+        at ${car.dealership_name || 'Dealership'} in ${car.dealership_location || 'Location'}`,
       });
     } catch (error: any) {
-      Alert.alert(error.message);
+      console.error("Share error:", error);
     }
   }, [car]);
 
   const handleOpenInMaps = useCallback(() => {
+    if (!car) return;
+
     const { dealership_latitude, dealership_longitude } = car;
+
     if (!dealership_latitude || !dealership_longitude) {
-      Alert.alert(
-        "Location unavailable",
-        "No location available for this dealership"
-      );
+      Alert.alert("Location unavailable", "No location available for this dealership");
       return;
     }
 
@@ -517,7 +845,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           text: "Apple Maps",
           onPress: () => {
             const appleMapsUrl = `maps:0,0?q=${dealership_latitude},${dealership_longitude}`;
-            Linking.openURL(appleMapsUrl);
+            Linking.openURL(appleMapsUrl).catch(() => {
+              Alert.alert("Error", "Could not open Maps");
+            });
           },
         },
         {
@@ -527,7 +857,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             Linking.openURL(googleMapsUrl).catch(() => {
               // If Google Maps app isn't installed, fallback to browser
               const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
-              Linking.openURL(fallbackUrl);
+              Linking.openURL(fallbackUrl).catch(() => {
+                Alert.alert("Error", "Could not open Maps");
+              });
             });
           },
         },
@@ -539,596 +871,789 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       Linking.openURL(googleMapsUrl).catch(() => {
         // Fallback to browser if necessary
         const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
-        Linking.openURL(fallbackUrl);
+        Linking.openURL(fallbackUrl).catch(() => {
+          Alert.alert("Error", "Could not open Maps");
+        });
       });
     }
-  }, [car.dealership_latitude, car.dealership_longitude]);
+  }, [car?.dealership_latitude, car?.dealership_longitude]);
 
   const handleOpenInGoogleMaps = useCallback(() => {
-    const latitude = car.dealership_latitude || 37.7749;
-    const longitude = car.dealership_longitude || -122.4194;
+    if (!car) return;
+
+    const latitude = car.dealership_latitude || 0;
+    const longitude = car.dealership_longitude || 0;
+
+    if (!latitude || !longitude) {
+      Alert.alert("Location unavailable", "No location available for this dealership");
+      return;
+    }
+
     const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
 
     Linking.openURL(url).catch((err) => {
+      console.error("Error opening Google Maps:", err);
       Alert.alert("Error", "Could not open Google Maps");
     });
-  }, [car.dealership_latitude, car.dealership_longitude]);
+  }, [car?.dealership_latitude, car?.dealership_longitude]);
 
+  const handleWhatsAppPress = useCallback(() => {
+    if (!car || !car.dealership_phone) {
+      Alert.alert("Phone number not available");
+      return;
+    }
+
+    // Track the WhatsApp click first
+    trackWhatsAppClick(car.id);
+
+    const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, "");
+    const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet`;
+    const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
+
+    Linking.openURL(webURL).catch(() => {
+      Alert.alert(
+        "Error",
+        "Unable to open WhatsApp. Please make sure it is installed on your device."
+      );
+    });
+  }, [car, trackWhatsAppClick]);
+
+  // Memoized render functions
   const renderCarItem = useCallback(
-    ({ item }: any) => (
-      <TouchableOpacity
-        className={`${
-          isDarkMode ? "bg-gray-800" : "bg-gray-200"
-        }   mr-3  mt-2 w-48`}
-        onPress={() => {
-          router.push({
-            pathname: "/(home)/(user)/CarDetails",
-            params: { carId: item.id },
-          });
-        }}
-      >
-        <OptimizedImage
-          source={{ uri: item.images[0] }}
-          style={{ width: "100%", height: 128, borderRadius: 8 }}
-        />
-        <Text
-          className={`${
-            isDarkMode ? "text-white" : "text-black"
-          } font-bold mt-2`}
+    ({ item }: any) => {
+      if (!item?.id || !item?.images?.[0]) return null;
+
+      return (
+        <TouchableOpacity
+          style={{
+            marginRight: 12,
+            marginVertical: 8,
+            width: 160,
+            backgroundColor: isDarkMode ? "#1c1c1c" : "#f0f0f0",
+            borderRadius: 8,
+            overflow: "hidden"
+          }}
+          onPress={() => {
+            InteractionManager.runAfterInteractions(() => {
+              router.push({
+                pathname: "/(home)/(user)/CarDetails",
+                params: { carId: item.id },
+              });
+            });
+          }}
         >
-          {item.year} {item.make} {item.model}
-        </Text>
-      </TouchableOpacity>
-    ),
+          <OptimizedImage
+            source={{ uri: item.images[0] }}
+            style={{ width: "100%", height: 120, borderRadius: 8 }}
+          />
+          <View style={{ padding: 8 }}>
+            <Text
+              style={{
+                color: isDarkMode ? "white" : "black",
+                fontWeight: "bold",
+                fontSize: 14
+              }}
+              numberOfLines={1}
+            >
+              {item.year} {item.make} {item.model}
+            </Text>
+            {item.price && (
+              <Text
+                style={{
+                  color: "#D55004",
+                  fontWeight: "500",
+                  fontSize: 13,
+                  marginTop: 4
+                }}
+              >
+                ${item.price.toLocaleString()}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
     [isDarkMode, router]
   );
 
-  const mapRegion = {
-    latitude: car.dealership_latitude || 37.7749,
-    longitude: car.dealership_longitude || -122.4194,
+  // Memoized map region
+  const mapRegion = useMemo(() => ({
+    latitude: parseFloat(car.dealership_latitude) || 37.7749,
+    longitude: parseFloat(car.dealership_longitude) || -122.4194,
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
-  };
+  }), [car.dealership_latitude, car.dealership_longitude]);
 
-  const handleWhatsAppPress = useCallback(() => {
-    if (car?.dealership_phone) {
-      // Track the WhatsApp click first
-      trackWhatsAppClick(car.id);
+  // Extract features for categories
+  const techFeatures = useMemo(() =>
+    car.features
+      ? car.features
+          .filter((featureId: string) =>
+            VEHICLE_FEATURES.tech.some(feature => feature.id === featureId)
+          )
+          .map((featureId: string) =>
+            VEHICLE_FEATURES.tech.find(f => f.id === featureId)
+          )
+          .filter(Boolean)
+      : [],
+    [car.features]
+  );
 
-      const cleanedPhoneNumber = car.dealership_phone
-        .toString()
-        .replace(/\D/g, "");
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
-        car.model
-      } listed for $${car.price.toLocaleString()} on Fleet`;
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
-        message
-      )}`;
+  const safetyFeatures = useMemo(() =>
+    car.features
+      ? car.features
+          .filter((featureId: string) =>
+            VEHICLE_FEATURES.safety.some(feature => feature.id === featureId)
+          )
+          .map((featureId: string) =>
+            VEHICLE_FEATURES.safety.find(f => f.id === featureId)
+          )
+          .filter(Boolean)
+      : [],
+    [car.features]
+  );
 
-      Linking.openURL(webURL).catch(() => {
-        Alert.alert(
-          "Error",
-          "Unable to open WhatsApp. Please make sure it is installed on your device."
-        );
-      });
-    } else {
-      Alert.alert("Phone number not available");
-    }
-  }, [car, trackWhatsAppClick]);
+  const comfortFeatures = useMemo(() =>
+    car.features
+      ? car.features
+          .filter((featureId: string) =>
+            VEHICLE_FEATURES.comfort.some(feature => feature.id === featureId)
+          )
+          .map((featureId: string) =>
+            VEHICLE_FEATURES.comfort.find(f => f.id === featureId)
+          )
+          .filter(Boolean)
+      : [],
+    [car.features]
+  );
 
-  const FeatureCategory = ({ title, features, isDarkMode }: any) => {
-    if (features.length === 0) return null;
+  // Extracted component renderers to reduce main render function complexity
+  const renderImageCarousel = useCallback(() => (
+    <View style={{ position: 'relative', marginBottom: 24, overflow: 'visible' }}>
+      <View style={{ borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: 'hidden' }}>
+        {car.images && car.images.length > 0 ? (
+          <FlatList
+            data={car.images}
+            renderItem={({ item, index }) => (
+              <Pressable onPress={() => setSelectedImageIndex(index)}>
+                <OptimizedImage
+                  source={{ uri: item }}
+                  style={{ width, height: 350 }}
+                  onLoad={index === 0 ? handleFirstImageLoaded : undefined}
+                />
+              </Pressable>
+            )}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            removeClippedSubviews={true}
+            onMomentumScrollEnd={(event) => {
+              const newIndex = Math.round(
+                event.nativeEvent.contentOffset.x / width
+              );
+              setActiveImageIndex(newIndex);
+            }}
+            keyExtractor={(_, index) => `image-${index}`}
+          />
+        ) : (
+          <View style={{
+            width,
+            height: 350,
+            backgroundColor: isDarkMode ? '#222' : '#f0f0f0',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Ionicons name="image-outline" size={60} color={isDarkMode ? '#444' : '#ccc'} />
+            <Text style={{
+              marginTop: 16,
+              color: isDarkMode ? '#777' : '#999',
+              fontSize: 16
+            }}>
+              No images available
+            </Text>
+          </View>
+        )}
 
-    return (
-      <View className="mb-6 ">
-        <View className="flex-row items-center mb-3">
-          <View className="h-5 w-1 bg-red mr-2 rounded-full" />
-          <Text
-            className={`text-sm font-semibold ${
-              isDarkMode ? "text-white" : "text-black"
-            }`}
-          >
-            {title}
-          </Text>
-        </View>
-
-        {/* Horizontal scrollable features */}
-        <FlatList
-          data={features}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item, index) => `${title.toLowerCase()}-${index}`}
-          renderItem={({ item: feature, index }) => (
-            <View
-              className={`flex-row border-0.5 border-neutral-400 items-center mr-3 mb-1 px-3 py-2 rounded-lg ${
-                isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
-              }`}
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 1,
-                elevation: 1,
-              }}
-            >
-              <MaterialCommunityIcons
-                name={feature.icon || "check-circle-outline"}
-                size={18}
-                color="#D55004"
-                style={{ marginRight: 8 }}
+        {/* Pagination Dots - only if we have multiple images */}
+        {car.images && car.images.length > 1 && (
+          <View style={{
+            position: 'absolute',
+            bottom: 32,
+            left: 0,
+            right: 0,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            zIndex: 10
+          }}>
+            {car.images.map((_, index) => (
+              <View
+                key={index}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: index === activeImageIndex ? "#D55004" : "rgba(255,255,255,0.5)",
+                  marginHorizontal: 4
+                }}
               />
-              <Text
-                className={`${
-                  isDarkMode ? "text-white" : "text-black"
-                } font-medium`}
-              >
-                {feature.label}
-              </Text>
-            </View>
-          )}
-        />
+            ))}
+          </View>
+        )}
       </View>
-    );
-  };
 
-  return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
-      ]}
-    >
-      <TouchableOpacity
-        onPress={() => router.back()}
-        className="absolute top-12 left-4 z-50 rounded-full p-2"
-        style={{
-          backgroundColor: isDarkMode
-            ? "rgba(255,255,255,0.5)"
-            : "rgba(0,0,0,0.5)",
-          shadowColor: "#000",
+      {/* Price Badge */}
+      {car.price && (
+        <View style={{
+          position: 'absolute',
+          bottom: -24,
+          left: '50%',
+          marginLeft: -64,
+          backgroundColor: isDarkMode ? '#000' : '#fff',
+          borderRadius: 9999,
+          width: 128,
+          height: 48,
+          alignItems: 'center',
+          justifyContent: 'center',
+          elevation: 5,
+          shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.25,
           shadowRadius: 3.84,
-          elevation: 5,
+          zIndex: 20
+        }}>
+          <Text style={{ color: '#D55004', fontSize: 18, fontWeight: 'bold' }}>
+            ${car.price.toLocaleString()}
+          </Text>
+        </View>
+      )}
+    </View>
+  ), [car.images, car.price, width, activeImageIndex, isDarkMode, handleFirstImageLoaded]);
+
+  const renderTechnicalData = useCallback(() => (
+    <View style={{ marginTop: 32, marginHorizontal: 16 }}>
+      <View style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: 'bold',
+          color: isDarkMode ? "#fff" : "#000"
+        }}>
+          Technical Data
+        </Text>
+
+        {criticalState.autoclips.length > 0 && (
+          <TouchableOpacity
+            onPress={() => {
+              setCriticalState(prev => ({
+                ...prev,
+                selectedClip: criticalState.autoclips[0],
+                showClipModal: true
+              }));
+            }}
+            style={{
+              backgroundColor: "#D55004",
+              borderRadius: 20,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              justifyContent: "center",
+              alignItems: "center",
+              flexDirection: "row",
+            }}
+          >
+            <Ionicons
+              name="play"
+              size={16}
+              color="white"
+              style={{ marginRight: 5 }}
+            />
+            <Text style={{ color: "white", fontWeight: "bold" }}>
+              Autoclip
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={{
+        borderRadius: 8,
+        marginTop: 16,
+        backgroundColor: isDarkMode ? "#1c1c1c" : "#e9e9e9"
+      }}>
+        {[
+          {
+            icon: "speedometer-outline",
+            label: "Mileage",
+            value: car.mileage ? `${(car.mileage / 1000).toFixed(1)}k` : "N/A",
+          },
+          {
+            icon: "hardware-chip-outline",
+            label: "Trans",
+            value: car.transmission ? car.transmission.substring(0, 4) : "N/A",
+          },
+          {
+            icon: "car-sport-outline",
+            label: "Drive",
+            value: car.drivetrain || "N/A",
+          },
+          {
+            icon: "color-palette-outline",
+            label: "Color",
+            value: car.color || "N/A",
+          },
+          {
+            icon: "thermometer-outline",
+            label: "Condition",
+            value: car.condition || "N/A",
+          },
+          {
+            icon: "earth",
+            label: "Source",
+            value: car.source || "N/A",
+          },
+        ].map((item, index, array) => (
+          <TechnicalDataItem
+            key={item.label}
+            icon={item.icon}
+            label={item.label}
+            value={item.value}
+            isDarkMode={isDarkMode}
+            isLast={index === array.length - 1}
+          />
+        ))}
+      </View>
+    </View>
+  ), [car.mileage, car.transmission, car.drivetrain, car.color, car.condition, car.source, isDarkMode, criticalState.autoclips]);
+
+  const renderDescription = useCallback(() => {
+    if (!car.description) return null;
+
+    return (
+      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: 'bold',
+          color: isDarkMode ? "#fff" : "#000"
+        }}>
+          Description
+        </Text>
+        <Text style={{
+          color: isDarkMode ? "#fff" : "#000",
+          marginTop: 12,
+          lineHeight: 20
+        }}>
+          {car.description}
+        </Text>
+      </View>
+    );
+  }, [car.description, isDarkMode]);
+
+  const renderFeatures = useCallback(() => {
+    if (!car.features || car.features.length === 0) return null;
+
+    return (
+      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: 'bold',
+          marginBottom: 16,
+          color: isDarkMode ? "#fff" : "#000"
+        }}>
+          Features
+        </Text>
+
+        <View>
+          <FeatureCategory
+            title="Technology"
+            features={techFeatures}
+            isDarkMode={isDarkMode}
+          />
+
+          <FeatureCategory
+            title="Safety"
+            features={safetyFeatures}
+            isDarkMode={isDarkMode}
+          />
+
+          <FeatureCategory
+            title="Comfort & Convenience"
+            features={comfortFeatures}
+            isDarkMode={isDarkMode}
+          />
+
+          {car.features.length > 0 &&
+           techFeatures.length === 0 &&
+           safetyFeatures.length === 0 &&
+           comfortFeatures.length === 0 && (
+            <Text style={{
+              fontStyle: "italic",
+              color: isDarkMode ? "#777" : "#999"
+            }}>
+              No feature details available
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  }, [car.features, techFeatures, safetyFeatures, comfortFeatures, isDarkMode]);
+
+  const renderMap = useCallback(() => {
+    if (!nonCriticalState.isMapVisible) {
+      return (
+        <View style={{
+          marginTop: 32,
+          paddingHorizontal: 16,
+          height: 240
+        }}>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: 'bold',
+            marginBottom: 12,
+            color: isDarkMode ? "#fff" : "#000"
+          }}>
+            Location
+          </Text>
+
+          <View style={{
+            height: 200,
+            borderRadius: 10,
+            backgroundColor: isDarkMode ? '#222' : '#f0f0f0',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Ionicons name="map-outline" size={40} color={isDarkMode ? '#555' : '#ccc'} />
+            <Text style={{
+              marginTop: 8,
+              color: isDarkMode ? '#777' : '#999'
+            }}>
+              Loading map...
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    // Lazy-loaded map component
+    return (
+    <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+      <Text style={{
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        color: isDarkMode ? "#fff" : "#000"
+      }}>
+        Location
+      </Text>
+
+      <View style={{ height: 200, borderRadius: 10, overflow: 'hidden' }}>
+        {Platform.OS === 'ios' && MapView ? (
+          <MapView
+            style={{ flex: 1 }}
+            region={mapRegion}
+            liteMode={false}
+          >
+            {MapViewMarker && (
+              <MapViewMarker
+                coordinate={{
+                  latitude: parseFloat(car.dealership_latitude) || 37.7749,
+                  longitude: parseFloat(car.dealership_longitude) || -122.4194,
+                }}
+                title={car.dealership_name || "Dealership"}
+                description={car.dealership_location || ""}
+              />
+            )}
+          </MapView>
+        ) : (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: isDarkMode ? '#1c1c1c' : '#f0f0f0'
+          }}>
+            <Ionicons name="map-outline" size={40} color={isDarkMode ? '#444' : '#888'} />
+            <Text style={{
+              color: isDarkMode ? '#777' : '#555',
+              marginTop: 8
+            }}>
+              {Platform.OS === 'ios' ? 'Loading map...' : 'Map not available'}
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          onPress={handleOpenInMaps}
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 16,
+            backgroundColor: '#D55004',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 9999,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          <Ionicons name="navigate" size={16} color="white" />
+          <Text style={{ color: 'white', marginLeft: 8, fontWeight: '500' }}>Take Me There</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}, [
+  nonCriticalState.isMapVisible,
+  car.dealership_latitude,
+  car.dealership_longitude,
+  car.dealership_name,
+  car.dealership_location,
+  mapRegion,
+  isDarkMode,
+  handleOpenInMaps,
+  MapView,
+  MapViewMarker
+]);
+
+  const renderSimilarCars = useCallback(() => {
+    if (nonCriticalState.similarCars.length === 0) return null;
+
+    return (
+      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: 'bold',
+          marginBottom: 8,
+          color: isDarkMode ? "#fff" : "#000"
+        }}>
+          {nonCriticalState.similarCars[0]?.make === car.make &&
+           nonCriticalState.similarCars[0]?.model === car.model &&
+           nonCriticalState.similarCars[0]?.year === car.year
+            ? "Explore Similar Cars"
+            : "Similarly Priced Cars"}
+        </Text>
+
+        <FlatList
+          data={nonCriticalState.similarCars}
+          renderItem={renderCarItem}
+          keyExtractor={(item:any) => `similar-${item.id}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={true}
+        />
+      </View>
+    );
+  }, [nonCriticalState.similarCars, car.make, car.model, car.year, isDarkMode, renderCarItem]);
+
+  const renderDealerCars = useCallback(() => {
+    if (nonCriticalState.dealerCars.length === 0) return null;
+
+    return (
+      <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: 'bold',
+          marginBottom: 8,
+          color: isDarkMode ? "#fff" : "#000"
+        }}>
+          More from {car.dealership_name || "Dealership"}
+        </Text>
+
+        <FlatList
+          data={nonCriticalState.dealerCars}
+          renderItem={renderCarItem}
+          keyExtractor={(item) => `dealer-${item.id}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={true}
+        />
+      </View>
+    );
+  }, [nonCriticalState.dealerCars, car.dealership_name, isDarkMode, renderCarItem]);
+
+  // Optimized main render
+  return (
+    <View style={[
+      styles.container,
+      { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }
+    ]}>
+      {/* Back button */}
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={{
+          position: 'absolute',
+          top: 35,
+          left: 10,
+          zIndex: 50,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          borderRadius: 24,
+          padding: 8,
         }}
       >
         <Ionicons
           name="arrow-back"
-          size={20}
-          color={isDarkMode ? "#FFFFFF" : "#FFFFFF"}
+          size={24}
+          color="#FFFFFF"
         />
       </TouchableOpacity>
 
-      <ScrollView
+      {/* Main content */}
+      <FlatList
         ref={scrollViewRef}
-        className="rounded-b-lg"
+        data={[{ key: 'content' }]}
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <>
+            {/* Car details */}
+            {renderImageCarousel()}
+
+            {/* Car Info */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              marginTop: 16
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginTop: 8,
+                  width: 50
+                }}>
+                  <OptimizedImage
+                    source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
+                    style={{ width: 60, height: 40 }}
+                    contentFit="contain"
+                  />
+                </View>
+
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={{
+                    fontSize: 20,
+                    marginTop: 24,
+                    fontWeight: 'bold',
+                    color: isDarkMode ? "#fff" : "#000"
+                  }}>
+                    {car.make} {car.model}
+                  </Text>
+
+                  <Text style={{
+                    fontSize: 14,
+                    color: isDarkMode ? "#fff" : "#000"
+                  }}>
+                    {car.year}
+                  </Text>
+
+                  {car.listed_at && (
+                    <Text style={{
+                      fontSize: 12,
+                      marginTop: 4,
+                      color: isDarkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)"
+                    }}>
+                      Posted {getRelativeTime(car.listed_at)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Technical Data */}
+            {renderTechnicalData()}
+
+            {/* Description */}
+            {renderDescription()}
+
+            {/* Features */}
+            {renderFeatures()}
+
+            {/* Map */}
+            {renderMap()}
+
+            {/* Similar Cars */}
+            {renderSimilarCars()}
+
+            {/* Dealer Cars */}
+            {renderDealerCars()}
+          </>
+        )}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         scrollEventThrottle={16}
-      >
-        {/* Image Carousel  */}
-        <View className="relative mb-6 overflow-visible">
-          <View className="rounded-b-[20px] overflow-hidden">
-            <FlatList
-              data={car.images}
-              renderItem={({ item, index }) => (
-                <Pressable onPress={() => setSelectedImageIndex(index)}>
-                  <View className="relative">
-                    <OptimizedImage
-                      source={{ uri: item }}
-                      style={{ width: width, height: 350 }}
-                    />
-                    {/* Your overlay icons and other content */}
-                  </View>
-                </Pressable>
-              )}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / width
-                );
-                setActiveImageIndex(newIndex);
-              }}
-            />
-
-            {/* Pagination Dots */}
-            <View className="absolute bottom-8 left-0 right-0 flex-row justify-center z-10">
-              {car.images.map((_: any, index: React.Key | null | undefined) => (
-                <View
-                  key={index}
-                  className={`w-2 h-2 rounded-full mx-1 ${
-                    index === activeImageIndex ? "bg-red" : "bg-white/50"
-                  }`}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* Price Badge */}
-          <View className="absolute -bottom-6 left-1/2 -translate-x-16 dark:bg-black bg-white rounded-full w-32 h-12 items-center justify-center shadow-lg z-20">
-            <Text className="text-red text-lg font-bold">
-              ${car.price.toLocaleString()}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row items-center justify-between px-4">
-          <View className="flex-row items-center">
-            <View
-              className="justify-center items-center mt-2"
-              style={{ width: 50 }}
-            >
-              <OptimizedImage
-                source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
-                style={{ width: 70, height: 50 }}
-                contentFit="contain"
-              />
-            </View>
-            <View className="ml-3">
-              <Text
-                className={`text-xl mt-6 mr-12 font-bold ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-                numberOfLines={2}
-              >
-                {car.make} {car.model}
-              </Text>
-              <Text
-                className={`text-sm ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-              >
-                {car.year}
-              </Text>
-              {/* Dynamic relative time display using listed_at */}
-              <Text
-                className={`text-xs mt-1 ${
-                  isDarkMode ? "text-neutral-300" : "text-neutral-600"
-                }`}
-              >
-                Posted {getRelativeTime(car.listed_at)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Autoclip Button (Moved to Top Right) */}
-
-          {/* View Clip Button (Aligned to Technical Data) */}
-        </View>
-
-        {/* Technical Data */}
-        <View className="mt-8 mx-4">
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Text
-              className={`text-lg font-bold ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              Technical Data
-            </Text>
-
-            {autoclips.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedClip(autoclips[0]);
-                  setShowClipModal(true);
-                }}
-                style={{
-                  backgroundColor: "#D55004",
-                  borderRadius: 20,
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  flexDirection: "row",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  elevation: 5,
-                }}
-              >
-                <Ionicons
-                  name="play"
-                  size={16}
-                  color="white"
-                  style={{ marginRight: 5 }}
-                />
-                <Text style={{ color: "white", fontWeight: "bold" }}>
-                  Autoclip
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <View
-            className={`rounded-lg mt-5 ${
-              isDarkMode ? "bg-[#1c1c1c]" : "bg-[#e9e9e9]"
-            }`}
-          >
-            {[
-              {
-                icon: "speedometer-outline",
-                label: "Mileage",
-                value: `${(car.mileage / 1000).toFixed(1)}k`,
-              },
-              {
-                icon: "hardware-chip-outline",
-                label: "Trans",
-                value: car.transmission.substring(0, 4),
-              },
-              {
-                icon: "car-sport-outline",
-                label: "Drive",
-                value: car.drivetrain,
-              },
-              {
-                icon: "color-palette-outline",
-                label: "Color",
-                value: car.color,
-              },
-              {
-                icon: "thermometer-outline",
-                label: "Condition",
-                value: car.condition,
-              },
-              {
-                icon: "earth",
-                label: "Source",
-                value: car.source,
-              },
-            ].map((item, index, array) => (
-              <TechnicalDataItem
-                key={item.label}
-                icon={item.icon}
-                label={item.label}
-                value={item.value}
-                isDarkMode={isDarkMode}
-                isLast={index === array.length - 1}
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* Description */}
-        {car.description ? (
-          <View className="mt-8 px-4">
-            <Text
-              className={`text-lg font-bold ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              Description
-            </Text>
-            <Text
-              className={`${isDarkMode ? "text-white" : "text-black"} mt-3`}
-            >
-              {car.description}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Features Section */}
-        {car.features && car.features.length > 0 && (
-          <View className="mt-8 px-4">
-            <Text
-              className={`text-lg font-bold mb-4 ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              Features
-            </Text>
-
-            <View
-              className={`p-1 rounded-xl"
-              }`}
-            >
-              {/* Tech Features */}
-              <FeatureCategory
-                title="Technology"
-                features={car.features
-                  .filter((featureId: string) =>
-                    VEHICLE_FEATURES.tech.some(
-                      (feature) => feature.id === featureId
-                    )
-                  )
-                  .map((featureId: string) => {
-                    const feature = VEHICLE_FEATURES.tech.find(
-                      (f) => f.id === featureId
-                    );
-                    return feature || null;
-                  })
-                  .filter(Boolean)}
-                isDarkMode={isDarkMode}
-              />
-
-              {/* Safety Features */}
-              <FeatureCategory
-                title="Safety"
-                features={car.features
-                  .filter((featureId: string) =>
-                    VEHICLE_FEATURES.safety.some(
-                      (feature) => feature.id === featureId
-                    )
-                  )
-                  .map((featureId: string) => {
-                    const feature = VEHICLE_FEATURES.safety.find(
-                      (f) => f.id === featureId
-                    );
-                    return feature || null;
-                  })
-                  .filter(Boolean)}
-                isDarkMode={isDarkMode}
-              />
-
-              {/* Comfort Features */}
-              <FeatureCategory
-                title="Comfort & Convenience"
-                features={car.features
-                  .filter((featureId: string) =>
-                    VEHICLE_FEATURES.comfort.some(
-                      (feature) => feature.id === featureId
-                    )
-                  )
-                  .map((featureId: string) => {
-                    const feature = VEHICLE_FEATURES.comfort.find(
-                      (f) => f.id === featureId
-                    );
-                    return feature || null;
-                  })
-                  .filter(Boolean)}
-                isDarkMode={isDarkMode}
-              />
-
-              {/* If no features are found in any category */}
-              {!car.features.some((featureId: string) =>
-                [
-                  ...VEHICLE_FEATURES.tech,
-                  ...VEHICLE_FEATURES.safety,
-                  ...VEHICLE_FEATURES.comfort,
-                ].some((feature) => feature.id === featureId)
-              ) && (
-                <Text
-                  className={`italic ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
-                  No feature details available
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-        {/* Dealership Section */}
-        <View className=" px-4">
-          <Text
-            className={`text-lg font-bold ${
-              isDarkMode ? "text-white" : "text-black"
-            }`}
-          >
-            Location
-          </Text>
-          <View style={{ flex: 1 }} className="mt-5">
-            <MapView style={styles.map} region={mapRegion}>
-              <Marker
-                coordinate={{
-                  latitude: car.dealership_latitude || 37.7749,
-                  longitude: car.dealership_longitude || -122.4194,
-                }}
-                title={car.dealership_name}
-                description={car.dealership_location}
-              />
-            </MapView>
-            <TouchableOpacity
-              onPress={handleOpenInMaps}
-              className="absolute bottom-4 right-4 bg-red px-4 py-2 rounded-full flex-row items-center"
-            >
-              <Ionicons name="navigate" size={16} color="white" />
-              <Text className="text-white ml-2">Take Me There</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Similar Cars Section */}
-        <View className="mb-40">
-
-        
-        {similarCars.length > 0 && (
-          <View className="mt-8 px-4">
-            <Text
-              className={`text-lg font-bold ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              {similarCars[0].make === car.make &&
-              similarCars[0].model === car.model &&
-              similarCars[0].year === car.year
-                ? "Explore Similar Cars"
-                : "Similarly Priced Cars"}
-            </Text>
-            <FlatList
-              data={similarCars}
-              renderItem={renderCarItem}
-              keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-5"
-            />
-          </View>
-        )}
-
-        {dealerCars.length > 0 && (
-          <View className="mt-8 px-4">
-            <Text
-              className={`text-lg font-bold ${
-                isDarkMode ? "text-white" : "text-black"
-              } `}
-            >
-              More from {car.dealership_name}
-            </Text>
-            <FlatList
-              data={dealerCars}
-              renderItem={renderCarItem}
-              keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-5"
-            />
-          </View>
-        )}
-        </View>
-      </ScrollView>
+        onEndReachedThreshold={0.5}
+      />
 
       {/* Bottom Action Bar */}
-      <View
-        className={`absolute bottom-0 p-8 w-full flex-col justify-around items-center py-4 border-t ${
-          isDarkMode ? "bg-black" : "bg-white"
-        }`}
-      >
-        <View className="flex-row items-center justify-between w-full">
-          <View className="flex-row items-center flex-1">
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        width: '100%',
+        padding: 16,
+        paddingBottom: 24,
+        flexDirection: 'column',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        backgroundColor: isDarkMode ? "rgba(0,0,0,0.95)" : "rgba(255,255,255,0.95)",
+        borderTopWidth: 1,
+        borderTopColor: isDarkMode ? "#333" : "#e0e0e0",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 10,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <TouchableOpacity onPress={handleDealershipPress}>
               <OptimizedImage
                 source={{ uri: car.dealership_logo }}
                 style={{ width: 50, height: 50, borderRadius: 25 }}
+                contentFit="cover"
               />
             </TouchableOpacity>
+
             <TouchableOpacity onPress={handleDealershipPress}>
-              <View className="flex-1 ml-3">
-                <Text
-                  className={`text-base font-medium ${
-                    isDarkMode ? "text-white" : "text-black"
-                  }`}
-                  numberOfLines={1}
-                >
-                  {car.dealership_name}
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '500',
+                  color: isDarkMode ? "#fff" : "#000"
+                }} numberOfLines={1}>
+                  {car.dealership_name || 'Dealership'}
                 </Text>
 
-                <Text
-                  className={`text-sm ${
-                    isDarkMode ? "text-white" : "text-black"
-                  } mr-7`}
-                  numberOfLines={2}
-                >
+                <Text style={{
+                  fontSize: 14,
+                  color: isDarkMode ? "#fff" : "#000",
+                  maxWidth: 160
+                }} numberOfLines={2}>
                   <Ionicons name="location" size={12} />
-                  {car.dealership_location}
+                  {car.dealership_location || 'Location not available'}
                 </Text>
               </View>
             </TouchableOpacity>
           </View>
-          <View className="flex-row">
+
+          <View style={{ flexDirection: 'row' }}>
             <ActionButton
               icon="call-outline"
               onPress={handleCall}
               isDarkMode={isDarkMode}
             />
             <ActionButton
-              icon="logo-whatsapp" // Using Ionicons WhatsApp logo
+              icon="logo-whatsapp"
               onPress={handleWhatsAppPress}
               isDarkMode={isDarkMode}
             />
@@ -1142,50 +1667,81 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
         <TouchableOpacity
           onPress={handleOpenInGoogleMaps}
-          className="flex-row items-center justify-center p-3 mt-4 rounded-full bg-black dark:bg-white w-full"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 12,
+            marginTop: 16,
+            borderRadius: 9999,
+            backgroundColor: isDarkMode ? "#fff" : "#000",
+            width: '100%',
+          }}
         >
           <Ionicons
             name="navigate-outline"
             size={24}
             color={isDarkMode ? "black" : "white"}
           />
-          <Text className="text-white dark:text-black font-semibold ml-2">
+          <Text style={{
+            color: isDarkMode ? "black" : "white",
+            fontWeight: '600',
+            marginLeft: 8
+          }}>
             Open in Google Maps
           </Text>
         </TouchableOpacity>
       </View>
-      <AutoclipModal
-        isVisible={showClipModal}
-        onClose={() => {
-          setShowClipModal(false);
-          setSelectedClip(null);
-        }}
-        clip={selectedClip}
-        onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
-        isLiked={selectedClip?.liked_users?.includes(user?.id)}
-      />
-      {selectedImageIndex !== null && (
+
+      {/* Autoclip Modal with Suspense */}
+      {criticalState.showClipModal && (
+        <React.Suspense fallback={
+          <View style={styles.modalBackground}>
+            <ActivityIndicator size="large" color="#D55004" />
+          </View>
+        }>
+          <AutoclipModal
+            isVisible={criticalState.showClipModal}
+            onClose={() => {
+              setCriticalState(prev => ({
+                ...prev,
+                showClipModal: false,
+                selectedClip: null
+              }));
+            }}
+            clip={criticalState.selectedClip}
+            onLikePress={() => criticalState.selectedClip && handleClipLike(criticalState.selectedClip.id)}
+            isLiked={criticalState.selectedClip?.liked_users?.includes(user?.id)}
+          />
+        </React.Suspense>
+      )}
+
+      {/* Image Modal (Optimized) */}
+      {selectedImageIndex !== null && car.images && (
         <Modal
           visible={true}
           transparent={true}
+          animationType="fade"
           onRequestClose={() => setSelectedImageIndex(null)}
         >
           <View style={styles.modalBackground}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setSelectedImageIndex(null)}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
-              <Ionicons name="close" size={40} color="white" />
+              <Ionicons name="close" size={32} color="white" />
             </TouchableOpacity>
+
             <FlatList
               data={car.images}
               horizontal
               pagingEnabled
               initialScrollIndex={selectedImageIndex}
-              keyExtractor={(item, index) => index.toString()}
-              getItemLayout={(data, index) => ({
-                length: Dimensions.get("window").width,
-                offset: Dimensions.get("window").width * index,
+              keyExtractor={(_, index) => `fullscreen-${index}`}
+              getItemLayout={(_, index) => ({
+                length: width,
+                offset: width * index,
                 index,
               })}
               renderItem={({ item }) => (
@@ -1193,9 +1749,21 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   source={{ uri: item }}
                   style={styles.fullscreenImage}
                   contentFit="contain"
+                  transition={200}
                 />
               )}
+              initialNumToRender={1}
+              maxToRenderPerBatch={2}
+              windowSize={3}
+              removeClippedSubviews={true}
             />
+
+            {/* Image counter indicator */}
+            <View style={styles.imageCounter}>
+              <Text style={styles.imageCounterText}>
+                {selectedImageIndex + 1} / {car.images.length}
+              </Text>
+            </View>
           </View>
         </Modal>
       )}
@@ -1217,16 +1785,9 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  mainImage: {
-    width: "100%",
-    height: 300,
-  },
   modalBackground: {
     flex: 1,
-    backgroundColor: "black",
+    backgroundColor: "rgba(0,0,0,0.95)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1235,11 +1796,25 @@ const styles = StyleSheet.create({
     top: 40,
     right: 20,
     zIndex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 20,
+    padding: 8,
   },
   fullscreenImage: {
     width: Dimensions.get("window").width,
-    height: Dimensions.get("window").height,
-    resizeMode: "contain",
+    height: Dimensions.get("window").height * 0.8,
+  },
+  imageCounter: {
+    position: "absolute",
+    bottom: 30,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 15,
+  },
+  imageCounterText: {
+    color: "white",
+    fontWeight: "600",
   },
 });
 
