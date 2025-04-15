@@ -26,6 +26,8 @@ import { SecurityModal } from '../SecurityModal'
 import { ProfileMenu } from '../ProfileMenu'
 import { supabase } from '@/utils/supabase'
 import { Buffer } from 'buffer'
+import { coordinateSignOut } from '@/app/(home)/_layout'
+import { SignOutOverlay } from '@/components/SignOutOverlay'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 
@@ -76,6 +78,7 @@ export default function DealershipProfilePage() {
     newPassword: '',
     confirmPassword: ''
   })
+  const [showSignOutOverlay, setShowSignOutOverlay] = useState(false)
 
   // Modal States
   const [isEditProfileVisible, setIsEditProfileVisible] = useState(false)
@@ -270,6 +273,49 @@ export default function DealershipProfilePage() {
     }
   }
 
+  // Enhanced sign out function with proper coordination
+  const handleSignOut = async () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Show overlay during sign out
+              setShowSignOutOverlay(true);
+
+              // Use the coordinated sign out process
+              await coordinateSignOut(router, async () => {
+                // Perform the actual sign out
+                await signOut();
+              });
+            } catch (error) {
+              console.error("Error during sign out:", error);
+
+              // Force navigation to sign-in on failure
+              router.replace('/(auth)/sign-in');
+
+              Alert.alert(
+                "Sign Out Issue",
+                "There was a problem signing out, but we've redirected you to the sign-in screen."
+              );
+            } finally {
+              // Hide overlay
+              setShowSignOutOverlay(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const onRefresh = useCallback(() => {
     setRefreshing(true)
     fetchDealershipProfile().finally(() => setRefreshing(false))
@@ -333,7 +379,7 @@ export default function DealershipProfilePage() {
         onSecurity={() => setIsSecurityModalVisible(true)}
         subscriptionExpired={subscriptionExpired}
         daysUntilExpiration={daysUntilExpiration}
-        onSignOut={signOut}
+        onSignOut={handleSignOut}
       />
 
       {/* Modals */}
@@ -370,6 +416,9 @@ export default function DealershipProfilePage() {
         setPasswordData={setPasswordData}
         onUpdatePassword={handleChangePassword}
       />
+
+      {/* Sign Out Overlay */}
+      <SignOutOverlay visible={showSignOutOverlay} />
     </ScrollView>
   )
 }
