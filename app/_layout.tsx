@@ -1,5 +1,5 @@
 // app/_layout.tsx
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { AuthProvider, useAuth } from '@/utils/AuthContext'
 import * as SplashScreen from 'expo-splash-screen'
@@ -17,6 +17,7 @@ import CustomSplashScreen from './CustomSplashScreen'
 import { GuestUserProvider, useGuestUser } from '@/utils/GuestUserContext'
 import * as Linking from 'expo-linking'
 import { supabase } from '@/utils/supabase'
+import NetworkProvider from '@/utils/NetworkContext'
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -207,19 +208,21 @@ export default function RootLayout() {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <GuestUserProvider>
-          <AuthProvider>
-            <DeepLinkHandler />
-            <QueryClientProvider client={queryClient}>
-              <ThemeProvider>
-                <FavoritesProvider>
-                  <NotificationsProvider />
-                  <RootLayoutNav />
-                </FavoritesProvider>
-              </ThemeProvider>
-            </QueryClientProvider>
-          </AuthProvider>
-        </GuestUserProvider>
+        <NetworkProvider>
+            <GuestUserProvider>
+              <AuthProvider>
+                <DeepLinkHandler />
+                <QueryClientProvider client={queryClient}>
+                  <ThemeProvider>
+                    <FavoritesProvider>
+                      <NotificationsProvider />
+                      <RootLayoutNav />
+                    </FavoritesProvider>
+                  </ThemeProvider>
+                </QueryClientProvider>
+              </AuthProvider>
+            </GuestUserProvider>
+        </NetworkProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   )
