@@ -53,32 +53,48 @@ const queryClient = new QueryClient({
 const DeepLinkHandler = () => {
   useEffect(() => {
     const handleDeepLink = async ({ url }: { url: string }) => {
-      // Handle Supabase auth redirects
-      if (url && (url.includes('auth/callback') || url.includes('reset-password'))) {
-        // Get access token and refresh token from URL
-        try {
-          const parsedUrl = Linking.parse(url);
-
-          // Extract tokens from URL fragments or query params
-          const params = parsedUrl.queryParams || {};
-          const accessToken = params.access_token;
-          const refreshToken = params.refresh_token;
-
+      if (!url) return;
+    
+      try {
+        const parsedUrl = Linking.parse(url);
+        const { path, queryParams } = parsedUrl;
+    
+        // Handle Supabase Auth redirects
+        if (url.includes("auth/callback") || url.includes("reset-password")) {
+          const accessToken = queryParams?.access_token;
+          const refreshToken = queryParams?.refresh_token;
+    
           if (accessToken && refreshToken) {
-            const { data, error } = await supabase.auth.setSession({
+            const { error } = await supabase.auth.setSession({
               access_token: accessToken as string,
               refresh_token: refreshToken as string,
             });
-
+    
             if (error) {
-              console.error('Error setting session:', error);
+              console.error("Error setting session:", error);
             }
           }
-        } catch (error) {
-          console.error('Error handling deep link:', error);
         }
+    
+        // 🔥 Handle car deep links
+        if (path?.startsWith("cars/")) {
+          const carId = path.split("/")[1];
+          if (carId) {
+            // Use router after a short timeout to ensure navigation stack is ready
+            setTimeout(() => {
+              router.push({
+                pathname: "/(home)/(user)/CarDetailModal",
+                params: { carId },
+              });
+            }, 300);
+          }
+        }
+    
+      } catch (err) {
+        console.error("Deep link error:", err);
       }
     };
+    
 
     // Set up the linking listener
     const subscription = Linking.addEventListener('url', handleDeepLink);

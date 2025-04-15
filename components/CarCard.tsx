@@ -208,15 +208,10 @@ export default function CarCard({
 	const handleShare = useCallback(async () => {
 		try {
 			const message =
-				`Check out this ${car.year} ${car.make} ${car.model}\n` +
-				`Price: $${car.price.toLocaleString()}\n` +
-				`Mileage: ${(car.mileage / 1000).toFixed(1)}k miles\n` +
-				`Condition: ${car.condition}\n` +
-				`At: ${car.dealership_name}\n` +
-				`Contact: ${
-					car.dealership_phone || 'Contact dealer for more information'
-				}`
-
+			`Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n` +
+			`https://www.fleetapp.me/cars/${car.id}`;
+		  
+		
 			await Share.share({
 				message,
 				title: `${car.year} ${car.make} ${car.model}`

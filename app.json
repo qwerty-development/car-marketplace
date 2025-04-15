@@ -2,9 +2,8 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "1.3.4",
+    "version": "1.3.41",
     "orientation": "portrait",
-    "newArchEnabled": true,
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
     "userInterfaceStyle": "automatic",
@@ -15,18 +14,18 @@
     "notification": {
       "icon": "./assets/images/app-icon.png",
       "color": "#D55004",
-      "sound":"./assets/sounds/notification.wav",
+      "sound": "./assets/sounds/notification.wav",
       "iosDisplayInForeground": true,
       "androidMode": "default",
       "androidCollapsedTitle": "New Cars Available!"
-
     },
     "ios": {
       "supportsTablet": true,
-        "usesAppleSignIn": true,
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart",
+      "associatedDomains": ["applinks:fleetapp.me"],
       "config": {
-        "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg",
-         "usesAppleSignIn": true
+        "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
       },
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
@@ -34,15 +33,13 @@
         "LSApplicationQueriesSchemes": ["whatsapp"],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": [
-              "com.qwertyapp.clerkexpoquickstart"
-            ]
+            "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart"]
           }
         ]
-      },
-      "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart"
+      }
     },
     "android": {
+      "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
@@ -57,14 +54,15 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.qwertyapp.clerkexpoquickstart",
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
           "data": [
             {
-              "scheme": "com.qwertyapp.clerkexpoquickstart"
+              "scheme": "https",
+              "host": "www.fleetapp.me",
+              "pathPrefix": "/cars"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -107,7 +105,7 @@
       "typedRoutes": true
     },
     "extra": {
-       "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
+      "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
       "router": {
         "origin": false
       },
@@ -119,6 +117,7 @@
     "updates": {
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },
-    "owner": "qwerty-app"
+    "owner": "qwerty-app",
+    "deepLinks": ["https://www.fleetapp.me", "fleet://"]
   }
 }
