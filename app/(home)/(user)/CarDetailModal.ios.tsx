@@ -1111,7 +1111,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           bottom: -24,
           left: '50%',
           marginLeft: -64,
-          backgroundColor: isDarkMode ? '#000' : '#fff',
+          backgroundColor: isDarkMode ? '#fff' : '#fff',
           borderRadius: 9999,
           width: 128,
           height: 48,

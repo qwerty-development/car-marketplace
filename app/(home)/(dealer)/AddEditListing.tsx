@@ -13,11 +13,8 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
   Alert,
-  Dimensions,
-  Pressable,
   ActivityIndicator,
   FlatList,
   TouchableWithoutFeedback,
@@ -38,18 +35,7 @@ import { BlurView } from "expo-blur";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import ErrorBoundary from 'react-native-error-boundary';
-
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideInUp,
-  SlideOutDown,
-  withSpring,
-} from "react-native-reanimated";
 import { format } from "date-fns";
-
-const { width } = Dimensions.get("window");
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BrandSelector,
@@ -66,7 +52,6 @@ import {
   VEHICLE_TYPES,
 } from "@/components/ListingModal";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useAuth } from "@/utils/AuthContext";
 
 const SOURCE_OPTIONS = [
   { value: 'Company', label: 'Company Source', icon: 'office-building' },
@@ -260,9 +245,7 @@ const FeatureSelector = memo(
               activeOpacity={1}
               onPress={() => setShowAllFeatures(false)}
             />
-            <Animated.View
-              entering={SlideInDown}
-              exiting={SlideOutDown}
+            <View
               className={`h-[85%] rounded-t-3xl ${
                 isDarkMode ? 'bg-black' : 'bg-white'
               }`}
@@ -377,7 +360,7 @@ const FeatureSelector = memo(
                   }
                 />
               </View>
-            </Animated.View>
+            </View>
           </BlurView>
         </Modal>
       </View>
@@ -417,7 +400,6 @@ function AddEditListing() {
     buyer_name: "",
   });
   const [hasChanges, setHasChanges] = useState(false);
-
   const isSubscriptionValid = useCallback(() => {
     if (!dealership) return false;
     const subscriptionEndDate = dealership.subscription_end_date;
@@ -426,6 +408,225 @@ function AddEditListing() {
     const now = new Date();
     return endDate >= now;
   }, [dealership]);
+
+    const validateFormData = (data: any) => {
+    const requiredFields = [
+      "make",
+      "model",
+      "price",
+      "year",
+      "condition",
+      "transmission",
+      "mileage",
+      "drivetrain",
+      "type",
+      "category",
+    ];
+
+    const missingFields = requiredFields.filter((field) => {
+      if (field === "mileage") {
+        return (
+          data[field] === null ||
+          data[field] === undefined ||
+          data[field] === ""
+        );
+      }
+      return !data[field];
+    });
+
+    if (missingFields.length > 0) {
+      Alert.alert(
+        "Missing Fields",
+        `Please fill in: ${missingFields.join(", ")}`
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = useCallback(() => {
+    if (!validateFormData(formData)) return;
+    if (!dealership || !isSubscriptionValid()) {
+      Alert.alert(
+        "Subscription Error",
+        "Your subscription is not valid or has expired."
+      );
+      return;
+    }
+
+    const submitListing = async () => {
+      try {
+        setIsLoading(true);
+
+        if (initialData?.id) {
+          const {
+            id,
+            listed_at,
+            date_modified,
+            views,
+            likes,
+            viewed_users,
+            liked_users,
+            sold_price,
+            date_sold,
+            buyer_name,
+            status,
+            dealership_name,
+            dealership_logo,
+            dealership_phone,
+            dealership_location,
+            dealership_latitude,
+            dealership_longitude,
+            ...allowedData
+          } = formData;
+
+          const dataToUpdate = {
+            make: allowedData.make,
+            model: allowedData.model,
+            price: allowedData.price,
+            year: allowedData.year,
+            description: allowedData.description,
+            images: modalImages,
+            condition: allowedData.condition,
+            transmission: allowedData.transmission,
+            color: allowedData.color,
+            mileage: allowedData.mileage,
+            drivetrain: allowedData.drivetrain,
+            type: allowedData.type,
+            category: allowedData.category,
+            bought_price: allowedData.bought_price,
+            date_bought: allowedData.date_bought
+              ? new Date(allowedData.date_bought).toISOString()
+              : null,
+            seller_name: allowedData.seller_name,
+              source: allowedData.source,
+               features: formData.features || [],
+            dealership_id: dealership.id,
+          };
+
+          const { data, error } = await supabase
+            .from("cars")
+            .update(dataToUpdate)
+            .eq("id", initialData.id)
+            .eq("dealership_id", dealership.id)
+            .select(
+              `
+            id,
+            listed_at,
+            make,
+            model,
+            price,
+            year,
+            description,
+            images,
+            sold_price,
+            date_sold,
+            status,
+            dealership_id,
+            date_modified,
+            views,
+            likes,
+            condition,
+            transmission,
+            color,
+            mileage,
+            drivetrain,
+            viewed_users,
+            liked_users,
+            type,
+            category,
+            bought_price,
+            date_bought,
+            seller_name,
+            buyer_name,
+            source,
+            features
+          `
+            )
+            .single();
+
+          if (error) throw error;
+
+          Alert.alert("Success", "Listing updated successfully", [
+            { text: "OK", onPress: () => router.back() },
+          ]);
+        } else {
+          const {
+            dealership_name,
+            dealership_logo,
+            dealership_phone,
+            dealership_location,
+            dealership_latitude,
+            dealership_longitude,
+            ...allowedData
+          } = formData;
+
+          const newListingData = {
+            make: allowedData.make,
+            model: allowedData.model,
+            price: allowedData.price,
+            year: allowedData.year,
+            description: allowedData.description,
+            images: modalImages,
+            condition: allowedData.condition,
+            transmission: allowedData.transmission,
+            color: allowedData.color,
+            mileage: allowedData.mileage,
+            drivetrain: allowedData.drivetrain,
+            type: allowedData.type,
+            category: allowedData.category,
+            bought_price: allowedData.bought_price,
+            date_bought: allowedData.date_bought
+              ? new Date(allowedData.date_bought).toISOString()
+              : new Date().toISOString(),
+            seller_name: allowedData.seller_name,
+            dealership_id: dealership.id,
+             source: allowedData.source,
+              features: formData.features || [],
+            status: "pending",
+            views: 0,
+            likes: 0,
+            viewed_users: [],
+            liked_users: [],
+          };
+
+          const { data, error } = await supabase
+            .from("cars")
+            .insert(newListingData)
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          Alert.alert("Success", "New listing created successfully", [
+            { text: "OK", onPress: () => router.back() },
+          ]);
+        }
+      } catch (error: any) {
+        console.error("Error submitting listing:", error);
+        Alert.alert(
+          "Error",
+          error?.message || "Failed to submit listing. Please try again."
+        );
+      } finally {
+        setIsLoading(false);
+        setHasChanges(false);
+      }
+    };
+
+    submitListing();
+  }, [
+    formData,
+    modalImages,
+    initialData,
+    dealership,
+    router,
+    isSubscriptionValid,
+    validateFormData,
+  ]);
+
+
 
 
 
@@ -462,24 +663,7 @@ function AddEditListing() {
   }, [hasChanges, router, handleSubmit, initialData]);
 
 
-const safeSetModalImages = (updater:any) => {
-  try {
-    // Check if we're about to set a very large array
-    const newImages = typeof updater === 'function'
-      ? updater(modalImages)
-      : updater;
 
-    if (Array.isArray(newImages) && newImages.length > 20) {
-      console.warn('Attempting to set too many images:', newImages.length);
-      // Limit to 20 images
-      setModalImages(newImages.slice(0, 20));
-    } else {
-      setModalImages(updater);
-    }
-  } catch (error) {
-    console.error('Error in safeSetModalImages:', error);
-  }
-};
 
 // Use this instead of direct setModalImages calls
 
@@ -517,7 +701,7 @@ const safeSetModalImages = (updater:any) => {
               features: carData.features || [],
           });
 
-          safeSetModalImages(carData.images || []);
+          setModalImages(carData.images || []);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -551,182 +735,294 @@ const safeSetModalImages = (updater:any) => {
     },
     []
   );
+/**
+ * Processes and optimizes images with precise dimension control while preserving aspect ratio
+ *
+ * @param uri Source image URI
+ * @returns Processed image URI or original URI on failure
+ */
 const processImage = async (uri: string): Promise<string> => {
   if (!uri) {
-    console.warn("Empty URI provided to processImage");
+    console.warn("processImage: No URI provided.");
     return "";
   }
 
   try {
-    // Add file size check to dynamically adjust compression
+    // Step 1: Get file information and analyze source characteristics
     const fileInfo = await FileSystem.getInfoAsync(uri);
+    if (!fileInfo.exists) throw new Error("File does not exist");
 
-    // Dynamic optimization based on file size
-    let MAX_DIMENSION = 1200;
-    let compressionLevel = 0.7;
+    console.log(`Original file size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)}MB`);
 
-    if (fileInfo.exists && fileInfo.size) {
-      // For very large images (>5MB), use more aggressive compression
-      if (fileInfo.size > 5 * 1024 * 1024) {
-        MAX_DIMENSION = 1000;
-        compressionLevel = 0.6;
-      }
+    // Step 2: Detect iOS photos (typically larger with more metadata)
+    const isLikelyiOSPhoto =
+      uri.includes('HEIC') ||
+      uri.includes('IMG_') ||
+      uri.includes('DCIM') ||
+      uri.endsWith('.HEIC') ||
+      uri.endsWith('.heic') ||
+      fileInfo.size > 3 * 1024 * 1024;
 
-      // For extremely large images (>10MB), use even more aggressive compression
-      if (fileInfo.size > 10 * 1024 * 1024) {
-        MAX_DIMENSION = 800;
-        compressionLevel = 0.5;
+    // Step 3: Get original image dimensions
+    const imageMeta = await ImageManipulator.manipulateAsync(uri, []);
+    const originalWidth = imageMeta.width;
+    const originalHeight = imageMeta.height;
+
+    if (!originalWidth || !originalHeight) {
+      throw new Error("Unable to determine original image dimensions");
+    }
+
+    console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
+
+    // Step 4: Calculate target dimensions while preserving aspect ratio
+    const MAX_WIDTH = 1280;
+    const MAX_HEIGHT = 1280;
+    const aspectRatio = originalWidth / originalHeight;
+
+    let targetWidth = originalWidth;
+    let targetHeight = originalHeight;
+
+    if (originalWidth > MAX_WIDTH || originalHeight > MAX_HEIGHT) {
+      if (aspectRatio > 1) {
+        // Landscape orientation
+        targetWidth = MAX_WIDTH;
+        targetHeight = Math.round(MAX_WIDTH / aspectRatio);
+      } else {
+        // Portrait orientation
+        targetHeight = MAX_HEIGHT;
+        targetWidth = Math.round(MAX_HEIGHT * aspectRatio);
       }
     }
 
-    // Use a try-catch specifically for the manipulation to isolate ImageManipulator issues
-    try {
-      const result = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: MAX_DIMENSION } }],
-        { compress: compressionLevel, format: ImageManipulator.SaveFormat.JPEG }
-      );
+    console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
 
-      if (!result || !result.uri) {
-        throw new Error("Image processing returned invalid result");
-      }
+    // Step 5: Determine optimal compression level based on file size
+    let compressionLevel = 0.7; // Default compression
 
-      return result.uri;
-    } catch (manipulationError) {
-      console.error('ImageManipulator specific error:', manipulationError);
-      // If the specific manipulation fails, return original URI
-      return uri;
+    if (fileInfo.size > 10 * 1024 * 1024) {
+      compressionLevel = 0.5; // Aggressive compression for very large images
+    } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
+      compressionLevel = 0.6; // Stronger compression for large images and iOS photos
     }
+
+    // Step 6: First-pass optimization with exact dimension control
+    const firstPass = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: targetWidth, height: targetHeight } }],
+      {
+        compress: compressionLevel,
+        format: ImageManipulator.SaveFormat.JPEG,
+        exif: false // Remove EXIF data to normalize orientation and reduce size
+      }
+    );
+
+    if (!firstPass.uri) {
+      throw new Error("First-pass image processing failed: no URI returned");
+    }
+
+    // Step 7: For iOS photos, apply second-pass to normalize format issues
+    let finalResult = firstPass;
+
+    if (isLikelyiOSPhoto) {
+      try {
+        console.log("Applying second-pass optimization for iOS photo");
+        finalResult = await ImageManipulator.manipulateAsync(
+          firstPass.uri,
+          [], // No transformations, just re-encode
+          {
+            compress: compressionLevel,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: false
+          }
+        );
+
+        if (!finalResult.uri) {
+          console.warn("Second-pass processing failed, using first-pass result");
+          finalResult = firstPass; // Fallback to first pass
+        }
+      } catch (secondPassError) {
+        console.warn("Error in second-pass processing:", secondPassError);
+        finalResult = firstPass; // Fallback to first pass
+      }
+    }
+
+    // Step 8: Verify final file size and report compression metrics
+    const processedInfo = await FileSystem.getInfoAsync(finalResult.uri);
+    if (processedInfo.exists && processedInfo.size) {
+      console.log(`Processed image size: ${(processedInfo.size / (1024 * 1024)).toFixed(2)}MB`);
+
+      // Calculate and log compression ratio
+      if (fileInfo.size) {
+        const ratio = (processedInfo.size / fileInfo.size * 100).toFixed(1);
+        console.log(`Compression ratio: ${ratio}% of original`);
+      }
+    }
+
+    return finalResult.uri;
   } catch (error) {
-    console.error('Error in processImage function:', error);
-    // Return original URI as fallback, with additional safety check
-    return uri || "";
+    console.error('processImage error:', error);
+    // Return original URI as fallback
+    return uri;
   }
 };
 
+
+/**
+ * Handles batch uploading of multiple images with memory-efficient processing
+ *
+ * @param assets Array of image assets to upload
+ * @returns Promise that resolves when all uploads complete
+ */
 const handleMultipleImageUpload = useCallback(
   async (assets: any[]) => {
-    if (!dealership) return;
-    if (assets.length === 0) return;
+    if (!dealership?.id) {
+      console.error("No dealership ID available for upload");
+      return;
+    }
+
+    if (!assets?.length) {
+      console.warn("No assets provided for upload");
+      return;
+    }
 
     setIsUploading(true);
 
     try {
-      // Process images in batches with platform-specific batch size
-      const results = [];
-      // Use smaller batch size on Android which is more memory-constrained
+      // Step 1: Configure batch processing parameters
       const batchSize = Platform.OS === 'android' ? 2 : 3;
-
       console.log(`Processing ${assets.length} images in batches of ${batchSize}`);
 
+      const results = [];
+      let progressCounter = 0;
+      const totalImages = assets.length;
+
+      // Step 2: Process images in batches to prevent memory issues
       for (let i = 0; i < assets.length; i += batchSize) {
-        // Log progress for debugging
-        console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(assets.length/batchSize)}`);
+        const batchNumber = Math.floor(i/batchSize) + 1;
+        const totalBatches = Math.ceil(assets.length/batchSize);
+        console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
 
         const batch = assets.slice(i, i + batchSize);
-        const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
-          const index = i + batchIndex; // Global index for better filename uniqueness
-          try {
-            // Process the image before upload
-            const processedUri = await processImage(asset.uri);
-            if (!processedUri) return null;
 
-            // More unique filename pattern with milliseconds for better uniqueness
-            const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000000)}_${index}.jpg`;
+        // Step 3: Process all images in current batch concurrently
+        const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
+          const index = i + batchIndex;
+          const imageNumber = index + 1;
+
+          try {
+            // Step 3.1: Process and optimize image
+            console.log(`Processing image ${imageNumber}/${totalImages}`);
+            const processedUri = await processImage(asset.uri);
+
+            if (!processedUri) {
+              console.error(`Failed to process image ${imageNumber}`);
+              return null;
+            }
+
+            // Step 3.2: Generate unique filename with high entropy
+            const timestamp = Date.now();
+            const randomId = Math.floor(Math.random() * 1000000);
+            const fileName = `${timestamp}_${randomId}_${index}.jpg`;
             const filePath = `${dealership.id}/${fileName}`;
 
-            // Platform-specific upload strategy
+            // Step 3.3: Upload with platform-specific optimizations
+            console.log(`Uploading image ${imageNumber}/${totalImages}`);
+
+            // Common upload options
+            const uploadOptions = {
+              contentType: "image/jpeg",
+              cacheControl: "3600" // 1 hour cache
+            };
+
             if (Platform.OS === 'android') {
-              // For Android, try direct file upload if possible to avoid base64 memory issues
+              // Direct file upload for Android to avoid base64 memory issues
               try {
-                const { data, error } = await supabase.storage
+                const { error } = await supabase.storage
                   .from("cars")
-                  .upload(filePath, processedUri, {
-                    contentType: "image/jpeg",
-                  });
+                  .upload(filePath, processedUri, uploadOptions);
 
                 if (error) throw error;
               } catch (directUploadError) {
-                // Fall back to base64 if direct upload fails
                 console.log('Direct upload failed, falling back to base64:', directUploadError);
+
+                // Fallback to base64 upload for Android
                 const base64 = await FileSystem.readAsStringAsync(processedUri, {
                   encoding: FileSystem.EncodingType.Base64,
                 });
 
-                const { data, error } = await supabase.storage
+                const { error } = await supabase.storage
                   .from("cars")
-                  .upload(filePath, Buffer.from(base64, "base64"), {
-                    contentType: "image/jpeg",
-                  });
+                  .upload(filePath, Buffer.from(base64, "base64"), uploadOptions);
 
                 if (error) throw error;
               }
             } else {
-              // iOS base64 approach
+              // Standard base64 approach for iOS
               const base64 = await FileSystem.readAsStringAsync(processedUri, {
                 encoding: FileSystem.EncodingType.Base64,
               });
 
-              const { data, error } = await supabase.storage
+              const { error } = await supabase.storage
                 .from("cars")
-                .upload(filePath, Buffer.from(base64, "base64"), {
-                  contentType: "image/jpeg",
-                });
+                .upload(filePath, Buffer.from(base64, "base64"), uploadOptions);
 
               if (error) throw error;
             }
 
-            // Get public URL
+            // Step 3.4: Retrieve public URL
             const { data: publicURLData } = supabase.storage
               .from("cars")
               .getPublicUrl(filePath);
 
-            if (!publicURLData) throw new Error("Error getting public URL");
+            if (!publicURLData?.publicUrl) {
+              throw new Error("Failed to retrieve public URL");
+            }
+
+            // Step 3.5: Update progress counter
+            progressCounter++;
+            console.log(`Upload progress: ${progressCounter}/${totalImages}`);
 
             return publicURLData.publicUrl;
           } catch (error) {
-            console.error(`Error uploading image ${index}:`, error);
+            console.error(`Error uploading image ${imageNumber}/${totalImages}:`, error);
             return null;
           }
         });
 
-        // Wait for the current batch to complete before moving to next batch
+        // Step 4: Wait for all images in current batch to complete
         const batchResults = await Promise.all(batchPromises);
         results.push(...batchResults);
 
-        // Give more time for garbage collection between batches on Android
-        await new Promise(resolve => setTimeout(resolve, Platform.OS === 'android' ? 300 : 100));
-
-        // Explicitly suggest garbage collection (might help in some JS engines)
-        if (global.gc) {
-          try {
-            global.gc();
-          } catch (e) {
-            console.log('Manual GC failed:', e);
-          }
-        }
+        // Step 5: Allow time for garbage collection between batches
+        const pauseDuration = Platform.OS === 'android' ? 300 : 100;
+        await new Promise(resolve => setTimeout(resolve, pauseDuration));
       }
 
-      const successfulUploads = results.filter((url) => url !== null);
+      // Step 6: Process results
+      const successfulUploads = results.filter(url => url !== null);
 
       if (successfulUploads.length === 0) {
         throw new Error("No images were successfully uploaded");
       }
 
-      console.log(`Successfully uploaded ${successfulUploads.length} of ${assets.length} images`);
+      console.log(`Upload complete: ${successfulUploads.length}/${totalImages} images successful`);
 
-      safeSetModalImages((prev: any) => [...successfulUploads, ...prev]);
-      setFormData((prev: { images: any }) => ({
-        ...prev,
-        images: [...successfulUploads, ...(prev.images || [])],
+      // Step 7: Update state with new images
+      setModalImages((prevImages: any) => [...successfulUploads, ...prevImages]);
+      setFormData((prevData: { images: any; }) => ({
+        ...prevData,
+        images: [...successfulUploads, ...(prevData.images || [])],
       }));
       setHasChanges(true);
+
+      return successfulUploads;
     } catch (error) {
-      console.error('Error in image upload process:', error);
+      console.error('Error in batch upload process:', error);
       Alert.alert(
         "Upload Error",
         "Some images failed to upload. Please try again with fewer or smaller images."
       );
+      return [];
     } finally {
       setIsUploading(false);
     }
@@ -734,8 +1030,12 @@ const handleMultipleImageUpload = useCallback(
   [dealership, processImage]
 );
 
+/**
+ * Handles image selection from device library with memory-efficient configuration
+ */
 const handleImagePick = useCallback(async () => {
   try {
+    // Step 1: Request and verify permissions
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
@@ -745,96 +1045,104 @@ const handleImagePick = useCallback(async () => {
       return;
     }
 
-    // Check current images count
-    if (modalImages.length >= 10) {
+    // Step 2: Enforce maximum image limit
+    const MAX_IMAGES = 10;
+    if (modalImages.length >= MAX_IMAGES) {
       Alert.alert(
         "Maximum Images",
-        "You can upload a maximum of 10 images per listing."
+        `You can upload a maximum of ${MAX_IMAGES} images per listing.`
       );
       return;
     }
 
-    // Calculate how many more can be added
-    const remainingSlots = 10 - modalImages.length;
+    // Step 3: Calculate available slots and platform-specific limits
+    const remainingSlots = MAX_IMAGES - modalImages.length;
 
-    // Platform specific selectionLimit - Android has more memory issues
-    const maxSelection = Platform.OS === 'android' ?
-      Math.min(remainingSlots, 4) : // Limit to 4 for Android
-      remainingSlots;
+    // Set stricter limits for Android due to memory constraints
+    const maxSelection = Platform.OS === 'android'
+      ? Math.min(remainingSlots, 3)  // Max 3 at once for Android
+      : Math.min(remainingSlots, 5); // Max 5 at once for iOS
 
+    console.log(`Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`);
+
+    // Step 4: Launch image picker with optimized configuration
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: maxSelection > 1,
       selectionLimit: maxSelection,
-      quality: Platform.OS === 'android' ? 0.7 : 0.8, // Lower quality on Android
-      exif: false, // Don't need EXIF data
-      // Add specific parameters for Android
-      base64: false, // Don't request base64 in picker to save memory
-      allowsEditing: false, // Disable editing to avoid additional memory use
+      quality: Platform.OS === 'android' ? 0.7 : 0.8, // Lower initial quality on Android
+      exif: false,    // Skip EXIF data to reduce memory usage
+      base64: false,  // Skip base64 encoding in picker
+      allowsEditing: false, // Disable editing to prevent memory issues
     });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      // Add file size check for warnings
-      try {
-        let totalSize = 0;
-        let largeImageCount = 0;
+    // Step 5: Handle selection result
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      console.log('Image picker canceled or no assets selected');
+      return;
+    }
 
-        // Check file sizes
-        for (const asset of result.assets) {
-          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-          if (fileInfo.exists && fileInfo.size) {
-            totalSize += fileInfo.size;
-            if (fileInfo.size > 5 * 1024 * 1024) { // > 5MB
-              largeImageCount++;
-            }
-          }
+    // Step 6: Pre-analyze selected images for potential issues
+    let totalSize = 0;
+    let largeImageCount = 0;
+    const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+
+    for (const asset of result.assets) {
+      const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+      if (fileInfo.exists && fileInfo.size) {
+        totalSize += fileInfo.size;
+        if (fileInfo.size > LARGE_IMAGE_THRESHOLD) {
+          largeImageCount++;
         }
+      }
+    }
 
-        // Warn about large images on Android
-        if (Platform.OS === 'android' && (totalSize > 20 * 1024 * 1024 || largeImageCount > 0)) {
-          Alert.alert(
-            "Large Images Detected",
-            "Some selected images are very large, which may cause slowness. Images will be compressed during upload.",
-            [{ text: "Proceed Anyway", onPress: () => {
-              // Continue with upload
+    console.log(`Selected ${result.assets.length} images, total size: ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
+
+    // Step 7: Warn about potential issues with very large images
+    if (totalSize > 25 * 1024 * 1024 || largeImageCount > 2) {
+      Alert.alert(
+        "Large Images Detected",
+        "Some selected images are very large, which may cause slower uploads. Images will be optimized automatically.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Proceed Anyway",
+            onPress: () => {
               setIsUploading(true);
               handleMultipleImageUpload(result.assets)
                 .finally(() => setIsUploading(false));
-            }}],
-            { cancelable: true }
-          );
-          return;
-        }
-      } catch (sizeCheckError) {
-        console.error("Error checking image sizes:", sizeCheckError);
-        // Continue even if size check fails
-      }
+            }
+          }
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
 
-      // Proceed with normal flow
-      setIsUploading(true);
-      try {
-        await handleMultipleImageUpload(result.assets);
-      } catch (error) {
-        console.error("Error uploading images:", error);
-        Alert.alert(
-          "Upload Failed",
-          "Failed to upload images. Please try again with fewer or smaller images."
-        );
-      } finally {
-        setIsUploading(false);
-      }
+    // Step 8: Standard upload flow for normal-sized images
+    setIsUploading(true);
+    try {
+      await handleMultipleImageUpload(result.assets);
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      Alert.alert(
+        "Upload Failed",
+        "Failed to upload images. Please try again with fewer or smaller images."
+      );
+    } finally {
+      setIsUploading(false);
     }
   } catch (error) {
     console.error("Error in image picker:", error);
     Alert.alert(
       "Error",
-      Platform.OS === 'android' ?
-        "Failed to open image picker. Try selecting fewer images or restarting the app." :
-        "Failed to open image picker."
+      Platform.OS === 'android'
+        ? "Failed to open image picker. Try selecting fewer images or restart the app."
+        : "Failed to open image picker. Please try again."
     );
   }
-}, [dealership, modalImages.length, handleMultipleImageUpload]);
-
+}, [modalImages.length, handleMultipleImageUpload]);
 
   const handleImageRemove = useCallback(async (imageUrl: string) => {
     try {
@@ -845,7 +1153,7 @@ const handleImagePick = useCallback(async () => {
 
       if (error) throw error;
 
-      safeSetModalImages((prevImages: any[]) =>
+      setModalImages((prevImages: any[]) =>
         prevImages.filter((url: string) => url !== imageUrl)
       );
       setFormData((prev: { images: any[] }) => ({
@@ -860,7 +1168,7 @@ const handleImagePick = useCallback(async () => {
   }, []);
 
   const handleImageReorder = useCallback((newOrder: string[]) => {
-    safeSetModalImages(newOrder);
+    setModalImages(newOrder);
     setFormData((prev: any) => ({
       ...prev,
       images: newOrder,
@@ -868,41 +1176,7 @@ const handleImagePick = useCallback(async () => {
     setHasChanges(true); // Mark changes as made
   }, []);
 
-  const validateFormData = (data: any) => {
-    const requiredFields = [
-      "make",
-      "model",
-      "price",
-      "year",
-      "condition",
-      "transmission",
-      "mileage",
-      "drivetrain",
-      "type",
-      "category",
-    ];
 
-    const missingFields = requiredFields.filter((field) => {
-      if (field === "mileage") {
-        return (
-          data[field] === null ||
-          data[field] === undefined ||
-          data[field] === ""
-        );
-      }
-      return !data[field];
-    });
-
-    if (missingFields.length > 0) {
-      Alert.alert(
-        "Missing Fields",
-        `Please fill in: ${missingFields.join(", ")}`
-      );
-      return false;
-    }
-
-    return true;
-  };
 
   const handleDeleteConfirmation = useCallback(() => {
     if (!dealership || !isSubscriptionValid()) {
@@ -1305,186 +1579,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
 
 
 
-  const handleSubmit = useCallback(() => {
-    if (!validateFormData(formData)) return;
-    if (!dealership || !isSubscriptionValid()) {
-      Alert.alert(
-        "Subscription Error",
-        "Your subscription is not valid or has expired."
-      );
-      return;
-    }
-
-    const submitListing = async () => {
-      try {
-        setIsLoading(true);
-
-        if (initialData?.id) {
-          const {
-            id,
-            listed_at,
-            date_modified,
-            views,
-            likes,
-            viewed_users,
-            liked_users,
-            sold_price,
-            date_sold,
-            buyer_name,
-            status,
-            dealership_name,
-            dealership_logo,
-            dealership_phone,
-            dealership_location,
-            dealership_latitude,
-            dealership_longitude,
-            ...allowedData
-          } = formData;
-
-          const dataToUpdate = {
-            make: allowedData.make,
-            model: allowedData.model,
-            price: allowedData.price,
-            year: allowedData.year,
-            description: allowedData.description,
-            images: modalImages,
-            condition: allowedData.condition,
-            transmission: allowedData.transmission,
-            color: allowedData.color,
-            mileage: allowedData.mileage,
-            drivetrain: allowedData.drivetrain,
-            type: allowedData.type,
-            category: allowedData.category,
-            bought_price: allowedData.bought_price,
-            date_bought: allowedData.date_bought
-              ? new Date(allowedData.date_bought).toISOString()
-              : null,
-            seller_name: allowedData.seller_name,
-              source: allowedData.source,
-               features: formData.features || [],
-            dealership_id: dealership.id,
-          };
-
-          const { data, error } = await supabase
-            .from("cars")
-            .update(dataToUpdate)
-            .eq("id", initialData.id)
-            .eq("dealership_id", dealership.id)
-            .select(
-              `
-            id,
-            listed_at,
-            make,
-            model,
-            price,
-            year,
-            description,
-            images,
-            sold_price,
-            date_sold,
-            status,
-            dealership_id,
-            date_modified,
-            views,
-            likes,
-            condition,
-            transmission,
-            color,
-            mileage,
-            drivetrain,
-            viewed_users,
-            liked_users,
-            type,
-            category,
-            bought_price,
-            date_bought,
-            seller_name,
-            buyer_name,
-            source,
-            features
-          `
-            )
-            .single();
-
-          if (error) throw error;
-
-          Alert.alert("Success", "Listing updated successfully", [
-            { text: "OK", onPress: () => router.back() },
-          ]);
-        } else {
-          const {
-            dealership_name,
-            dealership_logo,
-            dealership_phone,
-            dealership_location,
-            dealership_latitude,
-            dealership_longitude,
-            ...allowedData
-          } = formData;
-
-          const newListingData = {
-            make: allowedData.make,
-            model: allowedData.model,
-            price: allowedData.price,
-            year: allowedData.year,
-            description: allowedData.description,
-            images: modalImages,
-            condition: allowedData.condition,
-            transmission: allowedData.transmission,
-            color: allowedData.color,
-            mileage: allowedData.mileage,
-            drivetrain: allowedData.drivetrain,
-            type: allowedData.type,
-            category: allowedData.category,
-            bought_price: allowedData.bought_price,
-            date_bought: allowedData.date_bought
-              ? new Date(allowedData.date_bought).toISOString()
-              : new Date().toISOString(),
-            seller_name: allowedData.seller_name,
-            dealership_id: dealership.id,
-             source: allowedData.source,
-              features: formData.features || [],
-            status: "pending",
-            views: 0,
-            likes: 0,
-            viewed_users: [],
-            liked_users: [],
-          };
-
-          const { data, error } = await supabase
-            .from("cars")
-            .insert(newListingData)
-            .select()
-            .single();
-
-          if (error) throw error;
-
-          Alert.alert("Success", "New listing created successfully", [
-            { text: "OK", onPress: () => router.back() },
-          ]);
-        }
-      } catch (error: any) {
-        console.error("Error submitting listing:", error);
-        Alert.alert(
-          "Error",
-          error?.message || "Failed to submit listing. Please try again."
-        );
-      } finally {
-        setIsLoading(false);
-        setHasChanges(false);
-      }
-    };
-
-    submitListing();
-  }, [
-    formData,
-    modalImages,
-    initialData,
-    dealership,
-    router,
-    isSubscriptionValid,
-    validateFormData,
-  ]);
 
   if (isLoading) {
     return (
