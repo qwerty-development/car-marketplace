@@ -552,199 +552,154 @@ const safeSetModalImages = (updater:any) => {
     []
   );
   const processImage = async (uri: string): Promise<string> => {
-    if (!uri) {
-      console.warn("processImage: No URI provided.");
-      return "";
-    }
+    if (!uri || typeof uri !== 'string') return '';
   
     try {
-      // Step 1: Get file info
       const fileInfo = await FileSystem.getInfoAsync(uri);
-      if (!fileInfo.exists) throw new Error("File does not exist");
+      if (!fileInfo.exists) return uri;
   
-      // Step 2: Get image dimensions
+      if (fileInfo.size < 1 * 1024 * 1024) {
+        return uri; // skip compression for small images
+      }
+  
       const { width: originalWidth, height: originalHeight } = await ImageManipulator.manipulateAsync(uri, []);
-      if (!originalWidth || !originalHeight) throw new Error("Unable to determine image dimensions");
+      const aspectRatio = originalWidth / originalHeight;
   
-      // Step 3: Determine max dimensions and compression
       const maxWidth = 1280;
       const maxHeight = 1280;
-      const aspectRatio = originalWidth / originalHeight;
   
       let targetWidth = originalWidth;
       let targetHeight = originalHeight;
   
-      // Resize only if image is larger than max dimensions
       if (originalWidth > maxWidth || originalHeight > maxHeight) {
         if (aspectRatio > 1) {
-          // Landscape
           targetWidth = maxWidth;
           targetHeight = Math.round(maxWidth / aspectRatio);
         } else {
-          // Portrait
           targetHeight = maxHeight;
           targetWidth = Math.round(maxHeight * aspectRatio);
         }
       }
   
-      // Step 4: Determine compression based on file size
-      let compressionLevel = 0.7;
-      if (fileInfo.size > 10 * 1024 * 1024) {
-        compressionLevel = 0.5;
-      } else if (fileInfo.size > 5 * 1024 * 1024) {
-        compressionLevel = 0.6;
-      }
+      const compressionLevel =
+        fileInfo.size > 10 * 1024 * 1024 ? 0.5 :
+        fileInfo.size > 5 * 1024 * 1024 ? 0.6 : 0.7;
   
-      // Step 5: Manipulate image
       const result = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: targetWidth, height: targetHeight } }],
         {
           compress: compressionLevel,
           format: ImageManipulator.SaveFormat.JPEG,
-          base64: false, // Reduces memory use
+          base64: false,
         }
       );
   
-      if (!result.uri) throw new Error("Image processing failed: no URI returned");
-  
-      return result.uri;
+      return result.uri || uri;
     } catch (error) {
-      console.error("processImage error:", error);
-      return uri; // Fallback to original URI
+      console.warn('Compression failed. Using original image:', error);
+      return uri;
     }
   };
   
-
-const handleMultipleImageUpload = useCallback(
-  async (assets: any[]) => {
-    if (!dealership) return;
-    if (assets.length === 0) return;
-
+  // ---------- handleMultipleImageUpload ----------
+  const handleMultipleImageUpload = async (
+    assets: any[],
+    dealership: any,
+    setModalImages: Function,
+    setFormData: Function,
+    setIsUploading: Function,
+    setHasChanges: Function
+  ) => {
+    if (!dealership || assets.length === 0) return;
+  
     setIsUploading(true);
-
+  
     try {
-      // Process images in batches with platform-specific batch size
       const results = [];
-      // Use smaller batch size on Android which is more memory-constrained
       const batchSize = Platform.OS === 'android' ? 2 : 3;
-
-      console.log(`Processing ${assets.length} images in batches of ${batchSize}`);
-
+  
       for (let i = 0; i < assets.length; i += batchSize) {
-        // Log progress for debugging
-        console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(assets.length/batchSize)}`);
-
         const batch = assets.slice(i, i + batchSize);
-        const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
-          const index = i + batchIndex; // Global index for better filename uniqueness
-          try {
-            // Process the image before upload
-            const processedUri = await processImage(asset.uri);
-            if (!processedUri) return null;
-
-            // More unique filename pattern with milliseconds for better uniqueness
-            const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000000)}_${index}.jpg`;
-            const filePath = `${dealership.id}/${fileName}`;
-
-            // Platform-specific upload strategy
-            if (Platform.OS === 'android') {
-              // For Android, try direct file upload if possible to avoid base64 memory issues
+  
+        const batchResults = await Promise.all(
+          batch.map(async (asset: { uri: string }, batchIndex: number) => {
+            const index = i + batchIndex;
+  
+            try {
+              const processedUri = await processImage(asset.uri);
+              if (!processedUri) return null;
+  
+              const fileName = `${Date.now()}_${Math.floor(Math.random() * 1000000)}_${index}.jpg`;
+              const filePath = `${dealership.id}/${fileName}`;
+  
+              let uploadError = null;
+  
               try {
-                const { data, error } = await supabase.storage
+                const { error } = await supabase.storage
                   .from("cars")
-                  .upload(filePath, processedUri, {
-                    contentType: "image/jpeg",
-                  });
-
-                if (error) throw error;
+                  .upload(filePath, processedUri, { contentType: "image/jpeg" });
+  
+                uploadError = error;
               } catch (directUploadError) {
-                // Fall back to base64 if direct upload fails
-                console.log('Direct upload failed, falling back to base64:', directUploadError);
-                const base64 = await FileSystem.readAsStringAsync(processedUri, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-
-                const { data, error } = await supabase.storage
+                const base64 = await FileSystem.readAsStringAsync(processedUri, { encoding: FileSystem.EncodingType.Base64 });
+                const { error } = await supabase.storage
                   .from("cars")
-                  .upload(filePath, Buffer.from(base64, "base64"), {
-                    contentType: "image/jpeg",
-                  });
-
-                if (error) throw error;
+                  .upload(filePath, Buffer.from(base64, "base64"), { contentType: "image/jpeg" });
+  
+                uploadError = error;
               }
-            } else {
-              // iOS base64 approach
-              const base64 = await FileSystem.readAsStringAsync(processedUri, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-
-              const { data, error } = await supabase.storage
-                .from("cars")
-                .upload(filePath, Buffer.from(base64, "base64"), {
-                  contentType: "image/jpeg",
-                });
-
-              if (error) throw error;
+  
+              if (uploadError) throw uploadError;
+  
+              const { data: publicURLData } = supabase.storage.from("cars").getPublicUrl(filePath);
+              if (!publicURLData) throw new Error("Could not get public URL");
+  
+              return publicURLData.publicUrl;
+            } catch (error) {
+              console.error(`Error uploading image ${index}:`, error);
+              return null;
             }
-
-            // Get public URL
-            const { data: publicURLData } = supabase.storage
-              .from("cars")
-              .getPublicUrl(filePath);
-
-            if (!publicURLData) throw new Error("Error getting public URL");
-
-            return publicURLData.publicUrl;
-          } catch (error) {
-            console.error(`Error uploading image ${index}:`, error);
-            return null;
-          }
-        });
-
-        // Wait for the current batch to complete before moving to next batch
-        const batchResults = await Promise.all(batchPromises);
+          })
+        );
+  
         results.push(...batchResults);
-
-        // Give more time for garbage collection between batches on Android
-        await new Promise(resolve => setTimeout(resolve, Platform.OS === 'android' ? 300 : 100));
-
-        // Explicitly suggest garbage collection (might help in some JS engines)
-        if (global.gc) {
-          try {
-            global.gc();
-          } catch (e) {
-            console.log('Manual GC failed:', e);
-          }
-        }
+  
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
-
+  
       const successfulUploads = results.filter((url) => url !== null);
-
+  
       if (successfulUploads.length === 0) {
-        throw new Error("No images were successfully uploaded");
+        throw new Error("No images uploaded");
       }
-
-      console.log(`Successfully uploaded ${successfulUploads.length} of ${assets.length} images`);
-
-      safeSetModalImages((prev: any) => [...successfulUploads, ...prev]);
-      setFormData((prev: { images: any }) => ({
+  
+      setModalImages((prev: any) => [...successfulUploads, ...prev].slice(0, 10));
+      setFormData((prev: any) => ({
         ...prev,
-        images: [...successfulUploads, ...(prev.images || [])],
+        images: [...successfulUploads, ...(prev.images || [])].slice(0, 10)
       }));
       setHasChanges(true);
     } catch (error) {
-      console.error('Error in image upload process:', error);
-      Alert.alert(
-        "Upload Error",
-        "Some images failed to upload. Please try again with fewer or smaller images."
-      );
+      console.error('Image upload failed:', error);
+      Alert.alert("Upload Error", "Some images failed to upload. Try again.");
     } finally {
       setIsUploading(false);
     }
-  },
-  [dealership, processImage]
-);
+  };
+  
+  // ---------- Optional: Create wrapper for easier usage ----------
+  const useImageUploader = (dealership: any, safeSetModalImages: Function, setFormData: Function, setIsUploading: Function, setHasChanges: Function) => {
+    return (assets: any[]) => handleMultipleImageUpload(
+      assets,
+      dealership,
+      safeSetModalImages,
+      setFormData,
+      setIsUploading,
+      setHasChanges
+    );
+  };
+  
 
 const handleImagePick = useCallback(async () => {
   try {
