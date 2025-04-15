@@ -8,7 +8,8 @@ import {
 	Text,
 	StatusBar,
 	RefreshControl,
-	Platform
+	Platform,
+	Image
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
@@ -24,10 +25,32 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 const TAB_BAR_HEIGHT = 50
 const CAR_CARD_HEIGHT = SCREEN_HEIGHT - TAB_BAR_HEIGHT
 
+// Brand logo fetching function (copied from AllBrandsPage)
+const getLogoUrl = (make: string, isLightMode: boolean) => {
+  const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
+  switch (formattedMake) {
+    case "range-rover":
+      return isLightMode
+        ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
+        : "https://www.carlogos.org/car-logos/land-rover-logo.png";
+    case "infiniti":
+      return "https://www.carlogos.org/car-logos/infiniti-logo.png";
+    case "audi":
+      return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
+    case "nissan":
+      return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
+    case "jetour":
+      return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
+    default:
+      return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
+  }
+};
+
 const CustomHeader = React.memo(
-	({ title, onBack }: { title: string; onBack: () => void }) => {
+	({ title, onBack, brandName }: { title: string; onBack: () => void; brandName?: string }) => {
 		const { isDarkMode } = useTheme()
 		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
+		const logoUrl = brandName ? getLogoUrl(brandName, !isDarkMode) : null;
 
 		return (
 			<SafeAreaView
@@ -38,6 +61,13 @@ const CustomHeader = React.memo(
 					<TouchableOpacity onPress={onBack}>
 						<Ionicons name='arrow-back' size={24} color={iconColor} />
 					</TouchableOpacity>
+					{logoUrl && (
+						<Image
+							source={{ uri: logoUrl }}
+							style={{ width: 40, height: 40, marginLeft: 12 }}
+							resizeMode="contain"
+						/>
+					)}
 					<Text
 						className={`ml-4 text-lg font-bold ${
 							isDarkMode ? 'text-white' : 'text-black'
@@ -237,8 +267,9 @@ export default function CarsByBrand() {
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader
-				title={brand || 'Cars by Brand'}
+				title={brand ? `${brand} Cars` : 'Cars by Brand'}
 				onBack={() => router.back()}
+				brandName={brand}
 			/>
 			{memoizedHeader}
 			{renderContent()}
