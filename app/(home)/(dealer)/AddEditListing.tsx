@@ -551,58 +551,70 @@ const safeSetModalImages = (updater:any) => {
     },
     []
   );
-const processImage = async (uri: string): Promise<string> => {
-  if (!uri) {
-    console.warn("Empty URI provided to processImage");
-    return "";
-  }
-
-  try {
-    // Add file size check to dynamically adjust compression
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-
-    // Dynamic optimization based on file size
-    let MAX_DIMENSION = 1200;
-    let compressionLevel = 0.7;
-
-    if (fileInfo.exists && fileInfo.size) {
-      // For very large images (>5MB), use more aggressive compression
-      if (fileInfo.size > 5 * 1024 * 1024) {
-        MAX_DIMENSION = 1000;
+  const processImage = async (uri: string): Promise<string> => {
+    if (!uri) {
+      console.warn("processImage: No URI provided.");
+      return "";
+    }
+  
+    try {
+      // Step 1: Get file info
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) throw new Error("File does not exist");
+  
+      // Step 2: Get image dimensions
+      const { width: originalWidth, height: originalHeight } = await ImageManipulator.manipulateAsync(uri, []);
+      if (!originalWidth || !originalHeight) throw new Error("Unable to determine image dimensions");
+  
+      // Step 3: Determine max dimensions and compression
+      const maxWidth = 1280;
+      const maxHeight = 1280;
+      const aspectRatio = originalWidth / originalHeight;
+  
+      let targetWidth = originalWidth;
+      let targetHeight = originalHeight;
+  
+      // Resize only if image is larger than max dimensions
+      if (originalWidth > maxWidth || originalHeight > maxHeight) {
+        if (aspectRatio > 1) {
+          // Landscape
+          targetWidth = maxWidth;
+          targetHeight = Math.round(maxWidth / aspectRatio);
+        } else {
+          // Portrait
+          targetHeight = maxHeight;
+          targetWidth = Math.round(maxHeight * aspectRatio);
+        }
+      }
+  
+      // Step 4: Determine compression based on file size
+      let compressionLevel = 0.7;
+      if (fileInfo.size > 10 * 1024 * 1024) {
+        compressionLevel = 0.5;
+      } else if (fileInfo.size > 5 * 1024 * 1024) {
         compressionLevel = 0.6;
       }
-
-      // For extremely large images (>10MB), use even more aggressive compression
-      if (fileInfo.size > 10 * 1024 * 1024) {
-        MAX_DIMENSION = 800;
-        compressionLevel = 0.5;
-      }
-    }
-
-    // Use a try-catch specifically for the manipulation to isolate ImageManipulator issues
-    try {
+  
+      // Step 5: Manipulate image
       const result = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: MAX_DIMENSION } }],
-        { compress: compressionLevel, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: targetWidth, height: targetHeight } }],
+        {
+          compress: compressionLevel,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: false, // Reduces memory use
+        }
       );
-
-      if (!result || !result.uri) {
-        throw new Error("Image processing returned invalid result");
-      }
-
+  
+      if (!result.uri) throw new Error("Image processing failed: no URI returned");
+  
       return result.uri;
-    } catch (manipulationError) {
-      console.error('ImageManipulator specific error:', manipulationError);
-      // If the specific manipulation fails, return original URI
-      return uri;
+    } catch (error) {
+      console.error("processImage error:", error);
+      return uri; // Fallback to original URI
     }
-  } catch (error) {
-    console.error('Error in processImage function:', error);
-    // Return original URI as fallback, with additional safety check
-    return uri || "";
-  }
-};
+  };
+  
 
 const handleMultipleImageUpload = useCallback(
   async (assets: any[]) => {
