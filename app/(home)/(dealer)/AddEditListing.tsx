@@ -1060,8 +1060,8 @@ const handleImagePick = useCallback(async () => {
 
     // Set stricter limits for Android due to memory constraints
     const maxSelection = Platform.OS === 'android'
-      ? Math.min(remainingSlots, 3)  // Max 3 at once for Android
-      : Math.min(remainingSlots, 5); // Max 5 at once for iOS
+      ? Math.min(remainingSlots, 10)  // Max 3 at once for Android
+      : Math.min(remainingSlots, 10); // Max 5 at once for iOS
 
     console.log(`Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`);
 
