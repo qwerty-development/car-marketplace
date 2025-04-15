@@ -18,7 +18,6 @@ import {
   Pressable,
 } from "react-native";
 import { Image } from "expo-image";
-import { FadeInView } from "./FadeInView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter, useLocalSearchParams, Stack } from "expo-router";
