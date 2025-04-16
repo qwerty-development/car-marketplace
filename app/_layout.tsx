@@ -17,6 +17,7 @@ import { GuestUserProvider, useGuestUser } from '@/utils/GuestUserContext'
 import * as Linking from 'expo-linking'
 import { supabase } from '@/utils/supabase'
 import NetworkProvider from '@/utils/NetworkContext'
+import { useCarDetails } from '@/hooks/useCarDetails';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -94,53 +95,69 @@ const DeepLinkHandler = () => {
         }
 
         // Handle car deep links - improved version with better path parsing
-        if (path) {
-          // Handle "/cars/[id]" format
-          if (path.startsWith("cars/")) {
-            const segments = path.split('/').filter(Boolean);
-            if (segments.length >= 2 && segments[0] === "cars") {
-              const carId = segments[1];
+       if (path) {
+      // Handle "/cars/[id]" format
+      if (path.startsWith("cars/")) {
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length >= 2 && segments[0] === "cars") {
+          const carId = segments[1];
 
-              if (carId && !isNaN(Number(carId))) {
-                console.log(`Navigating to car details for ID: ${carId}`);
+          if (carId && !isNaN(Number(carId))) {
+            console.log(`Navigating to car details for ID: ${carId}`);
 
-                // Allow auth flow to complete if needed
-                const isEffectivelySignedIn = isSignedIn || isGuest;
+            // Allow auth flow to complete if needed
+            const isEffectivelySignedIn = isSignedIn || isGuest;
 
-                if (!isEffectivelySignedIn) {
-                  // If not signed in, set a location to redirect to after sign-in
-                  console.log('User not signed in, redirecting to sign-in first');
-
-                  // You might want to store this destination in some state/context
-                  // to navigate after sign-in completes
-
-                  // For now, just redirect to sign-in
-                  router.replace('/(auth)/sign-in');
-                  return;
-                }
-
-                // Use setTimeout to ensure navigation stack is ready
-                // This helps avoid navigation conflicts
-                setTimeout(() => {
-                  router.push({
-                    pathname: "/(home)/(user)/CarDetails",
-                    params: { carId }
-                  });
-                }, 500);
-              } else {
-                console.warn('Invalid car ID in deep link:', carId);
-              }
+            if (!isEffectivelySignedIn) {
+              console.log('User not signed in, redirecting to sign-in first');
+              router.replace('/(auth)/sign-in');
+              return;
             }
+
+            // Use the car details hook to prefetch data, just like in normal navigation
+            try {
+              // Import the hook - this ensures proper functionality
+              const { prefetchCarDetails } = require('@/hooks/useCarDetails').useCarDetails();
+
+              // Prefetch car details
+              const prefetchedData = await prefetchCarDetails(carId);
+
+              // Navigate with prefetched data - always to user view for deep links
+              // Deep links from outside the app should always go to user view
+              setTimeout(() => {
+                router.push({
+                  pathname: "/(home)/(user)/CarDetails",
+                  params: {
+                    carId,
+                    isDealerView: 'false', // Default to user view for deep links
+                    prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined
+                  }
+                });
+              }, 500);
+            } catch (error) {
+              // Fallback navigation without prefetched data
+              console.error('Error prefetching car details:', error);
+              setTimeout(() => {
+                router.push({
+                  pathname: "/(home)/(user)/CarDetails",
+                  params: {
+                    carId,
+                    isDealerView: 'false'
+                  }
+                });
+              }, 500);
+            }
+          } else {
+            console.warn('Invalid car ID in deep link:', carId);
           }
-
-          // You can add more link types here as needed
-          // For example: dealerships/[id], autoclips/[id], etc.
         }
-
-      } catch (err) {
-        console.error("Deep link error:", err);
       }
-    };
+    }
+
+  } catch (err) {
+    console.error("Deep link error:", err);
+  }
+};
 
     // Set up the linking listener
     const subscription = Linking.addEventListener('url', handleDeepLink);
