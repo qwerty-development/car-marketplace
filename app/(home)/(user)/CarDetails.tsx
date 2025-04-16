@@ -303,10 +303,13 @@ export default function CarDetailsPage() {
               { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
             ]}>
               <CarDetailScreen
-                car={car}
-                isDealer={isDealer}
-                onFavoritePress={handleFavoritePress}
-              />
+              car={{
+    ...car,
+    fromDeepLink: params.fromDeepLink
+  }}
+  isDealer={isDealer}
+  onFavoritePress={handleFavoritePress}
+/>
             </View>
           </Suspense>
         </ErrorBoundary>

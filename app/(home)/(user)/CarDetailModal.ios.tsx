@@ -839,7 +839,28 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }, 500),
     [user?.id]
   );
+// Inside handleBackPress in CarDetailModal.ios.tsx
+const handleBackPress = useCallback(() => {
+  try {
+    if (car.fromDeepLink === 'true') {
+      router.replace('/(home)/(user)');
+    } else {
+      router.back();
 
+      // Safety timer - if we're still on the same screen after 100ms,
+      // assume back navigation failed and redirect to home
+      const timer = setTimeout(() => {
+        router.replace('/(home)/(user)');
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  } catch (error) {
+    // If any error occurs during navigation, safely redirect to home
+    console.error('Navigation error:', error);
+    router.replace('/(home)/(user)');
+  }
+}, [car, router]);
   const trackWhatsAppClick = useCallback(
     debounce(async (carId: number) => {
       if (!user?.id || !carId) return;
@@ -1684,7 +1705,7 @@ const handleShare = useCallback(async () => {
     >
       {/* Back button */}
       <TouchableOpacity
-        onPress={() => router.back()}
+        onPress={handleBackPress}
         style={{
           position: "absolute",
           top: 35,

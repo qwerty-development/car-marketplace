@@ -132,23 +132,25 @@ const DeepLinkHandler = () => {
               const prefetchedData = await prefetchCarDetails(carId);
 
               // Navigate with prefetched data
-              router.push({
+              router.replace({
                 pathname: "/(home)/(user)/CarDetails",
                 params: {
                   carId,
                   isDealerView: 'false', // Default to user view for deep links
-                  prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined
+                  prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined,
+                    fromDeepLink: 'true'
                 }
               });
             } catch (error) {
               console.error('Error prefetching car details:', error);
 
               // Fallback navigation without prefetched data
-              router.push({
+              router.replace({
                 pathname: "/(home)/(user)/CarDetails",
                 params: {
                   carId,
-                  isDealerView: 'false'
+                  isDealerView: 'false',
+                  fromDeelpLink: 'true'
                 }
               });
             }
