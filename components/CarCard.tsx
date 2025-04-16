@@ -205,21 +205,25 @@ export default function CarCard({
 		}
 	}, [car.dealership_phone, car.id, trackCallClick])
 
-	const handleShare = useCallback(async () => {
-		try {
-			const message =
-			`Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n` +
-			`https://www.fleetapp.me/cars/${car.id}`;
+const handleShare = useCallback(async () => {
+  try {
+    // Use a consistent URL format
+    const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
 
+    const message =
+      `Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n` +
+      shareUrl;
 
-			await Share.share({
-				message,
-				title: `${car.year} ${car.make} ${car.model}`
-			})
-		} catch (error) {
-			Alert.alert('Error', 'Failed to share car details')
-		}
-	}, [car])
+    await Share.share({
+      message,
+      url: shareUrl, // Include the URL parameter for better iOS sharing
+      title: `${car.year} ${car.make} ${car.model}`
+    });
+  } catch (error) {
+    console.error('Share error:', error);
+    Alert.alert('Error', 'Failed to share car details');
+  }
+}, [car]);
 
 	const handleDealershipPress = useCallback(() => {
 		const route = isDealer

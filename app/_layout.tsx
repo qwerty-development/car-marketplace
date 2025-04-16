@@ -54,12 +54,17 @@ const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
+  const { prefetchCarDetails } = useCarDetails(); // Use hook properly
+
+  // Track if a deep link is currently being processed to prevent duplicates
+  const [isProcessingDeepLink, setIsProcessingDeepLink] = useState(false);
 
   useEffect(() => {
     const handleDeepLink = async ({ url }: { url: string }) => {
-      if (!url) return;
+      if (!url || isProcessingDeepLink) return;
 
       console.log('Deep link received:', url);
+      setIsProcessingDeepLink(true);
 
       try {
         const parsedUrl = Linking.parse(url);
@@ -85,79 +90,79 @@ const DeepLinkHandler = () => {
               console.log('Auth session set successfully');
             }
           }
+          setIsProcessingDeepLink(false);
           return;
         }
 
         // Wait for auth to be loaded before handling navigation deep links
         if (!isLoaded) {
           console.log('Auth not loaded yet, deferring deep link handling');
+          setIsProcessingDeepLink(false);
           return;
         }
 
-        // Handle car deep links - improved version with better path parsing
-       if (path) {
-      // Handle "/cars/[id]" format
-      if (path.startsWith("cars/")) {
-        const segments = path.split('/').filter(Boolean);
-        if (segments.length >= 2 && segments[0] === "cars") {
-          const carId = segments[1];
+        // Enhanced path parsing logic
+        if (path) {
+          // Match multiple URL patterns for car details
+          const carIdMatch =
+            path.match(/^cars\/(\d+)$/) || // cars/123
+            path.match(/^\/cars\/(\d+)$/) || // /cars/123
+            path.match(/^car\/(\d+)$/); // car/123
+
+          const carId = carIdMatch ? carIdMatch[1] : null;
 
           if (carId && !isNaN(Number(carId))) {
             console.log(`Navigating to car details for ID: ${carId}`);
 
-            // Allow auth flow to complete if needed
+            // Check authentication status
             const isEffectivelySignedIn = isSignedIn || isGuest;
 
             if (!isEffectivelySignedIn) {
               console.log('User not signed in, redirecting to sign-in first');
+              // Store the intended destination for after sign-in
+              // This could be enhanced with a more robust navigation state mechanism
+              global.pendingDeepLink = { type: 'car', id: carId };
               router.replace('/(auth)/sign-in');
+              setIsProcessingDeepLink(false);
               return;
             }
 
-            // Use the car details hook to prefetch data, just like in normal navigation
             try {
-              // Import the hook - this ensures proper functionality
-              const { prefetchCarDetails } = require('@/hooks/useCarDetails').useCarDetails();
-
               // Prefetch car details
               const prefetchedData = await prefetchCarDetails(carId);
 
-              // Navigate with prefetched data - always to user view for deep links
-              // Deep links from outside the app should always go to user view
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/CarDetails",
-                  params: {
-                    carId,
-                    isDealerView: 'false', // Default to user view for deep links
-                    prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined
-                  }
-                });
-              }, 500);
+              // Navigate with prefetched data
+              router.push({
+                pathname: "/(home)/(user)/CarDetails",
+                params: {
+                  carId,
+                  isDealerView: 'false', // Default to user view for deep links
+                  prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined
+                }
+              });
             } catch (error) {
-              // Fallback navigation without prefetched data
               console.error('Error prefetching car details:', error);
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/CarDetails",
-                  params: {
-                    carId,
-                    isDealerView: 'false'
-                  }
-                });
-              }, 500);
+
+              // Fallback navigation without prefetched data
+              router.push({
+                pathname: "/(home)/(user)/CarDetails",
+                params: {
+                  carId,
+                  isDealerView: 'false'
+                }
+              });
             }
-          } else {
-            console.warn('Invalid car ID in deep link:', carId);
+          } else if (path.startsWith('cars') || path.startsWith('/cars')) {
+            console.warn('Invalid car ID in deep link:', path);
+            Alert.alert('Invalid Link', 'The car you\'re looking for could not be found.');
           }
         }
+      } catch (err) {
+        console.error("Deep link error:", err);
+      } finally {
+        setIsProcessingDeepLink(false);
       }
-    }
-
-  } catch (err) {
-    console.error("Deep link error:", err);
-  }
-};
+    };
 
     // Set up the linking listener
     const subscription = Linking.addEventListener('url', handleDeepLink);
@@ -175,7 +180,25 @@ const DeepLinkHandler = () => {
     return () => {
       subscription.remove();
     };
-  }, [router, isLoaded, isSignedIn, isGuest]);
+  }, [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails, isProcessingDeepLink]);
+
+  // Handle sign-in completion - check for pending deep links
+  useEffect(() => {
+    if (isSignedIn && global.pendingDeepLink) {
+      const { type, id } = global.pendingDeepLink;
+
+      if (type === 'car' && id) {
+        console.log('Processing pending deep link after sign-in');
+        router.push({
+          pathname: "/(home)/(user)/CarDetails",
+          params: { carId: id, isDealerView: 'false' }
+        });
+      }
+
+      // Clear the pending link
+      global.pendingDeepLink = null;
+    }
+  }, [isSignedIn, router]);
 
   return null;
 };

@@ -877,6 +877,9 @@ const handleShare = useCallback(async () => {
   if (!car) return;
 
   try {
+    // Use a consistent URL format
+    const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
+
     const message =
       `Check out this ${car.year} ${car.make} ${car.model} for $${
         car.price ? car.price.toLocaleString() : "N/A"
@@ -884,15 +887,16 @@ const handleShare = useCallback(async () => {
       `at ${car.dealership_name || "Dealership"} in ${
         car.dealership_location || "Location"
       }\n` +
-      `https://www.fleetapp.me/cars/${car.id}`;
+      shareUrl;
 
     await Share.share({
       message,
-      url: `https://www.fleetapp.me/cars/${car.id}`,
+      url: shareUrl,
       title: `${car.year} ${car.make} ${car.model}`
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Share error:", error);
+    Alert.alert('Error', 'Failed to share car details');
   }
 }, [car]);
 
