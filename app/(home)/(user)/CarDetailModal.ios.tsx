@@ -873,22 +873,28 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     });
   }, [car?.id, car?.dealership_phone, trackCallClick]);
 
-  const handleShare = useCallback(async () => {
-    if (!car) return;
+const handleShare = useCallback(async () => {
+  if (!car) return;
 
-    try {
-      await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${car.model} for $${
-          car.price ? car.price.toLocaleString() : "N/A"
-        }!
-        at ${car.dealership_name || "Dealership"} in ${
-          car.dealership_location || "Location"
-        }`,
-      });
-    } catch (error: any) {
-      console.error("Share error:", error);
-    }
-  }, [car]);
+  try {
+    const message =
+      `Check out this ${car.year} ${car.make} ${car.model} for $${
+        car.price ? car.price.toLocaleString() : "N/A"
+      }!\n` +
+      `at ${car.dealership_name || "Dealership"} in ${
+        car.dealership_location || "Location"
+      }\n` +
+      `https://www.fleetapp.me/cars/${car.id}`;
+
+    await Share.share({
+      message,
+      url: `https://www.fleetapp.me/cars/${car.id}`,
+      title: `${car.year} ${car.make} ${car.model}`
+    });
+  } catch (error: any) {
+    console.error("Share error:", error);
+  }
+}, [car]);
 
   const handleOpenInMaps = useCallback(() => {
     if (!car) return;
@@ -2023,7 +2029,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   closeButton: {
     position: 'absolute',
     top: 40,
@@ -2033,19 +2039,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 8,
   },
-  
+
   imageContainer: {
     width,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   fullscreenImage: {
     width: width , // Slightly smaller than full width for better appearance
     height: height,
   },
-  
+
   imageCounter: {
     position: 'absolute',
     bottom: 40,
@@ -2054,7 +2060,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 20,
   },
-  
+
   imageCounterText: {
     color: 'white',
     fontWeight: '600',

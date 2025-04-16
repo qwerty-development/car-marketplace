@@ -67,7 +67,6 @@ import {
   FeatureComparison,
 } from "@/components/comparison/comparisons";
 import { ComparisonSummary } from "@/components/comparison/comparisonSummary";
-import { ShareButton } from "@/components/comparison/shareButton";
 import { TotalCostOfOwnership } from "@/components/comparison/totalCostOfOwnership";
 
 // Memoized Custom Header component
@@ -76,10 +75,10 @@ const CustomHeader = React.memo(
     const { isDarkMode } = useTheme();
 
     return (
-      <SafeAreaView className={`bg-${isDarkMode ? "black" : "white"}`}>
+      <SafeAreaView className={`bg-${isDarkMode ? "black" : "white"} -mb-7`}>
         <StatusBar style={isDarkMode ? "light" : "dark"} />
         <View
-          className={`flex-row items-center ml-2 mt-7 ${
+          className={`flex-row items-center ml-2  ${
             Platform.OS === "ios" ? "" : "mb-7"
           }`}
         >
@@ -1316,14 +1315,7 @@ export default function CarComparison() {
         </Animated.ScrollView>
       )}
 
-      {/* Share button */}
-      {selectedCars[0] && selectedCars[1] && (
-        <ShareButton
-          car1={selectedCars[0]}
-          car2={selectedCars[1]}
-          isDarkMode={isDarkMode}
-        />
-      )}
+
 
       {/* Car picker modal */}
       <CarPickerModal

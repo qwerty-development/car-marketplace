@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import React, { useState, useEffect, useCallback } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { AuthProvider, useAuth } from '@/utils/AuthContext'
@@ -6,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { FavoritesProvider } from '@/utils/useFavorites'
 import { ThemeProvider } from '@/utils/ThemeContext'
 import { QueryClient, QueryClientProvider } from 'react-query'
-import { LogBox, View, Text, TouchableOpacity } from 'react-native'
+import { LogBox, View, Text, TouchableOpacity, Alert, Platform } from 'react-native'
 import 'react-native-gesture-handler'
 import 'react-native-get-random-values'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -50,65 +49,116 @@ const queryClient = new QueryClient({
   }
 })
 
-// Handle deep links for Supabase Auth
 const DeepLinkHandler = () => {
+  const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { isGuest } = useGuestUser();
+
   useEffect(() => {
     const handleDeepLink = async ({ url }: { url: string }) => {
       if (!url) return;
-    
+
+      console.log('Deep link received:', url);
+
       try {
         const parsedUrl = Linking.parse(url);
         const { path, queryParams } = parsedUrl;
-    
+
+        console.log('Parsed URL:', { path, queryParams });
+
         // Handle Supabase Auth redirects
         if (url.includes("auth/callback") || url.includes("reset-password")) {
+          console.log('Handling auth callback');
           const accessToken = queryParams?.access_token;
           const refreshToken = queryParams?.refresh_token;
-    
+
           if (accessToken && refreshToken) {
             const { error } = await supabase.auth.setSession({
               access_token: accessToken as string,
               refresh_token: refreshToken as string,
             });
-    
+
             if (error) {
               console.error("Error setting session:", error);
+            } else {
+              console.log('Auth session set successfully');
             }
           }
+          return;
         }
-    
-        // 🔥 Handle car deep links
-        if (path?.startsWith("cars/")) {
-          const carId = path.split("/")[1];
-          if (carId) {
-            // Use router after a short timeout to ensure navigation stack is ready
-            setTimeout(() => {
-              router.push({
-                pathname: "/(home)/(user)/CarDetailModal",
-                params: { carId },
-              });
-            }, 300);
+
+        // Wait for auth to be loaded before handling navigation deep links
+        if (!isLoaded) {
+          console.log('Auth not loaded yet, deferring deep link handling');
+          return;
+        }
+
+        // Handle car deep links - improved version with better path parsing
+        if (path) {
+          // Handle "/cars/[id]" format
+          if (path.startsWith("cars/")) {
+            const segments = path.split('/').filter(Boolean);
+            if (segments.length >= 2 && segments[0] === "cars") {
+              const carId = segments[1];
+
+              if (carId && !isNaN(Number(carId))) {
+                console.log(`Navigating to car details for ID: ${carId}`);
+
+                // Allow auth flow to complete if needed
+                const isEffectivelySignedIn = isSignedIn || isGuest;
+
+                if (!isEffectivelySignedIn) {
+                  // If not signed in, set a location to redirect to after sign-in
+                  console.log('User not signed in, redirecting to sign-in first');
+
+                  // You might want to store this destination in some state/context
+                  // to navigate after sign-in completes
+
+                  // For now, just redirect to sign-in
+                  router.replace('/(auth)/sign-in');
+                  return;
+                }
+
+                // Use setTimeout to ensure navigation stack is ready
+                // This helps avoid navigation conflicts
+                setTimeout(() => {
+                  router.push({
+                    pathname: "/(home)/(user)/CarDetails",
+                    params: { carId }
+                  });
+                }, 500);
+              } else {
+                console.warn('Invalid car ID in deep link:', carId);
+              }
+            }
           }
+
+          // You can add more link types here as needed
+          // For example: dealerships/[id], autoclips/[id], etc.
         }
-    
+
       } catch (err) {
         console.error("Deep link error:", err);
       }
     };
-    
 
     // Set up the linking listener
     const subscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Check for initial URLs
+    // Check for initial URLs when app is opened via a link
     Linking.getInitialURL().then(url => {
-      if (url) handleDeepLink({ url });
+      if (url) {
+        console.log('App opened with initial URL:', url);
+        handleDeepLink({ url });
+      }
+    }).catch(err => {
+      console.error('Error getting initial URL:', err);
     });
 
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [router, isLoaded, isSignedIn, isGuest]);
 
   return null;
 };

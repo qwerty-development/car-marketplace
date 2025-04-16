@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useCallback, Suspense, useRef } from 'react'
 import { View, ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, AppState } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
-import { supabase } from '@/utils/supabase'
 import { useCarDetails } from '@/hooks/useCarDetails'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'

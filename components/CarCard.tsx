@@ -210,8 +210,8 @@ export default function CarCard({
 			const message =
 			`Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n` +
 			`https://www.fleetapp.me/cars/${car.id}`;
-		  
-		
+
+
 			await Share.share({
 				message,
 				title: `${car.year} ${car.make} ${car.model}`

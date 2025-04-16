@@ -23,17 +23,17 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart",
-      "associatedDomains": ["applinks:fleetapp.me"],
+    "associatedDomains": ["applinks:fleetapp.me", "applinks:www.fleetapp.me"],
       "config": {
         "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
       },
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
-        "LSApplicationQueriesSchemes": ["whatsapp"],
+"LSApplicationQueriesSchemes": ["whatsapp", "comgooglemaps", "googlechromes"],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart"]
+      "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart", "fleet"]
           }
         ]
       }
@@ -54,7 +54,7 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "intentFilters": [
+  "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -62,6 +62,16 @@
             {
               "scheme": "https",
               "host": "www.fleetapp.me",
+              "pathPrefix": "/cars"
+            },
+            {
+              "scheme": "https",
+              "host": "fleetapp.me",
+              "pathPrefix": "/cars"
+            },
+            {
+              "scheme": "fleet",
+              "host": "*",
               "pathPrefix": "/cars"
             }
           ],
