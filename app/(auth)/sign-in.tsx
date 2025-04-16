@@ -218,9 +218,9 @@ const handleGoogleAuth = async () => {
       <View style={{ flexDirection: 'row', gap: 16 }}>
 
 
-        {/* Apple Authentication Button */}
+
         {Platform.OS === 'ios' && appleAuthAvailable ? (
-          // On iOS, use native Apple Authentication button if available
+
           <View style={{ width: 56, height: 56, overflow: 'hidden', borderRadius: 28 }}>
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -253,7 +253,6 @@ const handleGoogleAuth = async () => {
             )}
           </View>
         ) : (
-          // On Android or if Apple Authentication is not available, show a custom button
           <TouchableOpacity
             onPress={handleAppleAuth}
             disabled={isLoading.apple || !appleAuthAvailable}
@@ -276,9 +275,9 @@ const handleGoogleAuth = async () => {
             )}
           </TouchableOpacity>
 
-          
+
         )}
-                {/* Google Authentication Button */}
+
                 <TouchableOpacity
           onPress={handleGoogleAuth}
           disabled={isLoading.google}
@@ -392,7 +391,7 @@ export default function SignInPage() {
         backgroundColor: isDark ? '#000' : '#fff',
       }}
     >
-      {/* Animated Background */}
+
       <AnimatedBlob
         position={{ x: width * 0.1, y: height * 0.1 }}
         size={200}
@@ -528,7 +527,7 @@ export default function SignInPage() {
           )}
         </TouchableOpacity>
 
-        {/* Guest Mode Divider */}
+
 
 
         <SignInWithOAuth />
@@ -553,45 +552,10 @@ export default function SignInPage() {
           </Text>
         </TouchableOpacity>
       </View>
-      import Constants from 'expo-constants';
 
-// Inside your component's render method (or return statement)
 <Text className="text-center text-red" style={{ fontSize: 12, }}>
   Version {Constants.expoConfig?.version }
 </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-    width: '100%',
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    paddingHorizontal: 10,
-    fontSize: 14,
-  },
-  guestButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    paddingVertical: 12,
-    borderRadius: 24,
-    alignItems: 'center',
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  guestButtonText: {
-    color: '#D55004',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-});

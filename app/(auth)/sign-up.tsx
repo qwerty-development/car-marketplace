@@ -428,7 +428,7 @@ export default function SignUpScreen() {
           paddingBottom: 24
         }}
         >
-        {/* Animated Background */}
+
         <AnimatedBlob
           position={{ x: width * 0.1, y: height * 0.1 }}
           size={200}
