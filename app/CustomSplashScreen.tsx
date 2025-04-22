@@ -141,38 +141,37 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
     };
   }, []);
 
-  // Preload initial data
+  // Preload initial data - Optimized to be faster
   useEffect(() => {
     const preloadData = async () => {
       try {
+        // Simplified data fetch - just enough to warm up the connection
         const { data, error } = await supabase
           .from('cars')
-          .select('*, dealerships (name,logo,phone,location,latitude,longitude)')
+          .select('id, make, model, year')
           .eq('status', 'available')
-          .order('listed_at', { ascending: false })
-          .range(0, 6);
-
-        if (error) throw error;
-
-        if (data) {
-          const formattedCars = data.map(item => ({
-            ...item,
-            dealership_name: item.dealerships.name,
-            dealership_logo: item.dealerships.logo,
-            dealership_phone: item.dealerships.phone,
-            dealership_location: item.dealerships.location,
-            dealership_latitude: item.dealerships.latitude,
-            dealership_longitude: item.dealerships.longitude
-          }));
-          setIsDataLoaded(true);
+          .limit(3); // Just get minimal data to warm up connection
+        
+        if (error) {
+          console.warn('Preload warning:', error);
         }
+        
+        // We set data loaded to true regardless
+        setIsDataLoaded(true);
       } catch (error) {
         console.error('Error preloading data:', error);
         setIsDataLoaded(true); // Continue even if there's an error
       }
     };
 
+    // Start preload immediately, but don't wait indefinitely
+    const timeout = setTimeout(() => {
+      setIsDataLoaded(true); // Force continue after timeout
+    }, 2000); // Shorter timeout
+
     preloadData();
+    
+    return () => clearTimeout(timeout);
   }, []);
 
   // Main animation sequence
@@ -186,7 +185,20 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
 
     const preloadImages = async () => {
       try {
-        await Promise.all(carLogos.map(uri => Image.prefetch(uri)));
+        // Create an array of promises for image prefetching
+        const prefetchPromises = carLogos.map(uri => Image.prefetch(uri));
+        
+        // Start prefetching, but set a timeout to continue regardless
+        const timeoutPromise = new Promise(resolve => {
+          setTimeout(resolve, 1500); // Shorter timeout for image prefetching
+        });
+        
+        // Wait for prefetching or timeout, whichever comes first
+        await Promise.race([
+          Promise.all(prefetchPromises),
+          timeoutPromise
+        ]);
+        
         if (isDataLoaded) {
           runSlotMachineAnimation();
         }
@@ -202,7 +214,8 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   }, [isDataLoaded]);
 
   const runSlotMachineAnimation = () => {
-    const slotDuration = 3000;
+    // Slightly faster slot machine animation
+    const slotDuration = 2500; // Reduced from 3000ms
     const logoChangeInterval = slotDuration / (carLogos.length * 2);
     let currentIndex = 0;
 
@@ -245,11 +258,11 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   };
 
   const showFinalAnimation = () => {
-    // 1. First, show the F logo in the center (exactly where car logos appear)
+    // Slightly faster animations
     const showFLogo = Animated.parallel([
       Animated.timing(fLogoOpacity, {
         toValue: 1,
-        duration: 300,
+        duration: 250, // Reduced from 300
         useNativeDriver: true,
       }),
       Animated.spring(fLogoScale, {
@@ -260,41 +273,37 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
       })
     ]);
     
-    // 2. Move the F logo to the left
     const moveFLogoToLeft = Animated.timing(fLogoPosition, {
-      toValue: -width * 0.26, // Adjusted leftward movement for new sizes
-      duration: 500,
+      toValue: -width * 0.26,
+      duration: 400, // Reduced from 500
       useNativeDriver: true,
     });
     
-    // 3. Reveal the "leet" text from left to right
     const showText = Animated.timing(textOpacity, {
       toValue: 1,
       duration: 0,
       useNativeDriver: true,
     });
     
-    // 4. Animate the text width to reveal "leet" from left to right
     const revealText = Animated.timing(textRevealWidth, {
-      toValue: width * 0.5, // Width of the "leet" text
-      duration: 800, // Longer duration for more visible letter-by-letter effect
-      useNativeDriver: false, // Width animations can't use native driver
+      toValue: width * 0.5,
+      duration: 600, // Reduced from 800
+      useNativeDriver: false,
     });
     
-    // 5. Exit animation - slide from right to left instead of fading out
     const slideOutToLeft = Animated.timing(screenPositionX, {
-      toValue: -width, // Move the entire screen to the left (off-screen)
-      duration: 700,
-      delay: 800, // Give users time to see the final result
+      toValue: -width,
+      duration: 600, // Reduced from 700
+      delay: 600, // Reduced from 800
       useNativeDriver: true,
     });
     
     // Run the animation sequence
     Animated.sequence([
       showFLogo,
-      Animated.delay(300),
+      Animated.delay(200), // Reduced from 300
       moveFLogoToLeft,
-      Animated.delay(200),
+      Animated.delay(150), // Reduced from 200
       showText,
       Animated.parallel([
         revealText,
@@ -316,7 +325,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
         {
           backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
           opacity: screenOpacity,
-          transform: [{ translateX: screenPositionX }] // Apply the right-to-left exit animation
+          transform: [{ translateX: screenPositionX }]
         },
       ]}
     >
@@ -335,11 +344,11 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
           {/* F Logo - positioned in the same place as car logos initially */}
           <Animated.View
             style={[
-              styles.logoContainer, // Use the same container style as car logos for width/height
+              styles.logoContainer,
               styles.fLogoContainer,
               {
                 opacity: fLogoOpacity,
-                position: 'absolute', // Position absolutely like car logos
+                position: 'absolute',
                 transform: [
                   { scale: fLogoScale },
                   { translateX: fLogoPosition }
@@ -409,7 +418,7 @@ const styles = StyleSheet.create({
     height: width * 0.3, 
   },
   fLogoContainer: {
-    width: width * 0.2, // Adjust the size for the F logo
+    width: width * 0.2,
     height: width * 0.2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -421,14 +430,13 @@ const styles = StyleSheet.create({
   leetTextPosition: {
     height: width * 0.15,
     position: 'absolute',
-    left: width * -0.035, // Position at the right side of the F logo
+    left: width * -0.035,
     justifyContent: 'center',
   },
-  
   leetText: {
     height: width * 0.14,
     width: width * 0.5,
-    alignSelf: 'flex-start', // Align to left edge
+    alignSelf: 'flex-start',
   },
   fleetTextContainer: {
     flexDirection: 'row',
