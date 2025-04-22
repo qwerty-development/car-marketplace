@@ -73,7 +73,22 @@
               "scheme": "fleet",
               "host": "*",
               "pathPrefix": "/cars"
+            },   {
+              "scheme": "https",
+              "host": "www.fleetapp.me",
+              "pathPrefix": "/clips"
+            },
+            {
+              "scheme": "https",
+              "host": "fleetapp.me",
+              "pathPrefix": "/clips"
+            },
+            {
+              "scheme": "fleet",
+              "host": "*",
+              "pathPrefix": "/clips"
             }
+          
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }

@@ -109,18 +109,25 @@ const DeepLinkHandler = () => {
             path.match(/^\/cars\/(\d+)$/) || // /cars/123
             path.match(/^car\/(\d+)$/); // car/123
 
-          const carId = carIdMatch ? carIdMatch[1] : null;
+          // NEW: Match multiple URL patterns for autoclip details
+          const clipIdMatch =
+            path.match(/^clips\/(\d+)$/) || // clips/123
+            path.match(/^\/clips\/(\d+)$/) || // /clips/123
+            path.match(/^clip\/(\d+)$/); // clip/123
 
+          const carId = carIdMatch ? carIdMatch[1] : null;
+          const clipId = clipIdMatch ? clipIdMatch[1] : null;
+
+          // Check authentication status - we'll reuse this for both car and clip
+          const isEffectivelySignedIn = isSignedIn || isGuest;
+
+          // Handle car deep links
           if (carId && !isNaN(Number(carId))) {
             console.log(`Navigating to car details for ID: ${carId}`);
-
-            // Check authentication status
-            const isEffectivelySignedIn = isSignedIn || isGuest;
 
             if (!isEffectivelySignedIn) {
               console.log('User not signed in, redirecting to sign-in first');
               // Store the intended destination for after sign-in
-              // This could be enhanced with a more robust navigation state mechanism
               global.pendingDeepLink = { type: 'car', id: carId };
               router.replace('/(auth)/sign-in');
               setIsProcessingDeepLink(false);
@@ -150,13 +157,40 @@ const DeepLinkHandler = () => {
                 params: {
                   carId,
                   isDealerView: 'false',
-                  fromDeelpLink: 'true'
+                  fromDeepLink: 'true'
                 }
               });
             }
-          } else if (path.startsWith('cars') || path.startsWith('/cars')) {
-            console.warn('Invalid car ID in deep link:', path);
-            Alert.alert('Invalid Link', 'The car you\'re looking for could not be found.');
+          } 
+          // Handle autoclip deep links
+          else if (clipId && !isNaN(Number(clipId))) {
+            console.log(`Navigating to autoclip details for ID: ${clipId}`);
+
+            if (!isEffectivelySignedIn) {
+              console.log('User not signed in, redirecting to sign-in first');
+              // Store the intended destination for after sign-in
+              global.pendingDeepLink = { type: 'autoclip', id: clipId };
+              router.replace('/(auth)/sign-in');
+              setIsProcessingDeepLink(false);
+              return;
+            }
+
+            // Navigate to autoclips tab with the specific clip ID
+            router.replace({
+              pathname: "/(home)/(user)/(tabs)/autoclips",
+              params: {
+                clipId,
+                fromDeepLink: 'true'
+              }
+            });
+          } 
+          // Handle invalid paths
+          else if (
+            (path.startsWith('cars') || path.startsWith('/cars') || path.startsWith('car')) ||
+            (path.startsWith('clips') || path.startsWith('/clips') || path.startsWith('clip'))
+          ) {
+            console.warn('Invalid ID in deep link:', path);
+            Alert.alert('Invalid Link', 'The content you\'re looking for could not be found.');
           }
         }
       } catch (err) {
@@ -190,10 +224,18 @@ const DeepLinkHandler = () => {
       const { type, id } = global.pendingDeepLink;
 
       if (type === 'car' && id) {
-        console.log('Processing pending deep link after sign-in');
+        console.log('Processing pending car deep link after sign-in');
         router.push({
           pathname: "/(home)/(user)/CarDetails",
           params: { carId: id, isDealerView: 'false' }
+        });
+      }
+      // NEW: Handle pending autoclip deep links
+      else if (type === 'autoclip' && id) {
+        console.log('Processing pending autoclip deep link after sign-in');
+        router.push({
+          pathname: "/(home)/(user)/(tabs)/autoclips",
+          params: { clipId: id }
         });
       }
 

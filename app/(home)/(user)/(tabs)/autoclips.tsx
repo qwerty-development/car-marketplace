@@ -29,7 +29,6 @@ import { useAuth } from "@/utils/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { LinearGradient } from "expo-linear-gradient";
 import { Heart, Pause, Play } from "lucide-react-native";
-
 import { router } from "expo-router";
 import * as Network from "expo-network";
 import { Image } from "expo-image";
@@ -37,6 +36,8 @@ import { BlurView } from "expo-blur";
 import SplashScreen from "../SplashScreen";
 import { Ionicons } from "@expo/vector-icons";
 import openWhatsApp from "@/utils/openWhatsapp";
+import { shareContent } from "@/utils/shareUtils";
+import { useLocalSearchParams } from 'expo-router';
 
 // --- constants ---
 const { height, width } = Dimensions.get("window");
@@ -281,6 +282,32 @@ export default function AutoClips() {
   const { isDarkMode } = useTheme();
   const isFocused = useIsFocused();
   const { user } = useAuth();
+  const params = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
+  const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
+  
+  // Add this section:
+  useEffect(() => {
+    // Process direct navigation to a specific clip if clipId is provided
+    if (params.clipId && autoClips.length > 0 && flatListRef.current) {
+      const targetClipIndex = autoClips.findIndex(
+        clip => clip.id.toString() === params.clipId
+      );
+      
+      if (targetClipIndex !== -1) {
+        console.log(`Navigating to clip at index ${targetClipIndex}`);
+        // Use setTimeout to ensure FlatList is ready
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: targetClipIndex,
+            animated: false,
+          });
+          
+          // Set as current clip to ensure it starts playing
+          setCurrentVideoIndex(targetClipIndex);
+        }, 500);
+      }
+    }
+  }, [params.clipId, autoClips.length]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
@@ -354,7 +381,7 @@ export default function AutoClips() {
   const [refreshing, setRefreshing] = useState(false);
   const [networkType, setNetworkType] =
     useState<Network.NetworkStateType | null>(null);
-  const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
+
   const viewedClips = useRef<Set<number>>(new Set());
   const [expandedDescriptions, setExpandedDescriptions] = useState<{
     [key: number]: boolean;
@@ -930,28 +957,25 @@ export default function AutoClips() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                    padding: 8,
-                    borderRadius: 10,
-                    marginLeft: 4,
-                  }}
-                  onPress={async () => {
-                    try {
-                      await Share.share({
-                        message: `Check out this ${item.car.year} ${
-                          item.car.make
-                        } ${item.car.model} on Fleet!\n\n${
-                          item.description || ""
-                        }`,
-                      });
-                    } catch (err) {
-                      console.error("Error sharing:", err);
-                    }
-                  }}
-                >
-                  <Ionicons name="share-outline" size={24} color="white" />
-                </TouchableOpacity>
+  style={{
+    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 8,
+    borderRadius: 10,
+    marginLeft: 4,
+  }}
+  onPress={() => {
+    if (!item.car) return;
+    
+    shareContent({
+      id: item.id,
+      type: 'autoclip',
+      title: `${item.car.year} ${item.car.make} ${item.car.model} - Video`,
+      message: `Check out this ${item.car.year} ${item.car.make} ${item.car.model} video on Fleet!${item.description ? `\n\n${item.description}` : ''}`
+    });
+  }}
+>
+  <Ionicons name="share-outline" size={24} color="white" />
+</TouchableOpacity>
               </View>
             )}
           </LinearGradient>
