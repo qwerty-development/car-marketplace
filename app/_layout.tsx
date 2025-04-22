@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { AuthProvider, useAuth } from '@/utils/AuthContext'
 import * as SplashScreen from 'expo-splash-screen'
@@ -54,7 +54,7 @@ const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
-  const { prefetchCarDetails } = useCarDetails(); // Use hook properly
+  const { prefetchCarDetails } = useCarDetails();
 
   // Track if a deep link is currently being processed to prevent duplicates
   const [isProcessingDeepLink, setIsProcessingDeepLink] = useState(false);
@@ -138,7 +138,7 @@ const DeepLinkHandler = () => {
                   carId,
                   isDealerView: 'false', // Default to user view for deep links
                   prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined,
-                    fromDeepLink: 'true'
+                  fromDeepLink: 'true'
                 }
               });
             } catch (error) {
@@ -246,38 +246,56 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
-  const [isReady, setIsReady] = useState(false);
+  
+  // We now directly track authentication state without an intermediate isReady state
+  // This is a key change to eliminate the loading screen
+  
+  // Pre-compute authentication state only once per change
+  const isEffectivelySignedIn = useMemo(() => 
+    isSignedIn || isGuest, 
+    [isSignedIn, isGuest]
+  );
+  
+  const inAuthGroup = useMemo(() => 
+    segments[0] === '(auth)', 
+    [segments]
+  );
 
-  const handleNavigationStateChange = useCallback(() => {
-    if (!isReady) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-    const isEffectivelySignedIn = isSignedIn || isGuest;
-
+  // Handle navigation state changes
+  useEffect(() => {
+    if (!isLoaded || showSplash) return;
+    
     if (isEffectivelySignedIn && inAuthGroup) {
       router.replace('/(home)');
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
     }
-  }, [isReady, isSignedIn, isGuest, segments, router]);
+  }, [isLoaded, showSplash, isEffectivelySignedIn, inAuthGroup, router]);
 
-  useEffect(() => {
-    if (isLoaded && !showSplash) {
-      setIsReady(true)
-    }
-  }, [isLoaded, showSplash])
-
-  useEffect(() => {
-    handleNavigationStateChange()
-  }, [handleNavigationStateChange])
-
-  if (!isReady) {
+  // If still showing splash screen, render it
+  if (showSplash) {
     return (
-      <CustomSplashScreen onAnimationComplete={() => setShowSplash(false)} />
-    )
+      <CustomSplashScreen 
+        onAnimationComplete={() => {
+          // Only complete splash when auth is loaded to avoid a flash of the auth screen
+          if (isLoaded) {
+            setShowSplash(false);
+          } else {
+            // If auth isn't loaded yet, wait for it
+            const checkAuthLoaded = setInterval(() => {
+              if (isLoaded) {
+                clearInterval(checkAuthLoaded);
+                setShowSplash(false);
+              }
+            }, 100);
+          }
+        }} 
+      />
+    );
   }
 
-  return <Slot />
+  // Render main app content directly - no intermediate loading screen
+  return <Slot />;
 }
 
 function ErrorFallback({ error, resetError }: any) {

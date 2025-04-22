@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
 import { supabase } from '@/utils/supabase'
-import { Alert, View, ActivityIndicator, useColorScheme, Animated, Text } from 'react-native'
+import { Alert, View, useColorScheme } from 'react-native'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useTheme } from '@/utils/ThemeContext'
 import { useGuestUser } from '@/utils/GuestUserContext'
@@ -66,85 +66,6 @@ export async function coordinateSignOut(router: any, authSignOut: () => Promise<
   }
 }
 
-// Enhanced LoadingSkeleton with sign out indicator
-function LoadingSkeleton() {
-  const colorScheme = useColorScheme()
-  const fadeAnim = useRef(new Animated.Value(0.5)).current
-
-  // Use this to read the global sign out state
-  const [showingSignOutMessage, setShowingSignOutMessage] = useState(isSigningOut)
-
-  // Update local state when global state changes
-  useEffect(() => {
-    const checkSigningOutState = () => {
-      setShowingSignOutMessage(isSigningOut)
-    }
-
-    // Check immediately
-    checkSigningOutState()
-
-    // Set up interval to periodically check the global flag
-    const interval = setInterval(checkSigningOutState, 300)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    // Pulse from 0.5 to 1 opacity and back
-    const pulse = Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0.5,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ])
-
-    // Loop the pulse animation indefinitely
-    const loop = Animated.loop(pulse)
-    loop.start()
-
-    // Cleanup on unmount
-    return () => {
-      loop.stop()
-    }
-  }, [fadeAnim])
-
-  return (
-    <Animated.View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        opacity: fadeAnim,
-        backgroundColor: colorScheme === 'dark' ? '#000000' : '#FFFFFF',
-      }}
-    >
-      <ActivityIndicator
-        size="large"
-        color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'}
-      />
-
-      {showingSignOutMessage && (
-        <Text
-          style={{
-            marginTop: 16,
-            fontSize: 16,
-            fontWeight: '500',
-            color: colorScheme === 'dark' ? '#FFFFFF' : '#000000',
-          }}
-        >
-          Signing out...
-        </Text>
-      )}
-    </Animated.View>
-  )
-}
-
 export default function HomeLayout() {
   const { isLoaded, isSignedIn, user, profile } = useAuth()
   const router = useRouter()
@@ -153,7 +74,7 @@ export default function HomeLayout() {
   const { isGuest, guestId } = useGuestUser()
   const [isCheckingUser, setIsCheckingUser] = useState(true)
   const [isRouting, setIsRouting] = useState(true)
-  const { registerForPushNotifications, refreshNotifications } = useNotifications()
+  const { registerForPushNotifications } = useNotifications()
   const registrationAttempted = useRef(false)
 
   // 1) Check/Create Supabase user and handle notifications
@@ -217,7 +138,7 @@ export default function HomeLayout() {
 
           // IMPORTANT: Add a delay before attempting push notification registration
           // to ensure the user record is fully committed in the database
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 3000ms
         }
 
         // Skip further processing if sign out started during this operation
@@ -239,10 +160,12 @@ export default function HomeLayout() {
         // Register for notifications ONLY after we've confirmed user exists
         if (!isGuest && !isSigningOut) {
           try {
-            await registerForPushNotifications();
+            // Move this to a background task or perform later
+            registerForPushNotifications().catch(notificationError => {
+              console.error('Error registering for push notifications:', notificationError);
+            });
           } catch (notificationError) {
-            console.error('Error registering for push notifications:', notificationError);
-            // Don't throw this error - allow the user flow to continue
+            console.error('Error initiating push notifications:', notificationError);
           }
         }
       } catch (error: any) {
@@ -268,15 +191,17 @@ export default function HomeLayout() {
     } else {
       setIsCheckingUser(false);
     }
-  }, [isSignedIn, user, isGuest, guestId, profile]);
+  }, [isSignedIn, user, isGuest, guestId, profile, registerForPushNotifications]);
 
-  // Modify the routing logic with sign-out awareness
+  // Handle routing logic with sign-out awareness
   useEffect(() => {
     // Skip routing changes during sign-out
     if (isSigningOut) return;
 
     if (!isLoaded) return;
-    if (isCheckingUser) return;
+    
+    // Allow routing to continue even if still checking user
+    // This is the key change - we'll finalize user setup in the background
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
 
@@ -302,14 +227,12 @@ export default function HomeLayout() {
     } else {
       setIsRouting(false);
     }
-  }, [isLoaded, isSignedIn, isGuest, isCheckingUser, user, segments]);
+  }, [isLoaded, isSignedIn, isGuest, user, segments, router, profile]);
 
-  // Show loading animation while in any loading state
-  if (isRouting || !isLoaded || isCheckingUser || isSigningOut) {
-    return <LoadingSkeleton />
-  }
-
-  // Render child routes
+  // No more loading skeleton - we render the main content directly
+  // This is a crucial change to remove the intermediate loader
+  
+  // Render child routes directly without showing the loading skeleton
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
       <Slot />
