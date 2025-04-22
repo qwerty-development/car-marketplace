@@ -5,7 +5,8 @@ import {
 	Text,
 	Image,
 	ScrollView,
-	Dimensions
+	Platform,
+	useWindowDimensions
 } from 'react-native'
 import { useTheme } from '@/utils/ThemeContext'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -20,11 +21,6 @@ import ConvertiblePng from '@/assets/types/convertible.png'
 import CoupePng from '@/assets/types/coupe.png'
 import classicPng from '@/assets/types/classic.png'
 
-
-const { width } = Dimensions.get('window')
-const CARD_WIDTH = width * 0.28
-const CARD_HEIGHT = CARD_WIDTH * 1.2
-
 const categories = [
 	{ name: 'Sedan', image: SedanPng },
 	{ name: 'Sports', image: SportsPng },
@@ -33,26 +29,32 @@ const categories = [
 	{ name: 'Coupe', image: CoupePng },
 	{ name: 'Convertible', image: ConvertiblePng },
 	{ name: 'Classic', image: classicPng },
-
 ]
 
 interface CategorySelectorProps {
-	selectedCategories: string[]
+	selectedCategories?: string[]
 	onCategoryPress: (category: string) => void
 }
 
 const CategorySelector: React.FC<CategorySelectorProps> = ({
-	selectedCategories,
+	selectedCategories = [],
 	onCategoryPress
 }) => {
 	const { isDarkMode } = useTheme()
+	const { width } = useWindowDimensions()
+	
+	// Fixed card size to match ByBrands component
+	// Using fixed dimensions rather than percentage-based
+	const CARD_WIDTH = 120
+	const CARD_HEIGHT = 120
+	
+	// Ensure the card size is reasonable on iPad
+	const IMAGE_SIZE = 70
 
 	return (
-		<View className={`${
-			isDarkMode ? '' : 'bg-white'
-		}`}>
+		<View className={`${isDarkMode ? '' : 'bg-white'} mt-3 mb-4`}>
 			<Text
-				className={`text-xl font-bold mb-4 ml-3  ${
+				className={`text-xl font-bold mb-4 ml-3 ${
 					isDarkMode ? 'text-white' : 'text-black'
 				}`}>
 				Explore by Category
@@ -65,7 +67,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 				decelerationRate='fast'
 				snapToInterval={CARD_WIDTH + 12}>
 				{categories.map(item => {
-					const isSelected = selectedCategories.includes(item.name)
+					const isSelected = selectedCategories?.includes(item.name) || false
 
 					return (
 						<TouchableOpacity
@@ -87,17 +89,18 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 									}
 									className='h-full p-3 items-center justify-center'>
 									<View className='flex-1 justify-center items-center'>
-										<View className='w-12 h-12 justify-center items-center mb-2'>
+										<View className='justify-center items-center mb-2'>
 											<Image
 												source={item.image}
-												className={`w-24 h-24 ${
+												style={{ width: IMAGE_SIZE, height: IMAGE_SIZE }}
+												className={`${
 													isSelected && !isDarkMode ? 'tint-white' : ''
 												}`}
 												resizeMode='contain'
 											/>
 										</View>
 										<Text
-											className={`text-sm font-medium text-center ${
+											className={`text-xs font-medium text-center ${
 												isSelected
 													? 'text-white'
 													: isDarkMode
