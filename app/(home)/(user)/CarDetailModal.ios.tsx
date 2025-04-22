@@ -907,8 +907,7 @@ const handleShare = useCallback(async () => {
       }!\n` +
       `at ${car.dealership_name || "Dealership"} in ${
         car.dealership_location || "Location"
-      }\n` +
-      shareUrl;
+      }\n`
 
     await Share.share({
       message,

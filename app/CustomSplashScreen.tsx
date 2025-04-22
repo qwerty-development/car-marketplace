@@ -107,6 +107,9 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   // Text animation values
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textRevealWidth = useRef(new Animated.Value(0)).current;
+  
+  // Right-to-left exit animation value
+  const screenPositionX = useRef(new Animated.Value(0)).current;
 
   // Get the appropriate logo based on theme
   const getLogoSource = () => {
@@ -278,10 +281,10 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
       useNativeDriver: false, // Width animations can't use native driver
     });
     
-    // 5. Final fade out animation
-    const fadeOut = Animated.timing(screenOpacity, {
-      toValue: 0,
-      duration: 500,
+    // 5. Exit animation - slide from right to left instead of fading out
+    const slideOutToLeft = Animated.timing(screenPositionX, {
+      toValue: -width, // Move the entire screen to the left (off-screen)
+      duration: 700,
       delay: 800, // Give users time to see the final result
       useNativeDriver: true,
     });
@@ -296,7 +299,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
       Animated.parallel([
         revealText,
       ]),
-      fadeOut
+      slideOutToLeft
     ]).start(() => {
       // Stop sound if it's still playing when animation ends
       if (sound) {
@@ -312,7 +315,8 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
         styles.container,
         {
           backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-          opacity: screenOpacity
+          opacity: screenOpacity,
+          transform: [{ translateX: screenPositionX }] // Apply the right-to-left exit animation
         },
       ]}
     >
