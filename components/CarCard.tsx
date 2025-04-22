@@ -11,7 +11,8 @@ import {
 	Pressable,
 	Share,
 	Animated,
-	Platform
+	Platform,
+	useWindowDimensions
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
@@ -27,7 +28,6 @@ const StyledText = styled(Text)
 const StyledImage = styled(Image)
 const StyledPressable = styled(Pressable)
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const MAX_IMAGES = 3
 
 const OptimizedImage = ({ source, style, onLoad }: any) => {
@@ -105,6 +105,32 @@ export default function CarCard({
 	const [currentImageIndex, setCurrentImageIndex] = useState(0)
 	const flatListRef = useRef(null)
 	const { prefetchCarDetails } = useCarDetails()
+	
+	// Use useWindowDimensions for responsive sizing
+	const { width: windowWidth, height: windowHeight } = useWindowDimensions()
+	
+	// Calculate card width and image height based on screen size
+	const cardWidth = windowWidth - 32 // Same as before: SCREEN_WIDTH - 32
+	
+	// Calculate image height - maintain aspect ratio and increase for tablets
+	const imageHeight = useMemo(() => {
+		// Base height for phones
+		const baseHeight = 260
+		
+		// Check if this is a tablet-sized device (based on width)
+		const isTablet = windowWidth >= 768
+		
+		// For tablets, use a larger base height or an aspect ratio calculation
+		if (isTablet) {
+			// Option 1: Fixed larger height for tablets
+			return 600
+			
+			// Option 2: Maintain aspect ratio but with a minimum
+			// return Math.max(baseHeight, cardWidth * 0.7)
+		}
+		
+		return baseHeight // Standard phone height
+	}, [windowWidth, cardWidth])
 
 	// Add animation effect
 	useEffect(() => {
@@ -267,7 +293,7 @@ const handleShare = useCallback(async () => {
 				<View className='relative bg-neutral-800 '>
 					<OptimizedImage
 						source={{ uri: item }}
-						style={{ width: SCREEN_WIDTH - 32, height: 260 }}
+						style={{ width: cardWidth, height: imageHeight }}
 					/>
 
 					<LinearGradient
@@ -322,7 +348,7 @@ const handleShare = useCallback(async () => {
 					{!isDealer && (
 						<StyledPressable
 							onPress={() => onFavoritePress(car.id)}
-							className={`absolute top-4 left-4   active:opacity-70  `}>
+							className={`absolute top-4 left-4 active:opacity-70`}>
 							<Ionicons
 								name={isFavorite ? 'heart-sharp' : 'heart-outline'}
 								size={30}
@@ -343,7 +369,9 @@ const handleShare = useCallback(async () => {
 			isDarkMode,
 			handleCardPress,
 			displayedImages.length,
-			currentImageIndex
+			currentImageIndex,
+			cardWidth,
+			imageHeight
 		]
 	)
 
@@ -393,7 +421,7 @@ const handleShare = useCallback(async () => {
 				windowSize={3}
 				removeClippedSubviews={true}
 				decelerationRate='fast'
-				snapToInterval={SCREEN_WIDTH - 32}
+				snapToInterval={cardWidth}
 				snapToAlignment='center'
 				bounces={false}
 			/>
