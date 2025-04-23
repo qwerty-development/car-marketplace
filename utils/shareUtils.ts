@@ -25,8 +25,7 @@ export const shareContent = async ({
     
     // Share options with platform-specific optimizations
     await Share.share({
-      message: `${message}\n\n${shareUrl}`,
-      url: Platform.OS === 'ios' ? shareUrl : undefined, // URL parameter works better on iOS
+      message: `${message}\n\n${shareUrl}`, // URL parameter works better on iOS
       title: title
     });
   } catch (error) {

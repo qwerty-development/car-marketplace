@@ -304,10 +304,13 @@ export default function AutoClips() {
           
           // Set as current clip to ensure it starts playing
           setCurrentVideoIndex(targetClipIndex);
+          if (params.fromDeepLink === 'true') {
+            setAllowVideoPlayback(true);
+          }
         }, 500);
       }
     }
-  }, [params.clipId, autoClips.length]);
+  }, [params.clipId, autoClips.length,params.fromDeepLink]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
@@ -965,7 +968,6 @@ export default function AutoClips() {
   }}
   onPress={() => {
     if (!item.car) return;
-    
     shareContent({
       id: item.id,
       type: 'autoclip',
