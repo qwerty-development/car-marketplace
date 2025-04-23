@@ -142,7 +142,7 @@ const DeepLinkHandler = () => {
               const prefetchedData = await prefetchCarDetails(carId);
 
               // Navigate with prefetched data
-              router.replace({
+              router.push({
                 pathname: "/(home)/(user)/CarDetails",
                 params: {
                   carId,
@@ -155,7 +155,7 @@ const DeepLinkHandler = () => {
               console.error('Error prefetching car details:', error);
 
               // Fallback navigation without prefetched data
-              router.replace({
+              router.push({
                 pathname: "/(home)/(user)/CarDetails",
                 params: {
                   carId,
@@ -168,25 +168,50 @@ const DeepLinkHandler = () => {
           // Handle autoclip deep links
           else if (clipId && !isNaN(Number(clipId))) {
             console.log(`Navigating to autoclip details for ID: ${clipId}`);
-
+          
             if (!isEffectivelySignedIn) {
-              console.log('User not signed in, redirecting to sign-in first');
-              // Store the intended destination for after sign-in
               global.pendingDeepLink = { type: 'autoclip', id: clipId };
               router.replace('/(auth)/sign-in');
-              setIsProcessingDeepLink(false);
               return;
             }
-
-            // Navigate to autoclips tab with the specific clip ID
-            router.replace({
-              pathname: "/(home)/(user)/(tabs)/autoclips",
-              params: {
-                clipId,
-                fromDeepLink: 'true'
+          
+            // NEW: Validate clip existence
+            try {
+              const { data: clipExists, error } = await supabase
+                .from('auto_clips')
+                .select('id, status')
+                .eq('id', clipId)
+                .eq('status', 'published')
+                .single();
+              
+              if (error || !clipExists) {
+                Alert.alert(
+                  'Content Not Available',
+                  'This video is no longer available or has been removed.',
+                  [{ text: 'OK', onPress: () => router.replace('/(home)/(user)') }]
+                );
+                return;
               }
-            });
-          } 
+          
+              router.push({
+                pathname: "/(home)/(user)/(tabs)/autoclips",
+                params: {
+                  clipId,
+                  fromDeepLink: 'true'
+                }
+              });
+
+              // router.replace({
+              //   pathname: "/(home)/(user)/autoclip/[id]",
+              //   params: { id: clipId }
+              // });
+            
+            } catch (error) {
+              console.error('Error checking clip existence:', error);
+              Alert.alert('Error', 'Unable to load the requested content.');
+              router.replace('/(home)/(user)');
+            }
+          }
           // Handle invalid paths
           else if (
             (path.startsWith('cars') || path.startsWith('/cars') || path.startsWith('car')) ||
@@ -240,6 +265,12 @@ const DeepLinkHandler = () => {
           pathname: "/(home)/(user)/(tabs)/autoclips",
           params: { clipId: id }
         });
+
+        // router.replace({
+        //   pathname: "/(home)/(user)/autoclip/[id]",
+        //   params: { id: clipId }
+        // });
+      }
       }
 
       // Clear the pending link

@@ -284,33 +284,34 @@ export default function AutoClips() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
   const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Add this section:
-  useEffect(() => {
-    // Process direct navigation to a specific clip if clipId is provided
-    if (params.clipId && autoClips.length > 0 && flatListRef.current) {
-      const targetClipIndex = autoClips.findIndex(
-        clip => clip.id.toString() === params.clipId
-      );
-      
-      if (targetClipIndex !== -1) {
-        console.log(`Navigating to clip at index ${targetClipIndex}`);
-        // Use setTimeout to ensure FlatList is ready
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: targetClipIndex,
-            animated: false,
-          });
-          
-          // Set as current clip to ensure it starts playing
-          setCurrentVideoIndex(targetClipIndex);
-          if (params.fromDeepLink === 'true') {
-            setAllowVideoPlayback(true);
-          }
-        }, 500);
-      }
+// Add a separate effect to handle deep link navigation after data loads
+useEffect(() => {
+  if (params.clipId && !isLoading && autoClips.length > 0) {
+    const targetClipIndex = autoClips.findIndex(
+      clip => clip.id.toString() === params.clipId
+    );
+    
+    if (targetClipIndex !== -1) {
+      // Wait for the FlatList to be ready
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index: targetClipIndex,
+          animated: false,
+        });
+        
+        setCurrentVideoIndex(targetClipIndex);
+        if (params.fromDeepLink === 'true') {
+          setAllowVideoPlayback(true);
+        }
+      }, 500);
+    } else {
+      // Handle case where clip isn't found
+      Alert.alert('Clip Not Found', 'The requested video is no longer available.');
     }
-  }, [params.clipId, autoClips.length,params.fromDeepLink]);
+  }
+}, [params.clipId, isLoading, autoClips]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
@@ -319,7 +320,7 @@ export default function AutoClips() {
   const [splashPhase, setSplashPhase] = useState<
     "entrance" | "holding" | "exit"
   >("entrance");
-  const [isLoading, setIsLoading] = useState(true);
+ 
   const [error, setError] = useState<string | null>(null);
   const circleScales = [
     useRef(new Animated.Value(0)).current,

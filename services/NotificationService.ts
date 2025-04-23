@@ -212,7 +212,7 @@ export class NotificationService {
         const { data: tokenData, error: tokenError } = await this.timeoutPromise(
           supabase
             .from('user_push_tokens')
-            .select('id, token, active')
+            .select('id, token, active, signed_in')
             .eq('id', storedTokenId)
             .single(),
           DB_TIMEOUT,
@@ -221,6 +221,15 @@ export class NotificationService {
 
         if (!tokenError && tokenData && tokenData.token === storedToken) {
           this.debugLog('Found matching token by ID in database');
+          
+          // If token exists but is not signed in, mark it as signed in
+          if (tokenData && tokenData.signed_in === false) {
+            await this.updateTokenStatus(userId, storedToken, {
+              signed_in: true
+            });
+            this.debugLog('Updated existing token to signed in state');
+          }
+          
           return {
             isValid: true,
             tokenId: tokenData.id,
@@ -233,7 +242,7 @@ export class NotificationService {
       const { data: tokenByValue, error: valueError } = await this.timeoutPromise(
         supabase
           .from('user_push_tokens')
-          .select('id, token, active')
+          .select('id, token, active, signed_in')
           .eq('user_id', userId)
           .eq('token', storedToken)
           .single(),
@@ -243,6 +252,15 @@ export class NotificationService {
 
       if (!valueError && tokenByValue) {
         this.debugLog('Found matching token by value in database');
+        
+        // If token exists but is not signed in, mark it as signed in
+        if (tokenByValue && tokenByValue.signed_in === false) {
+          await this.updateTokenStatus(userId, storedToken, {
+            signed_in: true
+          });
+          this.debugLog('Updated token to signed in state');
+        }
+        
         return {
           isValid: true,
           tokenId: tokenByValue.id,
@@ -250,38 +268,8 @@ export class NotificationService {
         };
       }
 
-      // Look for any active token for this user/device
-      const { data: activeTokens, error: activeError } = await this.timeoutPromise(
-        supabase
-          .from('user_push_tokens')
-          .select('id, token, active')
-          .eq('user_id', userId)
-          .eq('device_type', Platform.OS)
-          .eq('active', true)
-          .order('last_updated', { ascending: false })
-          .limit(1),
-        DB_TIMEOUT,
-        'findActiveToken'
-      );
-
-      if (!activeError && activeTokens && activeTokens.length > 0) {
-        const activeToken = activeTokens[0];
-        if (this.isValidExpoToken(activeToken.token)) {
-          this.debugLog('Found active token for user/device, reusing');
-
-          // Update local storage with this token
-          await this.saveTokenToStorage(activeToken.token, activeToken.id);
-
-          return {
-            isValid: true,
-            tokenId: activeToken.id,
-            token: activeToken.token
-          };
-        }
-      }
-
-      // No valid token found
-      this.debugLog('No valid token found in database, registration needed');
+      // No matching token found in database
+      this.debugLog('Token exists in storage but not in database, registration needed');
       return { isValid: false };
     } catch (error) {
       this.recordError('forceTokenVerification', error);
@@ -378,9 +366,6 @@ export class NotificationService {
         if (verification.isValid && verification.token) {
           this.debugLog('Using existing verified token from database');
 
-
-
-
           // Update local storage
           await this.saveTokenToStorage(verification.token, verification.tokenId);
 
@@ -468,7 +453,8 @@ export class NotificationService {
           supabase
             .from('user_push_tokens')
             .update({
-              last_updated: new Date().toISOString()
+              last_updated: new Date().toISOString(),
+              signed_in: true // Add signed_in flag to update
             })
             .eq('id', tokenId),
           DB_TIMEOUT,
@@ -490,7 +476,8 @@ export class NotificationService {
               user_id: userId,
               token,
               device_type: Platform.OS,
-              last_updated: new Date().toISOString()
+              last_updated: new Date().toISOString(),
+              signed_in: true // Set signed_in to true by default when registering a new token
             })
             .select('id'),
           DB_TIMEOUT,
@@ -509,6 +496,9 @@ export class NotificationService {
       if (tokenId) {
         await SecureStore.setItemAsync(PUSH_TOKEN_ID_KEY, tokenId);
       }
+
+      // Mark the token as signed in (regardless of whether it's new or existing)
+      await this.markTokenAsSignedIn(userId, token);
 
       this.debugLog('Token registration completed successfully');
       return token;
@@ -787,6 +777,37 @@ export class NotificationService {
     } catch (error) {
       this.recordError('getDiagnostics', error);
       return { error: String(error) };
+    }
+  }
+
+  // Marks user token as signed in by updating the database
+  static async markTokenAsSignedIn(userId: string, token?: string): Promise<boolean> {
+    try {
+      this.debugLog(`Marking token as signed in for user ${userId}`);
+
+      // If token is not provided, get from storage
+      const tokenToUse = token || await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+
+      if (!tokenToUse || !this.isValidExpoToken(tokenToUse)) {
+        this.debugLog('No valid token found for sign-in update');
+        return false;
+      }
+
+      // Update token status in database
+      const success = await this.updateTokenStatus(userId, tokenToUse, {
+        signed_in: true,
+      });
+
+      if (success) {
+        this.debugLog('Successfully marked token as signed in');
+      } else {
+        this.debugLog('Failed to update token sign-in status in database');
+      }
+
+      return success;
+    } catch (error) {
+      this.recordError('markTokenAsSignedIn', error);
+      return false;
     }
   }
 }

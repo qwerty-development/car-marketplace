@@ -457,6 +457,12 @@ const cleanupLocalStorage = async () => {
             if (userProfile) {
               setProfile(userProfile);
             }
+
+            // Mark push token as signed in
+            const pushToken = await SecureStore.getItemAsync('expoPushToken');
+            if (pushToken) {
+              await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+            }
           }
         }
       }
@@ -468,6 +474,8 @@ const cleanupLocalStorage = async () => {
 
   const googleSignIn = async () => {
     try {
+      setIsSigningIn(true);
+
       if (isGuest) {
         await clearGuestMode();
       }
@@ -526,6 +534,13 @@ const cleanupLocalStorage = async () => {
 
                 // Step 7: Return explicit success with user data
                 console.log("Authentication successful, returning success=true");
+                
+                // Mark push token as signed in
+                const pushToken = await SecureStore.getItemAsync('expoPushToken');
+                if (pushToken) {
+                  await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                }
+                
                 return { success: true, user: sessionData.session.user };
               }
             }
@@ -542,6 +557,13 @@ const cleanupLocalStorage = async () => {
           console.log("Session exists despite flow issues, returning success=true");
           setSession(currentSession.session);
           setUser(currentSession.session.user);
+          
+          // Mark push token as signed in
+          const pushToken = await SecureStore.getItemAsync('expoPushToken');
+          if (pushToken) {
+            await NotificationService.markTokenAsSignedIn(currentSession.session.user.id, pushToken);
+          }
+          
           return { success: true, user: currentSession.session.user };
         }
       } catch (sessionCheckError) {
@@ -555,6 +577,8 @@ const cleanupLocalStorage = async () => {
       console.error('Google sign in error:', error);
       Alert.alert('Authentication Error', 'Failed to sign in with Google');
       return { success: false, error };
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
@@ -575,6 +599,12 @@ const cleanupLocalStorage = async () => {
 
       if (data.user) {
         await fetchUserProfile(data.user.id);
+        
+        // Get the current push token and mark it as signed in
+        const pushToken = await SecureStore.getItemAsync('expoPushToken');
+        if (pushToken) {
+          await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
+        }
       }
 
       // Wait for 1.5 seconds to show the loader (reduced from 3 seconds)
@@ -751,6 +781,12 @@ const verifyOtp = async (email: string, token: string) => {
       if (data.session) {
         setSession(data.session);
         setUser(data.session.user);
+        
+        // Ensure token stays marked as signed in when session refreshes
+        const pushToken = await SecureStore.getItemAsync('expoPushToken');
+        if (pushToken) {
+          await NotificationService.markTokenAsSignedIn(data.session.user.id, pushToken);
+        }
       }
     } catch (error) {
       console.error('Session refresh error:', error);
