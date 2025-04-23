@@ -195,31 +195,26 @@ export default function HomeLayout() {
 
   // Handle routing logic with sign-out awareness
   useEffect(() => {
-    // Skip routing changes during sign-out
-    if (isSigningOut) return;
-
-    if (!isLoaded) return;
-    
-    // Allow routing to continue even if still checking user
-    // This is the key change - we'll finalize user setup in the background
-
+    if (isSigningOut || !isLoaded) return;
+  
+    // Wait until we finish checking user
+    if (isCheckingUser) return;
+  
     const isEffectivelySignedIn = isSignedIn || isGuest;
-
+  
     if (!isEffectivelySignedIn) {
       router.replace('/(auth)/sign-in');
       return;
     }
-
-    // Always route guests to user role
-    let role = 'user';
-
-    if (!isGuest && user) {
-      const userRole = profile?.role;
-      role = userRole || 'user';
+  
+    // Ensure profile is loaded before routing
+    if (!isGuest && !profile) {
+      return; // Wait until profile is ready
     }
-
+  
+    const role = isGuest ? 'user' : (profile?.role || 'user');
     const correctRouteSegment = `(${role})`;
-
+  
     if (segments[1] !== correctRouteSegment) {
       setIsRouting(true);
       router.replace(`/(home)/${correctRouteSegment}`);
@@ -227,15 +222,20 @@ export default function HomeLayout() {
     } else {
       setIsRouting(false);
     }
-  }, [isLoaded, isSignedIn, isGuest, user, segments, router, profile]);
-
-  // No more loading skeleton - we render the main content directly
-  // This is a crucial change to remove the intermediate loader
+  }, [isLoaded, isSignedIn, isGuest, user, profile, segments, router, isCheckingUser]);
   
-  // Render child routes directly without showing the loading skeleton
+
+  if (isCheckingUser || isRouting || !isLoaded || (!isGuest && !profile)) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+        {/* You can put a spinner or logo here */}
+      </View>
+    )
+  }
+  
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
       <Slot />
     </View>
   )
-}
+}  

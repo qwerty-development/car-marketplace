@@ -29,6 +29,7 @@ import ModernPicker from '@/components/ModernPicker'
 import { useRouter } from 'expo-router'
   import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/utils/AuthContext'
+import { ListingSkeletonLoader } from '../Skeleton'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -668,6 +669,7 @@ interface Dealership {
 export default function DealerListings() {
 	const { isDarkMode } = useTheme()
 	const { user,profile } = useAuth()
+	const [initialLoading, setInitialLoading] = useState(true)
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [listings, setListings] = useState<CarListing[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
@@ -764,9 +766,18 @@ export default function DealerListings() {
 	}
 
   	const fetchListings = useCallback(
-		async (page = 1, refresh = false) => {
-			if (!dealership) return
-			setIsLoading(true)
+			async (page = 1, refresh = false) => {
+				if (!dealership) return
+				
+				// Only set loading true for pagination, not for initial load
+				if (!refresh && page > 1) {
+					setIsLoading(true)
+				}
+				
+				// For initial load or refresh, set initialLoading
+				if (refresh || page === 1) {
+					setInitialLoading(true)
+				}
 			try {
 				const currentFilters = filtersRef.current
 				const currentSortBy = sortByRef.current
@@ -863,6 +874,7 @@ export default function DealerListings() {
 			} finally {
 				setIsLoading(false)
 				setIsRefreshing(false)
+				setInitialLoading(false) // Always set initialLoading to false when done
 			}
 		},
 		[dealership]
@@ -1274,55 +1286,64 @@ const ListingCard = useMemo(
       subscriptionExpired={subscriptionExpired}
     />
 			{/* Listings */}
-			<FlatList
-				ref={scrollRef}
-				data={listings}
-				renderItem={({ item }) => <ListingCard item={item} />}
-				keyExtractor={item => item.id.toString()}
-				showsVerticalScrollIndicator={false}
-				onEndReached={handleLoadMore}
-				onEndReachedThreshold={0.3}
-				refreshControl={
-					<RefreshControl
-						refreshing={isRefreshing}
-						onRefresh={handleRefresh}
-						colors={['#D55004']}
-						tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
-					/>
-				}
-				ListEmptyComponent={
-					<View className='flex-1 justify-center items-center py-20'>
-						<Text
-							className={`text-lg ${isDarkMode ? 'text-white' : 'text-black'}`}>
-							{subscriptionExpired
-								? 'Your subscription has expired. Renew to view and manage listings.'
-								: 'No listings available.'}
-						</Text>
-					</View>
-				}
-				ListFooterComponent={() =>
-					isLoading && !isRefreshing ? (
-						<ActivityIndicator
-							size='large'
-							color='#D55004'
-							style={{ padding: 20 }}
-						/>
-					) : null
-				}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={5}
-				windowSize={10}
-				updateCellsBatchingPeriod={100}
-				initialNumToRender={5}
-				maintainVisibleContentPosition={{
-					minIndexForVisible: 0,
-					autoscrollToTopThreshold: 10
-				}}
-				contentContainerStyle={{
-					paddingBottom: 100,
-					flexGrow: listings.length === 0 ? 1 : undefined
-				}}
+			{initialLoading && (
+	<ScrollView>
+		<ListingSkeletonLoader />
+	</ScrollView>
+)}
+
+{/* Listings - Show when not initially loading */}
+{!initialLoading && (
+	<FlatList
+		ref={scrollRef}
+		data={listings}
+		renderItem={({ item }) => <ListingCard item={item} />}
+		keyExtractor={item => item.id.toString()}
+		showsVerticalScrollIndicator={false}
+		onEndReached={handleLoadMore}
+		onEndReachedThreshold={0.3}
+		refreshControl={
+			<RefreshControl
+				refreshing={isRefreshing}
+				onRefresh={handleRefresh}
+				colors={['#D55004']}
+				tintColor={isDarkMode ? '#FFFFFF' : '#000000'}
 			/>
+		}
+		ListEmptyComponent={
+			<View className='flex-1 justify-center items-center py-20'>
+				<Text
+					className={`text-lg ${isDarkMode ? 'text-white' : 'text-black'}`}>
+					{subscriptionExpired
+						? 'Your subscription has expired. Renew to view and manage listings.'
+						: 'No listings available.'}
+				</Text>
+			</View>
+		}
+		ListFooterComponent={() =>
+			isLoading && !isRefreshing ? (
+				<ActivityIndicator
+					size='large'
+					color='#D55004'
+					style={{ padding: 20 }}
+				/>
+			) : null
+		}
+		removeClippedSubviews={true}
+		maxToRenderPerBatch={5}
+		windowSize={10}
+		updateCellsBatchingPeriod={100}
+		initialNumToRender={5}
+		maintainVisibleContentPosition={{
+			minIndexForVisible: 0,
+			autoscrollToTopThreshold: 10
+		}}
+		contentContainerStyle={{
+			paddingBottom: 100,
+			flexGrow: listings.length === 0 ? 1 : undefined
+		}}
+	/>
+)}
 
 			{!subscriptionExpired && (
 				<>

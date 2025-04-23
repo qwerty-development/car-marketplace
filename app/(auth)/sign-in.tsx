@@ -127,48 +127,81 @@ const SignInWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
-const handleGoogleAuth = async () => {
-  try {
-    setIsLoading(prev => ({ ...prev, google: true }));
-
-    // Step 1: Call googleSignIn with detailed logging
-    console.log("Initiating Google sign-in flow");
-    const result = await googleSignIn();
-    console.log("Google sign-in result:", JSON.stringify(result));
-
-    // Step 2: Check for success and navigate
-    if (result && result.success === true) {
-      console.log("Authentication successful, navigating to home");
-
-      // Step 3: Add delay to ensure session is fully established
-      setTimeout(() => {
-        router.replace("/(home)");
-      }, 500);
-    } else {
-      console.log("Google authentication unsuccessful:",
-                 result ? `Result received but success=${result.success}` : "No result returned");
-
-      // Step 4: Final fallback - check Supabase session directly
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session?.user) {
-        console.log("Session found despite unsuccessful result, navigating to home");
-        setTimeout(() => {
-          router.replace("/(home)");
-        }, 500);
+  const handleGoogleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, google: true }));
+  
+      // Step 1: Call googleSignIn with detailed logging
+      console.log("Initiating Google sign-in flow");
+      const result = await googleSignIn();
+      console.log("Google sign-in result:", JSON.stringify(result));
+  
+      // Step 2: Check for success and determine role before routing
+      if (result && result.success === true) {
+        console.log("Authentication successful, checking user role");
+  
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Fetch user profile to determine role
+          const { data: profileData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+          
+          // Navigate to the appropriate route based on role
+          setTimeout(() => {
+            if (profileData?.role === 'dealer') {
+              router.replace("/(home)/(dealer)");
+            } else {
+              router.replace("/(home)/(user)");
+            }
+          }, 500);
+        } else {
+          // Default route if we can't determine role
+          setTimeout(() => {
+            router.replace("/(home)");
+          }, 500);
+        }
       } else {
-        console.log("No session found, authentication failed completely");
+        console.log("Google authentication unsuccessful:",
+                   result ? `Result received but success=${result.success}` : "No result returned");
+  
+        // Final fallback - check Supabase session directly
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          console.log("Session found despite unsuccessful result, checking user role");
+          
+          // Check role before routing
+          const { data: profileData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', sessionData.session.user.id)
+            .single();
+            
+          setTimeout(() => {
+            if (profileData?.role === 'dealer') {
+              router.replace("/(home)/(dealer)");
+            } else {
+              router.replace("/(home)/(user)");
+            }
+          }, 500);
+        } else {
+          console.log("No session found, authentication failed completely");
+        }
       }
+    } catch (err) {
+      console.error("Google OAuth error:", err);
+      Alert.alert(
+        "Authentication Error",
+        "Failed to authenticate with Google"
+      );
+    } finally {
+      setIsLoading(prev => ({ ...prev, google: false }));
     }
-  } catch (err) {
-    console.error("Google OAuth error:", err);
-    Alert.alert(
-      "Authentication Error",
-      "Failed to authenticate with Google"
-    );
-  } finally {
-    setIsLoading(prev => ({ ...prev, google: false }));
-  }
-};
+  };
 
   const handleAppleAuth = async () => {
     try {
@@ -324,10 +357,10 @@ export default function SignInPage() {
 
   const onSignInPress = useCallback(async () => {
     if (!isLoaded) return;
-
+  
     let hasError = false;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+  
     if (!emailAddress) {
       setEmailError("Email is required");
       hasError = true;
@@ -337,27 +370,47 @@ export default function SignInPage() {
     } else {
       setEmailError("");
     }
-
+  
     if (!password) {
       setPasswordError("Password is required");
       hasError = true;
     } else {
       setPasswordError("");
     }
-
+  
     if (hasError) return;
-
+  
     setIsLoading(true);
     try {
       const { error } = await signIn({
         email: emailAddress,
         password,
       });
-
+  
       if (error) {
         setEmailError(error.message || "Sign in failed. Please try again.");
       } else {
-        router.replace("/(home)");
+        // Get user role from Supabase before redirecting
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Fetch user profile to determine role
+          const { data: profileData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+          
+          // Determine the correct route based on user role
+          if (profileData?.role === 'dealer') {
+            router.replace("/(home)/(dealer)");
+          } else {
+            router.replace("/(home)/(user)");
+          }
+        } else {
+          // Default route if we can't determine role
+          router.replace("/(home)");
+        }
       }
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
@@ -366,6 +419,7 @@ export default function SignInPage() {
       setIsLoading(false);
     }
   }, [isLoaded, signIn, emailAddress, password, router]);
+  
 
   // Handle guest login
   const handleGuestSignIn = async () => {
