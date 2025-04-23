@@ -3,7 +3,7 @@ import { View, Animated, Dimensions, StyleSheet, useColorScheme, Image } from 'r
 import { Audio } from 'expo-av';
 import { supabase } from '@/utils/supabase';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const carLogos = [
   'https://www.carlogos.org/car-logos/mercedes-benz-logo.png',
@@ -48,43 +48,11 @@ const AnimatedLogo: React.FC<AnimatedLogoProps> = ({ index, opacity, translateY 
   );
 };
 
-// FleetText component that reveals the "leet" text from left to right
-const FleetText: React.FC<{ 
-  opacity: Animated.Value, 
-  revealWidth: Animated.Value,
-  isDarkMode: boolean
-}> = ({ opacity, revealWidth, isDarkMode }) => (
-  <Animated.View
-    style={[
-      styles.fleetTextContainer,
-      { opacity }
-    ]}
-  >
-    <Animated.View
-      style={[
-        {
-          width: revealWidth,
-          overflow: 'hidden'
-        }
-      ]}
-    >
-      <Image
-        source={require('../assets/logo-text.png')}
-        style={[
-          styles.fleetTextImage,
-          isDarkMode && { tintColor: '#FFFFFF' } // Invert text color for dark mode
-        ]}
-        resizeMode="contain"
-      />
-    </Animated.View>
-  </Animated.View>
-);
-
 interface SplashScreenProps {
   onAnimationComplete: () => void;
 }
 
-const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({ 
+const CustomSplashScreen: React.FC<SplashScreenProps> = ({ 
   onAnimationComplete,
 }) => {
   const colorScheme = useColorScheme();
@@ -94,6 +62,7 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   const [showFleetLogo, setShowFleetLogo] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [animationComplete, setAnimationComplete] = useState(false);
   
   const screenOpacity = useRef(new Animated.Value(0)).current;
   const carLogoOpacity = useRef(new Animated.Value(1)).current;
@@ -107,9 +76,9 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   // Text animation values
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textRevealWidth = useRef(new Animated.Value(0)).current;
-  
-  // Right-to-left exit animation value
-  const screenPositionX = useRef(new Animated.Value(0)).current;
+
+  // Curtain animation value - starts from right side of screen (width)
+  const curtainPosition = useRef(new Animated.Value(width)).current;
 
   // Get the appropriate logo based on theme
   const getLogoSource = () => {
@@ -213,9 +182,26 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
     preloadImages();
   }, [isDataLoaded]);
 
+  // Curtain animation effect
+  useEffect(() => {
+    if (animationComplete) {
+      // Run the curtain animation - sliding from right to left
+      Animated.timing(curtainPosition, {
+        toValue: 0, // Move to the left edge of the screen
+        duration: 500, // Duration of the slide animation
+        useNativeDriver: true,
+      }).start(() => {
+        // Wait a moment before completing
+        setTimeout(() => {
+          onAnimationComplete();
+        }, 200);
+      });
+    }
+  }, [animationComplete, onAnimationComplete]);
+
   const runSlotMachineAnimation = () => {
     // Slightly faster slot machine animation
-    const slotDuration = 2500; // Reduced from 3000ms
+    const slotDuration = 1800; // Reduced from 3000ms
     const logoChangeInterval = slotDuration / (carLogos.length * 2);
     let currentIndex = 0;
 
@@ -258,26 +244,36 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   };
 
   const showFinalAnimation = () => {
-    // Even faster animations to minimize transition gap
-    const showFLogo = Animated.parallel([
-      Animated.timing(fLogoOpacity, {
-        toValue: 1,
-        duration: 200, // Reduced for faster animation
-        useNativeDriver: true,
-      }),
-      Animated.spring(fLogoScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 50, // Increased tension for faster spring
-        useNativeDriver: true,
-      })
-    ]);
-    
-    const moveFLogoToLeft = Animated.timing(fLogoPosition, {
-      toValue: -width * 0.26,
-      duration: 350, // Faster transition
-      useNativeDriver: true,
-    });
+    // Slightly faster animations
+// F Logo and text
+const showFLogo = Animated.parallel([
+  Animated.timing(fLogoOpacity, {
+    toValue: 1,
+    duration: 200, // WAS 250
+    useNativeDriver: true,
+  }),
+  Animated.spring(fLogoScale, {
+    toValue: 1,
+    friction: 4,
+    tension: 50, // WAS 40
+    useNativeDriver: true,
+  }),
+]);
+
+const moveFLogoToLeft = Animated.timing(fLogoPosition, {
+  toValue: -width * 0.26,
+  duration: 300, // WAS 400
+  useNativeDriver: true,
+});
+
+const revealText = Animated.timing(textRevealWidth, {
+  toValue: width * 0.5,
+  duration: 400, // WAS 600
+  useNativeDriver: false,
+});
+
+const holdFinalState = Animated.delay(300); // WAS 500
+
     
     const showText = Animated.timing(textOpacity, {
       toValue: 1,
@@ -285,137 +281,127 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
       useNativeDriver: true,
     });
     
-    const revealText = Animated.timing(textRevealWidth, {
-      toValue: width * 0.5,
-      duration: 500, // Faster text reveal
-      useNativeDriver: false,
-    });
     
-    // Slide out animation - critical for revealing content underneath
-    const slideOutToLeft = Animated.timing(screenPositionX, {
-      toValue: -width,
-      duration: 800, // Longer duration to clearly see the slide effect
-      delay: 400, // Delay to ensure all logo animations are visible
-      useNativeDriver: true,
-    });
     
     // Run the animation sequence
     Animated.sequence([
       showFLogo,
-      Animated.delay(100), // Shorter delay
+      Animated.delay(200), 
       moveFLogoToLeft,
-      Animated.delay(50), // Minimal delay
+      Animated.delay(150),
       showText,
-      Animated.parallel([
-        revealText,
-      ]),
-      // First part of animation completes here
-      
-      // Add a slight pause before slide out to show the full logo
-      Animated.delay(200),
-      
-      // Now slide out to reveal content underneath
-      slideOutToLeft
+      revealText,
+      holdFinalState
     ]).start(() => {
-      // Only notify completion after the slide animation is done
-      // This ensures the home screen is visible as the splash completes
+      // Signal that we're ready for the curtain effect
       if (sound) {
-        sound.stopAsync().catch(err => console.error("Error stopping sound:", err));
+        sound.stopAsync();
       }
-      
-      // Small delay to ensure the slide animation is complete
-      // before we signal completion
-      setTimeout(onAnimationComplete, 100);
+      setAnimationComplete(true);
     });
   };
 
   return (
-    <Animated.View
+    <View
       style={[
         styles.container,
         {
-          backgroundColor: isDarkMode ? '#000000' : '#333',
-          opacity: screenOpacity,
-          transform: [{ translateX: screenPositionX }],
+          backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
         },
       ]}
     >
-      {/* Car logos for the slot machine effect */}
-      {!showFleetLogo && (
-        <AnimatedLogo
-          index={currentLogoIndex}
-          opacity={carLogoOpacity}
-          translateY={carLogoPosition}
-        />
-      )}
-      
-      {/* Fleet logo animation */}
-      {showFleetLogo && (
-        <View style={styles.fleetContainer}>
-          {/* F Logo - positioned in the same place as car logos initially */}
-          <Animated.View
-            style={[
-              styles.logoContainer,
-              styles.fLogoContainer,
-              {
-                opacity: fLogoOpacity,
-                position: 'absolute',
-                transform: [
-                  { scale: fLogoScale },
-                  { translateX: fLogoPosition }
-                ],
-              },
-            ]}
-          >
-            <Image
-              source={getLogoSource()}
-              style={styles.fLogo}
-              resizeMode="contain"
-            />
-          </Animated.View>
-          
-          {/* "leet" text that appears after F moves to the left */}
-          <Animated.View
-            style={[
-              styles.leetTextPosition,
-              { opacity: textOpacity }
-            ]}
-          >
+      {/* Main content container */}
+      <Animated.View 
+        style={{ 
+          opacity: screenOpacity, 
+          flex: 1, 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%'
+        }}
+      >
+        {/* Car logos for the slot machine effect */}
+        {!showFleetLogo && (
+          <AnimatedLogo
+            index={currentLogoIndex}
+            opacity={carLogoOpacity}
+            translateY={carLogoPosition}
+          />
+        )}
+        
+        {/* Fleet logo animation */}
+        {showFleetLogo && (
+          <View style={styles.fleetContainer}>
+            {/* F Logo - positioned in the same place as car logos initially */}
             <Animated.View
-              style={{
-                width: textRevealWidth,
-                overflow: 'hidden',
-              }}
+              style={[
+                styles.logoContainer,
+                styles.fLogoContainer,
+                {
+                  opacity: fLogoOpacity,
+                  position: 'absolute',
+                  transform: [
+                    { scale: fLogoScale },
+                    { translateX: fLogoPosition }
+                  ],
+                },
+              ]}
             >
               <Image
-                source={require('../assets/logo-text.png')}
-                style={[
-                  styles.leetText,
-                  isDarkMode && { tintColor: '#FFFFFF' }
-                ]}
+                source={getLogoSource()}
+                style={styles.fLogo}
                 resizeMode="contain"
               />
             </Animated.View>
-          </Animated.View>
-        </View>
-      )}
-    </Animated.View>
+            
+            {/* "leet" text that appears after F moves to the left */}
+            <Animated.View
+              style={[
+                styles.leetTextPosition,
+                { opacity: textOpacity }
+              ]}
+            >
+              <Animated.View
+                style={{
+                  width: textRevealWidth,
+                  overflow: 'hidden',
+                }}
+              >
+                <Image
+                  source={require('../assets/logo-text.png')}
+                  style={[
+                    styles.leetText,
+                    isDarkMode && { tintColor: '#FFFFFF' }
+                  ]}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+            </Animated.View>
+          </View>
+        )}
+      </Animated.View>
+
+      {/* The sliding curtain - will slide from right to left */}
+      <Animated.View
+        style={[
+          styles.curtain,
+          {
+            transform: [{ translateX: curtainPosition }],
+            backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+          }
+        ]}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
+    zIndex: 100,
   },
   logoContainer: {
     width: width * 0.3,
@@ -456,16 +442,15 @@ const styles = StyleSheet.create({
     width: width * 0.5,
     alignSelf: 'flex-start',
   },
-  fleetTextContainer: {
-    flexDirection: 'row',
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fleetTextImage: {
-    height: 60,
-    width: width * 0.7,
+  // Curtain styles
+  curtain: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: width * 2, // Make it wider than the screen to ensure complete coverage
+    height: height,
+    zIndex: 1000, // Make sure it's on top of everything
   },
 });
 
-export default EnhancedSplashScreen;
+export default CustomSplashScreen;

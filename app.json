@@ -7,10 +7,6 @@
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/app-icon.png",
-      "resizeMode": "contain"
-    },
     "notification": {
       "icon": "./assets/images/app-icon.png",
       "color": "#D55004",
