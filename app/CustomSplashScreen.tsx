@@ -258,24 +258,24 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
   };
 
   const showFinalAnimation = () => {
-    // Slightly faster animations
+    // Even faster animations to minimize transition gap
     const showFLogo = Animated.parallel([
       Animated.timing(fLogoOpacity, {
         toValue: 1,
-        duration: 250, // Reduced from 300
+        duration: 200, // Reduced for faster animation
         useNativeDriver: true,
       }),
       Animated.spring(fLogoScale, {
         toValue: 1,
         friction: 4,
-        tension: 40,
+        tension: 50, // Increased tension for faster spring
         useNativeDriver: true,
       })
     ]);
     
     const moveFLogoToLeft = Animated.timing(fLogoPosition, {
       toValue: -width * 0.26,
-      duration: 400, // Reduced from 500
+      duration: 350, // Faster transition
       useNativeDriver: true,
     });
     
@@ -287,34 +287,45 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
     
     const revealText = Animated.timing(textRevealWidth, {
       toValue: width * 0.5,
-      duration: 600, // Reduced from 800
+      duration: 500, // Faster text reveal
       useNativeDriver: false,
     });
     
+    // Slide out animation - critical for revealing content underneath
     const slideOutToLeft = Animated.timing(screenPositionX, {
       toValue: -width,
-      duration: 600, // Reduced from 700
-      delay: 600, // Reduced from 800
+      duration: 800, // Longer duration to clearly see the slide effect
+      delay: 400, // Delay to ensure all logo animations are visible
       useNativeDriver: true,
     });
     
     // Run the animation sequence
     Animated.sequence([
       showFLogo,
-      Animated.delay(200), // Reduced from 300
+      Animated.delay(100), // Shorter delay
       moveFLogoToLeft,
-      Animated.delay(150), // Reduced from 200
+      Animated.delay(50), // Minimal delay
       showText,
       Animated.parallel([
         revealText,
       ]),
+      // First part of animation completes here
+      
+      // Add a slight pause before slide out to show the full logo
+      Animated.delay(200),
+      
+      // Now slide out to reveal content underneath
       slideOutToLeft
     ]).start(() => {
-      // Stop sound if it's still playing when animation ends
+      // Only notify completion after the slide animation is done
+      // This ensures the home screen is visible as the splash completes
       if (sound) {
-        sound.stopAsync();
+        sound.stopAsync().catch(err => console.error("Error stopping sound:", err));
       }
-      onAnimationComplete();
+      
+      // Small delay to ensure the slide animation is complete
+      // before we signal completion
+      setTimeout(onAnimationComplete, 100);
     });
   };
 
@@ -323,9 +334,9 @@ const EnhancedSplashScreen: React.FC<SplashScreenProps> = ({
       style={[
         styles.container,
         {
-          backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+          backgroundColor: isDarkMode ? '#000000' : '#333',
           opacity: screenOpacity,
-          transform: [{ translateX: screenPositionX }]
+          transform: [{ translateX: screenPositionX }],
         },
       ]}
     >
@@ -398,6 +409,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   logoContainer: {
     width: width * 0.3,

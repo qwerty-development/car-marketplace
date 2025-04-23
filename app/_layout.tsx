@@ -288,9 +288,7 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
-  
-  // We now directly track authentication state without an intermediate isReady state
-  // This is a key change to eliminate the loading screen
+  const [isNavigationDone, setIsNavigationDone] = useState(false);
   
   // Pre-compute authentication state only once per change
   const isEffectivelySignedIn = useMemo(() => 
@@ -302,42 +300,47 @@ function RootLayoutNav() {
     segments[0] === '(auth)', 
     [segments]
   );
-
-  // Handle navigation state changes
+  
+  // Do navigation only once after determining auth state
   useEffect(() => {
-    if (!isLoaded || showSplash) return;
+    if (!isLoaded || isNavigationDone) return;
     
     if (isEffectivelySignedIn && inAuthGroup) {
-      router.replace('/(home)');
+      router.replace('/(home)/(user)/(tabs)');
+      setIsNavigationDone(true);
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
+      setIsNavigationDone(true);
+    } else {
+      // We're already on the correct screen
+      setIsNavigationDone(true);
     }
-  }, [isLoaded, showSplash, isEffectivelySignedIn, inAuthGroup, router]);
-
-  // If still showing splash screen, render it
-  if (showSplash) {
-    return (
-      <CustomSplashScreen 
-        onAnimationComplete={() => {
-          // Only complete splash when auth is loaded to avoid a flash of the auth screen
-          if (isLoaded) {
-            setShowSplash(false);
-          } else {
-            // If auth isn't loaded yet, wait for it
-            const checkAuthLoaded = setInterval(() => {
-              if (isLoaded) {
-                clearInterval(checkAuthLoaded);
-                setShowSplash(false);
-              }
-            }, 100);
-          }
-        }} 
-      />
-    );
-  }
-
-  // Render main app content directly - no intermediate loading screen
-  return <Slot />;
+  }, [isLoaded, isEffectivelySignedIn, inAuthGroup, router, isNavigationDone]);
+  
+  // Render both splash screen and content simultaneously
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Main content is always rendering underneath */}
+      <Slot />
+      
+      {/* Splash screen appears on top while needed */}
+      {showSplash && (
+        <View style={{ 
+          position: 'absolute', 
+          width: '100%', 
+          height: '100%', 
+          zIndex: 1000 
+        }}>
+          <CustomSplashScreen 
+            onAnimationComplete={() => {
+              // Splash has completed its exit animation
+              setShowSplash(false);
+            }} 
+          />
+        </View>
+      )}
+    </View>
+  );
 }
 
 function ErrorFallback({ error, resetError }: any) {
