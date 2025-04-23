@@ -1,81 +1,91 @@
 // app/(home)/_layout.tsx
-import React, { useEffect, useState, useRef } from 'react'
-import { Slot, useRouter, useSegments } from 'expo-router'
-import { useAuth } from '@/utils/AuthContext'
-import { supabase } from '@/utils/supabase'
-import { Alert, View, useColorScheme } from 'react-native'
-import { useNotifications } from '@/hooks/useNotifications'
-import { useTheme } from '@/utils/ThemeContext'
-import { useGuestUser } from '@/utils/GuestUserContext'
+import React, { useEffect, useState, useRef } from "react";
+import { Slot, useRouter, useSegments } from "expo-router";
+import { useAuth } from "@/utils/AuthContext";
+import { supabase } from "@/utils/supabase";
+import { Alert, View, useColorScheme } from "react-native";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useTheme } from "@/utils/ThemeContext";
+import { useGuestUser } from "@/utils/GuestUserContext";
+import LogoLoader from "@/components/LogoLoader";
 
 // Global sign-out flag with improved implementation
-let isSigningOut = false
-export { isSigningOut }
+let isSigningOut = false;
+export { isSigningOut };
 
 // Improved setter with logging and operation cancellation
 export function setIsSigningOut(value: boolean) {
-  const previous = isSigningOut
-  isSigningOut = value
+  const previous = isSigningOut;
+  isSigningOut = value;
 
   // Log changes for debugging
   if (previous !== value) {
-    console.log(`Sign out state changed: ${previous} -> ${value}`)
+    console.log(`Sign out state changed: ${previous} -> ${value}`);
 
     // Cancel any pending operations when signing out starts
     if (value === true) {
-      console.log('Cancelling pending operations due to sign out')
+      console.log("Cancelling pending operations due to sign out");
       // Additional cleanup could be added here if needed
     }
   }
 }
 
 // Coordinated sign out function to improve sign out process
-export async function coordinateSignOut(router: any, authSignOut: () => Promise<void>) {
+export async function coordinateSignOut(
+  router: any,
+  authSignOut: () => Promise<void>
+) {
   // Only proceed if not already signing out
   if (isSigningOut) {
-    console.log('Sign out already in progress')
-    return
+    console.log("Sign out already in progress");
+    return;
   }
 
   // Set global flag first to prevent concurrent operations
-  setIsSigningOut(true)
+  setIsSigningOut(true);
 
   try {
     // 1. Navigate to auth screen immediately to prevent further user interactions
-    console.log('Navigating to sign-in screen')
-    router.replace('/(auth)/sign-in')
+    console.log("Navigating to sign-in screen");
+    router.replace("/(auth)/sign-in");
 
     // 2. Small delay to ensure navigation completes before heavier operations
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // 3. Trigger the actual sign out process
-    console.log('Executing auth sign out')
-    await authSignOut()
+    console.log("Executing auth sign out");
+    await authSignOut();
 
-    console.log('Sign out coordination completed successfully')
-    return true
+    console.log("Sign out coordination completed successfully");
+    return true;
   } catch (error) {
-    console.error('Error during coordinated sign out:', error)
+    console.error("Error during coordinated sign out:", error);
 
     // Force navigation to sign-in on failure
-    router.replace('/(auth)/sign-in')
+    router.replace("/(auth)/sign-in");
 
     // Reset global flag
-    setIsSigningOut(false)
-    return false
+    setIsSigningOut(false);
+    return false;
   }
 }
 
 export default function HomeLayout() {
-  const { isLoaded, isSignedIn, user, profile } = useAuth()
-  const router = useRouter()
-  const segments = useSegments()
-  const { isDarkMode } = useTheme()
-  const { isGuest, guestId } = useGuestUser()
-  const [isCheckingUser, setIsCheckingUser] = useState(true)
-  const [isRouting, setIsRouting] = useState(true)
-  const { registerForPushNotifications } = useNotifications()
-  const registrationAttempted = useRef(false)
+  const { isLoaded, isSignedIn, user, profile } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+  const { isDarkMode } = useTheme();
+  const { isGuest, guestId } = useGuestUser();
+  const [isCheckingUser, setIsCheckingUser] = useState(true);
+  const [isRouting, setIsRouting] = useState(true);
+  const { registerForPushNotifications } = useNotifications();
+  const registrationAttempted = useRef(false);
+
+  const [showLoader, setShowLoader] = useState(true)
+  useEffect(() => {
+    const timeout = setTimeout(() => setShowLoader(false), 3000)
+    return () => clearTimeout(timeout)
+  }, [])
 
   // 1) Check/Create Supabase user and handle notifications
   useEffect(() => {
@@ -89,12 +99,12 @@ export default function HomeLayout() {
 
         // Check if user exists in Supabase
         const { data: existingUser, error: fetchError } = await supabase
-          .from('users')
+          .from("users")
           .select()
-          .eq('id', userId)
+          .eq("id", userId)
           .single();
 
-        if (fetchError && fetchError.code !== 'PGRST116') {
+        if (fetchError && fetchError.code !== "PGRST116") {
           throw fetchError;
         }
 
@@ -102,81 +112,91 @@ export default function HomeLayout() {
         if (!existingUser) {
           const email = isGuest
             ? `guest_${guestId}@example.com`
-            : user?.email || '';
+            : user?.email || "";
 
           const name = isGuest
-            ? 'Guest User'
-            : profile?.name || user?.user_metadata?.name || '';
+            ? "Guest User"
+            : profile?.name || user?.user_metadata?.name || "";
 
           // Use upsert with conflict handling
-          const { error: upsertError } = await supabase
-            .from('users')
-            .upsert([
+          const { error: upsertError } = await supabase.from("users").upsert(
+            [
               {
                 id: userId,
                 name: name,
                 email: email,
                 favorite: [],
                 is_guest: isGuest,
-                last_active: new Date().toISOString()
-              }
-            ], {
-              onConflict: 'id',  // Handle ID conflicts
-              ignoreDuplicates: false
-            });
+                last_active: new Date().toISOString(),
+              },
+            ],
+            {
+              onConflict: "id", // Handle ID conflicts
+              ignoreDuplicates: false,
+            }
+          );
 
           if (upsertError) {
             // Only throw for non-duplicate errors
-            if (upsertError.code !== '23505') {
+            if (upsertError.code !== "23505") {
               throw upsertError;
             } else {
-              console.log('User record already exists, continuing...');
+              console.log("User record already exists, continuing...");
             }
           } else {
-            console.log('Created new user in Supabase');
+            console.log("Created new user in Supabase");
           }
 
           // IMPORTANT: Add a delay before attempting push notification registration
           // to ensure the user record is fully committed in the database
-          await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 3000ms
+          await new Promise((resolve) => setTimeout(resolve, 500)); // Reduced from 3000ms
         }
 
         // Skip further processing if sign out started during this operation
         if (isSigningOut) {
-          console.log('Sign out detected, skipping remaining user setup');
+          console.log("Sign out detected, skipping remaining user setup");
           setIsCheckingUser(false);
           return;
         }
 
         // Update last_active timestamp
         const { error: updateError } = await supabase
-          .from('users')
+          .from("users")
           .update({ last_active: new Date().toISOString() })
-          .eq('id', userId);
+          .eq("id", userId);
 
         if (updateError) throw updateError;
-        console.log('Updated last_active for user in Supabase');
+        console.log("Updated last_active for user in Supabase");
 
         // Register for notifications ONLY after we've confirmed user exists
         if (!isGuest && !isSigningOut) {
           try {
             // Move this to a background task or perform later
-            registerForPushNotifications().catch(notificationError => {
-              console.error('Error registering for push notifications:', notificationError);
+            registerForPushNotifications().catch((notificationError) => {
+              console.error(
+                "Error registering for push notifications:",
+                notificationError
+              );
             });
           } catch (notificationError) {
-            console.error('Error initiating push notifications:', notificationError);
+            console.error(
+              "Error initiating push notifications:",
+              notificationError
+            );
           }
         }
       } catch (error: any) {
-        console.error('Error in user sync:', error);
+        console.error("Error in user sync:", error);
 
         // Only show alert for unexpected errors
-        if (!(error.code === '23505' && error.details?.includes('email')) &&
-            !(error.code === '23503')) { // Don't alert on FK violations
+        if (
+          !(error.code === "23505" && error.details?.includes("email")) &&
+          !(error.code === "23503")
+        ) {
+          // Don't alert on FK violations
           Alert.alert(
-            'Error',
-            'There was a problem setting up your account. Please try again later.'
+            "Error",
+            "There was a problem setting up your account. Please try again later."
           );
         }
       } finally {
@@ -191,30 +211,37 @@ export default function HomeLayout() {
     } else {
       setIsCheckingUser(false);
     }
-  }, [isSignedIn, user, isGuest, guestId, profile, registerForPushNotifications]);
+  }, [
+    isSignedIn,
+    user,
+    isGuest,
+    guestId,
+    profile,
+    registerForPushNotifications,
+  ]);
 
   // Handle routing logic with sign-out awareness
   useEffect(() => {
     if (isSigningOut || !isLoaded) return;
-  
+
     // Wait until we finish checking user
     if (isCheckingUser) return;
-  
+
     const isEffectivelySignedIn = isSignedIn || isGuest;
-  
+
     if (!isEffectivelySignedIn) {
-      router.replace('/(auth)/sign-in');
+      router.replace("/(auth)/sign-in");
       return;
     }
-  
+
     // Ensure profile is loaded before routing
     if (!isGuest && !profile) {
       return; // Wait until profile is ready
     }
-  
-    const role = isGuest ? 'user' : (profile?.role || 'user');
+
+    const role = isGuest ? "user" : profile?.role || "user";
     const correctRouteSegment = `(${role})`;
-  
+
     if (segments[1] !== correctRouteSegment) {
       setIsRouting(true);
       router.replace(`/(home)/${correctRouteSegment}`);
@@ -222,20 +249,32 @@ export default function HomeLayout() {
     } else {
       setIsRouting(false);
     }
-  }, [isLoaded, isSignedIn, isGuest, user, profile, segments, router, isCheckingUser]);
-  
+  }, [
+    isLoaded,
+    isSignedIn,
+    isGuest,
+    user,
+    profile,
+    segments,
+    router,
+    isCheckingUser,
+  ]);
 
-  if (isCheckingUser || isRouting || !isLoaded || (!isGuest && !profile)) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-        {/* You can put a spinner or logo here */}
-      </View>
-    )
-  }
-  
+if (
+  showLoader || 
+  isCheckingUser || 
+  isRouting || 
+  !isLoaded || 
+  (!isGuest && !profile)
+) {
+  return <LogoLoader />
+}
+
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
+    <View
+      style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
+    >
       <Slot />
     </View>
-  )
-}  
+  );
+}
