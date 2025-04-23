@@ -270,7 +270,7 @@ const DeepLinkHandler = () => {
         //   pathname: "/(home)/(user)/autoclip/[id]",
         //   params: { id: clipId }
         // });
-      }
+      
       }
 
       // Clear the pending link
