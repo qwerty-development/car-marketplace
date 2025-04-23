@@ -136,62 +136,8 @@ const SignInWithOAuth = () => {
       const result = await googleSignIn();
       console.log("Google sign-in result:", JSON.stringify(result));
   
-      // Step 2: Check for success and determine role before routing
-      if (result && result.success === true) {
-        console.log("Authentication successful, checking user role");
-  
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          // Fetch user profile to determine role
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-          
-          // Navigate to the appropriate route based on role
-          setTimeout(() => {
-            if (profileData?.role === 'dealer') {
-              router.replace("/(home)/(dealer)");
-            } else {
-              router.replace("/(home)/(user)");
-            }
-          }, 500);
-        } else {
-          // Default route if we can't determine role
-          setTimeout(() => {
-            router.replace("/(home)");
-          }, 500);
-        }
-      } else {
-        console.log("Google authentication unsuccessful:",
-                   result ? `Result received but success=${result.success}` : "No result returned");
-  
-        // Final fallback - check Supabase session directly
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user) {
-          console.log("Session found despite unsuccessful result, checking user role");
-          
-          // Check role before routing
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', sessionData.session.user.id)
-            .single();
-            
-          setTimeout(() => {
-            if (profileData?.role === 'dealer') {
-              router.replace("/(home)/(dealer)");
-            } else {
-              router.replace("/(home)/(user)");
-            }
-          }, 500);
-        } else {
-          console.log("No session found, authentication failed completely");
-        }
-      }
+      // The navigation is now handled by the auth context and root layout
+      // The 3-second delay we added will show the LogoLoader
     } catch (err) {
       console.error("Google OAuth error:", err);
       Alert.alert(
@@ -225,8 +171,8 @@ const SignInWithOAuth = () => {
           throw error;
         }
 
-        // If successful, navigate to home
-        router.replace('/(home)');
+        // Navigation is handled by the auth context and root layout
+        // No explicit navigation needed here
       } else {
         throw new Error('No identity token received from Apple');
       }
@@ -355,8 +301,10 @@ export default function SignInPage() {
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
-  const onSignInPress = useCallback(async () => {
-    if (!isLoaded) return;
+  const handleSubmit = useCallback(async () => {
+    if (!isLoaded) {
+      return;
+    }
   
     let hasError = false;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -389,44 +337,26 @@ export default function SignInPage() {
   
       if (error) {
         setEmailError(error.message || "Sign in failed. Please try again.");
-      } else {
-        // Get user role from Supabase before redirecting
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          // Fetch user profile to determine role
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-          
-          // Determine the correct route based on user role
-          if (profileData?.role === 'dealer') {
-            router.replace("/(home)/(dealer)");
-          } else {
-            router.replace("/(home)/(user)");
-          }
-        } else {
-          // Default route if we can't determine role
-          router.replace("/(home)");
-        }
-      }
+      } 
+      // The router.replace is now handled by the auth process and LogoLoader
+      // The 3-second delay we added to the signIn function will show the LogoLoader
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
       setEmailError(err.message || "An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, signIn, emailAddress, password, router]);
-  
+  }, [isLoaded, signIn, emailAddress, password]);
 
   // Handle guest login
   const handleGuestSignIn = async () => {
     setIsGuestLoading(true);
     try {
+      // Set guest mode which will be detected by auth context
       await setGuestMode(true);
-      router.replace('/(home)/(user)');
+      
+      // Let the auth routing handle navigation instead of doing it here
+      // The root layout will detect the guest mode and navigate appropriately
     } catch (err) {
       console.error("Guest mode error:", err);
       Alert.alert(
@@ -569,7 +499,7 @@ export default function SignInPage() {
             justifyContent: 'center',
             alignItems: 'center',
           }}
-          onPress={onSignInPress}
+          onPress={handleSubmit}
           disabled={isLoading}
         >
           {isLoading ? (

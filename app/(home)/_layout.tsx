@@ -83,7 +83,7 @@ export default function HomeLayout() {
 
   const [showLoader, setShowLoader] = useState(true)
   useEffect(() => {
-    const timeout = setTimeout(() => setShowLoader(false), 3000)
+    const timeout = setTimeout(() => setShowLoader(false), 1500)
     return () => clearTimeout(timeout)
   }, [])
 

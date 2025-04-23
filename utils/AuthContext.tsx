@@ -19,6 +19,7 @@ interface AuthContextProps {
   isLoaded: boolean;
   isSignedIn: boolean;
   isSigningOut: boolean;  // New property to track sign-out state
+  isSigningIn: boolean;   // New property to track sign-in state
   signIn: (credentials: SignInCredentials) => Promise<{ error: Error | null }>;
   signUp: (credentials: SignUpCredentials) => Promise<{ error: Error | null, needsEmailVerification: boolean }>;
   signOut: () => Promise<void>;
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSigningOutState, setIsSigningOutState] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const { isGuest, clearGuestMode } = useGuestUser();
 
   // For OAuth redirects
@@ -317,9 +319,6 @@ const cleanupLocalStorage = async () => {
       setIsSigningOutState(true);
       setIsSigningOut(true);
 
-      // First, route to sign-in screen immediately to prevent further interactions
-      router.replace('/(auth)/sign-in');
-
       console.log('Starting comprehensive sign out process');
 
       // 1. Clean up push notification token if user exists
@@ -372,6 +371,28 @@ const cleanupLocalStorage = async () => {
       setSession(null);
       setUser(null);
       setProfile(null);
+      
+      // Wait for 1.5 seconds to show the loader before completing sign out 
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Use requestAnimationFrame to ensure we navigate only after the next render cycle
+      // This helps prevent "navigate before mounting" errors
+      requestAnimationFrame(() => {
+        try {
+          // Move navigation AFTER the delay
+          router.replace('/(auth)/sign-in');
+        } catch (navError) {
+          console.log('Navigation error handled:', navError);
+          // If we still get an error, try once more with another frame
+          requestAnimationFrame(() => {
+            try {
+              router.replace('/(auth)/sign-in');
+            } catch (e) {
+              console.error('Final navigation attempt failed:', e);
+            }
+          });
+        }
+      });
 
     } catch (error) {
       console.error('Sign out process error:', error);
@@ -381,8 +402,21 @@ const cleanupLocalStorage = async () => {
       setUser(null);
       setProfile(null);
 
-      // Brute force approach - if all else fails, force navigation to sign-in
-      router.replace('/(auth)/sign-in');
+      // Wait before navigation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Use requestAnimationFrame for safer navigation
+      requestAnimationFrame(() => {
+        try {
+          router.replace('/(auth)/sign-in');
+        } catch (navError) {
+          console.log('Error navigation handled:', navError);
+          // Try once more if needed
+          setTimeout(() => {
+            router.replace('/(auth)/sign-in');
+          }, 100);
+        }
+      });
     } finally {
       // Always reset signing out state
       setIsSigningOutState(false);
@@ -526,6 +560,8 @@ const cleanupLocalStorage = async () => {
 
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
+      setIsSigningIn(true);
+      
       if (isGuest) {
         await clearGuestMode();
       }
@@ -541,9 +577,14 @@ const cleanupLocalStorage = async () => {
         await fetchUserProfile(data.user.id);
       }
 
+      // Wait for 1.5 seconds to show the loader (reduced from 3 seconds)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setIsSigningIn(false);
       return { error: null };
     } catch (error: any) {
       console.error('Sign in error:', error);
+      setIsSigningIn(false);
       return { error };
     }
   };
@@ -803,8 +844,9 @@ const verifyOtp = async (email: string, token: string) => {
         user,
         profile,
         isLoaded,
-        isSignedIn: !!user,
+        isSignedIn: !!user || !!session,
         isSigningOut: isSigningOutState,
+        isSigningIn,
         signIn,
         signUp,
         signOut,
