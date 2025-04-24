@@ -23,6 +23,7 @@ import LogoLoader from '@/components/LogoLoader';
 import { NotificationService } from '@/services/NotificationService'
 import { isGlobalSigningOut } from '@/utils/AuthContext';
 
+
 const { width, height } = Dimensions.get('window');
 
 // Notification handler configuration
@@ -441,6 +442,21 @@ const DeepLinkHandler = () => {
       global.pendingDeepLink = null;
     }
   }, [isSignedIn, router]);
+
+
+  useEffect(() => {
+    const clearBadge = async () => {
+      try {
+        await Notifications.setBadgeCountAsync(0);
+        console.log('Badge cleared on app launch');
+      } catch (err) {
+        console.error('Failed to clear badge:', err);
+      }
+    };
+  
+    clearBadge();
+  }, []);
+  
 
   return null;
 };
