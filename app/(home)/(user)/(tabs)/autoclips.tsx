@@ -286,7 +286,7 @@ export default function AutoClips() {
   const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-// Add a separate effect to handle deep link navigation after data loads
+
 useEffect(() => {
   if (params.clipId && !isLoading && autoClips.length > 0) {
     const targetClipIndex = autoClips.findIndex(
@@ -294,26 +294,55 @@ useEffect(() => {
     );
     
     if (targetClipIndex !== -1) {
-      // Wait for the FlatList to be ready
-      setTimeout(() => {
-        flatListRef.current?.scrollToIndex({
-          index: targetClipIndex,
-          animated: false,
-        });
+      // Add a ref to track if FlatList is ready
+      let mounted = true;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      const tryScrollToIndex = () => {
+        if (!mounted) return;
         
-        setCurrentVideoIndex(targetClipIndex);
-        if (params.fromDeepLink === 'true') {
-          setAllowVideoPlayback(true);
+        if (flatListRef.current) {
+          try {
+            flatListRef.current.scrollToIndex({
+              index: targetClipIndex,
+              animated: false,
+            });
+            
+            setCurrentVideoIndex(targetClipIndex);
+            if (params.fromDeepLink === 'true') {
+              setAllowVideoPlayback(true);
+            }
+          } catch (error) {
+            // FlatList not ready, retry if under max attempts
+            if (attempts < maxAttempts) {
+              attempts++;
+              setTimeout(tryScrollToIndex, 100);
+            } else {
+              console.error('Failed to scroll to clip after max attempts');
+            }
+          }
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryScrollToIndex, 100);
         }
-      }, 500);
+      };
+      
+      // Initial delay to ensure component mounting
+      setTimeout(tryScrollToIndex, 500);
+      
+      return () => {
+        mounted = false;
+      };
     } else {
-      // Handle case where clip isn't found
       Alert.alert('Clip Not Found', 'The requested video is no longer available.');
     }
   }
 }, [params.clipId, isLoading, autoClips]);
 
-  const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
+const [allowVideoPlayback, setAllowVideoPlayback] = useState(() => {
+  return params.fromDeepLink === 'true' ? false : false;
+});
 
   // SPLASH SCREEN & LOADING STATES
   const [showSplash, setShowSplash] = useState(true);
@@ -334,6 +363,12 @@ useEffect(() => {
   ];
   const splashTextOpacity = useRef(new Animated.Value(0)).current;
   const splashContainerOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (params.fromDeepLink === 'true' && !showSplash) {
+      setAllowVideoPlayback(true);
+    }
+  }, [params.fromDeepLink, showSplash]);
 
   useEffect(() => {
     setAllowVideoPlayback(isFocused);
@@ -368,8 +403,41 @@ useEffect(() => {
     }
   }, [splashPhase]);
 
-  useEffect(() => {
-    if (splashPhase === "holding" && !isLoading) {
+
+useEffect(() => {
+  if (params.clipId && !isLoading && autoClips.length > 0) {
+    const targetClip = autoClips.find(
+      clip => clip.id.toString() === params.clipId
+    );
+    
+    if (!targetClip) {
+      // Log error for debugging
+      console.error(`Deep link clip ${params.clipId} not found`);
+      
+      // Show user-friendly error
+      Alert.alert(
+        'Clip Not Found',
+        'The requested video is no longer available.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate to home or fallback
+              router.replace('/(home)/(user)');
+            }
+          }
+        ]
+      );
+    }
+  }
+}, [params.clipId, isLoading, autoClips]);
+
+useEffect(() => {
+  if (splashPhase === "holding" && !isLoading) {
+    // If deep link, ensure proper exit timing
+    const exitDelay = params.fromDeepLink === 'true' ? 300 : 0;
+    
+    setTimeout(() => {
       setSplashPhase("exit");
       Animated.timing(splashContainerOpacity, {
         toValue: 0,
@@ -377,9 +445,15 @@ useEffect(() => {
         useNativeDriver: true,
       }).start(() => {
         setShowSplash(false);
+        
+        // For deep links, ensure playback starts after splash is fully hidden
+        if (params.fromDeepLink === 'true') {
+          setAllowVideoPlayback(true);
+        }
       });
-    }
-  }, [splashPhase, isLoading]);
+    }, exitDelay);
+  }
+}, [splashPhase, isLoading, params.fromDeepLink]);
 
   // NETWORK, DATA, VIDEO STATES
   const [refreshing, setRefreshing] = useState(false);
