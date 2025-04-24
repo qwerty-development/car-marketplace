@@ -629,16 +629,11 @@ export default function UserProfileAndSupportPage() {
               <View className="relative">
                 <Image
                   source={{ uri: isGuest
-                    ? DEFAULT_PROFILE_IMAGE
-                    : (user?.user_metadata?.avatar_url || DEFAULT_PROFILE_IMAGE) }}
+                    ? DEFAULT_PROFILE_IMAGE :
+                    DEFAULT_PROFILE_IMAGE }}
                   className="w-32 h-32 rounded-full border-4 border-white/20"
                 />
-                <TouchableOpacity
-                  onPress={onPickImage}
-                  className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
-                >
-                  <Ionicons name="camera" size={20} color="#D55004" />
-                </TouchableOpacity>
+                
               </View>
               <Text className="text-white text-xl font-semibold mt-4">
                 {isGuest ? "Guest User" : `${firstName} ${lastName}`}

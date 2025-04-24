@@ -80,9 +80,12 @@ const NOTIFICATION_TYPES: Record<string, { icon: string, color: string }> = {
 
 // Animation constants for more consistent animations
 const ANIMATION_CONFIG = {
-  duration: 300,
+  mass: 1,
   damping: 15,
-  stiffness: 120
+  stiffness: 120,
+  overshootClamping: false,
+  restDisplacementThreshold: 0.01,
+  restSpeedThreshold: 0.01
 };
 
 export default function NotificationsScreen() {
@@ -442,7 +445,7 @@ export default function NotificationsScreen() {
       // Navigate if there's a destination
       if (notification.data?.screen) {
         router.replace({
-          pathname: notification.data.screen,
+          pathname: notification.data.screen as any,
           params: notification.data.params
         })
       }
@@ -504,7 +507,6 @@ export default function NotificationsScreen() {
                 !notification.is_read ? 'border-l-4 border-red' : ''
               }`}>
               <View className='flex-row items-start'>
-                {/* Icon based on notification type */}
                 <View
                   className='mr-3 mt-1 w-8 h-8 rounded-full justify-center items-center'
                   style={{ backgroundColor: `${typeInfo.color}20` }}>
@@ -577,7 +579,7 @@ export default function NotificationsScreen() {
         <Text
           className={`text-sm font-medium uppercase tracking-wider ${
             isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
-          }`}> {/* Added uppercase and tracking-wider for better visual hierarchy */}
+          }`}> 
           {title}
         </Text>
       </Animated.View>
@@ -805,10 +807,10 @@ const renderMinimalHeader = useCallback(() => {
       <View className="pt-2">
         <FilterMenu />
   
-        {/* Filter applied indicator */}
+
         {(filterType !== 'all' || selectedCategory || sortType !== 'newest') && (
           <View className='flex-row flex-wrap px-4 py-2'>
-            {/* Filter indicators remain unchanged */}
+    
             {filterType !== 'all' && (
               <View className='bg-red/20 rounded-full px-3 py-1 mr-2 mb-1 flex-row items-center'>
                 <Ionicons name={filterType === 'unread' ? 'radio-button-off' : 'checkmark-circle'} size={14} color="#D55004" />
@@ -818,7 +820,7 @@ const renderMinimalHeader = useCallback(() => {
               </View>
             )}
   
-            {/* Other filter indicators remain the same */}
+        
             {selectedCategory && (
               <View className='bg-red/20 rounded-full px-3 py-1 mr-2 mb-1 flex-row items-center'>
                 <Ionicons
@@ -875,7 +877,7 @@ const renderMinimalHeader = useCallback(() => {
       )
     }
 
-    // Check if there are no notifications because of filters
+
     if (notifications.length > 0 && groupedNotifications.length === 0) {
       return (
         <View className='flex-1 justify-center items-center py-20'>
@@ -950,8 +952,7 @@ const renderMinimalHeader = useCallback(() => {
 
   // FAB for clearing all notifications
   const renderFAB = useCallback(() => {
-    // Only show FAB if there are notifications and not in selection mode
-    // if (notifications.length === 0 || isSelectionMode) return null;
+
   
     return (
       <Animated.View
@@ -1085,7 +1086,7 @@ const renderMinimalHeader = useCallback(() => {
 
 const styles = StyleSheet.create({
   iosShadow: {
-    shadowColor: '#000',
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.27,
     shadowRadius: 4.65,
