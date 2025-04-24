@@ -490,7 +490,6 @@ export default function NotificationsScreen() {
           key={notification.id}
           className='mx-4 rounded-3xl mb-4'>
           <TouchableOpacity
-          
             onPress={() => handleNotificationPress(notification)}
             onLongPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -500,7 +499,7 @@ export default function NotificationsScreen() {
               }
             }}
             delayLongPress={300}
-            className='overflow-hidden rounded-3xl '>
+            className='overflow-hidden rounded-3xl'>
             <BlurView
               intensity={isDarkMode ? 40 : 60}
               tint={isDarkMode ? 'dark' : 'light'}
@@ -572,12 +571,12 @@ export default function NotificationsScreen() {
       toggleSelectionMode,
       getNotificationTypeInfo
     ]
-  )
+  );
   const renderSectionHeader = useCallback(({ title }: { title: string }) => {
     return (
       <View
  
-        className='mx-4 mt-8 mb-3'> {/* Increased top margin */}
+        className='mx-4 mb-3'> {/* Increased top margin */}
         <Text
           className={`text-sm font-medium uppercase tracking-wider ${
             isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
@@ -617,15 +616,7 @@ export default function NotificationsScreen() {
             <Ionicons name="close" size={24} color={isDarkMode ? 'white' : 'black'} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity onPress={toggleFilterMenu}>
-            <Ionicons 
-              name="filter" 
-              size={24} 
-              color={filterType !== 'all' || selectedCategory || sortType !== 'newest' 
-                ? '#D55004' 
-                : isDarkMode ? 'white' : 'black'} 
-            />
-          </TouchableOpacity>
+<View/>
         )}
       </View>
     );
@@ -640,132 +631,7 @@ export default function NotificationsScreen() {
     );
   }, [renderSectionHeader, renderNotification]);
 
-  const FilterMenu = useCallback(() => {
-    if (!showFilterMenu) return null;
-
-    return (
-      <View
-        style={[filterMenuStyle]}
-        className={`mx-4 rounded-xl overflow-hidden ${isDarkMode ? 'bg-neutral-800' : 'bg-white'}`}>
-        <ScrollView className='p-4'>
-          <Text className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-            Filter by
-          </Text>
-
-          <View className='flex-row flex-wrap mb-4'>
-            <TouchableOpacity
-              onPress={() => setFilter('all')}
-              className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'all' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
-              }`}>
-              <Text className={filterType === 'all' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
-                All
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setFilter('unread')}
-              className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'unread' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
-              }`}>
-              <Text className={filterType === 'unread' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
-                Unread
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setFilter('read')}
-              className={`mr-2 mb-2 px-3 py-1 rounded-full ${
-                filterType === 'read' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
-              }`}>
-              <Text className={filterType === 'read' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
-                Read
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-            Sort by
-          </Text>
-
-          <View className='flex-row mb-4'>
-            <TouchableOpacity
-              onPress={() => setSort('newest')}
-              className={`mr-2 px-3 py-1 rounded-full ${
-                sortType === 'newest' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
-              }`}>
-              <Text className={sortType === 'newest' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
-                Newest first
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setSort('oldest')}
-              className={`mr-2 px-3 py-1 rounded-full ${
-                sortType === 'oldest' ? 'bg-red' : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
-              }`}>
-              <Text className={sortType === 'oldest' ? 'text-white' : isDarkMode ? 'text-neutral-200' : 'text-neutral-600'}>
-                Oldest first
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {categories.length > 1 && (
-            <>
-              <Text className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                Categories
-              </Text>
-
-              <View className='flex-row flex-wrap'>
-                {categories.map(category => (
-                  <TouchableOpacity
-                    key={category}
-                    onPress={() => setCategory(category === 'all' ? null : category)}
-                    className={`mr-2 mb-2 px-3 py-1 rounded-full flex-row items-center ${
-                      (category === 'all' && !selectedCategory) || category === selectedCategory
-                        ? 'bg-red'
-                        : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
-                    }`}>
-                    {category !== 'all' && (
-                      <Ionicons
-                        name={(NOTIFICATION_TYPES[category] || NOTIFICATION_TYPES.default).icon as any}
-                        size={14}
-                        color={
-                          (category === 'all' && !selectedCategory) || category === selectedCategory
-                            ? 'white'
-                            : isDarkMode ? '#E5E7EB' : '#000000' 
-                        }
-                        style={{ marginRight: 4 }}
-                      />
-                    )}
-                    <Text
-                      className={
-                        (category === 'all' && !selectedCategory) || category === selectedCategory
-                          ? 'text-white'
-                          : isDarkMode ? 'text-neutral-400' : 'text-black'
-                      }>
-                      {category === 'all' ? 'All categories' : category}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
-        </ScrollView>
-      </View>
-    );
-  }, [
-    showFilterMenu,
-    isDarkMode,
-    filterMenuStyle,
-    filterType,
-    sortType,
-    categories,
-    selectedCategory,
-    setFilter,
-    setSort,
-    setCategory
-  ]);
+  
 
   const CountBadge = useCallback(({ count }: { count: number }) => {
     if (count === 0) return null;
@@ -784,7 +650,6 @@ export default function NotificationsScreen() {
   const ListHeader = useCallback(() => {
     return (
       <View className="pt-2">
-        <FilterMenu />
   
 
         {(filterType !== 'all' || selectedCategory || sortType !== 'newest') && (
@@ -829,100 +694,106 @@ export default function NotificationsScreen() {
     filterType,
     selectedCategory,
     sortType,
-    FilterMenu
   ])
 
-  const ListEmptyComponent = useCallback(() => {
-    if (error) {
-      return (
-        <View className='flex-1 justify-center items-center py-20'>
-          <Ionicons
-            name='alert-circle-outline'
-            size={48}
-            color={isDarkMode ? '#666' : '#999'}
-          />
-          <Text
-            className={`mt-4 text-lg ${
-              isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
-            }`}>
-            {error}
-          </Text>
-          <TouchableOpacity
-            className='mt-4 bg-red px-4 py-2 rounded-full'
-            onPress={() => fetchNotifications(1, true)}>
-            <Text className='text-white'>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      )
-    }
-
-
-    if (notifications.length > 0 && groupedNotifications.length === 0) {
-      return (
-        <View className='flex-1 justify-center items-center py-20'>
-          <Ionicons
-            name='filter-outline'
-            size={48}
-            color={isDarkMode ? '#666' : '#999'}
-          />
-          <Text
-            className={`mt-4 text-center px-8 ${
-              isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
-            }`}>
-            No notifications match your current filters
-          </Text>
-          <TouchableOpacity
-            className='mt-4 bg-red px-4 py-2 rounded-full'
-            onPress={() => {
-              setFilterType('all');
-              setSelectedCategory(null);
-              setSortType('newest');
-              if (showFilterMenu) {
-                toggleFilterMenu();
-              }
-            }}>
-            <Text className='text-white'>Clear Filters</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (loading && notifications.length === 0) {
-      return null
-    }
-
+const ListEmptyComponent = useCallback(() => {
+  // Show a loading indicator during initial load
+  if (loading && notifications.length === 0) {
     return (
-      <View
-        className='flex-1 justify-center items-center py-20'>
-        <View className='w-24 h-24 rounded-full bg-neutral-100 justify-center items-center mb-4'>
-          <Ionicons
-            name='notifications-off-outline'
-            size={48}
-            color={isDarkMode ? '#666' : '#999'}
-          />
-        </View>
+      <View className='flex-1 justify-center items-center py-20'>
+        <ActivityIndicator size="large" color="#D55004" />
+      </View>
+    );
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <View className='flex-1 justify-center items-center py-20'>
+        <Ionicons
+          name='alert-circle-outline'
+          size={48}
+          color={isDarkMode ? '#666' : '#999'}
+        />
         <Text
-          className={`text-lg mb-2 font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}>
-          No notifications yet
-        </Text>
-        <Text
-          className={`text-center px-12 ${
+          className={`mt-4 text-lg ${
             isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
           }`}>
-          We'll notify you when there's activity related to your favorite cars and dealerships
+          {error}
         </Text>
+        <TouchableOpacity
+          className='mt-4 bg-red px-4 py-2 rounded-full'
+          onPress={() => fetchNotifications(1, true)}>
+          <Text className='text-white'>Try Again</Text>
+        </TouchableOpacity>
       </View>
-    )
-  }, [
-    isDarkMode,
-    loading,
-    error,
-    notifications.length,
-    fetchNotifications,
-    groupedNotifications.length,
-    toggleFilterMenu,
-    showFilterMenu
-  ])
+    );
+  }
+
+  // Show "no matching filters" state
+  if (notifications.length > 0 && groupedNotifications.length === 0) {
+    return (
+      <View className='flex-1 justify-center items-center py-20'>
+        <Ionicons
+          name='filter-outline'
+          size={48}
+          color={isDarkMode ? '#666' : '#999'}
+        />
+        <Text
+          className={`mt-4 text-center px-8 ${
+            isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
+          }`}>
+          No notifications match your current filters
+        </Text>
+        <TouchableOpacity
+          className='mt-4 bg-red px-4 py-2 rounded-full'
+          onPress={() => {
+            setFilterType('all');
+            setSelectedCategory(null);
+            setSortType('newest');
+            if (showFilterMenu) {
+              toggleFilterMenu();
+            }
+          }}>
+          <Text className='text-white'>Clear Filters</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Show "no notifications" state (only when we're sure we've loaded data and there are none)
+  return (
+    <View className='flex-1 justify-center items-center py-20'>
+      <View className='w-24 h-24 rounded-full bg-neutral-100 justify-center items-center mb-4'>
+        <Ionicons
+          name='notifications-off-outline'
+          size={48}
+          color={isDarkMode ? '#666' : '#999'}
+        />
+      </View>
+      <Text
+        className={`text-lg mb-2 font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}>
+        No notifications yet
+      </Text>
+      <Text
+        className={`text-center px-12 ${
+          isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
+        }`}>
+        We'll notify you when there's activity related to your favorite cars and dealerships
+      </Text>
+    </View>
+  );
+}, [
+  isDarkMode,
+  loading,
+  error,
+  notifications.length,
+  fetchNotifications,
+  groupedNotifications.length,
+  toggleFilterMenu,
+  showFilterMenu
+]);
+
 
   const showLoading = loading && notifications.length === 0;
 
@@ -930,28 +801,38 @@ export default function NotificationsScreen() {
 
   // FAB for clearing all notifications
   const renderFAB = useCallback(() => {
-
+    if (notifications.length === 0 || isSelectionMode) return null;
   
     return (
-      <View
+      <Animated.View
         style={[
           fabStyle,
           {
             position: 'absolute',
-            bottom: Math.max(20, insets.bottom + 32),
-            right: 16,
+            bottom: Math.max(80, insets.bottom + 60), // Higher position
+            right: 20,
+            zIndex: 1000, // Ensure it's on top
           }
-        ]}
-        >
+        ]}>
         <TouchableOpacity
           onPress={handleClearAll}
-          className='bg-red w-12 h-12 rounded-full justify-center items-center shadow-lg'
-          style={Platform.OS === 'ios' ? styles.iosShadow : styles.androidShadow}>
+          className='bg-red w-14 h-14 rounded-full justify-center items-center shadow-lg'
+          style={[
+            Platform.OS === 'ios' ? styles.iosShadow : styles.androidShadow,
+            { borderWidth: 2, borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }
+          ]}>
           <Ionicons name="trash-outline" size={24} color="white" />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     );
-  }, [notifications.length, isSelectionMode, fabStyle, insets.bottom, handleClearAll]);
+  }, [
+    notifications.length, 
+    isSelectionMode, 
+    fabStyle, 
+    insets.bottom, 
+    handleClearAll, 
+    isDarkMode
+  ]);
 
   const renderSelectionModeHeader = useCallback(() => {
     return (
@@ -999,54 +880,57 @@ export default function NotificationsScreen() {
   }, [isDarkMode, toggleSelectionMode, selectedNotifications.length, handleBulkAction]);
 
   // This allows us to render a custom list with sections
-  const renderContent = useCallback(() => {
-    return (
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: 10, // Add padding to the top
-          paddingBottom: insets.bottom + 60 // Extra padding for FAB
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={isDarkMode ? '#fff' : '#000'}
-          />
-        }>
-        <ListHeader />
-        {groupedNotifications.length > 0 ? (
-          groupedNotifications.map((group, index) =>
-            renderNotificationGroup(group, index)
-          )
-        ) : (
-          <ListEmptyComponent />
-        )}
+const renderContent = useCallback(() => {
+  // Don't render the empty component during refreshing to prevent flicker
+  const shouldShowEmptyComponent = !refreshing;
   
-        {/* Load more indicator */}
-        {hasMore && notifications.length > 0 && (
-          <View className='py-6 items-center'>
-            <ActivityIndicator color='#D55004' />
-            <Text className={`mt-2 ${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'}`}>
-              Loading more...
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    );
-  }, [
-    insets.bottom,
-    refreshing,
-    onRefresh,
-    isDarkMode,
-    groupedNotifications,
-    renderNotificationGroup,
-    ListHeader,
-    ListEmptyComponent,
-    hasMore,
-    notifications.length
-  ]);
+  return (
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingTop: 10,
+        paddingBottom: insets.bottom + 60
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={isDarkMode ? '#fff' : '#000'}
+        />
+      }>
+      <ListHeader />
+      {groupedNotifications.length > 0 ? (
+        groupedNotifications.map((group, index) =>
+          renderNotificationGroup(group, index)
+        )
+      ) : (
+        shouldShowEmptyComponent && <ListEmptyComponent />
+      )}
+
+      {/* Load more indicator */}
+      {hasMore && notifications.length > 0 && (
+        <View className='py-6 items-center'>
+          <ActivityIndicator color='#D55004' />
+          <Text className={`mt-2 ${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'}`}>
+            Loading more...
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}, [
+  insets.bottom,
+  refreshing,
+  onRefresh,
+  isDarkMode,
+  groupedNotifications,
+  renderNotificationGroup,
+  ListHeader,
+  ListEmptyComponent,
+  hasMore,
+  notifications.length
+]);
 
   return (
     <GestureHandlerRootView key={notificationsScreenKey} className='flex-1'>
