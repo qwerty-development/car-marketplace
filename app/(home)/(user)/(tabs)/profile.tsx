@@ -86,54 +86,23 @@ export default function UserProfileAndSupportPage() {
 
   const fetchTokenStatus = useCallback(async () => {
     if (!user?.id || isGuest) return;
-
+  
     try {
       setLoading(true);
-
-      // Get the token from storage
       const token = await SecureStore.getItemAsync("expoPushToken");
-
-      if (!token) {
-        console.log("No token found when checking status");
-        // Attempt to sync from database
-        const syncedToken = await NotificationService.syncTokenFromDatabase(
-          user.id
-        );
-
-        if (!syncedToken) {
-          // No token available, set defaults
-          setPushNotificationsEnabled(false);
-          setNotificationSettings((prev) => ({
-            ...prev,
-            pushNotifications: false,
-          }));
-          return;
+      
+      // Direct, simple query with no complex state management
+      if (token) {
+        const { data } = await supabase
+          .from("user_push_tokens")
+          .select("active, signed_in")
+          .eq("user_id", user.id)
+          .eq("token", token)
+          .single();
+  
+        if (data) {
+          setPushNotificationsEnabled(data.active && data.signed_in);
         }
-      }
-
-      // Check token status in database
-      const { data, error } = await supabase
-        .from("user_push_tokens")
-        .select("active, signed_in")
-        .eq("user_id", user.id)
-        .eq("token", token || "")
-        .single();
-
-      if (error) {
-        console.error("Error fetching token status:", error);
-        return;
-      }
-
-      if (data) {
-        // Check both active and signed_in status
-        const isEnabled = data.active && data.signed_in;
-        setPushNotificationsEnabled(isEnabled);
-
-        // Update local notification settings state to match
-        setNotificationSettings((prev) => ({
-          ...prev,
-          pushNotifications: isEnabled,
-        }));
       }
     } catch (error) {
       console.error("Error in fetchTokenStatus:", error);
@@ -227,6 +196,8 @@ export default function UserProfileAndSupportPage() {
           10
         )}...`
       );
+
+      
 
       // Update the token status in database
       const { data, error } = await supabase
@@ -333,6 +304,18 @@ export default function UserProfileAndSupportPage() {
       }).start();
     }
   }, [isGuest, bannerAnimation]);
+
+  useEffect(() => {
+    return () => {
+      // Component unmount cleanup
+      console.log("Profile screen unmounting - cleaning up resources");
+      
+      // Reset any potential global state that might be affected
+      if (refreshNotifications) {
+        refreshNotifications();
+      }
+    };
+  }, []);
 
   // Helper function to decode Base64
   const base64Decode = (base64String: string): Uint8Array => {
