@@ -10,6 +10,7 @@ import 'react-native-gesture-handler'
 import 'react-native-get-random-values'
 import { useNotifications } from '@/hooks/useNotifications'
 import * as Notifications from 'expo-notifications'
+import * as SecureStore from 'expo-secure-store'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import ErrorBoundary from 'react-native-error-boundary'
 import CustomSplashScreen from './CustomSplashScreen'
@@ -19,6 +20,8 @@ import { supabase } from '@/utils/supabase'
 import NetworkProvider from '@/utils/NetworkContext'
 import { useCarDetails } from '@/hooks/useCarDetails';
 import LogoLoader from '@/components/LogoLoader';
+import { NotificationService } from '@/services/NotificationService'
+import { isGlobalSigningOut } from '@/utils/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -291,18 +294,79 @@ function EnvironmentVariablesCheck() {
 }
 
 function NotificationsProvider() {
-  const { unreadCount, isPermissionGranted } = useNotifications()
+  const { unreadCount, isPermissionGranted, registerForPushNotifications } = useNotifications();
+  const { user, isSignedIn } = useAuth();
+  const { isGuest } = useGuestUser();
+  const [isInitializing, setIsInitializing] = useState(false);
+  const initializationRef = useRef(false);
 
-  useEffect(() => {
-    console.log('Notification state:', { unreadCount, isPermissionGranted })
-  }, [unreadCount, isPermissionGranted])
 
-  return (
-    <>
-      <EnvironmentVariablesCheck />
-    </>
-  )
-}
+  
+    // Initialize notification system on app startup
+    useEffect(() => {
+      const initializeNotifications = async () => {
+        // Prevent multiple initializations
+        if (initializationRef.current || isInitializing) return;
+        
+        // Skip if user is not authenticated or is guest
+        if (!isSignedIn || isGuest || !user?.id) return;
+  
+        // Skip during sign-out
+        if (isGlobalSigningOut) {
+          console.log('Skipping notification initialization during sign-out');
+          return;
+        }
+  
+        try {
+          setIsInitializing(true);
+          initializationRef.current = true;
+  
+          console.log('Initializing notification system on app startup');
+  
+          // Verify token status on app startup
+          const localToken = await SecureStore.getItemAsync('expoPushToken');
+          
+          if (localToken && !isGlobalSigningOut) {
+            // Verify token exists in database and is properly configured
+            const { data: tokenData, error } = await supabase
+              .from('user_push_tokens')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('token', localToken)
+              .single();
+  
+            if (error || !tokenData) {
+              console.log('Token not found in database during startup, initiating registration');
+              if (!isGlobalSigningOut) {
+                await registerForPushNotifications(true);
+              }
+            } else if (!tokenData.signed_in && !isGlobalSigningOut) {
+              console.log('Token exists but signed_in is false during startup, updating');
+              await NotificationService.markTokenAsSignedIn(user.id, localToken);
+            }
+          } else if (!isGlobalSigningOut) {
+            console.log('No local token found during startup, initiating registration');
+            await registerForPushNotifications(true);
+          }
+        } catch (error) {
+          console.error('Error initializing notifications on startup:', error);
+        } finally {
+          setIsInitializing(false);
+        }
+      };
+  
+      if (!isGlobalSigningOut) {
+        initializeNotifications();
+      }
+    }, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
+  
+    useEffect(() => {
+      console.log('Notification state:', { unreadCount, isPermissionGranted });
+    }, [unreadCount, isPermissionGranted]);
+  
+    return <EnvironmentVariablesCheck />;
+  }
+
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
@@ -427,23 +491,21 @@ export default function RootLayout() {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <NetworkProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        
-            <GuestUserProvider>
-              <AuthProvider>
-                <DeepLinkHandler />
-                <QueryClientProvider client={queryClient}>
-                  <ThemeProvider>
-                    <FavoritesProvider>
-                      <NotificationsProvider />
-                      <RootLayoutNav />
-                    </FavoritesProvider>
-                  </ThemeProvider>
-                </QueryClientProvider>
-              </AuthProvider>
-            </GuestUserProvider>
-        
-      </GestureHandlerRootView>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <GuestUserProvider>
+            <AuthProvider>
+              <DeepLinkHandler />
+              <QueryClientProvider client={queryClient}>
+                <ThemeProvider>
+                  <FavoritesProvider>
+                    <NotificationsProvider />
+                    <RootLayoutNav />
+                  </FavoritesProvider>
+                </ThemeProvider>
+              </QueryClientProvider>
+            </AuthProvider>
+          </GuestUserProvider>
+        </GestureHandlerRootView>
       </NetworkProvider>
     </ErrorBoundary>
   )

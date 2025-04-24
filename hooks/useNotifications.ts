@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import * as Notifications from 'expo-notifications';
-import { Platform, AppState } from 'react-native';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import { NotificationService } from '@/services/NotificationService';
 import { router } from 'expo-router';
 import { useAuth } from '@/utils/AuthContext';
@@ -8,15 +8,26 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { isSigningOut } from '@/app/(home)/_layout';
 import NetInfo from '@react-native-community/netinfo';
+import { isGlobalSigningOut } from '../utils/AuthContext';
 
-// Storage key for push token
-const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
-const REGISTRATION_STATE_KEY = 'notificationRegistrationState';
+// Storage keys
+const STORAGE_KEYS = {
+  PUSH_TOKEN: 'expoPushToken',
+  REGISTRATION_STATE: 'notificationRegistrationState',
+  TOKEN_REFRESH_TIME: 'pushTokenRefreshTime'
+} as const;
 
-// Constants
-const MAX_REGISTRATION_ATTEMPTS = 3;
-const REGISTRATION_TIMEOUT = 60 * 60 * 1000; // 1 hour
-const DEBUG_MODE = __DEV__ || true; // Enable debug mode in dev and initially in prod
+// Configuration constants
+const CONFIG = {
+  MAX_REGISTRATION_ATTEMPTS: 3,
+  REGISTRATION_TIMEOUT: 60 * 60 * 1000, // 1 hour
+  DEBUG_MODE: __DEV__, // IMPORTANT: Production-ready debug mode
+  DUPLICATE_WINDOW: 5000, // 5 seconds
+  NAVIGATION_RETRY_DELAY: 1000,
+  REGISTRATION_RETRY_BASE_DELAY: 5000,
+  MAX_RETRY_DELAY: 30 * 60 * 1000, // 30 minutes
+  RECENT_REGISTRATION_THRESHOLD: 24 * 60 * 60 * 1000 // 24 hours
+} as const;
 
 interface RegistrationState {
   lastAttemptTime: number;
@@ -40,30 +51,36 @@ interface UseNotificationsReturn {
 
 export function useNotifications(): UseNotificationsReturn {
   const { user } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [isPermissionGranted, setIsPermissionGranted] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isPermissionGranted, setIsPermissionGranted] = useState<boolean>(false);
   const [diagnosticInfo, setDiagnosticInfo] = useState<any>(null);
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
-  const lastNotificationResponse = useRef<Notifications.NotificationResponse>();
-  const realtimeSubscription = useRef<RealtimeChannel>();
-  const lastHandledNotification = useRef<string>();
-  const pushTokenListener = useRef<any>();
-  const appState = useRef(AppState.currentState);
-  const registrationAttempts = useRef(0);
+  
+  // Refs for subscriptions and listeners
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const lastNotificationResponse = useRef<Notifications.NotificationResponse | null>(null);
+  const realtimeSubscription = useRef<RealtimeChannel | null>(null);
+  const lastHandledNotification = useRef<string | null>(null);
+  const pushTokenListener = useRef<Notifications.Subscription | null>(null);
+  
+  // App state and registration management
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+  const registrationAttempts = useRef<number>(0);
   const registrationTimer = useRef<NodeJS.Timeout | null>(null);
   const networkStatus = useRef<boolean>(true);
   const initialSetupComplete = useRef<boolean>(false);
   const forceRegistrationOnNextForeground = useRef<boolean>(false);
 
-  // Improved logging with timestamps
+  /**
+   * Enhanced logging function with production-ready debug mode
+   */
   const debugLog = useCallback((message: string, data?: any) => {
-    if (DEBUG_MODE) {
+    if (CONFIG.DEBUG_MODE) {
       const timestamp = new Date().toISOString();
       const logPrefix = `[useNotifications ${timestamp}]`;
 
-      if (data) {
+      if (data !== undefined) {
         console.log(`${logPrefix} ${message}`, data);
       } else {
         console.log(`${logPrefix} ${message}`);
@@ -71,14 +88,16 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, []);
 
-  // Handler for token refresh events with improved error handling
+  /**
+   * Token refresh handler with proper type correction and error handling
+   */
   const handleTokenRefresh = useCallback(async (pushToken: Notifications.ExpoPushToken) => {
     if (!user?.id || isSigningOut) return;
 
     debugLog('Expo push token refreshed:', pushToken.data);
 
     try {
-      // Validate token format
+      // Validate token format with regex
       const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
       if (!validExpoTokenFormat.test(pushToken.data)) {
         debugLog('Received non-Expo format token during refresh, ignoring');
@@ -86,8 +105,8 @@ export function useNotifications(): UseNotificationsReturn {
       }
 
       // Save token to secure storage immediately for resilience
-      await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, pushToken.data);
-      await SecureStore.setItemAsync('pushTokenRefreshTime', Date.now().toString());
+      await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN, pushToken.data);
+      await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN_REFRESH_TIME, Date.now().toString());
 
       // Skip database update if offline
       if (!networkStatus.current) {
@@ -96,11 +115,11 @@ export function useNotifications(): UseNotificationsReturn {
         return;
       }
 
-      // Check if this token exists in database
+      // Verify token exists in database
       const verification = await NotificationService.forceTokenVerification(user.id);
 
       if (verification.isValid && verification.token === pushToken.data) {
-       console.log('Token verified successfully, no action needed');
+        debugLog('Token verified successfully, no action needed');
       } else {
         // Token not in database or different, register it
         await registerForPushNotifications(true);
@@ -111,18 +130,22 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user?.id, debugLog]);
 
-  // Handler for received notifications with duplicate protection
+  /**
+   * Notification handler with duplicate prevention and error recovery
+   */
   const handleNotification = useCallback(async (notification: Notifications.Notification) => {
     if (!user) return;
 
-    // Avoid duplicate handling with a 5 second window
+    // Prevent duplicate handling within 5-second window
     const notificationId = notification.request.identifier;
-    const lastHandledTime = lastHandledNotification.current?.split('|')[1];
+    const lastHandledData = lastHandledNotification.current?.split('|');
+    const lastHandledId = lastHandledData?.[0];
+    const lastHandledTime = lastHandledData?.[1];
     const currentTime = Date.now().toString();
 
-    if (lastHandledNotification.current?.split('|')[0] === notificationId) {
-      // Check if within 5 seconds
-      if (lastHandledTime && (Date.now() - parseInt(lastHandledTime)) < 5000) {
+    if (lastHandledId === notificationId && lastHandledTime) {
+      const timeDiff = Date.now() - parseInt(lastHandledTime, 10);
+      if (timeDiff < CONFIG.DUPLICATE_WINDOW) {
         debugLog('Skipping duplicate notification handling within 5s window');
         return;
       }
@@ -147,18 +170,22 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user, debugLog]);
 
-  // Handler for when user taps on a notification with improved navigation
+  /**
+   * Notification response handler with improved navigation and error recovery
+   */
   const handleNotificationResponse = useCallback(async (response: Notifications.NotificationResponse) => {
     if (!user) return;
 
-    // Avoid duplicate handling with contextual awareness
+    // Prevent duplicate response handling
     const responseId = response.notification.request.identifier;
-    const lastResponseTime = lastNotificationResponse.current?.notification.date;
-    const currentTime = new Date();
+    const lastResponseTime = lastNotificationResponse.current?.notification.date?.getTime();
+    const currentTime = new Date().getTime();
 
-    if (lastNotificationResponse.current?.notification.request.identifier === responseId &&
-        lastResponseTime &&
-        (currentTime.getTime() - lastResponseTime.getTime()) < 5000) {
+    if (
+      lastNotificationResponse.current?.notification.request.identifier === responseId &&
+      lastResponseTime &&
+      (currentTime - lastResponseTime) < CONFIG.DUPLICATE_WINDOW
+    ) {
       debugLog('Skipping duplicate notification response within 5s window');
       return;
     }
@@ -171,6 +198,7 @@ export function useNotifications(): UseNotificationsReturn {
       });
 
       const navigationData = await NotificationService.handleNotificationResponse(response);
+      
       if (navigationData?.screen) {
         // Mark notification as read if it has an ID
         const notificationId = response.notification.request.content.data?.notificationId;
@@ -181,36 +209,31 @@ export function useNotifications(): UseNotificationsReturn {
           await NotificationService.setBadgeCount(newUnreadCount);
         }
 
-        // Navigate to the specified screen
+        // Navigate to the specified screen with retry logic
         debugLog(`Navigating to ${navigationData.screen}`);
 
-        try {
+        const navigate = () => {
           if (navigationData.params) {
             router.push({
-              pathname: navigationData.screen,
+              pathname: navigationData.screen as any,
               params: navigationData.params
             });
           } else {
-            router.push(navigationData.screen);
+            router.push(navigationData.screen as any);
           }
+        };
+
+        try {
+          navigate();
         } catch (navError) {
           debugLog('Navigation error, retrying with delay:', navError);
-
-          // Retry navigation after a delay
           setTimeout(() => {
             try {
-              if (navigationData.params) {
-                router.push({
-                  pathname: navigationData.screen,
-                  params: navigationData.params
-                });
-              } else {
-                router.push(navigationData.screen);
-              }
+              navigate();
             } catch (retryError) {
               debugLog('Retry navigation also failed:', retryError);
             }
-          }, 1000);
+          }, CONFIG.NAVIGATION_RETRY_DELAY);
         }
       }
     } catch (error) {
@@ -218,10 +241,12 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user, debugLog]);
 
-  // Get registration state from storage
+  /**
+   * Get registration state from secure storage
+   */
   const getRegistrationState = useCallback(async (): Promise<RegistrationState | null> => {
     try {
-      const stateJson = await SecureStore.getItemAsync(REGISTRATION_STATE_KEY);
+      const stateJson = await SecureStore.getItemAsync(STORAGE_KEYS.REGISTRATION_STATE);
       if (!stateJson) return null;
 
       return JSON.parse(stateJson) as RegistrationState;
@@ -231,16 +256,20 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [debugLog]);
 
-  // Save registration state to storage
+  /**
+   * Save registration state to secure storage
+   */
   const saveRegistrationState = useCallback(async (state: RegistrationState): Promise<void> => {
     try {
-      await SecureStore.setItemAsync(REGISTRATION_STATE_KEY, JSON.stringify(state));
+      await SecureStore.setItemAsync(STORAGE_KEYS.REGISTRATION_STATE, JSON.stringify(state));
     } catch (error) {
       debugLog('Error saving registration state:', error);
     }
   }, [debugLog]);
 
-  // Enhanced and simplified registration function with context awareness
+  /**
+   * Enhanced registration function with production-ready logic
+   */
   const registerForPushNotifications = useCallback(async (force = false) => {
     if (!user?.id) {
       debugLog('No user ID available, skipping notification registration');
@@ -258,14 +287,15 @@ export function useNotifications(): UseNotificationsReturn {
       registrationTimer.current = null;
     }
 
-    // Check network status first
+    // Check network status
     const netState = await NetInfo.fetch();
+    networkStatus.current = !!netState.isConnected;
+
     if (!netState.isConnected && !force) {
       debugLog('Network unavailable, deferring registration');
       forceRegistrationOnNextForeground.current = true;
       return;
     }
-    networkStatus.current = !!netState.isConnected;
 
     // Get previous registration state
     const regState = await getRegistrationState();
@@ -273,7 +303,7 @@ export function useNotifications(): UseNotificationsReturn {
     // Skip if recently registered successfully and not forced
     if (regState?.registered && !force) {
       const timeSinceLastAttempt = Date.now() - regState.lastAttemptTime;
-      if (timeSinceLastAttempt < 24 * 60 * 60 * 1000) { // Within 24 hours
+      if (timeSinceLastAttempt < CONFIG.RECENT_REGISTRATION_THRESHOLD) {
         debugLog('Recent successful registration exists, skipping');
         setIsPermissionGranted(true);
         return;
@@ -281,9 +311,9 @@ export function useNotifications(): UseNotificationsReturn {
     }
 
     // Skip repeated failures within timeout period unless forced
-    if (regState && regState.attempts >= MAX_REGISTRATION_ATTEMPTS && !force) {
+    if (regState && regState.attempts >= CONFIG.MAX_REGISTRATION_ATTEMPTS && !force) {
       const timeSinceLastAttempt = Date.now() - regState.lastAttemptTime;
-      if (timeSinceLastAttempt < REGISTRATION_TIMEOUT) {
+      if (timeSinceLastAttempt < CONFIG.REGISTRATION_TIMEOUT) {
         debugLog(`Max registration attempts reached and within timeout, skipping`);
         return;
       }
@@ -291,7 +321,7 @@ export function useNotifications(): UseNotificationsReturn {
 
     // Track this attempt
     registrationAttempts.current = (regState?.attempts || 0) + 1;
-    debugLog(`Push notification registration attempt ${registrationAttempts.current}/${MAX_REGISTRATION_ATTEMPTS}`);
+    debugLog(`Push notification registration attempt ${registrationAttempts.current}/${CONFIG.MAX_REGISTRATION_ATTEMPTS}`);
 
     try {
       setLoading(true);
@@ -332,9 +362,11 @@ export function useNotifications(): UseNotificationsReturn {
         debugLog('Successfully registered push token');
 
         // Set up token refresh listener if not already set
-        if (!pushTokenListener.current) {
-          pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+        if (pushTokenListener.current) {
+          pushTokenListener.current.remove();
+          pushTokenListener.current = null;
         }
+        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
 
         // Registration successful, update state
         registrationAttempts.current = 0;
@@ -349,7 +381,8 @@ export function useNotifications(): UseNotificationsReturn {
           const diagInfo = await NotificationService.getDiagnostics();
           setDiagnosticInfo(diagInfo);
         } catch (e) {
-          // Non-critical
+          // Non-critical error
+          debugLog('Failed to get diagnostics:', e);
         }
       } else {
         debugLog('Failed to get push token');
@@ -363,8 +396,11 @@ export function useNotifications(): UseNotificationsReturn {
         });
 
         // Schedule retry with exponential backoff
-        if (registrationAttempts.current < MAX_REGISTRATION_ATTEMPTS) {
-          const delay = Math.min(5000 * Math.pow(2, registrationAttempts.current - 1), 30 * 60 * 1000);
+        if (registrationAttempts.current < CONFIG.MAX_REGISTRATION_ATTEMPTS) {
+          const delay = Math.min(
+            CONFIG.REGISTRATION_RETRY_BASE_DELAY * Math.pow(2, registrationAttempts.current - 1),
+            CONFIG.MAX_RETRY_DELAY
+          );
           debugLog(`Scheduling retry in ${Math.round(delay / 1000)}s`);
 
           registrationTimer.current = setTimeout(() => {
@@ -387,8 +423,11 @@ export function useNotifications(): UseNotificationsReturn {
       setIsPermissionGranted(false);
 
       // Schedule retry with exponential backoff
-      if (registrationAttempts.current < MAX_REGISTRATION_ATTEMPTS) {
-        const delay = Math.min(5000 * Math.pow(2, registrationAttempts.current - 1), 30 * 60 * 1000);
+      if (registrationAttempts.current < CONFIG.MAX_REGISTRATION_ATTEMPTS) {
+        const delay = Math.min(
+          CONFIG.REGISTRATION_RETRY_BASE_DELAY * Math.pow(2, registrationAttempts.current - 1),
+          CONFIG.MAX_RETRY_DELAY
+        );
         debugLog(`Scheduling retry after error in ${Math.round(delay / 1000)}s`);
 
         registrationTimer.current = setTimeout(() => {
@@ -400,7 +439,9 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user?.id, handleTokenRefresh, getRegistrationState, saveRegistrationState, debugLog]);
 
-  // Enhanced token cleanup that uses the updated NotificationService
+  /**
+   * Enhanced token cleanup with better error handling
+   */
   const cleanupPushToken = useCallback(async () => {
     debugLog('Starting push token cleanup process');
 
@@ -425,9 +466,16 @@ export function useNotifications(): UseNotificationsReturn {
         debugLog('Failed to mark push token as signed out');
       }
 
-      // Reset registration attempts counter
+      // Reset registration state
       registrationAttempts.current = 0;
       forceRegistrationOnNextForeground.current = false;
+
+      // Clear registration state from storage
+      try {
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.REGISTRATION_STATE);
+      } catch (e) {
+        debugLog('Failed to clear registration state:', e);
+      }
 
       return true;
     } catch (error) {
@@ -436,8 +484,10 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user?.id, debugLog]);
 
-  // Standard notification handling functions
-  const markAsRead = useCallback(async (notificationId: string) => {
+  /**
+   * Standard notification handling functions with improved error handling
+   */
+  const markAsRead = useCallback(async (notificationId: string): Promise<void> => {
     if (!user) return;
 
     try {
@@ -450,7 +500,7 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user, debugLog]);
 
-  const markAllAsRead = useCallback(async () => {
+  const markAllAsRead = useCallback(async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -462,7 +512,7 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user, debugLog]);
 
-  const deleteNotification = useCallback(async (notificationId: string) => {
+  const deleteNotification = useCallback(async (notificationId: string): Promise<void> => {
     if (!user) return;
 
     try {
@@ -475,7 +525,7 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user, debugLog]);
 
-  const refreshNotifications = useCallback(async () => {
+  const refreshNotifications = useCallback(async (): Promise<void> => {
     if (!user) return;
 
     setLoading(true);
@@ -490,9 +540,10 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [user, debugLog]);
 
-  // Network status monitoring
+  /**
+   * Network status monitoring with recovery
+   */
   useEffect(() => {
-    // Track network status changes
     const unsubscribe = NetInfo.addEventListener(state => {
       const wasConnected = networkStatus.current;
       const isConnected = !!state.isConnected;
@@ -511,11 +562,18 @@ export function useNotifications(): UseNotificationsReturn {
     };
   }, [user?.id, registerForPushNotifications, debugLog]);
 
-  // App state change handling
+  /**
+   * App state change handling with correct token verification
+   */
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       const previousState = appState.current;
       appState.current = nextAppState;
+
+      if (isGlobalSigningOut) {
+        debugLog('Skipping notification initialization during sign-out');
+        return;
+      }
 
       // App coming to foreground from background or inactive
       if (
@@ -557,9 +615,8 @@ export function useNotifications(): UseNotificationsReturn {
               return;
             }
 
-            debugLog('Token verified on app foreground, updating status');
-
-
+            // Log current signed_in status without changing it
+            debugLog('Token verified on app foreground, current signed_in status:', verification.signedIn);
 
             // Update registration state
             await saveRegistrationState({
@@ -572,7 +629,7 @@ export function useNotifications(): UseNotificationsReturn {
 
             // Only force registration if it's been a while since last attempt
             const regState = await getRegistrationState();
-            if (!regState || Date.now() - regState.lastAttemptTime > 60 * 60 * 1000) { // 1 hour
+            if (!regState || Date.now() - regState.lastAttemptTime > CONFIG.REGISTRATION_TIMEOUT) {
               registerForPushNotifications(true);
             }
           }
@@ -592,7 +649,9 @@ export function useNotifications(): UseNotificationsReturn {
     debugLog
   ]);
 
-  // Set up notification system on mount/unmount
+  /**
+   * Set up notification system on mount with complete cleanup
+   */
   useEffect(() => {
     if (!user?.id) return;
 
@@ -601,7 +660,21 @@ export function useNotifications(): UseNotificationsReturn {
     const initialize = async () => {
       if (!mounted) return;
 
+      if (isGlobalSigningOut) {
+        debugLog('Skipping notification initialization during sign-out');
+        return;
+      }
+
       debugLog('Setting up notification system for user:', user.id);
+
+      // First, check if we have a local token
+      let localToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+      
+      // If no local token, try to sync from database
+      if (!localToken) {
+        debugLog('No local token found, attempting to sync from database');
+        localToken = await NotificationService.syncTokenFromDatabase(user.id);
+      }
 
       // Set up notification listeners
       notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
@@ -610,42 +683,35 @@ export function useNotifications(): UseNotificationsReturn {
       // Get initial unread count
       await refreshNotifications();
 
-      // Get diagnostic information
+      // Continue with token verification and registration...
       try {
-        const diagInfo = await NotificationService.getDiagnostics();
-        setDiagnosticInfo(diagInfo);
-      } catch (e) {
-        // Non-critical
-      }
-
-      // Token verification and registration
-      try {
-        // Check for existing valid token
-        const verification = await NotificationService.forceTokenVerification(user.id);
-
-        if (verification.isValid && verification.token) {
-          debugLog('Found valid token during initialization');
-
-          // Update token status
-
-
-          // Set up token refresh listener
-          if (pushTokenListener.current) {
-            pushTokenListener.current.remove();
+        // If we have a token (either local or synced), verify it
+        if (localToken) {
+          const verification = await NotificationService.forceTokenVerification(user.id);
+          
+          if (verification.isValid) {
+            debugLog('Token is valid, setting up refresh listener');
+            
+            // Set up token refresh listener
+            if (pushTokenListener.current) {
+              pushTokenListener.current.remove();
+              pushTokenListener.current = null;
+            }
+            pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+            
+            setIsPermissionGranted(true);
+            
+            // Only update signed_in status if it's not already correct
+            if (verification.signedIn === false) {
+              debugLog('Token found but marked as signed out, updating to signed in');
+              await NotificationService.markTokenAsSignedIn(user.id, verification.token || '');
+            }
+          } else {
+            debugLog('Token validation failed, registering new token');
+            await registerForPushNotifications(true);
           }
-          pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-
-          // Update registration state
-          await saveRegistrationState({
-            lastAttemptTime: Date.now(),
-            attempts: 0,
-            registered: true
-          });
-
-          setIsPermissionGranted(true);
         } else {
-          // No valid token found, initiate registration
-          debugLog('No valid token found during initialization, registering');
+          debugLog('No token available, registering new token');
           await registerForPushNotifications(true);
         }
       } catch (error) {
@@ -668,14 +734,18 @@ export function useNotifications(): UseNotificationsReturn {
         registrationTimer.current = null;
       }
 
+      // Remove notification listeners
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
+        notificationListener.current = null;
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
+        responseListener.current = null;
       }
       if (pushTokenListener.current) {
         pushTokenListener.current.remove();
+        pushTokenListener.current = null;
       }
       if (realtimeSubscription.current) {
         try {
@@ -683,6 +753,7 @@ export function useNotifications(): UseNotificationsReturn {
         } catch (error) {
           debugLog('Error during subscription cleanup:', error);
         }
+        realtimeSubscription.current = null;
       }
     };
   }, [
@@ -692,8 +763,6 @@ export function useNotifications(): UseNotificationsReturn {
     refreshNotifications,
     registerForPushNotifications,
     handleTokenRefresh,
-    getRegistrationState,
-    saveRegistrationState,
     debugLog
   ]);
 

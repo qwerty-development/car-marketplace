@@ -32,6 +32,7 @@ import Constants from 'expo-constants';
 import { SignOutOverlay } from '@/components/SignOutOverlay';
 import { coordinateSignOut } from '@/app/(home)/_layout';
 import * as SecureStore from 'expo-secure-store';
+import { NotificationService } from "@/services/NotificationService";
 
 const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
@@ -39,6 +40,8 @@ const EMAIL_SUBJECT = "Support Request";
 const DEFAULT_PROFILE_IMAGE = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 
 const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
+
+
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
@@ -77,121 +80,198 @@ export default function UserProfileAndSupportPage() {
 
   useScrollToTop(scrollRef);
 
-  // Fetch token status from database to update UI
   const fetchTokenStatus = useCallback(async () => {
     if (!user?.id || isGuest) return;
-
+  
     try {
       setLoading(true);
+      
       // Get the token from storage
       const token = await SecureStore.getItemAsync('expoPushToken');
-
+  
       if (!token) {
         console.log('No token found when checking status');
+        // Attempt to sync from database
+        const syncedToken = await NotificationService.syncTokenFromDatabase(user.id);
+        
+        if (!syncedToken) {
+          // No token available, set defaults
+          setPushNotificationsEnabled(false);
+          setNotificationSettings(prev => ({
+            ...prev,
+            pushNotifications: false
+          }));
+          return;
+        }
+      }
+  
+      // Check token status in database
+      const { data, error } = await supabase
+        .from('user_push_tokens')
+        .select('active, signed_in')
+        .eq('user_id', user.id)
+        .eq('token', token || '')
+        .single();
+  
+      if (error) {
+        console.error('Error fetching token status:', error);
         return;
       }
-
-      // Check token status in database
-      const { data } = await supabase
-        .from('user_push_tokens')
-        .select('active')
-        .eq('user_id', user.id)
-        .eq('token', token)
-        .single();
-
+  
       if (data) {
-        setPushNotificationsEnabled(data.active);
+        // Check both active and signed_in status
+        const isEnabled = data.active && data.signed_in;
+        setPushNotificationsEnabled(isEnabled);
+        
         // Update local notification settings state to match
         setNotificationSettings(prev => ({
           ...prev,
-          pushNotifications: data.active
+          pushNotifications: isEnabled
         }));
       }
     } catch (error) {
-      console.error('Error fetching token status:', error);
+      console.error('Error in fetchTokenStatus:', error);
     } finally {
       setLoading(false);
     }
   }, [user?.id, isGuest]);
 
   // Function to toggle push notification status
-// Function to toggle push notification status
-const togglePushNotifications = async (enabled: boolean) => {
-  if (!user?.id || isGuest) {
-    Alert.alert(
-      "Feature Not Available",
-      "Please sign in to manage notifications.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Sign In", onPress: handleSignIn }
-      ]
-    );
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    // Update local state immediately for responsive UI
-    setPushNotificationsEnabled(enabled);
-    setNotificationSettings(prev => ({
-      ...prev,
-      pushNotifications: enabled
-    }));
-
-    // Get the token from secure storage
-    const token = await SecureStore.getItemAsync('expoPushToken');
-
-    if (!token) {
-      console.log('No push token found in secure storage');
-      Alert.alert('Error', 'Push notification token not found. Please restart the app.');
+  const togglePushNotifications = async (enabled: boolean) => {
+    if (!user?.id || isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to manage notifications.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn }
+        ]
+      );
       return;
     }
-
-    console.log(`Updating token status to: ${enabled} for token: ${token.substring(0, 10)}...`);
-
-    // Update token active status in database
-    const { data, error } = await supabase
-      .from('user_push_tokens')
-      .update({ active: enabled })
-      .eq('user_id', user.id)
-      .eq('token', token);
-
-    if (error) {
-      console.error('Error updating token status:', error);
-
+  
+    try {
+      setLoading(true);
+  
+      // First, try to get token from local storage
+      let token = await SecureStore.getItemAsync('expoPushToken');
+  
+      // If no local token, try to sync from database
+      if (!token) {
+        console.log('No local token found, attempting to sync from database');
+        token = await NotificationService.syncTokenFromDatabase(user.id);
+      }
+  
+      // If still no token, we need to fetch tokens directly from database
+      if (!token) {
+        console.log('No token available, fetching from database directly');
+        
+        const { data: dbTokens, error: fetchError } = await supabase
+          .from('user_push_tokens')
+          .select('token, signed_in')
+          .eq('user_id', user.id)
+          .eq('signed_in', true) // Only fetch signed-in tokens
+          .order('last_updated', { ascending: false })
+          .limit(1)
+          .single();
+  
+        if (fetchError || !dbTokens) {
+          console.error('Error fetching token from database:', fetchError);
+          
+          // No valid token found, initiate token registration
+          Alert.alert(
+            'Notification Setup Required',
+            'We need to set up notifications for your device. Please wait...',
+            [{ text: 'OK' }]
+          );
+          
+          // Trigger push notification registration
+          const registrationSuccess = await NotificationService.registerForPushNotificationsAsync(user.id, true);
+          
+          if (!registrationSuccess) {
+            Alert.alert('Error', 'Failed to set up notifications. Please try restarting the app.');
+            return;
+          }
+          
+          // Get the newly registered token
+          token = await SecureStore.getItemAsync('expoPushToken');
+          
+          if (!token) {
+            Alert.alert('Error', 'Unable to get notification token. Please try again.');
+            return;
+          }
+        } else {
+          token = dbTokens.token;
+        }
+      }
+  
+      console.log(`Updating token status to active: ${enabled} for token: ${token.substring(0, 10)}...`);
+  
+      // Update the token status in database
+      const { data, error } = await supabase
+        .from('user_push_tokens')
+        .update({ 
+          active: enabled,
+          last_updated: new Date().toISOString(),
+          // Ensure signed_in remains true
+          signed_in: true
+        })
+        .eq('user_id', user.id)
+        .eq('token', token)
+        .select();
+  
+      if (error) {
+        console.error('Error updating token status:', error);
+        Alert.alert('Error', `Failed to update notification settings: ${error.message}`);
+        
+        // Revert UI state on error
+        setPushNotificationsEnabled(!enabled);
+        setNotificationSettings(prev => ({
+          ...prev,
+          pushNotifications: !enabled
+        }));
+        return;
+      }
+  
+      if (!data || data.length === 0) {
+        console.error('No token was updated - token might not exist');
+        Alert.alert('Error', 'Failed to update notification settings. Please try again.');
+        
+        // Revert UI state
+        setPushNotificationsEnabled(!enabled);
+        setNotificationSettings(prev => ({
+          ...prev,
+          pushNotifications: !enabled
+        }));
+        return;
+      }
+  
+      console.log('Successfully updated push notification status:', data);
+      
+      // Update local state
+      setPushNotificationsEnabled(enabled);
+      setNotificationSettings(prev => ({
+        ...prev,
+        pushNotifications: enabled
+      }));
+  
+      // Refresh the token status from database
+      await fetchTokenStatus();
+  
+    } catch (error) {
+      console.error('Error in togglePushNotifications:', error);
+      Alert.alert('Error', 'An unexpected error occurred while updating notification settings.');
+      
       // Revert UI state on error
       setPushNotificationsEnabled(!enabled);
       setNotificationSettings(prev => ({
         ...prev,
         pushNotifications: !enabled
       }));
-
-      Alert.alert('Error', 'Failed to update notification settings. Please try again.');
-    } else {
-      console.log('Successfully updated push notification status');
-
-      // On success, refresh the notifications count if needed
-      if (enabled) {
-        refreshNotifications();
-      }
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error in togglePushNotifications:', error);
-
-    // Revert UI state on error
-    setPushNotificationsEnabled(!enabled);
-    setNotificationSettings(prev => ({
-      ...prev,
-      pushNotifications: !enabled
-    }));
-
-    Alert.alert('Error', 'An unexpected error occurred while updating notification settings.');
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
   useEffect(() => {
     if (user && profile && !isGuest) {
       // Extract first and last name from full name in profile
@@ -372,7 +452,6 @@ const togglePushNotifications = async (enabled: boolean) => {
   };
 
   const handleSignOut = async (): Promise<void> => {
-    // Confirm with user before signing out
     Alert.alert(
       "Sign Out",
       "Are you sure you want to sign out?",
@@ -386,42 +465,46 @@ const togglePushNotifications = async (enabled: boolean) => {
           style: "destructive",
           onPress: async () => {
             try {
-              // Show overlay during sign out
               setShowSignOutOverlay(true);
-
+  
               if (isGuest) {
-                // Handle guest user sign out with coordination
                 await coordinateSignOut(router, async () => {
-                  // Clean up guest mode
                   await clearGuestMode();
                 });
               } else {
-                // Handle regular user sign out with coordination
+                // Ensure token is properly marked as signed out
+                if (user?.id) {
+                  const token = await SecureStore.getItemAsync('expoPushToken');
+                  if (token) {
+                    // Directly update token status before sign out
+                    await supabase
+                      .from('user_push_tokens')
+                      .update({ 
+                        signed_in: false,
+                        last_updated: new Date().toISOString()
+                      })
+                      .eq('user_id', user.id)
+                      .eq('token', token);
+                  }
+                }
+  
                 await coordinateSignOut(router, async () => {
-                  // First clean up push token (this now marks the token as signed_in: false instead of deleting)
                   try {
                     await cleanupPushToken();
                   } catch (tokenError) {
                     console.error("Token cleanup error:", tokenError);
-                    // Continue with sign out even if token cleanup fails
                   }
-
-                  // Then perform the actual sign out
                   await signOut();
                 });
               }
             } catch (error) {
               console.error("Error during sign out:", error);
-
-              // Force navigation to sign-in on failure
               router.replace('/(auth)/sign-in');
-
               Alert.alert(
                 "Sign Out Issue",
                 "There was a problem signing out, but we've redirected you to the sign-in screen."
               );
             } finally {
-              // Hide overlay
               setShowSignOutOverlay(false);
             }
           }

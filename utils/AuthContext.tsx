@@ -12,14 +12,21 @@ import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
 import { router } from 'expo-router';
 import { NotificationService } from '@/services/NotificationService';
 
+// Add this right after the imports
+export let isGlobalSigningOut = false;
+
+export function setGlobalSigningOut(value: boolean) {
+  isGlobalSigningOut = value;
+}
+
 interface AuthContextProps {
   session: Session | null;
   user: User | null;
   profile: UserProfile | null;
   isLoaded: boolean;
   isSignedIn: boolean;
-  isSigningOut: boolean;  // New property to track sign-out state
-  isSigningIn: boolean;   // New property to track sign-in state
+  isSigningOut: boolean;
+  isSigningIn: boolean;
   signIn: (credentials: SignInCredentials) => Promise<{ error: Error | null }>;
   signUp: (credentials: SignUpCredentials) => Promise<{ error: Error | null, needsEmailVerification: boolean }>;
   signOut: () => Promise<void>;
@@ -259,90 +266,107 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
+  const cleanupPushToken = async () => {
+    try {
+      if (!user?.id) {
+        console.log('No user to clean up push token for');
+        return;
+      }
 
-const cleanupPushToken = async () => {
-  try {
-    if (!user) {
-      console.log('No user to clean up push token for');
-      return;
+      // First try to mark the token as signed out using NotificationService
+      console.log('Marking tokens as signed out via NotificationService');
+      const success = await NotificationService.cleanupPushToken(user.id);
+
+      if (success) {
+        console.log('Successfully marked push token as signed out');
+      } else {
+        console.log('Failed to mark push token as signed out');
+      }
+    } catch (error) {
+      console.error('Push token cleanup error:', error);
+      // Continue with sign out even if token cleanup fails
     }
+  };
 
-    console.log('Cleaning up push token via NotificationService');
-    const success = await NotificationService.cleanupPushToken(user.id);
+  const cleanupLocalStorage = async () => {
+    try {
+      console.log('Cleaning up auth-related local storage');
+      // List of keys to clean up, EXCLUDING push token-related keys
+      const keysToClean = [
+        'supabase-auth-token',
+        'lastActiveSession',
+        // Explicitly NOT including 'expoPushToken' or related keys
+      ];
 
-    if (success) {
-      console.log('Successfully marked push token as signed out');
-    } else {
-      console.log('Failed to mark push token as signed out');
+      // Delete only auth-related keys in parallel
+      await Promise.all(
+        keysToClean.map(key =>
+          SecureStore.deleteItemAsync(key)
+            .catch(error => console.error(`Error deleting ${key}:`, error))
+        )
+      );
+
+      console.log('Auth-related local storage cleanup completed');
+    } catch (error) {
+      console.error('Local storage cleanup error:', error);
     }
-  } catch (error) {
-    console.error('Push token cleanup error:', error);
-    // Continue with sign out even if token cleanup fails
-  }
-};
+  };
 
-// REPLACE the existing cleanupLocalStorage function with this implementation
-const cleanupLocalStorage = async () => {
-  try {
-    console.log('Cleaning up auth-related local storage');
-    // List of keys to clean up, EXCLUDING push token-related keys
-    const keysToClean = [
-      'supabase-auth-token',
-      'lastActiveSession',
-      // Explicitly NOT including 'expoPushToken' or related keys
-    ];
-
-    // Delete only auth-related keys in parallel
-    await Promise.all(
-      keysToClean.map(key =>
-        SecureStore.deleteItemAsync(key)
-          .catch(error => console.error(`Error deleting ${key}:`, error))
-      )
-    );
-
-    console.log('Auth-related local storage cleanup completed');
-  } catch (error) {
-    console.error('Local storage cleanup error:', error);
-  }
-};
-
-  // Enhanced signOut function with robust error handling and retries
   const signOut = async () => {
     // Prevent multiple sign out attempts
     if (isSigningOutState) {
       console.log('Sign out already in progress, ignoring duplicate request');
       return;
     }
-
+  
     try {
-      // Set signing out states
+      // Set signing out states (including global)
       setIsSigningOutState(true);
       setIsSigningOut(true);
-
+      setGlobalSigningOut(true);  // ADD THIS LINE
+  
       console.log('Starting comprehensive sign out process');
-
+  
       // 1. Clean up push notification token if user exists
       if (user) {
         try {
           console.log('Cleaning up push notification tokens');
+          
+          // First, mark ALL tokens for this user as signed_out
+          const { data: tokenUpdateData, error: tokenUpdateError } = await supabase
+            .from('user_push_tokens')
+            .update({ 
+              signed_in: false,
+              last_updated: new Date().toISOString()
+            })
+            .eq('user_id', user.id)
+            .select();
+            
+          if (tokenUpdateError) {
+            console.error('Error marking tokens as signed out:', tokenUpdateError);
+          } else {
+            console.log('Successfully marked all tokens as signed out:', tokenUpdateData);
+          }
+  
+          // Then proceed with token cleanup
           await cleanupPushToken();
         } catch (tokenError) {
           console.error('Error during push token cleanup:', tokenError);
           // Continue with sign out even if token cleanup fails
         }
       }
-
+  
       // 2. Execute sign out with retry logic
       let signOutSuccess = false;
       let signOutAttempt = 0;
       const maxAttempts = 3;
-
+  
       while (!signOutSuccess && signOutAttempt < maxAttempts) {
         signOutAttempt++;
         try {
           console.log(`Supabase sign out attempt ${signOutAttempt}/${maxAttempts}`);
           const { error } = await supabase.auth.signOut();
-
+  
           if (error) {
             console.error(`Sign out attempt ${signOutAttempt} failed:`, error);
             // Wait before retrying with exponential backoff
@@ -363,10 +387,10 @@ const cleanupLocalStorage = async () => {
           }
         }
       }
-
+  
       // 3. Clean up local storage regardless of sign out success
       await cleanupLocalStorage();
-
+  
       // 4. Reset auth context state
       setSession(null);
       setUser(null);
@@ -374,16 +398,13 @@ const cleanupLocalStorage = async () => {
       
       // Wait for 1.5 seconds to show the loader before completing sign out 
       await new Promise(resolve => setTimeout(resolve, 1500));
-
+  
       // Use requestAnimationFrame to ensure we navigate only after the next render cycle
-      // This helps prevent "navigate before mounting" errors
       requestAnimationFrame(() => {
         try {
-          // Move navigation AFTER the delay
           router.replace('/(auth)/sign-in');
         } catch (navError) {
           console.log('Navigation error handled:', navError);
-          // If we still get an error, try once more with another frame
           requestAnimationFrame(() => {
             try {
               router.replace('/(auth)/sign-in');
@@ -393,15 +414,15 @@ const cleanupLocalStorage = async () => {
           });
         }
       });
-
+  
     } catch (error) {
       console.error('Sign out process error:', error);
-
+  
       // Force clean up state even if there was an error
       setSession(null);
       setUser(null);
       setProfile(null);
-
+  
       // Wait before navigation
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -411,21 +432,22 @@ const cleanupLocalStorage = async () => {
           router.replace('/(auth)/sign-in');
         } catch (navError) {
           console.log('Error navigation handled:', navError);
-          // Try once more if needed
           setTimeout(() => {
             router.replace('/(auth)/sign-in');
           }, 100);
         }
       });
     } finally {
-      // Always reset signing out state
-      setIsSigningOutState(false);
-      setIsSigningOut(false);
-      console.log('Sign out process completed');
+      // Reset signing out states with delay
+      setTimeout(() => {
+        setIsSigningOutState(false);
+        setIsSigningOut(false);
+        setGlobalSigningOut(false);  // ADD THIS LINE
+        console.log('Sign out process completed');
+      }, 2000);  // CHANGE: Add delay to ensure all processes complete
     }
   };
 
-  // Modified appleSignIn method
   const appleSignIn = async () => {
     try {
       if (isGuest) {
@@ -458,10 +480,25 @@ const cleanupLocalStorage = async () => {
               setProfile(userProfile);
             }
 
-            // Mark push token as signed in
-            const pushToken = await SecureStore.getItemAsync('expoPushToken');
-            if (pushToken) {
-              await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+            // Handle push token registration
+            try {
+              let pushToken = await SecureStore.getItemAsync('expoPushToken');
+              
+              if (!pushToken) {
+                pushToken = await NotificationService.syncTokenFromDatabase(sessionData.session.user.id);
+              }
+              
+              if (pushToken) {
+                const success = await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                if (!success) {
+                  console.error('Failed to mark token as signed in, attempting to register new token');
+                  await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+                }
+              } else {
+                await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+              }
+            } catch (tokenError) {
+              console.error('Error handling push token during Apple sign-in:', tokenError);
             }
           }
         }
@@ -535,10 +572,25 @@ const cleanupLocalStorage = async () => {
                 // Step 7: Return explicit success with user data
                 console.log("Authentication successful, returning success=true");
                 
-                // Mark push token as signed in
-                const pushToken = await SecureStore.getItemAsync('expoPushToken');
-                if (pushToken) {
-                  await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                // Handle push token registration
+                try {
+                  let pushToken = await SecureStore.getItemAsync('expoPushToken');
+                  
+                  if (!pushToken) {
+                    pushToken = await NotificationService.syncTokenFromDatabase(sessionData.session.user.id);
+                  }
+                  
+                  if (pushToken) {
+                    const success = await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                    if (!success) {
+                      console.error('Failed to mark token as signed in, attempting to register new token');
+                      await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+                    }
+                  } else {
+                    await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+                  }
+                } catch (tokenError) {
+                  console.error('Error handling push token during Google sign-in:', tokenError);
                 }
                 
                 return { success: true, user: sessionData.session.user };
@@ -600,14 +652,33 @@ const cleanupLocalStorage = async () => {
       if (data.user) {
         await fetchUserProfile(data.user.id);
         
-        // Get the current push token and mark it as signed in
-        const pushToken = await SecureStore.getItemAsync('expoPushToken');
-        if (pushToken) {
-          await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
+        // Enhanced token handling
+        try {
+          // First, try to get existing token
+          let pushToken = await SecureStore.getItemAsync('expoPushToken');
+          
+          // If no local token, sync from database
+          if (!pushToken) {
+            pushToken = await NotificationService.syncTokenFromDatabase(data.user.id);
+          }
+          
+          // If we have a token, mark it as signed in
+          if (pushToken) {
+            const success = await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
+            if (!success) {
+              console.error('Failed to mark token as signed in, attempting to register new token');
+              await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+            }
+          } else {
+            // If no token exists, trigger registration
+            await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+          }
+        } catch (tokenError) {
+          console.error('Error handling push token during sign-in:', tokenError);
         }
       }
 
-      // Wait for 1.5 seconds to show the loader (reduced from 3 seconds)
+      // Wait for 1.5 seconds to show the loader
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       setIsSigningIn(false);
@@ -619,53 +690,101 @@ const cleanupLocalStorage = async () => {
     }
   };
 
-// If the admin API approach doesn't work, use this simplified approach for the signUp function
-const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
-  try {
-    if (isGuest) {
-      await clearGuestMode();
-    }
+  const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
+    try {
+      if (isGuest) {
+        await clearGuestMode();
+      }
 
-    // 1. First check if email exists in users table
-    const { data: existingUser, error: checkError } = await supabase
-      .from('users')
-      .select('email')
-      .eq('email', email)
-      .maybeSingle();
+      // 1. First check if email exists in users table
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
 
-    if (existingUser) {
-      return {
-        error: new Error('An account with this email already exists. Please sign in instead.'),
-        needsEmailVerification: false
-      };
-    }
-
-    // 2. Proceed with signup attempt
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name,
-          role: role,
-        },
-        emailRedirectTo: redirectUri,
-
-      },
-    });
-
-    if (error) {
-      // 3. Detect linked account errors
-      if (error.message.includes("Unable to validate email address") ||
-          (error.message.includes("already exists") && !error.message.includes("already registered"))) {
+      if (existingUser) {
         return {
-          error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
+          error: new Error('An account with this email already exists. Please sign in instead.'),
           needsEmailVerification: false
         };
       }
 
-      // Regular duplicate email errors
-      if (error.message.includes('already registered') ||
+      // 2. Proceed with signup attempt
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+            role: role,
+          },
+          emailRedirectTo: redirectUri,
+        },
+      });
+
+      if (error) {
+        // 3. Detect linked account errors
+        if (error.message.includes("Unable to validate email address") ||
+            (error.message.includes("already exists") && !error.message.includes("already registered"))) {
+          return {
+            error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
+            needsEmailVerification: false
+          };
+        }
+
+        // Regular duplicate email errors
+        if (error.message.includes('already registered') ||
+            error.message.includes('already in use') ||
+            error.message.includes('already exists')) {
+          return {
+            error: new Error('An account with this email already exists. Please sign in instead.'),
+            needsEmailVerification: false
+          };
+        }
+
+        throw error;
+      }
+
+      // 4. Create user in users table
+      if (data.user) {
+        const { error: upsertError } = await supabase.from('users').upsert([{
+          id: data.user.id,
+          name: name,
+          email: email,
+          favorite: [],
+          last_active: new Date().toISOString(),
+          timezone: 'UTC',
+          role: role,
+        }], {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
+
+        if (upsertError && upsertError.code !== '23505') {
+          console.error('Error creating user profile:', upsertError);
+        }
+
+        // Register for push notifications after successful signup
+        try {
+          await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+        } catch (notificationError) {
+          console.error('Error registering for push notifications during signup:', notificationError);
+        }
+      }
+
+      const needsEmailVerification = data.session === null;
+      return { error: null, needsEmailVerification, email: email };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+
+      // Improve error messaging for specific cases
+      if (error.message.includes("Unable to validate email address")) {
+        return {
+          error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
+          needsEmailVerification: false
+        };
+      } else if (error.message.includes('already registered') ||
           error.message.includes('already in use') ||
           error.message.includes('already exists')) {
         return {
@@ -674,52 +793,9 @@ const signUp = async ({ email, password, name, role = 'user' }: SignUpCredential
         };
       }
 
-      throw error;
+      return { error, needsEmailVerification: false };
     }
-
-    // 4. Create user in users table
-    if (data.user) {
-      const { error: upsertError } = await supabase.from('users').upsert([{
-        id: data.user.id,
-        name: name,
-        email: email,
-        favorite: [],
-        last_active: new Date().toISOString(),
-        timezone: 'UTC',
-        role: role,
-      }], {
-        onConflict: 'id',
-        ignoreDuplicates: false
-      });
-
-      if (upsertError && upsertError.code !== '23505') {
-        console.error('Error creating user profile:', upsertError);
-      }
-    }
-
-    const needsEmailVerification = data.session === null;
-    return { error: null, needsEmailVerification, email: email };
-  } catch (error: any) {
-    console.error('Sign up error:', error);
-
-    // Improve error messaging for specific cases
-    if (error.message.includes("Unable to validate email address")) {
-      return {
-        error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
-        needsEmailVerification: false
-      };
-    } else if (error.message.includes('already registered') ||
-        error.message.includes('already in use') ||
-        error.message.includes('already exists')) {
-      return {
-        error: new Error('An account with this email already exists. Please sign in instead.'),
-        needsEmailVerification: false
-      };
-    }
-
-    return { error, needsEmailVerification: false };
-  }
-};
+  };
 
   const resetPassword = async (email: string) => {
     try {
@@ -758,21 +834,21 @@ const signUp = async ({ email, password, name, role = 'user' }: SignUpCredential
     }
   };
 
-const verifyOtp = async (email: string, token: string) => {
-  try {
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'signup',
-    });
+  const verifyOtp = async (email: string, token: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup',
+      });
 
-    if (error) throw error;
-    return { error: null, data };
-  } catch (error: any) {
-    console.error('OTP verification error:', error);
-    return { error };
-  }
-};
+      if (error) throw error;
+      return { error: null, data };
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
+      return { error };
+    }
+  };
 
   const refreshSession = async () => {
     try {

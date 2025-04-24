@@ -5,24 +5,42 @@ import { supabase } from '@/utils/supabase';
 import { isSigningOut } from '../app/(home)/_layout';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import { isGlobalSigningOut } from '@/utils/AuthContext';
 
+// Type definitions for better type safety
+type ExpoToken = `ExponentPushToken[${string}]`;
+
+interface TokenStatus {
+  signed_in?: boolean;
+  active?: boolean;
+}
+
+interface SupabaseError {
+  code?: string;
+  message: string;
+  details?: string;
+}
+
+// Notification handler configuration
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
   }),
 });
 
-export type NotificationType =
-  | 'car_like'
-  | 'price_drop'
-  | 'new_message'
-  | 'subscription'
-  | 'car_sold'
-  | 'view_milestone'
-  | 'autoclip_like'
-  | 'daily_reminder';
+// Notification types enum for better type safety
+export enum NotificationType {
+  CAR_LIKE = 'car_like',
+  PRICE_DROP = 'price_drop',
+  NEW_MESSAGE = 'new_message',
+  SUBSCRIPTION = 'subscription',
+  CAR_SOLD = 'car_sold',
+  VIEW_MILESTONE = 'view_milestone',
+  AUTOCLIP_LIKE = 'autoclip_like',
+  DAILY_REMINDER = 'daily_reminder'
+}
 
 interface NotificationData {
   screen?: string;
@@ -33,19 +51,39 @@ interface NotificationData {
 }
 
 // Storage keys
-const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
-const PUSH_TOKEN_TIMESTAMP_KEY = 'expoPushTokenTimestamp';
-const PUSH_TOKEN_ID_KEY = 'expoPushTokenId';
+const STORAGE_KEYS = {
+  PUSH_TOKEN: 'expoPushToken',
+  PUSH_TOKEN_TIMESTAMP: 'expoPushTokenTimestamp',
+  PUSH_TOKEN_ID: 'expoPushTokenId',
+  NOTIFICATION_ERRORS: 'notificationErrors'
+} as const;
 
 // Constants
-const TOKEN_REFRESH_INTERVAL = 30 * 24 * 60 * 60 * 1000; // 30 days
-const FORCE_REGISTER_DEV = true; // Force registration in development
-const DEBUG_MODE = __DEV__ || true; // Enable debug mode in dev and initially in prod
-const DB_TIMEOUT = 10000; // 10 seconds for database operations
+const CONFIG = {
+  TOKEN_REFRESH_INTERVAL: 30 * 24 * 60 * 60 * 1000, // 30 days
+  FORCE_REGISTER_DEV: __DEV__, // Only force in development
+  DEBUG_MODE: __DEV__, // Production-ready debug mode
+  DB_TIMEOUT: 10000, // 10 seconds 
+  MAX_ERROR_LOGS: 10,
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 1000 // 1 second
+} as const;
 
 export class NotificationService {
+  // Singleton pattern for better resource management
+  private static instance: NotificationService;
+  
+  private constructor() {}
+  
+  public static getInstance(): NotificationService {
+    if (!NotificationService.instance) {
+      NotificationService.instance = new NotificationService();
+    }
+    return NotificationService.instance;
+  }
+
   private static debugLog(message: string, data?: any): void {
-    if (DEBUG_MODE) {
+    if (CONFIG.DEBUG_MODE) {
       const timestamp = new Date().toISOString();
       const logPrefix = `[NotificationService ${timestamp}]`;
 
@@ -61,9 +99,14 @@ export class NotificationService {
     try {
       this.debugLog(`ERROR in ${context}:`, error);
 
-      // Save error to secure storage for diagnostics
-      const errorLog = await SecureStore.getItemAsync('notificationErrors') || '[]';
-      const errors = JSON.parse(errorLog);
+      // Type-safe error logging
+      const errorLog = await SecureStore.getItemAsync(STORAGE_KEYS.NOTIFICATION_ERRORS) || '[]';
+      const errors: Array<{
+        timestamp: string;
+        context: string;
+        error: string;
+        stack?: string;
+      }> = JSON.parse(errorLog);
 
       errors.push({
         timestamp: new Date().toISOString(),
@@ -72,60 +115,88 @@ export class NotificationService {
         stack: error?.stack
       });
 
-      // Keep last 10 errors only
-      if (errors.length > 10) {
+      // Keep last MAX_ERROR_LOGS errors only
+      if (errors.length > CONFIG.MAX_ERROR_LOGS) {
         errors.shift();
       }
 
-      await SecureStore.setItemAsync('notificationErrors', JSON.stringify(errors));
+      await SecureStore.setItemAsync(STORAGE_KEYS.NOTIFICATION_ERRORS, JSON.stringify(errors));
     } catch (e) {
       console.error('Failed to record error:', e);
     }
   }
 
   private static getProjectId(): string {
-    const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-    if (envProjectId) {
-      return envProjectId;
-    }
-
     try {
-      // Try the dedicated easConfig property
-      const easConfigProjectId = Constants?.easConfig?.projectId;
-      if (easConfigProjectId) {
-        return easConfigProjectId;
+      // 1. Environment variable (highest priority)
+      const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+      if (envProjectId) {
+        this.debugLog('Using env project ID:', envProjectId);
+        return envProjectId;
       }
 
-      // Access manifest/expoConfig object with fallback
-      const expoConstants = Constants.expoConfig || Constants.manifest;
-      if (expoConstants) {
-        // Check extra.eas.projectId
-        const easProjectId = expoConstants.extra?.eas?.projectId;
-        if (easProjectId) {
-          return easProjectId;
-        }
-
-        // Check extra.projectId
-        const extraProjectId = expoConstants.extra?.projectId;
-        if (extraProjectId) {
-          return extraProjectId;
-        }
-
-        // Check direct projectId property
-        const directProjectId = expoConstants.projectId;
-        if (directProjectId) {
-          return directProjectId;
-        }
+      // 2. Constants.expoConfig
+      if (Constants.expoConfig?.extra?.projectId) {
+        this.debugLog('Using expoConfig.extra.projectId:', Constants.expoConfig.extra.projectId);
+        return Constants.expoConfig.extra.projectId;
       }
+
+      // 3. Constants.expoConfig.extra.eas.projectId
+      if (Constants.expoConfig?.extra?.eas?.projectId) {
+        this.debugLog('Using expoConfig.extra.eas.projectId:', Constants.expoConfig.extra.eas.projectId);
+        return Constants.expoConfig.extra.eas.projectId;
+      }
+
+      // 4. Constants.manifest
+      if (Constants.manifest?.extra?.projectId) {
+        this.debugLog('Using manifest.extra.projectId:', Constants.manifest.extra.projectId);
+        return Constants.manifest.extra.projectId;
+      }
+
+      // 5. Debug logging for troubleshooting
+      if (CONFIG.DEBUG_MODE) {
+        this.debugLog('All Constants:', {
+          expoConfig: Constants.expoConfig,
+          manifest: Constants.manifest,
+          easConfig: Constants.easConfig
+        });
+      }
+
+      // 6. Fallback value
+      const fallbackId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+      this.debugLog('Using fallback project ID:', fallbackId);
+      return fallbackId;
     } catch (error) {
       console.error('Error accessing Constants for project ID:', error);
+      return 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
     }
-
-    // Last resort - use hardcoded project ID from eas.json
-    return 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
   }
 
-  // Create timeout promise to prevent hanging operations
+  // Improved timeout promise with retry logic
+  private static async timeoutPromiseWithRetry<T>(
+    promiseFactory: () => Promise<T>,
+    timeoutMs: number,
+    operationName: string,
+    maxRetries: number = CONFIG.MAX_RETRIES
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.timeoutPromise(promiseFactory(), timeoutMs, operationName);
+      } catch (error) {
+        lastError = error as Error;
+        this.debugLog(`${operationName} attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
+        }
+      }
+    }
+    
+    throw lastError || new Error(`${operationName} failed after ${maxRetries} attempts`);
+  }
+
   private static timeoutPromise<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T> {
     let timeoutHandle: NodeJS.Timeout;
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -140,37 +211,35 @@ export class NotificationService {
     ]).finally(() => clearTimeout(timeoutHandle));
   }
 
-  // Validate token format - only accept Expo tokens
-  private static isValidExpoToken(token: string): boolean {
+  // Type-safe token validation
+  private static isValidExpoToken(token: string): token is ExpoToken {
     if (!token) return false;
     const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
     return validExpoTokenFormat.test(token);
   }
 
-  // Check if token needs refresh (older than the refresh interval)
   private static async tokenNeedsRefresh(): Promise<boolean> {
     try {
-      const timestampStr = await SecureStore.getItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      const timestampStr = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP);
       if (!timestampStr) return true;
 
       const timestamp = parseInt(timestampStr, 10);
       const now = Date.now();
 
-      return (now - timestamp) > TOKEN_REFRESH_INTERVAL;
+      return (now - timestamp) > CONFIG.TOKEN_REFRESH_INTERVAL;
     } catch (error) {
       this.recordError('tokenNeedsRefresh', error);
       return true; // Refresh on error
     }
   }
 
-  // Save token details to secure storage
   private static async saveTokenToStorage(token: string, tokenId?: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(PUSH_TOKEN_STORAGE_KEY, token);
-      await SecureStore.setItemAsync(PUSH_TOKEN_TIMESTAMP_KEY, Date.now().toString());
+      await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN, token);
+      await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP, Date.now().toString());
 
       if (tokenId) {
-        await SecureStore.setItemAsync(PUSH_TOKEN_ID_KEY, tokenId);
+        await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenId);
       }
 
       this.debugLog('Token saved to secure storage');
@@ -180,95 +249,79 @@ export class NotificationService {
     }
   }
 
-  // Core verification function to check if a token exists and is valid
+  // Enhanced token verification with better error handling
   static async forceTokenVerification(userId: string): Promise<{
     isValid: boolean;
     tokenId?: string;
     token?: string;
+    signedIn?: boolean;
   }> {
     try {
       this.debugLog(`Verifying push token for user ${userId}`);
 
-      // Get token from storage
-      const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      const storedTokenId = await SecureStore.getItemAsync(PUSH_TOKEN_ID_KEY);
+      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+      const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
 
       if (!storedToken) {
         this.debugLog('No token in storage, registration needed');
         return { isValid: false };
       }
 
-      // Verify it's a proper Expo format token
       if (!this.isValidExpoToken(storedToken)) {
         this.debugLog('Token in storage is not in Expo format, registration needed');
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+        await Promise.all([
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+        ]);
         return { isValid: false };
       }
 
-      // If we have a token ID in storage, check that specific token
+      // Check token by ID if available
       if (storedTokenId) {
-        const { data: tokenData, error: tokenError } = await this.timeoutPromise(
-          supabase
+        const { data: tokenData, error: tokenError } = await this.timeoutPromiseWithRetry(
+          () => supabase
             .from('user_push_tokens')
             .select('id, token, active, signed_in')
             .eq('id', storedTokenId)
             .single(),
-          DB_TIMEOUT,
+          CONFIG.DB_TIMEOUT,
           'verifySpecificToken'
         );
 
         if (!tokenError && tokenData && tokenData.token === storedToken) {
           this.debugLog('Found matching token by ID in database');
-          
-          // If token exists but is not signed in, mark it as signed in
-          if (tokenData && tokenData.signed_in === false) {
-            await this.updateTokenStatus(userId, storedToken, {
-              signed_in: true
-            });
-            this.debugLog('Updated existing token to signed in state');
-          }
-          
           return {
             isValid: true,
             tokenId: tokenData.id,
-            token: tokenData.token
+            token: tokenData.token,
+            signedIn: tokenData.signed_in
           };
         }
       }
 
-      // Check if stored token exists in database
-      const { data: tokenByValue, error: valueError } = await this.timeoutPromise(
-        supabase
+      // Fallback to checking by token value
+      const { data: tokenByValue, error: valueError } = await this.timeoutPromiseWithRetry(
+        () => supabase
           .from('user_push_tokens')
           .select('id, token, active, signed_in')
           .eq('user_id', userId)
           .eq('token', storedToken)
           .single(),
-        DB_TIMEOUT,
+        CONFIG.DB_TIMEOUT,
         'verifyTokenByValue'
       );
 
       if (!valueError && tokenByValue) {
         this.debugLog('Found matching token by value in database');
-        
-        // If token exists but is not signed in, mark it as signed in
-        if (tokenByValue && tokenByValue.signed_in === false) {
-          await this.updateTokenStatus(userId, storedToken, {
-            signed_in: true
-          });
-          this.debugLog('Updated token to signed in state');
-        }
-        
         return {
           isValid: true,
           tokenId: tokenByValue.id,
-          token: tokenByValue.token
+          token: tokenByValue.token,
+          signedIn: tokenByValue.signed_in
         };
       }
 
-      // No matching token found in database
       this.debugLog('Token exists in storage but not in database, registration needed');
       return { isValid: false };
     } catch (error) {
@@ -277,50 +330,89 @@ export class NotificationService {
     }
   }
 
-  // Update user's token status
-  static async updateTokenStatus(userId: string, token: string, status: { signed_in?: boolean, active?: boolean }): Promise<boolean> {
+  // Enhanced updateTokenStatus with better error handling and retry logic
+  static async updateTokenStatus(userId: string, token: string, status: TokenStatus): Promise<boolean> {
     try {
+      this.debugLog('===== UPDATE TOKEN STATUS DEBUG =====');
+      this.debugLog('User ID:', userId);
+      this.debugLog('Token:', token);
+      this.debugLog('Status to update:', status);
+      
       if (!token || !userId) {
+        this.debugLog('ERROR: Missing token or userId');
         return false;
       }
 
-      const updates: any = {
+      // Verify token exists before updating
+      const { data: existingTokens, error: checkError } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('token', token),
+        CONFIG.DB_TIMEOUT,
+        'checkExistingTokens'
+      );
+
+      if (checkError) {
+        this.debugLog('Error checking existing tokens:', checkError);
+        this.recordError('updateTokenStatus.checkExisting', checkError);
+        return false;
+      }
+
+      if (!existingTokens || existingTokens.length === 0) {
+        this.debugLog('WARNING: No matching token found in database!');
+        return false;
+      }
+
+      this.debugLog('Current token status:', {
+        signed_in: existingTokens[0].signed_in,
+        active: existingTokens[0].active
+      });
+
+      const updates = {
         last_updated: new Date().toISOString(),
         ...status
       };
 
-      const { error } = await this.timeoutPromise(
-        supabase
+      this.debugLog('Attempting update with:', updates);
+
+      const { data: updateData, error } = await this.timeoutPromiseWithRetry(
+        () => supabase
           .from('user_push_tokens')
           .update(updates)
           .eq('user_id', userId)
-          .eq('token', token),
-        DB_TIMEOUT,
+          .eq('token', token)
+          .select(),
+        CONFIG.DB_TIMEOUT,
         'updateTokenStatus'
       );
 
       if (error) {
+        this.debugLog('UPDATE ERROR:', error);
         this.recordError('updateTokenStatus', error);
         return false;
       }
 
+      this.debugLog('UPDATE SUCCESS:', updateData);
+      this.debugLog('===== END UPDATE TOKEN STATUS DEBUG =====');
       return true;
     } catch (error) {
+      this.debugLog('EXCEPTION in updateTokenStatus:', error);
       this.recordError('updateTokenStatus', error);
       return false;
     }
   }
 
-  // Marks user as signed out by updating the database
+  // Improved markTokenAsSignedOut with atomic operations
   static async markTokenAsSignedOut(userId: string): Promise<boolean> {
     try {
       this.debugLog(`Marking tokens as signed out for user ${userId}`);
 
-      // Get token from storage
-      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      const token = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
 
+      // Update database first before clearing local storage
       if (token && this.isValidExpoToken(token)) {
-        // Update token status in database
         const success = await this.updateTokenStatus(userId, token, {
           signed_in: false,
         });
@@ -329,13 +421,16 @@ export class NotificationService {
           this.debugLog('Successfully marked token as signed out');
         } else {
           this.debugLog('Failed to update token status in database');
+          // Continue with cleanup even if update fails
         }
       }
 
-      // Clear token from secure storage
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-      await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+      // Clear local storage atomically
+      await Promise.all([
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+      ]);
 
       return true;
     } catch (error) {
@@ -344,9 +439,52 @@ export class NotificationService {
     }
   }
 
-  // Register for push notifications and get token
+  // Enhanced syncTokenFromDatabase with better error handling
+  static async syncTokenFromDatabase(userId: string): Promise<string | null> {
+    try {
+      this.debugLog('Attempting to sync token from database for user:', userId);
+      
+      const { data: tokens, error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .select('*')
+          .eq('user_id', userId)
+          .order('last_updated', { ascending: false })
+          .limit(1),
+        CONFIG.DB_TIMEOUT,
+        'syncTokenFromDatabase'
+      );
+
+      if (error) {
+        this.debugLog('Error fetching tokens from database:', error);
+        return null;
+      }
+
+      if (!tokens || tokens.length === 0) {
+        this.debugLog('No tokens found in database for user');
+        return null;
+      }
+
+      const latestToken = tokens[0];
+      this.debugLog('Found token in database:', latestToken);
+
+      // Only sync if token is valid
+      if (this.isValidExpoToken(latestToken.token)) {
+        await this.saveTokenToStorage(latestToken.token, latestToken.id);
+        return latestToken.token;
+      } else {
+        this.debugLog('Invalid token format in database');
+        return null;
+      }
+    } catch (error) {
+      this.debugLog('Error syncing token from database:', error);
+      return null;
+    }
+  }
+
+  // Optimized registerForPushNotificationsAsync with better flow and error handling
   static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
-    if (!Device.isDevice && !FORCE_REGISTER_DEV) {
+    if (!Device.isDevice && !CONFIG.FORCE_REGISTER_DEV) {
       this.debugLog('Push notifications not available on simulator/emulator');
       return null;
     }
@@ -365,28 +503,18 @@ export class NotificationService {
 
         if (verification.isValid && verification.token) {
           this.debugLog('Using existing verified token from database');
-
-          // Update local storage
           await this.saveTokenToStorage(verification.token, verification.tokenId);
-
           return verification.token;
         }
       }
 
-      // 2. Request permissions
-      let permissionStatus;
-      try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      // 2. Check and request permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let permissionStatus = existingStatus;
 
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          permissionStatus = status;
-        } else {
-          permissionStatus = existingStatus;
-        }
-      } catch (permError) {
-        this.recordError('checkPermissions', permError);
-        return null;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        permissionStatus = status;
       }
 
       if (permissionStatus !== 'granted') {
@@ -398,24 +526,26 @@ export class NotificationService {
       if (Platform.OS === 'android') {
         try {
           await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
+            name: 'Default',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#D55004',
             sound: 'notification.wav',
+            enableVibrate: true,
+            enableLights: true
           });
         } catch (channelError) {
           this.recordError('setupAndroidChannel', channelError);
+          // Continue even if channel setup fails
         }
       }
 
-      // 4. Get project ID
+      // 4. Get project ID and token
       const projectId = this.getProjectId();
-
-      // 5. Get new Expo push token
       this.debugLog('Getting new Expo push token...');
-      const tokenResponse = await this.timeoutPromise(
-        Notifications.getExpoPushTokenAsync({
+      
+      const tokenResponse = await this.timeoutPromiseWithRetry(
+        () => Notifications.getExpoPushTokenAsync({
           projectId: projectId,
         }),
         15000,
@@ -424,40 +554,40 @@ export class NotificationService {
 
       const token = tokenResponse.data;
 
-      // Verify token format
       if (!this.isValidExpoToken(token)) {
         throw new Error(`Received invalid token format: ${token}`);
       }
 
-      // Save to storage immediately
+      // 5. Save to storage immediately
       await this.saveTokenToStorage(token);
 
-      // 6. Register in database
-      const { data: tokensData, error: tokensError } = await this.timeoutPromise(
-        supabase
+      // 6. Register or update in database
+      const { data: existingTokens, error: checkError } = await this.timeoutPromiseWithRetry(
+        () => supabase
           .from('user_push_tokens')
           .select('id, token')
           .eq('user_id', userId)
           .eq('token', token),
-        DB_TIMEOUT,
+        CONFIG.DB_TIMEOUT,
         'checkExistingToken'
       );
 
-      let tokenId;
+      let tokenId: string | undefined;
 
-      // If token already exists, update it
-      if (!tokensError && tokensData && tokensData.length > 0) {
-        tokenId = tokensData[0].id;
-
-        const { error: updateError } = await this.timeoutPromise(
-          supabase
+      if (!checkError && existingTokens && existingTokens.length > 0) {
+        // Update existing token
+        tokenId = existingTokens[0].id;
+        
+        const { error: updateError } = await this.timeoutPromiseWithRetry(
+          () => supabase
             .from('user_push_tokens')
             .update({
               last_updated: new Date().toISOString(),
-              signed_in: true // Add signed_in flag to update
+              signed_in: true,
+              active: true // Ensure active is set
             })
             .eq('id', tokenId),
-          DB_TIMEOUT,
+          CONFIG.DB_TIMEOUT,
           'updateExistingToken'
         );
 
@@ -466,21 +596,21 @@ export class NotificationService {
         } else {
           this.debugLog('Updated existing token record');
         }
-      }
-      // Otherwise insert new token
-      else {
-        const { data: insertData, error: insertError } = await this.timeoutPromise(
-          supabase
+      } else {
+        // Insert new token
+        const { data: insertData, error: insertError } = await this.timeoutPromiseWithRetry(
+          () => supabase
             .from('user_push_tokens')
             .insert({
               user_id: userId,
               token,
               device_type: Platform.OS,
               last_updated: new Date().toISOString(),
-              signed_in: true // Set signed_in to true by default when registering a new token
+              signed_in: true,
+              active: true
             })
             .select('id'),
-          DB_TIMEOUT,
+          CONFIG.DB_TIMEOUT,
           'insertNewToken'
         );
 
@@ -492,13 +622,10 @@ export class NotificationService {
         }
       }
 
-      // Save token ID to storage if available
+      // 7. Save token ID to storage
       if (tokenId) {
-        await SecureStore.setItemAsync(PUSH_TOKEN_ID_KEY, tokenId);
+        await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenId);
       }
-
-      // Mark the token as signed in (regardless of whether it's new or existing)
-      await this.markTokenAsSignedIn(userId, token);
 
       this.debugLog('Token registration completed successfully');
       return token;
@@ -508,8 +635,11 @@ export class NotificationService {
     }
   }
 
-  // Handle notification response (when user taps notification)
-  static async handleNotificationResponse(response: Notifications.NotificationResponse) {
+  // Enhanced handleNotificationResponse with better type safety
+  static async handleNotificationResponse(response: Notifications.NotificationResponse): Promise<{
+    screen?: string;
+    params?: Record<string, any>;
+  } | null> {
     try {
       this.debugLog('Handling notification response:', response.notification.request.identifier);
 
@@ -528,8 +658,8 @@ export class NotificationService {
     }
   }
 
-  // Badge management
-  static async getBadgeCount() {
+  // Badge management with error handling
+  static async getBadgeCount(): Promise<number> {
     try {
       return await Notifications.getBadgeCountAsync();
     } catch (error) {
@@ -538,7 +668,7 @@ export class NotificationService {
     }
   }
 
-  static async setBadgeCount(count: number) {
+  static async setBadgeCount(count: number): Promise<boolean> {
     try {
       await Notifications.setBadgeCountAsync(count);
       return true;
@@ -548,21 +678,19 @@ export class NotificationService {
     }
   }
 
-  // Permissions management
-  static async getPermissions() {
+  // Permission management with better types
+  static async getPermissions(): Promise<Notifications.NotificationPermissionsStatus | null> {
     try {
-      const permissions = await Notifications.getPermissionsAsync();
-      return permissions;
+      return await Notifications.getPermissionsAsync();
     } catch (error) {
       this.recordError('getPermissions', error);
       return null;
     }
   }
 
-  static async requestPermissions() {
+  static async requestPermissions(): Promise<Notifications.NotificationPermissionsStatus | null> {
     try {
-      const permissions = await Notifications.requestPermissionsAsync();
-      return permissions;
+      return await Notifications.requestPermissionsAsync();
     } catch (error) {
       this.recordError('requestPermissions', error);
       return null;
@@ -570,7 +698,7 @@ export class NotificationService {
   }
 
   // Notification management
-  static async cancelAllNotifications() {
+  static async cancelAllNotifications(): Promise<boolean> {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
       return true;
@@ -580,15 +708,23 @@ export class NotificationService {
     }
   }
 
-  // Fetch notifications
-  static async fetchNotifications(userId: string, { page = 1, limit = 20 } = {}) {
+  // Enhanced fetchNotifications with better error handling
+  static async fetchNotifications(userId: string, { page = 1, limit = 20 } = {}): Promise<{
+    notifications: any[];
+    total: number;
+    hasMore: boolean;
+  }> {
     try {
-      const { data, error, count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1);
+      const { data, error, count } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('notifications')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .range((page - 1) * limit, page * limit - 1),
+        CONFIG.DB_TIMEOUT,
+        'fetchNotifications'
+      );
 
       if (error) throw error;
 
@@ -607,13 +743,17 @@ export class NotificationService {
     }
   }
 
-  // Mark notifications as read
-  static async markAsRead(notificationId: string) {
+  // Notification state management with retry logic
+  static async markAsRead(notificationId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
+      const { error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notificationId),
+        CONFIG.DB_TIMEOUT,
+        'markAsRead'
+      );
 
       if (error) throw error;
       return true;
@@ -623,14 +763,17 @@ export class NotificationService {
     }
   }
 
-  // Mark all notifications as read
-  static async markAllAsRead(userId: string) {
+  static async markAllAsRead(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', userId)
-        .eq('is_read', false);
+      const { error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', userId)
+          .eq('is_read', false),
+        CONFIG.DB_TIMEOUT,
+        'markAllAsRead'
+      );
 
       if (error) throw error;
       return true;
@@ -640,13 +783,16 @@ export class NotificationService {
     }
   }
 
-  // Delete notification
-  static async deleteNotification(notificationId: string) {
+  static async deleteNotification(notificationId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
+      const { error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('notifications')
+          .delete()
+          .eq('id', notificationId),
+        CONFIG.DB_TIMEOUT,
+        'deleteNotification'
+      );
 
       if (error) throw error;
       return true;
@@ -656,14 +802,17 @@ export class NotificationService {
     }
   }
 
-  // Get unread count
-  static async getUnreadCount(userId: string) {
+  static async getUnreadCount(userId: string): Promise<number> {
     try {
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .eq('is_read', false);
+      const { count, error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('notifications')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .eq('is_read', false),
+        CONFIG.DB_TIMEOUT,
+        'getUnreadCount'
+      );
 
       if (error) throw error;
       return count || 0;
@@ -673,37 +822,34 @@ export class NotificationService {
     }
   }
 
-  // Improved cleanup function that marks tokens as signed out instead of deleting
+  // Enhanced cleanupPushToken with better error handling
   static async cleanupPushToken(userId: string): Promise<boolean> {
     this.debugLog('Starting push token cleanup process for sign out');
 
     try {
-      // Mark token as signed out in database instead of deleting
       const success = await this.markTokenAsSignedOut(userId);
 
-      // Clean up local storage
-      const keysToDelete = [
-        PUSH_TOKEN_STORAGE_KEY,
-        PUSH_TOKEN_TIMESTAMP_KEY,
-        PUSH_TOKEN_ID_KEY
-      ];
+      // Always attempt local storage cleanup
+      await Promise.all([
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+      ].map(promise => promise.catch(error => {
+        this.recordError('Storage cleanup', error);
+      })));
 
-      await Promise.all(keysToDelete.map(key =>
-        SecureStore.deleteItemAsync(key).catch(error =>
-          this.recordError(`deleteStorageKey-${key}`, error)
-        )
-      ));
-
-      this.debugLog('Token cleanup process completed successfully');
+      this.debugLog('Token cleanup process completed');
       return success;
     } catch (error) {
       this.recordError('cleanupPushToken', error);
-
-      // Emergency local storage cleanup
+      
+      // Emergency cleanup
       try {
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_STORAGE_KEY);
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
-        await SecureStore.deleteItemAsync(PUSH_TOKEN_ID_KEY);
+        await Promise.all([
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+        ]);
       } catch (storageError) {
         this.recordError('emergencyStorageCleanup', storageError);
       }
@@ -712,7 +858,7 @@ export class NotificationService {
     }
   }
 
-  // Get diagnostic information for debugging
+  // Enhanced getDiagnostics with more detailed information
   static async getDiagnostics(): Promise<any> {
     try {
       const diagnostics: Record<string, any> = {
@@ -722,27 +868,36 @@ export class NotificationService {
           version: Platform.Version,
           isDevice: Device.isDevice,
           brand: Device.brand,
-          modelName: Device.modelName
+          modelName: Device.modelName,
+          deviceName: Device.deviceName,
+          osName: Device.osName,
+          osVersion: Device.osVersion
         },
         tokens: {
           hasStoredToken: false,
           tokenId: null,
           tokenAge: null,
-          tokenFormat: null
+          tokenFormat: null,
+          tokenPreview: null
         },
         permissions: null,
-        errors: []
+        errors: [],
+        configuration: {
+          debugMode: CONFIG.DEBUG_MODE,
+          tokenRefreshInterval: CONFIG.TOKEN_REFRESH_INTERVAL,
+          dbTimeout: CONFIG.DB_TIMEOUT
+        }
       };
 
       // Get token information
-      const token = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-      const tokenId = await SecureStore.getItemAsync(PUSH_TOKEN_ID_KEY);
-      const timestamp = await SecureStore.getItemAsync(PUSH_TOKEN_TIMESTAMP_KEY);
+      const token = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+      const tokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
+      const timestamp = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP);
 
       if (token) {
         diagnostics.tokens.hasStoredToken = true;
         diagnostics.tokens.tokenFormat = this.isValidExpoToken(token);
-        diagnostics.tokens.tokenPreview = token.substring(0, 5) + '...' + token.substring(token.length - 5);
+        diagnostics.tokens.tokenPreview = token.substring(0, 10) + '...' + token.substring(token.length - 5);
       }
 
       if (tokenId) {
@@ -765,7 +920,7 @@ export class NotificationService {
 
       // Get error logs
       try {
-        const errorLogs = await SecureStore.getItemAsync('notificationErrors');
+        const errorLogs = await SecureStore.getItemAsync(STORAGE_KEYS.NOTIFICATION_ERRORS);
         if (errorLogs) {
           diagnostics.errors = JSON.parse(errorLogs);
         }
@@ -780,30 +935,34 @@ export class NotificationService {
     }
   }
 
-  // Marks user token as signed in by updating the database
+  // Enhanced markTokenAsSignedIn with validation
   static async markTokenAsSignedIn(userId: string, token?: string): Promise<boolean> {
     try {
+      // Check if sign-out is in progress
+      if (isGlobalSigningOut) {
+        this.debugLog('Sign-out in progress, skipping markTokenAsSignedIn');
+        return false;
+      }
+  
       this.debugLog(`Marking token as signed in for user ${userId}`);
-
-      // If token is not provided, get from storage
-      const tokenToUse = token || await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
-
+  
+      const tokenToUse = token || await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+  
       if (!tokenToUse || !this.isValidExpoToken(tokenToUse)) {
         this.debugLog('No valid token found for sign-in update');
         return false;
       }
-
-      // Update token status in database
+  
       const success = await this.updateTokenStatus(userId, tokenToUse, {
         signed_in: true,
       });
-
+  
       if (success) {
         this.debugLog('Successfully marked token as signed in');
       } else {
         this.debugLog('Failed to update token sign-in status in database');
       }
-
+  
       return success;
     } catch (error) {
       this.recordError('markTokenAsSignedIn', error);
