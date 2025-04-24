@@ -18,7 +18,6 @@ import { useAuth } from "@/utils/AuthContext";
 import * as ImagePicker from "expo-image-picker";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/utils/ThemeContext";
-import { NotificationBell } from "@/components/NotificationBell";
 import { useNotifications } from "@/hooks/useNotifications";
 import { setIsSigningOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
@@ -48,12 +47,7 @@ export default function UserProfileAndSupportPage() {
     useAuth();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-  const {
-    unreadCount,
-    cleanupPushToken,
-    refreshNotifications,
-    loading: notificationsLoading,
-  } = useNotifications();
+  const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
@@ -86,11 +80,11 @@ export default function UserProfileAndSupportPage() {
 
   const fetchTokenStatus = useCallback(async () => {
     if (!user?.id || isGuest) return;
-  
+
     try {
       setLoading(true);
       const token = await SecureStore.getItemAsync("expoPushToken");
-      
+
       // Direct, simple query with no complex state management
       if (token) {
         const { data } = await supabase
@@ -99,7 +93,7 @@ export default function UserProfileAndSupportPage() {
           .eq("user_id", user.id)
           .eq("token", token)
           .single();
-  
+
         if (data) {
           setPushNotificationsEnabled(data.active && data.signed_in);
         }
@@ -112,166 +106,7 @@ export default function UserProfileAndSupportPage() {
   }, [user?.id, isGuest]);
 
   // Function to toggle push notification status
-  const togglePushNotifications = async (enabled: boolean) => {
-    if (!user?.id || isGuest) {
-      Alert.alert(
-        "Feature Not Available",
-        "Please sign in to manage notifications.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn },
-        ]
-      );
-      return;
-    }
 
-    try {
-      setLoading(true);
-
-      // First, try to get token from local storage
-      let token = await SecureStore.getItemAsync("expoPushToken");
-
-      // If no local token, try to sync from database
-      if (!token) {
-        console.log("No local token found, attempting to sync from database");
-        token = await NotificationService.syncTokenFromDatabase(user.id);
-      }
-
-      // If still no token, we need to fetch tokens directly from database
-      if (!token) {
-        console.log("No token available, fetching from database directly");
-
-        const { data: dbTokens, error: fetchError } = await supabase
-          .from("user_push_tokens")
-          .select("token, signed_in")
-          .eq("user_id", user.id)
-          .eq("signed_in", true) // Only fetch signed-in tokens
-          .order("last_updated", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (fetchError || !dbTokens) {
-          console.error("Error fetching token from database:", fetchError);
-
-          // No valid token found, initiate token registration
-          Alert.alert(
-            "Notification Setup Required",
-            "We need to set up notifications for your device. Please wait...",
-            [{ text: "OK" }]
-          );
-
-          // Trigger push notification registration
-          const registrationSuccess =
-            await NotificationService.registerForPushNotificationsAsync(
-              user.id,
-              true
-            );
-
-          if (!registrationSuccess) {
-            Alert.alert(
-              "Error",
-              "Failed to set up notifications. Please try restarting the app."
-            );
-            return;
-          }
-
-          // Get the newly registered token
-          token = await SecureStore.getItemAsync("expoPushToken");
-
-          if (!token) {
-            Alert.alert(
-              "Error",
-              "Unable to get notification token. Please try again."
-            );
-            return;
-          }
-        } else {
-          token = dbTokens.token;
-        }
-      }
-
-      console.log(
-        `Updating token status to active: ${enabled} for token: ${token.substring(
-          0,
-          10
-        )}...`
-      );
-
-      
-
-      // Update the token status in database
-      const { data, error } = await supabase
-        .from("user_push_tokens")
-        .update({
-          active: enabled,
-          last_updated: new Date().toISOString(),
-          // Ensure signed_in remains true
-          signed_in: true,
-        })
-        .eq("user_id", user.id)
-        .eq("token", token)
-        .select();
-
-      if (error) {
-        console.error("Error updating token status:", error);
-        Alert.alert(
-          "Error",
-          `Failed to update notification settings: ${error.message}`
-        );
-
-        // Revert UI state on error
-        setPushNotificationsEnabled(!enabled);
-        setNotificationSettings((prev) => ({
-          ...prev,
-          pushNotifications: !enabled,
-        }));
-        return;
-      }
-
-      if (!data || data.length === 0) {
-        console.error("No token was updated - token might not exist");
-        Alert.alert(
-          "Error",
-          "Failed to update notification settings. Please try again."
-        );
-
-        // Revert UI state
-        setPushNotificationsEnabled(!enabled);
-        setNotificationSettings((prev) => ({
-          ...prev,
-          pushNotifications: !enabled,
-        }));
-        return;
-      }
-
-      console.log("Successfully updated push notification status:", data);
-
-      // Update local state
-      setPushNotificationsEnabled(enabled);
-      setNotificationSettings((prev) => ({
-        ...prev,
-        pushNotifications: enabled,
-      }));
-
-      // Refresh the token status from database
-      await fetchTokenStatus();
-    } catch (error) {
-      console.error("Error in togglePushNotifications:", error);
-      Alert.alert(
-        "Error",
-        "An unexpected error occurred while updating notification settings."
-      );
-
-      // Revert UI state on error
-      setPushNotificationsEnabled(!enabled);
-      setNotificationSettings((prev) => ({
-        ...prev,
-        pushNotifications: !enabled,
-      }));
-    } finally {
-      setLoading(false);
-    }
-  };
   useEffect(() => {
     if (user && profile && !isGuest) {
       // Extract first and last name from full name in profile
@@ -304,18 +139,6 @@ export default function UserProfileAndSupportPage() {
       }).start();
     }
   }, [isGuest, bannerAnimation]);
-
-  useEffect(() => {
-    return () => {
-      // Component unmount cleanup
-      console.log("Profile screen unmounting - cleaning up resources");
-      
-      // Reset any potential global state that might be affected
-      if (refreshNotifications) {
-        refreshNotifications();
-      }
-    };
-  }, []);
 
   // Helper function to decode Base64
   const base64Decode = (base64String: string): Uint8Array => {
@@ -542,33 +365,6 @@ export default function UserProfileAndSupportPage() {
     Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}`);
   };
 
-  const toggleNotification = (key: keyof NotificationSettings) => {
-    // Only allow notification changes for authenticated users
-    if (isGuest) {
-      Alert.alert(
-        "Feature Not Available",
-        "Please sign in to manage notification settings.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn },
-        ]
-      );
-      return;
-    }
-
-    // Special handling for push notifications toggle
-    if (key === "pushNotifications") {
-      togglePushNotifications(!notificationSettings.pushNotifications);
-      return;
-    }
-
-    // Handle other notification settings normally
-    setNotificationSettings((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
   const closeModal = (setModalVisible: (visible: boolean) => void) => {
     setModalVisible(false);
   };
@@ -633,9 +429,6 @@ export default function UserProfileAndSupportPage() {
             className="pt-12 pb-24 rounded-b-[40px]"
           >
             {/* Header row with notification bell */}
-            <View className="flex-row justify-end px-4">
-              {!isGuest && <NotificationBell />}
-            </View>
 
             {/* Profile information */}
             <View className="items-center mt-6">
@@ -753,54 +546,7 @@ export default function UserProfileAndSupportPage() {
           </TouchableOpacity>
 
           {/* Notifications button - different behavior for guests */}
-          <TouchableOpacity
-            onPress={() => {
-              if (isGuest) {
-                Alert.alert(
-                  "Feature Not Available",
-                  "Please sign in to manage notifications.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn },
-                  ]
-                );
-              } else {
-                setIsNotificationSettingsVisible(true);
-              }
-            }}
-            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-        p-4 rounded-xl shadow-sm flex-row items-center`}
-          >
-            <View className="bg-blue-500/10 p-3 rounded-xl">
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="#D55004"
-              />
-            </View>
-            <View className="ml-4">
-              <Text
-                className={`${
-                  isDarkMode ? "text-white" : "text-black"
-                } font-semibold`}
-              >
-                Notifications
-              </Text>
-              <Text
-                className={`${
-                  isDarkMode ? "text-white/60" : "text-gray-500"
-                } text-sm mt-1`}
-              >
-                {isGuest ? "Sign in to manage notifications" : "Control alerts"}
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={24}
-              color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
-            />
-          </TouchableOpacity>
+
         </View>
 
         {/* Edit Profile Modal */}
@@ -1005,232 +751,6 @@ export default function UserProfileAndSupportPage() {
           </View>
         </Modal>
 
-        {/* Notification Settings Modal - Updated with functional push notification toggle */}
-        {/* Notification Settings Modal - Updated with functional push notification toggle */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={isNotificationSettingsVisible}
-          onRequestClose={() => setIsNotificationSettingsVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback
-              onPress={() => closeModal(setIsNotificationSettingsVisible)}
-            >
-              <View style={styles.modalBackground} />
-            </TouchableWithoutFeedback>
-            <View
-              style={[
-                styles.modalContent,
-                {
-                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
-                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
-                },
-              ]}
-            >
-              <View className="flex-row justify-between items-center mb-6">
-                <Text
-                  className={`text-xl font-semibold ${
-                    isDarkMode ? "text-white" : "text-black"
-                  }`}
-                >
-                  Notification Settings
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsNotificationSettingsVisible(false)}
-                >
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Push Notification Toggle - Controls token active status */}
-              <TouchableOpacity
-                onPress={() =>
-                  togglePushNotifications(!pushNotificationsEnabled)
-                }
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-            p-4 rounded-xl flex-row items-center justify-between mb-4`}
-                disabled={loading}
-              >
-                <View className="flex-row items-center">
-                  <Ionicons
-                    name={
-                      pushNotificationsEnabled
-                        ? "notifications"
-                        : "notifications-off"
-                    }
-                    size={24}
-                    color={
-                      pushNotificationsEnabled
-                        ? "#22c55e"
-                        : isDarkMode
-                        ? "#fff"
-                        : "#000"
-                    }
-                  />
-                  <Text
-                    className={`ml-3 ${
-                      isDarkMode ? "text-white" : "text-black"
-                    }`}
-                  >
-                    Push Notifications
-                  </Text>
-                </View>
-                <View
-                  className={`w-12 h-6 rounded-full flex justify-center ${
-                    pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
-                  }`}
-                >
-                  <View
-                    className={`w-5 h-5 rounded-full bg-white shadow-md ${
-                      pushNotificationsEnabled ? "ml-6" : "ml-1"
-                    }`}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* Explanation text */}
-              <Text
-                className={`${
-                  isDarkMode ? "text-white/70" : "text-gray-600"
-                } text-sm mt-2 mb-4`}
-              >
-                {pushNotificationsEnabled
-                  ? "You will receive push notifications about car listings, price changes, and other updates."
-                  : "You have disabled push notifications. You won't receive alerts about new listings or updates."}
-              </Text>
-
-              {loading && (
-                <View className="items-center py-2">
-                  <Text
-                    className={`${
-                      isDarkMode ? "text-white/70" : "text-gray-600"
-                    } text-sm flex-row items-center`}
-                  >
-                    <Ionicons
-                      name="sync"
-                      size={16}
-                      color={isDarkMode ? "#fff" : "#000"}
-                      className="animate-spin mr-2"
-                    />
-                    Updating settings...
-                  </Text>
-                </View>
-              )}
-
-              {/* Additional notification options can remain but separated */}
-              <View className="mt-6">
-                <Text
-                  className={`${
-                    isDarkMode ? "text-white/90" : "text-gray-800"
-                  } font-semibold mb-4`}
-                >
-                  Other Notification Types
-                </Text>
-
-                {/* Email notifications toggle */}
-                <TouchableOpacity
-                  onPress={() => toggleNotification("emailNotifications")}
-                  className={`${
-                    isDarkMode ? "bg-neutral-800" : "bg-neutral-100"
-                  }
-              p-4 rounded-xl flex-row items-center justify-between mb-4`}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={
-                        notificationSettings.emailNotifications
-                          ? "mail"
-                          : "mail-outline"
-                      }
-                      size={24}
-                      color={
-                        notificationSettings.emailNotifications
-                          ? "#3b82f6"
-                          : isDarkMode
-                          ? "#fff"
-                          : "#000"
-                      }
-                    />
-                    <Text
-                      className={`ml-3 ${
-                        isDarkMode ? "text-white" : "text-black"
-                      }`}
-                    >
-                      Email Notifications
-                    </Text>
-                  </View>
-                  <View
-                    className={`w-12 h-6 rounded-full flex justify-center ${
-                      notificationSettings.emailNotifications
-                        ? "bg-blue-500"
-                        : "bg-gray-400"
-                    }`}
-                  >
-                    <View
-                      className={`w-5 h-5 rounded-full bg-white shadow-md ${
-                        notificationSettings.emailNotifications
-                          ? "ml-6"
-                          : "ml-1"
-                      }`}
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Marketing updates toggle */}
-                <TouchableOpacity
-                  onPress={() => toggleNotification("marketingUpdates")}
-                  className={`${
-                    isDarkMode ? "bg-neutral-800" : "bg-neutral-100"
-                  }
-              p-4 rounded-xl flex-row items-center justify-between mb-4`}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={
-                        notificationSettings.marketingUpdates
-                          ? "megaphone"
-                          : "megaphone-outline"
-                      }
-                      size={24}
-                      color={
-                        notificationSettings.marketingUpdates
-                          ? "#ec4899"
-                          : isDarkMode
-                          ? "#fff"
-                          : "#000"
-                      }
-                    />
-                    <Text
-                      className={`ml-3 ${
-                        isDarkMode ? "text-white" : "text-black"
-                      }`}
-                    >
-                      Marketing Updates
-                    </Text>
-                  </View>
-                  <View
-                    className={`w-12 h-6 rounded-full flex justify-center ${
-                      notificationSettings.marketingUpdates
-                        ? "bg-pink-500"
-                        : "bg-gray-400"
-                    }`}
-                  >
-                    <View
-                      className={`w-5 h-5 rounded-full bg-white shadow-md ${
-                        notificationSettings.marketingUpdates ? "ml-6" : "ml-1"
-                      }`}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {/* Change Password Modal */}
         <Modal
