@@ -1,4 +1,3 @@
-// app/(home)/(user)/notifications.tsx
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   View,
@@ -747,16 +746,16 @@ const renderMinimalHeader = useCallback(() => {
                         : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
                     }`}>
                     {category !== 'all' && (
-                      <Ionicons
-                        name={(NOTIFICATION_TYPES[category] || NOTIFICATION_TYPES.default).icon as any}
-                        size={14}
-                        color={
-                          (category === 'all' && !selectedCategory) || category === selectedCategory
-                            ? 'white'
-                            : isDarkMode ? 'text-neutral-100' : 'text-black'
-                        }
-                        style={{ marginRight: 4 }}
-                      />
+<Ionicons
+  name={(NOTIFICATION_TYPES[category] || NOTIFICATION_TYPES.default).icon as any}
+  size={14}
+  color={
+    (category === 'all' && !selectedCategory) || category === selectedCategory
+      ? 'white'
+      : isDarkMode ? '#E5E7EB' : '#000000' 
+  }
+  style={{ marginRight: 4 }}
+/>
                     )}
                     <Text
                       className={
