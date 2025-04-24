@@ -237,7 +237,8 @@ const handleShare = useCallback(async () => {
     const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
 
     const message =
-      `Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n`
+      `Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n` +
+      shareUrl;
 
     await Share.share({
       message,

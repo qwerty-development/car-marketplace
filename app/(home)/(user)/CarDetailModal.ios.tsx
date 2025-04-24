@@ -915,55 +915,28 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }, 500),
     [user?.id]
   );
-
-
+// Inside handleBackPress in CarDetailModal.ios.tsx
 const handleBackPress = useCallback(() => {
-  // Properly use a ref to track timer for cleanup
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Clear any existing timer
-  if (timerRef.current) {
-    clearTimeout(timerRef.current);
-    timerRef.current = null;
-  }
-  
   try {
     if (car.fromDeepLink === 'true') {
       router.replace('/(home)/(user)');
     } else {
       router.back();
 
-      // Safety mechanism with proper cleanup
-      if (!car.fromDeepLink) {
-        timerRef.current = setTimeout(() => {
-          // Only redirect if we're still on the same screen
-          if (router.canGoBack()) {
-            router.replace('/(home)/(user)');
-          }
-        }, 100);
-      }
+      // Safety timer - if we're still on the same screen after 100ms,
+      // assume back navigation failed and redirect to home
+      const timer = setTimeout(() => {
+        router.replace('/(home)/(user)');
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
   } catch (error) {
+    // If any error occurs during navigation, safely redirect to home
     console.error('Navigation error:', error);
     router.replace('/(home)/(user)');
   }
-  
-  return () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-}, [car.fromDeepLink, router]);
-
-
-useEffect(() => {
-  const cleanup = handleBackPress();
-  return () => {
-    if (cleanup) cleanup();
-  };
-}, [handleBackPress]);
-
+}, [car, router]);
   const trackWhatsAppClick = useCallback(
     debounce(async (carId: number) => {
       if (!user?.id || !carId) return;

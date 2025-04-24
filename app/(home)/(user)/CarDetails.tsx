@@ -1,5 +1,6 @@
+// app/(home)/(user)/CarDetails.tsx
 import React, { useEffect, useState, useCallback, Suspense, useRef } from 'react'
-import { View, ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, AppState, Alert } from 'react-native'
+import { View, ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, AppState } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useCarDetails } from '@/hooks/useCarDetails'
 import { useFavorites } from '@/utils/useFavorites'
@@ -38,7 +39,6 @@ export default function CarDetailsPage() {
   const { isDarkMode } = useTheme()
   const carId = params.carId as string
   const isDealer = params.isDealerView === 'true'
-  const isFromDeepLink = params.fromDeepLink === 'true'
   const [appState, setAppState] = useState(AppState.currentState)
 
   // Refs to track mounting state and loading timeout
@@ -68,39 +68,13 @@ export default function CarDetailsPage() {
   useEffect(() => {
     return () => {
       isMountedRef.current = false
+      // Clear the timeout if component unmounts
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current)
         loadingTimeoutRef.current = null
       }
     }
   }, [])
-
-  // Add validation for deep link scenarios
-  useEffect(() => {
-    if (isFromDeepLink && !carId && !params.prefetchedData) {
-      console.error('Deep link received without carId or prefetchedData')
-      setLoadError(new Error('Invalid deep link: Car ID not provided'))
-      setIsLoading(false)
-    }
-  }, [isFromDeepLink, carId, params.prefetchedData])
-
-  // Track deep link usage
-  useEffect(() => {
-    if (isFromDeepLink && carId) {
-      logDeepLinkAccess(carId, 'car_details').catch(console.error);
-    }
-  }, [isFromDeepLink, carId]);
-
-  // Analytics helper function (implement based on your analytics system)
-  const logDeepLinkAccess = async (itemId: string, itemType: string) => {
-    try {
-      // TODO: Implement your analytics tracking here
-      console.log(`Deep link accessed: ${itemType} with ID ${itemId}`);
-      // Example: await supabase.from('analytics').insert({...})
-    } catch (error) {
-      console.error('Failed to log deep link access:', error);
-    }
-  };
 
   const handleFavoritePress = useCallback(
     async (carId: any) => {
@@ -118,23 +92,6 @@ export default function CarDetailsPage() {
     [car, toggleFavorite]
   )
 
-  // Handle invalid deep link navigation
-  const handleInvalidDeepLink = useCallback(() => {
-    if (isFromDeepLink) {
-      Alert.alert(
-        'Car Not Found',
-        'The car you\'re looking for is no longer available.',
-        [
-          {
-            text: 'Browse Cars',
-            onPress: () => router.replace('/(home)/(user)'),
-          }
-        ],
-        { cancelable: false }
-      );
-    }
-  }, [isFromDeepLink]);
-
   // Handle retry when fetching fails
   const handleRetry = useCallback(() => {
     setLoadError(null)
@@ -142,25 +99,20 @@ export default function CarDetailsPage() {
     setLoadTimes({ start: Date.now() })
     dataLoadedRef.current = false
 
+    // Reset the timeout on retry
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current)
     }
 
-    const timeoutDuration = isFromDeepLink ? 10000 : 15000;
-    
     loadingTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current && !dataLoadedRef.current) {
-        setLoadError(new Error(
-          isFromDeepLink 
-            ? 'Unable to load the requested car. Please try again or browse our catalog.' 
-            : 'Loading timeout - please try again'
-        ))
+        setLoadError(new Error('Loading timeout - please try again'))
         setIsLoading(false)
       }
-    }, timeoutDuration)
+    }, 15000)
 
     loadCarDetails()
-  }, [carId, params.prefetchedData, isFromDeepLink]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Extract car details loading logic to a reusable function
   const loadCarDetails = useCallback(async () => {
@@ -175,13 +127,16 @@ export default function CarDetailsPage() {
       if (params.prefetchedData) {
         try {
           const prefetchedData = params.prefetchedData as string
+          // Basic validation before parsing
           if (typeof prefetchedData === 'string' && prefetchedData.trim().startsWith('{')) {
             const prefetchedCar = JSON.parse(prefetchedData)
 
+            // Validate that parsed data is usable
             if (prefetchedCar && prefetchedCar.id) {
               setCar(prefetchedCar)
               setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }))
 
+              // Mark data as loaded and clear the timeout
               dataLoadedRef.current = true
               if (loadingTimeoutRef.current) {
                 clearTimeout(loadingTimeoutRef.current)
@@ -194,6 +149,7 @@ export default function CarDetailsPage() {
           }
         } catch (parseError) {
           console.error('Error parsing prefetched data:', parseError)
+          // Continue to fallback fetch below
         }
       }
 
@@ -204,19 +160,16 @@ export default function CarDetailsPage() {
 
       const fetchedCar = await prefetchCarDetails(carId)
       if (!fetchedCar) {
-        if (isFromDeepLink) {
-          handleInvalidDeepLink();
-          return;
-        }
         throw new Error('Car not found')
       }
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) return; // Ensure component is still mounted
 
       setCar(fetchedCar)
       setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }))
       setLoadError(null)
 
+      // Mark data as loaded and clear the timeout
       dataLoadedRef.current = true
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current)
@@ -224,7 +177,7 @@ export default function CarDetailsPage() {
       }
 
     } catch (error) {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) return; // Ensure component is still mounted
 
       console.error('Error loading car details:', error)
       setLoadError(error instanceof Error ? error : new Error('Failed to load car details'))
@@ -233,7 +186,7 @@ export default function CarDetailsPage() {
         setIsLoading(false)
       }
     }
-  }, [carId, params.prefetchedData, prefetchCarDetails, isFromDeepLink, handleInvalidDeepLink])
+  }, [carId, params.prefetchedData, prefetchCarDetails])
 
   // Load car details on mount with proper cleanup and timeout handling
   useEffect(() => {
@@ -242,38 +195,35 @@ export default function CarDetailsPage() {
     setLoadTimes({ start: Date.now() })
     dataLoadedRef.current = false
 
+    // Start the loading timeout
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current)
     }
 
-    // Shorter timeout for deep links to provide faster feedback
-    const timeoutDuration = isFromDeepLink ? 10000 : 15000;
-    
     loadingTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current && !dataLoadedRef.current) {
         console.log('Loading timeout occurred')
-        setLoadError(new Error(
-          isFromDeepLink 
-            ? 'Unable to load the requested car. Please try again or browse our catalog.' 
-            : 'Loading timeout - please try again'
-        ))
+        setLoadError(new Error('Loading timeout - please try again'))
         setIsLoading(false)
       }
-    }, timeoutDuration)
+    }, 15000) // 15 second timeout
 
     loadCarDetails()
 
+    // Cleanup function: clear timeout if component unmounts or deps change
     return () => {
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current)
         loadingTimeoutRef.current = null
       }
     }
-  }, [carId, params.prefetchedData, isFromDeepLink]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Optimize memory usage when app goes to background
   useEffect(() => {
     if (appState !== 'active' && car) {
+      // Clear unnecessary data when app is in background
       if (car.similarCars) car.similarCars = [];
       if (car.dealerCars) car.dealerCars = [];
     }
@@ -312,7 +262,7 @@ export default function CarDetailsPage() {
             marginTop: 20,
             color: isDarkMode ? '#FFFFFF' : '#000000'
           }}>
-            {isFromDeepLink ? 'Unable to Load Car' : 'Error Loading Car'}
+            Error Loading Car
           </Text>
           <Text style={{
             marginTop: 10,
@@ -320,9 +270,7 @@ export default function CarDetailsPage() {
             marginBottom: 20,
             color: isDarkMode ? '#CCCCCC' : '#666666'
           }}>
-            {isFromDeepLink 
-              ? 'The car you requested is no longer available or the link is invalid.' 
-              : (loadError.message || 'Something went wrong')}
+            {loadError.message || 'Something went wrong'}
           </Text>
           <TouchableOpacity
             style={styles.resetButton}
@@ -332,17 +280,9 @@ export default function CarDetailsPage() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => {
-              if (isFromDeepLink) {
-                router.replace('/(home)/(user)');
-              } else {
-                router.back();
-              }
-            }}
+            onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>
-              {isFromDeepLink ? 'Go to Home' : 'Go Back'}
-            </Text>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       ) : car ? (
@@ -363,13 +303,13 @@ export default function CarDetailsPage() {
               { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
             ]}>
               <CarDetailScreen
-                car={{
-                  ...car,
-                  fromDeepLink: params.fromDeepLink
-                }}
-                isDealer={isDealer}
-                onFavoritePress={handleFavoritePress}
-              />
+              car={{
+    ...car,
+    fromDeepLink: params.fromDeepLink
+  }}
+  isDealer={isDealer}
+  onFavoritePress={handleFavoritePress}
+/>
             </View>
           </Suspense>
         </ErrorBoundary>
