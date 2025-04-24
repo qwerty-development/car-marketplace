@@ -5,6 +5,10 @@ import type { NotificationSettingsModalProps, NotificationSettings } from './typ
 import { supabase } from '@/utils/supabase'
 import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '@/utils/AuthContext'
+import { Platform } from 'react-native'
+
+// Define the same key used in NotificationService
+const PUSH_TOKEN_STORAGE_KEY = 'expoPushToken';
 
 export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
   visible,
@@ -33,36 +37,74 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
       // Get the current value to toggle
       const newValue = !notificationSettings[key];
 
-      // Get push token from secure storage
-      const token = await SecureStore.getItemAsync('expoPushToken');
-
-      if (!token) {
-        console.error('No push token found in storage');
-        setUpdateError('No push token found. Please restart the app.');
-        return;
-      }
-
       if (!user?.id) {
         console.error('No user ID available');
         setUpdateError('User not authenticated. Please sign in again.');
         return;
       }
-
-      // Update token active status in database
-      const { error } = await supabase
+      
+      // First try to get ALL tokens for this user regardless of signed_in status
+      const { data: tokens, error: tokensError } = await supabase
         .from('user_push_tokens')
-        .update({ active: newValue })
+        .select('id, token, signed_in, active')
         .eq('user_id', user.id)
-        .eq('token', token);
+        .order('last_updated', { ascending: false });
+        
+      if (tokensError) {
+        console.error('Error fetching tokens from database:', tokensError);
+        setUpdateError('Error retrieving notification tokens');
+        return;
+      }
+      
+      console.log(`Found ${tokens?.length || 0} tokens for user in database`);
+      
+      // Also check storage
+      const storedToken = await SecureStore.getItemAsync(PUSH_TOKEN_STORAGE_KEY);
+      console.log('Token in device storage:', storedToken ? 'Found' : 'Not found');
+      
+      // If we have no tokens at all, this is a real error
+      if ((!tokens || tokens.length === 0) && !storedToken) {
+        console.error('No push tokens found anywhere');
+        setUpdateError('No notification tokens found. Please restart the app.');
+        return;
+      }
+      
+      // Set active status on ALL tokens for this user
+      // This is the most aggressive approach - update everything
+      const { error: updateError } = await supabase
+        .from('user_push_tokens')
+        .update({ 
+          active: newValue,
+          // Also set signed_in to true to fix potential issues
+          signed_in: true,
+          last_updated: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error updating token status:', error);
+      if (updateError) {
+        console.error('Error updating tokens:', updateError);
         setUpdateError('Failed to update notification settings');
         return;
+      }
+      
+      // If we have a stored token that's not in the database, add it
+      if (storedToken && tokens && !tokens.some(t => t.token === storedToken)) {
+        console.log('Adding stored token to database');
+        await supabase
+          .from('user_push_tokens')
+          .insert({
+            user_id: user.id,
+            token: storedToken,
+            device_type: Platform.OS,
+            signed_in: true,
+            active: newValue,
+            last_updated: new Date().toISOString()
+          });
       }
 
       // If database update successful, update local state
       onToggleNotification(key);
+      console.log(`Successfully updated ${tokens?.length || 0} notification tokens to active=${newValue}`);
 
     } catch (error) {
       console.error('Error in push notification toggle:', error);
