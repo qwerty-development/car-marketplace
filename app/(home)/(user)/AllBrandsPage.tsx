@@ -13,11 +13,11 @@ import {
   TextInput,
   SectionList,
   SectionListData,
-  ActivityIndicator,
   StatusBar,
   RefreshControl,
   Pressable,
   Platform,
+  Animated,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -30,6 +30,78 @@ interface Brand {
   name: string;
   logoUrl: string;
 }
+
+// Skeleton component defined within the same file
+const BrandSkeletonLoading = ({ isDarkMode }:any) => {
+  const skeletonCount = 8; // Number of skeleton items to show
+  const fadeAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    // Create shimmer effect
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 0.8,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0.5,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [fadeAnim]);
+
+  const bgColor = isDarkMode ? '#1c1c1c' : '#f5f5f5';
+  const shimmerColor = isDarkMode ? '#333' : '#e0e0e0';
+
+  return (
+    <View className="mt-2">
+      {Array.from({ length: skeletonCount }).map((_, index) => (
+        <View key={index} className={`mx-3 mb-3`}>
+          <View className={`flex-row items-center p-4 rounded-2xl`} style={{ backgroundColor: bgColor }}>
+            {/* Logo placeholder */}
+            <Animated.View 
+              style={{ 
+                width: 50, 
+                height: 50, 
+                borderRadius: 10, 
+                backgroundColor: shimmerColor,
+                opacity: fadeAnim 
+              }} 
+            />
+            
+            {/* Text placeholder */}
+            <View className="flex-1 ml-4">
+              <Animated.View 
+                style={{ 
+                  height: 20, 
+                  width: '60%', 
+                  borderRadius: 4, 
+                  backgroundColor: shimmerColor,
+                  opacity: fadeAnim 
+                }} 
+              />
+            </View>
+            
+            {/* Chevron placeholder */}
+            <Animated.View 
+              style={{ 
+                width: 16, 
+                height: 16, 
+                borderRadius: 8, 
+                backgroundColor: shimmerColor,
+                opacity: fadeAnim 
+              }} 
+            />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 const CustomHeader = React.memo(
   ({ title, onBack }: { title: string; onBack?: () => void }) => {
@@ -76,8 +148,8 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
       return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
     case "nissan":
       return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
-		  case "jetour":
-			return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
+    case "jetour":
+      return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
     default:
       return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
   }
@@ -86,7 +158,7 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
 export default function AllBrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const sectionListRef = useRef<SectionList>(null);
@@ -98,7 +170,7 @@ export default function AllBrandsPage() {
   const sectionHeaderBgColor = isDarkMode ? "bg-gray" : "bg-white";
 
   const fetchBrands = useCallback(async () => {
-    setIsLoading(true);
+    if (!refreshing) setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from("cars")
@@ -121,7 +193,7 @@ export default function AllBrandsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isDarkMode]);
+  }, [isDarkMode, refreshing]);
 
   useEffect(() => {
     fetchBrands();
@@ -173,8 +245,7 @@ export default function AllBrandsPage() {
         <View className={`flex-row items-center p-4 rounded-2xl ${
           isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'
         }`}>
-          <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center '
-          }`}>
+          <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center`}>
             <Image
               source={{ uri: item.logoUrl }}
               style={{ width: 50, height: 50 }}
@@ -211,30 +282,31 @@ export default function AllBrandsPage() {
       <CustomHeader title="All Brands" onBack={() => router.back()} />
       <View className="px-4 -mt-6 ">
         <View className="flex-row gap-2">
-<View
-  className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12`}
->
-  <FontAwesome
-    name="search"
-    size={20}
-    color={isDarkMode ? "white" : "black"}
-  />
-  <TextInput
-    className={`flex-1 px-3 h-full ${
-      isDarkMode ? "text-white" : "text-black"
-    }`}
-    style={{ textAlignVertical: 'center' }}
-    placeholder="Search Brands..."
-    placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
-    value={searchQuery}
-    onChangeText={setSearchQuery}
-     textAlignVertical="center"
-  />
-</View>
+          <View
+            className={`flex-1 flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12`}
+          >
+            <FontAwesome
+              name="search"
+              size={20}
+              color={isDarkMode ? "white" : "black"}
+            />
+            <TextInput
+              className={`flex-1 px-3 h-full ${
+                isDarkMode ? "text-white" : "text-black"
+              }`}
+              style={{ textAlignVertical: 'center' }}
+              placeholder="Search Brands..."
+              placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              textAlignVertical="center"
+            />
+          </View>
         </View>
       </View>
+      
       {isLoading && !refreshing ? (
-        <ActivityIndicator size="large" color="#D55004" className="mt-4" />
+        <BrandSkeletonLoading isDarkMode={isDarkMode} />
       ) : (
         <SectionList
           ref={sectionListRef}

@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	FlatList,
-	ActivityIndicator,
 	TouchableOpacity,
 	Dimensions,
 	Text,
 	StatusBar,
 	RefreshControl,
 	Platform,
-	Image
+	Image,
+	Animated
 } from 'react-native'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
@@ -45,6 +45,117 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
       return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
   }
 };
+
+// Car Card Skeleton Component
+const CarCardSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => {
+  const fadeAnim = useRef(new Animated.Value(0.5)).current;
+  
+  useEffect(() => {
+    // Create shimmer effect
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 0.8,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0.5,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [fadeAnim]);
+
+  const bgColor = isDarkMode ? '#161616' : '#f5f5f5';
+  const shimmerColor = isDarkMode ? '#222222' : '#e0e0e0';
+
+  return (
+    <View 
+      style={{ 
+        height: SCREEN_HEIGHT * 0.85, 
+        marginVertical: 8, 
+        marginHorizontal: 16,
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: bgColor
+      }}
+    >
+      {/* Image placeholder */}
+      <Animated.View 
+        style={{
+          height: '55%',
+          width: '100%',
+          backgroundColor: shimmerColor,
+          opacity: fadeAnim
+        }}
+      />
+      
+      {/* Content placeholders */}
+      <View style={{ padding: 16 }}>
+        {/* Title placeholder */}
+        <Animated.View 
+          style={{
+            height: 24,
+            width: '80%',
+            marginBottom: 8,
+            backgroundColor: shimmerColor,
+            borderRadius: 4,
+            opacity: fadeAnim
+          }}
+        />
+        
+        {/* Subtitle placeholder */}
+        <Animated.View 
+          style={{
+            height: 16,
+            width: '60%',
+            marginBottom: 16,
+            backgroundColor: shimmerColor,
+            borderRadius: 4,
+            opacity: fadeAnim
+          }}
+        />
+        
+        {/* Details placeholders */}
+        <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+          {[1, 2, 3].map((_, index) => (
+            <Animated.View 
+              key={index}
+              style={{
+                height: 32,
+                width: 70,
+                marginRight: 8,
+                backgroundColor: shimmerColor,
+                borderRadius: 16,
+                opacity: fadeAnim
+              }}
+            />
+          ))}
+        </View>
+        
+        {/* Price placeholder */}
+      </View>
+    </View>
+  );
+});
+
+// Skeleton loading list
+const CarListSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => {
+  return (
+    <FlatList
+      data={[1, 2, 3]} // Show 3 skeleton cards
+      renderItem={() => <CarCardSkeleton isDarkMode={isDarkMode} />}
+      keyExtractor={(item) => `skeleton-${item}`}
+      showsVerticalScrollIndicator={false}
+      snapToAlignment='start'
+      decelerationRate='fast'
+      snapToInterval={CAR_CARD_HEIGHT}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    />
+  );
+});
 
 const CustomHeader = React.memo(
 	({ title, onBack, brandName }: { title: string; onBack: () => void; brandName?: string }) => {
@@ -92,7 +203,7 @@ export default function CarsByBrand() {
 	const [refreshing, setRefreshing] = useState(false)
 
 	const fetchCarsByBrand = useCallback(async (brandName: string) => {
-		setIsLoading(true)
+		if (!refreshing) setIsLoading(true)
 		try {
 			const { data, error } = await supabase
 				.from('cars')
@@ -118,7 +229,7 @@ export default function CarsByBrand() {
 		} finally {
 			setIsLoading(false)
 		}
-	}, [])
+	}, [refreshing])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
@@ -222,13 +333,8 @@ export default function CarsByBrand() {
 
 	const renderContent = () => {
 		if (isLoading && !refreshing) {
-			return (
-				<ActivityIndicator
-					size='large'
-					color='#D55004'
-					className='flex-1 justify-center items-center'
-				/>
-			)
+			// Show skeleton loading instead of ActivityIndicator
+			return <CarListSkeleton isDarkMode={isDarkMode} />;
 		}
 
 		if (cars.length === 0) {

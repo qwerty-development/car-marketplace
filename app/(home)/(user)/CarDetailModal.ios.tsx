@@ -23,6 +23,7 @@ import {
   Pressable,
   InteractionManager,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/utils/supabase";
@@ -138,6 +139,81 @@ const OptimizedImage = memo(
     );
   }
 );
+
+const CarItemSkeleton = memo(({ isDarkMode }:any) => {
+  const fadeAnim = useRef(new Animated.Value(0.5)).current;
+  
+  useEffect(() => {
+    // Create shimmer effect
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 0.8,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0.5,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [fadeAnim]);
+
+  const bgColor = isDarkMode ? "#1c1c1c" : "#f0f0f0";
+  const shimmerColor = isDarkMode ? "#333" : "#e0e0e0";
+
+  return (
+    <View
+      style={{
+        marginRight: 12,
+        marginVertical: 8,
+        width: 160,
+        backgroundColor: bgColor,
+        borderRadius: 8,
+        overflow: "hidden",
+      }}
+    >
+      {/* Image placeholder */}
+      <Animated.View
+        style={{
+          width: "100%",
+          height: 120,
+          borderRadius: 8,
+          backgroundColor: shimmerColor,
+          opacity: fadeAnim,
+        }}
+      />
+      
+      <View style={{ padding: 8 }}>
+        {/* Title placeholder */}
+        <Animated.View
+          style={{
+            height: 14,
+            width: "90%",
+            borderRadius: 4,
+            backgroundColor: shimmerColor,
+            opacity: fadeAnim,
+          }}
+        />
+        
+        {/* Price placeholder */}
+        <Animated.View
+          style={{
+            height: 13,
+            width: "50%",
+            borderRadius: 4,
+            backgroundColor: shimmerColor,
+            marginTop: 4,
+            opacity: fadeAnim,
+          }}
+        />
+      </View>
+    </View>
+  );
+});
+
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
   const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
@@ -1616,83 +1692,130 @@ const handleShare = useCallback(async () => {
     MapViewMarker,
   ]);
 
-  const renderSimilarCars = useCallback(() => {
-    if (nonCriticalState.similarCars.length === 0) return null;
+// First, let's create a CarSectionSkeleton component that doesn't include titles
+const CarSectionSkeleton = memo(({ isDarkMode }) => {
+  return (
+    <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
+      <FlatList
+        data={[1, 2, 3]} // Show 3 skeleton items
+        renderItem={() => <CarItemSkeleton isDarkMode={isDarkMode} />}
+        keyExtractor={(item) => `section-skeleton-${item}`}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+      />
+    </View>
+  );
+});
 
+// Updated renderSimilarCars function without title during loading
+const renderSimilarCars = useCallback(() => {
+  // If not loaded yet, show the skeleton without any title
+  if (!loadingStatus.similarCarsLoaded) {
+    return <CarSectionSkeleton isDarkMode={isDarkMode} />;
+  }
+  
+  // If loaded but empty, return null (show nothing)
+  if (nonCriticalState.similarCars.length === 0) return null;
+  
+  // If loaded and we have content, show the full section with title
+  return (
+    <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: "bold",
+          marginBottom: 8,
+          color: isDarkMode ? "#fff" : "#000",
+        }}
+      >
+        {nonCriticalState.similarCars[0]?.make === car.make &&
+        nonCriticalState.similarCars[0]?.model === car.model &&
+        nonCriticalState.similarCars[0]?.year === car.year
+          ? "Explore Similar Cars"
+          : "Similarly Priced Cars"}
+      </Text>
+
+      <FlatList
+        data={nonCriticalState.similarCars}
+        renderItem={renderCarItem}
+        keyExtractor={(item: any) => `similar-${item.id}`}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        initialNumToRender={2}
+        maxToRenderPerBatch={3}
+        windowSize={3}
+        removeClippedSubviews={true}
+      />
+    </View>
+  );
+}, [
+  nonCriticalState.similarCars,
+  car.make,
+  car.model,
+  car.year,
+  isDarkMode,
+  renderCarItem,
+  loadingStatus.similarCarsLoaded,
+]);
+
+// Updated renderDealerCars function without title during loading
+const renderDealerCars = useCallback(() => {
+  // If not loaded yet, show the skeleton without any title
+  // Include the bottom margin to ensure proper spacing at the end
+  if (!loadingStatus.dealerCarsLoaded) {
     return (
-      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: "bold",
-            marginBottom: 8,
-            color: isDarkMode ? "#fff" : "#000",
-          }}
-        >
-          {nonCriticalState.similarCars[0]?.make === car.make &&
-          nonCriticalState.similarCars[0]?.model === car.model &&
-          nonCriticalState.similarCars[0]?.year === car.year
-            ? "Explore Similar Cars"
-            : "Similarly Priced Cars"}
-        </Text>
-
-        <FlatList
-          data={nonCriticalState.similarCars}
-          renderItem={renderCarItem}
-          keyExtractor={(item: any) => `similar-${item.id}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          initialNumToRender={2}
-          maxToRenderPerBatch={3}
-          windowSize={3}
-          removeClippedSubviews={true}
-        />
+      <View style={{ marginBottom: 150 }}>
+        <CarSectionSkeleton isDarkMode={isDarkMode} />
       </View>
     );
-  }, [
-    nonCriticalState.similarCars,
-    car.make,
-    car.model,
-    car.year,
-    isDarkMode,
-    renderCarItem,
-  ]);
+  }
+  
+  // If loaded but empty, return null (show nothing)
+  if (nonCriticalState.dealerCars.length === 0) return null;
+  
+  // If loaded and we have content, show the full section with title
+  return (
+    <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: "bold",
+          marginBottom: 8,
+          color: isDarkMode ? "#fff" : "#000",
+        }}
+      >
+        More from {car.dealership_name || "Dealership"}
+      </Text>
 
-  const renderDealerCars = useCallback(() => {
-    if (nonCriticalState.dealerCars.length === 0) return null;
+      <FlatList
+        data={nonCriticalState.dealerCars}
+        renderItem={renderCarItem}
+        keyExtractor={(item) => `dealer-${item.id}`}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        initialNumToRender={2}
+        maxToRenderPerBatch={3}
+        windowSize={3}
+        removeClippedSubviews={true}
+      />
+    </View>
+  );
+}, [
+  nonCriticalState.dealerCars,
+  car.dealership_name,
+  isDarkMode,
+  renderCarItem,
+  loadingStatus.dealerCarsLoaded,
+]);
 
-    return (
-      <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: "bold",
-            marginBottom: 8,
-            color: isDarkMode ? "#fff" : "#000",
-          }}
-        >
-          More from {car.dealership_name || "Dealership"}
-        </Text>
-
-        <FlatList
-          data={nonCriticalState.dealerCars}
-          renderItem={renderCarItem}
-          keyExtractor={(item) => `dealer-${item.id}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          initialNumToRender={2}
-          maxToRenderPerBatch={3}
-          windowSize={3}
-          removeClippedSubviews={true}
-        />
-      </View>
-    );
-  }, [
-    nonCriticalState.dealerCars,
-    car.dealership_name,
-    isDarkMode,
-    renderCarItem,
-  ]);
+// Don't forget to ensure you have bottom spacing in your main content
+// Add this at the end of your main content:
+{loadingStatus.similarCarsLoaded && 
+ loadingStatus.dealerCarsLoaded && 
+ nonCriticalState.similarCars.length === 0 && 
+ nonCriticalState.dealerCars.length === 0 && (
+  <View style={{ marginBottom: 160 }} />
+)}
 
   // Optimized main render
   return (
@@ -1809,6 +1932,14 @@ const handleShare = useCallback(async () => {
 
             {/* Dealer Cars */}
             {renderDealerCars()}
+
+               {/* Add bottom padding if neither section has content after loading */}
+    {loadingStatus.similarCarsLoaded && 
+     loadingStatus.dealerCarsLoaded && 
+     nonCriticalState.similarCars.length === 0 && 
+     nonCriticalState.dealerCars.length === 0 && (
+      <View style={{ marginBottom: 160 }} />
+    )}
           </>
         )}
         showsVerticalScrollIndicator={false}

@@ -30,6 +30,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useScrollToTop } from "@react-navigation/native";
+import DealershipSkeletonLoading from "../DealershipSkeletonLoading";
 // import * as Location from "expo-location"; // REMOVED
 import { BlurView } from "expo-blur";
 
@@ -551,38 +552,32 @@ export default function DealershipListPage() {
       </View>
       {/* Main Content: Loading or List */}
       {isLoading ? (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <Text style={{ color: isDarkMode ? "white" : "black" }}>
-            Loading...
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={scrollRef}
-          data={sortedAndFilteredDealerships}
-          renderItem={({ item, index }) => (
-            <DealershipCard
-              item={item}
-              onPress={handleDealershipPress}
-              isDarkMode={isDarkMode}
-              index={index}
-            />
-          )}
-          keyExtractor={(item) => `${item.id}`}
-          ListEmptyComponent={renderEmpty}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={["#D55004"]}
-              tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
-            />
-          }
-          contentContainerStyle={styles.flatListContent}
-        />
-      )}
+  <DealershipSkeletonLoading isDarkMode={isDarkMode} count={6} />
+) : (
+  <FlatList
+    ref={scrollRef}
+    data={sortedAndFilteredDealerships}
+    renderItem={({ item, index }) => (
+      <DealershipCard
+        item={item}
+        onPress={handleDealershipPress}
+        isDarkMode={isDarkMode}
+        index={index}
+      />
+    )}
+    keyExtractor={(item) => `${item.id}`}
+    ListEmptyComponent={renderEmpty}
+    refreshControl={
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        colors={["#D55004"]}
+        tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
+      />
+    }
+    contentContainerStyle={styles.flatListContent}
+  />
+)}
 
       {/* Sort Modal */}
       <SortModal
