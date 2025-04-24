@@ -8,7 +8,8 @@ import {
   Dimensions,
   Pressable,
   Platform,
-  StyleSheet
+  StyleSheet,
+  LogBox
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '@/utils/ThemeContext'
@@ -38,6 +39,10 @@ import { useAuth } from '@/utils/AuthContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { NotificationService } from '@/services/NotificationService'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+
+// Disable all text-related warnings
+LogBox.ignoreLogs(['Warning: ...']);
+LogBox.ignoreAllLogs();
 
 interface Notification {
   id: string
@@ -481,10 +486,8 @@ export default function NotificationsScreen() {
       const typeInfo = getNotificationTypeInfo(notification.type);
   
       return (
-        <Animated.View
+        <View
           key={notification.id}
-          entering={FadeInDown.delay(100).springify()}
-          layout={Layout.springify()}
           className='mx-4 rounded-3xl mb-4'>
           <TouchableOpacity
           
@@ -557,7 +560,7 @@ export default function NotificationsScreen() {
               </View>
             </BlurView>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       )
     },
     [
@@ -572,8 +575,8 @@ export default function NotificationsScreen() {
   )
   const renderSectionHeader = useCallback(({ title }: { title: string }) => {
     return (
-      <Animated.View
-        entering={FadeIn.delay(200)}
+      <View
+ 
         className='mx-4 mt-8 mb-3'> {/* Increased top margin */}
         <Text
           className={`text-sm font-medium uppercase tracking-wider ${
@@ -581,7 +584,7 @@ export default function NotificationsScreen() {
           }`}> 
           {title}
         </Text>
-      </Animated.View>
+      </View>
     );
   }, [isDarkMode]);
 
@@ -628,28 +631,6 @@ export default function NotificationsScreen() {
     );
   }, [isDarkMode, notifications, isSelectionMode, handleMarkAllAsRead, toggleSelectionMode, toggleFilterMenu, filterType, selectedCategory, sortType]);
 
-// Add this to the renderMinimalHeader function
-const renderMinimalHeader = useCallback(() => {
-  return (
-    <View className="items-center">
-      {/* Pull down indicator */}
-      <View className="w-12 h-1 bg-neutral-400/30 rounded-full my-2" />
-      
-      <View className="flex-row justify-end items-center w-full px-4 py-2">
-        <TouchableOpacity 
-          onPress={() => router.back()} 
-          className="p-2 rounded-full bg-neutral-200/30">
-          <Ionicons
-            name="chevron-down"
-            size={24}
-            color={isDarkMode ? 'white' : 'black'}
-          />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}, [isDarkMode, router]);
-
   const renderNotificationGroup = useCallback((group: NotificationGroup, index: number) => {
     return (
       <View key={group.title}>
@@ -663,7 +644,7 @@ const renderMinimalHeader = useCallback(() => {
     if (!showFilterMenu) return null;
 
     return (
-      <Animated.View
+      <View
         style={[filterMenuStyle]}
         className={`mx-4 rounded-xl overflow-hidden ${isDarkMode ? 'bg-neutral-800' : 'bg-white'}`}>
         <ScrollView className='p-4'>
@@ -746,16 +727,16 @@ const renderMinimalHeader = useCallback(() => {
                         : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
                     }`}>
                     {category !== 'all' && (
-<Ionicons
-  name={(NOTIFICATION_TYPES[category] || NOTIFICATION_TYPES.default).icon as any}
-  size={14}
-  color={
-    (category === 'all' && !selectedCategory) || category === selectedCategory
-      ? 'white'
-      : isDarkMode ? '#E5E7EB' : '#000000' 
-  }
-  style={{ marginRight: 4 }}
-/>
+                      <Ionicons
+                        name={(NOTIFICATION_TYPES[category] || NOTIFICATION_TYPES.default).icon as any}
+                        size={14}
+                        color={
+                          (category === 'all' && !selectedCategory) || category === selectedCategory
+                            ? 'white'
+                            : isDarkMode ? '#E5E7EB' : '#000000' 
+                        }
+                        style={{ marginRight: 4 }}
+                      />
                     )}
                     <Text
                       className={
@@ -771,7 +752,7 @@ const renderMinimalHeader = useCallback(() => {
             </>
           )}
         </ScrollView>
-      </Animated.View>
+      </View>
     );
   }, [
     showFilterMenu,
@@ -790,14 +771,13 @@ const renderMinimalHeader = useCallback(() => {
     if (count === 0) return null;
 
     return (
-      <Animated.View
-        entering={ZoomIn}
-        exiting={ZoomOut}
+      <View
+
         className='absolute -top-2 -right-2 bg-red rounded-full min-w-5 h-5 justify-center items-center px-1'>
         <Text className='text-white text-xs font-bold'>
           {count > 99 ? '99+' : count}
         </Text>
-      </Animated.View>
+      </View>
     );
   }, []);
 
@@ -912,8 +892,7 @@ const renderMinimalHeader = useCallback(() => {
     }
 
     return (
-      <Animated.View
-        entering={FadeIn.delay(300)}
+      <View
         className='flex-1 justify-center items-center py-20'>
         <View className='w-24 h-24 rounded-full bg-neutral-100 justify-center items-center mb-4'>
           <Ionicons
@@ -932,7 +911,7 @@ const renderMinimalHeader = useCallback(() => {
           }`}>
           We'll notify you when there's activity related to your favorite cars and dealerships
         </Text>
-      </Animated.View>
+      </View>
     )
   }, [
     isDarkMode,
@@ -954,7 +933,7 @@ const renderMinimalHeader = useCallback(() => {
 
   
     return (
-      <Animated.View
+      <View
         style={[
           fabStyle,
           {
@@ -963,21 +942,20 @@ const renderMinimalHeader = useCallback(() => {
             right: 16,
           }
         ]}
-        entering={FadeIn.delay(500).springify()}>
+        >
         <TouchableOpacity
           onPress={handleClearAll}
           className='bg-red w-12 h-12 rounded-full justify-center items-center shadow-lg'
           style={Platform.OS === 'ios' ? styles.iosShadow : styles.androidShadow}>
           <Ionicons name="trash-outline" size={24} color="white" />
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     );
   }, [notifications.length, isSelectionMode, fabStyle, insets.bottom, handleClearAll]);
 
   const renderSelectionModeHeader = useCallback(() => {
     return (
-      <Animated.View
-        entering={FadeInDown}
+      <View
         className='flex-row justify-between items-center px-4 py-3'>
         <TouchableOpacity onPress={toggleSelectionMode}>
           <Ionicons
@@ -1016,7 +994,7 @@ const renderMinimalHeader = useCallback(() => {
             </>
           )}
         </View>
-      </Animated.View>
+      </View>
     );
   }, [isDarkMode, toggleSelectionMode, selectedNotifications.length, handleBulkAction]);
 

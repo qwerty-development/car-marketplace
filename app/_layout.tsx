@@ -45,6 +45,7 @@ LogBox.ignoreLogs([
   
   // Text rendering warnings
   'Text strings must be rendered within a <Text> component.',
+  'Text strings must be rendered within a <Text> component',
   
   // Animation warnings
   'Sending `onAnimatedValueUpdate` with no listeners registered.',
@@ -78,6 +79,8 @@ LogBox.ignoreLogs([
   'Remote debugger is in a background tab',
   'Setting a timer for a long period of time'
 ])
+
+LogBox.ignoreAllLogs();
 
 // Prevent auto-hiding splash screen
 SplashScreen.preventAutoHideAsync()
