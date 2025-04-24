@@ -26,33 +26,33 @@ import { useScrollToTop } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import type { NotificationSettings } from "../types/type";
 import openWhatsApp from "@/utils/openWhatsapp";
-import { useGuestUser } from '@/utils/GuestUserContext';
+import { useGuestUser } from "@/utils/GuestUserContext";
 import { BlurView } from "expo-blur";
-import Constants from 'expo-constants';
-import { SignOutOverlay } from '@/components/SignOutOverlay';
-import { coordinateSignOut } from '@/app/(home)/_layout';
-import * as SecureStore from 'expo-secure-store';
+import Constants from "expo-constants";
+import { SignOutOverlay } from "@/components/SignOutOverlay";
+import { coordinateSignOut } from "@/app/(home)/_layout";
+import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 
 const WHATSAPP_NUMBER = "81972024";
 const SUPPORT_EMAIL = "support@example.com";
 const EMAIL_SUBJECT = "Support Request";
-const DEFAULT_PROFILE_IMAGE = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+const DEFAULT_PROFILE_IMAGE =
+  "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 
 const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
 
-
-
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
-  const { user, profile, signOut, updateUserProfile, updatePassword} = useAuth();
+  const { user, profile, signOut, updateUserProfile, updatePassword } =
+    useAuth();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const {
     unreadCount,
     cleanupPushToken,
     refreshNotifications,
-    loading: notificationsLoading
+    loading: notificationsLoading,
   } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
@@ -67,70 +67,76 @@ export default function UserProfileAndSupportPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] = useState(false);
-  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] = useState(false);
-  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] =
+    useState(false);
+  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] =
+    useState(false);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] =
+    useState(true);
   const [loading, setLoading] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    pushNotifications: true,
-    emailNotifications: true,
-    marketingUpdates: false,
-    newCarAlerts: true,
-  });
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings>({
+      pushNotifications: true,
+      emailNotifications: true,
+      marketingUpdates: false,
+      newCarAlerts: true,
+    });
 
   useScrollToTop(scrollRef);
 
   const fetchTokenStatus = useCallback(async () => {
     if (!user?.id || isGuest) return;
-  
+
     try {
       setLoading(true);
-      
+
       // Get the token from storage
-      const token = await SecureStore.getItemAsync('expoPushToken');
-  
+      const token = await SecureStore.getItemAsync("expoPushToken");
+
       if (!token) {
-        console.log('No token found when checking status');
+        console.log("No token found when checking status");
         // Attempt to sync from database
-        const syncedToken = await NotificationService.syncTokenFromDatabase(user.id);
-        
+        const syncedToken = await NotificationService.syncTokenFromDatabase(
+          user.id
+        );
+
         if (!syncedToken) {
           // No token available, set defaults
           setPushNotificationsEnabled(false);
-          setNotificationSettings(prev => ({
+          setNotificationSettings((prev) => ({
             ...prev,
-            pushNotifications: false
+            pushNotifications: false,
           }));
           return;
         }
       }
-  
+
       // Check token status in database
       const { data, error } = await supabase
-        .from('user_push_tokens')
-        .select('active, signed_in')
-        .eq('user_id', user.id)
-        .eq('token', token || '')
+        .from("user_push_tokens")
+        .select("active, signed_in")
+        .eq("user_id", user.id)
+        .eq("token", token || "")
         .single();
-  
+
       if (error) {
-        console.error('Error fetching token status:', error);
+        console.error("Error fetching token status:", error);
         return;
       }
-  
+
       if (data) {
         // Check both active and signed_in status
         const isEnabled = data.active && data.signed_in;
         setPushNotificationsEnabled(isEnabled);
-        
+
         // Update local notification settings state to match
-        setNotificationSettings(prev => ({
+        setNotificationSettings((prev) => ({
           ...prev,
-          pushNotifications: isEnabled
+          pushNotifications: isEnabled,
         }));
       }
     } catch (error) {
-      console.error('Error in fetchTokenStatus:', error);
+      console.error("Error in fetchTokenStatus:", error);
     } finally {
       setLoading(false);
     }
@@ -144,129 +150,152 @@ export default function UserProfileAndSupportPage() {
         "Please sign in to manage notifications.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn }
+          { text: "Sign In", onPress: handleSignIn },
         ]
       );
       return;
     }
-  
+
     try {
       setLoading(true);
-  
+
       // First, try to get token from local storage
-      let token = await SecureStore.getItemAsync('expoPushToken');
-  
+      let token = await SecureStore.getItemAsync("expoPushToken");
+
       // If no local token, try to sync from database
       if (!token) {
-        console.log('No local token found, attempting to sync from database');
+        console.log("No local token found, attempting to sync from database");
         token = await NotificationService.syncTokenFromDatabase(user.id);
       }
-  
+
       // If still no token, we need to fetch tokens directly from database
       if (!token) {
-        console.log('No token available, fetching from database directly');
-        
+        console.log("No token available, fetching from database directly");
+
         const { data: dbTokens, error: fetchError } = await supabase
-          .from('user_push_tokens')
-          .select('token, signed_in')
-          .eq('user_id', user.id)
-          .eq('signed_in', true) // Only fetch signed-in tokens
-          .order('last_updated', { ascending: false })
+          .from("user_push_tokens")
+          .select("token, signed_in")
+          .eq("user_id", user.id)
+          .eq("signed_in", true) // Only fetch signed-in tokens
+          .order("last_updated", { ascending: false })
           .limit(1)
           .single();
-  
+
         if (fetchError || !dbTokens) {
-          console.error('Error fetching token from database:', fetchError);
-          
+          console.error("Error fetching token from database:", fetchError);
+
           // No valid token found, initiate token registration
           Alert.alert(
-            'Notification Setup Required',
-            'We need to set up notifications for your device. Please wait...',
-            [{ text: 'OK' }]
+            "Notification Setup Required",
+            "We need to set up notifications for your device. Please wait...",
+            [{ text: "OK" }]
           );
-          
+
           // Trigger push notification registration
-          const registrationSuccess = await NotificationService.registerForPushNotificationsAsync(user.id, true);
-          
+          const registrationSuccess =
+            await NotificationService.registerForPushNotificationsAsync(
+              user.id,
+              true
+            );
+
           if (!registrationSuccess) {
-            Alert.alert('Error', 'Failed to set up notifications. Please try restarting the app.');
+            Alert.alert(
+              "Error",
+              "Failed to set up notifications. Please try restarting the app."
+            );
             return;
           }
-          
+
           // Get the newly registered token
-          token = await SecureStore.getItemAsync('expoPushToken');
-          
+          token = await SecureStore.getItemAsync("expoPushToken");
+
           if (!token) {
-            Alert.alert('Error', 'Unable to get notification token. Please try again.');
+            Alert.alert(
+              "Error",
+              "Unable to get notification token. Please try again."
+            );
             return;
           }
         } else {
           token = dbTokens.token;
         }
       }
-  
-      console.log(`Updating token status to active: ${enabled} for token: ${token.substring(0, 10)}...`);
-  
+
+      console.log(
+        `Updating token status to active: ${enabled} for token: ${token.substring(
+          0,
+          10
+        )}...`
+      );
+
       // Update the token status in database
       const { data, error } = await supabase
-        .from('user_push_tokens')
-        .update({ 
+        .from("user_push_tokens")
+        .update({
           active: enabled,
           last_updated: new Date().toISOString(),
           // Ensure signed_in remains true
-          signed_in: true
+          signed_in: true,
         })
-        .eq('user_id', user.id)
-        .eq('token', token)
+        .eq("user_id", user.id)
+        .eq("token", token)
         .select();
-  
+
       if (error) {
-        console.error('Error updating token status:', error);
-        Alert.alert('Error', `Failed to update notification settings: ${error.message}`);
-        
+        console.error("Error updating token status:", error);
+        Alert.alert(
+          "Error",
+          `Failed to update notification settings: ${error.message}`
+        );
+
         // Revert UI state on error
         setPushNotificationsEnabled(!enabled);
-        setNotificationSettings(prev => ({
+        setNotificationSettings((prev) => ({
           ...prev,
-          pushNotifications: !enabled
+          pushNotifications: !enabled,
         }));
         return;
       }
-  
+
       if (!data || data.length === 0) {
-        console.error('No token was updated - token might not exist');
-        Alert.alert('Error', 'Failed to update notification settings. Please try again.');
-        
+        console.error("No token was updated - token might not exist");
+        Alert.alert(
+          "Error",
+          "Failed to update notification settings. Please try again."
+        );
+
         // Revert UI state
         setPushNotificationsEnabled(!enabled);
-        setNotificationSettings(prev => ({
+        setNotificationSettings((prev) => ({
           ...prev,
-          pushNotifications: !enabled
+          pushNotifications: !enabled,
         }));
         return;
       }
-  
-      console.log('Successfully updated push notification status:', data);
-      
+
+      console.log("Successfully updated push notification status:", data);
+
       // Update local state
       setPushNotificationsEnabled(enabled);
-      setNotificationSettings(prev => ({
+      setNotificationSettings((prev) => ({
         ...prev,
-        pushNotifications: enabled
+        pushNotifications: enabled,
       }));
-  
+
       // Refresh the token status from database
       await fetchTokenStatus();
-  
     } catch (error) {
-      console.error('Error in togglePushNotifications:', error);
-      Alert.alert('Error', 'An unexpected error occurred while updating notification settings.');
-      
+      console.error("Error in togglePushNotifications:", error);
+      Alert.alert(
+        "Error",
+        "An unexpected error occurred while updating notification settings."
+      );
+
       // Revert UI state on error
       setPushNotificationsEnabled(!enabled);
-      setNotificationSettings(prev => ({
+      setNotificationSettings((prev) => ({
         ...prev,
-        pushNotifications: !enabled
+        pushNotifications: !enabled,
       }));
     } finally {
       setLoading(false);
@@ -275,9 +304,9 @@ export default function UserProfileAndSupportPage() {
   useEffect(() => {
     if (user && profile && !isGuest) {
       // Extract first and last name from full name in profile
-      const nameParts = profile.name ? profile.name.split(' ') : ['', ''];
+      const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
       setFirstName(nameParts[0] || "");
-      setLastName(nameParts.slice(1).join(' ') || "");
+      setLastName(nameParts.slice(1).join(" ") || "");
       setEmail(profile.email || user.email || "");
     } else if (isGuest) {
       setFirstName("Guest");
@@ -325,7 +354,7 @@ export default function UserProfileAndSupportPage() {
         "Please sign in to edit your profile information.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn }
+          { text: "Sign In", onPress: handleSignIn },
         ]
       );
       return;
@@ -339,7 +368,7 @@ export default function UserProfileAndSupportPage() {
 
       // Update user profile in Supabase database
       const { error } = await updateUserProfile({
-        name: fullName
+        name: fullName,
       });
 
       if (error) throw error;
@@ -360,7 +389,7 @@ export default function UserProfileAndSupportPage() {
         "Please sign in to update your profile picture.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn }
+          { text: "Sign In", onPress: handleSignIn },
         ]
       );
       return;
@@ -382,22 +411,25 @@ export default function UserProfileAndSupportPage() {
         // First, upload to Supabase Storage
         const fileName = `avatar-${user?.id}-${Date.now()}.jpg`;
         const { error: uploadError, data } = await supabase.storage
-          .from('avatars')
+          .from("avatars")
           .upload(fileName, base64Decode(base64), {
             contentType: mimeType,
-            upsert: true
+            upsert: true,
           });
 
         if (uploadError) throw uploadError;
 
         // Get the public URL of the uploaded image
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        const { data: urlData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(fileName);
         const avatarUrl = urlData?.publicUrl;
 
         // Update the user metadata with the new avatar URL
-        const { data: userData, error: userError } = await supabase.auth.updateUser({
-          data: { avatar_url: avatarUrl }
-        });
+        const { data: userData, error: userError } =
+          await supabase.auth.updateUser({
+            data: { avatar_url: avatarUrl },
+          });
 
         if (userError) throw userError;
 
@@ -405,10 +437,7 @@ export default function UserProfileAndSupportPage() {
       }
     } catch (err: any) {
       console.error("Error updating profile picture:", err);
-      Alert.alert(
-        "Error",
-        err.message || "Failed to update profile picture"
-      );
+      Alert.alert("Error", err.message || "Failed to update profile picture");
     }
   };
 
@@ -420,7 +449,7 @@ export default function UserProfileAndSupportPage() {
         "Please sign in to change your password.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn }
+          { text: "Sign In", onPress: handleSignIn },
         ]
       );
       return;
@@ -435,7 +464,7 @@ export default function UserProfileAndSupportPage() {
       // Use updatePassword from AuthContext
       const { error } = await updatePassword({
         currentPassword,
-        newPassword
+        newPassword,
       });
 
       if (error) throw error;
@@ -452,72 +481,68 @@ export default function UserProfileAndSupportPage() {
   };
 
   const handleSignOut = async (): Promise<void> => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setShowSignOutOverlay(true);
-  
-              if (isGuest) {
-                await coordinateSignOut(router, async () => {
-                  await clearGuestMode();
-                });
-              } else {
-                // Ensure token is properly marked as signed out
-                if (user?.id) {
-                  const token = await SecureStore.getItemAsync('expoPushToken');
-                  if (token) {
-                    // Directly update token status before sign out
-                    await supabase
-                      .from('user_push_tokens')
-                      .update({ 
-                        signed_in: false,
-                        last_updated: new Date().toISOString()
-                      })
-                      .eq('user_id', user.id)
-                      .eq('token', token);
-                  }
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setShowSignOutOverlay(true);
+
+            if (isGuest) {
+              await coordinateSignOut(router, async () => {
+                await clearGuestMode();
+              });
+            } else {
+              // Ensure token is properly marked as signed out
+              if (user?.id) {
+                const token = await SecureStore.getItemAsync("expoPushToken");
+                if (token) {
+                  // Directly update token status before sign out
+                  await supabase
+                    .from("user_push_tokens")
+                    .update({
+                      signed_in: false,
+                      last_updated: new Date().toISOString(),
+                    })
+                    .eq("user_id", user.id)
+                    .eq("token", token);
                 }
-  
-                await coordinateSignOut(router, async () => {
-                  try {
-                    await cleanupPushToken();
-                  } catch (tokenError) {
-                    console.error("Token cleanup error:", tokenError);
-                  }
-                  await signOut();
-                });
               }
-            } catch (error) {
-              console.error("Error during sign out:", error);
-              router.replace('/(auth)/sign-in');
-              Alert.alert(
-                "Sign Out Issue",
-                "There was a problem signing out, but we've redirected you to the sign-in screen."
-              );
-            } finally {
-              setShowSignOutOverlay(false);
+
+              await coordinateSignOut(router, async () => {
+                try {
+                  await cleanupPushToken();
+                } catch (tokenError) {
+                  console.error("Token cleanup error:", tokenError);
+                }
+                await signOut();
+              });
             }
+          } catch (error) {
+            console.error("Error during sign out:", error);
+            router.replace("/(auth)/sign-in");
+            Alert.alert(
+              "Sign Out Issue",
+              "There was a problem signing out, but we've redirected you to the sign-in screen."
+            );
+          } finally {
+            setShowSignOutOverlay(false);
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   // Handler for when guest user wants to sign in
   const handleSignIn = async (): Promise<void> => {
     try {
       await clearGuestMode();
-      router.replace('/(auth)/sign-in');
+      router.replace("/(auth)/sign-in");
     } catch (error) {
       console.error("Error transitioning to sign in:", error);
       Alert.alert("Error", "Failed to transition to sign in page");
@@ -542,14 +567,14 @@ export default function UserProfileAndSupportPage() {
         "Please sign in to manage notification settings.",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn }
+          { text: "Sign In", onPress: handleSignIn },
         ]
       );
       return;
     }
 
     // Special handling for push notifications toggle
-    if (key === 'pushNotifications') {
+    if (key === "pushNotifications") {
       togglePushNotifications(!notificationSettings.pushNotifications);
       return;
     }
@@ -579,12 +604,14 @@ export default function UserProfileAndSupportPage() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
+    <View
+      style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
+    >
       {isGuest && (
         <View style={guestStyles.overlay} pointerEvents="auto">
           <BlurView
             intensity={80}
-            tint={isDarkMode ? 'dark' : 'light'}
+            tint={isDarkMode ? "dark" : "light"}
             style={StyleSheet.absoluteFill}
           />
           <Animated.View style={[guestStyles.container, bannerAnimatedStyle]}>
@@ -598,7 +625,10 @@ export default function UserProfileAndSupportPage() {
             <Text style={guestStyles.subtitle}>
               Please sign in to access this feature.
             </Text>
-            <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
+            <TouchableOpacity
+              style={guestStyles.signInButton}
+              onPress={handleSignIn}
+            >
               <Text style={guestStyles.signInButtonText}>Sign In</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -607,8 +637,6 @@ export default function UserProfileAndSupportPage() {
 
       <ScrollView
         className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
-        bounces={false}
-        overScrollMode="never"
         showsVerticalScrollIndicator={false}
         ref={scrollRef}
         contentContainerStyle={{ paddingTop: isGuest ? 80 : 0 }}
@@ -616,7 +644,9 @@ export default function UserProfileAndSupportPage() {
         {/* Header Section */}
         <View className="relative">
           <LinearGradient
-            colors={isDarkMode ? ["#D55004", "#000000"] : ["#D55004","#DADADA"]}
+            colors={
+              isDarkMode ? ["#D55004", "#000000"] : ["#D55004", "#DADADA"]
+            }
             className="pt-12 pb-24 rounded-b-[40px]"
           >
             {/* Header row with notification bell */}
@@ -627,13 +657,11 @@ export default function UserProfileAndSupportPage() {
             {/* Profile information */}
             <View className="items-center mt-6">
               <View className="relative">
-                <Image
-                  source={{ uri: isGuest
-                    ? DEFAULT_PROFILE_IMAGE :
-                    DEFAULT_PROFILE_IMAGE }}
-                  className="w-32 h-32 rounded-full border-4 border-white/20"
+                <Ionicons
+                  name="person-circle-sharp"
+                  size={128}
+                  color={isDarkMode ? "#fff" : "#000"}
                 />
-                
               </View>
               <Text className="text-white text-xl font-semibold mt-4">
                 {isGuest ? "Guest User" : `${firstName} ${lastName}`}
@@ -656,7 +684,7 @@ export default function UserProfileAndSupportPage() {
                   "Please sign in to edit your profile information.",
                   [
                     { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn }
+                    { text: "Sign In", onPress: handleSignIn },
                   ]
                 );
               } else {
@@ -702,7 +730,7 @@ export default function UserProfileAndSupportPage() {
                   "Please sign in to access security settings.",
                   [
                     { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn }
+                    { text: "Sign In", onPress: handleSignIn },
                   ]
                 );
               } else {
@@ -728,7 +756,9 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to access security settings" : "Password and privacy"}
+                {isGuest
+                  ? "Sign in to access security settings"
+                  : "Password and privacy"}
               </Text>
             </View>
             <Ionicons
@@ -748,7 +778,7 @@ export default function UserProfileAndSupportPage() {
                   "Please sign in to manage notifications.",
                   [
                     { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn }
+                    { text: "Sign In", onPress: handleSignIn },
                   ]
                 );
               } else {
@@ -759,7 +789,11 @@ export default function UserProfileAndSupportPage() {
         p-4 rounded-xl shadow-sm flex-row items-center`}
           >
             <View className="bg-blue-500/10 p-3 rounded-xl">
-              <Ionicons name="notifications-outline" size={24} color="#D55004" />
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#D55004"
+              />
             </View>
             <View className="ml-4">
               <Text
@@ -797,7 +831,15 @@ export default function UserProfileAndSupportPage() {
             <TouchableWithoutFeedback onPress={() => closeModal(setIsEditMode)}>
               <View style={styles.modalBackground} />
             </TouchableWithoutFeedback>
-            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+                },
+              ]}
+            >
               <View className="flex-row justify-between items-center mb-6">
                 <Text
                   className={`text-xl font-semibold ${
@@ -873,11 +915,21 @@ export default function UserProfileAndSupportPage() {
           onRequestClose={() => setIsSecuritySettingsVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => closeModal(setIsSecuritySettingsVisible)}>
+            <TouchableWithoutFeedback
+              onPress={() => closeModal(setIsSecuritySettingsVisible)}
+            >
               <View style={styles.modalBackground} />
             </TouchableWithoutFeedback>
 
-            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+                },
+              ]}
+            >
               <View className="flex-row justify-between items-center mb-6">
                 <Text
                   className={`text-xl font-semibold ${
@@ -971,156 +1023,231 @@ export default function UserProfileAndSupportPage() {
         </Modal>
 
         {/* Notification Settings Modal - Updated with functional push notification toggle */}
-{/* Notification Settings Modal - Updated with functional push notification toggle */}
-<Modal
-  animationType="slide"
-  transparent={true}
-  visible={isNotificationSettingsVisible}
-  onRequestClose={() => setIsNotificationSettingsVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <TouchableWithoutFeedback onPress={() => closeModal(setIsNotificationSettingsVisible)}>
-      <View style={styles.modalBackground} />
-    </TouchableWithoutFeedback>
-    <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
-      <View className="flex-row justify-between items-center mb-6">
-        <Text
-          className={`text-xl font-semibold ${
-            isDarkMode ? "text-white" : "text-black"
-          }`}
+        {/* Notification Settings Modal - Updated with functional push notification toggle */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isNotificationSettingsVisible}
+          onRequestClose={() => setIsNotificationSettingsVisible(false)}
         >
-          Notification Settings
-        </Text>
-        <TouchableOpacity
-          onPress={() => setIsNotificationSettingsVisible(false)}
-        >
-          <Ionicons
-            name="close"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-          />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback
+              onPress={() => closeModal(setIsNotificationSettingsVisible)}
+            >
+              <View style={styles.modalBackground} />
+            </TouchableWithoutFeedback>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+                },
+              ]}
+            >
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className={`text-xl font-semibold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                >
+                  Notification Settings
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsNotificationSettingsVisible(false)}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                </TouchableOpacity>
+              </View>
 
-      {/* Push Notification Toggle - Controls token active status */}
-      <TouchableOpacity
-        onPress={() => togglePushNotifications(!pushNotificationsEnabled)}
-        className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+              {/* Push Notification Toggle - Controls token active status */}
+              <TouchableOpacity
+                onPress={() =>
+                  togglePushNotifications(!pushNotificationsEnabled)
+                }
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
             p-4 rounded-xl flex-row items-center justify-between mb-4`}
-        disabled={loading}
-      >
-        <View className="flex-row items-center">
-          <Ionicons
-            name={pushNotificationsEnabled ? "notifications" : "notifications-off"}
-            size={24}
-            color={pushNotificationsEnabled ? "#22c55e" : (isDarkMode ? "#fff" : "#000")}
-          />
-          <Text
-            className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-          >
-            Push Notifications
-          </Text>
-        </View>
-        <View
-          className={`w-12 h-6 rounded-full flex justify-center ${
-            pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
-          }`}
-        >
-          <View
-            className={`w-5 h-5 rounded-full bg-white shadow-md ${
-              pushNotificationsEnabled ? "ml-6" : "ml-1"
-            }`}
-          />
-        </View>
-      </TouchableOpacity>
+                disabled={loading}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons
+                    name={
+                      pushNotificationsEnabled
+                        ? "notifications"
+                        : "notifications-off"
+                    }
+                    size={24}
+                    color={
+                      pushNotificationsEnabled
+                        ? "#22c55e"
+                        : isDarkMode
+                        ? "#fff"
+                        : "#000"
+                    }
+                  />
+                  <Text
+                    className={`ml-3 ${
+                      isDarkMode ? "text-white" : "text-black"
+                    }`}
+                  >
+                    Push Notifications
+                  </Text>
+                </View>
+                <View
+                  className={`w-12 h-6 rounded-full flex justify-center ${
+                    pushNotificationsEnabled ? "bg-green-500" : "bg-gray-400"
+                  }`}
+                >
+                  <View
+                    className={`w-5 h-5 rounded-full bg-white shadow-md ${
+                      pushNotificationsEnabled ? "ml-6" : "ml-1"
+                    }`}
+                  />
+                </View>
+              </TouchableOpacity>
 
-      {/* Explanation text */}
-      <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm mt-2 mb-4`}>
-        {pushNotificationsEnabled
-          ? "You will receive push notifications about car listings, price changes, and other updates."
-          : "You have disabled push notifications. You won't receive alerts about new listings or updates."}
-      </Text>
+              {/* Explanation text */}
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/70" : "text-gray-600"
+                } text-sm mt-2 mb-4`}
+              >
+                {pushNotificationsEnabled
+                  ? "You will receive push notifications about car listings, price changes, and other updates."
+                  : "You have disabled push notifications. You won't receive alerts about new listings or updates."}
+              </Text>
 
-      {loading && (
-        <View className="items-center py-2">
-          <Text className={`${isDarkMode ? "text-white/70" : "text-gray-600"} text-sm flex-row items-center`}>
-            <Ionicons name="sync" size={16} color={isDarkMode ? "#fff" : "#000"} className="animate-spin mr-2" />
-            Updating settings...
-          </Text>
-        </View>
-      )}
+              {loading && (
+                <View className="items-center py-2">
+                  <Text
+                    className={`${
+                      isDarkMode ? "text-white/70" : "text-gray-600"
+                    } text-sm flex-row items-center`}
+                  >
+                    <Ionicons
+                      name="sync"
+                      size={16}
+                      color={isDarkMode ? "#fff" : "#000"}
+                      className="animate-spin mr-2"
+                    />
+                    Updating settings...
+                  </Text>
+                </View>
+              )}
 
-      {/* Additional notification options can remain but separated */}
-      <View className="mt-6">
-        <Text className={`${isDarkMode ? "text-white/90" : "text-gray-800"} font-semibold mb-4`}>
-          Other Notification Types
-        </Text>
+              {/* Additional notification options can remain but separated */}
+              <View className="mt-6">
+                <Text
+                  className={`${
+                    isDarkMode ? "text-white/90" : "text-gray-800"
+                  } font-semibold mb-4`}
+                >
+                  Other Notification Types
+                </Text>
 
-        {/* Email notifications toggle */}
-        <TouchableOpacity
-          onPress={() => toggleNotification('emailNotifications')}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                {/* Email notifications toggle */}
+                <TouchableOpacity
+                  onPress={() => toggleNotification("emailNotifications")}
+                  className={`${
+                    isDarkMode ? "bg-neutral-800" : "bg-neutral-100"
+                  }
               p-4 rounded-xl flex-row items-center justify-between mb-4`}
-        >
-          <View className="flex-row items-center">
-            <Ionicons
-              name={notificationSettings.emailNotifications ? "mail" : "mail-outline"}
-              size={24}
-              color={notificationSettings.emailNotifications ? "#3b82f6" : (isDarkMode ? "#fff" : "#000")}
-            />
-            <Text
-              className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-            >
-              Email Notifications
-            </Text>
-          </View>
-          <View
-            className={`w-12 h-6 rounded-full flex justify-center ${
-              notificationSettings.emailNotifications ? "bg-blue-500" : "bg-gray-400"
-            }`}
-          >
-            <View
-              className={`w-5 h-5 rounded-full bg-white shadow-md ${
-                notificationSettings.emailNotifications ? "ml-6" : "ml-1"
-              }`}
-            />
-          </View>
-        </TouchableOpacity>
+                >
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={
+                        notificationSettings.emailNotifications
+                          ? "mail"
+                          : "mail-outline"
+                      }
+                      size={24}
+                      color={
+                        notificationSettings.emailNotifications
+                          ? "#3b82f6"
+                          : isDarkMode
+                          ? "#fff"
+                          : "#000"
+                      }
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      }`}
+                    >
+                      Email Notifications
+                    </Text>
+                  </View>
+                  <View
+                    className={`w-12 h-6 rounded-full flex justify-center ${
+                      notificationSettings.emailNotifications
+                        ? "bg-blue-500"
+                        : "bg-gray-400"
+                    }`}
+                  >
+                    <View
+                      className={`w-5 h-5 rounded-full bg-white shadow-md ${
+                        notificationSettings.emailNotifications
+                          ? "ml-6"
+                          : "ml-1"
+                      }`}
+                    />
+                  </View>
+                </TouchableOpacity>
 
-        {/* Marketing updates toggle */}
-        <TouchableOpacity
-          onPress={() => toggleNotification('marketingUpdates')}
-          className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                {/* Marketing updates toggle */}
+                <TouchableOpacity
+                  onPress={() => toggleNotification("marketingUpdates")}
+                  className={`${
+                    isDarkMode ? "bg-neutral-800" : "bg-neutral-100"
+                  }
               p-4 rounded-xl flex-row items-center justify-between mb-4`}
-        >
-          <View className="flex-row items-center">
-            <Ionicons
-              name={notificationSettings.marketingUpdates ? "megaphone" : "megaphone-outline"}
-              size={24}
-              color={notificationSettings.marketingUpdates ? "#ec4899" : (isDarkMode ? "#fff" : "#000")}
-            />
-            <Text
-              className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-            >
-              Marketing Updates
-            </Text>
+                >
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={
+                        notificationSettings.marketingUpdates
+                          ? "megaphone"
+                          : "megaphone-outline"
+                      }
+                      size={24}
+                      color={
+                        notificationSettings.marketingUpdates
+                          ? "#ec4899"
+                          : isDarkMode
+                          ? "#fff"
+                          : "#000"
+                      }
+                    />
+                    <Text
+                      className={`ml-3 ${
+                        isDarkMode ? "text-white" : "text-black"
+                      }`}
+                    >
+                      Marketing Updates
+                    </Text>
+                  </View>
+                  <View
+                    className={`w-12 h-6 rounded-full flex justify-center ${
+                      notificationSettings.marketingUpdates
+                        ? "bg-pink-500"
+                        : "bg-gray-400"
+                    }`}
+                  >
+                    <View
+                      className={`w-5 h-5 rounded-full bg-white shadow-md ${
+                        notificationSettings.marketingUpdates ? "ml-6" : "ml-1"
+                      }`}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-          <View
-            className={`w-12 h-6 rounded-full flex justify-center ${
-              notificationSettings.marketingUpdates ? "bg-pink-500" : "bg-gray-400"
-            }`}
-          >
-            <View
-              className={`w-5 h-5 rounded-full bg-white shadow-md ${
-                notificationSettings.marketingUpdates ? "ml-6" : "ml-1"
-              }`}
-            />
-          </View>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+        </Modal>
 
         {/* Change Password Modal */}
         <Modal
@@ -1130,10 +1257,20 @@ export default function UserProfileAndSupportPage() {
           onRequestClose={() => setIsChangePasswordMode(false)}
         >
           <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => closeModal(setIsChangePasswordMode)}>
+            <TouchableWithoutFeedback
+              onPress={() => closeModal(setIsChangePasswordMode)}
+            >
               <View style={styles.modalBackground} />
             </TouchableWithoutFeedback>
-            <View style={[styles.modalContent, { maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`, backgroundColor: isDarkMode ? "#1A1A1A" : "white" }]}>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+                },
+              ]}
+            >
               <View className="flex-row justify-between items-center mb-6">
                 <Text
                   className={`text-xl font-semibold ${
@@ -1142,7 +1279,9 @@ export default function UserProfileAndSupportPage() {
                 >
                   Change Password
                 </Text>
-                <TouchableOpacity onPress={() => setIsChangePasswordMode(false)}>
+                <TouchableOpacity
+                  onPress={() => setIsChangePasswordMode(false)}
+                >
                   <Ionicons
                     name="close"
                     size={24}
@@ -1295,8 +1434,11 @@ export default function UserProfileAndSupportPage() {
         </View>
 
         {/* Version Information */}
-        <Text className="text-center mb-4" style={{ fontSize: 12, color: isDarkMode ? "#fff" : "#333" }}>
-          Version {Constants.expoConfig?.version || '1.0.0'}
+        <Text
+          className="text-center mb-4"
+          style={{ fontSize: 12, color: isDarkMode ? "#fff" : "#333" }}
+        >
+          Version {Constants.expoConfig?.version || "1.0.0"}
         </Text>
 
         {/* Sign Out Button */}
@@ -1308,10 +1450,10 @@ export default function UserProfileAndSupportPage() {
           >
             <Text
               className={`text-center text-red font-semibold border border-red p-4 rounded-2xl ${
-                showSignOutOverlay ? 'opacity-50' : 'opacity-100'
+                showSignOutOverlay ? "opacity-50" : "opacity-100"
               }`}
             >
-              {showSignOutOverlay ? 'Signing Out...' : 'Sign Out'}
+              {showSignOutOverlay ? "Signing Out..." : "Sign Out"}
             </Text>
           </TouchableOpacity>
         )}
@@ -1354,18 +1496,18 @@ const styles = StyleSheet.create({
 const guestStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // semi-transparent overlay
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // semi-transparent overlay
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 1000,
   },
   container: {
-    width: '80%',
+    width: "80%",
     padding: 24,
     borderRadius: 16,
-    backgroundColor: '#D55004', // unified orange background
-    alignItems: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#D55004", // unified orange background
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -1376,26 +1518,26 @@ const guestStyles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: "bold",
+    color: "#ffffff",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: '#ffffff',
+    color: "#ffffff",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   signInButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
   },
   signInButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#D55004',
+    fontWeight: "700",
+    color: "#D55004",
   },
 });

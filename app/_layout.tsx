@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { FavoritesProvider } from '@/utils/useFavorites'
 import { ThemeProvider } from '@/utils/ThemeContext'
 import { QueryClient, QueryClientProvider } from 'react-query'
-import { LogBox, View, Text, TouchableOpacity, Alert, Platform, Animated, StyleSheet, Dimensions } from 'react-native'
+import { LogBox, View, Text, TouchableOpacity, Alert, Platform, Animated, StyleSheet, Dimensions, useColorScheme } from 'react-native'
 import 'react-native-gesture-handler'
 import 'react-native-get-random-values'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -524,6 +524,8 @@ function RootLayoutNav() {
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
   
   // Animation values for the curtain effect
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
@@ -597,14 +599,17 @@ function RootLayoutNav() {
       {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
       ) : (
-        <Animated.View
-          style={[
-            styles.curtain,
-            { transform: [{ translateX: curtainPosition }] }
-          ]}
-        >
-          {/* This is an empty view that slides out, revealing content underneath */}
-        </Animated.View>
+<Animated.View
+  style={[
+    styles.curtain,
+    { 
+      backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+      transform: [{ translateX: curtainPosition }] 
+    }
+  ]}
+>
+  {/* This is an empty view that slides out, revealing content underneath */}
+</Animated.View>
       )}
     </View>
   );
