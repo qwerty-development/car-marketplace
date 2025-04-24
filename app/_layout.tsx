@@ -36,10 +36,47 @@ Notifications.setNotificationHandler({
 
 // Ignore specific warnings
 LogBox.ignoreLogs([
+  // Navigation warnings
   'Encountered two children with the same key',
   'Non-serializable values were found in the navigation state',
+  
+  // List warnings
   'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation - use another VirtualizedList-backed container instead.',
+  
+  // Text rendering warnings
   'Text strings must be rendered within a <Text> component.',
+  
+  // Animation warnings
+  'Sending `onAnimatedValueUpdate` with no listeners registered.',
+  'Animated: `useNativeDriver` was not specified',
+  
+  // Shadow style warnings
+  'shadowColor style may be ignored',
+  
+  // Reanimated warnings
+  'Animated: `useNativeDriver` is not supported',
+  'ViewPropTypes will be removed from React Native',
+  
+  // Lifecycle warnings
+  'componentWillReceiveProps has been renamed',
+  'componentWillMount has been renamed',
+  
+  // Deprecated API warnings
+  'AsyncStorage has been extracted from react-native',
+  
+  // Network warnings 
+  'Network request failed',
+  
+  // Expo warnings
+  'FontAwesome Icons',
+  'EventEmitter.removeListener',
+  
+  // Deep linking warnings
+  'expo-linking requires a build-time setting `scheme` in your app config',
+  
+  // Performance warnings
+  'Remote debugger is in a background tab',
+  'Setting a timer for a long period of time'
 ])
 
 // Prevent auto-hiding splash screen
