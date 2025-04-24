@@ -25,6 +25,7 @@ import { isGlobalSigningOut } from '@/utils/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
+// Notification handler configuration
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -33,6 +34,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Ignore specific warnings
 LogBox.ignoreLogs([
   'Encountered two children with the same key',
   'Non-serializable values were found in the navigation state',
@@ -56,200 +58,326 @@ const queryClient = new QueryClient({
   }
 })
 
+// Global declaration for pending deep links
+declare global {
+  var pendingDeepLink: { type: string; id: string } | null;
+}
+
+/**
+ * Simplified Deep Link Queue for managing multiple deep links
+ */
+class DeepLinkQueue {
+  private queue: string[] = [];
+  private processing = false;
+  private readyToProcess = false;
+
+  enqueue(url: string) {
+    this.queue.push(url);
+    this.processNextIfReady();
+  }
+
+  setReady() {
+    this.readyToProcess = true;
+    this.processNextIfReady();
+  }
+
+  private async processNextIfReady() {
+    if (!this.readyToProcess || this.processing || this.queue.length === 0) {
+      return;
+    }
+
+    this.processing = true;
+    const url = this.queue.shift();
+    
+    if (url && this.processUrlCallback) {
+      try {
+        await this.processUrlCallback(url);
+      } catch (error) {
+        console.error('Error processing queued deep link:', error);
+      }
+    }
+    
+    this.processing = false;
+    
+    // Process next if available
+    if (this.queue.length > 0) {
+      setTimeout(() => this.processNextIfReady(), 100);
+    }
+  }
+
+  private processUrlCallback: ((url: string) => Promise<void>) | null = null;
+
+  setProcessUrlCallback(callback: (url: string) => Promise<void>) {
+    this.processUrlCallback = callback;
+  }
+}
+
+// Singleton instance
+const deepLinkQueue = new DeepLinkQueue();
+
+/**
+ * DeepLinkHandler: Optimized component for handling all deep link scenarios
+ */
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
   const { prefetchCarDetails } = useCarDetails();
 
-  // Track if a deep link is currently being processed to prevent duplicates
+  // Track processing state
   const [isProcessingDeepLink, setIsProcessingDeepLink] = useState(false);
+  
+  // Track initial URL separately for closed app scenarios
+  const [initialUrl, setInitialUrl] = useState<string | null>(null);
+  const initialUrlProcessed = useRef(false);
+  
+  // Track initialization state
+  const [isInitialized, setIsInitialized] = useState(false);
+  const initializationTimeoutRef = useRef<NodeJS.Timeout>();
 
-  useEffect(() => {
-    const handleDeepLink = async ({ url }: { url: string }) => {
-      if (!url || isProcessingDeepLink) return;
+  /**
+   * Process deep link with comprehensive error handling
+   */
+  const processDeepLink = useCallback(async (url: string, isInitialLink = false) => {
+    if (!url || isProcessingDeepLink) return;
 
-      console.log('Deep link received:', url);
-      setIsProcessingDeepLink(true);
+    console.log(`Processing ${isInitialLink ? 'initial' : 'runtime'} deep link:`, url);
+    setIsProcessingDeepLink(true);
 
-      try {
-        const parsedUrl = Linking.parse(url);
-        const { path, queryParams } = parsedUrl;
+    try {
+      const parsedUrl = Linking.parse(url);
+      const { path, queryParams } = parsedUrl;
 
-        console.log('Parsed URL:', { path, queryParams });
+      console.log('Parsed URL:', { path, queryParams });
 
-        // Handle Supabase Auth redirects
-        if (url.includes("auth/callback") || url.includes("reset-password")) {
-          console.log('Handling auth callback');
-          const accessToken = queryParams?.access_token;
-          const refreshToken = queryParams?.refresh_token;
+      // Handle Supabase Auth redirects
+      if (url.includes("auth/callback") || url.includes("reset-password")) {
+        console.log('Handling auth callback');
+        const accessToken = queryParams?.access_token;
+        const refreshToken = queryParams?.refresh_token;
 
-          if (accessToken && refreshToken) {
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken as string,
-              refresh_token: refreshToken as string,
-            });
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken as string,
+            refresh_token: refreshToken as string,
+          });
 
-            if (error) {
-              console.error("Error setting session:", error);
-            } else {
-              console.log('Auth session set successfully');
-            }
-          }
-          setIsProcessingDeepLink(false);
-          return;
-        }
-
-        // Wait for auth to be loaded before handling navigation deep links
-        if (!isLoaded) {
-          console.log('Auth not loaded yet, deferring deep link handling');
-          setIsProcessingDeepLink(false);
-          return;
-        }
-
-        // Enhanced path parsing logic
-        if (path) {
-          // Match multiple URL patterns for car details
-          const carIdMatch =
-            path.match(/^cars\/(\d+)$/) || // cars/123
-            path.match(/^\/cars\/(\d+)$/) || // /cars/123
-            path.match(/^car\/(\d+)$/); // car/123
-
-          // NEW: Match multiple URL patterns for autoclip details
-          const clipIdMatch =
-            path.match(/^clips\/(\d+)$/) || // clips/123
-            path.match(/^\/clips\/(\d+)$/) || // /clips/123
-            path.match(/^clip\/(\d+)$/); // clip/123
-
-          const carId = carIdMatch ? carIdMatch[1] : null;
-          const clipId = clipIdMatch ? clipIdMatch[1] : null;
-
-          // Check authentication status - we'll reuse this for both car and clip
-          const isEffectivelySignedIn = isSignedIn || isGuest;
-
-          // Handle car deep links
-          if (carId && !isNaN(Number(carId))) {
-            console.log(`Navigating to car details for ID: ${carId}`);
-
-            if (!isEffectivelySignedIn) {
-              console.log('User not signed in, redirecting to sign-in first');
-              // Store the intended destination for after sign-in
-              global.pendingDeepLink = { type: 'car', id: carId };
-              router.replace('/(auth)/sign-in');
-              setIsProcessingDeepLink(false);
-              return;
-            }
-
-            try {
-              // Prefetch car details
-              const prefetchedData = await prefetchCarDetails(carId);
-
-              // Navigate with prefetched data
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId,
-                  isDealerView: 'false', // Default to user view for deep links
-                  prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined,
-                  fromDeepLink: 'true'
-                }
-              });
-            } catch (error) {
-              console.error('Error prefetching car details:', error);
-
-              // Fallback navigation without prefetched data
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId,
-                  isDealerView: 'false',
-                  fromDeepLink: 'true'
-                }
-              });
-            }
-          } 
-          // Handle autoclip deep links
-          else if (clipId && !isNaN(Number(clipId))) {
-            console.log(`Navigating to autoclip details for ID: ${clipId}`);
-          
-            if (!isEffectivelySignedIn) {
-              global.pendingDeepLink = { type: 'autoclip', id: clipId };
-              router.replace('/(auth)/sign-in');
-              return;
-            }
-          
-            // NEW: Validate clip existence
-            try {
-              const { data: clipExists, error } = await supabase
-                .from('auto_clips')
-                .select('id, status')
-                .eq('id', clipId)
-                .eq('status', 'published')
-                .single();
-              
-              if (error || !clipExists) {
-                Alert.alert(
-                  'Content Not Available',
-                  'This video is no longer available or has been removed.',
-                  [{ text: 'OK', onPress: () => router.replace('/(home)/(user)') }]
-                );
-                return;
-              }
-          
-              router.push({
-                pathname: "/(home)/(user)/(tabs)/autoclips",
-                params: {
-                  clipId,
-                  fromDeepLink: 'true'
-                }
-              });
-
-              // router.replace({
-              //   pathname: "/(home)/(user)/autoclip/[id]",
-              //   params: { id: clipId }
-              // });
-            
-            } catch (error) {
-              console.error('Error checking clip existence:', error);
-              Alert.alert('Error', 'Unable to load the requested content.');
-              router.replace('/(home)/(user)');
-            }
-          }
-          // Handle invalid paths
-          else if (
-            (path.startsWith('cars') || path.startsWith('/cars') || path.startsWith('car')) ||
-            (path.startsWith('clips') || path.startsWith('/clips') || path.startsWith('clip'))
-          ) {
-            console.warn('Invalid ID in deep link:', path);
-            Alert.alert('Invalid Link', 'The content you\'re looking for could not be found.');
+          if (error) {
+            console.error("Error setting session:", error);
+          } else {
+            console.log('Auth session set successfully');
           }
         }
-      } catch (err) {
-        console.error("Deep link error:", err);
-      } finally {
-        setIsProcessingDeepLink(false);
+        return;
       }
-    };
 
-    // Set up the linking listener
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+      // Wait for auth to be loaded before handling navigation deep links
+      if (!isLoaded) {
+        console.log('Auth not loaded yet, queueing deep link');
+        deepLinkQueue.enqueue(url);
+        return;
+      }
 
-    // Check for initial URLs when app is opened via a link
+      // Enhanced path parsing logic
+      if (path) {
+        // Match multiple URL patterns for car details
+        const carIdMatch =
+          path.match(/^cars\/(\d+)$/) || // cars/123
+          path.match(/^\/cars\/(\d+)$/) || // /cars/123
+          path.match(/^car\/(\d+)$/); // car/123
+
+        // Match multiple URL patterns for autoclip details
+        const clipIdMatch =
+          path.match(/^clips\/(\d+)$/) || // clips/123
+          path.match(/^\/clips\/(\d+)$/) || // /clips/123
+          path.match(/^clip\/(\d+)$/); // clip/123
+
+        const carId = carIdMatch ? carIdMatch[1] : null;
+        const clipId = clipIdMatch ? clipIdMatch[1] : null;
+
+        // Check authentication status
+        const isEffectivelySignedIn = isSignedIn || isGuest;
+
+        // Handle car deep links
+        if (carId && !isNaN(Number(carId))) {
+          console.log(`Navigating to car details for ID: ${carId}`);
+
+          if (!isEffectivelySignedIn) {
+            console.log('User not signed in, redirecting to sign-in first');
+            // Store the intended destination for after sign-in
+            global.pendingDeepLink = { type: 'car', id: carId };
+            router.replace('/(auth)/sign-in');
+            return;
+          }
+
+          try {
+            // Add small delay when app is launched from closed state to let UI stabilize
+            if (isInitialLink) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Prefetch car details
+            const prefetchedData = await prefetchCarDetails(carId);
+
+            // Navigate with prefetched data
+            router.push({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId,
+                isDealerView: 'false', // Default to user view for deep links
+                prefetchedData: prefetchedData ? JSON.stringify(prefetchedData) : undefined,
+                fromDeepLink: 'true'
+              }
+            });
+          } catch (error) {
+            console.error('Error prefetching car details:', error);
+
+            // Fallback navigation without prefetched data
+            router.push({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId,
+                isDealerView: 'false',
+                fromDeepLink: 'true'
+              }
+            });
+          }
+        } 
+        // Handle autoclip deep links
+        else if (clipId && !isNaN(Number(clipId))) {
+          console.log(`Navigating to autoclip details for ID: ${clipId}`);
+        
+          if (!isEffectivelySignedIn) {
+            global.pendingDeepLink = { type: 'autoclip', id: clipId };
+            router.replace('/(auth)/sign-in');
+            return;
+          }
+        
+          // Add small delay when app is launched from closed state to let UI stabilize
+          if (isInitialLink) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          
+          // Validate clip existence
+          try {
+            const { data: clipExists, error } = await supabase
+              .from('auto_clips')
+              .select('id, status')
+              .eq('id', clipId)
+              .eq('status', 'published')
+              .single();
+            
+            if (error || !clipExists) {
+              Alert.alert(
+                'Content Not Available',
+                'This video is no longer available or has been removed.',
+                [{ text: 'OK', onPress: () => router.replace('/(home)/(user)' as any) }]
+              );
+              return;
+            }
+        
+            router.push({
+              pathname: "/(home)/(user)/(tabs)/autoclips",
+              params: {
+                clipId,
+                fromDeepLink: 'true'
+              }
+            });
+          } catch (error) {
+            console.error('Error checking clip existence:', error);
+            Alert.alert('Error', 'Unable to load the requested content.');
+            router.replace('/(home)/(user)' as any);
+          }
+        }
+        // Handle invalid paths
+        else if (
+          (path.startsWith('cars') || path.startsWith('/cars') || path.startsWith('car')) ||
+          (path.startsWith('clips') || path.startsWith('/clips') || path.startsWith('clip'))
+        ) {
+          console.warn('Invalid ID in deep link:', path);
+          Alert.alert('Invalid Link', 'The content you\'re looking for could not be found.');
+        }
+      }
+    } catch (err) {
+      console.error("Deep link processing error:", err);
+      Alert.alert('Error', 'Unable to process the link. Please try again.');
+    } finally {
+      setIsProcessingDeepLink(false);
+    }
+  }, [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]);
+
+  /**
+   * Handle initial app launch with deep link
+   */
+  useEffect(() => {
     Linking.getInitialURL().then(url => {
       if (url) {
         console.log('App opened with initial URL:', url);
-        handleDeepLink({ url });
+        setInitialUrl(url);
       }
     }).catch(err => {
       console.error('Error getting initial URL:', err);
+    });
+  }, []);
+
+  /**
+   * Process initial URL when auth is loaded
+   */
+  useEffect(() => {
+    if (initialUrl && isLoaded && !initialUrlProcessed.current) {
+      initialUrlProcessed.current = true;
+      console.log('Processing initial URL after auth loaded:', initialUrl);
+      processDeepLink(initialUrl, true);
+    }
+  }, [initialUrl, isLoaded, processDeepLink]);
+
+  /**
+   * Set up deep link queue processor
+   */
+  useEffect(() => {
+    deepLinkQueue.setProcessUrlCallback(processDeepLink);
+  }, [processDeepLink]);
+
+  /**
+   * Mark initialization complete when app is ready
+   */
+  useEffect(() => {
+    if (isLoaded) {
+      // Add a small delay to ensure navigation tree is ready
+      initializationTimeoutRef.current = setTimeout(() => {
+        setIsInitialized(true);
+        deepLinkQueue.setReady();
+      }, 300);
+    }
+
+    return () => {
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+      }
+    };
+  }, [isLoaded]);
+
+  /**
+   * Set up the linking listener for when app is in the background
+   */
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (isInitialized) {
+        processDeepLink(url);
+      } else {
+        console.log('App not initialized, queuing deep link');
+        deepLinkQueue.enqueue(url);
+      }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails, isProcessingDeepLink]);
+  }, [isInitialized, processDeepLink]);
 
-  // Handle sign-in completion - check for pending deep links
+  /**
+   * Handle sign-in completion - check for pending deep links
+   */
   useEffect(() => {
     if (isSignedIn && global.pendingDeepLink) {
       const { type, id } = global.pendingDeepLink;
@@ -261,19 +389,12 @@ const DeepLinkHandler = () => {
           params: { carId: id, isDealerView: 'false' }
         });
       }
-      // NEW: Handle pending autoclip deep links
       else if (type === 'autoclip' && id) {
         console.log('Processing pending autoclip deep link after sign-in');
         router.push({
           pathname: "/(home)/(user)/(tabs)/autoclips",
           params: { clipId: id }
         });
-
-        // router.replace({
-        //   pathname: "/(home)/(user)/autoclip/[id]",
-        //   params: { id: clipId }
-        // });
-      
       }
 
       // Clear the pending link
@@ -281,15 +402,11 @@ const DeepLinkHandler = () => {
     }
   }, [isSignedIn, router]);
 
-  // DeepLinkHandler implementation remains the same
-  // ... (code unchanged)
   return null;
 };
 
-
 function EnvironmentVariablesCheck() {
   // EnvironmentVariablesCheck implementation remains the same
-  // ... (code unchanged)
   return null;
 }
 
@@ -300,73 +417,70 @@ function NotificationsProvider() {
   const [isInitializing, setIsInitializing] = useState(false);
   const initializationRef = useRef(false);
 
+  // Initialize notification system on app startup
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      // Prevent multiple initializations
+      if (initializationRef.current || isInitializing) return;
+      
+      // Skip if user is not authenticated or is guest
+      if (!isSignedIn || isGuest || !user?.id) return;
 
-  
-    // Initialize notification system on app startup
-    useEffect(() => {
-      const initializeNotifications = async () => {
-        // Prevent multiple initializations
-        if (initializationRef.current || isInitializing) return;
-        
-        // Skip if user is not authenticated or is guest
-        if (!isSignedIn || isGuest || !user?.id) return;
-  
-        // Skip during sign-out
-        if (isGlobalSigningOut) {
-          console.log('Skipping notification initialization during sign-out');
-          return;
-        }
-  
-        try {
-          setIsInitializing(true);
-          initializationRef.current = true;
-  
-          console.log('Initializing notification system on app startup');
-  
-          // Verify token status on app startup
-          const localToken = await SecureStore.getItemAsync('expoPushToken');
-          
-          if (localToken && !isGlobalSigningOut) {
-            // Verify token exists in database and is properly configured
-            const { data: tokenData, error } = await supabase
-              .from('user_push_tokens')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('token', localToken)
-              .single();
-  
-            if (error || !tokenData) {
-              console.log('Token not found in database during startup, initiating registration');
-              if (!isGlobalSigningOut) {
-                await registerForPushNotifications(true);
-              }
-            } else if (!tokenData.signed_in && !isGlobalSigningOut) {
-              console.log('Token exists but signed_in is false during startup, updating');
-              await NotificationService.markTokenAsSignedIn(user.id, localToken);
-            }
-          } else if (!isGlobalSigningOut) {
-            console.log('No local token found during startup, initiating registration');
-            await registerForPushNotifications(true);
-          }
-        } catch (error) {
-          console.error('Error initializing notifications on startup:', error);
-        } finally {
-          setIsInitializing(false);
-        }
-      };
-  
-      if (!isGlobalSigningOut) {
-        initializeNotifications();
+      // Skip during sign-out
+      if (isGlobalSigningOut) {
+        console.log('Skipping notification initialization during sign-out');
+        return;
       }
-    }, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
-  
-    useEffect(() => {
-      console.log('Notification state:', { unreadCount, isPermissionGranted });
-    }, [unreadCount, isPermissionGranted]);
-  
-    return <EnvironmentVariablesCheck />;
-  }
 
+      try {
+        setIsInitializing(true);
+        initializationRef.current = true;
+
+        console.log('Initializing notification system on app startup');
+
+        // Verify token status on app startup
+        const localToken = await SecureStore.getItemAsync('expoPushToken');
+        
+        if (localToken && !isGlobalSigningOut) {
+          // Verify token exists in database and is properly configured
+          const { data: tokenData, error } = await supabase
+            .from('user_push_tokens')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('token', localToken)
+            .single();
+
+          if (error || !tokenData) {
+            console.log('Token not found in database during startup, initiating registration');
+            if (!isGlobalSigningOut) {
+              await registerForPushNotifications(true);
+            }
+          } else if (!tokenData.signed_in && !isGlobalSigningOut) {
+            console.log('Token exists but signed_in is false during startup, updating');
+            await NotificationService.markTokenAsSignedIn(user.id, localToken);
+          }
+        } else if (!isGlobalSigningOut) {
+          console.log('No local token found during startup, initiating registration');
+          await registerForPushNotifications(true);
+        }
+      } catch (error) {
+        console.error('Error initializing notifications on startup:', error);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    if (!isGlobalSigningOut) {
+      initializeNotifications();
+    }
+  }, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
+
+  useEffect(() => {
+    console.log('Notification state:', { unreadCount, isPermissionGranted });
+  }, [unreadCount, isPermissionGranted]);
+
+  return <EnvironmentVariablesCheck />;
+}
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
