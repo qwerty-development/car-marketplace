@@ -140,10 +140,7 @@ const SignInWithOAuth = () => {
       // The 3-second delay we added will show the LogoLoader
     } catch (err) {
       console.error("Google OAuth error:", err);
-      Alert.alert(
-        "Authentication Error",
-        "Failed to authenticate with Google"
-      );
+
     } finally {
       setIsLoading(prev => ({ ...prev, google: false }));
     }
@@ -182,10 +179,7 @@ const SignInWithOAuth = () => {
         console.log('User canceled Apple sign-in');
       } else {
         console.error("Apple OAuth error:", err);
-        Alert.alert(
-          "Authentication Error",
-          err.message || "Failed to authenticate with Apple"
-        );
+
       }
     } finally {
       setIsLoading(prev => ({ ...prev, apple: false }));

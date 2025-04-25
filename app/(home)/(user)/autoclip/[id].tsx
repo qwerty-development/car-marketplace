@@ -228,7 +228,6 @@ export default function SingleAutoClipPage() {
       } : null);
     } catch (err) {
       console.error('Error toggling like:', err);
-      Alert.alert('Error', 'Failed to update like status');
     }
   };
 

@@ -3,7 +3,6 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
-import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
 

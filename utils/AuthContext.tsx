@@ -3,7 +3,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import * as SecureStore from 'expo-secure-store';
-import { Alert } from 'react-native';
 import { useGuestUser } from './GuestUserContext';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -505,7 +504,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
     } catch (error) {
       console.error('Apple sign in error:', error);
-      Alert.alert('Authentication Error', 'Failed to sign in with Apple');
+  
     }
   };
 
@@ -627,7 +626,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       return { success: false };
     } catch (error) {
       console.error('Google sign in error:', error);
-      Alert.alert('Authentication Error', 'Failed to sign in with Google');
       return { success: false, error };
     } finally {
       setIsSigningIn(false);

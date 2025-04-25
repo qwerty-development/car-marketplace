@@ -147,10 +147,7 @@ const SignUpWithOAuth = () => {
       }
     } catch (err) {
       console.error("Google OAuth error:", err);
-      Alert.alert(
-        "Authentication Error",
-        "Failed to authenticate with Google"
-      );
+     
     } finally {
       setIsLoading(prev => ({ ...prev, google: false }));
     }
@@ -167,10 +164,7 @@ const SignUpWithOAuth = () => {
         console.log('User canceled Apple sign-in');
       } else {
         console.error('Apple OAuth error:', err);
-        Alert.alert(
-          'Authentication Error',
-          err.message || 'Failed to authenticate with Apple'
-        );
+       
       }
     } finally {
       setIsLoading(prev => ({ ...prev, apple: false }));

@@ -193,11 +193,7 @@ export default function HomeLayout() {
           !(error.code === "23505" && error.details?.includes("email")) &&
           !(error.code === "23503")
         ) {
-          // Don't alert on FK violations
-          Alert.alert(
-            "Error",
-            "There was a problem setting up your account. Please try again later."
-          );
+     
         }
       } finally {
         if (!isSigningOut) {
