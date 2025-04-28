@@ -322,80 +322,40 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       // Set signing out states (including global)
       setIsSigningOutState(true);
       setIsSigningOut(true);
-      setGlobalSigningOut(true);
+      setGlobalSigningOut(true);  // ADD THIS LINE
   
       console.log('Starting comprehensive sign out process');
   
-      // 1. First handle notifications - clean up push tokens if user exists
+      // 1. Clean up push notification token if user exists
       if (user) {
         try {
           console.log('Cleaning up push notification tokens');
           
-          // First, mark ALL tokens for this user as signed_out and inactive in database
-          // This ensures push notifications won't be sent to this device for this user
+          // First, mark ALL tokens for this user as signed_out
           const { data: tokenUpdateData, error: tokenUpdateError } = await supabase
             .from('user_push_tokens')
             .update({ 
               signed_in: false,
-              active: false,
               last_updated: new Date().toISOString()
             })
             .eq('user_id', user.id)
             .select();
-              
+            
           if (tokenUpdateError) {
             console.error('Error marking tokens as signed out:', tokenUpdateError);
           } else {
-            console.log('Successfully marked all tokens as signed out:', tokenUpdateData?.length || 0, 'tokens updated');
+            console.log('Successfully marked all tokens as signed out:', tokenUpdateData);
           }
   
-          // Get current token to handle specifically
-          const currentToken = await SecureStore.getItemAsync('expoPushToken');
-          if (currentToken) {
-            // Also update by token value as a fallback
-            await supabase
-              .from('user_push_tokens')
-              .update({ 
-                signed_in: false,
-                active: false,
-                last_updated: new Date().toISOString()
-              })
-              .eq('token', currentToken);
-            
-            console.log('Updated specific current token in database');
-          }
-    
-          // Then proceed with local token cleanup using NotificationService
+          // Then proceed with token cleanup
           await cleanupPushToken();
-          
-          // Explicitly remove all push token data from secure storage
-          await Promise.all([
-            SecureStore.deleteItemAsync('expoPushToken'),
-            SecureStore.deleteItemAsync('expoPushTokenTimestamp'),
-            SecureStore.deleteItemAsync('expoPushTokenId'),
-            SecureStore.deleteItemAsync('notificationRegistrationState')
-          ]);
-          
-          console.log('Local push token storage cleaned up');
         } catch (tokenError) {
           console.error('Error during push token cleanup:', tokenError);
           // Continue with sign out even if token cleanup fails
-          
-          // Emergency token storage cleanup
-          try {
-            await Promise.all([
-              SecureStore.deleteItemAsync('expoPushToken'),
-              SecureStore.deleteItemAsync('expoPushTokenTimestamp'),
-              SecureStore.deleteItemAsync('expoPushTokenId'),
-              SecureStore.deleteItemAsync('notificationRegistrationState')
-            ]);
-          } catch (e) {
-            console.error('Emergency token cleanup failed:', e);
-          }
         }
       }
   
-      // 2. Execute Supabase sign out with retry logic
+      // 2. Execute sign out with retry logic
       let signOutSuccess = false;
       let signOutAttempt = 0;
       const maxAttempts = 3;
@@ -427,52 +387,30 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
   
-      // 3. Clean up auth-related local storage
-      try {
-        console.log('Cleaning up auth-related local storage');
-        // List of keys to clean up
-        const keysToClean = [
-          'supabase-auth-token',
-          'lastActiveSession',
-          'authStateChangeHandled',
-          'lastSignInEmail'
-        ];
-  
-        // Delete auth-related keys in parallel
-        await Promise.all(
-          keysToClean.map(key =>
-            SecureStore.deleteItemAsync(key)
-              .catch(error => console.error(`Error deleting ${key}:`, error))
-          )
-        );
-  
-        console.log('Auth-related local storage cleanup completed');
-      } catch (error) {
-        console.error('Local storage cleanup error:', error);
-      }
+      // 3. Clean up local storage regardless of sign out success
+      await cleanupLocalStorage();
   
       // 4. Reset auth context state
       setSession(null);
       setUser(null);
       setProfile(null);
       
-      // 5. Wait for loading animation
+      // Wait for 1.5 seconds to show the loader before completing sign out 
       await new Promise(resolve => setTimeout(resolve, 1500));
   
-      // 6. Navigate safely to sign-in screen with animation frame safety
+      // Use requestAnimationFrame to ensure we navigate only after the next render cycle
       requestAnimationFrame(() => {
         try {
           router.replace('/(auth)/sign-in');
         } catch (navError) {
           console.log('Navigation error handled:', navError);
-          // Try again with a timeout
-          setTimeout(() => {
+          requestAnimationFrame(() => {
             try {
               router.replace('/(auth)/sign-in');
             } catch (e) {
               console.error('Final navigation attempt failed:', e);
             }
-          }, 100);
+          });
         }
       });
   
@@ -484,22 +422,28 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setUser(null);
       setProfile(null);
   
-      // Last resort navigation with delay
-      setTimeout(() => {
+      // Wait before navigation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Use requestAnimationFrame for safer navigation
+      requestAnimationFrame(() => {
         try {
           router.replace('/(auth)/sign-in');
-        } catch (e) {
-          console.error('Emergency navigation failed:', e);
+        } catch (navError) {
+          console.log('Error navigation handled:', navError);
+          setTimeout(() => {
+            router.replace('/(auth)/sign-in');
+          }, 100);
         }
-      }, 500);
+      });
     } finally {
-      // Reset signing out states with delay to ensure all processes complete
+      // Reset signing out states with delay
       setTimeout(() => {
         setIsSigningOutState(false);
         setIsSigningOut(false);
-        setGlobalSigningOut(false);
+        setGlobalSigningOut(false);  // ADD THIS LINE
         console.log('Sign out process completed');
-      }, 2000);
+      }, 2000);  // CHANGE: Add delay to ensure all processes complete
     }
   };
 
@@ -695,31 +639,43 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (isGuest) {
         await clearGuestMode();
       }
-  
-      // First, clean any existing tokens to prevent duplicate notifications
-      await SecureStore.deleteItemAsync('expoPushToken');
-      await SecureStore.deleteItemAsync('expoPushTokenTimestamp');
-      await SecureStore.deleteItemAsync('expoPushTokenId');
-  
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-  
+
       if (error) throw error;
-  
+
       if (data.user) {
         await fetchUserProfile(data.user.id);
         
-        // Force a completely new token registration
+        // Enhanced token handling
         try {
-          // IMPORTANT: Force register a new token with clean state
-          await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+          // First, try to get existing token
+          let pushToken = await SecureStore.getItemAsync('expoPushToken');
+          
+          // If no local token, sync from database
+          if (!pushToken) {
+            pushToken = await NotificationService.syncTokenFromDatabase(data.user.id);
+          }
+          
+          // If we have a token, mark it as signed in
+          if (pushToken) {
+            const success = await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
+            if (!success) {
+              console.error('Failed to mark token as signed in, attempting to register new token');
+              await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+            }
+          } else {
+            // If no token exists, trigger registration
+            await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+          }
         } catch (tokenError) {
-          console.error('Error registering push token during sign-in:', tokenError);
+          console.error('Error handling push token during sign-in:', tokenError);
         }
       }
-  
+
       // Wait for 1.5 seconds to show the loader
       await new Promise(resolve => setTimeout(resolve, 1500));
       
