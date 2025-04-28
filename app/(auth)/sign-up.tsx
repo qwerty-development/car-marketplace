@@ -156,15 +156,36 @@ const SignUpWithOAuth = () => {
   const handleAppleAuth = async () => {
     try {
       setIsLoading(prev => ({ ...prev, apple: true }));
-      await appleSignIn();
-      router.replace('/(home)');
+  
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+  
+      // Sign in via Supabase Auth
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+  
+        if (error) {
+          throw error;
+        }
+  
+        // Navigation is handled by the auth context and root layout
+        // No explicit navigation needed here
+      } else {
+        throw new Error('No identity token received from Apple');
+      }
     } catch (err: any) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
         // User canceled the sign-in flow, no need to show an error
         console.log('User canceled Apple sign-in');
       } else {
-        console.error('Apple OAuth error:', err);
-       
+        console.error("Apple OAuth error:", err);
       }
     } finally {
       setIsLoading(prev => ({ ...prev, apple: false }));
