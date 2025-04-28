@@ -26,7 +26,33 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="privacy-policy"
+            options={{
+              headerShown: false,
+            }}
+          />
+                    <Stack.Screen
+            name="terms-of-service"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="CarsByBrand"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+            }}
+          />
+                    <Stack.Screen
+            name="ChangePassword"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+            }}
+          />
+                              <Stack.Screen
+            name="EditProfile"
             options={{
               animation: "slide_from_right",
               headerShown: false,
@@ -47,7 +73,6 @@ export default function RootLayout() {
             }}
           />
 
-
           <Stack.Screen
             name="CarDetailModalIOS"
             options={{
@@ -56,14 +81,14 @@ export default function RootLayout() {
           />
 
           <Stack.Screen
-  name="CarComparison"
-  options={{
-    animation: "slide_from_right",
-    headerShown: false,
-  }}
-/>
+            name="CarComparison"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+            }}
+          />
 
-            <Stack.Screen
+          <Stack.Screen
             name="CarDetailModalAndroid"
             options={{
               headerShown: true,

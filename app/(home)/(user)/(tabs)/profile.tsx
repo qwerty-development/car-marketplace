@@ -32,9 +32,10 @@ import { SignOutOverlay } from "@/components/SignOutOverlay";
 import { coordinateSignOut } from "@/app/(home)/_layout";
 import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
+import { useNavigation } from "@react-navigation/native";
 
-const WHATSAPP_NUMBER = "81972024";
-const SUPPORT_EMAIL = "support@example.com";
+const WHATSAPP_NUMBER = "70993415";
+const SUPPORT_EMAIL = "info@notqwerty.com";
 const EMAIL_SUBJECT = "Support Request";
 const DEFAULT_PROFILE_IMAGE =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
@@ -46,11 +47,13 @@ export default function UserProfileAndSupportPage() {
   const { user, profile, signOut, updateUserProfile, updatePassword } =
     useAuth();
   const router = useRouter();
+  const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
+  const [isLegalVisible, setIsLegalVisible] = useState(false);
 
   // State Management
   const [firstName, setFirstName] = useState("");
@@ -453,49 +456,49 @@ export default function UserProfileAndSupportPage() {
         <View className="space-y-4 px-6 -mt-12">
           {/* Edit Profile button - different behavior for guests */}
           <TouchableOpacity
-            onPress={() => {
-              if (isGuest) {
-                Alert.alert(
-                  "Feature Not Available",
-                  "Please sign in to edit your profile information.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn },
-                  ]
-                );
-              } else {
-                setIsEditMode(true);
-              }
-            }}
-            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-        p-4 rounded-xl shadow-sm flex-row items-center`}
-          >
-            <View className="bg-red/10 p-3 rounded-xl">
-              <Ionicons name="person-outline" size={24} color="#D55004" />
-            </View>
-            <View className="ml-4">
-              <Text
-                className={`${
-                  isDarkMode ? "text-white" : "text-black"
-                } font-semibold`}
-              >
-                Edit Profile
-              </Text>
-              <Text
-                className={`${
-                  isDarkMode ? "text-white/60" : "text-gray-500"
-                } text-sm mt-1`}
-              >
-                {isGuest ? "Sign in to edit your profile" : "Update your infos"}
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={24}
-              color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
-            />
-          </TouchableOpacity>
+  onPress={() => {
+    if (isGuest) {
+      Alert.alert(
+        "Feature Not Available",
+        "Please sign in to edit your profile information.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: handleSignIn },
+        ]
+      );
+    } else {
+      router.push('/(user)/EditProfile');
+    }
+  }}
+  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+p-4 rounded-xl shadow-sm flex-row items-center`}
+>
+  <View className="bg-red/10 p-3 rounded-xl">
+    <Ionicons name="person-outline" size={24} color="#D55004" />
+  </View>
+  <View className="ml-4">
+    <Text
+      className={`${
+        isDarkMode ? "text-white" : "text-black"
+      } font-semibold`}
+    >
+      Edit Profile
+    </Text>
+    <Text
+      className={`${
+        isDarkMode ? "text-white/60" : "text-gray-500"
+      } text-sm mt-1`}
+    >
+      {isGuest ? "Sign in to edit your profile" : "Update your infos"}
+    </Text>
+  </View>
+  <Ionicons
+    name="chevron-forward"
+    size={24}
+    color={isDarkMode ? "#fff" : "#000"}
+    style={{ marginLeft: "auto" }}
+  />
+</TouchableOpacity>
 
           {/* Security settings button - different behavior for guests */}
           <TouchableOpacity
@@ -534,7 +537,7 @@ export default function UserProfileAndSupportPage() {
               >
                 {isGuest
                   ? "Sign in to access security settings"
-                  : "Password and privacy"}
+                  : "Change password"}
               </Text>
             </View>
             <Ionicons
@@ -545,11 +548,142 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity>
 
-          {/* Notifications button - different behavior for guests */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to access security settings.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                setIsLegalVisible(true);
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+        p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="bg-purple-500/10 p-3 rounded-xl">
+              <Ionicons name="reader-outline" size={24} color="#D55004" />
+            </View>
+            <View className="ml-4">
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+              >
+                Legal
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+              >
+                {isGuest
+                  ? "Sign in to access legal"
+                  : "Privacy and terms"}
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
 
         </View>
 
         {/* Edit Profile Modal */}
+        <Modal
+  animationType="slide"
+  transparent={true}
+  visible={isLegalVisible}
+  onRequestClose={() => setIsLegalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <TouchableWithoutFeedback onPress={() => closeModal(setIsLegalVisible)}>
+      <View style={styles.modalBackground} />
+    </TouchableWithoutFeedback>
+    <View
+      style={[
+        styles.modalContent,
+        {
+          maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+          backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+        },
+      ]}
+    >
+      <View className="flex-row justify-between items-center mb-6">
+        <Text
+          className={`text-xl font-semibold ${
+            isDarkMode ? "text-white" : "text-black"
+          }`}
+        >
+          Legal Documents
+        </Text>
+        <TouchableOpacity onPress={() => setIsLegalVisible(false)}>
+          <Ionicons
+            name="close"
+            size={24}
+            color={isDarkMode ? "#fff" : "#000"}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        onPress={() => {
+          setIsLegalVisible(false);
+          router.push('/(user)/privacy-policy');
+        }}
+        className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+            p-4 rounded-xl flex-row items-center mb-4`}
+      >
+        <Ionicons
+          name="shield-outline"
+          size={24}
+          color={isDarkMode ? "#fff" : "#000"}
+        />
+        <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
+          Privacy Policy
+        </Text>
+        <Ionicons
+          name="chevron-forward"
+          size={24}
+          color={isDarkMode ? "#fff" : "#000"}
+          style={{ marginLeft: "auto" }}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          setIsLegalVisible(false);
+          router.push('/(user)/terms-of-service');
+        }}
+        className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+            p-4 rounded-xl flex-row items-center`}
+      >
+        <Ionicons
+          name="document-text-outline"
+          size={24}
+          color={isDarkMode ? "#fff" : "#000"}
+        />
+        <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
+          Terms
+        </Text>
+        <Ionicons
+          name="chevron-forward"
+          size={24}
+          color={isDarkMode ? "#fff" : "#000"}
+          style={{ marginLeft: "auto" }}
+        />
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
         <Modal
           animationType="slide"
           transparent={true}
@@ -665,7 +799,7 @@ export default function UserProfileAndSupportPage() {
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  Security & Privacy
+                  Security
                 </Text>
                 <TouchableOpacity
                   onPress={() => setIsSecuritySettingsVisible(false)}
@@ -679,78 +813,36 @@ export default function UserProfileAndSupportPage() {
               </View>
 
               <TouchableOpacity
-                onPress={() => {
-                  setIsSecuritySettingsVisible(false);
-                  setIsChangePasswordMode(true);
-                }}
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                    p-4 rounded-xl flex-row items-center mb-4`}
-              >
-                <Ionicons
-                  name="key-outline"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-                <Text
-                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-                >
-                  Change Password
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                  style={{ marginLeft: "auto" }}
-                />
-              </TouchableOpacity>
+  onPress={() => {
+    setIsSecuritySettingsVisible(false);
+    router.push('/(user)/ChangePassword');
+  }}
+  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+      p-4 rounded-xl flex-row items-center mb-4`}
+>
+  <Ionicons
+    name="key-outline"
+    size={24}
+    color={isDarkMode ? "#fff" : "#000"}
+  />
+  <Text
+    className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+  >
+    Change Password
+  </Text>
+  <Ionicons
+    name="chevron-forward"
+    size={24}
+    color={isDarkMode ? "#fff" : "#000"}
+    style={{ marginLeft: "auto" }}
+  />
+</TouchableOpacity>
 
-              <TouchableOpacity
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                    p-4 rounded-xl flex-row items-center mb-4`}
-              >
-                <Ionicons
-                  name="shield-outline"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-                <Text
-                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-                >
-                  Privacy Policy
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                  style={{ marginLeft: "auto" }}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-                    p-4 rounded-xl flex-row items-center`}
-              >
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-                <Text
-                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-                >
-                  Security Settings
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                  style={{ marginLeft: "auto" }}
-                />
-              </TouchableOpacity>
+             
             </View>
           </View>
         </Modal>
-
+        
 
         {/* Change Password Modal */}
         <Modal
@@ -947,12 +1039,12 @@ export default function UserProfileAndSupportPage() {
         {/* Sign Out Button */}
         {!isGuest && (
           <TouchableOpacity
-            className="mt-2 p-5 mb-12"
+            className="mt-2   p-5 mb-12"
             onPress={handleSignOut}
             disabled={showSignOutOverlay} // Disable during sign-out
           >
             <Text
-              className={`text-center text-red font-semibold border border-red p-4 rounded-2xl ${
+              className={`text-center text-black  font-semibold border border-black p-4 rounded-2xl ${
                 showSignOutOverlay ? "opacity-50" : "opacity-100"
               }`}
             >
