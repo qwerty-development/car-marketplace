@@ -23,6 +23,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
 import Constants from "expo-constants";
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
 
 
 maybeCompleteAuthSession();
@@ -147,88 +148,101 @@ const SignInWithOAuth = () => {
     }
   };
 
-  const handleAppleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, apple: true }));
-  
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+// For Apple Sign-In:
+const handleAppleAuth = async () => {
+  try {
+    setIsLoading(prev => ({ ...prev, apple: true }));
+
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+
+    // Sign in via Supabase Auth
+    if (credential.identityToken) {
+      const { error, data } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
       });
-  
-      // Sign in via Supabase Auth
-      if (credential.identityToken) {
-        console.log("Apple authentication successful, processing sign-in");
+
+      if (error) {
+        throw error;
+      }
+
+      // CRITICAL: Force token registration AFTER successful sign-in
+      if (data?.user) {
+        console.log("[APPLE-AUTH] Sign-in successful, registering push token");
         
-        const { error, data } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: credential.identityToken,
-        });
-  
-        if (error) {
-          throw error;
-        }
-  
-        // *** TOKEN VERIFICATION ENHANCEMENT - START ***
-        if (data?.user) {
-          console.log("Apple sign-in successful, verifying push token");
-          
+        // Wait briefly for auth session to stabilize (important)
+        setTimeout(async () => {
           try {
-            // 1. Check if we have a token in local storage
-            const pushToken = await SecureStore.getItemAsync('expoPushToken');
+            // THIS IS THE CRITICAL PART - Direct database operation
+            const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+            const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+            const token = tokenResponse.data;
             
-            if (pushToken) {
-              console.log("Existing push token found, verifying for Apple user");
+            // 1. Save to storage
+            await SecureStore.setItemAsync('expoPushToken', token);
+            
+            // 2. Check if token exists for this user
+            const { data: existingToken } = await supabase
+              .from('user_push_tokens')
+              .select('id')
+              .eq('user_id', data.user.id)
+              .eq('token', token)
+              .maybeSingle();
               
-              // 2. Verify if this token belongs to the current user
-              const { data: tokenData, error: tokenError } = await supabase
+            if (existingToken) {
+              // 3a. Update if exists
+              await supabase
                 .from('user_push_tokens')
-                .select('id, token, signed_in')
-                .eq('user_id', data.user.id)
-                .eq('token', pushToken)
-                .single();
+                .update({
+                  signed_in: true,
+                  active: true,
+                  last_updated: new Date().toISOString()
+                })
+                .eq('id', existingToken.id);
                 
-              if (tokenError || !tokenData) {
-                console.log("Token not found for this user, registering");
-                // No need to directly call registration here - Auth context will handle it
-              } else if (!tokenData.signed_in) {
-                console.log("Token found but marked as signed out, updating");
-                // Update token status to signed in
-                await supabase
-                  .from('user_push_tokens')
-                  .update({ 
-                    signed_in: true,
-                    last_updated: new Date().toISOString()
-                  })
-                  .eq('id', tokenData.id);
+              console.log("[APPLE-AUTH] Updated existing token");
+            } else {
+              // 3b. Insert if doesn't exist
+              const { error: insertError } = await supabase
+                .from('user_push_tokens')
+                .insert({
+                  user_id: data.user.id,
+                  token: token,
+                  device_type: Platform.OS,
+                  signed_in: true,
+                  active: true,
+                  last_updated: new Date().toISOString()
+                });
+                
+              if (insertError) {
+                console.error("[APPLE-AUTH] Token insert error:", insertError);
+              } else {
+                console.log("[APPLE-AUTH] Inserted new token");
               }
             }
           } catch (tokenError) {
-            console.log("Token verification during Apple sign-in encountered an error:", tokenError);
-            // Non-blocking error - Auth context will handle registration
+            console.error("[APPLE-AUTH] Token registration error:", tokenError);
           }
-        }
-        // *** TOKEN VERIFICATION ENHANCEMENT - END ***
-  
-        // Navigation is handled by the auth context and root layout
-        // No explicit navigation needed here
-      } else {
-        throw new Error('No identity token received from Apple');
+        }, 1000);
       }
-    } catch (err: any) {
-      if (err.code === 'ERR_REQUEST_CANCELED') {
-        // User canceled the sign-in flow, no need to show an error
-        console.log('User canceled Apple sign-in');
-      } else {
-        console.error("Apple OAuth error:", err);
-      }
-    } finally {
-      setIsLoading(prev => ({ ...prev, apple: false }));
+    } else {
+      throw new Error('No identity token received from Apple');
     }
-  };
-
+  } catch (err: any) {
+    if (err.code === 'ERR_REQUEST_CANCELED') {
+      console.log('User canceled Apple sign-in');
+    } else {
+      console.error("Apple OAuth error:", err);
+    }
+  } finally {
+    setIsLoading(prev => ({ ...prev, apple: false }));
+  }
+};
   return (
     <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
