@@ -164,7 +164,6 @@ export function useNotifications(): UseNotificationsReturn {
       setUnreadCount(newUnreadCount);
 
       // Update badge count
-      await NotificationService.setBadgeCount(newUnreadCount);
     } catch (error) {
       debugLog('Error handling notification:', error);
     }
@@ -206,7 +205,6 @@ export function useNotifications(): UseNotificationsReturn {
           await NotificationService.markAsRead(notificationId);
           const newUnreadCount = await NotificationService.getUnreadCount(user.id);
           setUnreadCount(newUnreadCount);
-          await NotificationService.setBadgeCount(newUnreadCount);
         }
 
         // Navigate to the specified screen with retry logic
@@ -494,7 +492,6 @@ export function useNotifications(): UseNotificationsReturn {
       await NotificationService.markAsRead(notificationId);
       const newUnreadCount = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(newUnreadCount);
-      await NotificationService.setBadgeCount(newUnreadCount);
     } catch (error) {
       debugLog('Error marking notification as read:', error);
     }
@@ -519,7 +516,6 @@ export function useNotifications(): UseNotificationsReturn {
       await NotificationService.deleteNotification(notificationId);
       const newUnreadCount = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(newUnreadCount);
-      await NotificationService.setBadgeCount(newUnreadCount);
     } catch (error) {
       debugLog('Error deleting notification:', error);
     }
@@ -532,7 +528,6 @@ export function useNotifications(): UseNotificationsReturn {
     try {
       const count = await NotificationService.getUnreadCount(user.id);
       setUnreadCount(count);
-      await NotificationService.setBadgeCount(count);
     } catch (error) {
       debugLog('Error refreshing notifications:', error);
     } finally {
