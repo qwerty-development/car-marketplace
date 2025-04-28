@@ -513,7 +513,7 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
                   ]
                 );
               } else {
-                setIsSecuritySettingsVisible(true);
+                router.push('/(user)/ChangePassword');
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
@@ -770,78 +770,6 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
           </View>
         </Modal>
 
-        {/* Security Settings Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={isSecuritySettingsVisible}
-          onRequestClose={() => setIsSecuritySettingsVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback
-              onPress={() => closeModal(setIsSecuritySettingsVisible)}
-            >
-              <View style={styles.modalBackground} />
-            </TouchableWithoutFeedback>
-
-            <View
-              style={[
-                styles.modalContent,
-                {
-                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
-                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
-                },
-              ]}
-            >
-              <View className="flex-row justify-between items-center mb-6">
-                <Text
-                  className={`text-xl font-semibold ${
-                    isDarkMode ? "text-white" : "text-black"
-                  }`}
-                >
-                  Security
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsSecuritySettingsVisible(false)}
-                >
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-  onPress={() => {
-    setIsSecuritySettingsVisible(false);
-    router.push('/(user)/ChangePassword');
-  }}
-  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-      p-4 rounded-xl flex-row items-center mb-4`}
->
-  <Ionicons
-    name="key-outline"
-    size={24}
-    color={isDarkMode ? "#fff" : "#000"}
-  />
-  <Text
-    className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
-  >
-    Change Password
-  </Text>
-  <Ionicons
-    name="chevron-forward"
-    size={24}
-    color={isDarkMode ? "#fff" : "#000"}
-    style={{ marginLeft: "auto" }}
-  />
-</TouchableOpacity>
-
-             
-            </View>
-          </View>
-        </Modal>
         
 
         {/* Change Password Modal */}
