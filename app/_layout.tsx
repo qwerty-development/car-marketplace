@@ -494,29 +494,10 @@ function NotificationsProvider() {
 
         console.log('Initializing notification system on app startup');
 
-        // Verify token status on app startup
-        const localToken = await SecureStore.getItemAsync('expoPushToken');
-        
-        if (localToken && !isGlobalSigningOut) {
-          // Verify token exists in database and is properly configured
-          const { data: tokenData, error } = await supabase
-            .from('user_push_tokens')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('token', localToken)
-            .single();
-
-          if (error || !tokenData) {
-            console.log('Token not found in database during startup, initiating registration');
-            if (!isGlobalSigningOut) {
-              await registerForPushNotifications(true);
-            }
-          } else if (!tokenData.signed_in && !isGlobalSigningOut) {
-            console.log('Token exists but signed_in is false during startup, updating');
-            await NotificationService.markTokenAsSignedIn(user.id, localToken);
-          }
-        } else if (!isGlobalSigningOut) {
-          console.log('No local token found during startup, initiating registration');
+        // IMPROVED: Force a new token registration on app startup
+        // This ensures we always have the correct token for the current user
+        if (!isGlobalSigningOut) {
+          console.log('Forcing fresh token registration on app startup');
           await registerForPushNotifications(true);
         }
       } catch (error) {
@@ -531,9 +512,6 @@ function NotificationsProvider() {
     }
   }, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
 
-  useEffect(() => {
-    console.log('Notification state:', { unreadCount, isPermissionGranted });
-  }, [unreadCount, isPermissionGranted]);
 
   return <EnvironmentVariablesCheck />;
 }

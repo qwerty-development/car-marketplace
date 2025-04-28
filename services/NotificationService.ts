@@ -824,26 +824,66 @@ export class NotificationService {
 
   // Enhanced cleanupPushToken with better error handling
   static async cleanupPushToken(userId: string): Promise<boolean> {
-    this.debugLog('Starting push token cleanup process for sign out');
-
+    this.debugLog(`Starting push token cleanup process for user ${userId}`);
+  
     try {
-      const success = await this.markTokenAsSignedOut(userId);
-
-      // Always attempt local storage cleanup
+      // IMPROVED: First update all tokens in the database
+      try {
+        const { error: bulkUpdateError } = await supabase
+          .from('user_push_tokens')
+          .update({ 
+            signed_in: false,
+            active: false, // Also mark as inactive
+            last_updated: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+        
+        if (bulkUpdateError) {
+          this.debugLog('Error during bulk token update:', bulkUpdateError);
+        } else {
+          this.debugLog('Successfully updated all tokens for user');
+        }
+      } catch (dbError) {
+        this.recordError('cleanupPushToken database update', dbError);
+      }
+  
+      // Get the current token to handle specifically
+      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+      const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
+  
+      if (storedToken) {
+        // Update specific token status with comprehensive error handling
+        try {
+          const { error: tokenUpdateError } = await supabase
+            .from('user_push_tokens')
+            .update({ 
+              signed_in: false,
+              active: false, // Also mark as inactive
+              last_updated: new Date().toISOString()
+            })
+            .eq('token', storedToken);
+          
+          if (tokenUpdateError) {
+            this.recordError('specific token update', tokenUpdateError);
+          }
+        } catch (specificError) {
+          this.recordError('specific token update exception', specificError);
+        }
+      }
+  
+      // Always clean up local storage
       await Promise.all([
         SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
         SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
         SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
-      ].map(promise => promise.catch(error => {
-        this.recordError('Storage cleanup', error);
-      })));
-
-      this.debugLog('Token cleanup process completed');
-      return success;
+      ]);
+  
+      this.debugLog('Token cleanup completed successfully');
+      return true;
     } catch (error) {
       this.recordError('cleanupPushToken', error);
       
-      // Emergency cleanup
+      // Emergency cleanup of local storage even if DB operations fail
       try {
         await Promise.all([
           SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
@@ -851,9 +891,9 @@ export class NotificationService {
           SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
         ]);
       } catch (storageError) {
-        this.recordError('emergencyStorageCleanup', storageError);
+        this.recordError('emergency storage cleanup', storageError);
       }
-
+  
       return false;
     }
   }
