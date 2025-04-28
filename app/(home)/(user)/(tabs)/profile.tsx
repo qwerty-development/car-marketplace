@@ -234,7 +234,7 @@ export default function UserProfileAndSupportPage() {
           .getPublicUrl(fileName);
         const avatarUrl = urlData?.publicUrl;
 
-        // Update the user metadata with the new avatar URL
+        // Update the user metaFdata with the new avatar URL
         const { data: userData, error: userError } =
           await supabase.auth.updateUser({
             data: { avatar_url: avatarUrl },
@@ -981,7 +981,7 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
           </TouchableOpacity>
         )}
       </ScrollView>
-      <SignOutOverlay visible={showSignOutOverlay} />
+
     </View>
   );
 }

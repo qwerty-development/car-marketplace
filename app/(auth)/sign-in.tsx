@@ -22,6 +22,7 @@ import { useGuestUser } from '@/utils/GuestUserContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
 import Constants from "expo-constants";
+import * as SecureStore from 'expo-secure-store';
 
 
 maybeCompleteAuthSession();
@@ -149,25 +150,68 @@ const SignInWithOAuth = () => {
   const handleAppleAuth = async () => {
     try {
       setIsLoading(prev => ({ ...prev, apple: true }));
-
+  
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-
+  
       // Sign in via Supabase Auth
       if (credential.identityToken) {
+        console.log("Apple authentication successful, processing sign-in");
+        
         const { error, data } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
         });
-
+  
         if (error) {
           throw error;
         }
-
+  
+        // *** TOKEN VERIFICATION ENHANCEMENT - START ***
+        if (data?.user) {
+          console.log("Apple sign-in successful, verifying push token");
+          
+          try {
+            // 1. Check if we have a token in local storage
+            const pushToken = await SecureStore.getItemAsync('expoPushToken');
+            
+            if (pushToken) {
+              console.log("Existing push token found, verifying for Apple user");
+              
+              // 2. Verify if this token belongs to the current user
+              const { data: tokenData, error: tokenError } = await supabase
+                .from('user_push_tokens')
+                .select('id, token, signed_in')
+                .eq('user_id', data.user.id)
+                .eq('token', pushToken)
+                .single();
+                
+              if (tokenError || !tokenData) {
+                console.log("Token not found for this user, registering");
+                // No need to directly call registration here - Auth context will handle it
+              } else if (!tokenData.signed_in) {
+                console.log("Token found but marked as signed out, updating");
+                // Update token status to signed in
+                await supabase
+                  .from('user_push_tokens')
+                  .update({ 
+                    signed_in: true,
+                    last_updated: new Date().toISOString()
+                  })
+                  .eq('id', tokenData.id);
+              }
+            }
+          } catch (tokenError) {
+            console.log("Token verification during Apple sign-in encountered an error:", tokenError);
+            // Non-blocking error - Auth context will handle registration
+          }
+        }
+        // *** TOKEN VERIFICATION ENHANCEMENT - END ***
+  
         // Navigation is handled by the auth context and root layout
         // No explicit navigation needed here
       } else {
@@ -179,7 +223,6 @@ const SignInWithOAuth = () => {
         console.log('User canceled Apple sign-in');
       } else {
         console.error("Apple OAuth error:", err);
-
       }
     } finally {
       setIsLoading(prev => ({ ...prev, apple: false }));

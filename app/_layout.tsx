@@ -473,63 +473,58 @@ function NotificationsProvider() {
   const [isInitializing, setIsInitializing] = useState(false);
   const initializationRef = useRef(false);
 
-  // Initialize notification system on app startup
-  useEffect(() => {
-    const initializeNotifications = async () => {
-      // Prevent multiple initializations
-      if (initializationRef.current || isInitializing) return;
-      
-      // Skip if user is not authenticated or is guest
-      if (!isSignedIn || isGuest || !user?.id) return;
 
-      // Skip during sign-out
-      if (isGlobalSigningOut) {
-        console.log('Skipping notification initialization during sign-out');
-        return;
-      }
+useEffect(() => {
+  const initializeNotifications = async () => {
+    // Prevent multiple initializations
+    if (initializationRef.current || isInitializing) return;
+    
+    // Skip if user is not authenticated or is guest
+    if (!isSignedIn || isGuest || !user?.id) return;
 
-      try {
-        setIsInitializing(true);
-        initializationRef.current = true;
-
-        console.log('Initializing notification system on app startup');
-
-        // Verify token status on app startup
-        const localToken = await SecureStore.getItemAsync('expoPushToken');
-        
-        if (localToken && !isGlobalSigningOut) {
-          // Verify token exists in database and is properly configured
-          const { data: tokenData, error } = await supabase
-            .from('user_push_tokens')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('token', localToken)
-            .single();
-
-          if (error || !tokenData) {
-            console.log('Token not found in database during startup, initiating registration');
-            if (!isGlobalSigningOut) {
-              await registerForPushNotifications(true);
-            }
-          } else if (!tokenData.signed_in && !isGlobalSigningOut) {
-            console.log('Token exists but signed_in is false during startup, updating');
-            await NotificationService.markTokenAsSignedIn(user.id, localToken);
-          }
-        } else if (!isGlobalSigningOut) {
-          console.log('No local token found during startup, initiating registration');
-          await registerForPushNotifications(true);
-        }
-      } catch (error) {
-        console.error('Error initializing notifications on startup:', error);
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-
-    if (!isGlobalSigningOut) {
-      initializeNotifications();
+    // Skip during sign-out
+    if (isGlobalSigningOut) {
+      console.log('Skipping notification initialization during sign-out');
+      return;
     }
-  }, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
+
+    try {
+      setIsInitializing(true);
+      initializationRef.current = true;
+
+      console.log('Initializing notification system on app startup');
+
+      // Verify token status on app startup
+      const localToken = await SecureStore.getItemAsync('expoPushToken');
+      
+      if (localToken && !isGlobalSigningOut) {
+        // Use enhanced verification method instead of direct query
+        const verification = await NotificationService.forceTokenVerification(user.id);
+
+        if (!verification.isValid) {
+          console.log('Token verification failed during startup, initiating registration');
+          if (!isGlobalSigningOut) {
+            await registerForPushNotifications(true);
+          }
+        } else if (verification.signedIn === false) {
+          console.log('Token exists but signed_in is false during startup, updating');
+          await NotificationService.markTokenAsSignedIn(user.id, verification.token);
+        }
+      } else if (!isGlobalSigningOut) {
+        console.log('No local token found during startup, initiating registration');
+        await registerForPushNotifications(true);
+      }
+    } catch (error) {
+      console.error('Error initializing notifications on startup:', error);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  if (!isGlobalSigningOut) {
+    initializeNotifications();
+  }
+}, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
 
   useEffect(() => {
     console.log('Notification state:', { unreadCount, isPermissionGranted });

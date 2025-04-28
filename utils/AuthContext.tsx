@@ -447,246 +447,396 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const appleSignIn = async () => {
-    try {
-      if (isGuest) {
-        await clearGuestMode();
-      }
+// Enhancement 1: Improve signIn method to better handle token registration
+// Location: Modify the signIn method inside AuthProvider component
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
+const signIn = async ({ email, password }: SignInCredentials) => {
+  try {
+    setIsSigningIn(true);
+    
+    if (isGuest) {
+      await clearGuestMode();
+    }
 
-      if (error) throw error;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+    if (error) throw error;
 
-        if (result.type === 'success') {
-          // Get the Supabase auth callback URL parameters
-          const { data: sessionData } = await supabase.auth.getSession();
-
-          if (sessionData?.session) {
-            // Process the user and get the created/existing profile
-            const userProfile = await processOAuthUser(sessionData.session);
-
-            // Set the profile directly if available
-            if (userProfile) {
-              setProfile(userProfile);
+    if (data.user) {
+      await fetchUserProfile(data.user.id);
+      
+      // Enhanced token handling with better recovery
+      try {
+        // Step 1: Get device token status
+        let pushToken = await SecureStore.getItemAsync('expoPushToken');
+        let tokenValidated = false;
+        
+        // Step 2: First, check if the token exists in database for this user
+        if (pushToken) {
+          // Verify if this token is correctly registered to this user
+          const verification = await NotificationService.forceTokenVerification(data.user.id);
+          
+          if (verification.isValid) {
+            console.log('Token exists and is valid, updating signed_in status if needed');
+            
+            // Update token status if needed
+            if (verification.signedIn === false) {
+              await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
             }
-
-            // Handle push token registration
-            try {
-              let pushToken = await SecureStore.getItemAsync('expoPushToken');
-              
-              if (!pushToken) {
-                pushToken = await NotificationService.syncTokenFromDatabase(sessionData.session.user.id);
-              }
-              
-              if (pushToken) {
-                const success = await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
-                if (!success) {
-                  console.error('Failed to mark token as signed in, attempting to register new token');
-                  await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
-                }
-              } else {
-                await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
-              }
-            } catch (tokenError) {
-              console.error('Error handling push token during Apple sign-in:', tokenError);
+            
+            tokenValidated = true;
+          } else {
+            console.log('Token exists but is not registered for this user, will register it');
+            
+            // Try to register the existing token to this user
+            const success = await NotificationService.ensureValidTokenRegistration(data.user.id, pushToken);
+            if (success) {
+              console.log('Successfully registered existing token to this user');
+              tokenValidated = true;
+            } else {
+              console.log('Failed to register existing token, will get new token');
             }
           }
+        } else {
+          console.log('No token in secure storage, will try to sync or register new token');
+        }
+        
+        // Step 3: If we couldn't validate the existing token, try to sync from database
+        if (!tokenValidated) {
+          pushToken = await NotificationService.syncTokenFromDatabase(data.user.id);
+          
+          if (pushToken) {
+            console.log('Successfully synced token from database');
+            tokenValidated = true;
+            
+            // Make sure the token is marked as signed in
+            await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
+          } else {
+            console.log('No token found in database, will register new token');
+          }
+        }
+        
+        // Step 4: If we still don't have a valid token, register a new one
+        if (!tokenValidated) {
+          console.log('Registering new push token for this user');
+          await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+        }
+      } catch (tokenError) {
+        console.error('Error handling push token during sign-in:', tokenError);
+        // Still try a fresh registration as a fallback
+        try {
+          await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+        } catch (e) {
+          console.error('Final token registration attempt failed:', e);
         }
       }
-    } catch (error) {
-      console.error('Apple sign in error:', error);
-  
     }
-  };
 
-  const googleSignIn = async () => {
-    try {
-      setIsSigningIn(true);
+    // Wait for 1.5 seconds to show the loader
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    setIsSigningIn(false);
+    return { error: null };
+  } catch (error: any) {
+    console.error('Sign in error:', error);
+    setIsSigningIn(false);
+    return { error };
+  }
+};
 
-      if (isGuest) {
-        await clearGuestMode();
-      }
 
-      // Step 1: Initiate OAuth flow
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
+const googleSignIn = async () => {
+  try {
+    setIsSigningIn(true);
 
-      if (error) throw error;
+    if (isGuest) {
+      await clearGuestMode();
+    }
 
-      if (data?.url) {
-        console.log("Opening auth session with URL:", data.url);
+    // Step 1: Initiate OAuth flow
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true,
+      },
+    });
 
-        // Step 2: Open browser for authentication
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-        console.log("WebBrowser result:", JSON.stringify(result));
+    if (error) throw error;
 
-        if (result.type === 'success') {
-          // Step 3: Critical - force setSession with manually extracted token
-          try {
-            // Extract access token from URL hash fragment
-            const url = new URL(result.url);
-            const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove the # character
-            const accessToken = hashParams.get('access_token');
+    if (data?.url) {
+      console.log("Opening auth session with URL:", data.url);
 
-            console.log("Extracted access token:", accessToken ? "Found" : "Not found");
+      // Step 2: Open browser for authentication
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      console.log("WebBrowser result:", JSON.stringify(result));
 
-            if (accessToken) {
-              // Step 4: Use setSession directly with the extracted token
-              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: hashParams.get('refresh_token') || '',
-              });
+      if (result.type === 'success') {
+        // Step 3: Critical - force setSession with manually extracted token
+        try {
+          // Extract access token from URL hash fragment
+          const url = new URL(result.url);
+          const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove the # character
+          const accessToken = hashParams.get('access_token');
 
-              console.log("Manual setSession result:",
-                          sessionData ? "Session set successfully" : "Failed to set session",
-                          sessionError ? `Error: ${sessionError.message}` : "No error");
+          console.log("Extracted access token:", accessToken ? "Found" : "Not found");
 
-              if (sessionError) throw sessionError;
+          if (accessToken) {
+            // Step 4: Use setSession directly with the extracted token
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: hashParams.get('refresh_token') || '',
+            });
 
-              if (sessionData.session) {
-                // Step 5: Update application state
-                setSession(sessionData.session);
-                setUser(sessionData.session.user);
+            console.log("Manual setSession result:",
+                        sessionData ? "Session set successfully" : "Failed to set session",
+                        sessionError ? `Error: ${sessionError.message}` : "No error");
 
-                // Step 6: Process user profile
-                const userProfile = await processOAuthUser(sessionData.session);
-                if (userProfile) {
-                  setProfile(userProfile);
-                }
+            if (sessionError) throw sessionError;
 
-                // Step 7: Return explicit success with user data
-                console.log("Authentication successful, returning success=true");
+            if (sessionData.session) {
+              // Step 5: Update application state
+              setSession(sessionData.session);
+              setUser(sessionData.session.user);
+
+              // Step 6: Process user profile
+              const userProfile = await processOAuthUser(sessionData.session);
+              if (userProfile) {
+                setProfile(userProfile);
+              }
+
+              // Step 7: Enhanced token registration
+              try {
+                // Check if we have an existing token
+                let pushToken = await SecureStore.getItemAsync('expoPushToken');
+                let tokenValidated = false;
                 
-                // Handle push token registration
-                try {
-                  let pushToken = await SecureStore.getItemAsync('expoPushToken');
+                // First verify if token exists and is valid for this user
+                if (pushToken) {
+                  const verification = await NotificationService.forceTokenVerification(sessionData.session.user.id);
                   
-                  if (!pushToken) {
-                    pushToken = await NotificationService.syncTokenFromDatabase(sessionData.session.user.id);
+                  if (verification.isValid) {
+                    console.log('Token exists and is valid, updating status if needed');
+                    
+                    if (verification.signedIn === false) {
+                      await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                    }
+                    
+                    tokenValidated = true;
+                  } else {
+                    console.log('Token exists but validation failed, will register it');
+                    
+                    // Try to register the existing token with this user
+                    const success = await NotificationService.ensureValidTokenRegistration(
+                      sessionData.session.user.id, 
+                      pushToken
+                    );
+                    
+                    if (success) {
+                      console.log('Successfully registered existing token to this user');
+                      tokenValidated = true;
+                    }
                   }
+                }
+                
+                // If we don't have a valid token yet, try to sync from database
+                if (!tokenValidated) {
+                  pushToken = await NotificationService.syncTokenFromDatabase(sessionData.session.user.id);
                   
                   if (pushToken) {
-                    const success = await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
-                    if (!success) {
-                      console.error('Failed to mark token as signed in, attempting to register new token');
-                      await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
-                    }
-                  } else {
-                    await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+                    console.log('Successfully synced token from database');
+                    await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                    tokenValidated = true;
                   }
-                } catch (tokenError) {
-                  console.error('Error handling push token during Google sign-in:', tokenError);
                 }
                 
-                return { success: true, user: sessionData.session.user };
+                // If we still don't have a valid token, register a new one
+                if (!tokenValidated) {
+                  console.log('No valid token found, registering new token');
+                  await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+                }
+              } catch (tokenError) {
+                console.error('Error handling push token during Google sign-in:', tokenError);
+                // Fallback to direct registration
+                try {
+                  await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+                } catch (e) {
+                  console.error('Final token registration attempt failed:', e);
+                }
+              }
+              
+              return { success: true, user: sessionData.session.user };
+            }
+          }
+        } catch (extractError) {
+          console.error("Error processing authentication result:", extractError);
+        }
+      }
+    }
+
+    // Step 8: Fall back to checking current session as safety mechanism
+    try {
+      const { data: currentSession } = await supabase.auth.getSession();
+      if (currentSession?.session?.user) {
+        console.log("Session exists despite flow issues, returning success=true");
+        setSession(currentSession.session);
+        setUser(currentSession.session.user);
+        
+        // Enhanced token registration for fallback case
+        try {
+          const pushToken = await SecureStore.getItemAsync('expoPushToken');
+          
+          // If we have a token, ensure it's properly registered
+          if (pushToken) {
+            // First check if this token is registered for this user
+            const verification = await NotificationService.forceTokenVerification(currentSession.session.user.id);
+            
+            if (verification.isValid) {
+              await NotificationService.markTokenAsSignedIn(currentSession.session.user.id, pushToken);
+            } else {
+              // Try to register the token for this user
+              const success = await NotificationService.ensureValidTokenRegistration(
+                currentSession.session.user.id,
+                pushToken
+              );
+              
+              if (!success) {
+                // If registration fails, try a fresh registration
+                await NotificationService.registerForPushNotificationsAsync(currentSession.session.user.id, true);
               }
             }
-          } catch (extractError) {
-            console.error("Error processing authentication result:", extractError);
-          }
-        }
-      }
-
-      // Step 8: Fall back to checking current session as safety mechanism
-      try {
-        const { data: currentSession } = await supabase.auth.getSession();
-        if (currentSession?.session?.user) {
-          console.log("Session exists despite flow issues, returning success=true");
-          setSession(currentSession.session);
-          setUser(currentSession.session.user);
-          
-          // Mark push token as signed in
-          const pushToken = await SecureStore.getItemAsync('expoPushToken');
-          if (pushToken) {
-            await NotificationService.markTokenAsSignedIn(currentSession.session.user.id, pushToken);
-          }
-          
-          return { success: true, user: currentSession.session.user };
-        }
-      } catch (sessionCheckError) {
-        console.error("Error checking current session:", sessionCheckError);
-      }
-
-      // Step 9: Return failure if all above steps fail
-      console.log("All authentication steps failed, returning success=false");
-      return { success: false };
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      return { success: false, error };
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
-
-  const signIn = async ({ email, password }: SignInCredentials) => {
-    try {
-      setIsSigningIn(true);
-      
-      if (isGuest) {
-        await clearGuestMode();
-      }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        await fetchUserProfile(data.user.id);
-        
-        // Enhanced token handling
-        try {
-          // First, try to get existing token
-          let pushToken = await SecureStore.getItemAsync('expoPushToken');
-          
-          // If no local token, sync from database
-          if (!pushToken) {
-            pushToken = await NotificationService.syncTokenFromDatabase(data.user.id);
-          }
-          
-          // If we have a token, mark it as signed in
-          if (pushToken) {
-            const success = await NotificationService.markTokenAsSignedIn(data.user.id, pushToken);
-            if (!success) {
-              console.error('Failed to mark token as signed in, attempting to register new token');
-              await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
-            }
           } else {
-            // If no token exists, trigger registration
-            await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+            // No token in storage, register a new one
+            await NotificationService.registerForPushNotificationsAsync(currentSession.session.user.id, true);
           }
         } catch (tokenError) {
-          console.error('Error handling push token during sign-in:', tokenError);
+          console.error('Error handling token in fallback session case:', tokenError);
+        }
+        
+        return { success: true, user: currentSession.session.user };
+      }
+    } catch (sessionCheckError) {
+      console.error("Error checking current session:", sessionCheckError);
+    }
+
+    // Step 9: Return failure if all above steps fail
+    console.log("All authentication steps failed, returning success=false");
+    return { success: false };
+  } catch (error) {
+    console.error('Google sign in error:', error);
+    return { success: false, error };
+  } finally {
+    setIsSigningIn(false);
+  }
+};
+
+// Enhancement 3: Improve appleSignIn method with better token handling
+// Location: Modify the appleSignIn method inside AuthProvider component
+
+const appleSignIn = async () => {
+  try {
+    if (isGuest) {
+      await clearGuestMode();
+    }
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error) throw error;
+
+    if (data?.url) {
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+
+      if (result.type === 'success') {
+        // Get the Supabase auth callback URL parameters
+        const { data: sessionData } = await supabase.auth.getSession();
+
+        if (sessionData?.session) {
+          // Process the user and get the created/existing profile
+          const userProfile = await processOAuthUser(sessionData.session);
+
+          // Set the profile directly if available
+          if (userProfile) {
+            setProfile(userProfile);
+          }
+
+          // Enhanced token handling with better recovery
+          try {
+            // Step 1: Check if we have an existing token
+            let pushToken = await SecureStore.getItemAsync('expoPushToken');
+            let tokenValidated = false;
+            
+            // Step 2: Verify if token exists and is valid for this user
+            if (pushToken) {
+              const verification = await NotificationService.forceTokenVerification(sessionData.session.user.id);
+              
+              if (verification.isValid) {
+                console.log('Token exists and is valid for Apple sign-in, updating status if needed');
+                
+                // Update signed_in status if needed
+                if (verification.signedIn === false) {
+                  await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                }
+                
+                tokenValidated = true;
+              } else {
+                console.log('Token exists but validation failed for Apple sign-in');
+                
+                // Try to register the existing token with this user
+                const success = await NotificationService.ensureValidTokenRegistration(
+                  sessionData.session.user.id,
+                  pushToken
+                );
+                
+                if (success) {
+                  console.log('Successfully registered existing token to this user (Apple sign-in)');
+                  tokenValidated = true;
+                }
+              }
+            }
+            
+            // Step 3: If we don't have a valid token, try to sync from database
+            if (!tokenValidated) {
+              pushToken = await NotificationService.syncTokenFromDatabase(sessionData.session.user.id);
+              
+              if (pushToken) {
+                console.log('Successfully synced token from database for Apple sign-in');
+                await NotificationService.markTokenAsSignedIn(sessionData.session.user.id, pushToken);
+                tokenValidated = true;
+              } else {
+                console.log('No token found in database for Apple sign-in');
+              }
+            }
+            
+            // Step 4: If we still don't have a valid token, register a new one
+            if (!tokenValidated) {
+              console.log('Registering new push token for Apple sign-in');
+              await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+            }
+          } catch (tokenError) {
+            console.error('Error handling push token during Apple sign-in:', tokenError);
+            // Fallback to direct registration
+            try {
+              await NotificationService.registerForPushNotificationsAsync(sessionData.session.user.id, true);
+            } catch (e) {
+              console.error('Final token registration attempt failed for Apple sign-in:', e);
+            }
+          }
         }
       }
-
-      // Wait for 1.5 seconds to show the loader
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setIsSigningIn(false);
-      return { error: null };
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      setIsSigningIn(false);
-      return { error };
     }
-  };
+  } catch (error) {
+    console.error('Apple sign in error:', error);
+  }
+};
 
   const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
     try {
