@@ -74,7 +74,36 @@ export default function DealerLayout() {
 						headerShown: false
 					}}
 				/>
+								<Stack.Screen
+					name='EditProfile'
+					options={{
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
+												<Stack.Screen
+					name='ChangePassword'
+					options={{
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
+																<Stack.Screen
+					name='terms-of-service'
+					options={{
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
+																				<Stack.Screen
+					name='privacy-policy'
+					options={{
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
 			</Stack>
+			
 		</GestureHandlerRootView>
 	)
 }

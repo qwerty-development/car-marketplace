@@ -8,47 +8,184 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  TouchableOpacity
+  TouchableOpacity,
+  Modal,
+  TouchableWithoutFeedback,
+  StyleSheet,
+  Linking
 } from 'react-native'
 import { useAuth } from '@/utils/AuthContext'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
-import * as Location from 'expo-location'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import { Ionicons, Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useScrollToTop } from '@react-navigation/native'
 import { useDealershipProfile } from '../hooks/useDealershipProfile'
-import { EditProfileModal } from '../EditProfileModal'
-import { LocationModal } from '../LocationModal'
-import { SecurityModal } from '../SecurityModal'
-import { ProfileMenu } from '../ProfileMenu'
 import { supabase } from '@/utils/supabase'
 import { Buffer } from 'buffer'
 import { coordinateSignOut } from '@/app/(home)/_layout'
 import { SignOutOverlay } from '@/components/SignOutOverlay'
+import Constants from 'expo-constants'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
+const MODAL_HEIGHT_PERCENTAGE = 0.7;
 
-interface FormData {
-  name: string
-  location: string
-  phone: string
-  logo: string
-  latitude: string
-  longitude: string
-}
+// New component for Legal Options Modal
+const LegalsModal = ({ visible, onClose, isDarkMode, router }) => {
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.modalBackground} />
+        </TouchableWithoutFeedback>
+        <View
+          style={[
+            styles.modalContent,
+            {
+              maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+              backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+            },
+          ]}
+        >
+          <View className="flex-row justify-between items-center mb-6">
+            <Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+              Legal Documents
+            </Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity 
+            className={`flex-row items-center p-4 mb-3 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+            onPress={() => {
+              onClose();
+              router.push('/(home)/(dealer)/terms-of-service');
+            }}
+          >
+            <Ionicons name="document-text-outline" size={22} color="#D55004" style={{ marginRight: 12 }} />
+            <Text className={isDarkMode ? 'text-white' : 'text-black'}>Terms of Service</Text>
+            <View style={{ flex: 1 }} />
+            <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#ddd' : '#999'} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            className={`flex-row items-center p-4 mb-3 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+            onPress={() => {
+              onClose();
+              router.push('/(home)/(dealer)/privacy-policy');
+            }}
+          >
+            <Ionicons name="shield-checkmark-outline" size={22} color="#D55004" style={{ marginRight: 12 }} />
+            <Text className={isDarkMode ? 'text-white' : 'text-black'}>Privacy Policy</Text>
+            <View style={{ flex: 1 }} />
+            <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#ddd' : '#999'} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
-interface PasswordData {
-  currentPassword: string
-  newPassword: string
-  confirmPassword: string
-}
+// Subscription Banner Component
+const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, daysUntilExpiration, router }) => {
+  if (subscriptionExpired) {
+    return (
+      <LinearGradient
+        colors={isDarkMode ? ['#3A1A1A', '#2A0F0F'] : ['#FFEFEF', '#FFE0E0']}
+        className="p-4 rounded-xl shadow-sm overflow-hidden"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-full bg-red-500/20 items-center justify-center mr-3">
+              <Ionicons name="alert-circle" size={24} color="#ef4444" />
+            </View>
+            <View>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>
+                Subscription Expired
+              </Text>
+              <Text className={`text-xs ${isDarkMode ? "text-red-400" : "text-red-600"}`}>
+                Renew now to continue services
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity 
+            className="bg-red-500 px-3 py-2 rounded-lg" 
+            onPress={() => router.push('/(home)/(dealer)/subscription')}
+          >
+            <Text className="text-white font-medium text-sm">Renew</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    );
+  } 
+  
+  if (showWarning) {
+    return (
+      <LinearGradient
+        colors={isDarkMode ? ['#3A2C1A', '#2A1F0F'] : ['#FFF9EF', '#FFF2D9']}
+        className="p-4 rounded-xl shadow-sm overflow-hidden"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-full bg-yellow-500/20 items-center justify-center mr-3">
+              <Ionicons name="time-outline" size={24} color="#f59e0b" />
+            </View>
+            <View>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>
+                Expiring Soon
+              </Text>
+              <Text className={`text-xs ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
+                {daysUntilExpiration} day{daysUntilExpiration !== 1 ? 's' : ''} remaining
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity 
+            className="bg-yellow-500 px-3 py-2 rounded-lg" 
+            onPress={() => router.push('/(home)/(dealer)/subscription')}
+          >
+            <Text className="text-white font-medium text-sm">Extend</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    );
+  }
+  
+  return (
+    <LinearGradient
+      colors={isDarkMode ? ['#1A3A1A', '#0F2A0F'] : ['#EFFFF0', '#E0FFE5']}
+      className="p-4 rounded-xl shadow-sm overflow-hidden"
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center">
+          <View className="w-10 h-10 rounded-full bg-green-500/20 items-center justify-center mr-3">
+            <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+          </View>
+          <View>
+            <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>
+              Active Subscription
+            </Text>
+            <Text className={`text-xs ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
+              {daysUntilExpiration !== null ? `${daysUntilExpiration} days remaining` : 'Subscription active'}
+            </Text>
+          </View>
+        </View>
+    
+      </View>
+    </LinearGradient>
+  );
+};
 
 export default function DealershipProfilePage() {
   const { isDarkMode } = useTheme()
-  const { user, profile, signOut, updatePassword } = useAuth()
+  const { user, profile, signOut } = useAuth()
   const router = useRouter()
   const scrollRef = useRef<ScrollView>(null)
   const mapRef = useRef(null)
@@ -58,39 +195,10 @@ export default function DealershipProfilePage() {
   const { dealership, isLoading: isProfileLoading, fetchDealershipProfile } = useDealershipProfile()
 
   // State Management
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    location: '',
-    phone: '',
-    logo: '',
-    latitude: '',
-    longitude: ''
-  })
   const [isUploading, setIsUploading] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedLocation, setSelectedLocation] = useState<{
-    latitude: number
-    longitude: number
-  } | null>(null)
+  const [isLegalsModalVisible, setIsLegalsModalVisible] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [passwordData, setPasswordData] = useState<PasswordData>({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  })
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false)
-
-  // Modal States
-  const [isEditProfileVisible, setIsEditProfileVisible] = useState(false)
-  const [isLocationModalVisible, setIsLocationModalVisible] = useState(false)
-  const [isSecurityModalVisible, setIsSecurityModalVisible] = useState(false)
-
-  const [mapRegion, setMapRegion] = useState({
-    latitude: 33.8547,
-    longitude: 35.8623,
-    latitudeDelta: 2,
-    longitudeDelta: 2
-  })
 
   // Subscription checks
   const isSubscriptionValid = useCallback(() => {
@@ -111,49 +219,6 @@ export default function DealershipProfilePage() {
     daysUntilExpiration <= SUBSCRIPTION_WARNING_DAYS &&
     daysUntilExpiration > 0
   const subscriptionExpired = !isSubscriptionValid()
-
-  // Initialize form data when dealership data is loaded
-  React.useEffect(() => {
-    if (dealership) {
-      setFormData({
-        name: dealership.name || '',
-        location: dealership.location || '',
-        phone: dealership.phone || '',
-        logo: dealership.logo || '',
-        latitude: dealership.latitude?.toString() || '',
-        longitude: dealership.longitude?.toString() || ''
-      })
-    }
-  }, [dealership])
-
-  // Location handlers
-  const getLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please allow location access.')
-        return
-      }
-
-      const location = await Location.getCurrentPositionAsync({})
-      const { latitude, longitude } = location.coords
-
-      setFormData(prev => ({
-        ...prev,
-        latitude: latitude.toString(),
-        longitude: longitude.toString()
-      }))
-      setSelectedLocation({ latitude, longitude })
-      setMapRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421
-      })
-    } catch (error) {
-      Alert.alert('Error', 'Failed to get location')
-    }
-  }
 
   // Image handling
   const pickImage = async () => {
@@ -211,65 +276,10 @@ export default function DealershipProfilePage() {
         .update({ logo: publicURLData.publicUrl })
         .eq('id', dealership.id)
 
-      setFormData(prev => ({ ...prev, logo: publicURLData.publicUrl }))
+      fetchDealershipProfile()
       Alert.alert('Success', 'Logo updated successfully')
     } catch (error) {
       Alert.alert('Error', 'Failed to upload image')
-    }
-  }
-
-  // Form handlers
-  const updateProfile = async () => {
-    if (!dealership?.id) return
-
-    setIsLoading(true)
-    try {
-      const { error } = await supabase
-        .from('dealerships')
-        .update({
-          name: formData.name,
-          location: formData.location,
-          phone: formData.phone,
-          latitude: parseFloat(formData.latitude) || null,
-          longitude: parseFloat(formData.longitude) || null
-        })
-        .eq('id', dealership.id)
-
-      if (error) throw error
-      Alert.alert('Success', 'Profile updated successfully')
-      setIsEditProfileVisible(false)
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update profile')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleChangePassword = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match')
-      return
-    }
-
-    try {
-      // Using the updatePassword method from AuthContext
-      const { error } = await updatePassword({
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      })
-
-      if (error) throw error
-
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      })
-      setIsSecurityModalVisible(false)
-      Alert.alert('Success', 'Password updated successfully')
-    } catch (error) {
-      console.error('Error changing password:', error)
-      Alert.alert('Error', 'Failed to update password')
     }
   }
 
@@ -330,95 +340,284 @@ export default function DealershipProfilePage() {
   }
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-white'}`}
-    >
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
+      <ScrollView
+        ref={scrollRef}
+        className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#D55004']}
+            tintColor={isDarkMode ? '#D55004' : '#D55004'}
+          />
+        }
+      >
+        {/* Profile Header */}
+        <View className="relative">
+          <LinearGradient
+            colors={isDarkMode ? ['#D55004', '#000000'] : ['#D55004', '#DADADA']}
+            className="pt-12 pb-24 rounded-b-[40px]"
+          >
+            <View className="items-center mt-6">
+              <View className="relative">
+                <Image
+                  source={{
+                    uri: dealership?.logo || 'https://via.placeholder.com/150'
+                  }}
+                  className="w-32 h-32 rounded-full border-4 border-white/20"
+                />
+                <TouchableOpacity
+                  onPress={pickImage}
+                  disabled={isUploading}
+                  className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
+                >
+                  {isUploading ? (
+                    <ActivityIndicator color="#D55004" size="small" />
+                  ) : (
+                    <Ionicons name="camera" size={20} color="#D55004" />
+                  )}
+                </TouchableOpacity>
+              </View>
 
-      {/* Profile Header */}
-      <View className="relative">
-        <LinearGradient
-          colors={isDarkMode ? ['#D55004', '#1a1a1a'] : ['#D55004', '#ff8c00']}
-          className="pt-12 pb-24 rounded-b-[40px]"
-        >
-
-          <View className="items-center mt-6">
-            <View className="relative">
-              <Image
-                source={{
-                  uri: formData.logo || 'https://via.placeholder.com/150'
-                }}
-                className="w-32 h-32 rounded-full border-4 border-white/20"
-              />
-              <TouchableOpacity
-                onPress={pickImage}
-                disabled={isUploading}
-                className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
-              >
-                {isUploading ? (
-                  <ActivityIndicator color="#D55004" size="small" />
-                ) : (
-                  <Ionicons name="camera" size={20} color="#D55004" />
-                )}
-              </TouchableOpacity>
+              <Text className="text-white text-xl font-semibold mt-4">
+                {dealership?.name}
+              </Text>
+              <Text className="text-white/80 text-sm">{dealership?.location}</Text>
             </View>
+          </LinearGradient>
+        </View>
 
-            <Text className="text-white text-xl font-semibold mt-4">
-              {formData.name}
-            </Text>
-            <Text className="text-white/80 text-sm">{formData.location}</Text>
-          </View>
-        </LinearGradient>
-      </View>
+        {/* Subscription Banner */}
+        <View className="px-6 mt-4 mb-6">
+          <SubscriptionBanner 
+            isDarkMode={isDarkMode}
+            subscriptionExpired={subscriptionExpired}
+            showWarning={showWarning}
+            daysUntilExpiration={daysUntilExpiration}
+            router={router}
+          />
+        </View>
 
-      {/* Menu Items */}
-      <ProfileMenu
+        {/* Menu Items - Styled like User Profile */}
+        <View className="space-y-4 px-6">
+          {/* Edit Profile & Location Button */}
+          <TouchableOpacity
+            onPress={() => router.push(`/(home)/(dealer)/EditProfile?dealershipId=${dealership?.id}`)}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center">
+              <Ionicons name="person-outline" size={24} color="#3b82f6" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+                Edit Profile & Location
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+                Update dealership information and map location
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
+          {/* Security Button */}
+          <TouchableOpacity
+            onPress={() => router.push('/(home)/(dealer)/ChangePassword')}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="w-10 h-10 rounded-full bg-purple-500/10 items-center justify-center">
+              <Ionicons name="lock-closed-outline" size={24} color="#9333ea" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+                Security
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+                Change password and security settings
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
+          {/* Analytics Button */}
+          <TouchableOpacity
+            onPress={() => router.push('/(home)/(dealer)/analytics')}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="w-10 h-10 rounded-full bg-green-500/10 items-center justify-center">
+              <Ionicons name="bar-chart-outline" size={24} color="#10b981" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+                Analytics Dashboard
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+                View statistics and reports
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
+          {/* Legals Button */}
+          <TouchableOpacity
+            onPress={() => setIsLegalsModalVisible(true)}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="w-10 h-10 rounded-full bg-amber-500/10 items-center justify-center">
+              <Ionicons name="document-text-outline" size={24} color="#f59e0b" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+                Legals
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+                Terms of Service and Privacy Policy
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Support Section */}
+        <View className="mt-8 px-6 space-y-4">
+          <Text
+            className={`${isDarkMode ? "text-white/60" : "text-gray-500"} 
+            text-xs uppercase tracking-wider mb-1`}
+          >
+            Support & Help
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://wa.me/70993415')}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="w-10 h-10 rounded-full bg-green-500/10 items-center justify-center">
+              <Feather name="message-circle" size={22} color="#22c55e" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+                WhatsApp Support
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+                Available 24/7
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL('mailto:info@notqwerty.com?subject=Dealer Support Request')}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center">
+              <Feather name="mail" size={22} color="#3b82f6" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+                Email Support
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+                Detailed inquiries
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Version Information */}
+        <Text
+          className="text-center mt-8"
+          style={{ fontSize: 12, color: isDarkMode ? "#777" : "#999" }}
+        >
+          Version {Constants.expoConfig?.version || "1.0.0"}
+        </Text>
+
+        {/* Sign Out Button - Styled like User Profile */}
+        <TouchableOpacity
+          className="mx-6 mt-4 mb-12"
+          onPress={handleSignOut}
+          disabled={showSignOutOverlay}
+        >
+          <Text
+            className={`text-center border  font-semibold p-4 rounded-2xl ${
+              showSignOutOverlay ? "opacity-50" : "opacity-100"
+            }`}
+          >
+            {showSignOutOverlay ? "Signing Out..." : "Sign Out"}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Legals Modal */}
+      <LegalsModal
+        visible={isLegalsModalVisible}
+        onClose={() => setIsLegalsModalVisible(false)}
         isDarkMode={isDarkMode}
-        onEditProfile={() => setIsEditProfileVisible(true)}
-        onLocation={() => setIsLocationModalVisible(true)}
-        onSecurity={() => setIsSecurityModalVisible(true)}
-        subscriptionExpired={subscriptionExpired}
-        daysUntilExpiration={daysUntilExpiration}
-        onSignOut={handleSignOut}
-      />
-
-      {/* Modals */}
-      <EditProfileModal
-        visible={isEditProfileVisible}
-        onClose={() => setIsEditProfileVisible(false)}
-        isDarkMode={isDarkMode}
-        formData={formData}
-        setFormData={setFormData}
-        onUpdate={updateProfile}
-        isLoading={isLoading}
-      />
-
-      <LocationModal
-        visible={isLocationModalVisible}
-        onClose={() => setIsLocationModalVisible(false)}
-        isDarkMode={isDarkMode}
-        formData={formData}
-        setFormData={setFormData}
-        mapRef={mapRef}
-        mapRegion={mapRegion}
-        selectedLocation={selectedLocation}
-        setSelectedLocation={setSelectedLocation}
-        getLocation={getLocation}
-        onUpdate={updateProfile}
-        isLoading={isLoading}
-      />
-
-      <SecurityModal
-        visible={isSecurityModalVisible}
-        onClose={() => setIsSecurityModalVisible(false)}
-        isDarkMode={isDarkMode}
-        passwordData={passwordData}
-        setPasswordData={setPasswordData}
-        onUpdatePassword={handleChangePassword}
+        router={router}
       />
 
       {/* Sign Out Overlay */}
       <SignOutOverlay visible={showSignOutOverlay} />
-    </ScrollView>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent background
+  },
+  modalBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+  },
+  modalContent: {
+    width: "80%",
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+});

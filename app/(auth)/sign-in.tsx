@@ -324,23 +324,46 @@ export default function SignInPage() {
   
     setIsLoading(true);
     try {
-      const { error } = await signIn({
+      // Use a manual approach instead of the signIn method from auth context
+      // This ensures we can handle errors before any navigation happens
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: emailAddress,
         password,
       });
   
       if (error) {
-        setEmailError(error.message || "Sign in failed. Please try again.");
-      } 
-      // The router.replace is now handled by the auth process and LogoLoader
-      // The 3-second delay we added to the signIn function will show the LogoLoader
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-      setEmailError(err.message || "An error occurred. Please try again.");
+        // Handle specific error types
+        if (error.message?.toLowerCase().includes('invalid login credentials') || 
+            error.message?.toLowerCase().includes('password') ||
+            error.message?.toLowerCase().includes('incorrect')) {
+          setPasswordError("Incorrect password. Please try again.");
+        } else if (error.message?.toLowerCase().includes('user not found') || 
+                   error.message?.toLowerCase().includes('no user') ||
+                   error.message?.toLowerCase().includes('email')) {
+          setEmailError("No account found with this email address.");
+        } else {
+          // General error handling
+          setError(error.message || "Sign in failed. Please try again.");
+        }
+        return; // Return early to prevent any navigation
+      }
+  
+      // Only if authentication is successful, use the auth context's signIn
+      // which might handle additional logic like setting up the user session
+      if (data.user) {
+        await signIn({
+          email: emailAddress,
+          password,
+        });
+        // No need to navigate - let auth context handle it
+      }
+    } catch (err) {
+      console.error("Sign in error:", JSON.stringify(err, null, 2));
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, signIn, emailAddress, password]);
+  }, [isLoaded, signIn, emailAddress, password, supabase.auth]);
 
   // Handle guest login
   const handleGuestSignIn = async () => {
