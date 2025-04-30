@@ -176,7 +176,7 @@ export default function EditProfileScreen() {
                         } finally {
                           setIsDeletingAccount(false);
                         }
-                      }, 1500); // 1.5 second delay
+                      }, 500); // 1.5 second delay
                     } catch (err) {
                       setIsDeletingAccount(false);
                       console.error('Error in account deletion process:', err);
