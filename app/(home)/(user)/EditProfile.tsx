@@ -7,6 +7,7 @@ import {
   Alert,
   StyleSheet,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "@/utils/ThemeContext";
@@ -15,11 +16,13 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/utils/supabase";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Linking from 'expo-linking';
 
 export default function EditProfileScreen() {
   const { isDarkMode } = useTheme();
-  const { user, profile, updateUserProfile } = useAuth();
+  const { user, profile, updateUserProfile, signOut } = useAuth();
   const router = useRouter();
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -120,6 +123,78 @@ export default function EditProfileScreen() {
     }
   };
 
+  // Handle account deletion process
+  const handleDeleteAccount = () => {
+    if (isDeletingAccount) return; // Prevent multiple calls
+    
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Final Confirmation",
+              "All your data will be permanently deleted. This action CANNOT be undone.",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel"
+                },
+                {
+                  text: "Proceed to Deletion",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      setIsDeletingAccount(true);
+                      
+                      // 1. Show a loading message
+                      Alert.alert(
+                        "Processing",
+                        "Opening account deletion page. You will be signed out automatically."
+                      );
+                      
+                      // 2. Open the web deletion page
+                      await Linking.openURL('https://fleetapp.me/account/delete');
+                      
+                      // 3. Wait a moment to ensure the URL has opened
+                      setTimeout(async () => {
+                        try {
+                          // 4. Sign out the user
+                          await signOut();
+                          console.log("User signed out after deletion page opened");
+                        } catch (signOutError) {
+                          console.error("Error signing out after deletion redirect:", signOutError);
+                          // Still try to navigate to auth screen as fallback
+                          router.replace('/(auth)/sign-in');
+                        } finally {
+                          setIsDeletingAccount(false);
+                        }
+                      }, 1500); // 1.5 second delay
+                    } catch (err) {
+                      setIsDeletingAccount(false);
+                      console.error('Error in account deletion process:', err);
+                      Alert.alert(
+                        "Error",
+                        "There was a problem processing your account deletion request. Please try again later."
+                      );
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={{ 
       flex: 1, 
@@ -142,9 +217,6 @@ export default function EditProfileScreen() {
           Edit Profile
         </Text>
       </View>
-
-      {/* Profile Picture */}
-
 
       <View className="space-y-4 mt-4">
         <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
@@ -204,6 +276,34 @@ export default function EditProfileScreen() {
           {loading ? "Updating..." : "Update Profile"}
         </Text>
       </TouchableOpacity>
+
+      {/* Account Deletion Section */}
+      <View className="mt-12 pt-8 border-t border-gray-300 dark:border-gray-700">
+        <Text className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : "text-black"}`}>
+          Delete Account
+        </Text>
+        <Text className={`mb-4 ${isDarkMode ? "text-white/70" : "text-gray-600"}`}>
+          Permanently delete your account and all associated data. This action cannot be undone.
+        </Text>
+        <TouchableOpacity
+          className={`bg-rose-600 p-4 rounded-xl ${isDeletingAccount ? 'opacity-50' : ''}`}
+          onPress={handleDeleteAccount}
+          disabled={isDeletingAccount}
+        >
+          {isDeletingAccount ? (
+            <View className="flex-row justify-center items-center">
+              <ActivityIndicator size="small" color="#ffffff" />
+              <Text className="text-white text-center font-semibold ml-2">
+                Processing...
+              </Text>
+            </View>
+          ) : (
+            <Text className="text-white text-center font-semibold">
+              Delete Account
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
