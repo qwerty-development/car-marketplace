@@ -2039,33 +2039,33 @@ const renderDealerCars = useCallback(() => {
         </View>
 
         <TouchableOpacity
-          onPress={handleOpenInGoogleMaps}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 12,
-            marginTop: 16,
-            borderRadius: 9999,
-            backgroundColor: isDarkMode ? "#fff" : "#000",
-            width: "100%",
-          }}
-        >
-          <Ionicons
-            name="navigate-outline"
-            size={24}
-            color={isDarkMode ? "black" : "white"}
-          />
-          <Text
-            style={{
-              color: isDarkMode ? "black" : "white",
-              fontWeight: "600",
-              marginLeft: 8,
-            }}
-          >
-            Open in Google Maps
-          </Text>
-        </TouchableOpacity>
+  onPress={handleOpenInMaps}  // CHANGE: from handleOpenInGoogleMaps to handleOpenInMaps
+  style={{
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    marginTop: 16,
+    borderRadius: 9999,
+    backgroundColor: isDarkMode ? "#fff" : "#000",
+    width: "100%",
+  }}
+>
+  <Ionicons
+    name="navigate-outline"
+    size={24}
+    color={isDarkMode ? "black" : "white"}
+  />
+  <Text
+    style={{
+      color: isDarkMode ? "black" : "white",
+      fontWeight: "600",
+      marginLeft: 8,
+    }}
+  >
+    Open in Maps 
+  </Text>
+</TouchableOpacity>
       </View>
 
       {/* Autoclip Modal with Suspense */}
