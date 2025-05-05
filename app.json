@@ -44,7 +44,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
-      },
+      },    "softwareKeyboardLayoutMode": "pan",
+      "allowBackup": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -53,7 +54,9 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+         "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ],
   "intentFilters": [
         {

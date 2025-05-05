@@ -1264,7 +1264,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   marginBottom: 12
                 }}
               >
-                Location
+                Location android
               </Text>
 
               <SafeMapView

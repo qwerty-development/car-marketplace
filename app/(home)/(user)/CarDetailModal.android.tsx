@@ -13,7 +13,8 @@ import {
   Share,
   Platform,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
+  AppState
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -154,22 +155,211 @@ const TechnicalDataItem = ({ icon, label, value = "N/A", isDarkMode, isLast }: a
 );
 
 // Custom MapView component with error handling and fallback
-const SafeMapView = React.memo(({ latitude, longitude, dealershipName, dealershipLocation, onMapPress, isDarkMode }) => {
+const SafeMapView = React.memo(({ 
+  latitude, 
+  longitude, 
+  dealershipName, 
+  dealershipLocation, 
+  onMapPress, 
+  isDarkMode 
+}) => {
+  // Component state
   const [mapError, setMapError] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
-
+  const [loadAttempts, setLoadAttempts] = useState(0);
+  const [useStaticMap, setUseStaticMap] = useState(false);
+  
+  // Refs for lifecycle management
+  const isMounted = useRef(true);
+  const mapRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState);
+  
+  // Clean up on unmount
   useEffect(() => {
-    // Add a timeout to detect extremely slow loading maps
-    const timeout = setTimeout(() => {
-      if (!mapLoaded) {
-        setMapError(true);
+    return () => {
+      isMounted.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
-    }, 5000);
+    };
+  }, []);
+  
+  // AppState listener for memory management
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", nextAppState => {
+      if (appStateRef.current === "active" && nextAppState.match(/inactive|background/)) {
+        // App is going to background, release map resources
+        if (mapRef.current && isMounted.current) {
+          // Reset map state to free memory
+          setMapLoaded(false);
+        }
+      }
+      appStateRef.current = nextAppState;
+    });
 
-    return () => clearTimeout(timeout);
-  }, [mapLoaded]);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
-  if (mapError || !latitude || !longitude || isNaN(Number(latitude)) || isNaN(Number(longitude))) {
+  // Progressive loading with timeouts and retries
+  useEffect(() => {
+    if (mapError || useStaticMap || mapLoaded) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      return;
+    }
+    
+    // Set timeout for map loading with exponential backoff
+    timeoutRef.current = setTimeout(() => {
+      if (!mapLoaded && isMounted.current) {
+        console.log(`Map load attempt ${loadAttempts + 1} timed out`);
+        
+        if (loadAttempts < 2) {
+          // Retry loading with incremental backoff
+          setLoadAttempts(prev => prev + 1);
+        } else {
+          // After multiple failures, use static map fallback
+          console.log('Multiple map load failures, using fallback');
+          setMapError(true);
+          setUseStaticMap(Platform.OS === 'android');
+        }
+      }
+    }, 5000 + (loadAttempts * 2000)); // Increasing timeout with each attempt
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [mapLoaded, loadAttempts, mapError, useStaticMap]);
+
+  // Coordinate validation
+  const isValidLocation = useCallback(() => {
+    try {
+      if (!latitude || !longitude) return false;
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      return !isNaN(lat) && !isNaN(lng) && 
+              Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
+              (lat !== 0 || lng !== 0);
+    } catch (e) {
+      console.error('Location validation error:', e);
+      return false;
+    }
+  }, [latitude, longitude]);
+
+  // Map-ready handler with safety checks
+  const handleMapReady = useCallback(() => {
+    if (isMounted.current) {
+      console.log('Map ready event received');
+      setMapLoaded(true);
+      
+      // Clear timeout when map is successfully loaded
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    }
+  }, []);
+
+  // Error handler
+  const handleMapError = useCallback(() => {
+    if (isMounted.current) {
+      console.error('Map error event triggered');
+      setMapError(true);
+    }
+  }, []);
+
+  // Maps navigation handler
+  const handleOpenInMaps = useCallback(() => {
+    try {
+      if (!isValidLocation()) {
+        Alert.alert("Location unavailable", "No valid location information available");
+        return;
+      }
+
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      const label = encodeURIComponent(dealershipName || "Dealership");
+
+      // For Android, use Google Maps intent
+      if (Platform.OS === 'android') {
+        const url = `geo:${lat},${lng}?q=${lat},${lng}(${label})`;
+        Linking.openURL(url).catch(() => {
+          // Fallback to Google Maps web URL if intent fails
+          const webUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+          Linking.openURL(webUrl).catch(err => {
+            console.error('Error opening maps:', err);
+            Alert.alert("Error", "Could not open maps application");
+          });
+        });
+      } else {
+        // For iOS
+        const appleMapsUrl = `maps:0,0?q=${lat},${lng}`;
+        Linking.openURL(appleMapsUrl).catch(() => {
+          // Fallback to Google Maps web URL
+          const webUrl = `https://maps.google.com/?q=${lat},${lng}`;
+          Linking.openURL(webUrl);
+        });
+      }
+    } catch (error) {
+      console.error("Error opening maps:", error);
+      Alert.alert("Error", "Unable to open maps at this time");
+    }
+  }, [latitude, longitude, dealershipName, isValidLocation]);
+
+  // Show error state for invalid coordinates or map errors
+  if (mapError || !isValidLocation()) {
+    // Static map fallback for Android production
+    if (useStaticMap) {
+      return (
+        <View style={{
+          height: 200,
+          borderRadius: 10,
+          backgroundColor: isDarkMode ? '#333' : '#e0e0e0',
+          overflow: 'hidden'
+        }}>
+          <Image 
+            source={{ 
+              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=600x400&markers=color:red%7C${latitude},${longitude}&key=AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg` 
+            }}
+            style={{ width: '100%', height: '100%' }}
+            onError={() => {
+              if (isMounted.current) {
+                setUseStaticMap(false);
+                setMapError(true);
+              }
+            }}
+          />
+          <TouchableOpacity
+            onPress={onMapPress || handleOpenInMaps}
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              backgroundColor: '#D55004',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 9999,
+              flexDirection: 'row',
+              alignItems: 'center',
+              elevation: 3
+            }}
+          >
+            <Ionicons name='navigate' size={16} color='white' />
+            <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // Standard error fallback
     return (
       <View style={{
         height: 200,
@@ -179,62 +369,143 @@ const SafeMapView = React.memo(({ latitude, longitude, dealershipName, dealershi
         alignItems: 'center'
       }}>
         <Ionicons name="location-outline" size={40} color="#999" />
-        <Text style={{ marginTop: 8, color: '#666' }}>
-          Location information unavailable
+        <Text style={{ 
+          marginTop: 8, 
+          color: '#666',
+          textAlign: 'center',
+          paddingHorizontal: 16
+        }}>
+          {mapError ? 'Unable to load map' : 'Location information unavailable'}
         </Text>
+        {loadAttempts > 0 && (
+          <TouchableOpacity
+            onPress={() => {
+              if (isMounted.current) {
+                setMapError(false);
+                setLoadAttempts(0);
+              }
+            }}
+            style={{
+              marginTop: 12,
+              padding: 8,
+              backgroundColor: '#D55004',
+              borderRadius: 8
+            }}>
+            <Text style={{ color: 'white' }}>Retry</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
 
-  // Try-catch to handle potential native errors that aren't caught by error handlers
+  // Main render with error boundary and optimizations
   try {
     return (
       <View style={{ height: 200, borderRadius: 10, overflow: 'hidden' }}>
-        <MapView
-          style={{ flex: 1 }}
-          provider={PROVIDER_GOOGLE}
-          region={{
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01
-          }}
-          liteMode={true}
-          onMapReady={() => setMapLoaded(true)}
-          onError={() => setMapError(true)}
-        >
-          <Marker
-            coordinate={{
+        <ErrorBoundary
+          FallbackComponent={({ error, resetError }) => (
+            <View style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: isDarkMode ? '#333' : '#e0e0e0',
+            }}>
+              <Ionicons name="warning-outline" size={40} color="#999" />
+              <Text style={{ 
+                marginTop: 8, 
+                color: '#666',
+                textAlign: 'center',
+                paddingHorizontal: 16
+              }}>
+                Map display error
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (isMounted.current) {
+                    resetError();
+                    setMapError(false);
+                    setLoadAttempts(prev => prev + 1);
+                  }
+                }}
+                style={{
+                  marginTop: 12,
+                  padding: 8,
+                  backgroundColor: '#D55004',
+                  borderRadius: 8
+                }}>
+                <Text style={{ color: 'white' }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}>
+          <MapView
+            ref={mapRef}
+            style={{ flex: 1 }}
+            provider={PROVIDER_GOOGLE}
+            region={{
               latitude: parseFloat(latitude),
-              longitude: parseFloat(longitude)
+              longitude: parseFloat(longitude),
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01
             }}
-            title={dealershipName || "Dealership"}
-            description={dealershipLocation || ""}
-          />
-        </MapView>
+            // Performance optimizations for Android
+            liteMode={Platform.OS === 'android'}
+            minZoomLevel={12}
+            maxZoomLevel={16}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            zoomTapEnabled={false}
+            scrollEnabled={false}
+            mapPadding={{ top: 20, right: 20, bottom: 20, left: 20 }}
+            showsBuildings={false}
+            showsTraffic={false}
+            showsIndoors={false}
+            showsCompass={false}
+            toolbarEnabled={false}
+            loadingEnabled={true}
+            loadingIndicatorColor="#D55004"
+            loadingBackgroundColor={isDarkMode ? "#333" : "#f0f0f0"}
+            onMapReady={handleMapReady}
+            onError={handleMapError}
+          >
+            {mapLoaded && (
+              <Marker
+                coordinate={{
+                  latitude: parseFloat(latitude),
+                  longitude: parseFloat(longitude)
+                }}
+                title={dealershipName || "Dealership"}
+                description={dealershipLocation || ""}
+              />
+            )}
+          </MapView>
 
-        <TouchableOpacity
-          onPress={onMapPress}
-          style={{
-            position: 'absolute',
-            bottom: 16,
-            right: 16,
-            backgroundColor: '#D55004',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 9999,
-            flexDirection: 'row',
-            alignItems: 'center',
-            elevation: 3
-          }}
-        >
-          <Ionicons name='navigate' size={16} color='white' />
-          <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
-        </TouchableOpacity>
+          {mapLoaded && (
+            <TouchableOpacity
+              onPress={onMapPress || handleOpenInMaps}
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                right: 16,
+                backgroundColor: '#D55004',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 9999,
+                flexDirection: 'row',
+                alignItems: 'center',
+                elevation: 3
+              }}
+            >
+              <Ionicons name='navigate' size={16} color='white' />
+              <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
+            </TouchableOpacity>
+          )}
+        </ErrorBoundary>
       </View>
     );
   } catch (error) {
-    console.error('Error rendering map:', error);
+    console.error('Caught error in SafeMapView render:', error);
+    
+    // Last resort error fallback
     return (
       <View style={{
         height: 200,
@@ -244,13 +515,34 @@ const SafeMapView = React.memo(({ latitude, longitude, dealershipName, dealershi
         alignItems: 'center'
       }}>
         <Ionicons name="warning-outline" size={40} color="#999" />
-        <Text style={{ marginTop: 8, color: '#666' }}>
-          Error loading map
+        <Text style={{ 
+          marginTop: 8, 
+          color: '#666', 
+          textAlign: 'center',
+          paddingHorizontal: 16
+        }}>
+          Error displaying map
         </Text>
+        <TouchableOpacity
+          onPress={() => {
+            if (isMounted.current) {
+              setMapError(false);
+              setLoadAttempts(prev => prev + 1);
+            }
+          }}
+          style={{
+            marginTop: 12,
+            padding: 8,
+            backgroundColor: '#D55004',
+            borderRadius: 8
+          }}>
+          <Text style={{ color: 'white' }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 });
+
 
 // Custom error fallback component
 const ErrorFallback = ({ error, resetError }) => (

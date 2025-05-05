@@ -10,7 +10,8 @@ import {
   TextInput,
   StatusBar,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
+  AppState
 } from 'react-native'
 import { router, useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
@@ -22,7 +23,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import MapView, { Marker } from 'react-native-maps'
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import DealershipAutoClips from '@/components/DealershipAutoClips'
 import SortPicker from '@/components/SortPicker'
@@ -177,63 +178,236 @@ interface Car {
   views: number
 }
 
-// Enhanced DealershipMapView with more robust error handling
-const DealershipMapView = ({ dealership, isDarkMode }: any) => {
-  const [isMapReady, setIsMapReady] = useState(false);
+const DealershipMapView = React.memo(({ dealership, isDarkMode }) => {
+  // Component state
   const [mapError, setMapError] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [isMapVisible, setIsMapVisible] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const mapTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [loadAttempts, setLoadAttempts] = useState(0);
+  const [useStaticMap, setUseStaticMap] = useState(false);
+  
+  // Refs for lifecycle and memory management
+  const isMounted = useRef(true);
+  const mapRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState);
 
+  // Lifecycle management
   useEffect(() => {
-    // Set a timeout to show map after a delay to ensure UI is responsive
-    const timeout = setTimeout(() => {
-      setIsMapVisible(true);
-    }, 500);
-
-    // Set a timeout to handle cases where map doesn't load properly
-    mapTimeout.current = setTimeout(() => {
-      if (!isLoaded) {
-        setMapError(true);
-        console.log('Map loading timed out');
+    // Delay map initialization to prevent UI thread blocking
+    const visibilityTimeout = setTimeout(() => {
+      if (isMounted.current) {
+        setIsMapVisible(true);
       }
-    }, 7000);
+    }, 800);
+
+    // AppState listener for memory management
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appStateRef.current === 'active' && nextAppState.match(/inactive|background/)) {
+        // App is going to background, release map resources
+        if (mapRef.current && isMounted.current) {
+          setMapLoaded(false);
+          setIsMapVisible(false);
+        }
+      }
+      appStateRef.current = nextAppState;
+    });
 
     return () => {
-      clearTimeout(timeout);
-      if (mapTimeout.current) clearTimeout(mapTimeout.current);
+      isMounted.current = false;
+      clearTimeout(visibilityTimeout);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      subscription.remove();
     };
   }, []);
 
-  // Safe validation of coordinates
+  // Progressive loading with timeouts and retries
+  useEffect(() => {
+    if (mapError || mapLoaded || !isMapVisible || useStaticMap) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      return;
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      if (isMounted.current && !mapLoaded) {
+        console.log(`Map load attempt ${loadAttempts + 1} timed out`);
+        
+        if (loadAttempts < 2) {
+          // Retry with incremental backoff
+          setLoadAttempts(prev => prev + 1);
+        } else {
+          // After multiple failures, switch to static fallback on Android
+          console.log('Multiple map load failures, using fallback');
+          setMapError(true);
+          setUseStaticMap(Platform.OS === 'android');
+        }
+      }
+    }, 6000 + (loadAttempts * 2000)); // Increasing timeout with backoff
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [mapLoaded, isMapVisible, loadAttempts, mapError, useStaticMap]);
+
+  // Event handlers with safety checks
+  const handleMapError = useCallback(() => {
+    if (isMounted.current) {
+      console.error('Map error event triggered');
+      setMapError(true);
+    }
+  }, []);
+
+  const handleMapReady = useCallback(() => {
+    if (isMounted.current) {
+      console.log('Map ready event received');
+      setMapLoaded(true);
+      
+      // Clear timeout when map successfully loads
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    }
+  }, []);
+
+  // Validate coordinates before rendering
   const hasValidCoordinates = useMemo(() => {
     try {
       if (!dealership?.latitude || !dealership?.longitude) return false;
       const lat = parseFloat(dealership.latitude);
       const lng = parseFloat(dealership.longitude);
-      return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+      return !isNaN(lat) && !isNaN(lng) && 
+             lat !== 0 && lng !== 0 &&
+             Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
     } catch (error) {
       console.error('Error validating coordinates:', error);
       return false;
     }
   }, [dealership]);
 
-  const handleMapReady = useCallback(() => {
-    setIsMapReady(true);
-    setIsLoaded(true);
-    if (mapTimeout.current) {
-      clearTimeout(mapTimeout.current);
-      mapTimeout.current = null;
+  // Safe coordinate parsing
+  const getCoordinates = useCallback(() => {
+    if (!hasValidCoordinates) return { lat: 0, lng: 0 };
+    
+    try {
+      const lat = parseFloat(dealership.latitude);
+      const lng = parseFloat(dealership.longitude);
+      return { lat, lng };
+    } catch {
+      return { lat: 0, lng: 0 };
     }
-  }, []);
+  }, [dealership, hasValidCoordinates]);
 
-  const handleMapError = useCallback(() => {
-    setMapError(true);
-    console.error('Map failed to load');
-  }, []);
+  const { lat, lng } = getCoordinates();
 
-  // If coordinates are invalid or map has error, show placeholder
+  // Maps handling with fallbacks
+  const handleOpenMaps = useCallback(() => {
+    try {
+      if (!hasValidCoordinates) {
+        Alert.alert("Error", "Invalid location coordinates");
+        return;
+      }
+
+      // Platform-specific map opening
+      if (Platform.OS === 'android') {
+        // Direct intent for Google Maps
+        const url = `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(dealership.name || 'Dealership')})`;
+        
+        Linking.openURL(url).catch(() => {
+          // Web fallback if intent fails
+          const webUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+          Linking.openURL(webUrl).catch(err => {
+            console.error('Error opening maps:', err);
+            Alert.alert("Error", "Could not open maps application");
+          });
+        });
+      } else {
+        // iOS options
+        Alert.alert('Open Maps', 'Choose your preferred maps application', [
+          {
+            text: 'Apple Maps',
+            onPress: () => {
+              const appleMapsUrl = `maps:0,0?q=${lat},${lng}`;
+              Linking.openURL(appleMapsUrl);
+            }
+          },
+          {
+            text: 'Google Maps',
+            onPress: () => {
+              const googleMapsUrl = `comgooglemaps://?q=${lat},${lng}&zoom=14`;
+              Linking.openURL(googleMapsUrl).catch(() => {
+                // Fallback if Google Maps not installed
+                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+              });
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error("Error opening maps:", error);
+      Alert.alert("Error", "Unable to open maps at this time");
+    }
+  }, [lat, lng, hasValidCoordinates, dealership?.name]);
+
+  // Error states and fallbacks
   if (!hasValidCoordinates || mapError) {
+    // Static map fallback for Android
+    if (useStaticMap && hasValidCoordinates) {
+      return (
+        <View style={{
+          height: 256,
+          borderRadius: 16,
+          overflow: 'hidden',
+          backgroundColor: isDarkMode ? '#333' : '#f0f0f0'
+        }}>
+          <Image 
+            source={{ 
+              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=600x400&markers=color:red%7C${lat},${lng}&key=AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg` 
+            }}
+            style={{ width: '100%', height: '100%' }}
+            onError={() => {
+              if (isMounted.current) {
+                setUseStaticMap(false);
+                setMapError(true);
+              }
+            }}
+          />
+          <TouchableOpacity
+            onPress={handleOpenMaps}
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              backgroundColor: '#D55004',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 9999,
+              flexDirection: 'row',
+              alignItems: 'center',
+              elevation: 3
+            }}
+          >
+            <Ionicons name='navigate' size={16} color='white' />
+            <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // Standard error fallback
     return (
       <View style={{
         height: 256,
@@ -255,42 +429,29 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
         }}>
           {mapError ? 'Unable to load map' : 'Location not available'}
         </Text>
+        {mapError && loadAttempts > 0 && hasValidCoordinates && (
+          <TouchableOpacity
+            onPress={() => {
+              if (isMounted.current) {
+                setMapError(false);
+                setIsMapVisible(true);
+                setLoadAttempts(prev => prev + 1);
+              }
+            }}
+            style={{
+              marginTop: 12,
+              padding: 8,
+              backgroundColor: '#D55004',
+              borderRadius: 8
+            }}>
+            <Text style={{ color: 'white' }}>Retry</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
 
-  // Parse coordinates safely
-  let lat = 0, lng = 0;
-  try {
-    lat = parseFloat(dealership.latitude);
-    lng = parseFloat(dealership.longitude);
-  } catch (error) {
-    console.error('Error parsing coordinates:', error);
-    return (
-      <View style={{
-        height: 256,
-        borderRadius: 16,
-        backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <Ionicons
-          name='map-outline'
-          size={48}
-          color={isDarkMode ? '#666' : '#999'}
-        />
-        <Text style={{
-          color: isDarkMode ? '#999' : '#666',
-          marginTop: 16,
-          textAlign: 'center',
-          paddingHorizontal: 16,
-        }}>
-          Invalid location coordinates
-        </Text>
-      </View>
-    );
-  }
-
+  // Region configuration with safety checks
   const region = {
     latitude: lat,
     longitude: lng,
@@ -298,20 +459,7 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
     longitudeDelta: 0.01
   };
 
-  // Handle map opening for directions
-  const handleOpenMaps = useCallback(() => {
-    try {
-      const googleMapsUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
-      Linking.openURL(googleMapsUrl).catch(() => {
-        // Fallback to web URL if native maps doesn't work
-        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
-      });
-    } catch (error) {
-      console.error('Error opening maps:', error);
-      Alert.alert('Error', 'Could not open maps application');
-    }
-  }, [lat, lng]);
-
+  // Main render with optimizations
   return (
     <View style={{
       height: 256,
@@ -320,46 +468,83 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
       backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
     }}>
       {!isMapVisible ? (
-        // Show loading state
+        // Loading state
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#D55004" />
           <Text style={{ marginTop: 12, color: isDarkMode ? '#fff' : '#000' }}>
-            Loading map...
+            Preparing map...
           </Text>
         </View>
       ) : (
-        <ErrorBoundary FallbackComponent={({ error }) => (
+        <ErrorBoundary FallbackComponent={({ error, resetError }) => (
           <View style={{
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
             backgroundColor: isDarkMode ? '#333' : '#f0f0f0',
           }}>
-            <Ionicons name="warning" size={48} color={isDarkMode ? '#666' : '#999'} />
+            <Ionicons name="warning-outline" size={48} color={isDarkMode ? '#666' : '#999'} />
             <Text style={{
               color: isDarkMode ? '#999' : '#666',
               marginTop: 16,
               textAlign: 'center',
               paddingHorizontal: 16,
             }}>
-              Error loading map
+              Map display error
             </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (isMounted.current) {
+                  resetError();
+                  setMapError(false);
+                  setLoadAttempts(prev => prev + 1);
+                }
+              }}
+              style={{
+                marginTop: 12,
+                padding: 8,
+                backgroundColor: '#D55004',
+                borderRadius: 8
+              }}>
+              <Text style={{ color: 'white' }}>Retry</Text>
+            </TouchableOpacity>
           </View>
         )}>
           <MapView
-            provider="google"
+            ref={mapRef}
+            provider={PROVIDER_GOOGLE}
             style={{ flex: 1 }}
             initialRegion={region}
             onMapReady={handleMapReady}
             onError={handleMapError}
-            liteMode={true} // Use lite mode on Android for better performance
+            // Performance optimizations
+            liteMode={Platform.OS === 'android'}
+            minZoomLevel={12}
+            maxZoomLevel={16}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            zoomTapEnabled={false}
+            moveOnMarkerPress={false}
+            scrollEnabled={false}
+            showsBuildings={false}
+            showsTraffic={false}
+            showsIndoors={false}
+            showsCompass={false}
+            toolbarEnabled={false}
+            loadingEnabled={true}
+            loadingIndicatorColor="#D55004"
+            loadingBackgroundColor={isDarkMode ? "#333" : "#f0f0f0"}
+            mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            cacheEnabled={Platform.OS === 'ios'}
           >
-            {isMapReady && (
+            {mapLoaded && (
               <Marker
                 coordinate={{
                   latitude: lat,
                   longitude: lng
                 }}
+                title={dealership.name || "Dealership"}
+                description={dealership.location || ""}
               >
                 <View style={{
                   backgroundColor: '#fff',
@@ -369,46 +554,48 @@ const DealershipMapView = ({ dealership, isDarkMode }: any) => {
                   borderColor: '#fff'
                 }}>
                   {dealership.logo ? (
-                    <SafeImage
+                    <Image
                       source={{ uri: dealership.logo }}
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16
                       }}
-                      fallbackColor="#D55004"
+                      defaultSource={require('@/assets/placeholder.jpg')}
                     />
                   ) : (
-                    <Ionicons name="business" size={24} color="#D55004" />
+                    <Ionicons name="business" size={20} color="#D55004" />
                   )}
                 </View>
               </Marker>
             )}
           </MapView>
 
-          <TouchableOpacity
-            onPress={handleOpenMaps}
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              right: 16,
-              backgroundColor: '#D55004',
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 24,
-              flexDirection: 'row',
-              alignItems: 'center',
-              elevation: 3
-            }}
-          >
-            <Ionicons name='navigate' size={16} color='white' />
-            <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
-          </TouchableOpacity>
+          {mapLoaded && (
+            <TouchableOpacity
+              onPress={handleOpenMaps}
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                right: 16,
+                backgroundColor: '#D55004',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 24,
+                flexDirection: 'row',
+                alignItems: 'center',
+                elevation: 3
+              }}
+            >
+              <Ionicons name='navigate' size={16} color='white' />
+              <Text style={{ color: 'white', marginLeft: 8 }}>Take Me There</Text>
+            </TouchableOpacity>
+          )}
         </ErrorBoundary>
       )}
     </View>
   );
-};
+});
 
 const DealershipDetails = () => {
   const { isDarkMode } = useTheme();
