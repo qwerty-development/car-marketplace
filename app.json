@@ -34,7 +34,12 @@
         ]
       }
     },
-    "android": {
+   "android": {
+  "config": {
+    "googleMaps": {
+      "apiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
+    }
+  },
       "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",

@@ -39,14 +39,7 @@ import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import DateTimePickerModal from 'react-native-modal-datetime-picker'
 import * as Haptics from 'expo-haptics'
-import Animated, {
-	FadeIn,
-	FadeOut,
-	SlideInDown,
-	SlideInUp,
-	SlideOutDown,
-	withSpring
-} from 'react-native-reanimated'
+
 import { format } from 'date-fns'
 
 const { width } = Dimensions.get('window')
@@ -339,12 +332,11 @@ export const BrandSelector = memo(
 						className='flex-1'>
 						<TouchableOpacity
 							className='flex-1'
-							activeOpacity={1}
+							
 							onPress={() => setShowAllBrands(false)}
 						/>
-						<Animated.View
-							entering={SlideInDown}
-							exiting={SlideOutDown}
+						<View
+							
 							className={`h-[85%] rounded-t-3xl ${
 								isDarkMode ? 'bg-black' : 'bg-white'
 							}`}>
@@ -440,7 +432,7 @@ export const BrandSelector = memo(
 									}
 								/>
 							</View>
-						</Animated.View>
+						</View>
 					</BlurView>
 				</Modal>
 			</View>
@@ -553,8 +545,8 @@ export const ModelDropdown = memo(
 							intensity={isDarkMode ? 30 : 20}
 							tint={isDarkMode ? 'dark' : 'light'}
 							className='flex-1'>
-							<Animated.View
-								entering={SlideInDown}
+							<View
+								
 								className={`
                 mt-auto rounded-t-3xl overflow-hidden
                 ${isDarkMode ? 'bg-black' : 'bg-white'}
@@ -603,7 +595,7 @@ export const ModelDropdown = memo(
 										</TouchableOpacity>
 									))}
 								</ScrollView>
-							</Animated.View>
+							</View>
 						</BlurView>
 					</TouchableOpacity>
 				</Modal>
@@ -670,7 +662,7 @@ export const NeumorphicInput = memo(
 		prefix,
 		suffix
 	}: any) => (
-		<Animated.View entering={FadeIn.duration(400)} className='mb-6'>
+		<View className='mb-6'>
 			<Text
 				className={`
       text-sm font-medium mb-2
@@ -746,7 +738,7 @@ export const NeumorphicInput = memo(
 			</View>
 
 			{error && <Text className='text-red text-xs mt-1 ml-1'>{error}</Text>}
-		</Animated.View>
+		</View>
 	)
 )
 
@@ -821,14 +813,7 @@ export const FuturisticGallery = memo(
 		const dragTimeout = useRef<any>(null)
 
 		// 3. Enhanced scale animation
-		const getAnimatedStyle = useCallback((isActive: boolean) => {
-			return {
-				opacity: withSpring(isActive ? 0.8 : 1, animationConfig),
-				shadowOpacity: withSpring(isActive ? 0.2 : 0, animationConfig),
-				shadowRadius: withSpring(isActive ? 10 : 0, animationConfig),
-				elevation: isActive ? 5 : 0
-			}
-		}, [])
+
 
 		// 4. Optimized item rendering
 		const renderImageItem = useCallback(
@@ -836,7 +821,7 @@ export const FuturisticGallery = memo(
 				const index = getIndex()
 
 				return (
-					<Animated.View style={getAnimatedStyle(isActive)}>
+					<View>
 						<TouchableOpacity
 							onLongPress={() => {
 								hapticFeedback()
@@ -850,7 +835,7 @@ export const FuturisticGallery = memo(
 							}}
 							className='mr-4'
 							delayLongPress={150}
-							activeOpacity={0.9}>
+							>
 							<BlurView
 								intensity={isDarkMode ? 20 : 40}
 								tint={isDarkMode ? 'dark' : 'light'}
@@ -886,7 +871,7 @@ export const FuturisticGallery = memo(
 										style={{
 											shadowColor: '#000',
 											shadowOffset: { width: 0, height: 2 },
-											shadowOpacity: 0.25,
+											
 											shadowRadius: 3.84,
 											elevation: 5
 										}}>
@@ -909,10 +894,10 @@ export const FuturisticGallery = memo(
 								</View>
 							</BlurView>
 						</TouchableOpacity>
-					</Animated.View>
+					</View>
 				)
 			},
-			[isDarkMode, onRemove, images.length, getAnimatedStyle]
+			[isDarkMode, onRemove, images.length]
 		)
 
 		// 5. Enhanced drag event handlers
@@ -1323,18 +1308,16 @@ const ListingModal = ({
 				className='flex-1'
 				style={{ zIndex: 999 }} // Ensure highest z-index
 			>
-				<GestureHandlerRootView className='flex-1'>
-					<Animated.View
-						entering={FadeIn}
-						exiting={FadeOut}
+				
+					<View
+					
 						className='flex-1 bg-black/50'>
 						<BlurView
 							intensity={isDarkMode ? 30 : 20}
 							tint={isDarkMode ? 'dark' : 'light'}
 							className='flex-1'>
-							<Animated.View
-								entering={SlideInDown}
-								exiting={SlideOutDown}
+							<View
+							
 								className={`
                   flex-1 mt-12 rounded-t-3xl overflow-hidden
                   ${isDarkMode ? 'bg-black' : 'bg-white'}
@@ -1698,10 +1681,10 @@ const ListingModal = ({
 								</ScrollView>
 
 
-							</Animated.View>
+							</View>
 						</BlurView>
-					</Animated.View>
-				</GestureHandlerRootView>
+					</View>
+			
 			</View>
 		</Modal>
 	)

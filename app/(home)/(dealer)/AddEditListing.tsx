@@ -242,7 +242,7 @@ const FeatureSelector = memo(
           >
             <TouchableOpacity
               className="flex-1"
-              activeOpacity={1}
+         
               onPress={() => setShowAllFeatures(false)}
             />
             <View
@@ -1369,7 +1369,7 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
                 backgroundColor: isDarkMode ? "#171717" : "#ffffff",
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
+         
                 shadowRadius: 10,
                 elevation: 5
               }}
