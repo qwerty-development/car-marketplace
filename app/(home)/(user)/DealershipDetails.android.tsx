@@ -375,7 +375,7 @@ const DealershipMapView = React.memo(({ dealership, isDarkMode }) => {
         }}>
           <Image 
             source={{ 
-              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=600x400&markers=color:red%7C${lat},${lng}&key=AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg` 
+              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=14&size=600x400&markers=color:red%7C${lat},${lng}&key=AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk` 
             }}
             style={{ width: '100%', height: '100%' }}
             onError={() => {

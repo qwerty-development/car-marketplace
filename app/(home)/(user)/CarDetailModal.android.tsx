@@ -327,7 +327,7 @@ const SafeMapView = React.memo(({
         }}>
           <Image 
             source={{ 
-              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=600x400&markers=color:red%7C${latitude},${longitude}&key=AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg` 
+              uri: `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=600x400&markers=color:red%7C${latitude},${longitude}&key=AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk` 
             }}
             style={{ width: '100%', height: '100%' }}
             onError={() => {
