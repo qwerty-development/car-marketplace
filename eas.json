@@ -6,15 +6,13 @@
   "build": {
     "apk": {
       "android": {
-        "buildType": "apk",
-          "proguard": "./proguard/proguard-rules.pro"
+        "buildType": "apk"
       }
     },
     "release": {
       "android": {
         "buildType": "app-bundle", 
-        "gradleCommand": ":app:bundleRelease",
-        "proguard": "./proguard/proguard-rules.pro"
+        "gradleCommand": ":app:bundleRelease"
 
       }
     },
