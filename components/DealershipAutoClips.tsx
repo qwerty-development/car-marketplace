@@ -419,6 +419,41 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 		}
 	}, [isFocused])
 
+	// Add effect to handle playback when modal visibility changes
+	useEffect(() => {
+		if (isModalVisible && selectedClip) {
+			// Set the clip to play when modal opens
+			setIsPlaying(prev => ({ ...prev, [selectedClip.id]: true }))
+			
+			// Small delay to ensure video ref is established
+			const timer = setTimeout(() => {
+				const videoRef = videoRefs.current[selectedClip.id]
+				if (videoRef) {
+					videoRef.playAsync().catch(error => {
+						console.error('Error auto-playing video in modal:', error)
+					})
+				}
+			}, 300)
+			
+			return () => clearTimeout(timer)
+		} else if (!isModalVisible) {
+			// Pause all videos when modal closes
+			Object.entries(isPlaying).forEach(async ([clipId, playing]) => {
+				if (playing) {
+					const videoRef = videoRefs.current[parseInt(clipId)]
+					if (videoRef) {
+						try {
+							await videoRef.pauseAsync()
+							setIsPlaying(prev => ({ ...prev, [parseInt(clipId)]: false }))
+						} catch (error) {
+							console.error('Error pausing video on modal close:', error)
+						}
+					}
+				}
+			})
+		}
+	}, [isModalVisible, selectedClip])
+
 	const handleClipPress = (clip: AutoClip) => {
 		setSelectedClip(clip)
 		setIsModalVisible(true)

@@ -1,5 +1,5 @@
 // app/(home)/(user)/CarDetailModal.android.tsx
-import React, { useCallback, useEffect, useState, useRef, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useState, useRef, lazy, Suspense, memo, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -33,29 +33,112 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 const { width } = Dimensions.get("window");
 
-const VEHICLE_FEATURES = [
-  { id: 'heated_seats', label: 'Heated Seats', icon: 'car-seat-heater' },
-  { id: 'keyless_entry', label: 'Keyless Entry', icon: 'key-wireless' },
-  { id: 'keyless_start', label: 'Keyless Start', icon: 'power' },
-  { id: 'power_mirrors', label: 'Power Mirrors', icon: 'car-side' },
-  { id: 'power_steering', label: 'Power Steering', icon: 'steering' },
-  { id: 'power_windows', label: 'Power Windows', icon: 'window-maximize' },
-  { id: 'backup_camera', label: 'Backup Camera', icon: 'camera' },
-  { id: 'bluetooth', label: 'Bluetooth', icon: 'bluetooth' },
-  { id: 'cruise_control', label: 'Cruise Control', icon: 'speedometer' },
-  { id: 'navigation', label: 'Navigation System', icon: 'map-marker' },
-  { id: 'sunroof', label: 'Sunroof', icon: 'weather-sunny' },
-  { id: 'leather_seats', label: 'Leather Seats', icon: 'car-seat' },
-  { id: 'third_row_seats', label: 'Third Row Seats', icon: 'seat-passenger' },
-  { id: 'parking_sensors', label: 'Parking Sensors', icon: 'parking' },
-  { id: 'lane_assist', label: 'Lane Departure Warning', icon: 'road-variant' },
-  { id: 'blind_spot', label: 'Blind Spot Monitoring', icon: 'eye-off' },
-  { id: 'apple_carplay', label: 'Apple CarPlay', icon: 'apple' },
-  { id: 'android_auto', label: 'Android Auto', icon: 'android' },
-  { id: 'premium_audio', label: 'Premium Audio', icon: 'speaker' },
-  { id: 'remote_start', label: 'Remote Start', icon: 'remote' },
-];
+// Feature definitions - moved outside component to prevent re-creation
+const VEHICLE_FEATURES = {
+  tech: [
+    { id: "bluetooth", label: "Bluetooth", icon: "bluetooth" },
+    { id: "navigation", label: "Navigation System", icon: "map-marker" },
+    { id: "backup_camera", label: "Backup Camera", icon: "camera" },
+    { id: "apple_carplay", label: "Apple CarPlay", icon: "apple" },
+    { id: "android_auto", label: "Android Auto", icon: "android" },
+    { id: "premium_audio", label: "Premium Audio", icon: "speaker" },
+    { id: "remote_start", label: "Remote Start", icon: "remote" },
+    { id: "keyless_entry", label: "Keyless Entry", icon: "key-wireless" },
+    { id: "keyless_start", label: "Keyless Start", icon: "power" },
+  ],
+  safety: [
+    {
+      id: "lane_assist",
+      label: "Lane Departure Warning",
+      icon: "road-variant",
+    },
+    { id: "blind_spot", label: "Blind Spot Monitoring", icon: "eye-off" },
+    { id: "parking_sensors", label: "Parking Sensors", icon: "parking" },
+    { id: "backup_camera", label: "Backup Camera", icon: "camera" },
+    { id: "cruise_control", label: "Cruise Control", icon: "speedometer" },
+  ],
+  comfort: [
+    { id: "heated_seats", label: "Heated Seats", icon: "car-seat-heater" },
+    { id: "leather_seats", label: "Leather Seats", icon: "car-seat" },
+    { id: "third_row_seats", label: "Third Row Seats", icon: "seat-passenger" },
+    { id: "sunroof", label: "Sunroof", icon: "weather-sunny" },
+    { id: "power_mirrors", label: "Power Mirrors", icon: "car-side" },
+    { id: "power_steering", label: "Power Steering", icon: "steering" },
+    { id: "power_windows", label: "Power Windows", icon: "window-maximize" },
+  ],
+};
+const FeatureCategory = memo(({ title, features, isDarkMode }: any) => {
+  if (!features || features.length === 0) return null;
 
+  return (
+    <View style={{ marginBottom: 24 }}>
+      <View
+        style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
+      >
+        <View
+          style={{
+            height: 20,
+            width: 4,
+            backgroundColor: "#D55004",
+            marginRight: 8,
+            borderRadius: 2,
+          }}
+        />
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: "600",
+            color: isDarkMode ? "white" : "black",
+          }}
+        >
+          {title}
+        </Text>
+      </View>
+
+      <FlatList
+        data={features}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item, index) => `${title.toLowerCase()}-${index}`}
+        initialNumToRender={3}
+        maxToRenderPerBatch={5}
+        windowSize={3}
+        removeClippedSubviews={Platform.OS === "android"}
+        renderItem={({ item: feature }) => (
+          <View
+            style={{
+              flexDirection: "row",
+              borderWidth: 0.5,
+              borderColor: isDarkMode ? "#444" : "#ccc",
+              alignItems: "center",
+              marginRight: 12,
+              marginBottom: 4,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: isDarkMode ? "#1c1c1c" : "#f5f5f5",
+            }}
+          >
+            <MaterialCommunityIcons
+              name={feature.icon || "check-circle-outline"}
+              size={18}
+              color="#D55004"
+              style={{ marginRight: 8 }}
+            />
+            <Text
+              style={{
+                color: isDarkMode ? "white" : "black",
+                fontWeight: "500",
+              }}
+            >
+              {feature.label}
+            </Text>
+          </View>
+        )}
+      />
+    </View>
+  );
+});
 // Improved image component with error handling
 const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#333' }: any) => {
   const [loaded, setLoaded] = useState(false);
@@ -935,18 +1018,28 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   const handleShare = useCallback(async () => {
     if (!car) return;
-
+  
     try {
+      // Use a consistent URL format
+      const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
+  
+      const message =
+        `Check out this ${car.year} ${car.make} ${car.model} for $${
+          car.price ? car.price.toLocaleString() : "N/A"
+        }!\n` +
+        `at ${car.dealership_name || "Dealership"} in ${
+          car.dealership_location || "Location"
+        }\n
+${shareUrl}`
+  
       await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${
-          car.model
-        } for $${car.price ? car.price.toLocaleString() : 'N/A'}!
-        at ${car.dealership_name || 'Dealership'} in ${car.dealership_location || 'Location'}
-        `,
+        message,
+        url: shareUrl,
+        title: `${car.year} ${car.make} ${car.model}`
       });
-    } catch (error: any) {
-      console.error('Share error:', error);
-      Alert.alert('Error', error.message || 'Could not share this car');
+    } catch (error) {
+      console.error("Share error:", error);
+      Alert.alert('Error', 'Failed to share car details');
     }
   }, [car]);
 
@@ -1188,64 +1281,108 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     );
   };
 
-  // Render features section safely
-  const renderFeatures = () => {
-    if (!car?.features || !Array.isArray(car.features) || car.features.length === 0) {
-      return null;
-    }
+    // Extract features for categories
+    const techFeatures = useMemo(
+      () =>
+        car.features
+          ? car.features
+              .filter((featureId: string) =>
+                VEHICLE_FEATURES.tech.some((feature) => feature.id === featureId)
+              )
+              .map((featureId: string) =>
+                VEHICLE_FEATURES.tech.find((f) => f.id === featureId)
+              )
+              .filter(Boolean)
+          : [],
+      [car.features]
+    );
+  
+    const safetyFeatures = useMemo(
+      () =>
+        car.features
+          ? car.features
+              .filter((featureId: string) =>
+                VEHICLE_FEATURES.safety.some(
+                  (feature) => feature.id === featureId
+                )
+              )
+              .map((featureId: string) =>
+                VEHICLE_FEATURES.safety.find((f) => f.id === featureId)
+              )
+              .filter(Boolean)
+          : [],
+      [car.features]
+    );
+  
+    const comfortFeatures = useMemo(
+      () =>
+        car.features
+          ? car.features
+              .filter((featureId: string) =>
+                VEHICLE_FEATURES.comfort.some(
+                  (feature) => feature.id === featureId
+                )
+              )
+              .map((featureId: string) =>
+                VEHICLE_FEATURES.comfort.find((f) => f.id === featureId)
+              )
+              .filter(Boolean)
+          : [],
+      [car.features]
+    );
 
-    try {
+    const renderFeatures = useCallback(() => {
+      if (!car.features || car.features.length === 0) return null;
+  
       return (
         <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
           <Text
             style={{
               fontSize: 18,
-              fontWeight: 'bold',
+              fontWeight: "bold",
+              marginBottom: 16,
               color: isDarkMode ? "#fff" : "#000",
-              marginBottom: 12
             }}
           >
             Features
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {car.features.map((featureId, index) => {
-              const feature = VEHICLE_FEATURES.find(f => f.id === featureId);
-              if (!feature) return null;
-
-              return (
-                <View
-                  key={index}
+  
+          <View>
+            <FeatureCategory
+              title="Technology"
+              features={techFeatures}
+              isDarkMode={isDarkMode}
+            />
+  
+            <FeatureCategory
+              title="Safety"
+              features={safetyFeatures}
+              isDarkMode={isDarkMode}
+            />
+  
+            <FeatureCategory
+              title="Comfort & Convenience"
+              features={comfortFeatures}
+              isDarkMode={isDarkMode}
+            />
+  
+            {car.features.length > 0 &&
+              techFeatures.length === 0 &&
+              safetyFeatures.length === 0 &&
+              comfortFeatures.length === 0 && (
+                <Text
                   style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginRight: 8,
-                    marginBottom: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    backgroundColor: isDarkMode ? "#1c1c1c" : "#e9e9e9"
+                    fontStyle: "italic",
+                    color: isDarkMode ? "#777" : "#999",
                   }}
                 >
-                  <MaterialCommunityIcons
-                    name={feature.icon || "check-circle-outline"}
-                    size={18}
-                    color="#D55004"
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={{ color: isDarkMode ? "#fff" : "#000" }}>
-                    {feature.label || featureId}
-                  </Text>
-                </View>
-              );
-            })}
+                  No feature details available
+                </Text>
+              )}
           </View>
         </View>
       );
-    } catch (error) {
-      console.error('Error rendering features:', error);
-      return null;
-    }
-  };
+    }, [car.features, techFeatures, safetyFeatures, comfortFeatures, isDarkMode]);
 
   // Main render with error boundary
   return (

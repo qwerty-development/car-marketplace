@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "@/utils/ThemeContext";
@@ -176,7 +177,7 @@ export default function EditProfileScreen() {
                         } finally {
                           setIsDeletingAccount(false);
                         }
-                      }, 500); // 1.5 second delay
+                      }, 500); // 0.5 second delay
                     } catch (err) {
                       setIsDeletingAccount(false);
                       console.error('Error in account deletion process:', err);
@@ -196,114 +197,120 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={{ 
-      flex: 1, 
-      backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
-      padding: 20
-    }}>
-      <View className="flex-row items-center mb-6">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-          />
-        </TouchableOpacity>
-        <Text
-          className={`text-xl font-semibold ${
-            isDarkMode ? "text-white" : "text-black"
-          }`}
-        >
-          Edit Profile
-        </Text>
-      </View>
-
-      <View className="space-y-4 mt-4">
-        <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-          First Name
-        </Text>
-        <TextInput
-          className={`${
-            isDarkMode
-              ? "bg-neutral-800 text-white"
-              : "bg-neutral-100 text-black"
-          } p-4 rounded-xl`}
-          value={firstName}
-          onChangeText={setFirstName}
-          placeholder="First Name"
-          placeholderTextColor={isDarkMode ? "#999" : "#666"}
-          cursorColor="#D55004"
-        />
-        
-        <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-          Last Name
-        </Text>
-        <TextInput
-          className={`${
-            isDarkMode
-              ? "bg-neutral-800 text-white"
-              : "bg-neutral-100 text-black"
-          } p-4 rounded-xl`}
-          value={lastName}
-          onChangeText={setLastName}
-          placeholder="Last Name"
-          placeholderTextColor={isDarkMode ? "#999" : "#666"}
-          cursorColor="#D55004"
-        />
-        
-        <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-          Email
-        </Text>
-        <TextInput
-          className={`${
-            isDarkMode
-              ? "bg-neutral-800 text-white/70"
-              : "bg-neutral-100 text-black/70"
-          } p-4 rounded-xl`}
-          value={email}
-          editable={false}
-          placeholder="Email"
-          placeholderTextColor={isDarkMode ? "#999" : "#666"}
-        />
-      </View>
-
-      <TouchableOpacity
-        className={`bg-red mt-8 p-4 rounded-xl ${loading ? "opacity-70" : ""}`}
-        onPress={updateProfile}
-        disabled={loading}
+    <SafeAreaView 
+      style={{ 
+        flex: 1, 
+        backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
+      }}
+    >
+      <ScrollView 
+        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       >
-        <Text className="text-white text-center font-semibold">
-          {loading ? "Updating..." : "Update Profile"}
-        </Text>
-      </TouchableOpacity>
+        <View className="flex-row items-center mb-6">
+          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+          <Text
+            className={`text-xl font-semibold ${
+              isDarkMode ? "text-white" : "text-black"
+            }`}
+          >
+            Edit Profile
+          </Text>
+        </View>
 
-      {/* Account Deletion Section */}
-      <View className="mt-12 pt-8 border-t border-gray-300 dark:border-gray-700">
-        <Text className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : "text-black"}`}>
-          Delete Account
-        </Text>
-        <Text className={`mb-4 ${isDarkMode ? "text-white/70" : "text-gray-600"}`}>
-          Permanently delete your account and all associated data. This action cannot be undone.
-        </Text>
+        <View className="space-y-4 mt-4">
+          <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
+            First Name
+          </Text>
+          <TextInput
+            className={`${
+              isDarkMode
+                ? "bg-neutral-800 text-white"
+                : "bg-neutral-100 text-black"
+            } p-4 rounded-xl`}
+            value={firstName}
+            onChangeText={setFirstName}
+            placeholder="First Name"
+            placeholderTextColor={isDarkMode ? "#999" : "#666"}
+            cursorColor="#D55004"
+          />
+          
+          <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
+            Last Name
+          </Text>
+          <TextInput
+            className={`${
+              isDarkMode
+                ? "bg-neutral-800 text-white"
+                : "bg-neutral-100 text-black"
+            } p-4 rounded-xl`}
+            value={lastName}
+            onChangeText={setLastName}
+            placeholder="Last Name"
+            placeholderTextColor={isDarkMode ? "#999" : "#666"}
+            cursorColor="#D55004"
+          />
+          
+          <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
+            Email
+          </Text>
+          <TextInput
+            className={`${
+              isDarkMode
+                ? "bg-neutral-800 text-white/70"
+                : "bg-neutral-100 text-black/70"
+            } p-4 rounded-xl`}
+            value={email}
+            editable={false}
+            placeholder="Email"
+            placeholderTextColor={isDarkMode ? "#999" : "#666"}
+          />
+        </View>
+
         <TouchableOpacity
-          className={`bg-rose-600 p-4 rounded-xl ${isDeletingAccount ? 'opacity-50' : ''}`}
-          onPress={handleDeleteAccount}
-          disabled={isDeletingAccount}
+          className={`bg-red mt-8 p-4 rounded-xl ${loading ? "opacity-70" : ""}`}
+          onPress={updateProfile}
+          disabled={loading}
         >
-          {isDeletingAccount ? (
-            <View className="flex-row justify-center items-center">
-              <ActivityIndicator size="small" color="#ffffff" />
-              <Text className="text-white text-center font-semibold ml-2">
-                Processing...
-              </Text>
-            </View>
-          ) : (
-            <Text className="text-white text-center font-semibold">
-              Delete Account
-            </Text>
-          )}
+          <Text className="text-white text-center font-semibold">
+            {loading ? "Updating..." : "Update Profile"}
+          </Text>
         </TouchableOpacity>
-      </View>
+
+        {/* Account Deletion Section */}
+        <View className="mt-12 pt-8 border-t border-gray-300 dark:border-gray-700">
+          <Text className={`text-lg font-semibold mb-4 ${isDarkMode ? "text-white" : "text-black"}`}>
+            Delete Account
+          </Text>
+          <Text className={`mb-4 ${isDarkMode ? "text-white/70" : "text-gray-600"}`}>
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </Text>
+          <TouchableOpacity
+            className={`bg-rose-600 p-4 rounded-xl ${isDeletingAccount ? 'opacity-50' : ''}`}
+            onPress={handleDeleteAccount}
+            disabled={isDeletingAccount}
+          >
+            {isDeletingAccount ? (
+              <View className="flex-row justify-center items-center">
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text className="text-white text-center font-semibold ml-2">
+                  Processing...
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-white text-center font-semibold">
+                Delete Account
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
