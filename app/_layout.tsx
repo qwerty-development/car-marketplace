@@ -22,6 +22,8 @@ import { useCarDetails } from '@/hooks/useCarDetails';
 import LogoLoader from '@/components/LogoLoader';
 import { NotificationService } from '@/services/NotificationService'
 import { isGlobalSigningOut } from '@/utils/AuthContext';
+import { TextInput } from 'react-native';
+import * as Updates from 'expo-updates';
 
 
 const { width, height } = Dimensions.get('window');
@@ -657,6 +659,52 @@ export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync()
   }, [])
+
+  useEffect(() => {
+    if (Text.defaultProps == null) Text.defaultProps = {};
+    if (TextInput.defaultProps == null) TextInput.defaultProps = {};
+    
+    Text.defaultProps.allowFontScaling = false;
+    TextInput.defaultProps.allowFontScaling = false;
+  }, []);
+
+  // Check for OTA updates when the app starts
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          console.log('Update available, downloading...');
+          // Download the update
+          const result = await Updates.fetchUpdateAsync();
+          
+          // If successful, reload the app to apply the update
+          if (result.isNew) {
+            Alert.alert(
+              'Update Available',
+              'A new version has been downloaded. The app will now restart to apply the update.',
+              [
+                {
+                  text: 'OK',
+                  onPress: async () => {
+                    await Updates.reloadAsync();
+                  }
+                }
+              ]
+            );
+          }
+        } else {
+          console.log('No updates available');
+        }
+      } catch (error) {
+        // Handle error but don't crash the app
+        console.error('Error checking for updates:', error);
+      }
+    };
+
+    // Check for updates when the app starts
+    checkForUpdates();
+  }, []);
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
