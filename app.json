@@ -42,7 +42,7 @@
   },
       "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/logo-adaptive.png",
         "backgroundColor": "#ffffff"
       },    "softwareKeyboardLayoutMode": "pan",
       "allowBackup": true,
