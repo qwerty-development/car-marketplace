@@ -105,15 +105,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return false;
       }
       
-      console.log("[AUTH] Got fresh token from Expo");
+      console.log("[AUTH] Got fresh token from Expo for current device");
       
-      // 2. Save the token to secure storage
+      // 2. Save the token to secure storage for this device
       await SecureStore.setItemAsync('expoPushToken', token);
       await SecureStore.setItemAsync('expoPushTokenTimestamp', Date.now().toString());
       
-      // 3. Clear any existing token for this device to prevent duplicates
+      // 3. Clear any existing token for THIS DEVICE ONLY to prevent duplicates
+      // Note: This preserves tokens for the user's other devices
       try {
-        console.log("[AUTH] Clearing existing device tokens for user");
+        console.log("[AUTH] Clearing existing tokens for current device type only");
         await supabase
           .from('user_push_tokens')
           .update({ 
@@ -122,14 +123,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             last_updated: new Date().toISOString()
           })
           .eq('user_id', userId)
-          .eq('device_type', Platform.OS);
+          .eq('device_type', Platform.OS); // Only affects current platform (iOS/Android)
       } catch (clearError) {
-        console.warn("[AUTH] Error clearing existing tokens:", clearError);
-        // Continue anyway
+        console.warn("[AUTH] Error clearing existing tokens for current device:", clearError);
+        // Continue anyway - not critical
       }
       
       // 4. Insert the new token with a direct database operation
-      console.log("[AUTH] Inserting new token record for user");
+      console.log("[AUTH] Registering new token for current device");
       const { data: insertData, error: insertError } = await supabase
         .from('user_push_tokens')
         .insert({
@@ -145,7 +146,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (insertError) {
         // Check if it's a unique constraint violation
         if (insertError.code === '23505') {
-          console.log("[AUTH] Token already exists, updating instead");
+          console.log("[AUTH] Token already exists for this device, updating instead");
           
           // If token already exists, update it instead
           const { error: updateError } = await supabase
@@ -187,14 +188,27 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await SecureStore.setItemAsync('expoPushTokenId', insertData[0].id);
       }
       
-      console.log("[AUTH] Token registration completed successfully");
+      // 6. Optionally, log the number of active devices for this user
+      try {
+        const { count } = await supabase
+          .from('user_push_tokens')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .eq('active', true);
+        
+        console.log(`[AUTH] User now has ${count || 0} active device tokens`);
+      } catch (countError) {
+        // Non-critical, just for logging
+      }
+      
+      console.log("[AUTH] Token registration completed successfully for current device");
       return true;
     } catch (error) {
       console.error("[AUTH] Critical error during force token registration:", error);
       return false;
     }
   };
-
+  
   useEffect(() => {
     setIsLoaded(false);
 

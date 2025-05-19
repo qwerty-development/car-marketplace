@@ -95,6 +95,100 @@ export class NotificationService {
     }
   }
 
+  static async getAllUserDeviceTokens(userId: string): Promise<Array<{
+    id: string;
+    token: string;
+    device_type: string;
+    last_updated: string;
+    signed_in: boolean;
+    active: boolean;
+  }>> {
+    try {
+      this.debugLog(`Retrieving all active device tokens for user ${userId}`);
+      
+      const { data, error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .select('id, token, device_type, last_updated, signed_in, active')
+          .eq('user_id', userId)
+          .eq('active', true)
+          .order('last_updated', { ascending: false }),
+        CONFIG.DB_TIMEOUT,
+        'getAllUserDeviceTokens'
+      );
+      
+      if (error) {
+        this.debugLog('Error retrieving user device tokens:', error);
+        return [];
+      }
+      
+      this.debugLog(`Found ${data?.length || 0} active device tokens for user`);
+      return data || [];
+    } catch (error) {
+      this.recordError('getAllUserDeviceTokens', error);
+      return [];
+    }
+  }
+  
+  static async signOutFromAllDevices(userId: string): Promise<boolean> {
+    try {
+      this.debugLog(`Signing out user ${userId} from all devices`);
+      
+      const { error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .update({ 
+            signed_in: false,
+            last_updated: new Date().toISOString()
+          })
+          .eq('user_id', userId),
+        CONFIG.DB_TIMEOUT,
+        'signOutFromAllDevices'
+      );
+      
+      if (error) {
+        this.debugLog('Error signing out from all devices:', error);
+        return false;
+      }
+      
+      this.debugLog('Successfully signed out from all devices');
+      return true;
+    } catch (error) {
+      this.recordError('signOutFromAllDevices', error);
+      return false;
+    }
+  }
+
+  static async hasMultipleActiveDevices(
+    userId: string
+  ): Promise<{ hasMultiple: boolean; count: number }> {
+    try {
+      const { count, error } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .eq('active', true)
+          .eq('signed_in', true),
+        CONFIG.DB_TIMEOUT,
+        'hasMultipleActiveDevices'
+      );
+      
+      if (error) {
+        this.debugLog('Error checking for multiple devices:', error);
+        return { hasMultiple: false, count: 0 };
+      }
+      
+      return { 
+        hasMultiple: (count || 0) > 1,
+        count: count || 0
+      };
+    } catch (error) {
+      this.recordError('hasMultipleActiveDevices', error);
+      return { hasMultiple: false, count: 0 };
+    }
+  }
+
   private static async recordError(context: string, error: any): Promise<void> {
     try {
       this.debugLog(`ERROR in ${context}:`, error);
@@ -956,28 +1050,40 @@ static async ensureValidTokenRegistration(userId: string, token: string): Promis
     }
   }
 
-  // Enhanced cleanupPushToken with better error handling
   static async cleanupPushToken(userId: string): Promise<boolean> {
-    this.debugLog('Starting push token cleanup process for sign out');
-
+    this.debugLog('Starting push token cleanup process for CURRENT DEVICE only');
+  
     try {
-      const success = await this.markTokenAsSignedOut(userId);
-
-      // Always attempt local storage cleanup
+      // Get the current device's token
+      const token = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+  
+      // Update database first before clearing local storage
+      if (token && this.isValidExpoToken(token)) {
+        const success = await this.updateTokenStatus(userId, token, {
+          signed_in: false,
+        });
+  
+        if (success) {
+          this.debugLog('Successfully marked current device token as signed out');
+        } else {
+          this.debugLog('Failed to update current device token status in database');
+          // Continue with cleanup even if update fails
+        }
+      }
+  
+      // Clear local storage atomically - only affects current device
       await Promise.all([
         SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
         SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
         SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
-      ].map(promise => promise.catch(error => {
-        this.recordError('Storage cleanup', error);
-      })));
-
-      this.debugLog('Token cleanup process completed');
-      return success;
+      ]);
+  
+      this.debugLog('Current device token cleanup process completed');
+      return true;
     } catch (error) {
       this.recordError('cleanupPushToken', error);
       
-      // Emergency cleanup
+      // Emergency cleanup of local storage
       try {
         await Promise.all([
           SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
@@ -987,7 +1093,7 @@ static async ensureValidTokenRegistration(userId: string, token: string): Promis
       } catch (storageError) {
         this.recordError('emergencyStorageCleanup', storageError);
       }
-
+  
       return false;
     }
   }
