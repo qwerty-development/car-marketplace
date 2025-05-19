@@ -15,37 +15,48 @@
       "androidMode": "default",
       "androidCollapsedTitle": "New Cars Available!"
     },
+    "splash": {
+      "image": "./assets/images/light-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart",
-    "associatedDomains": ["applinks:fleetapp.me", "applinks:www.fleetapp.me"],
+      "associatedDomains": ["applinks:fleetapp.me", "applinks:www.fleetapp.me"],
       "config": {
         "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
       },
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
-"LSApplicationQueriesSchemes": ["whatsapp", "comgooglemaps", "googlechromes"],
+        "LSApplicationQueriesSchemes": ["whatsapp", "comgooglemaps", "googlechromes"],
         "CFBundleURLTypes": [
           {
-      "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart", "fleet"]
+            "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart", "fleet"]
           }
         ]
       }
     },
-   "android": {
-  "config": {
-    "googleMaps": {
-      "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
-    }
-  },
+    "android": {
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
+        }
+      },
       "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo-adaptive.png",
         "backgroundColor": "#ffffff"
-      },    "softwareKeyboardLayoutMode": "pan",
+      },
+      "softwareKeyboardLayoutMode": "pan",
       "allowBackup": true,
+      "splash": {
+        "image": "./assets/images/light-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#000000"
+      },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -55,10 +66,10 @@
         "android.permission.VIBRATE",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.POST_NOTIFICATIONS",
-         "ACCESS_COARSE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
-  "intentFilters": [
+      "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -77,7 +88,8 @@
               "scheme": "fleet",
               "host": "*",
               "pathPrefix": "/cars"
-            },   {
+            },
+            {
               "scheme": "https",
               "host": "www.fleetapp.me",
               "pathPrefix": "/clips"
@@ -92,7 +104,6 @@
               "host": "*",
               "pathPrefix": "/clips"
             }
-          
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
@@ -105,6 +116,7 @@
     },
     "plugins": [
       "./plugins/withCustomProguardRules",
+      "./plugins/withCustomSplashScreen",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",

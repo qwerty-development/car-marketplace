@@ -559,6 +559,30 @@ function RootLayoutNav() {
     [segments]
   );
 
+  useEffect(() => {
+    const prepareSplashScreen = async () => {
+      try {
+        // Keep native splash screen visible while custom splash loads
+        await SplashScreen.preventAutoHideAsync();
+        
+        // On Android, set a timeout to force hide if something goes wrong
+        if (Platform.OS === 'android') {
+          setTimeout(() => {
+            SplashScreen.hideAsync().catch(() => {
+              // Silent catch in case it's already hidden
+            });
+          }, 3000); // Failsafe timeout
+        }
+      } catch (e) {
+        console.warn('Error setting up splash screen:', e);
+      }
+    };
+  
+    prepareSplashScreen();
+  }, []);
+
+
+
   // Handle navigation state changes - but don't navigate during sign-out
   useEffect(() => {
     if (!isLoaded || isSigningOut || isSigningIn) return;
@@ -572,27 +596,33 @@ function RootLayoutNav() {
     }
   }, [isLoaded, isEffectivelySignedIn, inAuthGroup, router, isSigningOut, isSigningIn]);
 
-  // Handle the curtain animation when splash screen completes
-  const handleSplashComplete = useCallback(() => {
-    // Mark splash animation as complete
-    setSplashAnimationComplete(true);
-    
-    // Start the curtain animation
-    Animated.sequence([
-      // First make sure content under the curtain is visible but with 0 opacity
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-      // Then slide the curtain out to reveal content underneath
-      Animated.timing(curtainPosition, {
-        toValue: -width,
-        duration: 600,
-        useNativeDriver: true,
-      })
-    ]).start();
-  }, [curtainPosition, contentOpacity]);
+const handleSplashComplete = useCallback(() => {
+  // Mark splash animation as complete
+  setSplashAnimationComplete(true);
+  
+  // Start the curtain animation
+  Animated.sequence([
+    // First make sure content under the curtain is visible but with 0 opacity
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 0,
+      useNativeDriver: true,
+    }),
+    // Then slide the curtain out to reveal content underneath
+    Animated.timing(curtainPosition, {
+      toValue: -width,
+      duration: 600,
+      useNativeDriver: true,
+    })
+  ]).start(async () => {
+    // When animation completes, hide the native splash screen
+    try {
+      await SplashScreen.hideAsync();
+    } catch (e) {
+      // Already hidden, ignore error
+    }
+  });
+}, [curtainPosition, contentOpacity]);
 
   // Show loader during authentication transitions
   if (!isLoaded || isSigningOut || isSigningIn) {
