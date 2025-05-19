@@ -531,7 +531,6 @@ function RootLayoutNav() {
   }, []);
 
 
-
   // Handle navigation state changes - but don't navigate during sign-out
   useEffect(() => {
     if (!isLoaded || isSigningOut || isSigningIn) return;

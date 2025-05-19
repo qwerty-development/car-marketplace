@@ -553,55 +553,55 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const signIn = async ({ email, password }: SignInCredentials) => {
-    try {
-      setIsSigningIn(true);
-      
-      if (isGuest) {
-        await clearGuestMode();
-      }
+// In AuthProvider component in utils/AuthContext.tsx
+// Update the signIn function:
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        await fetchUserProfile(data.user.id);
-        
-        // SIMPLIFIED TOKEN REGISTRATION: Use direct registration method
-        console.log('[AUTH] Password sign-in successful, forcing token registration');
-        
-        // Use setTimeout to ensure auth state has fully updated
-        setTimeout(async () => {
-          try {
-            // First attempt with our direct method which bypasses all checks
-            const success = await forceDirectTokenRegistration(data.user.id);
-            
-            if (!success) {
-              // Fall back to NotificationService if direct method fails
-              console.log('[AUTH] Direct token registration failed, trying NotificationService');
-              await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
-            }
-          } catch (tokenError) {
-            console.error('[AUTH] Token registration error during sign-in:', tokenError);
-          }
-        }, 1000);
-      }
-
-      // Wait for 1.5 seconds to show the loader
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setIsSigningIn(false);
-      return { error: null };
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      setIsSigningIn(false);
-      return { error };
+const signIn = async ({ email, password }: SignInCredentials) => {
+  try {
+    setIsSigningIn(true);
+    
+    if (isGuest) {
+      await clearGuestMode();
     }
-  };
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+      await fetchUserProfile(data.user.id);
+      
+      // CRITICAL CHANGE: Defer token registration to happen after UI is shown
+      setTimeout(async () => {
+        try {
+          console.log('[AUTH] Deferred token registration started');
+          const success = await forceDirectTokenRegistration(data.user.id);
+          
+          if (!success) {
+            console.log('[AUTH] Direct registration failed, trying NotificationService');
+            await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+          }
+        } catch (tokenError) {
+          console.error('[AUTH] Token registration error during sign-in:', tokenError);
+          // Non-blocking error - app continues to function
+        }
+      }, 5000); // Increased timeout to 5 seconds after sign-in completes
+    }
+
+    // Still show loader for visual continuity but reduce time
+    await new Promise(resolve => setTimeout(resolve, 800)); // Reduced from 1500ms
+    
+    setIsSigningIn(false);
+    return { error: null };
+  } catch (error: any) {
+    console.error('Sign in error:', error);
+    setIsSigningIn(false);
+    return { error };
+  }
+};
 
   const googleSignIn = async () => {
     try {

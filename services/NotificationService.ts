@@ -252,6 +252,9 @@ export class NotificationService {
 // Enhancement 1: Improve the forceTokenVerification method to better handle deleted tokens
 // Location: In NotificationService class, replace the existing forceTokenVerification method
 
+// In services/NotificationService.ts
+// Update the forceTokenVerification method:
+
 static async forceTokenVerification(userId: string): Promise<{
   isValid: boolean;
   tokenId?: string;
@@ -261,117 +264,80 @@ static async forceTokenVerification(userId: string): Promise<{
   try {
     this.debugLog(`Verifying push token for user ${userId}`);
 
-    const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
-    const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
+    // CRITICAL CHANGE: Add overall timeout to prevent hanging
+    const timeoutPromise = new Promise<{isValid: boolean}>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Token verification timed out'));
+      }, 5000); // 5 second timeout
+    });
 
-    if (!storedToken) {
-      this.debugLog('No token in storage, registration needed');
-      return { isValid: false };
-    }
+    // Create the actual verification process
+    const verificationPromise = (async () => {
+      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+      const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
 
-    if (!this.isValidExpoToken(storedToken)) {
-      this.debugLog('Token in storage is not in Expo format, registration needed');
-      await Promise.all([
-        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
-      ]);
-      return { isValid: false };
-    }
+      if (!storedToken) {
+        this.debugLog('No token in storage, registration needed');
+        return { isValid: false };
+      }
 
-    // First, try verification by token ID if available
-    if (storedTokenId) {
+      if (!this.isValidExpoToken(storedToken)) {
+        this.debugLog('Token in storage is not in Expo format, registration needed');
+        await Promise.all([
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+        ]);
+        return { isValid: false };
+      }
+
+      // CRITICAL CHANGE: Simplified verification flow
+      // Only check by token value, skip checking by ID which can be slower
       try {
-        const { data: tokenData, error: tokenError } = await this.timeoutPromiseWithRetry(
+        const { data: tokenByValue, error: valueError } = await this.timeoutPromiseWithRetry(
           () => supabase
             .from('user_push_tokens')
             .select('id, token, active, signed_in')
-            .eq('id', storedTokenId)
+            .eq('user_id', userId)
+            .eq('token', storedToken)
             .single(),
           CONFIG.DB_TIMEOUT,
-          'verifySpecificToken'
+          'verifyTokenByValue',
+          1 // CRITICAL CHANGE: Reduced retries from 3 to 1
         );
 
-        if (!tokenError && tokenData && tokenData.token === storedToken) {
-          this.debugLog('Found matching token by ID in database');
+        if (!valueError && tokenByValue) {
+          this.debugLog('Found matching token by value in database');
+          
+          // Update local storage with the token ID
+          if (!storedTokenId || storedTokenId !== tokenByValue.id) {
+            await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenByValue.id);
+          }
+          
           return {
             isValid: true,
-            tokenId: tokenData.id,
-            token: tokenData.token,
-            signedIn: tokenData.signed_in
+            tokenId: tokenByValue.id,
+            token: tokenByValue.token,
+            signedIn: tokenByValue.signed_in
           };
-        } else {
-          this.debugLog('Token ID found in storage but not in database or mismatch, will try by value next');
         }
       } catch (error) {
-        this.debugLog('Error verifying token by ID:', error);
-        // Continue to next verification method
+        this.debugLog('Error verifying token by value:', error);
       }
-    }
 
-    // Then try verification by token value
-    try {
-      const { data: tokenByValue, error: valueError } = await this.timeoutPromiseWithRetry(
-        () => supabase
-          .from('user_push_tokens')
-          .select('id, token, active, signed_in')
-          .eq('user_id', userId)
-          .eq('token', storedToken)
-          .single(),
-        CONFIG.DB_TIMEOUT,
-        'verifyTokenByValue'
-      );
+      // CRITICAL CHANGE: Skip checking for any token for this user
+      // This operation can be slow for reinstalls, and the result is the same
+      
+      this.debugLog('Token verification unsuccessful, will need registration');
+      return { 
+        isValid: false,
+        token: storedToken
+      };
+    })();
 
-      if (!valueError && tokenByValue) {
-        this.debugLog('Found matching token by value in database');
-        
-        // Update local storage with the token ID if it's not already there
-        if (!storedTokenId || storedTokenId !== tokenByValue.id) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenByValue.id);
-          this.debugLog('Updated local token ID storage');
-        }
-        
-        return {
-          isValid: true,
-          tokenId: tokenByValue.id,
-          token: tokenByValue.token,
-          signedIn: tokenByValue.signed_in
-        };
-      }
-    } catch (error) {
-      this.debugLog('Error verifying token by value:', error);
-    }
-
-    // Check for any token for this user - if different, we need to update
-    try {
-      const { data: anyUserToken, error: anyTokenError } = await this.timeoutPromiseWithRetry(
-        () => supabase
-          .from('user_push_tokens')
-          .select('id, token, active, signed_in')
-          .eq('user_id', userId)
-          .order('last_updated', { ascending: false })
-          .limit(1),
-        CONFIG.DB_TIMEOUT,
-        'checkAnyUserToken'
-      );
-
-      if (!anyTokenError && anyUserToken && anyUserToken.length > 0) {
-        this.debugLog('Found different token for user in database, device may have changed');
-        return { 
-          isValid: false,
-          token: storedToken, // Return current token for reference
-          // Not returning anyUserToken to force re-registration with current device token
-        };
-      }
-    } catch (error) {
-      this.debugLog('Error checking for any user token:', error);
-    }
-
-    this.debugLog('Token exists in storage but not in database, registration needed');
-    return { 
-      isValid: false,
-      token: storedToken // Return token for reference in recovery processes
-    };
+    // Race the verification against the timeout
+    return await Promise.race([verificationPromise, timeoutPromise]);
+    
   } catch (error) {
     this.recordError('forceTokenVerification', error);
     return { isValid: false };

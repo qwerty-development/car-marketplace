@@ -89,118 +89,98 @@ export default function HomeLayout() {
 
   // 1) Check/Create Supabase user and handle notifications
   useEffect(() => {
-    const checkAndCreateUser = async () => {
-      // Skip if signing out or no user info
-      if ((!user && !isGuest) || isSigningOut) return;
+// In app/(home)/_layout.tsx
+// Update the checkAndCreateUser function:
 
+const checkAndCreateUser = async () => {
+  // Skip if signing out or no user info
+  if ((!user && !isGuest) || isSigningOut) return;
+
+  try {
+    const userId = isGuest ? `guest_${guestId}` : user?.id;
+    if (!userId) return;
+
+    // CRITICAL CHANGE: Split into two phases - critical and non-critical
+    // Phase 1: Quick check for user existence - doesn't block UI
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("users")
+      .select("id") // Only select ID for quick check
+      .eq("id", userId)
+      .single();
+
+    if (fetchError && fetchError.code !== "PGRST116") {
+      throw fetchError;
+    }
+
+    // Create user if they don't exist - critical operation
+    if (!existingUser) {
+      const email = isGuest
+        ? `guest_${guestId}@example.com`
+        : user?.email || "";
+
+      const name = isGuest
+        ? "Guest User"
+        : profile?.name || user?.user_metadata?.name || "";
+
+      await supabase.from("users").upsert(
+        [
+          {
+            id: userId,
+            name: name,
+            email: email,
+            favorite: [],
+            is_guest: isGuest,
+            last_active: new Date().toISOString(),
+          },
+        ],
+        {
+          onConflict: "id",
+          ignoreDuplicates: false,
+        }
+      );
+
+      console.log("Created new user in Supabase");
+    }
+
+    // CRITICAL CHANGE: Mark user checking as complete to unblock UI
+    // This allows the app to show the main interface faster
+    setIsCheckingUser(false);
+
+    // Phase 2: Non-critical operations moved to background
+    // These operations happen after UI is shown
+    setTimeout(async () => {
       try {
-        const userId = isGuest ? `guest_${guestId}` : user?.id;
-        if (!userId) return;
-
-        // Check if user exists in Supabase
-        const { data: existingUser, error: fetchError } = await supabase
-          .from("users")
-          .select()
-          .eq("id", userId)
-          .single();
-
-        if (fetchError && fetchError.code !== "PGRST116") {
-          throw fetchError;
-        }
-
-        // Create user if they don't exist
-        if (!existingUser) {
-          const email = isGuest
-            ? `guest_${guestId}@example.com`
-            : user?.email || "";
-
-          const name = isGuest
-            ? "Guest User"
-            : profile?.name || user?.user_metadata?.name || "";
-
-          // Use upsert with conflict handling
-          const { error: upsertError } = await supabase.from("users").upsert(
-            [
-              {
-                id: userId,
-                name: name,
-                email: email,
-                favorite: [],
-                is_guest: isGuest,
-                last_active: new Date().toISOString(),
-              },
-            ],
-            {
-              onConflict: "id", // Handle ID conflicts
-              ignoreDuplicates: false,
-            }
-          );
-
-          if (upsertError) {
-            // Only throw for non-duplicate errors
-            if (upsertError.code !== "23505") {
-              throw upsertError;
-            } else {
-              console.log("User record already exists, continuing...");
-            }
-          } else {
-            console.log("Created new user in Supabase");
-          }
-
-          // IMPORTANT: Add a delay before attempting push notification registration
-          // to ensure the user record is fully committed in the database
-          await new Promise((resolve) => setTimeout(resolve, 500)); // Reduced from 3000ms
-        }
-
-        // Skip further processing if sign out started during this operation
-        if (isSigningOut) {
-          console.log("Sign out detected, skipping remaining user setup");
-          setIsCheckingUser(false);
-          return;
-        }
-
-        // Update last_active timestamp
-        const { error: updateError } = await supabase
+        // Skip if sign out started during this operation
+        if (isSigningOut) return;
+        
+        // Update last_active timestamp (non-critical)
+        await supabase
           .from("users")
           .update({ last_active: new Date().toISOString() })
           .eq("id", userId);
-
-        if (updateError) throw updateError;
+        
         console.log("Updated last_active for user in Supabase");
 
-        // Register for notifications ONLY after we've confirmed user exists
+        // Register for notifications as a background task (non-critical)
         if (!isGuest && !isSigningOut) {
-          try {
-            // Move this to a background task or perform later
-            registerForPushNotifications().catch((notificationError) => {
-              console.error(
-                "Error registering for push notifications:",
-                notificationError
-              );
-            });
-          } catch (notificationError) {
+          registerForPushNotifications().catch((notificationError) => {
             console.error(
-              "Error initiating push notifications:",
+              "Error in background push notification registration:",
               notificationError
             );
-          }
+          });
         }
-      } catch (error: any) {
-        console.error("Error in user sync:", error);
-
-        // Only show alert for unexpected errors
-        if (
-          !(error.code === "23505" && error.details?.includes("email")) &&
-          !(error.code === "23503")
-        ) {
-     
-        }
-      } finally {
-        if (!isSigningOut) {
-          setIsCheckingUser(false);
-        }
+      } catch (error) {
+        console.error("Background user sync error:", error);
+        // Non-blocking error - app continues to function
       }
-    };
+    }, 3000); // 3 seconds after UI is shown
+    
+  } catch (error: any) {
+    console.error("Error in user sync:", error);
+    setIsCheckingUser(false);
+  }
+};
 
     if ((isSignedIn && user) || isGuest) {
       checkAndCreateUser();
