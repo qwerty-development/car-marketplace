@@ -679,72 +679,111 @@ export function useNotifications(): UseNotificationsReturn {
   
     let mounted = true;
   
-    const initialize = async () => {
-      if (!mounted) return;
-  
-      if (isGlobalSigningOut) {
-        debugLog('Skipping notification initialization during sign-out');
+    const initializeNotificationsAsync = async () => {
+      if (!mounted || isGlobalSigningOut) { // Assuming 'mounted' and 'isGlobalSigningOut' are correctly managed in your hook
+        debugLog('Skipping notification initialization (unmounted or signing out)');
         return;
       }
   
       debugLog('Setting up notification system for user:', user.id);
   
-      // First, check if we have a local token
-      let localToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
-      
-      // If no local token, try to sync from database
-      if (!localToken) {
-        debugLog('No local token found, attempting to sync from database');
-        localToken = await NotificationService.syncTokenFromDatabase(user.id);
-      }
-  
-      // Set up notification listeners
-      notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
-      responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
-  
-      // Get initial unread count
-      await refreshNotifications();
-  
-      // Continue with token verification and registration...
+      // --- Part 1: Quick Local Setup (Non-Blocking) ---
       try {
-        // Always verify token, even if we have one (locally or synced)
-        const verification = localToken 
-          ? await NotificationService.forceTokenVerification(user.id) 
-          : { isValid: false };
-        
-        if (verification.isValid) {
-          debugLog('Token is valid, setting up refresh listener');
-          
-          // Set up token refresh listener
-          if (pushTokenListener.current) {
-            pushTokenListener.current.remove();
-            pushTokenListener.current = null;
-          }
-          pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-          
-          setIsPermissionGranted(true);
-          
-          // Only update signed_in status if it's not already correct
-          if (verification.signedIn === false) {
-            debugLog('Token found but marked as signed out, updating to signed in');
-            await NotificationService.markTokenAsSignedIn(user.id, verification.token || '');
-          }
+        // Request permissions (OS dialog, user interaction, but doesn't block app logic itself for long)
+        const permissionStatus = await NotificationService.getPermissions();
+        if (permissionStatus?.status === 'granted') {
+          setIsPermissionGranted(true); // Update local state
         } else {
-          // Critical change: Always attempt registration if token verification fails,
-          // which will happen if token was deleted from database
-          debugLog('Token validation failed or no token found, registering new token');
-          await registerForPushNotifications(true);
+          // You might still request permissions here or guide the user later.
+          // For fastest startup, an aggressive prompt could be deferred.
+          debugLog('Notification permissions not yet granted.');
         }
-      } catch (error) {
-        debugLog('Error during notification initialization:', error);
-        // Still attempt registration on error
-        await registerForPushNotifications(true);
-      } finally {
-        initialSetupComplete.current = true;
+  
+        // Set up local notification listeners early
+        if (notificationListener.current) notificationListener.current.remove();
+        notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
+  
+        if (responseListener.current) responseListener.current.remove();
+        responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+  
+        // Initial unread count (can also be made more lazy if it involves network)
+        await refreshNotifications(); // If this is quick (local or fast cache), it's fine.
+  
+      } catch (initialError) {
+        debugLog('Error during initial local part of notification setup:', initialError);
+        // Decide if this error prevents the deferred part.
+        // For now, we'll assume the deferred part can still attempt.
       }
+  
+      // --- Part 2: Deferred Server-Side Token Operations ---
+      // This will run after a short delay, allowing the UI to become interactive.
+      setTimeout(async () => {
+        if (!mounted || isGlobalSigningOut || !user?.id) { // Re-check state before proceeding
+          debugLog('Skipping deferred notification setup (unmounted, signing out, or no user)');
+          return;
+        }
+  
+        try {
+          debugLog('Starting deferred token verification and registration process');
+          let localToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+          let needsFullRegistration = true; // Assume registration is needed unless verified
+          let verifiedTokenInfo: { isValid: boolean; token?: string; signedIn?: boolean } = { isValid: false };
+  
+          if (localToken) {
+            debugLog('Local token found, verifying with server (deferred)');
+            // forceTokenVerification handles cases where token might be stale or deleted on server
+            verifiedTokenInfo = await NotificationService.forceTokenVerification(user.id);
+          }
+  
+          if (verifiedTokenInfo.isValid && verifiedTokenInfo.token) {
+            debugLog('Deferred verification successful. Token is valid.');
+            needsFullRegistration = false; // Token is valid, no need for full new registration
+            
+            // Ensure local storage has the latest verified token
+            await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN, verifiedTokenInfo.token);
+            await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN_REFRESH_TIME, Date.now().toString()); // Update timestamp
+            
+            // Setup token refresh listener with the verified token
+            if (pushTokenListener.current) pushTokenListener.current.remove();
+            pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+  
+            // If token was valid but marked as signed_out on the server, update its status
+            if (verifiedTokenInfo.signedIn === false) {
+              debugLog('Token valid but marked as signed out, updating to signed in (deferred)');
+              await NotificationService.markTokenAsSignedIn(user.id, verifiedTokenInfo.token);
+            }
+            setIsPermissionGranted(true); // Ensure this is set if we have a valid token path
+          } else {
+            debugLog('Deferred verification failed or no local token, proceeding to full registration (deferred)');
+            needsFullRegistration = true;
+          }
+  
+          if (needsFullRegistration) {
+            debugLog('Initiating full push notification registration (deferred)');
+            // registerForPushNotifications will get a new token from Expo and save it to backend & SecureStore
+            // It also internally handles permission requests if not already granted.
+            const registeredToken = await registerForPushNotifications(true); // Pass true to force if necessary
+            
+            if (registeredToken) {
+              debugLog('Deferred registration successful.');
+              setIsPermissionGranted(true); // Should be granted if registration succeeded
+              // The registerForPushNotifications function should set up the pushTokenListener
+            } else {
+              debugLog('Deferred registration failed.');
+              // Consider implications if permission was previously true but registration now fails
+            }
+          }
+          initialSetupComplete.current = true; // Mark full setup (including deferred part) as complete
+        } catch (deferredError) {
+          debugLog('Error during deferred server-side notification setup:', deferredError);
+          initialSetupComplete.current = true; // Still mark as complete to avoid retrying indefinitely without a strategy
+        }
+      }, 1500); // Delay of 1.5 seconds (adjust as needed)
+  
     };
   
-    initialize();
+    // Call the initialization function
+    initializeNotificationsAsync();
   
     return () => {
       mounted = false;

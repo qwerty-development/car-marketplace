@@ -477,58 +477,6 @@ function NotificationsProvider() {
   const initializationRef = useRef(false);
 
 
-useEffect(() => {
-  const initializeNotifications = async () => {
-    // Prevent multiple initializations
-    if (initializationRef.current || isInitializing) return;
-    
-    // Skip if user is not authenticated or is guest
-    if (!isSignedIn || isGuest || !user?.id) return;
-
-    // Skip during sign-out
-    if (isGlobalSigningOut) {
-      console.log('Skipping notification initialization during sign-out');
-      return;
-    }
-
-    try {
-      setIsInitializing(true);
-      initializationRef.current = true;
-
-      console.log('Initializing notification system on app startup');
-
-      // Verify token status on app startup
-      const localToken = await SecureStore.getItemAsync('expoPushToken');
-      
-      if (localToken && !isGlobalSigningOut) {
-        // Use enhanced verification method instead of direct query
-        const verification = await NotificationService.forceTokenVerification(user.id);
-
-        if (!verification.isValid) {
-          console.log('Token verification failed during startup, initiating registration');
-          if (!isGlobalSigningOut) {
-            await registerForPushNotifications(true);
-          }
-        } else if (verification.signedIn === false) {
-          console.log('Token exists but signed_in is false during startup, updating');
-          await NotificationService.markTokenAsSignedIn(user.id, verification.token);
-        }
-      } else if (!isGlobalSigningOut) {
-        console.log('No local token found during startup, initiating registration');
-        await registerForPushNotifications(true);
-      }
-    } catch (error) {
-      console.error('Error initializing notifications on startup:', error);
-    } finally {
-      setIsInitializing(false);
-    }
-  };
-
-  if (!isGlobalSigningOut) {
-    initializeNotifications();
-  }
-}, [isSignedIn, isGuest, user?.id, registerForPushNotifications]);
-
   useEffect(() => {
     console.log('Notification state:', { unreadCount, isPermissionGranted });
   }, [unreadCount, isPermissionGranted]);

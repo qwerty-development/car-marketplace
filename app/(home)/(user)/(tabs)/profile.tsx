@@ -967,12 +967,12 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
         {/* Sign Out Button */}
         {!isGuest && (
           <TouchableOpacity
-            className="mt-2   p-5 mb-12"
+            className="mt-2  p-5 mb-12 "
             onPress={handleSignOut}
             disabled={showSignOutOverlay} // Disable during sign-out
           >
             <Text
-              className={`text-center text-black  font-semibold border border-black p-4 rounded-2xl ${
+              className={`text-center text-white  bg-rose-800 font-semibold border border-black p-4 rounded-2xl ${
                 showSignOutOverlay ? "opacity-50" : "opacity-100"
               }`}
             >
