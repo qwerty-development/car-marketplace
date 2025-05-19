@@ -269,7 +269,7 @@ export default function SingleAutoClipPage() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
-      <StatusBar barStyle="light-content" />
+  
       
       {/* Header */}
       <View style={styles.header}>

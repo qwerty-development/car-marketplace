@@ -111,7 +111,7 @@ const CustomHeader = React.memo(
       <SafeAreaView
         className={`bg-${isDarkMode ? "black" : "white"}`}
       >
-        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+
         <View className={`flex-row items-center ml-2  ${Platform.OS === "ios" ? "" : "mb-7"}`}>
           {onBack && (
             <Pressable onPress={onBack} className="p-2">

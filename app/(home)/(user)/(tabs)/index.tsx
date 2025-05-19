@@ -185,7 +185,7 @@ export default function BrowseCarsPage() {
       const { isDarkMode } = useTheme();
       return (
         <SafeAreaView style={{ backgroundColor: isDarkMode ? "#000" : "#fff" }}>
-          <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+
           <View
             style={{
               flexDirection: "row",

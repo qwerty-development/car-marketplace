@@ -24,6 +24,7 @@ import { NotificationService } from '@/services/NotificationService'
 import { isGlobalSigningOut } from '@/utils/AuthContext';
 import { TextInput } from 'react-native';
 import * as Updates from 'expo-updates';
+import StatusBarManager from '@/components/StatusBarManager'
 
 
 const { width, height } = Dimensions.get('window');
@@ -745,6 +746,7 @@ export default function RootLayout() {
               <DeepLinkHandler />
               <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
+                <StatusBarManager /> 
                   <FavoritesProvider>
                     <NotificationsProvider />
                     <RootLayoutNav />

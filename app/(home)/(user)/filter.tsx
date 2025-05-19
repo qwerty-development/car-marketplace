@@ -2094,7 +2094,7 @@ return (
 <SafeAreaView
 style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 >
-<StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+
 
 <View
     style={{

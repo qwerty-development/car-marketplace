@@ -167,7 +167,7 @@ const CustomHeader = React.memo(
 			<SafeAreaView
 				edges={['top']}
 				className={`bg-${isDarkMode ? 'black' : 'white'}`}>
-				<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+	
 				<View className='flex-row items-center pb-4 px-4'>
 					<TouchableOpacity onPress={onBack}>
 						<Ionicons name='arrow-back' size={24} color={iconColor} />

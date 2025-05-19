@@ -27,7 +27,7 @@ const ModernHeader = ({ title, onBack, isDarkMode }) => (
 		colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F8F8F8']}
 		className='rounded-b-3xl shadow-lg'>
 		<SafeAreaView edges={['top']}>
-			<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+	
 			<View className='flex-row items-center justify-between py-4 px-4'>
 				<TouchableOpacity
 					onPress={onBack}

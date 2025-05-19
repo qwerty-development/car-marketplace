@@ -33,7 +33,6 @@ const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack }: any) 
 	  className='px-4 py-6 rounded-b-3xl shadow-lg'
 	>
 	  <SafeAreaView edges={['top']}>
-		<StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 		<View className='flex-row justify-between items-center'>
 		  <View className='flex-row items-center'>
 			<TouchableOpacity

@@ -15,6 +15,12 @@
       "androidMode": "default",
       "androidCollapsedTitle": "New Cars Available!"
     },
+    "androidStatusBar": {
+      "backgroundColor": "#00000000",
+      "translucent": true,
+      "barStyle": "light-content", 
+      "hidden": false
+    },
     "splash": {
       "image": "./assets/images/light-logo.png",
       "resizeMode": "contain",

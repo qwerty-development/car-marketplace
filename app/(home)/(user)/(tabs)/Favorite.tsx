@@ -52,7 +52,7 @@ const CustomHeader = React.memo(({
 }) => {
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
       <View
         style={{
           flexDirection: 'row',

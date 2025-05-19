@@ -95,7 +95,7 @@ const CustomHeader = React.memo(({ title, dealership }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
 
       <View style={styles.titleContainer}>
         <Text style={styles.title}>{title}</Text>

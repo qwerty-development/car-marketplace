@@ -56,7 +56,7 @@ const CustomHeader = ({ title, dealership }: any) => {
 
   return (
     <SafeAreaView style={[styles.headerContainer, { backgroundColor: isDarkMode ? 'black' : 'white' }]}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+
 
       <View style={styles.titleContainer}>
         <Text style={[styles.titleText, { color: isDarkMode ? 'white' : 'black' }]}>

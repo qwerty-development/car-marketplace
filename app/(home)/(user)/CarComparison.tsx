@@ -76,7 +76,7 @@ const CustomHeader = React.memo(
 
     return (
       <SafeAreaView className={`bg-${isDarkMode ? "black" : "white"} -mb-7`}>
-        <StatusBar style={isDarkMode ? "light" : "dark"} />
+ 
         <View
           className={`flex-row items-center ml-2  ${
             Platform.OS === "ios" ? "" : "mb-7"

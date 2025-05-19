@@ -148,7 +148,7 @@ export default function LandingPage() {
 
   return (
     <SafeAreaView style={[styles.container, isDark ? styles.darkContainer : styles.lightContainer]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+  
 
       {/* Fullscreen Car Background */}
       <View style={styles.wallWrapper}>
