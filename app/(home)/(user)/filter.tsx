@@ -2098,8 +2098,10 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
 <View
     style={{
+      marginTop:-7,
       paddingHorizontal: 16,
-      paddingVertical: 5,
+      paddingTop:0,
+      paddingBottom:5,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",

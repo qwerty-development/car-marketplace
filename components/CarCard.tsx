@@ -377,21 +377,28 @@ const handleShare = useCallback(async () => {
 
 	const handleWhatsAppPress = useCallback(() => {
 		if (car?.dealership_phone) {
-			// Track the WhatsApp click first
-			trackWhatsAppClick(car.id)
+		
+			if (trackWhatsAppClick) { 
+				trackWhatsAppClick(car.id);
+			}
+	
+			const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+	
 
-			const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '')
-			const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()}`
-			const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)} on Fleet`
-
+			const fullMessage = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price.toLocaleString()} on Fleet`;
+			const encodedMessage = encodeURIComponent(fullMessage);
+			// --- END SOLUTION ---
+	
+			const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodedMessage}`;
+	
 			Linking.openURL(webURL).catch(() => {
 				Alert.alert(
 					'Error',
 					'Unable to open WhatsApp. Please make sure it is installed on your device.'
-				)
-			})
+				);
+			});
 		} else {
-			Alert.alert('Phone number not available')
+			Alert.alert('Error', 'Phone number not available for this car.'); // Slightly more informative message
 		}
 	}, [car, trackWhatsAppClick])
 
