@@ -90,134 +90,351 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     path: 'auth/callback'
   });
 
-  const getCorrectProjectId = (): string | undefined => {
-    const easProjectId = Constants.expoConfig?.extra?.eas?.projectId;
-    const extraProjectId = Constants.expoConfig?.extra?.projectId;
-    
-    if (easProjectId) {
-        console.log("[AUTH] Using EAS Project ID for notifications:", easProjectId);
-        return easProjectId;
-    }
-    if (extraProjectId) {
-        console.log("[AUTH] Using Extra Project ID for notifications:", extraProjectId);
-        return extraProjectId;
-    }
-    console.error("[AUTH] CRITICAL FAILURE: No Project ID found in Constants.expoConfig.extra.eas or Constants.expoConfig.extra for notifications.");
-    return undefined;
-  };
-
-
-  const forceDirectTokenRegistration = async (userId: string): Promise<boolean> => {
-    console.log("[AUTH] Directly forcing push token registration for user:", userId);
-    
-    if (isSigningOutState) { // Check internal context state
-        console.log("[AUTH] User is signing out, skipping direct token registration.");
-        return false;
-    }
-
+  const getCorrectProjectId = (): string => {
     try {
+        // First priority: Environment variable (most reliable in production)
+        const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+        if (envProjectId) {
+            console.log("[AUTH] Using Project ID from environment:", envProjectId);
+            return envProjectId;
+        }
+
+        // Second priority: EAS configuration
+        const easProjectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (easProjectId) {
+            console.log("[AUTH] Using EAS Project ID:", easProjectId);
+            return easProjectId;
+        }
+
+        // Third priority: Direct extra configuration
+        const extraProjectId = Constants.expoConfig?.extra?.projectId;
+        if (extraProjectId) {
+            console.log("[AUTH] Using Extra Project ID:", extraProjectId);
+            return extraProjectId;
+        }
+
+        // Fourth priority: App config values
+        // @ts-ignore - Accessing manifest properties that might exist in certain builds
+        const manifestProjectId = Constants.manifest?.extra?.eas?.projectId ||
+                                  // @ts-ignore
+                                  Constants.manifest?.extra?.projectId;
+        if (manifestProjectId) {
+            console.log("[AUTH] Using manifest Project ID:", manifestProjectId);
+            return manifestProjectId;
+        }
+
+        // Extract from updates URL as last resort
+        try {
+            // @ts-ignore
+            const updatesUrl = Constants.expoConfig?.updates?.url || Constants.manifest?.updates?.url;
+            if (updatesUrl && typeof updatesUrl === 'string') {
+                const projectIdMatch = updatesUrl.match(/([a-f0-9-]{36})/i);
+                if (projectIdMatch && projectIdMatch[1]) {
+                    console.log("[AUTH] Extracted Project ID from updates URL:", projectIdMatch[1]);
+                    return projectIdMatch[1];
+                }
+            }
+        } catch (urlError) {
+            console.error("[AUTH] Error extracting Project ID from URL:", urlError);
+        }
+
+        // Fallback to hardcoded value
+        const fallbackId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+        console.warn("[AUTH] Using fallback Project ID. This may cause issues with push notifications.");
+        return fallbackId;
+    } catch (error) {
+        console.error("[AUTH] Critical error resolving Project ID:", error);
+        // Absolute last resort fallback
+        return 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+    }
+};
+
+
+const forceDirectTokenRegistration = async (userId: string): Promise<boolean> => {
+  console.log("[AUTH] Directly forcing push token registration for user:", userId);
+  
+  if (isSigningOutState) {
+      console.log("[AUTH] User is signing out, skipping direct token registration.");
+      return false;
+  }
+
+  try {
+      // 1. Get project ID with enhanced resolution
       const projectId = getCorrectProjectId();
       if (!projectId) {
-        console.error("[AUTH] Cannot register token: Project ID is missing.");
-        return false;
+          throw new Error("Failed to resolve project ID");
       }
       
-      const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+      // 2. Get push token with multiple attempts
+      let tokenResponse = null;
+      let tokenError = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+              console.log(`[AUTH] Attempting to get push token (attempt ${attempt}/3)`);
+              tokenResponse = await Notifications.getExpoPushTokenAsync({ 
+                  projectId,
+                  experienceId: `@${Constants.expoConfig?.owner}/${Constants.expoConfig?.slug}`
+              });
+              if (tokenResponse && tokenResponse.data) break;
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
+          } catch (error) {
+              tokenError = error;
+              console.warn(`[AUTH] Token acquisition attempt ${attempt} failed:`, error);
+              if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+      }
+      
+      if (!tokenResponse || !tokenResponse.data) {
+          throw new Error(`Failed to obtain push token after multiple attempts: ${tokenError?.message || "Unknown error"}`);
+      }
+      
       const token = tokenResponse.data;
       
-      if (!token || !token.startsWith('ExponentPushToken[')) {
-        console.error("[AUTH] Invalid token format from Expo:", token);
-        return false;
+      // 3. Validate token format
+      const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
+      if (!validExpoTokenFormat.test(token)) {
+          console.error("[AUTH] Invalid token format from Expo:", token);
+          return false;
       }
       
-      console.log("[AUTH] Got fresh token from Expo for current device");
+      console.log("[AUTH] Successfully obtained token from Expo");
       
-      await SecureStore.setItemAsync('expoPushToken', token);
-      await SecureStore.setItemAsync('expoPushTokenTimestamp', Date.now().toString());
-      
+      // 4. Save token to secure storage immediately (critical for reliability)
       try {
-        console.log("[AUTH] Clearing (deactivating) existing tokens for current device type only before new registration");
-        const { error: clearError } = await supabase
-          .from('user_push_tokens')
-          .update({ 
-            active: false,
-            // signed_in: false, // Keep signed_in status as is, new token will handle current session
-            last_updated: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('device_type', Platform.OS);
-        if (clearError) throw clearError;
-      } catch (clearError) {
-        console.warn("[AUTH] Non-critical error deactivating existing tokens for current device:", clearError);
+          await SecureStore.setItemAsync('expoPushToken', token);
+          await SecureStore.setItemAsync('expoPushTokenTimestamp', Date.now().toString());
+          console.log("[AUTH] Token saved to local storage");
+      } catch (storageError) {
+          console.error("[AUTH] Error saving token to storage:", storageError);
+          // Continue with DB operations even if storage fails
       }
       
-      console.log("[AUTH] Registering new token for current device");
-      const { data: insertData, error: insertError } = await supabase
-        .from('user_push_tokens')
-        .insert({
-          user_id: userId,
-          token: token,
-          device_type: Platform.OS,
-          last_updated: new Date().toISOString(),
-          signed_in: true,
-          active: true
-        })
-        .select('id');
+      // 5. Clean up existing tokens for this device to prevent duplicates
+      try {
+          const { error: clearError } = await supabase
+              .from('user_push_tokens')
+              .update({ 
+                  active: false,
+                  last_updated: new Date().toISOString()
+              })
+              .eq('user_id', userId)
+              .eq('device_type', Platform.OS);
+              
+          if (clearError) {
+              console.warn("[AUTH] Error deactivating existing tokens:", clearError);
+              // Continue despite error - non-critical
+          } else {
+              console.log("[AUTH] Successfully deactivated old tokens for this device");
+          }
+      } catch (clearError) {
+          console.warn("[AUTH] Error during token cleanup:", clearError);
+          // Continue despite error - non-critical
+      }
       
-      if (insertError) {
-        if (insertError.code === '23505') { // Unique constraint violation
-          console.log("[AUTH] Token already exists for this user/device (constraint violation), attempting to update it to active/signed_in.");
+      // 6. Register new token with retry logic
+      let insertSuccess = false;
+      let updateSuccess = false;
+      
+      // First try insertion
+      try {
+          console.log("[AUTH] Attempting to insert new token");
+          const { data: insertData, error: insertError } = await supabase
+              .from('user_push_tokens')
+              .insert({
+                  user_id: userId,
+                  token: token,
+                  device_type: Platform.OS,
+                  last_updated: new Date().toISOString(),
+                  signed_in: true,
+                  active: true
+              })
+              .select('id');
+          
+          if (insertError) {
+              // Check for unique constraint violation
+              if (insertError.code === '23505') {
+                  console.log("[AUTH] Token already exists (constraint violation)");
+              } else {
+                  console.error("[AUTH] Error inserting token:", insertError);
+              }
+          } else if (insertData && insertData.length > 0) {
+              console.log("[AUTH] Token inserted successfully with ID:", insertData[0].id);
+              await SecureStore.setItemAsync('expoPushTokenId', insertData[0].id);
+              insertSuccess = true;
+          }
+      } catch (insertError) {
+          console.error("[AUTH] Exception during token insertion:", insertError);
+      }
+      
+      // If insertion failed, try update
+      if (!insertSuccess) {
+          try {
+              console.log("[AUTH] Attempting to update existing token");
+              const { error: updateError } = await supabase
+                  .from('user_push_tokens')
+                  .update({
+                      signed_in: true,
+                      active: true,
+                      last_updated: new Date().toISOString(),
+                      device_type: Platform.OS,
+                  })
+                  .eq('user_id', userId)
+                  .eq('token', token);
+              
+              if (updateError) {
+                  console.error("[AUTH] Error updating token:", updateError);
+              } else {
+                  console.log("[AUTH] Token updated successfully");
+                  updateSuccess = true;
+                  
+                  // Get the token ID for storage
+                  try {
+                      const { data: tokenData, error: idError } = await supabase
+                          .from('user_push_tokens')
+                          .select('id')
+                          .eq('user_id', userId)
+                          .eq('token', token)
+                          .single();
+                      
+                      if (!idError && tokenData?.id) {
+                          await SecureStore.setItemAsync('expoPushTokenId', tokenData.id);
+                          console.log("[AUTH] Retrieved and saved token ID:", tokenData.id);
+                      }
+                  } catch (idError) {
+                      console.warn("[AUTH] Could not retrieve token ID:", idError);
+                      // Non-critical error
+                  }
+              }
+          } catch (updateError) {
+              console.error("[AUTH] Exception during token update:", updateError);
+          }
+      }
+      
+      // 7. Final verification
+      const success = insertSuccess || updateSuccess;
+      
+      if (success) {
+          console.log("[AUTH] Token registration completed successfully");
+          // Log number of active tokens for debugging
+          try {
+              const { count } = await supabase
+                  .from('user_push_tokens')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('user_id', userId)
+                  .eq('active', true);
+              console.log(`[AUTH] User now has ${count || 0} active device tokens`);
+          } catch (countError) {
+              // Non-critical
+          }
+      } else {
+          // Last resort: try using the NotificationService
+          console.log("[AUTH] Direct registration failed, trying NotificationService");
+          try {
+              const serviceToken = await NotificationService.registerForPushNotificationsAsync(userId, true);
+              return !!serviceToken;
+          } catch (serviceError) {
+              console.error("[AUTH] NotificationService registration also failed:", serviceError);
+              return false;
+          }
+      }
+      
+      return success;
+  } catch (error) {
+      console.error("[AUTH] Critical error during token registration:", error);
+      
+      // Log additional diagnostic information
+      try {
+          console.log("[AUTH] Device info:", {
+              platform: Platform.OS,
+              version: Platform.Version,
+              isDevice: true,
+              constants: {
+                  hasExpoConfig: !!Constants.expoConfig,
+                  hasExtra: !!(Constants.expoConfig?.extra),
+              }
+          });
+      } catch (diagError) {
+          // Ignore diagnostic errors
+      }
+      
+      return false;
+  }
+};
+
+// Add this useEffect to the AuthProvider component
+useEffect(() => {
+  // Skip if not signed in or in guest mode
+  if (!user?.id || isGuest) return;
+
+  const verifyTokenInterval = 12 * 60 * 60 * 1000; // 12 hours
+  
+  // Function to verify token status
+  const verifyTokenRegistration = async () => {
+    try {
+      console.log("[AUTH] Performing periodic token verification");
+      
+      // 1. Check if token exists in storage
+      const storedToken = await SecureStore.getItemAsync('expoPushToken');
+      if (!storedToken) {
+        console.log("[AUTH] No token in storage, registering new token");
+        await forceDirectTokenRegistration(user.id);
+        return;
+      }
+      
+      // 2. Verify token exists in database
+      try {
+        const { data: tokenData, error } = await supabase
+          .from('user_push_tokens')
+          .select('id, active, signed_in')
+          .eq('user_id', user.id)
+          .eq('token', storedToken)
+          .single();
+        
+        if (error || !tokenData) {
+          console.log("[AUTH] Token not found in database, registering new token");
+          await forceDirectTokenRegistration(user.id);
+          return;
+        }
+        
+        // 3. Check if token is active and signed in
+        if (!tokenData.active || !tokenData.signed_in) {
+          console.log("[AUTH] Token exists but inactive/signed out, updating status");
           const { error: updateError } = await supabase
             .from('user_push_tokens')
             .update({
-              signed_in: true,
               active: true,
-              last_updated: new Date().toISOString(),
-              // device_type: Platform.OS, // Ensure device_type is also part of the update condition if it can change for a token
+              signed_in: true,
+              last_updated: new Date().toISOString()
             })
-            .eq('user_id', userId)
-            .eq('token', token); // This should uniquely identify the row with the user
+            .eq('id', tokenData.id);
           
           if (updateError) {
-            console.error("[AUTH] Error updating existing token after constraint violation:", updateError);
-            return false;
+            console.error("[AUTH] Error updating token status:", updateError);
+            // Try registration as fallback
+            await forceDirectTokenRegistration(user.id);
           }
-          
-          const { data: existingToken, error: fetchError } = await supabase
-            .from('user_push_tokens')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('token', token)
-            .single();
-          
-          if (!fetchError && existingToken) {
-            await SecureStore.setItemAsync('expoPushTokenId', existingToken.id);
-          }
-          console.log("[AUTH] Successfully updated existing token.");
-          return true;
         }
-        
-        console.error("[AUTH] Error inserting new token:", insertError);
-        return false;
+      } catch (verifyError) {
+        console.error("[AUTH] Error during token verification:", verifyError);
+        // Wait and retry registration on error
+        setTimeout(() => forceDirectTokenRegistration(user.id), 5000);
       }
-      
-      if (insertData && insertData.length > 0) {
-        await SecureStore.setItemAsync('expoPushTokenId', insertData[0].id);
-      }
-      
-      // Optional: Log active devices
-      try {
-        const { count } = await supabase.from('user_push_tokens').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('active', true);
-        console.log(`[AUTH] User now has ${count || 0} active device tokens`);
-      } catch (countError) {/* Non-critical */}
-      
-      console.log("[AUTH] Token registration completed successfully for current device");
-      return true;
     } catch (error) {
-      console.error("[AUTH] Critical error during force token registration:", error);
-      return false;
+      console.error("[AUTH] Unhandled error in token verification:", error);
     }
   };
+  
+  // Initial verification
+  verifyTokenRegistration();
+  
+  // Set up periodic verification
+  const interval = setInterval(verifyTokenRegistration, verifyTokenInterval);
+  
+  return () => {
+    clearInterval(interval);
+  };
+}, [user?.id, isGuest]);
   
   useEffect(() => {
     setIsLoaded(false);
@@ -598,25 +815,46 @@ const signIn = async ({ email, password }: SignInCredentials) => {
     if (data.user) {
       await fetchUserProfile(data.user.id);
       
-      // CRITICAL CHANGE: Defer token registration to happen after UI is shown
-      setTimeout(async () => {
+      // IMPROVED TOKEN REGISTRATION
+      // 1. First ensure a minimal delay for UI to stabilize
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // 2. Use a staged approach with multiple retries
+      const userId = data.user.id;
+      console.log('[AUTH] Starting token registration sequence for user:', userId);
+      
+      // Execute token registration in a non-blocking way
+      (async () => {
         try {
-          console.log('[AUTH] Deferred token registration started');
-          const success = await forceDirectTokenRegistration(data.user.id);
+          // First fast attempt - immediate registration
+          console.log('[AUTH] Initial token registration attempt');
+          let success = await forceDirectTokenRegistration(userId);
           
           if (!success) {
-            console.log('[AUTH] Direct registration failed, trying NotificationService');
-            await NotificationService.registerForPushNotificationsAsync(data.user.id, true);
+            // If failed, wait and try again
+            console.log('[AUTH] Initial registration failed, scheduling retry');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Second attempt with NotificationService
+            console.log('[AUTH] Retry #1 with NotificationService');
+            const serviceToken = await NotificationService.registerForPushNotificationsAsync(userId, true);
+            success = !!serviceToken;
+            
+            if (!success) {
+              // Final attempt after longer delay
+              console.log('[AUTH] Second registration failed, scheduling final retry');
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
+              // Final attempt
+              console.log('[AUTH] Final registration attempt');
+              await forceDirectTokenRegistration(userId);
+            }
           }
         } catch (tokenError) {
-          console.error('[AUTH] Token registration error during sign-in:', tokenError);
-          // Non-blocking error - app continues to function
+          console.error('[AUTH] Unhandled error in token registration sequence:', tokenError);
         }
-      }, 5000); // Increased timeout to 5 seconds after sign-in completes
+      })();
     }
-
-    // Still show loader for visual continuity but reduce time
-    await new Promise(resolve => setTimeout(resolve, 800)); // Reduced from 1500ms
     
     setIsSigningIn(false);
     return { error: null };

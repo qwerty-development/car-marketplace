@@ -9,7 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import { isSigningOut } from '@/app/(home)/_layout';
 import NetInfo from '@react-native-community/netinfo';
 import { isGlobalSigningOut } from '../utils/AuthContext';
-import  Device  from 'react-native-device-info';
+
 // Storage keys
 const STORAGE_KEYS = {
   PUSH_TOKEN: 'expoPushToken',
@@ -297,21 +297,7 @@ export function useNotifications(): UseNotificationsReturn {
     try {
       setLoading(true);
   
-      // IMPROVEMENT: Add direct device diagnostics
-      try {
-        const deviceInfo = {
-          brand: Device.getBrand(),
-          model: await Device.getModel(),
-          systemName: Device.getSystemName(),
-          systemVersion: Device.getSystemVersion(),
-          isTablet: Device.isTablet(),
-          appVersion: Device.getVersion()
-        };
-        debugLog('Device info for diagnostics:', deviceInfo);
-      } catch (diagError) {
-        // Non-critical, continue with registration
-        debugLog('Could not collect device diagnostics:', diagError);
-      }
+
   
       // Directly request notification permissions
       const permissionStatus = await NotificationService.getPermissions();
