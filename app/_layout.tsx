@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { FavoritesProvider } from '@/utils/useFavorites'
 import { ThemeProvider } from '@/utils/ThemeContext'
 import { QueryClient, QueryClientProvider } from 'react-query'
-import { LogBox, View, Text, TouchableOpacity, Alert, Platform, Animated, StyleSheet, Dimensions, useColorScheme } from 'react-native'
+import { LogBox, View, Text, TouchableOpacity, Alert, Platform, Animated, StyleSheet, Dimensions, useColorScheme, AppState } from 'react-native'
 import 'react-native-gesture-handler'
 import 'react-native-get-random-values'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -35,6 +35,7 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -473,13 +474,65 @@ function NotificationsProvider() {
   const { unreadCount, isPermissionGranted, registerForPushNotifications } = useNotifications();
   const { user, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
-  const [isInitializing, setIsInitializing] = useState(false);
-  const initializationRef = useRef(false);
-
-
+  const [diagnostic, setDiagnostic] = useState<any>(null);
+  const initializationAttempted = useRef(false);
+  
+  // ADDED: Enhanced initialization with retry capability
   useEffect(() => {
-    console.log('Notification state:', { unreadCount, isPermissionGranted });
-  }, [unreadCount, isPermissionGranted]);
+    const initializeNotifications = async () => {
+      if (!user?.id || isGuest || !isSignedIn || initializationAttempted.current) return;
+      
+      initializationAttempted.current = true;
+      console.log('[NotificationsProvider] Initializing notifications for user:', user.id);
+      
+      try {
+        // Clear badge on initialization
+        await Notifications.setBadgeCountAsync(0);
+        
+        // Request registration with force=true to ensure token is registered
+        await registerForPushNotifications(true);
+        
+        // Get diagnostic information for troubleshooting
+        const info = await NotificationService.getDiagnostics();
+        setDiagnostic(info);
+        
+        console.log('[NotificationsProvider] Notification initialization complete');
+      } catch (error) {
+        console.error('[NotificationsProvider] Error initializing notifications:', error);
+        
+        // Retry once after delay if initialization fails
+        setTimeout(() => {
+          console.log('[NotificationsProvider] Retrying notification initialization');
+          registerForPushNotifications(true).catch(e => 
+            console.error('[NotificationsProvider] Retry failed:', e)
+          );
+        }, 5000);
+      }
+    };
+    
+    initializeNotifications();
+  }, [user?.id, isSignedIn, isGuest, registerForPushNotifications]);
+  
+  // ADDED: Network recovery for notifications
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: any) => {
+      if (nextAppState === 'active' && user?.id && !isGuest) {
+        // Check and recover notificationsa when app comes to foreground
+        Notifications.getBadgeCountAsync().then(count => {
+          console.log('[NotificationsProvider] Current badge count:', count);
+        }).catch(e => {
+          console.error('[NotificationsProvider] Error getting badge count:', e);
+        });
+      }
+    };
+    
+    // Subscribe to app state changes
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+    };
+  }, [user?.id, isGuest]);
 
   return <EnvironmentVariablesCheck />;
 }

@@ -220,55 +220,76 @@ export class NotificationService {
     }
   }
 
+// Replace the existing getProjectId method with this improved version
 private static getProjectId(): string {
   try {
+    // Set expected project ID for production builds - UPDATE THIS VALUE with your actual production project ID
+    const PRODUCTION_PROJECT_ID = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+    
+    // Try environment variable first (most reliable)
     const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
     if (envProjectId) {
-      console.log('[NotificationService] Project ID from env: ', envProjectId);
+      console.log('[NotificationService] Using project ID from env variable:', envProjectId);
       return envProjectId;
     }
-
+    
+    // Next check Constants paths in order of reliability
     if (Constants.expoConfig?.extra?.eas?.projectId) {
-      console.log('[NotificationService] Project ID from expoConfig.extra.eas.projectId: ', Constants.expoConfig.extra.eas.projectId);
+      console.log('[NotificationService] Using project ID from expoConfig.extra.eas.projectId:', 
+                  Constants.expoConfig.extra.eas.projectId);
       return Constants.expoConfig.extra.eas.projectId;
     }
-
+    
     if (Constants.expoConfig?.extra?.projectId) {
-      console.log('[NotificationService] Project ID from expoConfig.extra.projectId: ', Constants.expoConfig.extra.projectId);
+      console.log('[NotificationService] Using project ID from expoConfig.extra.projectId:', 
+                  Constants.expoConfig.extra.projectId);
       return Constants.expoConfig.extra.projectId;
     }
-
-    // @ts-ignore manifest might be used in older classic updates
+    
+    // Legacy checks (less reliable but kept for compatibility)
+    // @ts-ignore - manifest might be used in older builds
     if (Constants.manifest?.extra?.eas?.projectId) {
-        // @ts-ignore
-        console.log('[NotificationService] Project ID from manifest.extra.eas.projectId: ', Constants.manifest.extra.eas.projectId);
-        // @ts-ignore
-        return Constants.manifest.extra.eas.projectId;
+      console.log('[NotificationService] Using project ID from manifest.extra.eas.projectId:', 
+                  // @ts-ignore
+                  Constants.manifest.extra.eas.projectId);
+      // @ts-ignore
+      return Constants.manifest.extra.eas.projectId;
     }
-
-    // @ts-ignore Consider manifest2 for classic updates via EAS Build
+    
+    // @ts-ignore
     if (Constants.manifest2?.extra?.eas?.projectId) {
-        // @ts-ignore
-        console.log('[NotificationService] Project ID from manifest2.extra.eas.projectId: ', Constants.manifest2.extra.eas.projectId);
-        // @ts-ignore
-        return Constants.manifest2.extra.eas.projectId;
+      console.log('[NotificationService] Using project ID from manifest2.extra.eas.projectId:', 
+                  // @ts-ignore
+                  Constants.manifest2.extra.eas.projectId);
+      // @ts-ignore
+      return Constants.manifest2.extra.eas.projectId;
     }
 
-    console.warn('[NotificationService] All Constants for projectId check: ', {
-        expoConfig: Constants.expoConfig,
-        // @ts-ignore
-        manifest: Constants.manifest,
-        // @ts-ignore
-        manifest2: Constants.manifest2,
+    // Comprehensive logging before fallback
+    console.warn('[NotificationService] Failed to find project ID from standard sources. Diagnostic info:', {
+      env: process.env.EXPO_PUBLIC_PROJECT_ID ? 'Available' : 'Missing',
+      expoConfig: Constants.expoConfig ? 'Available' : 'Missing',
+      // @ts-ignore
+      manifest: Constants.manifest ? 'Available' : 'Missing',
+      // @ts-ignore
+      manifest2: Constants.manifest2 ? 'Available' : 'Missing',
+      buildType: __DEV__ ? 'Development' : 'Production'
     });
-
-    const fallbackId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68'; // Your fallback
-    console.warn('[NotificationService] WARNING: Using fallback project ID. This is LIKELY THE ISSUE! ID: ', fallbackId);
-    return fallbackId;
+    
+    // In production, use the fixed PRODUCTION_PROJECT_ID
+    if (!__DEV__) {
+      console.log('[NotificationService] Using fixed PRODUCTION_PROJECT_ID:', PRODUCTION_PROJECT_ID);
+      return PRODUCTION_PROJECT_ID;
+    }
+    
+    // Only in development, use fallback
+    console.warn('[NotificationService] Using fallback project ID in development only:', PRODUCTION_PROJECT_ID);
+    return PRODUCTION_PROJECT_ID;
   } catch (error) {
     console.error('[NotificationService] CRITICAL ERROR accessing Constants for project ID:', error);
+    // In production, this is the last resort, should match PRODUCTION_PROJECT_ID above
     const fallbackIdOnError = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-    console.warn('[NotificationService] WARNING: Using fallback project ID due to error. This is LIKELY THE ISSUE! ID: ', fallbackIdOnError);
+    console.warn('[NotificationService] Using emergency fallback project ID:', fallbackIdOnError);
     return fallbackIdOnError;
   }
 }
@@ -350,11 +371,6 @@ private static getProjectId(): string {
     }
   }
 
-// Enhancement 1: Improve the forceTokenVerification method to better handle deleted tokens
-// Location: In NotificationService class, replace the existing forceTokenVerification method
-
-// In services/NotificationService.ts
-// Update the forceTokenVerification method:
 
 static async forceTokenVerification(userId: string): Promise<{
   isValid: boolean;
@@ -365,79 +381,93 @@ static async forceTokenVerification(userId: string): Promise<{
   try {
     this.debugLog(`Verifying push token for user ${userId}`);
 
-    // CRITICAL CHANGE: Add overall timeout to prevent hanging
-    const timeoutPromise = new Promise<{isValid: boolean}>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Token verification timed out'));
-      }, 5000); // 5 second timeout
-    });
+    // Check local storage first for improved speed
+    const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+    const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
+    const tokenTimestamp = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP);
 
-    // Create the actual verification process
-    const verificationPromise = (async () => {
-      const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
-      const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
+    if (!storedToken) {
+      this.debugLog('No token in local storage, verification failed');
+      return { isValid: false };
+    }
 
-      if (!storedToken) {
-        this.debugLog('No token in storage, registration needed');
-        return { isValid: false };
+    if (!this.isValidExpoToken(storedToken)) {
+      this.debugLog('Token in storage has invalid format, cleaning up');
+      await Promise.all([
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+      ]);
+      return { isValid: false };
+    }
+
+    // Check token age - if too recent (< 5 seconds), consider it valid to avoid race conditions
+    if (tokenTimestamp) {
+      const age = Date.now() - parseInt(tokenTimestamp, 10);
+      if (age < 5000) { // 5 seconds
+        this.debugLog('Token was just created, skipping database verification');
+        return { 
+          isValid: true, 
+          token: storedToken,
+          tokenId: storedTokenId,
+          signedIn: true  // Assume signed in since it's brand new
+        };
       }
+    }
 
-      if (!this.isValidExpoToken(storedToken)) {
-        this.debugLog('Token in storage is not in Expo format, registration needed');
-        await Promise.all([
-          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
-          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
-          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
-        ]);
-        return { isValid: false };
-      }
+    // Use a shorter timeout specifically for token verification
+    const VERIFICATION_TIMEOUT = 3000; // 3 seconds
 
-      // CRITICAL CHANGE: Simplified verification flow
-      // Only check by token value, skip checking by ID which can be slower
-      try {
-        const { data: tokenByValue, error: valueError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .select('id, token, active, signed_in')
-            .eq('user_id', userId)
-            .eq('token', storedToken)
-            .single(),
-          CONFIG.DB_TIMEOUT,
-          'verifyTokenByValue',
-          3 // CRITICAL CHANGE: Reduced retries from 3 to 1
-        );
+    try {
+      // Attempt quick database verification with shorter timeout
+      const { data: tokenByValue, error: valueError } = await this.timeoutPromise(
+        supabase
+          .from('user_push_tokens')
+          .select('id, token, active, signed_in')
+          .eq('user_id', userId)
+          .eq('token', storedToken)
+          .single(),
+        VERIFICATION_TIMEOUT,
+        'verifyTokenByValue'
+      );
 
-        if (!valueError && tokenByValue) {
-          this.debugLog('Found matching token by value in database');
-          
-          // Update local storage with the token ID
-          if (!storedTokenId || storedTokenId !== tokenByValue.id) {
-            await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenByValue.id);
-          }
-          
-          return {
-            isValid: true,
-            tokenId: tokenByValue.id,
-            token: tokenByValue.token,
-            signedIn: tokenByValue.signed_in
-          };
+      if (!valueError && tokenByValue) {
+        this.debugLog('Token verified successfully in database');
+        
+        // Update local storage with token ID if needed
+        if (!storedTokenId || storedTokenId !== tokenByValue.id) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenByValue.id);
         }
-      } catch (error) {
-        this.debugLog('Error verifying token by value:', error);
+        
+        return {
+          isValid: true,
+          tokenId: tokenByValue.id,
+          token: tokenByValue.token,
+          signedIn: tokenByValue.signed_in
+        };
       }
-
-      // CRITICAL CHANGE: Skip checking for any token for this user
-      // This operation can be slow for reinstalls, and the result is the same
+    } catch (verifyError) {
+      // If verification times out, still consider token potentially valid
+      // but mark for reverification later
+      if (verifyError.message && verifyError.message.includes('timed out')) {
+        this.debugLog('Verification timed out but token exists locally, considering valid');
+        return { 
+          isValid: true, 
+          token: storedToken,
+          tokenId: storedTokenId,
+          signedIn: undefined  // Unknown state
+        };
+      }
       
-      this.debugLog('Token verification unsuccessful, will need registration');
-      return { 
-        isValid: false,
-        token: storedToken
-      };
-    })();
-
-    // Race the verification against the timeout
-    return await Promise.race([verificationPromise, timeoutPromise]);
+      this.debugLog('Error during token verification:', verifyError);
+    }
+    
+    // If we reach here, database verification failed but we have a token in local storage
+    this.debugLog('Token not found in database but exists locally');
+    return { 
+      isValid: false,
+      token: storedToken  // Return the token for potential re-registration
+    };
     
   } catch (error) {
     this.recordError('forceTokenVerification', error);
@@ -448,65 +478,22 @@ static async forceTokenVerification(userId: string): Promise<{
 // Enhancement 2: Add a new method for ensuring valid token registration
 // Location: Add this new method to the NotificationService class
 
+// Update ensureValidTokenRegistration for more robust database operations
 static async ensureValidTokenRegistration(userId: string, token: string): Promise<boolean> {
   try {
     this.debugLog(`Ensuring valid token registration for user ${userId}`);
     
     if (!this.isValidExpoToken(token)) {
-      this.debugLog('Invalid token format, cannot register');
+      this.debugLog(`Invalid token format: ${token}`);
       return false;
     }
     
-    // Check if this token is already registered for this user
-    const { data: existingToken, error: checkError } = await this.timeoutPromiseWithRetry(
-      () => supabase
-        .from('user_push_tokens')
-        .select('id, token, signed_in, active, device_type')
-        .eq('user_id', userId)
-        .eq('token', token)
-        .single(),
-      CONFIG.DB_TIMEOUT,
-      'checkExistingToken'
-    );
+    // IMPROVEMENT 1: Begin by marking the token as valid in local storage
+    await this.saveTokenToStorage(token);
     
-    if (!checkError && existingToken) {
-      this.debugLog('Token already exists for this user, updating status');
-      
-      // Update token status if needed
-      if (!existingToken.signed_in || !existingToken.active) {
-        const { error: updateError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .update({
-              signed_in: true,
-              active: true,
-              last_updated: new Date().toISOString()
-            })
-            .eq('id', existingToken.id),
-          CONFIG.DB_TIMEOUT,
-          'updateExistingToken'
-        );
-        
-        if (updateError) {
-          this.debugLog('Error updating existing token:', updateError);
-          return false;
-        }
-        
-        this.debugLog('Successfully updated token status');
-      } else {
-        this.debugLog('Token already in correct state, no update needed');
-      }
-      
-      // Save token ID to storage
-      await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, existingToken.id);
-      return true;
-    }
-    
-    // Token doesn't exist for this user, register it
-    this.debugLog('Token not found for this user, registering new token');
-    
-    // First clean up any old tokens for this device to prevent duplicates
+    // IMPROVEMENT 2: More aggressive cleanup of old tokens for this device first
     try {
+      this.debugLog('Cleaning up old tokens for this device');
       const { error: cleanupError } = await this.timeoutPromiseWithRetry(
         () => supabase
           .from('user_push_tokens')
@@ -518,95 +505,108 @@ static async ensureValidTokenRegistration(userId: string, token: string): Promis
           .eq('user_id', userId)
           .eq('device_type', Platform.OS),
         CONFIG.DB_TIMEOUT,
-        'cleanupOldTokens'
+        'cleanupOldTokens',
+        2 // Two retries is enough for cleanup
       );
       
       if (cleanupError) {
         this.debugLog('Warning: Failed to clean up old tokens:', cleanupError);
-        // Continue anyway - not critical
+      } else {
+        this.debugLog('Successfully cleaned up old tokens for this device');
       }
     } catch (error) {
-      this.debugLog('Error in token cleanup:', error);
-      // Continue anyway - not critical
+      this.debugLog('Non-critical error in token cleanup:', error);
     }
     
-    // Insert new token
-    const { data: insertData, error: insertError } = await this.timeoutPromiseWithRetry(
-      () => supabase
-        .from('user_push_tokens')
-        .insert({
-          user_id: userId,
-          token: token,
-          device_type: Platform.OS,
-          last_updated: new Date().toISOString(),
-          signed_in: true,
-          active: true
-        })
-        .select('id'),
-      CONFIG.DB_TIMEOUT,
-      'insertNewToken'
-    );
-    
-    if (insertError) {
-      // Check for unique constraint violation
-      if (insertError.code === '23505') {
-        this.debugLog('Token already exists (constraint violation), trying update instead');
-        
-        // Token exists but couldn't be found earlier, try updating it
-        const { error: updateError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .update({
-              signed_in: true,
-              active: true,
-              last_updated: new Date().toISOString()
-            })
-            .eq('user_id', userId)
-            .eq('token', token),
-          CONFIG.DB_TIMEOUT,
-          'updateExistingTokenAfterInsertFailed'
-        );
-        
-        if (updateError) {
-          this.debugLog('Failed to update token after insert failed:', updateError);
-          return false;
-        }
-        
-        // Retrieve the token ID
-        const { data: retrieveData, error: retrieveError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('token', token)
-            .single(),
-          CONFIG.DB_TIMEOUT,
-          'retrieveTokenId'
-        );
-        
-        if (!retrieveError && retrieveData) {
-          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, retrieveData.id);
-          this.debugLog('Successfully updated token and retrieved ID');
-          return true;
-        }
-        
-        return false;
+    // IMPROVEMENT 3: Direct insertion first approach with explicit error handling
+    try {
+      this.debugLog('Attempting direct token insertion first');
+      const { data: insertData, error: insertError } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .insert({
+            user_id: userId,
+            token: token,
+            device_type: Platform.OS,
+            last_updated: new Date().toISOString(),
+            signed_in: true,
+            active: true
+          })
+          .select('id'),
+        CONFIG.DB_TIMEOUT,
+        'insertNewToken'
+      );
+      
+      if (!insertError && insertData && insertData.length > 0) {
+        this.debugLog('Successfully inserted new token with ID:', insertData[0].id);
+        await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, insertData[0].id);
+        return true;
       }
       
-      this.debugLog('Failed to insert new token:', insertError);
+      // IMPROVEMENT 4: Specific handling for constraint violations
+      if (insertError && insertError.code === '23505') {
+        this.debugLog('Token already exists (constraint violation), switching to update path');
+      } else if (insertError) {
+        this.debugLog('Unknown error during token insertion:', insertError);
+        throw insertError; // Re-throw for generic catch
+      }
+      
+      // IMPROVEMENT 5: More targeted token update after constraint violation
+      this.debugLog('Attempting to update existing token');
+      const { error: updateError } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .update({
+            signed_in: true,
+            active: true,
+            device_type: Platform.OS, // Ensure device type is updated in case it changed
+            last_updated: new Date().toISOString()
+          })
+          .eq('token', token), // Match by token value only
+        CONFIG.DB_TIMEOUT,
+        'updateExistingToken'
+      );
+      
+      if (updateError) {
+        this.debugLog('Failed to update existing token:', updateError);
+        throw updateError;
+      }
+      
+      // IMPROVEMENT 6: Verify update succeeded by retrieving token ID
+      this.debugLog('Retrieving token ID after update');
+      const { data: retrieveData, error: retrieveError } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .select('id')
+          .eq('token', token)
+          .single(),
+        CONFIG.DB_TIMEOUT,
+        'retrieveTokenId'
+      );
+      
+      if (retrieveError) {
+        this.debugLog('Error retrieving token ID after update:', retrieveError);
+        // Return true anyway - token is updated but we couldn't get ID
+        return true;
+      }
+      
+      if (retrieveData) {
+        this.debugLog('Retrieved token ID after update:', retrieveData.id);
+        await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, retrieveData.id);
+        return true;
+      }
+      
+      // Something unexpected happened - couldn't find token after update
+      this.debugLog('Token updated but could not retrieve ID - inconsistent state');
+      return true; // Still return true since the token was likely updated
+    } catch (error) {
+      this.recordError('ensureValidTokenRegistration', error);
+      this.debugLog('Critical error in token registration:', error);
       return false;
     }
-    
-    // Successfully inserted new token
-    if (insertData && insertData.length > 0) {
-      await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, insertData[0].id);
-      this.debugLog('Successfully registered new token');
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    this.recordError('ensureValidTokenRegistration', error);
+  } catch (outerError) {
+    this.recordError('ensureValidTokenRegistration_outer', outerError);
+    this.debugLog('Fatal error in token registration:', outerError);
     return false;
   }
 }
@@ -763,112 +763,162 @@ static async ensureValidTokenRegistration(userId: string, token: string): Promis
     }
   }
 
-  // Optimized registerForPushNotificationsAsync with better flow and error handling
-  static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
-    if (!Device.isDevice && !CONFIG.FORCE_REGISTER_DEV) {
-      this.debugLog('Push notifications not available on simulator/emulator');
+// Update the registerForPushNotificationsAsync method to enhance reliability
+static async registerForPushNotificationsAsync(userId: string, forceRefresh = false): Promise<string | null> {
+  if (!Device.isDevice && !CONFIG.FORCE_REGISTER_DEV) {
+    this.debugLog('Push notifications not available on simulator/emulator');
+    return null;
+  }
+
+  if (isSigningOut) {
+    this.debugLog('User is signing out, skipping token registration');
+    return null;
+  }
+
+  this.debugLog(`Starting push notification registration for user: ${userId}, force: ${forceRefresh}`);
+
+  try {
+    // IMPROVEMENT 1: Always get fresh permissions status
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let permissionStatus = existingStatus;
+
+    this.debugLog(`Current permission status: ${permissionStatus}`);
+
+    if (existingStatus !== 'granted') {
+      this.debugLog('Permission not granted, requesting...');
+      const { status } = await Notifications.requestPermissionsAsync();
+      permissionStatus = status;
+      this.debugLog(`Updated permission status: ${permissionStatus}`);
+    }
+
+    if (permissionStatus !== 'granted') {
+      this.debugLog('Push notification permission not granted after request');
       return null;
     }
-  
-    if (isSigningOut) {
-      this.debugLog('User is signing out, skipping token registration');
-      return null;
-    }
-  
-    this.debugLog(`Starting push notification registration for user: ${userId}`);
-  
-    try {
-      // Always check for existing valid token first, even if forceRefresh is true
-      // This helps us know if we should update vs insert
-      let verification = { isValid: false, token: null as string | null };
-      
+
+    // IMPROVEMENT 2: Set up Android notification channel early
+    if (Platform.OS === 'android') {
       try {
+        this.debugLog('Setting up Android notification channel');
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#D55004',
+          sound: 'notification.wav',
+          enableVibrate: true,
+          enableLights: true
+        });
+        this.debugLog('Android notification channel setup complete');
+      } catch (channelError) {
+        this.recordError('setupAndroidChannel', channelError);
+        this.debugLog('Failed to set up Android notification channel, continuing anyway');
+        // Continue even if channel setup fails
+      }
+    }
+
+    // IMPROVEMENT 3: Only check existing token if not forcing refresh
+    let verification = { isValid: false, token: null as string | null };
+    
+    if (!forceRefresh) {
+      try {
+        this.debugLog('Checking for existing valid token');
         verification = await this.forceTokenVerification(userId);
+        this.debugLog(`Token verification result: ${JSON.stringify({
+          isValid: verification.isValid,
+          hasToken: !!verification.token,
+          signedIn: verification.signedIn
+        })}`);
       } catch (error) {
         this.debugLog('Error during token verification, will attempt fresh registration:', error);
       }
-  
-      // If token is valid and we're not forcing a refresh, use existing token
-      if (!forceRefresh && verification.isValid && verification.token) {
+
+      // Use existing token if valid and not forcing refresh
+      if (verification.isValid && verification.token) {
         this.debugLog('Using existing verified token from database');
         await this.saveTokenToStorage(verification.token, verification.tokenId);
         
         // Ensure token is marked as signed in
         if (verification.signedIn === false) {
+          this.debugLog('Updating existing token to signed_in=true');
           await this.updateTokenStatus(userId, verification.token, { signed_in: true });
         }
         
         return verification.token;
       }
-  
-      // Check and request permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let permissionStatus = existingStatus;
-  
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        permissionStatus = status;
-      }
-  
-      if (permissionStatus !== 'granted') {
-        this.debugLog('Push notification permission not granted');
-        return null;
-      }
-  
-      // Set up Android notification channel
-      if (Platform.OS === 'android') {
-        try {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'Default',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#D55004',
-            sound: 'notification.wav',
-            enableVibrate: true,
-            enableLights: true
-          });
-        } catch (channelError) {
-          this.recordError('setupAndroidChannel', channelError);
-          // Continue even if channel setup fails
-        }
-      }
-  
-      // Get project ID and token
-      const projectId = this.getProjectId();
-      this.debugLog('Getting new Expo push token...');
-      
-      const tokenResponse = await this.timeoutPromiseWithRetry(
+    } else {
+      this.debugLog('Force refresh specified, skipping token verification');
+    }
+
+    // IMPROVEMENT 4: Get project ID with enhanced logging
+    const projectId = this.getProjectId();
+    this.debugLog(`Getting new Expo push token with project ID: ${projectId}`);
+    
+    // IMPROVEMENT 5: Enhanced error handling for token acquisition
+    let tokenResponse;
+    try {
+      tokenResponse = await this.timeoutPromiseWithRetry(
         () => Notifications.getExpoPushTokenAsync({
           projectId: projectId,
         }),
         15000,
-        'getExpoPushTokenAsync'
+        'getExpoPushTokenAsync',
+        3 // More retries for this critical operation
       );
-  
-      const token = tokenResponse.data;
-  
-      if (!this.isValidExpoToken(token)) {
-        throw new Error(`Received invalid token format: ${token}`);
-      }
-  
-      // Always save to storage immediately
-      await this.saveTokenToStorage(token);
+    } catch (tokenError) {
+      this.debugLog('Failed to get token after retries, detailed error:', tokenError);
       
-      // Use enhanced method to ensure proper registration
-      const registrationSuccess = await this.ensureValidTokenRegistration(userId, token);
+      // Additional diagnostics
+      try {
+        const permissions = await Notifications.getPermissionsAsync();
+        this.debugLog('Current permissions state after error:', permissions);
+      } catch (e) {} // Ignore errors in diagnostic code
       
-      if (registrationSuccess) {
-        this.debugLog('Token registration completed successfully');
-        return token;
-      } else {
-        this.debugLog('Token registration failed, but token was obtained');
-        return token; // Still return token since we have it in storage
-      }
-    } catch (error) {
-      this.recordError('registerForPushNotificationsAsync', error);
-      return null;
+      throw tokenError; // Re-throw to be caught by outer handler
     }
+
+    const token = tokenResponse.data;
+    this.debugLog(`Received token: ${token.substring(0, 10)}...`);
+
+    if (!this.isValidExpoToken(token)) {
+      this.debugLog(`Invalid token format received: ${token}`);
+      throw new Error(`Received invalid token format: ${token}`);
+    }
+
+    // IMPROVEMENT 6: Always save to storage immediately before DB operations can fail
+    await this.saveTokenToStorage(token);
+    this.debugLog('Token saved to local storage');
+    
+    // IMPROVEMENT 7: More robust registration with clearer error handling
+    let registrationSuccess = false;
+    let registrationError = null;
+    
+    try {
+      this.debugLog('Attempting to register token in database');
+      registrationSuccess = await this.ensureValidTokenRegistration(userId, token);
+    } catch (regError) {
+      registrationError = regError;
+      this.debugLog('Error during token registration:', regError);
+      this.recordError('tokenRegistration', regError);
+    }
+    
+    if (registrationSuccess) {
+      this.debugLog('Token registration completed successfully');
+      return token;
+    } else {
+      this.debugLog('Token registration failed in database, but token was obtained');
+      if (registrationError) {
+        // Log specific error details
+        this.debugLog(`Registration error details: ${registrationError.message}`);
+      }
+      return token; // Still return token since we have it in storage
+    }
+  } catch (error) {
+    this.recordError('registerForPushNotificationsAsync', error);
+    this.debugLog(`Critical error in push token registration: ${error.message}`);
+    return null;
   }
+}
 
   // Enhanced handleNotificationResponse with better type safety
   static async handleNotificationResponse(response: Notifications.NotificationResponse): Promise<{
