@@ -471,69 +471,160 @@ function EnvironmentVariablesCheck() {
 }
 
 function NotificationsProvider() {
-  const { unreadCount, isPermissionGranted, registerForPushNotifications } = useNotifications();
+  const { 
+    unreadCount, 
+    isPermissionGranted, 
+    registerForPushNotifications, 
+    diagnosticInfo 
+  } = useNotifications();
   const { user, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
-  const [diagnostic, setDiagnostic] = useState<any>(null);
-  const initializationAttempted = useRef(false);
+  const [initAttempted, setInitAttempted] = useState(false);
+  const [initError, setInitError] = useState<Error | null>(null);
+  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // ADDED: Enhanced initialization with retry capability
+  // Enhanced initialization with better error handling and staged approach
   useEffect(() => {
     const initializeNotifications = async () => {
-      if (!user?.id || isGuest || !isSignedIn || initializationAttempted.current) return;
+      if (!user?.id || isGuest || !isSignedIn || initAttempted) return;
       
-      initializationAttempted.current = true;
       console.log('[NotificationsProvider] Initializing notifications for user:', user.id);
+      setInitAttempted(true);
       
       try {
-        // Clear badge on initialization
-        await Notifications.setBadgeCountAsync(0);
+        // 1. First clear badge as a separate operation
+        try {
+          await Notifications.setBadgeCountAsync(0);
+          console.log('[NotificationsProvider] Badge cleared successfully');
+        } catch (badgeError) {
+          console.warn('[NotificationsProvider] Non-critical: Failed to clear badge:', badgeError);
+          // Continue initialization even if badge clearing fails
+        }
         
-        // Request registration with force=true to ensure token is registered
+        // 2. Set up notification channels for Android
+        if (Platform.OS === 'android') {
+          try {
+            await Notifications.setNotificationChannelAsync('default', {
+              name: 'Default',
+              importance: Notifications.AndroidImportance.MAX,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: '#D55004',
+              sound: 'notification.wav',
+              enableVibrate: true,
+              enableLights: true,
+              // Added for better visibility
+              showBadge: true,
+              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC
+            });
+            console.log('[NotificationsProvider] Android notification channel configured');
+          } catch (channelError) {
+            console.warn('[NotificationsProvider] Error setting up notification channel:', channelError);
+            // Continue as this is not critical for token registration
+          }
+        }
+        
+        // 3. Request permission and register for push notifications with forced flag
+        const permissionStatus = await Notifications.getPermissionsAsync();
+        
+        if (permissionStatus.status !== 'granted') {
+          console.log('[NotificationsProvider] Requesting notification permissions');
+          const newStatus = await Notifications.requestPermissionsAsync();
+          
+          if (newStatus.status !== 'granted') {
+            console.log('[NotificationsProvider] Permission denied by user');
+            return;
+          }
+        }
+        
+        console.log('[NotificationsProvider] Registering for push notifications (forced)');
         await registerForPushNotifications(true);
         
-        // Get diagnostic information for troubleshooting
-        const info = await NotificationService.getDiagnostics();
-        setDiagnostic(info);
+        // 4. Schedule delayed verification to ensure registration was successful
+        initTimeoutRef.current = setTimeout(async () => {
+          try {
+            // Verify token was properly registered
+            const token = await SecureStore.getItemAsync('expoPushToken');
+            
+            if (token) {
+              console.log('[NotificationsProvider] Token verification successful:', 
+                token.substring(0, 10) + '...' + token.substring(token.length - 5));
+            } else {
+              console.warn('[NotificationsProvider] No token found in storage after registration');
+              // Attempt one more registration as final recovery
+              await registerForPushNotifications(true);
+            }
+          } catch (verifyError) {
+            console.error('[NotificationsProvider] Verification error:', verifyError);
+          }
+        }, 5000);
         
-        console.log('[NotificationsProvider] Notification initialization complete');
       } catch (error) {
         console.error('[NotificationsProvider] Error initializing notifications:', error);
+        setInitError(error instanceof Error ? error : new Error(String(error)));
         
-        // Retry once after delay if initialization fails
-        setTimeout(() => {
+        // Retry with exponential backoff
+        const retryDelay = initError ? 10000 : 5000; // Longer delay on second attempt
+        
+        // Schedule retry
+        initTimeoutRef.current = setTimeout(() => {
           console.log('[NotificationsProvider] Retrying notification initialization');
-          registerForPushNotifications(true).catch(e => 
-            console.error('[NotificationsProvider] Retry failed:', e)
-          );
-        }, 5000);
+          setInitAttempted(false); // Reset to allow retry
+        }, retryDelay);
       }
     };
     
     initializeNotifications();
-  }, [user?.id, isSignedIn, isGuest, registerForPushNotifications]);
-  
-  // ADDED: Network recovery for notifications
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: any) => {
-      if (nextAppState === 'active' && user?.id && !isGuest) {
-        // Check and recover notificationsa when app comes to foreground
-        Notifications.getBadgeCountAsync().then(count => {
-          console.log('[NotificationsProvider] Current badge count:', count);
-        }).catch(e => {
-          console.error('[NotificationsProvider] Error getting badge count:', e);
-        });
+    
+    // Cleanup
+    return () => {
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
       }
     };
+  }, [user?.id, isSignedIn, isGuest, registerForPushNotifications, initAttempted, initError]);
+  
+  // Enhanced foreground notification handling
+  useEffect(() => {
+    if (!user?.id || isGuest) return;
     
-    // Subscribe to app state changes
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    // Listen for app state changes to verify notification setup
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[NotificationsProvider] App returned to foreground, verifying notifications');
+        
+        try {
+          // Clear badges when coming to foreground
+          await Notifications.setBadgeCountAsync(0);
+          
+          // Verify token exists locally
+          const token = await SecureStore.getItemAsync('expoPushToken');
+          
+          if (!token) {
+            console.warn('[NotificationsProvider] No token found when returning to foreground');
+            // Retry registration if token is missing
+            registerForPushNotifications(true).catch(e => 
+              console.error('[NotificationsProvider] Foreground registration failed:', e)
+            );
+          }
+        } catch (error) {
+          console.error('[NotificationsProvider] Error handling foreground state:', error);
+        }
+      }
+    });
     
     return () => {
       subscription.remove();
     };
-  }, [user?.id, isGuest]);
+  }, [user?.id, isGuest, registerForPushNotifications]);
 
+  // Log diagnostic information in development
+  useEffect(() => {
+    if (__DEV__ && diagnosticInfo) {
+      console.log('[NotificationsProvider] Diagnostic info:', diagnosticInfo);
+    }
+  }, [diagnosticInfo]);
+
+  // Return existing EnvironmentVariablesCheck
   return <EnvironmentVariablesCheck />;
 }
 
@@ -687,9 +778,37 @@ function ErrorFallback({ error, resetError }: any) {
 }
 
 export default function RootLayout() {
-  useEffect(() => {
-    SplashScreen.hideAsync()
-  }, [])
+// Update this inside the first useEffect in RootLayout
+useEffect(() => {
+  const prepareSplashScreen = async () => {
+    try {
+      // Keep native splash screen visible while custom splash loads
+      await SplashScreen.preventAutoHideAsync();
+      
+      // Configure notifications early
+      try {
+        // Ensure permissions are pre-checked to speed up later operations
+        const permissionStatus = await Notifications.getPermissionsAsync();
+        console.log('Initial notification permission status:', permissionStatus.status);
+      } catch (notifError) {
+        console.warn('Non-critical: Failed to check notification permissions:', notifError);
+      }
+      
+      // On Android, set a timeout to force hide if something goes wrong
+      if (Platform.OS === 'android') {
+        setTimeout(() => {
+          SplashScreen.hideAsync().catch(() => {
+            // Silent catch in case it's already hidden
+          });
+        }, 3000); // Failsafe timeout
+      }
+    } catch (e) {
+      console.warn('Error setting up splash screen:', e);
+    }
+  };
+  
+  prepareSplashScreen();
+}, []);
 
   useEffect(() => {
     if (Text.defaultProps == null) Text.defaultProps = {};
@@ -698,6 +817,21 @@ export default function RootLayout() {
     Text.defaultProps.allowFontScaling = false;
     TextInput.defaultProps.allowFontScaling = false;
   }, []);
+
+  // Add this inside the export default function RootLayout()
+useEffect(() => {
+  // Clear badge count on every app launch
+  const resetBadgeCount = async () => {
+    try {
+      await Notifications.setBadgeCountAsync(0);
+      console.log('Badge count reset on app launch');
+    } catch (error) {
+      console.error('Failed to reset badge count:', error);
+    }
+  };
+  
+  resetBadgeCount();
+}, []);
 
   // Check for OTA updates when the app starts
   useEffect(() => {

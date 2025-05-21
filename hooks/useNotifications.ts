@@ -265,158 +265,229 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [debugLog]);
 
-  /**
-   * Enhanced registration function with production-ready logic
-   */
-// UPDATE 1: Enhance the registration function in useNotifications.ts
-const registerForPushNotifications = useCallback(async (force = false) => {
-  if (!user?.id) {
-    debugLog('No user ID available, skipping notification registration');
-    return;
-  }
-
-  if (isSigningOut) {
-    debugLog('User is signing out, skipping registration');
-    return;
-  }
-
-  // Clear any existing registration timer
-  if (registrationTimer.current) {
-    clearTimeout(registrationTimer.current);
-    registrationTimer.current = null;
-  }
-
-  debugLog(`Starting push notification registration. Force: ${force}`);
-
-  // Check network status
-  const netState = await NetInfo.fetch();
-  networkStatus.current = !!netState.isConnected;
-
-  if (!netState.isConnected && !force) {
-    debugLog('Network unavailable, deferring registration');
-    forceRegistrationOnNextForeground.current = true;
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    // IMPROVEMENT: Add direct device diagnostics
-
-
-    // Directly request notification permissions
-    const permissionStatus = await NotificationService.getPermissions();
-    debugLog('Current permission status:', permissionStatus?.status);
-
-    // IMPROVEMENT: Always try to get token regardless of previous registration state
-    if (force) {
-      debugLog('Forced registration, skipping previous state check');
-    } else {
-      // Check previous registration state if not forcing
-      const regState = await getRegistrationState();
-      
-      // More detailed logging for registration state
-      debugLog('Previous registration state:', regState);
-      
-      if (regState?.registered && !force) {
-        const timeSinceLastAttempt = Date.now() - regState.lastAttemptTime;
-        debugLog(`Time since last registration: ${Math.round(timeSinceLastAttempt/1000/60)} minutes`);
+  const registerForPushNotifications = useCallback(async (force = false) => {
+    if (!user?.id) {
+      debugLog('No user ID available, skipping notification registration');
+      return;
+    }
+  
+    if (isSigningOut) {
+      debugLog('User is signing out, skipping registration');
+      return;
+    }
+  
+    // Clear any existing registration timer
+    if (registrationTimer.current) {
+      clearTimeout(registrationTimer.current);
+      registrationTimer.current = null;
+    }
+  
+    debugLog(`Starting push notification registration. Force: ${force}`);
+  
+    // Check network status
+    const netState = await NetInfo.fetch();
+    networkStatus.current = !!netState.isConnected;
+  
+    if (!netState.isConnected && !force) {
+      debugLog('Network unavailable, deferring registration');
+      forceRegistrationOnNextForeground.current = true;
+      return;
+    }
+  
+    try {
+      setLoading(true);
+  
+      // IMPROVEMENT: Add direct device diagnostics
+      try {
+        const deviceInfo = {
+          brand: Device.getBrand(),
+          model: await Device.getModel(),
+          systemName: Device.getSystemName(),
+          systemVersion: Device.getSystemVersion(),
+          isTablet: Device.isTablet(),
+          appVersion: Device.getVersion()
+        };
+        debugLog('Device info for diagnostics:', deviceInfo);
+      } catch (diagError) {
+        // Non-critical, continue with registration
+        debugLog('Could not collect device diagnostics:', diagError);
+      }
+  
+      // Directly request notification permissions
+      const permissionStatus = await NotificationService.getPermissions();
+      debugLog('Current permission status:', permissionStatus?.status);
+  
+      if (permissionStatus?.status !== 'granted') {
+        debugLog('Permission not granted, requesting permissions');
+        const newPermissions = await NotificationService.requestPermissions();
         
-        if (timeSinceLastAttempt < CONFIG.RECENT_REGISTRATION_THRESHOLD) {
-          // Extra verification step for registered tokens
-          try {
-            const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
-            if (storedToken) {
-              debugLog('Verifying stored token with database');
-              const verification = await NotificationService.forceTokenVerification(user.id);
-              
-              if (verification.isValid) {
-                debugLog('Token verification successful, skipping registration');
-                setIsPermissionGranted(true);
-                return;
+        if (newPermissions?.status !== 'granted') {
+          debugLog('Permission denied by user');
+          setIsPermissionGranted(false);
+          setLoading(false);
+          
+          // Save state for future reference
+          await saveRegistrationState({
+            lastAttemptTime: Date.now(),
+            attempts: registrationAttempts.current + 1,
+            lastError: 'Permission denied',
+            registered: false
+          });
+          
+          return;
+        }
+        
+        debugLog('Permission granted by user');
+        setIsPermissionGranted(true);
+      } else {
+        setIsPermissionGranted(true);
+      }
+  
+      // IMPROVEMENT: Always try to get token regardless of previous registration state
+      if (force) {
+        debugLog('Forced registration, skipping previous state check');
+      } else {
+        // Check previous registration state if not forcing
+        const regState = await getRegistrationState();
+        
+        // More detailed logging for registration state
+        debugLog('Previous registration state:', regState);
+        
+        if (regState?.registered && !force) {
+          const timeSinceLastAttempt = Date.now() - regState.lastAttemptTime;
+          debugLog(`Time since last registration: ${Math.round(timeSinceLastAttempt/1000/60)} minutes`);
+          
+          if (timeSinceLastAttempt < CONFIG.RECENT_REGISTRATION_THRESHOLD) {
+            // Extra verification step for registered tokens
+            try {
+              const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+              if (storedToken) {
+                debugLog('Verifying stored token with database');
+                const verification = await NotificationService.forceTokenVerification(user.id);
+                
+                if (verification.isValid) {
+                  debugLog('Token verification successful, skipping registration');
+                  setIsPermissionGranted(true);
+                  setLoading(false);
+                  return;
+                } else {
+                  debugLog('Token verification failed, proceeding with registration');
+                }
               } else {
-                debugLog('Token verification failed, proceeding with registration');
+                debugLog('No stored token found, proceeding with registration');
               }
-            } else {
-              debugLog('No stored token found, proceeding with registration');
+            } catch (error) {
+              debugLog('Error verifying token, proceeding with registration:', error);
             }
-          } catch (error) {
-            debugLog('Error verifying token, proceeding with registration:', error);
           }
         }
       }
-    }
-
-    // IMPROVEMENT: Direct call to NotificationService with better error handling
-    debugLog('Calling NotificationService.registerForPushNotificationsAsync');
-    const token = await NotificationService.registerForPushNotificationsAsync(user.id, force);
-
-    if (token) {
-      debugLog('Successfully registered push token');
-      setIsPermissionGranted(true);
+  
+      // IMPROVEMENT: Direct call to NotificationService with better error handling
+      debugLog('Calling NotificationService.registerForPushNotificationsAsync');
       
-      // Set up token refresh listener
-      if (pushTokenListener.current) {
-        pushTokenListener.current.remove();
+      // Add retries for token registration
+      let token = null;
+      let lastError = null;
+      
+      for (let i = 0; i < 3; i++) {
+        try {
+          token = await NotificationService.registerForPushNotificationsAsync(user.id, force);
+          if (token) break;
+          
+          // If we didn't get a token but no error was thrown, wait briefly before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          lastError = error;
+          debugLog(`Token registration attempt ${i+1} failed:`, error);
+          // Wait longer between retries
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
-      pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+  
+      if (token) {
+        debugLog('Successfully registered push token');
+        setIsPermissionGranted(true);
+        
+        // Set up token refresh listener
+        if (pushTokenListener.current) {
+          pushTokenListener.current.remove();
+        }
+        pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+        
+        // Update registration state
+        await saveRegistrationState({
+          lastAttemptTime: Date.now(),
+          attempts: 0,
+          registered: true
+        });
+        
+        // Get updated diagnostic info
+        try {
+          const diagInfo = await NotificationService.getDiagnostics();
+          setDiagnosticInfo(diagInfo);
+        } catch (e) {
+          debugLog('Non-critical: Failed to get diagnostics:', e);
+        }
+      } else {
+        debugLog('Failed to get push token after multiple attempts');
+        
+        if (lastError) {
+          debugLog('Last error from token registration:', lastError);
+        }
+        
+        // Increment attempt counter
+        registrationAttempts.current = registrationAttempts.current + 1;
+        
+        // Save state for future attempts
+        await saveRegistrationState({
+          lastAttemptTime: Date.now(),
+          attempts: registrationAttempts.current,
+          lastError: lastError ? (lastError.message || String(lastError)) : 'Failed to get token',
+          registered: false
+        });
+        
+        // Schedule retry with exponential backoff
+        if (registrationAttempts.current < CONFIG.MAX_REGISTRATION_ATTEMPTS) {
+          const delay = Math.min(
+            CONFIG.REGISTRATION_RETRY_BASE_DELAY * Math.pow(2, registrationAttempts.current - 1),
+            CONFIG.MAX_RETRY_DELAY
+          );
+          
+          debugLog(`Scheduling retry in ${Math.round(delay / 1000)}s`);
+          registrationTimer.current = setTimeout(() => {
+            registerForPushNotifications(false);
+          }, delay);
+        }
+      }
+    } catch (error) {
+      debugLog('Error registering for notifications:', error);
       
       // Update registration state
-      await saveRegistrationState({
-        lastAttemptTime: Date.now(),
-        attempts: 0,
-        registered: true
-      });
-      
-      // Get updated diagnostic info
-      try {
-        const diagInfo = await NotificationService.getDiagnostics();
-        setDiagnosticInfo(diagInfo);
-      } catch (e) {
-        debugLog('Non-critical: Failed to get diagnostics:', e);
-      }
-    } else {
-      debugLog('Failed to get push token');
-      
-      // Increment attempt counter
       registrationAttempts.current = registrationAttempts.current + 1;
-      
-      // Save state for future attempts
       await saveRegistrationState({
         lastAttemptTime: Date.now(),
         attempts: registrationAttempts.current,
-        lastError: 'Failed to get token',
+        lastError: error instanceof Error ? error.message : String(error),
         registered: false
       });
       
-      // Schedule retry with exponential backoff
+      // Schedule a retry regardless of error type
       if (registrationAttempts.current < CONFIG.MAX_REGISTRATION_ATTEMPTS) {
         const delay = Math.min(
           CONFIG.REGISTRATION_RETRY_BASE_DELAY * Math.pow(2, registrationAttempts.current - 1),
           CONFIG.MAX_RETRY_DELAY
         );
         
-        debugLog(`Scheduling retry in ${Math.round(delay / 1000)}s`);
+        debugLog(`Scheduling error recovery retry in ${Math.round(delay / 1000)}s`);
         registrationTimer.current = setTimeout(() => {
-          registerForPushNotifications(false);
+          registerForPushNotifications(true); // Force on retry after error
         }, delay);
       }
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    debugLog('Error registering for notifications:', error);
-    
-    // Update registration state
-    registrationAttempts.current = registrationAttempts.current + 1;
-    await saveRegistrationState({
-      lastAttemptTime: Date.now(),
-      attempts: registrationAttempts.current,
-      lastError: error instanceof Error ? error.message : String(error),
-      registered: false
-    });
-  } finally {
-    setLoading(false);
-  }
-}, [user?.id, handleTokenRefresh, getRegistrationState, saveRegistrationState, debugLog]);
+  }, [user?.id, handleTokenRefresh, getRegistrationState, saveRegistrationState, debugLog]);
 
   /**
    * Enhanced token cleanup with better error handling
@@ -574,7 +645,7 @@ const registerForPushNotifications = useCallback(async (force = false) => {
           return;
         }
   
-        // Always verify token on app foreground for robustness
+        // Verify token on app foreground with graceful degradation
         (async () => {
           try {
             debugLog('Verifying token on app foreground');
@@ -584,21 +655,33 @@ const registerForPushNotifications = useCallback(async (force = false) => {
             
             if (!storedToken) {
               debugLog('No token in local storage, initiating registration');
-              await registerForPushNotifications(true);
+              // Use setTimeout to avoid blocking UI thread
+              setTimeout(() => registerForPushNotifications(true), 500);
               return;
             }
   
-            // Verify token exists in database and is properly configured
-            const verification = await NotificationService.forceTokenVerification(user.id);
+            // Verify token with timeout
+            const verificationPromise = NotificationService.forceTokenVerification(user.id);
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Token verification timed out')), 5000);
+            });
   
-            if (!verification.isValid) {
-              debugLog('Token verification failed on app foreground, initiating registration');
-              await registerForPushNotifications(true);
+            // Race verification against timeout
+            const verification = await Promise.race([verificationPromise, timeoutPromise])
+              .catch(error => {
+                debugLog('Token verification failed or timed out:', error);
+                return { isValid: false };
+              });
+  
+            if (!verification || !verification.isValid) {
+              debugLog('Token verification failed on app foreground, scheduling registration');
+              // Delay registration slightly to allow UI to settle
+              setTimeout(() => registerForPushNotifications(true), 1000);
               return;
             }
   
             // If token is valid but not signed in, update its status
-            if (verification.isValid && verification.signedIn === false) {
+            if (verification.isValid && verification.signedIn === false && verification.token) {
               debugLog('Token is valid but marked as signed out, updating status');
               await NotificationService.markTokenAsSignedIn(user.id, verification.token);
             } else {
@@ -617,7 +700,8 @@ const registerForPushNotifications = useCallback(async (force = false) => {
             // Only force registration if it's been a while since last attempt
             const regState = await getRegistrationState();
             if (!regState || Date.now() - regState.lastAttemptTime > CONFIG.REGISTRATION_TIMEOUT) {
-              registerForPushNotifications(true);
+              // Delay registration to allow UI to settle
+              setTimeout(() => registerForPushNotifications(true), 1500);
             }
           }
         })();
@@ -645,106 +729,115 @@ const registerForPushNotifications = useCallback(async (force = false) => {
     let mounted = true;
   
     const initializeNotificationsAsync = async () => {
-      if (!mounted || isGlobalSigningOut) { // Assuming 'mounted' and 'isGlobalSigningOut' are correctly managed in your hook
+      if (!mounted || isGlobalSigningOut) {
         debugLog('Skipping notification initialization (unmounted or signing out)');
         return;
       }
-  
+    
       debugLog('Setting up notification system for user:', user.id);
-  
+    
       // --- Part 1: Quick Local Setup (Non-Blocking) ---
       try {
-        // Request permissions (OS dialog, user interaction, but doesn't block app logic itself for long)
-        const permissionStatus = await NotificationService.getPermissions();
-        if (permissionStatus?.status === 'granted') {
-          setIsPermissionGranted(true); // Update local state
-        } else {
-          // You might still request permissions here or guide the user later.
-          // For fastest startup, an aggressive prompt could be deferred.
-          debugLog('Notification permissions not yet granted.');
-        }
-  
         // Set up local notification listeners early
         if (notificationListener.current) notificationListener.current.remove();
         notificationListener.current = Notifications.addNotificationReceivedListener(handleNotification);
-  
+    
         if (responseListener.current) responseListener.current.remove();
         responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
-  
-        // Initial unread count (can also be made more lazy if it involves network)
-        await refreshNotifications(); // If this is quick (local or fast cache), it's fine.
-  
+        
+        // Check permission status asynchronously
+        NotificationService.getPermissions().then(permissionStatus => {
+          if (permissionStatus?.status === 'granted') {
+            setIsPermissionGranted(true);
+          } else {
+            debugLog('Notification permissions not yet granted.');
+          }
+        }).catch(error => {
+          debugLog('Error checking notification permissions:', error);
+        });
+    
+        // Initial unread count retrieval
+        refreshNotifications().catch(error => {
+          debugLog('Error refreshing initial notifications:', error);
+        });
+    
       } catch (initialError) {
-        debugLog('Error during initial local part of notification setup:', initialError);
-        // Decide if this error prevents the deferred part.
-        // For now, we'll assume the deferred part can still attempt.
+        debugLog('Error during initial notification setup:', initialError);
       }
-  
-      // --- Part 2: Deferred Server-Side Token Operations ---
-      // This will run after a short delay, allowing the UI to become interactive.
+    
+      // --- Part 2: Deferred Token Registration ---
+      // Use a longer delay to ensure UI is fully interactive first
       setTimeout(async () => {
-        if (!mounted || isGlobalSigningOut || !user?.id) { // Re-check state before proceeding
-          debugLog('Skipping deferred notification setup (unmounted, signing out, or no user)');
+        if (!mounted || isGlobalSigningOut || !user?.id) {
+          debugLog('Skipping deferred token registration (unmounted, signing out, or no user)');
           return;
         }
-  
+    
         try {
-          debugLog('Starting deferred token verification and registration process');
-          let localToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
-          let needsFullRegistration = true; // Assume registration is needed unless verified
-          let verifiedTokenInfo: { isValid: boolean; token?: string; signedIn?: boolean } = { isValid: false };
-  
+          debugLog('Starting deferred token registration process');
+          
+          // Check for existing token first
+          const localToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+          
           if (localToken) {
-            debugLog('Local token found, verifying with server (deferred)');
-            // forceTokenVerification handles cases where token might be stale or deleted on server
-            verifiedTokenInfo = await NotificationService.forceTokenVerification(user.id);
-          }
-  
-          if (verifiedTokenInfo.isValid && verifiedTokenInfo.token) {
-            debugLog('Deferred verification successful. Token is valid.');
-            needsFullRegistration = false; // Token is valid, no need for full new registration
+            debugLog('Found local token, verifying validity');
             
-            // Ensure local storage has the latest verified token
-            await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN, verifiedTokenInfo.token);
-            await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN_REFRESH_TIME, Date.now().toString()); // Update timestamp
-            
-            // Setup token refresh listener with the verified token
-            if (pushTokenListener.current) pushTokenListener.current.remove();
-            pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
-  
-            // If token was valid but marked as signed_out on the server, update its status
-            if (verifiedTokenInfo.signedIn === false) {
-              debugLog('Token valid but marked as signed out, updating to signed in (deferred)');
-              await NotificationService.markTokenAsSignedIn(user.id, verifiedTokenInfo.token);
+            try {
+              // Use a shorter timeout for verification to avoid hanging
+              const verificationPromise = NotificationService.forceTokenVerification(user.id);
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Verification timed out')), 3000);
+              });
+              
+              const verification = await Promise.race([verificationPromise, timeoutPromise])
+                .catch(error => {
+                  debugLog('Token verification timed out or failed:', error);
+                  return { isValid: false };
+                });
+              
+              if (verification.isValid) {
+                debugLog('Local token verified successfully, setting up refresh listener');
+                
+                // Setup token refresh listener
+                if (pushTokenListener.current) pushTokenListener.current.remove();
+                pushTokenListener.current = Notifications.addPushTokenListener(handleTokenRefresh);
+                
+                // If token needs to be marked as signed in
+                if (verification.signedIn === false && verification.token) {
+                  debugLog('Token needs to be marked as signed in');
+                  await NotificationService.markTokenAsSignedIn(user.id, verification.token);
+                }
+                
+                setIsPermissionGranted(true);
+                initialSetupComplete.current = true;
+                
+                // Update registration state
+                await saveRegistrationState({
+                  lastAttemptTime: Date.now(),
+                  attempts: 0,
+                  registered: true
+                });
+                
+                return;
+              }
+              
+              debugLog('Local token could not be verified, will register new token');
+            } catch (verificationError) {
+              debugLog('Error during token verification:', verificationError);
             }
-            setIsPermissionGranted(true); // Ensure this is set if we have a valid token path
           } else {
-            debugLog('Deferred verification failed or no local token, proceeding to full registration (deferred)');
-            needsFullRegistration = true;
+            debugLog('No local token found, will register new token');
           }
-  
-          if (needsFullRegistration) {
-            debugLog('Initiating full push notification registration (deferred)');
-            // registerForPushNotifications will get a new token from Expo and save it to backend & SecureStore
-            // It also internally handles permission requests if not already granted.
-            const registeredToken = await registerForPushNotifications(true); // Pass true to force if necessary
-            
-            if (registeredToken) {
-              debugLog('Deferred registration successful.');
-              setIsPermissionGranted(true); // Should be granted if registration succeeded
-              // The registerForPushNotifications function should set up the pushTokenListener
-            } else {
-              debugLog('Deferred registration failed.');
-              // Consider implications if permission was previously true but registration now fails
-            }
-          }
-          initialSetupComplete.current = true; // Mark full setup (including deferred part) as complete
+          
+          // If we reach here, we need to register a new token
+          await registerForPushNotifications(true);
+          initialSetupComplete.current = true;
+          
         } catch (deferredError) {
-          debugLog('Error during deferred server-side notification setup:', deferredError);
-          initialSetupComplete.current = true; // Still mark as complete to avoid retrying indefinitely without a strategy
+          debugLog('Error during deferred token registration:', deferredError);
+          initialSetupComplete.current = true;
         }
-      }, 1500); // Delay of 1.5 seconds (adjust as needed)
-  
+      }, 2000); // Increased delay for better reliability
     };
   
     // Call the initialization function
