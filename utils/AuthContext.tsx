@@ -171,11 +171,15 @@ const forceDirectTokenRegistration = async (userId: string): Promise<boolean> =>
       
       for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-              console.log(`[AUTH] Attempting to get push token (attempt ${attempt}/3)`);
-              tokenResponse = await Notifications.getExpoPushTokenAsync({ 
-                  projectId,
-                  experienceId: `@${Constants.expoConfig?.owner}/${Constants.expoConfig?.slug}`
-              });
+          // Around line 154 inside forceDirectTokenRegistration
+console.log(`[AUTH] Attempting to get push token (attempt ${attempt}/3) using projectId: ${projectId}`);
+// Ensure Constants.expoConfig properties are logged if still needed for debugging other parts, but not used for experienceId here.
+if (!(Constants.expoConfig?.owner && Constants.expoConfig?.slug)) {
+    console.warn(`[AUTH] Constants.expoConfig.owner ('<span class="math-inline">\{Constants\.expoConfig?\.owner\}'\) or \.slug \('</span>{Constants.expoConfig?.slug}') is not available.`);
+}
+tokenResponse = await Notifications.getExpoPushTokenAsync({
+    projectId
+});
               if (tokenResponse && tokenResponse.data) break;
               await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
           } catch (error) {
