@@ -220,51 +220,58 @@ export class NotificationService {
     }
   }
 
-  private static getProjectId(): string {
-    try {
-      // 1. Environment variable (highest priority)
-      const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-      if (envProjectId) {
-        this.debugLog('Using env project ID:', envProjectId);
-        return envProjectId;
-      }
-
-      // 2. Constants.expoConfig
-      if (Constants.expoConfig?.extra?.projectId) {
-        this.debugLog('Using expoConfig.extra.projectId:', Constants.expoConfig.extra.projectId);
-        return Constants.expoConfig.extra.projectId;
-      }
-
-      // 3. Constants.expoConfig.extra.eas.projectId
-      if (Constants.expoConfig?.extra?.eas?.projectId) {
-        this.debugLog('Using expoConfig.extra.eas.projectId:', Constants.expoConfig.extra.eas.projectId);
-        return Constants.expoConfig.extra.eas.projectId;
-      }
-
-      // 4. Constants.manifest
-      if (Constants.manifest?.extra?.projectId) {
-        this.debugLog('Using manifest.extra.projectId:', Constants.manifest.extra.projectId);
-        return Constants.manifest.extra.projectId;
-      }
-
-      // 5. Debug logging for troubleshooting
-      if (CONFIG.DEBUG_MODE) {
-        this.debugLog('All Constants:', {
-          expoConfig: Constants.expoConfig,
-          manifest: Constants.manifest,
-          easConfig: Constants.easConfig
-        });
-      }
-
-      // 6. Fallback value
-      const fallbackId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-      this.debugLog('Using fallback project ID:', fallbackId);
-      return fallbackId;
-    } catch (error) {
-      console.error('Error accessing Constants for project ID:', error);
-      return 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+private static getProjectId(): string {
+  try {
+    const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+    if (envProjectId) {
+      console.log('[NotificationService] Project ID from env: ', envProjectId);
+      return envProjectId;
     }
+
+    if (Constants.expoConfig?.extra?.eas?.projectId) {
+      console.log('[NotificationService] Project ID from expoConfig.extra.eas.projectId: ', Constants.expoConfig.extra.eas.projectId);
+      return Constants.expoConfig.extra.eas.projectId;
+    }
+
+    if (Constants.expoConfig?.extra?.projectId) {
+      console.log('[NotificationService] Project ID from expoConfig.extra.projectId: ', Constants.expoConfig.extra.projectId);
+      return Constants.expoConfig.extra.projectId;
+    }
+
+    // @ts-ignore manifest might be used in older classic updates
+    if (Constants.manifest?.extra?.eas?.projectId) {
+        // @ts-ignore
+        console.log('[NotificationService] Project ID from manifest.extra.eas.projectId: ', Constants.manifest.extra.eas.projectId);
+        // @ts-ignore
+        return Constants.manifest.extra.eas.projectId;
+    }
+
+    // @ts-ignore Consider manifest2 for classic updates via EAS Build
+    if (Constants.manifest2?.extra?.eas?.projectId) {
+        // @ts-ignore
+        console.log('[NotificationService] Project ID from manifest2.extra.eas.projectId: ', Constants.manifest2.extra.eas.projectId);
+        // @ts-ignore
+        return Constants.manifest2.extra.eas.projectId;
+    }
+
+    console.warn('[NotificationService] All Constants for projectId check: ', {
+        expoConfig: Constants.expoConfig,
+        // @ts-ignore
+        manifest: Constants.manifest,
+        // @ts-ignore
+        manifest2: Constants.manifest2,
+    });
+
+    const fallbackId = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68'; // Your fallback
+    console.warn('[NotificationService] WARNING: Using fallback project ID. This is LIKELY THE ISSUE! ID: ', fallbackId);
+    return fallbackId;
+  } catch (error) {
+    console.error('[NotificationService] CRITICAL ERROR accessing Constants for project ID:', error);
+    const fallbackIdOnError = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+    console.warn('[NotificationService] WARNING: Using fallback project ID due to error. This is LIKELY THE ISSUE! ID: ', fallbackIdOnError);
+    return fallbackIdOnError;
   }
+}
 
   // Improved timeout promise with retry logic
   private static async timeoutPromiseWithRetry<T>(
@@ -397,7 +404,7 @@ static async forceTokenVerification(userId: string): Promise<{
             .single(),
           CONFIG.DB_TIMEOUT,
           'verifyTokenByValue',
-          1 // CRITICAL CHANGE: Reduced retries from 3 to 1
+          3 // CRITICAL CHANGE: Reduced retries from 3 to 1
         );
 
         if (!valueError && tokenByValue) {
