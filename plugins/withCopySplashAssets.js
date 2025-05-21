@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 // Define the source paths for your splash screen assets
-const SPLASH_SCREEN_XML_SOURCE_PATH = path.join('assets', 'splash', 'drawable', 'splashscreen.xml');
-const SPLASH_IMAGE_SOURCE_PATH = path.join('assets', 'splash', 'drawable', 'splashscreen_image.png'); // Adjust extension if needed
+const SPLASH_SCREEN_XML_SOURCE_PATH = path.join('assets', 'android','res', 'drawable', 'splashscreen.xml');
+const SPLASH_IMAGE_SOURCE_PATH = path.join('assets', 'android','res', 'drawable', 'splashscreen_image.png'); // Adjust extension if needed
 
 function withCopySplashAssets(config) {
   return withDangerousMod(config, [
