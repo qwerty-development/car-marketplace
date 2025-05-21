@@ -90,46 +90,67 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     path: 'auth/callback'
   });
 
-  // CRITICAL NEW FUNCTION: Direct token registration that bypasses verification
+  const getCorrectProjectId = (): string | undefined => {
+    const easProjectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const extraProjectId = Constants.expoConfig?.extra?.projectId;
+    
+    if (easProjectId) {
+        console.log("[AUTH] Using EAS Project ID for notifications:", easProjectId);
+        return easProjectId;
+    }
+    if (extraProjectId) {
+        console.log("[AUTH] Using Extra Project ID for notifications:", extraProjectId);
+        return extraProjectId;
+    }
+    console.error("[AUTH] CRITICAL FAILURE: No Project ID found in Constants.expoConfig.extra.eas or Constants.expoConfig.extra for notifications.");
+    return undefined;
+  };
+
+
   const forceDirectTokenRegistration = async (userId: string): Promise<boolean> => {
     console.log("[AUTH] Directly forcing push token registration for user:", userId);
     
+    if (isSigningOutState) { // Check internal context state
+        console.log("[AUTH] User is signing out, skipping direct token registration.");
+        return false;
+    }
+
     try {
-      // 1. Try to get a fresh token directly from Expo
-      const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+      const projectId = getCorrectProjectId();
+      if (!projectId) {
+        console.error("[AUTH] Cannot register token: Project ID is missing.");
+        return false;
+      }
+      
       const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
       const token = tokenResponse.data;
       
       if (!token || !token.startsWith('ExponentPushToken[')) {
-        console.error("[AUTH] Invalid token format from Expo");
+        console.error("[AUTH] Invalid token format from Expo:", token);
         return false;
       }
       
       console.log("[AUTH] Got fresh token from Expo for current device");
       
-      // 2. Save the token to secure storage for this device
       await SecureStore.setItemAsync('expoPushToken', token);
       await SecureStore.setItemAsync('expoPushTokenTimestamp', Date.now().toString());
       
-      // 3. Clear any existing token for THIS DEVICE ONLY to prevent duplicates
-      // Note: This preserves tokens for the user's other devices
       try {
-        console.log("[AUTH] Clearing existing tokens for current device type only");
-        await supabase
+        console.log("[AUTH] Clearing (deactivating) existing tokens for current device type only before new registration");
+        const { error: clearError } = await supabase
           .from('user_push_tokens')
           .update({ 
             active: false,
-            signed_in: false,
+            // signed_in: false, // Keep signed_in status as is, new token will handle current session
             last_updated: new Date().toISOString()
           })
           .eq('user_id', userId)
-          .eq('device_type', Platform.OS); // Only affects current platform (iOS/Android)
+          .eq('device_type', Platform.OS);
+        if (clearError) throw clearError;
       } catch (clearError) {
-        console.warn("[AUTH] Error clearing existing tokens for current device:", clearError);
-        // Continue anyway - not critical
+        console.warn("[AUTH] Non-critical error deactivating existing tokens for current device:", clearError);
       }
       
-      // 4. Insert the new token with a direct database operation
       console.log("[AUTH] Registering new token for current device");
       const { data: insertData, error: insertError } = await supabase
         .from('user_push_tokens')
@@ -144,27 +165,24 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         .select('id');
       
       if (insertError) {
-        // Check if it's a unique constraint violation
-        if (insertError.code === '23505') {
-          console.log("[AUTH] Token already exists for this device, updating instead");
-          
-          // If token already exists, update it instead
+        if (insertError.code === '23505') { // Unique constraint violation
+          console.log("[AUTH] Token already exists for this user/device (constraint violation), attempting to update it to active/signed_in.");
           const { error: updateError } = await supabase
             .from('user_push_tokens')
             .update({
               signed_in: true,
               active: true,
-              last_updated: new Date().toISOString()
+              last_updated: new Date().toISOString(),
+              // device_type: Platform.OS, // Ensure device_type is also part of the update condition if it can change for a token
             })
             .eq('user_id', userId)
-            .eq('token', token);
+            .eq('token', token); // This should uniquely identify the row with the user
           
           if (updateError) {
-            console.error("[AUTH] Error updating existing token:", updateError);
+            console.error("[AUTH] Error updating existing token after constraint violation:", updateError);
             return false;
           }
           
-          // Get the ID of the existing token
           const { data: existingToken, error: fetchError } = await supabase
             .from('user_push_tokens')
             .select('id')
@@ -175,7 +193,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           if (!fetchError && existingToken) {
             await SecureStore.setItemAsync('expoPushTokenId', existingToken.id);
           }
-          
+          console.log("[AUTH] Successfully updated existing token.");
           return true;
         }
         
@@ -183,23 +201,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return false;
       }
       
-      // 5. Save the token ID in secure storage
       if (insertData && insertData.length > 0) {
         await SecureStore.setItemAsync('expoPushTokenId', insertData[0].id);
       }
       
-      // 6. Optionally, log the number of active devices for this user
+      // Optional: Log active devices
       try {
-        const { count } = await supabase
-          .from('user_push_tokens')
-          .select('*', { count: 'exact' })
-          .eq('user_id', userId)
-          .eq('active', true);
-        
+        const { count } = await supabase.from('user_push_tokens').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('active', true);
         console.log(`[AUTH] User now has ${count || 0} active device tokens`);
-      } catch (countError) {
-        // Non-critical, just for logging
-      }
+      } catch (countError) {/* Non-critical */}
       
       console.log("[AUTH] Token registration completed successfully for current device");
       return true;
