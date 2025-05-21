@@ -123,6 +123,8 @@
     "plugins": [
       "./plugins/withCustomProguardRules",
       "./plugins/withCustomSplashScreen",
+      "./plugins/withCopySplashAssets",
+      "./plugins/withSplashScreenColors",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
