@@ -649,7 +649,7 @@ export function useNotifications(): UseNotificationsReturn {
             // Verify token with timeout
             const verificationPromise = NotificationService.forceTokenVerification(user.id);
             const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Token verification timed out')), 5000);
+              setTimeout(() => reject(new Error('Token verification timed out')), 10000);
             });
   
             // Race verification against timeout
@@ -772,7 +772,7 @@ export function useNotifications(): UseNotificationsReturn {
               // Use a shorter timeout for verification to avoid hanging
               const verificationPromise = NotificationService.forceTokenVerification(user.id);
               const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Verification timed out')), 3000);
+                setTimeout(() => reject(new Error('Verification timed out')), 9000);
               });
               
               const verification = await Promise.race([verificationPromise, timeoutPromise])
