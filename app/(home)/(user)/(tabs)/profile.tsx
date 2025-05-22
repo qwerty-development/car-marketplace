@@ -33,6 +33,7 @@ import { coordinateSignOut } from "@/app/(home)/_layout";
 import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 import { useNavigation } from "@react-navigation/native";
+import ManualTokenRegistration from "@/components/ManualTokenRegistration";
 
 const WHATSAPP_NUMBER = "70993415";
 const SUPPORT_EMAIL = "info@notqwerty.com";
@@ -980,6 +981,8 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
             </Text>
           </TouchableOpacity>
         )}
+
+<ManualTokenRegistration />
       </ScrollView>
 
     </View>
