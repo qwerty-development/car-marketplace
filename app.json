@@ -51,6 +51,7 @@
           "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
         }
       },
+       "googleServicesFile": "./google-services.json",
       "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo-adaptive.png",

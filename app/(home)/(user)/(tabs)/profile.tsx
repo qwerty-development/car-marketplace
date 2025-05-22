@@ -982,7 +982,6 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
           </TouchableOpacity>
         )}
 
-<ManualTokenRegistration />
       </ScrollView>
 
     </View>
