@@ -22,9 +22,6 @@ import { useGuestUser } from '@/utils/GuestUserContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '@/utils/supabase';
 import Constants from "expo-constants";
-import * as SecureStore from 'expo-secure-store';
-import * as Notifications from 'expo-notifications';
-
 
 maybeCompleteAuthSession();
 
@@ -102,13 +99,13 @@ const AnimatedBlob: React.FC<BlobProps> = ({ position, size, delay, duration }) 
   );
 };
 
-// OAuth Component
+// PRODUCTION-ENHANCED OAuth Component
 const SignInWithOAuth = () => {
   const [isLoading, setIsLoading] = useState<{
     google: boolean;
     apple: boolean;
   }>({ google: false, apple: false });
-  const { googleSignIn } = useAuth();
+  const { googleSignIn, appleSignIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -121,7 +118,7 @@ const SignInWithOAuth = () => {
         const isAvailable = await AppleAuthentication.isAvailableAsync();
         setAppleAuthAvailable(isAvailable);
       } catch (error) {
-        console.log('Apple Authentication not available on this device');
+        console.log('[SIGNIN] Apple Authentication not available on this device');
         setAppleAuthAvailable(false);
       }
     };
@@ -129,128 +126,76 @@ const SignInWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
+  // PRODUCTION-ENHANCED Google Authentication
   const handleGoogleAuth = async () => {
     try {
       setIsLoading(prev => ({ ...prev, google: true }));
-  
-      // Step 1: Call googleSignIn with detailed logging
-      console.log("Initiating Google sign-in flow");
-      const result = await googleSignIn();
-      console.log("Google sign-in result:", JSON.stringify(result));
-  
-      // The navigation is now handled by the auth context and root layout
-      // The 3-second delay we added will show the LogoLoader
+      
+      console.log("[SIGNIN-GOOGLE] Initiating Google sign-in flow");
+      
+      // Use the enhanced GoogleSignIn from AuthContext
+      // This now includes production-hardened token registration
+      await googleSignIn();
+      
+      console.log("[SIGNIN-GOOGLE] Google sign-in completed successfully");
+      
+      // Navigation is handled by AuthContext and RootLayout
+      // No manual navigation needed
+      
     } catch (err) {
-      console.error("Google OAuth error:", err);
-
+      console.error("[SIGNIN-GOOGLE] Google OAuth error:", err);
+      
+      // Production error handling
+      Alert.alert(
+        "Sign In Error",
+        "Unable to sign in with Google. Please try again or use email/password.",
+        [{ text: "OK" }]
+      );
     } finally {
       setIsLoading(prev => ({ ...prev, google: false }));
     }
   };
 
-// For Apple Sign-In:
-const handleAppleAuth = async () => {
-  try {
-    setIsLoading(prev => ({ ...prev, apple: true }));
-
-    const credential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-    });
-
-    // Sign in via Supabase Auth
-    if (credential.identityToken) {
-      const { error, data } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: credential.identityToken,
-      });
-
-      if (error) {
-        throw error;
+  // PRODUCTION-ENHANCED Apple Authentication
+  // CRITICAL FIX: Removed custom token registration - now handled by AuthContext
+  const handleAppleAuth = async () => {
+    try {
+      setIsLoading(prev => ({ ...prev, apple: true }));
+      
+      console.log("[SIGNIN-APPLE] Initiating Apple sign-in flow");
+      
+      // CRITICAL CHANGE: Use the enhanced appleSignIn from AuthContext
+      // This ensures consistent token registration with the production system
+      await appleSignIn();
+      
+      console.log("[SIGNIN-APPLE] Apple sign-in completed successfully");
+      
+      // Navigation is handled by AuthContext and RootLayout
+      // No manual navigation needed
+      
+    } catch (err: any) {
+      console.error("[SIGNIN-APPLE] Apple OAuth error:", err);
+      
+      if (err.code === 'ERR_REQUEST_CANCELED') {
+        console.log('[SIGNIN-APPLE] User canceled Apple sign-in');
+        // Don't show error for user cancellation
+      } else {
+        // Production error handling
+        Alert.alert(
+          "Sign In Error",
+          "Unable to sign in with Apple. Please try again or use email/password.",
+          [{ text: "OK" }]
+        );
       }
+    } finally {
+      setIsLoading(prev => ({ ...prev, apple: false }));
+    }
+  };
 
-      // CRITICAL: Force token registration AFTER successful sign-in
-      if (data?.user) {
-        console.log("[APPLE-AUTH] Sign-in successful, registering push token");
-        
-        // Wait briefly for auth session to stabilize (important)
-        setTimeout(async () => {
-          try {
-            // THIS IS THE CRITICAL PART - Direct database operation
-            const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-            const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-            const token = tokenResponse.data;
-            
-            // 1. Save to storage
-            await SecureStore.setItemAsync('expoPushToken', token);
-            
-            // 2. Check if token exists for this user
-            const { data: existingToken } = await supabase
-              .from('user_push_tokens')
-              .select('id')
-              .eq('user_id', data.user.id)
-              .eq('token', token)
-              .maybeSingle();
-              
-            if (existingToken) {
-              // 3a. Update if exists
-              await supabase
-                .from('user_push_tokens')
-                .update({
-                  signed_in: true,
-                  active: true,
-                  last_updated: new Date().toISOString()
-                })
-                .eq('id', existingToken.id);
-                
-              console.log("[APPLE-AUTH] Updated existing token");
-            } else {
-              // 3b. Insert if doesn't exist
-              const { error: insertError } = await supabase
-                .from('user_push_tokens')
-                .insert({
-                  user_id: data.user.id,
-                  token: token,
-                  device_type: Platform.OS,
-                  signed_in: true,
-                  active: true,
-                  last_updated: new Date().toISOString()
-                });
-                
-              if (insertError) {
-                console.error("[APPLE-AUTH] Token insert error:", insertError);
-              } else {
-                console.log("[APPLE-AUTH] Inserted new token");
-              }
-            }
-          } catch (tokenError) {
-            console.error("[APPLE-AUTH] Token registration error:", tokenError);
-          }
-        }, 1000);
-      }
-    } else {
-      throw new Error('No identity token received from Apple');
-    }
-  } catch (err: any) {
-    if (err.code === 'ERR_REQUEST_CANCELED') {
-      console.log('User canceled Apple sign-in');
-    } else {
-      console.error("Apple OAuth error:", err);
-    }
-  } finally {
-    setIsLoading(prev => ({ ...prev, apple: false }));
-  }
-};
   return (
     <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
-
-
-
         {Platform.OS === 'ios' && appleAuthAvailable ? (
-
           <View style={{ width: 56, height: 56, overflow: 'hidden', borderRadius: 28 }}>
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -304,11 +249,9 @@ const handleAppleAuth = async () => {
               <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
             )}
           </TouchableOpacity>
-
-
         )}
 
-                <TouchableOpacity
+        <TouchableOpacity
           onPress={handleGoogleAuth}
           disabled={isLoading.google}
           style={{
@@ -333,7 +276,7 @@ const handleAppleAuth = async () => {
   );
 };
 
-// Main SignIn Component
+// PRODUCTION-ENHANCED Main SignIn Component
 export default function SignInPage() {
   const { signIn, isLoaded } = useAuth();
   const router = useRouter();
@@ -352,6 +295,8 @@ export default function SignInPage() {
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
+  // PRODUCTION-ENHANCED Email/Password Sign-In
+  // CRITICAL FIX: Simplified to use only the enhanced AuthContext
   const handleSubmit = useCallback(async () => {
     if (!isLoaded) {
       return;
@@ -360,82 +305,102 @@ export default function SignInPage() {
     let hasError = false;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   
+    // Clear previous errors
+    setError("");
+    setEmailError("");
+    setPasswordError("");
+  
+    // Validation
     if (!emailAddress) {
       setEmailError("Email is required");
       hasError = true;
     } else if (!emailRegex.test(emailAddress)) {
       setEmailError("Please enter a valid email address");
       hasError = true;
-    } else {
-      setEmailError("");
     }
   
     if (!password) {
       setPasswordError("Password is required");
       hasError = true;
-    } else {
-      setPasswordError("");
     }
   
     if (hasError) return;
   
     setIsLoading(true);
+    
     try {
-      // Use a manual approach instead of the signIn method from auth context
-      // This ensures we can handle errors before any navigation happens
-      const { data, error } = await supabase.auth.signInWithPassword({
+      console.log("[SIGNIN-EMAIL] Starting email/password sign-in");
+      
+      // CRITICAL CHANGE: Use ONLY the enhanced signIn from AuthContext
+      // This ensures consistent token registration with the production system
+      const { error } = await signIn({
         email: emailAddress,
         password,
       });
   
       if (error) {
-        // Handle specific error types
-        if (error.message?.toLowerCase().includes('invalid login credentials') || 
-            error.message?.toLowerCase().includes('password') ||
-            error.message?.toLowerCase().includes('incorrect')) {
+        console.error("[SIGNIN-EMAIL] Sign-in error:", error);
+        
+        // PRODUCTION-ENHANCED error handling
+        const errorMessage = error.message?.toLowerCase() || '';
+        
+        if (errorMessage.includes('invalid login credentials') || 
+            errorMessage.includes('password') ||
+            errorMessage.includes('incorrect')) {
           setPasswordError("Incorrect password. Please try again.");
-        } else if (error.message?.toLowerCase().includes('user not found') || 
-                   error.message?.toLowerCase().includes('no user') ||
-                   error.message?.toLowerCase().includes('email')) {
+        } else if (errorMessage.includes('user not found') || 
+                   errorMessage.includes('no user') ||
+                   errorMessage.includes('email')) {
           setEmailError("No account found with this email address.");
+        } else if (errorMessage.includes('too many requests')) {
+          setError("Too many sign-in attempts. Please wait a few minutes and try again.");
+        } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+          setError("Network error. Please check your connection and try again.");
         } else {
-          // General error handling
-          setError(error.message || "Sign in failed. Please try again.");
+          // Generic error with more helpful message
+          setError("Sign in failed. Please check your credentials and try again.");
         }
-        return; // Return early to prevent any navigation
+        return;
       }
-  
-      // Only if authentication is successful, use the auth context's signIn
-      // which might handle additional logic like setting up the user session
-      if (data.user) {
-        await signIn({
-          email: emailAddress,
-          password,
-        });
-        // No need to navigate - let auth context handle it
-      }
+      
+      console.log("[SIGNIN-EMAIL] Email/password sign-in completed successfully");
+      
+      // Clear form on success
+      setEmailAddress("");
+      setPassword("");
+      
+      // Navigation is handled by AuthContext and RootLayout
+      // No manual navigation needed
+      
     } catch (err) {
-      console.error("Sign in error:", JSON.stringify(err, null, 2));
+      console.error("[SIGNIN-EMAIL] Unexpected error:", err);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [isLoaded, signIn, emailAddress, password, supabase.auth]);
+  }, [isLoaded, signIn, emailAddress, password]);
 
-  // Handle guest login
+  // PRODUCTION-ENHANCED Guest Sign-In
   const handleGuestSignIn = async () => {
     setIsGuestLoading(true);
+    
     try {
-      // Set guest mode which will be detected by auth context
+      console.log("[SIGNIN-GUEST] Starting guest mode");
+      
+      // Set guest mode - AuthContext and RootLayout will handle the rest
       await setGuestMode(true);
       
-      // Let the auth routing handle navigation instead of doing it here
-      // The root layout will detect the guest mode and navigate appropriately
+      console.log("[SIGNIN-GUEST] Guest mode activated successfully");
+      
+      // Navigation is handled by AuthContext and RootLayout
+      // No manual navigation needed
+      
     } catch (err) {
-      console.error("Guest mode error:", err);
+      console.error("[SIGNIN-GUEST] Guest mode error:", err);
       Alert.alert(
         "Error",
-        "Failed to continue as guest. Please try again."
+        "Failed to continue as guest. Please try again.",
+        [{ text: "OK" }]
       );
     } finally {
       setIsGuestLoading(false);
@@ -449,7 +414,7 @@ export default function SignInPage() {
         backgroundColor: isDark ? '#000' : '#fff',
       }}
     >
-
+      {/* Animated Background Blobs */}
       <AnimatedBlob
         position={{ x: width * 0.1, y: height * 0.1 }}
         size={200}
@@ -483,6 +448,7 @@ export default function SignInPage() {
         </Text>
 
         <View style={{ marginBottom: 16, gap: 16 }}>
+          {/* Email Input */}
           <View>
             <TextInput
               style={{
@@ -493,13 +459,16 @@ export default function SignInPage() {
                 color: isDark ? '#fff' : '#000',
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: isDark ? '#374151' : '#E5E7EB',
+                borderColor: emailError ? '#D55004' : (isDark ? '#374151' : '#E5E7EB'),
               }}
               autoCapitalize="none"
               value={emailAddress}
               placeholder="Email"
               placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-              onChangeText={setEmailAddress}
+              onChangeText={(text) => {
+                setEmailAddress(text);
+                if (emailError) setEmailError(""); // Clear error on input
+              }}
               keyboardType="email-address"
               autoComplete="email"
               editable={!isLoading}
@@ -511,6 +480,7 @@ export default function SignInPage() {
             )}
           </View>
 
+          {/* Password Input */}
           <View>
             <View style={{ position: 'relative' }}>
               <TextInput
@@ -523,13 +493,16 @@ export default function SignInPage() {
                   color: isDark ? '#fff' : '#000',
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: isDark ? '#374151' : '#E5E7EB',
+                  borderColor: passwordError ? '#D55004' : (isDark ? '#374151' : '#E5E7EB'),
                 }}
                 value={password}
                 placeholder="Password"
                 placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 secureTextEntry={!showPassword}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (passwordError) setPasswordError(""); // Clear error on input
+                }}
                 autoComplete="password"
                 editable={!isLoading}
               />
@@ -557,12 +530,14 @@ export default function SignInPage() {
           </View>
         </View>
 
+        {/* General Error Display */}
         {error && (
-          <Text style={{ color: '#D55004', textAlign: 'center', marginBottom: 16 }}>
+          <Text style={{ color: '#D55004', textAlign: 'center', marginBottom: 16, fontSize: 14 }}>
             {error}
           </Text>
         )}
 
+        {/* Sign In Button */}
         <TouchableOpacity
           style={{
             backgroundColor: '#D55004',
@@ -572,6 +547,7 @@ export default function SignInPage() {
             flexDirection: 'row',
             justifyContent: 'center',
             alignItems: 'center',
+            marginBottom: 16,
           }}
           onPress={handleSubmit}
           disabled={isLoading}
@@ -585,11 +561,36 @@ export default function SignInPage() {
           )}
         </TouchableOpacity>
 
+        {/* Guest Sign In Button */}
+        <TouchableOpacity
+          onPress={handleGuestSignIn}
+          disabled={isGuestLoading || isLoading}
+          style={{
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            borderColor: '#D55004',
+            paddingVertical: 12,
+            borderRadius: 24,
+            opacity: (isGuestLoading || isLoading) ? 0.7 : 1,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 8,
+          }}
+        >
+          {isGuestLoading ? (
+            <ActivityIndicator color="#D55004" />
+          ) : (
+            <Text style={{ color: '#D55004', fontWeight: 'bold', fontSize: 16 }}>
+              Continue as Guest
+            </Text>
+          )}
+        </TouchableOpacity>
 
-
-
+        {/* OAuth Sign-In Options */}
         <SignInWithOAuth />
 
+        {/* Sign Up Link */}
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>
           <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
             Don't have an account?{' '}
@@ -601,6 +602,7 @@ export default function SignInPage() {
           </Link>
         </View>
 
+        {/* Forgot Password Link */}
         <TouchableOpacity
           onPress={() => router.push("/forgot-password")}
           style={{ marginTop: 16, alignSelf: 'center' }}
@@ -611,9 +613,15 @@ export default function SignInPage() {
         </TouchableOpacity>
       </View>
 
-<Text className="text-center text-red" style={{ fontSize: 12, }}>
-  Version {Constants.expoConfig?.version }
-</Text>
+      {/* Version Display */}
+      <Text style={{ 
+        fontSize: 12, 
+        textAlign: 'center', 
+        color: isDark ? '#6B7280' : '#9CA3AF',
+        paddingBottom: 16 
+      }}>
+        Version {Constants.expoConfig?.version}
+      </Text>
     </View>
   );
 }

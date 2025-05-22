@@ -26,61 +26,37 @@ import { TextInput } from 'react-native';
 import * as Updates from 'expo-updates';
 import StatusBarManager from '@/components/StatusBarManager'
 
-
 const { width, height } = Dimensions.get('window');
 
-// Notification handler configuration
+// PRODUCTION-ENHANCED Notification handler configuration
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
+    shouldPlaySound: true, // Changed to true for production
+    shouldSetBadge: true,   // Changed to true for production
     priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
-// Ignore specific warnings
+// Ignore specific warnings (keeping existing list)
 LogBox.ignoreLogs([
-  // Navigation warnings
   'Encountered two children with the same key',
   'Non-serializable values were found in the navigation state',
-  
-  // List warnings
   'VirtualizedLists should never be nested inside plain ScrollViews with the same orientation - use another VirtualizedList-backed container instead.',
-  
-  // Text rendering warnings
   'Text strings must be rendered within a <Text> component.',
   'Text strings must be rendered within a <Text> component',
-  
-  // Animation warnings
   'Sending `onAnimatedValueUpdate` with no listeners registered.',
   'Animated: `useNativeDriver` was not specified',
-  
-  // Shadow style warnings
   'shadowColor style may be ignored',
-  
-  // Reanimated warnings
   'Animated: `useNativeDriver` is not supported',
   'ViewPropTypes will be removed from React Native',
-  
-  // Lifecycle warnings
   'componentWillReceiveProps has been renamed',
   'componentWillMount has been renamed',
-  
-  // Deprecated API warnings
   'AsyncStorage has been extracted from react-native',
-  
-  // Network warnings 
   'Network request failed',
-  
-  // Expo warnings
   'FontAwesome Icons',
   'EventEmitter.removeListener',
-  
-  // Deep linking warnings
   'expo-linking requires a build-time setting `scheme` in your app config',
-  
-  // Performance warnings
   'Remote debugger is in a background tab',
   'Setting a timer for a long period of time'
 ])
@@ -447,7 +423,6 @@ const DeepLinkHandler = () => {
     }
   }, [isSignedIn, router]);
 
-
   useEffect(() => {
     const clearBadge = async () => {
       try {
@@ -461,153 +436,88 @@ const DeepLinkHandler = () => {
     clearBadge();
   }, []);
   
-
   return null;
 };
 
 function EnvironmentVariablesCheck() {
-  // EnvironmentVariablesCheck implementation remains the same
   return null;
 }
 
+/**
+ * PRODUCTION-ENHANCED NotificationsProvider
+ * Simplified to work with the enhanced useNotifications hook
+ */
 function NotificationsProvider() {
   const { 
     unreadCount, 
     isPermissionGranted, 
-    registerForPushNotifications, 
+    registerForPushNotifications,
+    emergencyTokenRegistration,
+    getProductionLogs,
     diagnosticInfo 
   } = useNotifications();
+  
   const { user, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
-  const [initAttempted, setInitAttempted] = useState(false);
-  const [initError, setInitError] = useState<Error | null>(null);
-  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Enhanced initialization with better error handling and staged approach
+  // PRODUCTION DEBUGGING FEATURES
   useEffect(() => {
-    const initializeNotifications = async () => {
-      if (!user?.id || isGuest || !isSignedIn || initAttempted) return;
-      
-      console.log('[NotificationsProvider] Initializing notifications for user:', user.id);
-      setInitAttempted(true);
-      
-      try {
-        // 1. First clear badge as a separate operation
+    if (!__DEV__ && user?.id) {
+      // In production, log diagnostic info periodically
+      const logDiagnostics = async () => {
         try {
-          await Notifications.setBadgeCountAsync(0);
-          console.log('[NotificationsProvider] Badge cleared successfully');
-        } catch (badgeError) {
-          console.warn('[NotificationsProvider] Non-critical: Failed to clear badge:', badgeError);
-          // Continue initialization even if badge clearing fails
-        }
-        
-        // 2. Set up notification channels for Android
-        if (Platform.OS === 'android') {
-          try {
-            await Notifications.setNotificationChannelAsync('default', {
-              name: 'Default',
-              importance: Notifications.AndroidImportance.MAX,
-              vibrationPattern: [0, 250, 250, 250],
-              lightColor: '#D55004',
-              sound: 'notification.wav',
-              enableVibrate: true,
-              enableLights: true,
-              // Added for better visibility
-              showBadge: true,
-              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC
-            });
-            console.log('[NotificationsProvider] Android notification channel configured');
-          } catch (channelError) {
-            console.warn('[NotificationsProvider] Error setting up notification channel:', channelError);
-            // Continue as this is not critical for token registration
-          }
-        }
-        
-        // 3. Request permission and register for push notifications with forced flag
-        const permissionStatus = await Notifications.getPermissionsAsync();
-        
-        if (permissionStatus.status !== 'granted') {
-          console.log('[NotificationsProvider] Requesting notification permissions');
-          const newStatus = await Notifications.requestPermissionsAsync();
+          const logs = await getProductionLogs();
+          const recentLogs = logs.slice(-10); // Last 10 logs
+          console.log('[PROD-NOTIFICATIONS] Recent diagnostic logs:', recentLogs);
           
-          if (newStatus.status !== 'granted') {
-            console.log('[NotificationsProvider] Permission denied by user');
-            return;
+          if (diagnosticInfo) {
+            console.log('[PROD-NOTIFICATIONS] Current diagnostic info:', diagnosticInfo);
           }
+        } catch (error) {
+          console.error('[PROD-NOTIFICATIONS] Error getting diagnostics:', error);
         }
-        
-        console.log('[NotificationsProvider] Registering for push notifications (forced)');
-        await registerForPushNotifications(true);
-        
-        // 4. Schedule delayed verification to ensure registration was successful
-        initTimeoutRef.current = setTimeout(async () => {
-          try {
-            // Verify token was properly registered
-            const token = await SecureStore.getItemAsync('expoPushToken');
-            
-            if (token) {
-              console.log('[NotificationsProvider] Token verification successful:', 
-                token.substring(0, 10) + '...' + token.substring(token.length - 5));
-            } else {
-              console.warn('[NotificationsProvider] No token found in storage after registration');
-              // Attempt one more registration as final recovery
-              await registerForPushNotifications(true);
-            }
-          } catch (verifyError) {
-            console.error('[NotificationsProvider] Verification error:', verifyError);
-          }
-        }, 5000);
-        
-      } catch (error) {
-        console.error('[NotificationsProvider] Error initializing notifications:', error);
-        setInitError(error instanceof Error ? error : new Error(String(error)));
-        
-        // Retry with exponential backoff
-        const retryDelay = initError ? 10000 : 5000; // Longer delay on second attempt
-        
-        // Schedule retry
-        initTimeoutRef.current = setTimeout(() => {
-          console.log('[NotificationsProvider] Retrying notification initialization');
-          setInitAttempted(false); // Reset to allow retry
-        }, retryDelay);
-      }
-    };
-    
-    initializeNotifications();
-    
-    // Cleanup
-    return () => {
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
-    };
-  }, [user?.id, isSignedIn, isGuest, registerForPushNotifications, initAttempted, initError]);
-  
-  // Enhanced foreground notification handling
+      };
+      
+      // Log diagnostics every 5 minutes in production
+      const interval = setInterval(logDiagnostics, 5 * 60 * 1000);
+      
+      // Initial log
+      logDiagnostics();
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, getProductionLogs, diagnosticInfo]);
+
+  // PRODUCTION TOKEN VERIFICATION on App State Change
   useEffect(() => {
     if (!user?.id || isGuest) return;
     
-    // Listen for app state changes to verify notification setup
     const subscription = AppState.addEventListener('change', async (nextAppState) => {
       if (nextAppState === 'active') {
-        console.log('[NotificationsProvider] App returned to foreground, verifying notifications');
+        console.log('[PROD-NOTIFICATIONS] App became active, performing token check');
         
         try {
-          // Clear badges when coming to foreground
+          // Clear badges when app becomes active
           await Notifications.setBadgeCountAsync(0);
           
           // Verify token exists locally
           const token = await SecureStore.getItemAsync('expoPushToken');
           
           if (!token) {
-            console.warn('[NotificationsProvider] No token found when returning to foreground');
-            // Retry registration if token is missing
-            registerForPushNotifications(true).catch(e => 
-              console.error('[NotificationsProvider] Foreground registration failed:', e)
-            );
+            console.warn('[PROD-NOTIFICATIONS] No token found on app activation');
+            
+            // Get production logs to understand what happened
+            const logs = await getProductionLogs();
+            const recentErrors = logs.filter(log => log.level === 'ERROR').slice(-5);
+            console.log('[PROD-NOTIFICATIONS] Recent errors:', recentErrors);
+            
+            // Trigger emergency registration if no token
+            await emergencyTokenRegistration();
+          } else {
+            console.log('[PROD-NOTIFICATIONS] Token exists on app activation');
           }
         } catch (error) {
-          console.error('[NotificationsProvider] Error handling foreground state:', error);
+          console.error('[PROD-NOTIFICATIONS] Error during app activation check:', error);
         }
       }
     });
@@ -615,16 +525,60 @@ function NotificationsProvider() {
     return () => {
       subscription.remove();
     };
-  }, [user?.id, isGuest, registerForPushNotifications]);
+  }, [user?.id, isGuest, emergencyTokenRegistration, getProductionLogs]);
 
-  // Log diagnostic information in development
+  // PRODUCTION FAILSAFE - Emergency registration if user has been signed in for a while but no token
   useEffect(() => {
-    if (__DEV__ && diagnosticInfo) {
-      console.log('[NotificationsProvider] Diagnostic info:', diagnosticInfo);
-    }
-  }, [diagnosticInfo]);
+    if (!user?.id || isGuest || !isSignedIn) return;
+    
+    const failsafeCheck = async () => {
+      try {
+        // Wait 30 seconds after sign in, then check if we have a token
+        setTimeout(async () => {
+          if (isGlobalSigningOut) return;
+          
+          const token = await SecureStore.getItemAsync('expoPushToken');
+          if (!token) {
+            console.warn('[PROD-NOTIFICATIONS] FAILSAFE: No token 30s after sign in, triggering emergency registration');
+            await emergencyTokenRegistration();
+          } else {
+            console.log('[PROD-NOTIFICATIONS] FAILSAFE: Token confirmed 30s after sign in');
+          }
+        }, 30000);
+      } catch (error) {
+        console.error('[PROD-NOTIFICATIONS] Error in failsafe check:', error);
+      }
+    };
+    
+    failsafeCheck();
+  }, [user?.id, isSignedIn, isGuest, emergencyTokenRegistration]);
 
-  // Return existing EnvironmentVariablesCheck
+  // Early Android channel setup
+  useEffect(() => {
+    if (Platform.OS === 'android' && user?.id) {
+      const setupAndroidChannel = async () => {
+        try {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'Default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#D55004',
+            sound: 'notification.wav',
+            enableVibrate: true,
+            enableLights: true,
+            showBadge: true,
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC
+          });
+          console.log('[PROD-NOTIFICATIONS] Android notification channel configured');
+        } catch (error) {
+          console.error('[PROD-NOTIFICATIONS] Error setting up Android channel:', error);
+        }
+      };
+      
+      setupAndroidChannel();
+    }
+  }, [user?.id]);
+
   return <EnvironmentVariablesCheck />;
 }
 
@@ -674,47 +628,44 @@ function RootLayoutNav() {
     prepareSplashScreen();
   }, []);
 
-
   // Handle navigation state changes - but don't navigate during sign-out
   useEffect(() => {
     if (!isLoaded || isSigningOut || isSigningIn) return;
     
     if (isEffectivelySignedIn && inAuthGroup) {
-      // Use the `any` type to bypass TypeScript strictness here
-      // This is necessary because the router path is correct but TypeScript doesn't recognize it
       (router as any).replace('/(home)');
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
     }
   }, [isLoaded, isEffectivelySignedIn, inAuthGroup, router, isSigningOut, isSigningIn]);
 
-const handleSplashComplete = useCallback(() => {
-  // Mark splash animation as complete
-  setSplashAnimationComplete(true);
-  
-  // Start the curtain animation
-  Animated.sequence([
-    // First make sure content under the curtain is visible but with 0 opacity
-    Animated.timing(contentOpacity, {
-      toValue: 1,
-      duration: 0,
-      useNativeDriver: true,
-    }),
-    // Then slide the curtain out to reveal content underneath
-    Animated.timing(curtainPosition, {
-      toValue: -width,
-      duration: 600,
-      useNativeDriver: true,
-    })
-  ]).start(async () => {
-    // When animation completes, hide the native splash screen
-    try {
-      await SplashScreen.hideAsync();
-    } catch (e) {
-      // Already hidden, ignore error
-    }
-  });
-}, [curtainPosition, contentOpacity]);
+  const handleSplashComplete = useCallback(() => {
+    // Mark splash animation as complete
+    setSplashAnimationComplete(true);
+    
+    // Start the curtain animation
+    Animated.sequence([
+      // First make sure content under the curtain is visible but with 0 opacity
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 0,
+        useNativeDriver: true,
+      }),
+      // Then slide the curtain out to reveal content underneath
+      Animated.timing(curtainPosition, {
+        toValue: -width,
+        duration: 600,
+        useNativeDriver: true,
+      })
+    ]).start(async () => {
+      // When animation completes, hide the native splash screen
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        // Already hidden, ignore error
+      }
+    });
+  }, [curtainPosition, contentOpacity]);
 
   // Show loader during authentication transitions
   if (!isLoaded || isSigningOut || isSigningIn) {
@@ -737,17 +688,17 @@ const handleSplashComplete = useCallback(() => {
       {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
       ) : (
-<Animated.View
-  style={[
-    styles.curtain,
-    { 
-      backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-      transform: [{ translateX: curtainPosition }] 
-    }
-  ]}
->
-  {/* This is an empty view that slides out, revealing content underneath */}
-</Animated.View>
+        <Animated.View
+          style={[
+            styles.curtain,
+            { 
+              backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+              transform: [{ translateX: curtainPosition }] 
+            }
+          ]}
+        >
+          {/* This is an empty view that slides out, revealing content underneath */}
+        </Animated.View>
       )}
     </View>
   );
@@ -760,7 +711,7 @@ const styles = StyleSheet.create({
   },
   curtain: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'white', // or whatever color your splash screen ends with
+    backgroundColor: 'white',
     zIndex: 2,
   }
 });
@@ -778,37 +729,52 @@ function ErrorFallback({ error, resetError }: any) {
 }
 
 export default function RootLayout() {
-// Update this inside the first useEffect in RootLayout
-useEffect(() => {
-  const prepareSplashScreen = async () => {
-    try {
-      // Keep native splash screen visible while custom splash loads
-      await SplashScreen.preventAutoHideAsync();
-      
-      // Configure notifications early
+  // PRODUCTION-ENHANCED splash screen setup
+  useEffect(() => {
+    const prepareSplashScreen = async () => {
       try {
-        // Ensure permissions are pre-checked to speed up later operations
-        const permissionStatus = await Notifications.getPermissionsAsync();
-        console.log('Initial notification permission status:', permissionStatus.status);
-      } catch (notifError) {
-        console.warn('Non-critical: Failed to check notification permissions:', notifError);
+        // Keep native splash screen visible while custom splash loads
+        await SplashScreen.preventAutoHideAsync();
+        
+        // PRODUCTION: Pre-configure notifications early for faster registration
+        try {
+          const permissionStatus = await Notifications.getPermissionsAsync();
+          console.log('[PROD-NOTIFICATIONS] Initial permission status:', permissionStatus.status);
+          
+          // Pre-setup Android channel if Android
+          if (Platform.OS === 'android') {
+            await Notifications.setNotificationChannelAsync('default', {
+              name: 'Default',
+              importance: Notifications.AndroidImportance.MAX,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: '#D55004',
+              sound: 'notification.wav',
+              enableVibrate: true,
+              enableLights: true,
+              showBadge: true,
+              lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC
+            });
+            console.log('[PROD-NOTIFICATIONS] Pre-configured Android channel');
+          }
+        } catch (notifError) {
+          console.warn('[PROD-NOTIFICATIONS] Non-critical setup error:', notifError);
+        }
+        
+        // On Android, set a timeout to force hide if something goes wrong
+        if (Platform.OS === 'android') {
+          setTimeout(() => {
+            SplashScreen.hideAsync().catch(() => {
+              // Silent catch in case it's already hidden
+            });
+          }, 3000);
+        }
+      } catch (e) {
+        console.warn('Error setting up splash screen:', e);
       }
-      
-      // On Android, set a timeout to force hide if something goes wrong
-      if (Platform.OS === 'android') {
-        setTimeout(() => {
-          SplashScreen.hideAsync().catch(() => {
-            // Silent catch in case it's already hidden
-          });
-        }, 3000); // Failsafe timeout
-      }
-    } catch (e) {
-      console.warn('Error setting up splash screen:', e);
-    }
-  };
-  
-  prepareSplashScreen();
-}, []);
+    };
+    
+    prepareSplashScreen();
+  }, []);
 
   useEffect(() => {
     if (Text.defaultProps == null) Text.defaultProps = {};
@@ -818,20 +784,19 @@ useEffect(() => {
     TextInput.defaultProps.allowFontScaling = false;
   }, []);
 
-  // Add this inside the export default function RootLayout()
-useEffect(() => {
   // Clear badge count on every app launch
-  const resetBadgeCount = async () => {
-    try {
-      await Notifications.setBadgeCountAsync(0);
-      console.log('Badge count reset on app launch');
-    } catch (error) {
-      console.error('Failed to reset badge count:', error);
-    }
-  };
-  
-  resetBadgeCount();
-}, []);
+  useEffect(() => {
+    const resetBadgeCount = async () => {
+      try {
+        await Notifications.setBadgeCountAsync(0);
+        console.log('[PROD-NOTIFICATIONS] Badge count reset on app launch');
+      } catch (error) {
+        console.error('[PROD-NOTIFICATIONS] Failed to reset badge count:', error);
+      }
+    };
+    
+    resetBadgeCount();
+  }, []);
 
   // Check for OTA updates when the app starts
   useEffect(() => {
@@ -840,10 +805,8 @@ useEffect(() => {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
           console.log('Update available, downloading...');
-          // Download the update
           const result = await Updates.fetchUpdateAsync();
           
-          // If successful, reload the app to apply the update
           if (result.isNew) {
             Alert.alert(
               'Update Available',
@@ -862,12 +825,10 @@ useEffect(() => {
           console.log('No updates available');
         }
       } catch (error) {
-        // Handle error but don't crash the app
         console.error('Error checking for updates:', error);
       }
     };
 
-    // Check for updates when the app starts
     checkForUpdates();
   }, []);
 
@@ -880,7 +841,7 @@ useEffect(() => {
               <DeepLinkHandler />
               <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
-                <StatusBarManager /> 
+                  <StatusBarManager /> 
                   <FavoritesProvider>
                     <NotificationsProvider />
                     <RootLayoutNav />
