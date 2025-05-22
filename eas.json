@@ -13,17 +13,23 @@
       "android": {
         "buildType": "app-bundle", 
         "gradleCommand": ":app:bundleRelease"
-
-      }
+      },
+      "ios": {}
     },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+      }
     },
     "production": {
       "autoIncrement": true,

@@ -193,50 +193,221 @@ export default function ManualTokenRegistration() {
       const projectId = getProjectIdWithLogging();
       const experienceId = getExperienceIdWithLogging();
 
-      // Step 5: Attempt token acquisition with multiple strategies
-      addLog('INFO', 'Step 5: Attempting token acquisition...');
-      let token: string | null = null;
-      let tokenMethod = '';
+// Replace the token acquisition section (Step 5) in your ManualTokenRegistration component
 
-      // Strategy 1: Both projectId and experienceId
+// Step 5: Enhanced token acquisition with detailed error logging
+addLog('INFO', 'Step 5: Attempting token acquisition with enhanced error capture...');
+let token: string | null = null;
+let tokenMethod = '';
+let allErrors: any[] = [];
+
+// Strategy 1: Both projectId and experienceId
+try {
+  addLog('INFO', 'Strategy 1: Trying with both projectId and experienceId');
+  addLog('INFO', 'Strategy 1 Parameters', { projectId, experienceId });
+  
+  const response = await Notifications.getExpoPushTokenAsync({
+    projectId: projectId,
+    experienceId: experienceId,
+  });
+  
+  token = response.data;
+  tokenMethod = 'projectId + experienceId';
+  addLog('SUCCESS', `Token acquired via Strategy 1: ${token.substring(0, 20)}...`);
+} catch (error) {
+  allErrors.push({ strategy: 1, error });
+  addLog('ERROR', 'Strategy 1 DETAILED ERROR', {
+    message: error.message,
+    stack: error.stack,
+    code: error.code,
+    name: error.name,
+    cause: error.cause,
+    fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+  });
+
+  // Strategy 2: Only projectId
+  try {
+    addLog('INFO', 'Strategy 2: Trying with projectId only');
+    addLog('INFO', 'Strategy 2 Parameters', { projectId });
+    
+    const response = await Notifications.getExpoPushTokenAsync({
+      projectId: projectId,
+    });
+    
+    token = response.data;
+    tokenMethod = 'projectId only';
+    addLog('SUCCESS', `Token acquired via Strategy 2: ${token.substring(0, 20)}...`);
+  } catch (error2) {
+    allErrors.push({ strategy: 2, error: error2 });
+    addLog('ERROR', 'Strategy 2 DETAILED ERROR', {
+      message: error2.message,
+      stack: error2.stack,
+      code: error2.code,
+      name: error2.name,
+      cause: error2.cause,
+      fullError: JSON.stringify(error2, Object.getOwnPropertyNames(error2))
+    });
+
+    // Strategy 3: Only experienceId
+    try {
+      addLog('INFO', 'Strategy 3: Trying with experienceId only');
+      addLog('INFO', 'Strategy 3 Parameters', { experienceId });
+      
+      const response = await Notifications.getExpoPushTokenAsync({
+        experienceId: experienceId,
+      });
+      
+      token = response.data;
+      tokenMethod = 'experienceId only';
+      addLog('SUCCESS', `Token acquired via Strategy 3: ${token.substring(0, 20)}...`);
+    } catch (error3) {
+      allErrors.push({ strategy: 3, error: error3 });
+      addLog('ERROR', 'Strategy 3 DETAILED ERROR', {
+        message: error3.message,
+        stack: error3.stack,
+        code: error3.code,
+        name: error3.name,
+        cause: error3.cause,
+        fullError: JSON.stringify(error3, Object.getOwnPropertyNames(error3))
+      });
+
+      // Strategy 4: Emergency fallback with no parameters
       try {
-        addLog('INFO', 'Strategy 1: Trying with both projectId and experienceId');
-        const response = await Notifications.getExpoPushTokenAsync({
-          projectId: projectId,
-
-        });
+        addLog('INFO', 'Strategy 4: Emergency fallback with no parameters');
+        
+        const response = await Notifications.getExpoPushTokenAsync({});
+        
         token = response.data;
-        tokenMethod = 'projectId + experienceId';
-        addLog('SUCCESS', `Token acquired via Strategy 1: ${token.substring(0, 20)}...`);
-      } catch (error) {
-        addLog('ERROR', 'Strategy 1 failed', error);
+        tokenMethod = 'no parameters (emergency)';
+        addLog('SUCCESS', `Token acquired via Strategy 4: ${token.substring(0, 20)}...`);
+      } catch (error4) {
+        allErrors.push({ strategy: 4, error: error4 });
+        addLog('ERROR', 'Strategy 4 DETAILED ERROR', {
+          message: error4.message,
+          stack: error4.stack,
+          code: error4.code,
+          name: error4.name,
+          cause: error4.cause,
+          fullError: JSON.stringify(error4, Object.getOwnPropertyNames(error4))
+        });
 
-        // Strategy 2: Only projectId
-        try {
-          addLog('INFO', 'Strategy 2: Trying with projectId only');
-          const response = await Notifications.getExpoPushTokenAsync({
-            projectId: projectId,
-          });
-          token = response.data;
-          tokenMethod = 'projectId only';
-          addLog('SUCCESS', `Token acquired via Strategy 2: ${token.substring(0, 20)}...`);
-        } catch (error2) {
-          addLog('ERROR', 'Strategy 2 failed', error2);
-
-          // Strategy 3: Only experienceId
-          try {
-            addLog('INFO', 'Strategy 3: Trying with experienceId only');
-            const response = await Notifications.getExpoPushTokenAsync({
-            });
-            token = response.data;
-            tokenMethod = 'experienceId only';
-            addLog('SUCCESS', `Token acquired via Strategy 3: ${token.substring(0, 20)}...`);
-          } catch (error3) {
-            addLog('ERROR', 'Strategy 3 failed', error3);
-            throw new Error('All token acquisition strategies failed');
+        // Log comprehensive failure analysis
+        addLog('ERROR', 'ALL STRATEGIES FAILED - COMPREHENSIVE ERROR ANALYSIS', {
+          totalStrategies: allErrors.length,
+          errors: allErrors,
+          configuration: {
+            projectId,
+            experienceId,
+            platform: Platform.OS,
+            deviceInfo: {
+              isDevice: Device.isDevice,
+              brand: Device.brand,
+              modelName: Device.modelName,
+              osName: Device.osName,
+              osVersion: Device.osVersion
+            },
+            constants: {
+              expoConfig: Constants.expoConfig ? 'Present' : 'Missing',
+              manifest: Constants.manifest ? 'Present' : 'Missing',
+              appOwnership: Constants.appOwnership,
+              executionEnvironment: Constants.executionEnvironment,
+              experienceUrl: Constants.experienceUrl,
+              linkingUrl: Constants.linkingUrl
+            }
           }
+        });
+
+        throw new Error(`All token acquisition strategies failed. Check detailed error logs above.`);
+      }
+    }
+  }
+}
+
+try {
+    addLog('INFO', 'Strategy 5: Direct Expo API call (Nuclear Option)');
+    
+    // Method 1: Use SDK 51+ syntax
+    const response = await Notifications.getExpoPushTokenAsync();
+    token = response.data;
+    tokenMethod = 'SDK 51+ default';
+    addLog('SUCCESS', `Token acquired via Strategy 5a: ${token.substring(0, 20)}...`);
+  } catch (error5a) {
+    allErrors.push({ strategy: '5a', error: error5a });
+    addLog('ERROR', 'Strategy 5a FAILED', error5a);
+    
+    try {
+      // Method 2: Legacy SDK syntax
+      addLog('INFO', 'Strategy 5b: Legacy SDK syntax');
+      
+      const response = await Notifications.getExpoPushTokenAsync({
+        experienceId: '@qwerty-app/clerk-expo-quickstart',
+      });
+      token = response.data;
+      tokenMethod = 'Legacy SDK with hardcoded experienceId';
+      addLog('SUCCESS', `Token acquired via Strategy 5b: ${token.substring(0, 20)}...`);
+    } catch (error5b) {
+      allErrors.push({ strategy: '5b', error: error5b });
+      addLog('ERROR', 'Strategy 5b FAILED', error5b);
+      
+      try {
+        // Method 3: Direct API call bypassing Expo SDK
+        addLog('INFO', 'Strategy 5c: Direct API bypass');
+        
+        const directApiUrl = 'https://exp.host/--/api/v2/push/getExpoPushToken';
+        const requestBody = {
+          experienceId: '@qwerty-app/clerk-expo-quickstart',
+          deviceId: Device.osName + '_' + Device.modelName,
+          development: false
+        };
+        
+        addLog('INFO', 'Making direct API call', { url: directApiUrl, body: requestBody });
+        
+        const apiResponse = await fetch(directApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Expo/1.0.0'
+          },
+          body: JSON.stringify(requestBody)
+        });
+        
+        const apiData = await apiResponse.json();
+        addLog('INFO', 'Direct API response', apiData);
+        
+        if (apiData.data && apiData.data.expoPushToken) {
+          token = apiData.data.expoPushToken;
+          tokenMethod = 'Direct API bypass';
+          addLog('SUCCESS', `Token acquired via Strategy 5c: ${token.substring(0, 20)}...`);
+        } else {
+          throw new Error('Invalid response from direct API call');
+        }
+      } catch (error5c) {
+        allErrors.push({ strategy: '5c', error: error5c });
+        addLog('ERROR', 'Strategy 5c FAILED', error5c);
+        
+        // Final strategy: Generate pseudo-token for testing
+        try {
+          addLog('INFO', 'Strategy 6: Generate test token for debugging purposes');
+          
+          // This is NOT a real token but allows us to test the database insertion process
+          const pseudoToken = `ExponentPushToken[TEST_${Date.now()}_${user.id.substring(0, 8)}]`;
+          
+          addLog('WARNING', `Generated pseudo-token for testing: ${pseudoToken}`);
+          addLog('WARNING', 'THIS IS NOT A REAL TOKEN - FOR DEBUGGING ONLY');
+          
+          token = pseudoToken;
+          tokenMethod = 'Pseudo-token for debugging';
+          
+          // Add special marker to logs
+          addLog('ERROR', 'CRITICAL: Using pseudo-token. Real notifications will NOT work!');
+          
+        } catch (error6) {
+          addLog('ERROR', 'Even pseudo-token generation failed', error6);
+          throw new Error('All strategies including emergency fallbacks failed');
         }
       }
+    }
+  }
 
       if (!token) {
         throw new Error('No token received from any strategy');

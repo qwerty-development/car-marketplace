@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
@@ -147,7 +147,9 @@
           "icon": "./assets/images/logo.png",
           "color": "#D55004",
           "sounds": ["./assets/sounds/notification.wav"],
-          "mode": "production"
+          "mode": "production",
+          "developmentId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
+          "productionId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
         }
       ]
     ],
@@ -162,7 +164,6 @@
       "eas": {
         "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
       }
-
     },
     "runtimeVersion": "1.0.0",
     "updates": {
