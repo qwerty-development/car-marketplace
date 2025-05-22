@@ -165,21 +165,70 @@ const forceDirectTokenRegistration = async (userId: string): Promise<boolean> =>
           throw new Error("Failed to resolve project ID");
       }
       
-      // 2. Get push token with multiple attempts
+      // 2. Get experience ID for production compatibility  
+      const getExperienceId = (): string => {
+          try {
+              // Method 1: From owner and slug
+              const owner = Constants.expoConfig?.owner || Constants.manifest?.owner;
+              const slug = Constants.expoConfig?.slug || Constants.manifest?.slug;
+              
+              if (owner && slug) {
+                  const experienceId = `@${owner}/${slug}`;
+                  console.log(`[AUTH] Built experience ID from owner/slug: ${experienceId}`);
+                  return experienceId;
+              }
+
+              // Method 2: From app config
+              // @ts-ignore
+              const directExperienceId = Constants.expoConfig?.experienceId || Constants.manifest?.experienceId;
+              if (directExperienceId) {
+                  console.log(`[AUTH] Using direct experience ID: ${directExperienceId}`);
+                  return directExperienceId;
+              }
+
+              // Fallback: construct from known values
+              const fallbackExperienceId = '@qwerty-app/clerk-expo-quickstart';
+              console.log(`[AUTH] Using fallback experience ID: ${fallbackExperienceId}`);
+              return fallbackExperienceId;
+          } catch (error) {
+              console.log('[AUTH] Error resolving experience ID:', error);
+              return '@qwerty-app/clerk-expo-quickstart';
+          }
+      };
+
+      const experienceId = getExperienceId();
+      
+      // 3. Get push token with multiple strategies
       let tokenResponse = null;
       let tokenError = null;
       
       for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-          // Around line 154 inside forceDirectTokenRegistration
-console.log(`[AUTH] Attempting to get push token (attempt ${attempt}/3) using projectId: ${projectId}`);
-// Ensure Constants.expoConfig properties are logged if still needed for debugging other parts, but not used for experienceId here.
-if (!(Constants.expoConfig?.owner && Constants.expoConfig?.slug)) {
-    console.warn(`[AUTH] Constants.expoConfig.owner ('<span class="math-inline">\{Constants\.expoConfig?\.owner\}'\) or \.slug \('</span>{Constants.expoConfig?.slug}') is not available.`);
-}
-tokenResponse = await Notifications.getExpoPushTokenAsync({
-    projectId
-});
+              console.log(`[AUTH] Token acquisition attempt ${attempt}/3`);
+              console.log(`[AUTH] Using projectId: ${projectId}, experienceId: ${experienceId}`);
+              
+              // Strategy 1: Try with both projectId and experienceId (recommended for production)
+              if (attempt === 1) {
+                  tokenResponse = await Notifications.getExpoPushTokenAsync({
+                      projectId: projectId,
+                   
+                  });
+              }
+              // Strategy 2: Try with just projectId  
+              else if (attempt === 2) {
+                  console.log('[AUTH] Fallback: Trying with projectId only');
+                  tokenResponse = await Notifications.getExpoPushTokenAsync({
+                      projectId: projectId,
+                  });
+              }
+              // Strategy 3: Try with just experienceId
+              else {
+                  console.log('[AUTH] Final fallback: Trying with experienceId only');
+                  tokenResponse = await Notifications.getExpoPushTokenAsync({
+                     projectId: projectId,
+                  });
+              }
+              
               if (tokenResponse && tokenResponse.data) break;
               await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
           } catch (error) {
@@ -195,7 +244,7 @@ tokenResponse = await Notifications.getExpoPushTokenAsync({
       
       const token = tokenResponse.data;
       
-      // 3. Validate token format
+      // 4. Validate token format
       const validExpoTokenFormat = /^ExponentPushToken\[.+\]$/;
       if (!validExpoTokenFormat.test(token)) {
           console.error("[AUTH] Invalid token format from Expo:", token);
@@ -204,7 +253,7 @@ tokenResponse = await Notifications.getExpoPushTokenAsync({
       
       console.log("[AUTH] Successfully obtained token from Expo");
       
-      // 4. Save token to secure storage immediately (critical for reliability)
+      // 5. Save token to secure storage immediately (critical for reliability)
       try {
           await SecureStore.setItemAsync('expoPushToken', token);
           await SecureStore.setItemAsync('expoPushTokenTimestamp', Date.now().toString());
@@ -214,7 +263,7 @@ tokenResponse = await Notifications.getExpoPushTokenAsync({
           // Continue with DB operations even if storage fails
       }
       
-      // 5. Clean up existing tokens for this device to prevent duplicates
+      // 6. Clean up existing tokens for this device to prevent duplicates
       try {
           const { error: clearError } = await supabase
               .from('user_push_tokens')
@@ -236,7 +285,7 @@ tokenResponse = await Notifications.getExpoPushTokenAsync({
           // Continue despite error - non-critical
       }
       
-      // 6. Register new token with retry logic
+      // 7. Register new token with retry logic
       let insertSuccess = false;
       let updateSuccess = false;
       
@@ -315,7 +364,7 @@ tokenResponse = await Notifications.getExpoPushTokenAsync({
           }
       }
       
-      // 7. Final verification
+      // 8. Final verification
       const success = insertSuccess || updateSuccess;
       
       if (success) {
