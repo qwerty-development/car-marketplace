@@ -18,7 +18,7 @@
     "androidStatusBar": {
       "backgroundColor": "#00000000",
       "translucent": true,
-      "barStyle": "light-content", 
+      "barStyle": "light-content",
       "hidden": false
     },
     "splash": {
@@ -30,19 +30,44 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart",
-      "associatedDomains": ["applinks:fleetapp.me", "applinks:www.fleetapp.me"],
+      "associatedDomains": [
+        "applinks:fleetapp.me",
+        "applinks:www.fleetapp.me",
+        "applinks:fleetapp.me",
+        "applinks:www.fleetapp.me"
+      ],
       "config": {
         "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification",
+          "remote-notification"
+        ],
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
-        "LSApplicationQueriesSchemes": ["whatsapp", "comgooglemaps", "googlechromes"],
+        "LSApplicationQueriesSchemes": [
+          "whatsapp",
+          "comgooglemaps",
+          "googlechromes",
+          "whatsapp",
+          "comgooglemaps",
+          "googlechromes"
+        ],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart", "fleet"]
+            "CFBundleURLSchemes": [
+              "com.qwertyapp.clerkexpoquickstart",
+              "fleet"
+            ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.qwertyapp.clerkexpoquickstart",
+              "fleet"
+            ]
           }
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -51,7 +76,7 @@
           "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
         }
       },
-       "googleServicesFile": "./google-services.json",
+      "googleServicesFile": "./google-services.json",
       "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo-adaptive.png",
@@ -73,8 +98,8 @@
         "android.permission.VIBRATE",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.POST_NOTIFICATIONS",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "intentFilters": [
         {
@@ -112,7 +137,10 @@
               "pathPrefix": "/clips"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -147,7 +175,9 @@
         {
           "icon": "./assets/images/logo.png",
           "color": "#D55004",
-          "sounds": ["./assets/sounds/notification.wav"],
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ],
           "mode": "production",
           "developmentId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
           "productionId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
@@ -171,6 +201,9 @@
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },
     "owner": "qwerty-app",
-    "deepLinks": ["https://www.fleetapp.me", "fleet://"]
+    "deepLinks": [
+      "https://www.fleetapp.me",
+      "fleet://"
+    ]
   }
 }
