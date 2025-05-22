@@ -220,78 +220,45 @@ export class NotificationService {
     }
   }
 
-// Replace the existing getProjectId method with this improved version
-private static getProjectId(): string {
-  try {
-    // Set expected project ID for production builds - UPDATE THIS VALUE with your actual production project ID
-    const PRODUCTION_PROJECT_ID = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-    
-    // Try environment variable first (most reliable)
-    const envProjectId = process.env.EXPO_PUBLIC_PROJECT_ID;
-    if (envProjectId) {
-      console.log('[NotificationService] Using project ID from env variable:', envProjectId);
-      return envProjectId;
-    }
-    
-    // Next check Constants paths in order of reliability
-    if (Constants.expoConfig?.extra?.eas?.projectId) {
-      console.log('[NotificationService] Using project ID from expoConfig.extra.eas.projectId:', 
-                  Constants.expoConfig.extra.eas.projectId);
-      return Constants.expoConfig.extra.eas.projectId;
-    }
-    
-    if (Constants.expoConfig?.extra?.projectId) {
-      console.log('[NotificationService] Using project ID from expoConfig.extra.projectId:', 
-                  Constants.expoConfig.extra.projectId);
-      return Constants.expoConfig.extra.projectId;
-    }
-    
-    // Legacy checks (less reliable but kept for compatibility)
-    // @ts-ignore - manifest might be used in older builds
-    if (Constants.manifest?.extra?.eas?.projectId) {
-      console.log('[NotificationService] Using project ID from manifest.extra.eas.projectId:', 
-                  // @ts-ignore
-                  Constants.manifest.extra.eas.projectId);
-      // @ts-ignore
-      return Constants.manifest.extra.eas.projectId;
-    }
-    
-    // @ts-ignore
-    if (Constants.manifest2?.extra?.eas?.projectId) {
-      console.log('[NotificationService] Using project ID from manifest2.extra.eas.projectId:', 
-                  // @ts-ignore
-                  Constants.manifest2.extra.eas.projectId);
-      // @ts-ignore
-      return Constants.manifest2.extra.eas.projectId;
-    }
 
-    // Comprehensive logging before fallback
-    console.warn('[NotificationService] Failed to find project ID from standard sources. Diagnostic info:', {
-      env: process.env.EXPO_PUBLIC_PROJECT_ID ? 'Available' : 'Missing',
-      expoConfig: Constants.expoConfig ? 'Available' : 'Missing',
-      // @ts-ignore
-      manifest: Constants.manifest ? 'Available' : 'Missing',
-      // @ts-ignore
-      manifest2: Constants.manifest2 ? 'Available' : 'Missing',
-      buildType: __DEV__ ? 'Development' : 'Production'
-    });
-    
-    // In production, use the fixed PRODUCTION_PROJECT_ID
-    if (!__DEV__) {
-      console.log('[NotificationService] Using fixed PRODUCTION_PROJECT_ID:', PRODUCTION_PROJECT_ID);
-      return PRODUCTION_PROJECT_ID;
-    }
-    
-    // Only in development, use fallback
-    console.warn('[NotificationService] Using fallback project ID in development only:', PRODUCTION_PROJECT_ID);
-    return PRODUCTION_PROJECT_ID;
-  } catch (error) {
-    console.error('[NotificationService] CRITICAL ERROR accessing Constants for project ID:', error);
-    // In production, this is the last resort, should match PRODUCTION_PROJECT_ID above
-    const fallbackIdOnError = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-    console.warn('[NotificationService] Using emergency fallback project ID:', fallbackIdOnError);
-    return fallbackIdOnError;
+private static getProjectId(): string {
+  const easProjectIdFromConstants = Constants.expoConfig?.extra?.eas?.projectId;
+
+  // !!! This is your last line of defense if Constants don't provide it. !!!
+  const YOUR_PROJECT_ID_FALLBACK = 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+
+  let projectIdToUse: string | undefined = easProjectIdFromConstants;
+  let source = "Constants.expoConfig.extra.eas.projectId";
+
+  if (!projectIdToUse) {
+      // Fallback if not found in constants (e.g., older Expo SDK or misconfiguration)
+      // Try EXPO_PUBLIC_PROJECT_ID environment variable
+      projectIdToUse = process.env.EXPO_PUBLIC_PROJECT_ID;
+      source = "process.env.EXPO_PUBLIC_PROJECT_ID";
   }
+
+  if (projectIdToUse) {
+      this.debugLog(`Using project ID from ${source}: ${projectIdToUse}`);
+      return projectIdToUse;
+  }
+  
+  // If still no project ID, use the hardcoded fallback
+  this.debugLog(`Project ID not found via Constants or env var. Using hardcoded fallback: ${YOUR_PROJECT_ID_FALLBACK}. ENSURE THIS IS CORRECT.`);
+  
+  // Safety check for the placeholder value - MAKE SURE YOU REPLACE IT!
+  if (YOUR_PROJECT_ID_FALLBACK === 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68' || YOUR_PROJECT_ID_FALLBACK === 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68' /* If this specific ID is a placeholder from an example and not yours */) {
+      const errorMessage = "[NotificationService] CRITICAL ERROR: The fallback project ID is still a placeholder or the default example. You MUST set YOUR_PROJECT_ID_FALLBACK to your actual EAS Project ID in NotificationService.ts.";
+      console.error(errorMessage);
+      // Optionally, throw an error in development to make this unmissable
+      if (__DEV__) {
+          // alert(errorMessage); // This can be very annoying during development but effective
+          // throw new Error(errorMessage);
+      }
+      // Return the potentially incorrect ID, but it will likely cause token acquisition to fail.
+      // Or, return a clearly invalid string to make the failure more obvious:
+      // return "INVALID_PROJECT_ID_NOT_SET";
+  }
+  return YOUR_PROJECT_ID_FALLBACK;
 }
 
   // Improved timeout promise with retry logic
