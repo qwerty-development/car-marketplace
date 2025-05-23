@@ -32,8 +32,6 @@
       "bundleIdentifier": "com.qwertyapp.clerkexpoquickstart",
       "associatedDomains": [
         "applinks:fleetapp.me",
-        "applinks:www.fleetapp.me",
-        "applinks:fleetapp.me",
         "applinks:www.fleetapp.me"
       ],
       "config": {
@@ -41,25 +39,15 @@
       },
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ],
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
         "LSApplicationQueriesSchemes": [
           "whatsapp",
           "comgooglemaps",
-          "googlechromes",
-          "whatsapp",
-          "comgooglemaps",
           "googlechromes"
         ],
         "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "com.qwertyapp.clerkexpoquickstart",
-              "fleet"
-            ]
-          },
           {
             "CFBundleURLSchemes": [
               "com.qwertyapp.clerkexpoquickstart",
