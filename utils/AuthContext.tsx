@@ -272,120 +272,100 @@ const forceDirectTokenRegistration = async (userId: string): Promise<boolean> =>
                   last_updated: new Date().toISOString()
               })
               .eq('user_id', userId)
-              .eq('device_type', Platform.OS)
-              .neq('token', token); // Don't deactivate the current token
+              .eq('device_type', Platform.OS);
               
           if (clearError) {
               console.warn("[AUTH] Error deactivating existing tokens:", clearError);
               // Continue despite error - non-critical
           } else {
-              console.log("[AUTH] Successfully deactivated old tokens for this user on this device");
+              console.log("[AUTH] Successfully deactivated old tokens for this device");
           }
       } catch (clearError) {
           console.warn("[AUTH] Error during token cleanup:", clearError);
           // Continue despite error - non-critical
       }
       
-      // 7. Register new token with retry logic using upsert
-      let registrationSuccess = false;
+      // 7. Register new token with retry logic
+      let insertSuccess = false;
+      let updateSuccess = false;
       
+      // First try insertion
       try {
-          console.log("[AUTH] Attempting to upsert token with composite key");
-          const tokenData = {
-              user_id: userId,
-              token: token,
-              device_type: Platform.OS,
-              last_updated: new Date().toISOString(),
-              signed_in: true,
-              active: true
-          };
-          
-          // Use upsert to handle both insert and update cases
-          const { data: upsertData, error: upsertError } = await supabase
+          console.log("[AUTH] Attempting to insert new token");
+          const { data: insertData, error: insertError } = await supabase
               .from('user_push_tokens')
-              .upsert(tokenData, {
-                  onConflict: 'user_id,token', // Composite unique constraint
-                  ignoreDuplicates: false
+              .insert({
+                  user_id: userId,
+                  token: token,
+                  device_type: Platform.OS,
+                  last_updated: new Date().toISOString(),
+                  signed_in: true,
+                  active: true
               })
               .select('id');
           
-          if (upsertError) {
-              console.error("[AUTH] Error during upsert:", upsertError);
-              
-              // Fallback to traditional insert/update if upsert fails
-              // First check if this user-token combination exists
-              const { data: existingToken, error: checkError } = await supabase
+          if (insertError) {
+              // Check for unique constraint violation
+              if (insertError.code === '23505') {
+                  console.log("[AUTH] Token already exists (constraint violation)");
+              } else {
+                  console.error("[AUTH] Error inserting token:", insertError);
+              }
+          } else if (insertData && insertData.length > 0) {
+              console.log("[AUTH] Token inserted successfully with ID:", insertData[0].id);
+              await SecureStore.setItemAsync('expoPushTokenId', insertData[0].id);
+              insertSuccess = true;
+          }
+      } catch (insertError) {
+          console.error("[AUTH] Exception during token insertion:", insertError);
+      }
+      
+      // If insertion failed, try update
+      if (!insertSuccess) {
+          try {
+              console.log("[AUTH] Attempting to update existing token");
+              const { error: updateError } = await supabase
                   .from('user_push_tokens')
-                  .select('id')
+                  .update({
+                      signed_in: true,
+                      active: true,
+                      last_updated: new Date().toISOString(),
+                      device_type: Platform.OS,
+                  })
                   .eq('user_id', userId)
-                  .eq('token', token)
-                  .single();
+                  .eq('token', token);
               
-              if (existingToken) {
-                  // Update existing
-                  console.log("[AUTH] Updating existing user-token combination");
-                  const { error: updateError } = await supabase
-                      .from('user_push_tokens')
-                      .update({
-                          signed_in: true,
-                          active: true,
-                          device_type: Platform.OS,
-                          last_updated: new Date().toISOString()
-                      })
-                      .eq('id', existingToken.id);
+              if (updateError) {
+                  console.error("[AUTH] Error updating token:", updateError);
+              } else {
+                  console.log("[AUTH] Token updated successfully");
+                  updateSuccess = true;
                   
-                  if (!updateError) {
-                      await SecureStore.setItemAsync('expoPushTokenId', existingToken.id);
-                      registrationSuccess = true;
-                  }
-              } else if (!checkError || checkError.code === 'PGRST116') {
-                  // Insert new
-                  console.log("[AUTH] Inserting new user-token combination");
-                  const { data: insertData, error: insertError } = await supabase
-                      .from('user_push_tokens')
-                      .insert(tokenData)
-                      .select('id');
-                  
-                  if (!insertError && insertData && insertData.length > 0) {
-                      await SecureStore.setItemAsync('expoPushTokenId', insertData[0].id);
-                      registrationSuccess = true;
+                  // Get the token ID for storage
+                  try {
+                      const { data: tokenData, error: idError } = await supabase
+                          .from('user_push_tokens')
+                          .select('id')
+                          .eq('user_id', userId)
+                          .eq('token', token)
+                          .single();
+                      
+                      if (!idError && tokenData?.id) {
+                          await SecureStore.setItemAsync('expoPushTokenId', tokenData.id);
+                          console.log("[AUTH] Retrieved and saved token ID:", tokenData.id);
+                      }
+                  } catch (idError) {
+                      console.warn("[AUTH] Could not retrieve token ID:", idError);
+                      // Non-critical error
                   }
               }
-          } else if (upsertData && upsertData.length > 0) {
-              console.log("[AUTH] Token upserted successfully with ID:", upsertData[0].id);
-              await SecureStore.setItemAsync('expoPushTokenId', upsertData[0].id);
-              registrationSuccess = true;
+          } catch (updateError) {
+              console.error("[AUTH] Exception during token update:", updateError);
           }
-          
-          // Deactivate other users' tokens for this device
-          if (registrationSuccess) {
-              try {
-                  console.log("[AUTH] Deactivating other users' tokens for this device");
-                  const { error: deactivateError } = await supabase
-                      .from('user_push_tokens')
-                      .update({
-                          signed_in: false,
-                          active: false,
-                          last_updated: new Date().toISOString()
-                      })
-                      .eq('token', token)
-                      .neq('user_id', userId);
-                  
-                  if (deactivateError) {
-                      console.warn("[AUTH] Failed to deactivate other users' tokens:", deactivateError);
-                  } else {
-                      console.log("[AUTH] Successfully deactivated other users' tokens");
-                  }
-              } catch (error) {
-                  console.warn("[AUTH] Error deactivating other users' tokens:", error);
-              }
-          }
-      } catch (error) {
-          console.error("[AUTH] Exception during token registration:", error);
       }
       
       // 8. Final verification
-      const success = registrationSuccess;
+      const success = insertSuccess || updateSuccess;
       
       if (success) {
           console.log("[AUTH] Token registration completed successfully");
