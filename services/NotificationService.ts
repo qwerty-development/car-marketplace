@@ -6,6 +6,7 @@ import { isSigningOut } from '../app/(home)/_layout';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { isGlobalSigningOut } from '@/utils/AuthContext';
+import { notificationCache, NotificationCacheManager } from '@/utils/NotificationCacheManager';
 
 // Type definitions for better type safety
 type ExpoToken = `ExponentPushToken[${string}]`;
@@ -376,20 +377,15 @@ export class NotificationService {
     return validExpoTokenFormat.test(token);
   }
 
-  private static async tokenNeedsRefresh(): Promise<boolean> {
-    try {
-      const timestampStr = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP);
-      if (!timestampStr) return true;
-
-      const timestamp = parseInt(timestampStr, 10);
-      const now = Date.now();
-
-      return (now - timestamp) > CONFIG.TOKEN_REFRESH_INTERVAL;
-    } catch (error) {
-      this.recordError('tokenNeedsRefresh', error);
-      return true; // Refresh on error
-    }
+  private static async clearLocalTokenStorage(): Promise<void> {
+    await Promise.all([
+      SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
+    ]);
   }
+
+
 
   private static async saveTokenToStorage(token: string, tokenId?: string): Promise<void> {
     try {
@@ -416,7 +412,14 @@ export class NotificationService {
     try {
       this.debugLog(`Verifying push token for user ${userId}`);
 
-      // Check local storage first for improved speed
+      // RULE 1: Check cache first
+      const cachedVerification = notificationCache.getCachedTokenVerification(userId);
+      if (cachedVerification) {
+        this.debugLog('Using cached token verification result');
+        return cachedVerification;
+      }
+
+      // RULE 2: Check local storage
       const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
       const storedTokenId = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID);
       const tokenTimestamp = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP);
@@ -428,33 +431,32 @@ export class NotificationService {
 
       if (!this.isValidExpoToken(storedToken)) {
         this.debugLog('Token in storage has invalid format, cleaning up');
-        await Promise.all([
-          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN),
-          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_TIMESTAMP),
-          SecureStore.deleteItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID)
-        ]);
+        await this.clearLocalTokenStorage();
         return { isValid: false };
       }
 
-      // Check token age - if too recent (< 5 seconds), consider it valid to avoid race conditions
+      // RULE 3: Skip database verification for very recent tokens
       if (tokenTimestamp) {
         const age = Date.now() - parseInt(tokenTimestamp, 10);
         if (age < 5000) { // 5 seconds
           this.debugLog('Token was just created, skipping database verification');
-          return { 
+          const result = { 
             isValid: true, 
             token: storedToken,
             tokenId: storedTokenId,
-            signedIn: true  // Assume signed in since it's brand new
+            signedIn: true
           };
+          
+          // Cache the result
+          notificationCache.cacheTokenVerification(userId, result);
+          return result;
         }
       }
 
-      // Use a shorter timeout specifically for token verification
+      // RULE 4: Perform database verification with shorter timeout
       const VERIFICATION_TIMEOUT = 3000; // 3 seconds
 
       try {
-        // Attempt quick database verification with shorter timeout
         const { data: tokenByValue, error: valueError } = await this.timeoutPromise(
           supabase
             .from('user_push_tokens')
@@ -474,34 +476,47 @@ export class NotificationService {
             await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, tokenByValue.id);
           }
           
-          return {
+          const result = {
             isValid: true,
             tokenId: tokenByValue.id,
             token: tokenByValue.token,
             signedIn: tokenByValue.signed_in
           };
+
+          // RULE 5: Cache successful verification
+          notificationCache.cacheTokenVerification(userId, result);
+          
+          return result;
         }
-      } catch (verifyError) {
-        // If verification times out, still consider token potentially valid
-        // but mark for reverification later
-        if (verifyError.message && verifyError.message.includes('timed out')) {
+      } catch (verifyError: any) {
+        if (verifyError.message?.includes('timed out')) {
           this.debugLog('Verification timed out but token exists locally, considering valid');
-          return { 
+          
+          // For timeout scenarios, cache with shorter TTL
+          const result = { 
             isValid: true, 
             token: storedToken,
             tokenId: storedTokenId,
-            signedIn: undefined  // Unknown state
+            signedIn: undefined
           };
+          
+          // Cache with reduced TTL (1 minute instead of 5)
+          notificationCache.set(
+            NotificationCacheManager.keys.tokenVerification(userId),
+            result,
+            60 * 1000
+          );
+          
+          return result;
         }
         
         this.debugLog('Error during token verification:', verifyError);
       }
       
-      // If we reach here, database verification failed but we have a token in local storage
       this.debugLog('Token not found in database but exists locally');
       return { 
         isValid: false,
-        token: storedToken  // Return the token for potential re-registration
+        token: storedToken
       };
       
     } catch (error) {
@@ -510,7 +525,6 @@ export class NotificationService {
     }
   }
 
-  // Update ensureValidTokenRegistration for more robust database operations
   static async ensureValidTokenRegistration(userId: string, token: string): Promise<boolean> {
     try {
       this.debugLog(`Ensuring valid token registration for user ${userId}`);
@@ -520,125 +534,84 @@ export class NotificationService {
         return false;
       }
       
-      // IMPROVEMENT 1: Begin by marking the token as valid in local storage
+      // RULE 1: Save to local storage immediately
       await this.saveTokenToStorage(token);
       
-      // IMPROVEMENT 2: More aggressive cleanup of old tokens for this device first
+      // RULE 2: Invalidate cache before database operations
+      notificationCache.invalidate(NotificationCacheManager.keys.tokenVerification(userId));
+      
+      // RULE 3: Use upsert for atomic insert/update
       try {
-        this.debugLog('Cleaning up old tokens for this device');
-        const { error: cleanupError } = await this.timeoutPromiseWithRetry(
+        const tokenData = {
+          user_id: userId,
+          token: token,
+          device_type: Platform.OS,
+          last_updated: new Date().toISOString(),
+          signed_in: true,
+          active: true
+        };
+
+        // First, deactivate other tokens for this device in one operation
+        const { error: deactivateError } = await this.timeoutPromiseWithRetry(
           () => supabase
             .from('user_push_tokens')
-            .update({
+            .update({ 
               active: false,
-              signed_in: false,
-              last_updated: new Date().toISOString()
+              signed_in: false 
             })
             .eq('user_id', userId)
-            .eq('device_type', Platform.OS),
+            .eq('device_type', Platform.OS)
+            .neq('token', token), // Don't deactivate the current token
           CONFIG.DB_TIMEOUT,
-          'cleanupOldTokens',
-          2 // Two retries is enough for cleanup
+          'deactivateOldTokens',
+          2
         );
-        
-        if (cleanupError) {
-          this.debugLog('Warning: Failed to clean up old tokens:', cleanupError);
-        } else {
-          this.debugLog('Successfully cleaned up old tokens for this device');
+
+        if (deactivateError) {
+          this.debugLog('Warning: Failed to deactivate old tokens:', deactivateError);
         }
-      } catch (error) {
-        this.debugLog('Non-critical error in token cleanup:', error);
-      }
-      
-      // IMPROVEMENT 3: Direct insertion first approach with explicit error handling
-      try {
-        this.debugLog('Attempting direct token insertion first');
-        const { data: insertData, error: insertError } = await this.timeoutPromiseWithRetry(
+
+        // Now upsert the current token
+        const { data: upsertData, error: upsertError } = await this.timeoutPromiseWithRetry(
           () => supabase
             .from('user_push_tokens')
-            .insert({
-              user_id: userId,
-              token: token,
-              device_type: Platform.OS,
-              last_updated: new Date().toISOString(),
-              signed_in: true,
-              active: true
+            .upsert(tokenData, {
+              onConflict: 'user_id,token',
+              ignoreDuplicates: false
             })
-            .select('id'),
-          CONFIG.DB_TIMEOUT,
-          'insertNewToken'
-        );
-        
-        if (!insertError && insertData && insertData.length > 0) {
-          this.debugLog('Successfully inserted new token with ID:', insertData[0].id);
-          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, insertData[0].id);
-          return true;
-        }
-        
-        // IMPROVEMENT 4: Specific handling for constraint violations
-        if (insertError && insertError.code === '23505') {
-          this.debugLog('Token already exists (constraint violation), switching to update path');
-        } else if (insertError) {
-          this.debugLog('Unknown error during token insertion:', insertError);
-          throw insertError; // Re-throw for generic catch
-        }
-        
-        // IMPROVEMENT 5: More targeted token update after constraint violation
-        this.debugLog('Attempting to update existing token');
-        const { error: updateError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .update({
-              signed_in: true,
-              active: true,
-              device_type: Platform.OS, // Ensure device type is updated in case it changed
-              last_updated: new Date().toISOString()
-            })
-            .eq('token', token), // Match by token value only
-          CONFIG.DB_TIMEOUT,
-          'updateExistingToken'
-        );
-        
-        if (updateError) {
-          this.debugLog('Failed to update existing token:', updateError);
-          throw updateError;
-        }
-        
-        // IMPROVEMENT 6: Verify update succeeded by retrieving token ID
-        this.debugLog('Retrieving token ID after update');
-        const { data: retrieveData, error: retrieveError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
             .select('id')
-            .eq('token', token)
             .single(),
           CONFIG.DB_TIMEOUT,
-          'retrieveTokenId'
+          'upsertToken'
         );
-        
-        if (retrieveError) {
-          this.debugLog('Error retrieving token ID after update:', retrieveError);
-          // Return true anyway - token is updated but we couldn't get ID
+
+        if (upsertError) {
+          this.debugLog('Error upserting token:', upsertError);
+          return false;
+        }
+
+        if (upsertData?.id) {
+          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, upsertData.id);
+          
+          // RULE 4: Cache the successful registration
+          notificationCache.cacheTokenVerification(userId, {
+            isValid: true,
+            tokenId: upsertData.id,
+            token: token,
+            signedIn: true
+          });
+          
+          this.debugLog('Token registration completed successfully');
           return true;
         }
-        
-        if (retrieveData) {
-          this.debugLog('Retrieved token ID after update:', retrieveData.id);
-          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, retrieveData.id);
-          return true;
-        }
-        
-        // Something unexpected happened - couldn't find token after update
-        this.debugLog('Token updated but could not retrieve ID - inconsistent state');
-        return true; // Still return true since the token was likely updated
+
+        return false;
       } catch (error) {
         this.recordError('ensureValidTokenRegistration', error);
-        this.debugLog('Critical error in token registration:', error);
         return false;
       }
     } catch (outerError) {
       this.recordError('ensureValidTokenRegistration_outer', outerError);
-      this.debugLog('Fatal error in token registration:', outerError);
       return false;
     }
   }
@@ -1096,25 +1069,35 @@ export class NotificationService {
     }
   }
 
-  // Notification state management with retry logic
   static async markAsRead(notificationId: string): Promise<boolean> {
     try {
-      const { error } = await this.timeoutPromiseWithRetry(
+      const { data, error } = await this.timeoutPromiseWithRetry(
         () => supabase
           .from('notifications')
           .update({ is_read: true })
-          .eq('id', notificationId),
+          .eq('id', notificationId)
+          .select('user_id')
+          .single(),
         CONFIG.DB_TIMEOUT,
         'markAsRead'
       );
 
       if (error) throw error;
+      
+      // Invalidate unread count cache for the user
+      if (data?.user_id) {
+        notificationCache.invalidate(
+          NotificationCacheManager.keys.unreadCount(data.user_id)
+        );
+      }
+      
       return true;
     } catch (error) {
       this.recordError('markAsRead', error);
       return false;
     }
   }
+
 
   static async markAllAsRead(userId: string): Promise<boolean> {
     try {
@@ -1157,10 +1140,20 @@ export class NotificationService {
 
   static async getUnreadCount(userId: string): Promise<number> {
     try {
+      // Check cache first
+      const cachedCount = notificationCache.get<number>(
+        NotificationCacheManager.keys.unreadCount(userId)
+      );
+      
+      if (cachedCount !== null) {
+        this.debugLog('Using cached unread count');
+        return cachedCount;
+      }
+
       const { count, error } = await this.timeoutPromiseWithRetry(
         () => supabase
           .from('notifications')
-          .select('*', { count: 'exact' })
+          .select('*', { count: 'exact', head: true })
           .eq('user_id', userId)
           .eq('is_read', false),
         CONFIG.DB_TIMEOUT,
@@ -1168,7 +1161,17 @@ export class NotificationService {
       );
 
       if (error) throw error;
-      return count || 0;
+      
+      const unreadCount = count || 0;
+      
+      // Cache the result
+      notificationCache.set(
+        NotificationCacheManager.keys.unreadCount(userId),
+        unreadCount,
+        30 * 1000 // 30 seconds
+      );
+      
+      return unreadCount;
     } catch (error) {
       this.recordError('getUnreadCount', error);
       return 0;
