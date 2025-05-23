@@ -510,138 +510,192 @@ export class NotificationService {
     }
   }
 
-  // Update ensureValidTokenRegistration for more robust database operations
-  static async ensureValidTokenRegistration(userId: string, token: string): Promise<boolean> {
+// Update ensureValidTokenRegistration for more robust database operations
+static async ensureValidTokenRegistration(userId: string, token: string): Promise<boolean> {
+  try {
+    this.debugLog(`Ensuring valid token registration for user ${userId}`);
+    
+    if (!this.isValidExpoToken(token)) {
+      this.debugLog(`Invalid token format: ${token}`);
+      return false;
+    }
+    
+    // IMPROVEMENT 1: Begin by marking the token as valid in local storage
+    await this.saveTokenToStorage(token);
+    
+    // IMPROVEMENT 2: Clean up old tokens for THIS USER on THIS DEVICE
     try {
-      this.debugLog(`Ensuring valid token registration for user ${userId}`);
+      this.debugLog('Cleaning up old tokens for this user on this device');
+      const { error: cleanupError } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .update({
+            active: false,
+            signed_in: false,
+            last_updated: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('device_type', Platform.OS)
+          .neq('token', token), // Don't deactivate the current token
+        CONFIG.DB_TIMEOUT,
+        'cleanupOldTokens',
+        2 // Two retries is enough for cleanup
+      );
       
-      if (!this.isValidExpoToken(token)) {
-        this.debugLog(`Invalid token format: ${token}`);
-        return false;
+      if (cleanupError) {
+        this.debugLog('Warning: Failed to clean up old tokens:', cleanupError);
+      } else {
+        this.debugLog('Successfully cleaned up old tokens for this user on this device');
       }
+    } catch (error) {
+      this.debugLog('Non-critical error in token cleanup:', error);
+    }
+    
+    // IMPROVEMENT 3: Use upsert with composite key constraint
+    try {
+      this.debugLog('Attempting to upsert token with composite key (user_id, token)');
       
-      // IMPROVEMENT 1: Begin by marking the token as valid in local storage
-      await this.saveTokenToStorage(token);
+      const tokenData = {
+        user_id: userId,
+        token: token,
+        device_type: Platform.OS,
+        last_updated: new Date().toISOString(),
+        signed_in: true,
+        active: true
+      };
       
-      // IMPROVEMENT 2: More aggressive cleanup of old tokens for this device first
-      try {
-        this.debugLog('Cleaning up old tokens for this device');
-        const { error: cleanupError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .update({
-              active: false,
-              signed_in: false,
-              last_updated: new Date().toISOString()
-            })
-            .eq('user_id', userId)
-            .eq('device_type', Platform.OS),
-          CONFIG.DB_TIMEOUT,
-          'cleanupOldTokens',
-          2 // Two retries is enough for cleanup
-        );
-        
-        if (cleanupError) {
-          this.debugLog('Warning: Failed to clean up old tokens:', cleanupError);
-        } else {
-          this.debugLog('Successfully cleaned up old tokens for this device');
-        }
-      } catch (error) {
-        this.debugLog('Non-critical error in token cleanup:', error);
-      }
+      // Use upsert which handles both insert and update cases
+      const { data: upsertData, error: upsertError } = await this.timeoutPromiseWithRetry(
+        () => supabase
+          .from('user_push_tokens')
+          .upsert(tokenData, {
+            onConflict: 'user_id,token', // Composite unique constraint
+            ignoreDuplicates: false
+          })
+          .select('id'),
+        CONFIG.DB_TIMEOUT,
+        'upsertToken'
+      );
       
-      // IMPROVEMENT 3: Direct insertion first approach with explicit error handling
-      try {
-        this.debugLog('Attempting direct token insertion first');
-        const { data: insertData, error: insertError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .insert({
-              user_id: userId,
-              token: token,
-              device_type: Platform.OS,
-              last_updated: new Date().toISOString(),
-              signed_in: true,
-              active: true
-            })
-            .select('id'),
-          CONFIG.DB_TIMEOUT,
-          'insertNewToken'
-        );
+      if (upsertError) {
+        this.debugLog('Error during token upsert:', upsertError);
         
-        if (!insertError && insertData && insertData.length > 0) {
-          this.debugLog('Successfully inserted new token with ID:', insertData[0].id);
-          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, insertData[0].id);
-          return true;
-        }
+        // Fallback: Try direct insert/update if upsert fails
+        this.debugLog('Falling back to traditional insert/update approach');
         
-        // IMPROVEMENT 4: Specific handling for constraint violations
-        if (insertError && insertError.code === '23505') {
-          this.debugLog('Token already exists (constraint violation), switching to update path');
-        } else if (insertError) {
-          this.debugLog('Unknown error during token insertion:', insertError);
-          throw insertError; // Re-throw for generic catch
-        }
-        
-        // IMPROVEMENT 5: More targeted token update after constraint violation
-        this.debugLog('Attempting to update existing token');
-        const { error: updateError } = await this.timeoutPromiseWithRetry(
-          () => supabase
-            .from('user_push_tokens')
-            .update({
-              signed_in: true,
-              active: true,
-              device_type: Platform.OS, // Ensure device type is updated in case it changed
-              last_updated: new Date().toISOString()
-            })
-            .eq('token', token), // Match by token value only
-          CONFIG.DB_TIMEOUT,
-          'updateExistingToken'
-        );
-        
-        if (updateError) {
-          this.debugLog('Failed to update existing token:', updateError);
-          throw updateError;
-        }
-        
-        // IMPROVEMENT 6: Verify update succeeded by retrieving token ID
-        this.debugLog('Retrieving token ID after update');
-        const { data: retrieveData, error: retrieveError } = await this.timeoutPromiseWithRetry(
+        // First check if this user-token combination exists
+        const { data: existingToken, error: checkError } = await this.timeoutPromiseWithRetry(
           () => supabase
             .from('user_push_tokens')
             .select('id')
+            .eq('user_id', userId)
             .eq('token', token)
             .single(),
           CONFIG.DB_TIMEOUT,
-          'retrieveTokenId'
+          'checkExistingToken'
         );
         
-        if (retrieveError) {
-          this.debugLog('Error retrieving token ID after update:', retrieveError);
-          // Return true anyway - token is updated but we couldn't get ID
-          return true;
+        if (checkError && checkError.code !== 'PGRST116') {
+          this.debugLog('Error checking existing token:', checkError);
+          throw checkError;
         }
         
-        if (retrieveData) {
-          this.debugLog('Retrieved token ID after update:', retrieveData.id);
-          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, retrieveData.id);
+        if (existingToken) {
+          // Update existing token
+          this.debugLog('Updating existing user-token combination');
+          const { error: updateError } = await this.timeoutPromiseWithRetry(
+            () => supabase
+              .from('user_push_tokens')
+              .update({
+                signed_in: true,
+                active: true,
+                device_type: Platform.OS,
+                last_updated: new Date().toISOString()
+              })
+              .eq('id', existingToken.id),
+            CONFIG.DB_TIMEOUT,
+            'updateExistingToken'
+          );
+          
+          if (updateError) {
+            this.debugLog('Failed to update existing token:', updateError);
+            throw updateError;
+          }
+          
+          await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, existingToken.id);
           return true;
+        } else {
+          // Insert new token
+          this.debugLog('Inserting new user-token combination');
+          const { data: insertData, error: insertError } = await this.timeoutPromiseWithRetry(
+            () => supabase
+              .from('user_push_tokens')
+              .insert(tokenData)
+              .select('id'),
+            CONFIG.DB_TIMEOUT,
+            'insertNewToken'
+          );
+          
+          if (insertError) {
+            this.debugLog('Failed to insert new token:', insertError);
+            throw insertError;
+          }
+          
+          if (insertData && insertData.length > 0) {
+            await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, insertData[0].id);
+            return true;
+          }
         }
         
-        // Something unexpected happened - couldn't find token after update
-        this.debugLog('Token updated but could not retrieve ID - inconsistent state');
-        return true; // Still return true since the token was likely updated
-      } catch (error) {
-        this.recordError('ensureValidTokenRegistration', error);
-        this.debugLog('Critical error in token registration:', error);
         return false;
       }
-    } catch (outerError) {
-      this.recordError('ensureValidTokenRegistration_outer', outerError);
-      this.debugLog('Fatal error in token registration:', outerError);
+      
+      if (upsertData && upsertData.length > 0) {
+        this.debugLog('Successfully upserted token with ID:', upsertData[0].id);
+        await SecureStore.setItemAsync(STORAGE_KEYS.PUSH_TOKEN_ID, upsertData[0].id);
+        
+        // IMPROVEMENT 4: Deactivate other users' tokens for this device
+        try {
+          this.debugLog('Deactivating other users tokens for this device');
+          const { error: deactivateError } = await this.timeoutPromiseWithRetry(
+            () => supabase
+              .from('user_push_tokens')
+              .update({
+                signed_in: false,
+                active: false,
+                last_updated: new Date().toISOString()
+              })
+              .eq('token', token)
+              .neq('user_id', userId), // Other users with same token
+            CONFIG.DB_TIMEOUT,
+            'deactivateOtherUsers'
+          );
+          
+          if (deactivateError) {
+            this.debugLog('Warning: Failed to deactivate other users tokens:', deactivateError);
+          } else {
+            this.debugLog('Successfully deactivated other users tokens for this device');
+          }
+        } catch (error) {
+          this.debugLog('Non-critical error deactivating other users tokens:', error);
+        }
+        
+        return true;
+      }
+      
+      this.debugLog('Unexpected: Upsert succeeded but no data returned');
+      return true; // Still consider it successful
+    } catch (error) {
+      this.recordError('ensureValidTokenRegistration', error);
+      this.debugLog('Critical error in token registration:', error);
       return false;
     }
+  } catch (outerError) {
+    this.recordError('ensureValidTokenRegistration_outer', outerError);
+    this.debugLog('Fatal error in token registration:', outerError);
+    return false;
   }
+}
 
   // Enhanced updateTokenStatus with better error handling and retry logic
   static async updateTokenStatus(userId: string, token: string, status: TokenStatus): Promise<boolean> {
