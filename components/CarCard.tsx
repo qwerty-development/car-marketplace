@@ -14,7 +14,7 @@ import {
 	Platform,
 	useWindowDimensions
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { styled } from 'nativewind'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
@@ -52,14 +52,23 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
 	)
 }
 
-const SpecItem = ({ icon, title, value, isDarkMode }: any) => (
+const SpecItem = ({ icon, title, value, isDarkMode, iconLibrary = 'Ionicons' }: any) => (
 	<StyledView className='flex-1 items-center justify-center p-2'>
-		<Ionicons
-			name={icon}
-			size={28}
-			color={isDarkMode ? '#FFFFFF' : '#000000'}
-			className='mb-1.5'
-		/>
+		{iconLibrary === 'MaterialCommunityIcons' ? (
+			<MaterialCommunityIcons
+				name={icon}
+				size={28}
+				color={isDarkMode ? '#FFFFFF' : '#000000'}
+				style={{ marginBottom: 6 }}
+			/>
+		) : (
+			<Ionicons
+				name={icon}
+				size={28}
+				color={isDarkMode ? '#FFFFFF' : '#000000'}
+				className='mb-1.5'
+			/>
+		)}
 		<StyledText
 			className={`text-xs font-medium ${
 				isDarkMode ? 'text-white' : 'text-black'
@@ -232,25 +241,30 @@ export default function CarCard({
 	}, [car.dealership_phone, car.id, trackCallClick])
 
 const handleShare = useCallback(async () => {
+  if (!car) return;
+
   try {
-    // Use a consistent URL format
-    const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
+	// Use a consistent URL format
+	const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
 
-    const message =
-      `Check out this ${car.year} ${car.make} ${car.model} on Fleet!\n` +
-      shareUrl;
+	const message =
+	  `Check out this ${car.year} ${car.make} ${car.model} for $${
+		car.price ? car.price.toLocaleString() : "N/A"
+	  }!\n` +
+	  `at ${car.dealership_name || "Dealership"} in ${
+		car.dealership_location || "Location"
+	  }\n`
 
-    await Share.share({
-      message,
-      url: shareUrl, // Include the URL parameter for better iOS sharing
-      title: `${car.year} ${car.make} ${car.model}`
-    });
+	await Share.share({
+	  message,
+	  url: shareUrl,
+	  title: `${car.year} ${car.make} ${car.model}`
+	});
   } catch (error) {
-    console.error('Share error:', error);
-    Alert.alert('Error', 'Failed to share car details');
+	console.error("Share error:", error);
+	Alert.alert('Error', 'Failed to share car details');
   }
 }, [car]);
-
 	const handleDealershipPress = useCallback(() => {
 		const route = isDealer
 			? '/(home)/(dealer)/DealershipDetails'
@@ -434,23 +448,25 @@ const handleShare = useCallback(async () => {
 			/>
 
 			<StyledPressable onPress={handleCardPress} className='active:opacity-90'>
-				{/* Specs Grid */}
+				{/* Specs Grid - Car-related icons */}
 				<StyledView className='flex-row justify-between mt-4 mb-2 px-2 '>
 					<SpecItem
 						title='Year'
 						icon='calendar-outline'
 						value={car.year}
 						isDarkMode={isDarkMode}
+						iconLibrary='Ionicons'
 					/>
 					<SpecItem
 						title='Mileage'
-						icon='speedometer-outline'
+						icon='highway'
 						value={`${(car.mileage / 1000).toFixed(1)}k`}
 						isDarkMode={isDarkMode}
+						iconLibrary='MaterialCommunityIcons'
 					/>
 					<SpecItem
 						title='Transmission'
-						icon='cog-outline'
+						icon='car-shift-pattern'
 						value={
 							car.transmission === 'Automatic'
 								? 'Auto'
@@ -459,12 +475,14 @@ const handleShare = useCallback(async () => {
 								: car.transmission
 						}
 						isDarkMode={isDarkMode}
+						iconLibrary='MaterialCommunityIcons'
 					/>
 					<SpecItem
 						title='Condition'
-						icon='car-sport-outline'
+						icon='car-wrench'
 						value={car.condition}
 						isDarkMode={isDarkMode}
+						iconLibrary='MaterialCommunityIcons'
 					/>
 				</StyledView>
 
@@ -476,10 +494,11 @@ const handleShare = useCallback(async () => {
 					<StyledView className='flex-row items-center justify-between'>
 						{car.dealership_logo && (
 							<Pressable onPress={handleDealershipPress} className='mr-3'>
-								<OptimizedImage
+								<StyledImage
 									source={{ uri: car.dealership_logo }}
 									style={{ width: 48, height: 48 }}
 									className='rounded-full border border-textgray/20'
+									resizeMode='cover'  // Added resizeMode to fit properly
 								/>
 							</Pressable>
 						)}

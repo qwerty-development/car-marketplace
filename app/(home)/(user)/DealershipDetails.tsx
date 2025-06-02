@@ -770,8 +770,7 @@ export default function DealershipDetails() {
 
 	return (
 		<LinearGradient colors={bgGradient} className='flex-1'>
-			{/* Modernized Header */}
-			<CustomHeader title={dealership?.name} onBack={()=>router.back()}/>
+			<SafeAreaView>
 
 			<Animated.FlatList
 				data={filteredCars}
@@ -789,6 +788,7 @@ export default function DealershipDetails() {
 			/>
 
 			{renderModal}
+			</SafeAreaView>
 		</LinearGradient>
 	)
 }
