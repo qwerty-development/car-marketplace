@@ -1,0 +1,260 @@
+# .github/workflows/daily-notifications.yml
+# PRODUCTION-GRADE DAILY NOTIFICATIONS SCHEDULER
+# VERSION: 1.0
+# IMPLEMENTATION DATE: 2025-01-08
+
+name: 🔔 Daily Notifications Scheduler
+
+# SCHEDULING CONFIGURATION
+# RULE: UTC timezone for all schedule expressions
+# RULE: Cron format - minute hour day month weekday
+on:
+  schedule:
+    # PRODUCTION SCHEDULE: Every hour at minute 0 (UTC)
+    # RATIONALE: Provides comprehensive timezone coverage
+    - cron: '0 * * * *'
+  
+  # MANUAL TRIGGER CAPABILITY
+  # PURPOSE: Testing and emergency execution
+  workflow_dispatch:
+    inputs:
+      force_execution:
+        description: 'Force execution (bypasses throttling)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+# GLOBAL ENVIRONMENT CONFIGURATION
+env:
+  NOTIFICATION_TIMEOUT: 30
+  MAX_RETRIES: 3
+  RETRY_DELAY: 5
+
+# EXECUTION JOBS DEFINITION
+jobs:
+  # PRIMARY JOB: NOTIFICATION TRIGGER EXECUTION
+  trigger-notifications:
+    name: 📧 Execute Daily Notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    # EXECUTION STRATEGY
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+    
+    # IMPLEMENTATION STEPS
+    steps:
+      # STEP 1: ENVIRONMENT PREPARATION
+      - name: 🔧 Environment Setup
+        id: setup
+        run: |
+          echo "🚀 Initializing notification trigger execution"
+          echo "📅 Execution timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🔧 Runner OS: ${{ runner.os }}"
+          echo "📍 Workflow: ${{ github.workflow }}"
+          echo "🔀 Event: ${{ github.event_name }}"
+          
+          # Set output variables for subsequent steps
+          echo "execution_id=notify_$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+      # STEP 2: CONNECTIVITY VALIDATION
+      - name: 🌐 Supabase Connectivity Test
+        id: connectivity
+        timeout-minutes: 2
+        run: |
+          echo "🔍 Testing Supabase endpoint connectivity"
+          
+          # Test basic connectivity to Supabase
+          if curl -s --max-time 10 "${{ secrets.SUPABASE_URL }}/health" > /dev/null; then
+            echo "✅ Supabase endpoint reachable"
+          else
+            echo "⚠️  Supabase health endpoint not reachable, proceeding with function call"
+          fi
+          
+          # Validate URL format
+          if [[ "${{ secrets.SUPABASE_URL }}" =~ ^https://[a-zA-Z0-9]+\.supabase\.co$ ]]; then
+            echo "✅ Supabase URL format valid"
+          else
+            echo "❌ Invalid Supabase URL format"
+            exit 1
+          fi
+
+      # STEP 3: CORE NOTIFICATION EXECUTION
+      - name: 📨 Execute Notification Function
+        id: execute
+        timeout-minutes: 5
+        run: |
+          echo "🎯 Executing daily notification function"
+          echo "🔗 Target URL: ${{ secrets.SUPABASE_URL }}/rest/v1/rpc/handle_schedule_daily_notifications"
+          
+          # Prepare force execution parameter
+          FORCE_PARAM=""
+          if [[ "${{ github.event.inputs.force_execution }}" == "true" ]]; then
+            echo "⚡ Force execution mode enabled"
+            FORCE_PARAM=',"force":true'
+          fi
+          
+          # Execute function with retry logic
+          RETRY_COUNT=0
+          MAX_RETRIES=${{ env.MAX_RETRIES }}
+          SUCCESS=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; do
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "🔄 Attempt $RETRY_COUNT of $MAX_RETRIES"
+            
+            # Execute HTTP request with comprehensive error capture
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\nTIME_TOTAL:%{time_total}" \
+              --max-time ${{ env.NOTIFICATION_TIMEOUT }} \
+              --retry 0 \
+              -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/handle_schedule_daily_notifications" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              -H "Content-Type: application/json" \
+              -H "User-Agent: GitHub-Actions-DailyNotifications/1.0" \
+              -d "{\"execution_source\":\"github_actions\",\"execution_id\":\"${{ steps.setup.outputs.execution_id }}\"${FORCE_PARAM}}" \
+              2>&1) || true
+            
+            # Extract response components
+            HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+            TIME_TOTAL=$(echo "$RESPONSE" | grep -o 'TIME_TOTAL:[0-9.]*' | cut -d: -f2)
+            RESPONSE_BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS:/d' | sed '/TIME_TOTAL:/d')
+            
+            echo "📊 HTTP Status: ${HTTP_STATUS:-'UNKNOWN'}"
+            echo "⏱️  Request Duration: ${TIME_TOTAL:-'UNKNOWN'}s"
+            echo "📄 Response Body: $RESPONSE_BODY"
+            
+            # Evaluate response success
+            if [ "${HTTP_STATUS:-0}" -eq 200 ]; then
+              # Additional JSON validation for successful responses
+              if echo "$RESPONSE_BODY" | grep -q '"success"'; then
+                echo "✅ Function execution successful"
+                SUCCESS=true
+                
+                # Extract key metrics from response
+                USERS_PROCESSED=$(echo "$RESPONSE_BODY" | grep -o '"users_processed":[0-9]*' | cut -d: -f2)
+                NOTIFICATIONS_SCHEDULED=$(echo "$RESPONSE_BODY" | grep -o '"notificationsScheduled":[0-9]*' | cut -d: -f2)
+                
+                echo "👥 Users Processed: ${USERS_PROCESSED:-'N/A'}"
+                echo "📧 Notifications Scheduled: ${NOTIFICATIONS_SCHEDULED:-'N/A'}"
+                
+                # Set outputs for success reporting
+                echo "users_processed=${USERS_PROCESSED:-0}" >> $GITHUB_OUTPUT
+                echo "notifications_scheduled=${NOTIFICATIONS_SCHEDULED:-0}" >> $GITHUB_OUTPUT
+                echo "execution_successful=true" >> $GITHUB_OUTPUT
+                break
+              else
+                echo "⚠️  HTTP 200 but response indicates failure"
+                echo "🔍 Response content: $RESPONSE_BODY"
+              fi
+            elif [ "${HTTP_STATUS:-0}" -eq 429 ]; then
+              echo "🚫 Rate limited (HTTP 429) - will retry after delay"
+            elif [ "${HTTP_STATUS:-0}" -eq 503 ]; then
+              echo "🔧 Service unavailable (HTTP 503) - will retry after delay"
+            else
+              echo "❌ Request failed with HTTP status: ${HTTP_STATUS:-'UNKNOWN'}"
+              echo "🔍 Error response: $RESPONSE_BODY"
+            fi
+            
+            # Retry delay (except on last attempt)
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; then
+              DELAY_TIME=$((RETRY_DELAY * RETRY_COUNT))
+              echo "⏳ Waiting ${DELAY_TIME}s before retry..."
+              sleep $DELAY_TIME
+            fi
+          done
+          
+          # Final evaluation
+          if [ "$SUCCESS" != "true" ]; then
+            echo "💥 All retry attempts exhausted - execution failed"
+            echo "execution_successful=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      # STEP 4: SUCCESS LOGGING AND REPORTING
+      - name: 📈 Success Reporting
+        if: success() && steps.execute.outputs.execution_successful == 'true'
+        run: |
+          echo "🎉 EXECUTION COMPLETED SUCCESSFULLY"
+          echo "=================================================="
+          echo "📅 Start Time: ${{ steps.setup.outputs.start_time }}"
+          echo "📅 End Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
+          echo "👥 Users Processed: ${{ steps.execute.outputs.users_processed }}"
+          echo "📧 Notifications Scheduled: ${{ steps.execute.outputs.notifications_scheduled }}"
+          echo "🔄 Event Type: ${{ github.event_name }}"
+          echo "=================================================="
+          
+          # Log to job summary
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ✅ Daily Notifications - Execution Successful
+          
+          | Metric | Value |
+          |--------|--------|
+          | 📅 Execution Time | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |
+          | 🆔 Execution ID | \`${{ steps.setup.outputs.execution_id }}\` |
+          | 👥 Users Processed | ${{ steps.execute.outputs.users_processed }} |
+          | 📧 Notifications Scheduled | ${{ steps.execute.outputs.notifications_scheduled }} |
+          | 🔄 Trigger Type | ${{ github.event_name }} |
+          
+          ### 📊 Next Scheduled Execution
+          The next automatic execution will occur at the next hour mark (UTC).
+          EOF
+
+      # STEP 5: FAILURE HANDLING AND DIAGNOSTICS
+      - name: 🚨 Failure Diagnostics
+        if: failure()
+        run: |
+          echo "💥 EXECUTION FAILED - DIAGNOSTIC INFORMATION"
+          echo "=================================================="
+          echo "📅 Failure Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
+          echo "🔄 Event Type: ${{ github.event_name }}"
+          echo "🔧 Runner OS: ${{ runner.os }}"
+          echo "=================================================="
+          
+          echo "🔍 TROUBLESHOOTING CHECKLIST:"
+          echo "1. ✅ Verify Supabase service status: https://status.supabase.com/"
+          echo "2. ✅ Check API keys are not expired or revoked"
+          echo "3. ✅ Confirm database function 'handle_schedule_daily_notifications' exists"
+          echo "4. ✅ Verify GitHub Actions has not hit API rate limits"
+          echo "5. ✅ Check Supabase function logs for additional error details"
+          
+          # Generate failure summary
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ❌ Daily Notifications - Execution Failed
+          
+          | Detail | Value |
+          |--------|--------|
+          | 📅 Failure Time | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |
+          | 🆔 Execution ID | \`${{ steps.setup.outputs.execution_id }}\` |
+          | 🔄 Trigger Type | ${{ github.event_name }} |
+          
+          ### 🔧 Immediate Action Required
+          1. Check Supabase service status
+          2. Verify API credentials validity
+          3. Review function logs in Supabase dashboard
+          4. Consider manual execution for testing
+          
+          ### 📞 Support Resources
+          - [Supabase Status](https://status.supabase.com/)
+          - [GitHub Actions Documentation](https://docs.github.com/en/actions)
+          EOF
+
+      # STEP 6: CLEANUP AND FINALIZATION
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          echo "🧹 Performing cleanup operations"
+          echo "📊 Final execution status: ${{ job.status }}"
+          echo "🏁 Workflow execution completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+
+on:
+  schedule:
+    - cron: '0 8,12,16,20 * * *'
