@@ -565,12 +565,12 @@ export default function DealershipProfilePage() {
 
         {/* Sign Out Button - Styled like User Profile */}
         <TouchableOpacity
-          className="mx-6 mt-4 mb-12"
+          className="mx-6 mt-4 mb-12 "
           onPress={handleSignOut}
           disabled={showSignOutOverlay}
         >
           <Text
-            className={`text-center border  font-semibold p-4 rounded-2xl ${
+            className={`text-center border text-white font-semibold p-4 rounded-2xl bg-rose-800 ${
               showSignOutOverlay ? "opacity-50" : "opacity-100"
             }`}
           >
