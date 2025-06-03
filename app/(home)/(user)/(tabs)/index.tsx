@@ -359,35 +359,118 @@ if (
             .lte("mileage", currentFilters.mileageRange[1]);
         }
 
-        // Search query
-        if (query) {
-          const cleanQuery = query.trim().toLowerCase();
+// Replace the search query section in your fetchCars function with this enhanced implementation
 
-          let searchConditions = [
-            `make.ilike.%${cleanQuery}%`,
-            `model.ilike.%${cleanQuery}%`,
-            `description.ilike.%${cleanQuery}%`,
-            `color.ilike.%${cleanQuery}%`,
-            `category.ilike.%${cleanQuery}%`,
-            `transmission.ilike.%${cleanQuery}%`,
-            `drivetrain.ilike.%${cleanQuery}%`,
-            `type.ilike.%${cleanQuery}%`,
-            `condition.ilike.%${cleanQuery}%`,
-             `source.ilike.%${cleanQuery}%`,
-          ];
+// Enhanced search query implementation
+if (query) {
+  const cleanQuery = query.trim().toLowerCase();
+  
+  // Split the query into individual terms for multi-term searches
+  const queryTerms = cleanQuery.split(/\s+/).filter(term => term.length > 0);
+  
+  if (queryTerms.length === 1) {
+    // Single term search - use existing OR logic
+    const singleTerm = queryTerms[0];
+    let searchConditions = [
+      `make.ilike.%${singleTerm}%`,
+      `model.ilike.%${singleTerm}%`,
+      `description.ilike.%${singleTerm}%`,
+      `color.ilike.%${singleTerm}%`,
+      `category.ilike.%${singleTerm}%`,
+      `transmission.ilike.%${singleTerm}%`,
+      `drivetrain.ilike.%${singleTerm}%`,
+      `type.ilike.%${singleTerm}%`,
+      `condition.ilike.%${singleTerm}%`,
+      `source.ilike.%${singleTerm}%`,
+    ];
 
-          // If the user input is numeric (year, price, mileage), add specific conditions
-          if (!isNaN(Number(cleanQuery))) {
-            searchConditions = searchConditions.concat([
-              `year::text.ilike.%${cleanQuery}%`,
-              `price::text.ilike.%${cleanQuery}%`,
-              `mileage::text.ilike.%${cleanQuery}%`,
-            ]);
-          }
+    // Add numeric search conditions for single terms
+    if (!isNaN(Number(singleTerm))) {
+      searchConditions = searchConditions.concat([
+        `year::text.ilike.%${singleTerm}%`,
+        `price::text.ilike.%${singleTerm}%`,
+        `mileage::text.ilike.%${singleTerm}%`,
+      ]);
+    }
 
-          // Apply the OR filter properly
-          queryBuilder = queryBuilder.or(searchConditions.join(","));
-        }
+    queryBuilder = queryBuilder.or(searchConditions.join(","));
+    
+  } else if (queryTerms.length === 2) {
+    // Two-term search - optimized for make/model combinations like "BMW M3"
+    const [term1, term2] = queryTerms;
+    
+    // Strategy 1: First term is make, second term is model
+    const makeModelCondition = `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`;
+    
+    // Strategy 2: Reverse order - first term is model, second term is make
+    const modelMakeCondition = `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`;
+    
+    // Strategy 3: Both terms in any single field (fallback for description, etc.)
+    const combinedSearchConditions = [
+      `make.ilike.%${cleanQuery}%`,
+      `model.ilike.%${cleanQuery}%`,
+      `description.ilike.%${cleanQuery}%`,
+      `color.ilike.%${cleanQuery}%`,
+      `category.ilike.%${cleanQuery}%`,
+      `transmission.ilike.%${cleanQuery}%`,
+      `drivetrain.ilike.%${cleanQuery}%`,
+      `type.ilike.%${cleanQuery}%`,
+      `condition.ilike.%${cleanQuery}%`,
+      `source.ilike.%${cleanQuery}%`,
+    ];
+    
+    // Strategy 4: Individual terms in any field
+    const individualTermConditions:any = [];
+    queryTerms.forEach(term => {
+      individualTermConditions.push(
+        `make.ilike.%${term}%`,
+        `model.ilike.%${term}%`,
+        `description.ilike.%${term}%`,
+        `category.ilike.%${term}%`
+      );
+    });
+    
+    // Combine all strategies with OR logic
+    const allConditions = [
+      makeModelCondition,
+      modelMakeCondition,
+      ...combinedSearchConditions,
+      ...individualTermConditions
+    ];
+    
+    queryBuilder = queryBuilder.or(allConditions.join(","));
+    
+  } else {
+    // Multi-term search (3+ terms) - comprehensive approach
+    const multiTermConditions = [];
+    
+    // Strategy 1: All terms must appear across make, model, and description
+    const makeConditions = queryTerms.map(term => `make.ilike.%${term}%`);
+    const modelConditions = queryTerms.map(term => `model.ilike.%${term}%`);
+    const descConditions = queryTerms.map(term => `description.ilike.%${term}%`);
+    
+    // Strategy 2: Complete query in any field
+    multiTermConditions.push(
+      `make.ilike.%${cleanQuery}%`,
+      `model.ilike.%${cleanQuery}%`,
+      `description.ilike.%${cleanQuery}%`,
+      `category.ilike.%${cleanQuery}%`
+    );
+    
+    // Strategy 3: Individual terms in any field
+    queryTerms.forEach(term => {
+      multiTermConditions.push(
+        `make.ilike.%${term}%`,
+        `model.ilike.%${term}%`,
+        `description.ilike.%${term}%`,
+        `category.ilike.%${term}%`,
+        `color.ilike.%${term}%`
+      );
+    });
+    
+    queryBuilder = queryBuilder.or(multiTermConditions.join(","));
+  }
+}
 
         // Sorting: Only apply ordering if a sort option is provided.
         if (currentSortOption) {
