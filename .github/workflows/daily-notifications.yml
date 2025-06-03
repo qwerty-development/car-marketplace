@@ -1,24 +1,13 @@
 # .github/workflows/daily-notifications.yml
-# PRODUCTION-GRADE DAILY NOTIFICATIONS SCHEDULER
-# VERSION: 1.1 - OPTION D CONFIGURATION
-# SCHEDULE: 8 AM, 12 PM, 4 PM, 8 PM UTC (4 executions daily)
-# IMPLEMENTATION DATE: 2025-01-08
+# FALLBACK VERSION - NO PARAMETERS TO DATABASE FUNCTION
+# VERSION: 1.1-FALLBACK
+# USE ONLY IF DATABASE FUNCTION CANNOT BE UPDATED
 
 name: 🔔 Daily Notifications Scheduler
 
-# SCHEDULING CONFIGURATION - OPTION D SELECTED
-# RULE: UTC timezone for all schedule expressions
-# RULE: Cron format - minute hour day month weekday
-# CONFIGURATION: Targeted execution times for optimal timezone coverage
 on:
   schedule:
-    # OPTION D: Specific times (8 AM, 12 PM, 4 PM, 8 PM UTC)
-    # RATIONALE: Provides 4 strategic execution windows to cover global timezones
-    # COVERAGE: Ensures users receive notifications during appropriate hours
     - cron: '0 8,12,16,20 * * *'
-  
-  # MANUAL TRIGGER CAPABILITY
-  # PURPOSE: Testing and emergency execution
   workflow_dispatch:
     inputs:
       force_execution:
@@ -30,39 +19,29 @@ on:
           - 'false'
           - 'true'
 
-# GLOBAL ENVIRONMENT CONFIGURATION
 env:
   NOTIFICATION_TIMEOUT: 30
   MAX_RETRIES: 3
   RETRY_DELAY: 5
 
-# EXECUTION JOBS DEFINITION
 jobs:
-  # PRIMARY JOB: NOTIFICATION TRIGGER EXECUTION
   trigger-notifications:
     name: 📧 Execute Daily Notifications
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
-    # EXECUTION STRATEGY
     strategy:
       fail-fast: true
       max-parallel: 1
     
-    # IMPLEMENTATION STEPS
     steps:
-      # STEP 1: ENVIRONMENT PREPARATION
       - name: 🔧 Environment Setup
         id: setup
         run: |
           echo "🚀 Initializing notification trigger execution"
           echo "📅 Execution timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "🕐 Schedule: Option D - 8AM, 12PM, 4PM, 8PM UTC"
-          echo "🔧 Runner OS: ${{ runner.os }}"
-          echo "📍 Workflow: ${{ github.workflow }}"
-          echo "🔀 Event: ${{ github.event_name }}"
           
-          # Determine execution window for logging
           CURRENT_HOUR=$(date -u +%H)
           case $CURRENT_HOUR in
             08) EXECUTION_WINDOW="Morning (8 AM UTC)" ;;
@@ -73,27 +52,22 @@ jobs:
           esac
           
           echo "🌍 Execution Window: $EXECUTION_WINDOW"
-          
-          # Set output variables for subsequent steps
           echo "execution_id=notify_$(date +%s)" >> $GITHUB_OUTPUT
           echo "start_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
           echo "execution_window=$EXECUTION_WINDOW" >> $GITHUB_OUTPUT
 
-      # STEP 2: CONNECTIVITY VALIDATION
       - name: 🌐 Supabase Connectivity Test
         id: connectivity
         timeout-minutes: 2
         run: |
           echo "🔍 Testing Supabase endpoint connectivity"
           
-          # Test basic connectivity to Supabase
           if curl -s --max-time 10 "${{ secrets.SUPABASE_URL }}/health" > /dev/null; then
             echo "✅ Supabase endpoint reachable"
           else
             echo "⚠️  Supabase health endpoint not reachable, proceeding with function call"
           fi
           
-          # Validate URL format
           if [[ "${{ secrets.SUPABASE_URL }}" =~ ^https://[a-zA-Z0-9]+\.supabase\.co$ ]]; then
             echo "✅ Supabase URL format valid"
           else
@@ -101,7 +75,6 @@ jobs:
             exit 1
           fi
 
-      # STEP 3: CORE NOTIFICATION EXECUTION
       - name: 📨 Execute Notification Function
         id: execute
         timeout-minutes: 5
@@ -109,15 +82,8 @@ jobs:
           echo "🎯 Executing daily notification function"
           echo "🕐 Execution Window: ${{ steps.setup.outputs.execution_window }}"
           echo "🔗 Target URL: ${{ secrets.SUPABASE_URL }}/rest/v1/rpc/handle_schedule_daily_notifications"
+          echo "📝 Note: Using no-parameter version for compatibility"
           
-          # Prepare force execution parameter
-          FORCE_PARAM=""
-          if [[ "${{ github.event.inputs.force_execution }}" == "true" ]]; then
-            echo "⚡ Force execution mode enabled"
-            FORCE_PARAM=',"force":true'
-          fi
-          
-          # Execute function with retry logic
           RETRY_COUNT=0
           MAX_RETRIES=${{ env.MAX_RETRIES }}
           SUCCESS=false
@@ -126,7 +92,7 @@ jobs:
             RETRY_COUNT=$((RETRY_COUNT + 1))
             echo "🔄 Attempt $RETRY_COUNT of $MAX_RETRIES"
             
-            # Execute HTTP request with comprehensive error capture
+            # CRITICAL CHANGE: Send empty JSON object instead of parameters
             RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\nTIME_TOTAL:%{time_total}" \
               --max-time ${{ env.NOTIFICATION_TIMEOUT }} \
               --retry 0 \
@@ -134,11 +100,13 @@ jobs:
               -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
               -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
               -H "Content-Type: application/json" \
-              -H "User-Agent: GitHub-Actions-DailyNotifications/1.1-OptionD" \
-              -d "{\"execution_source\":\"github_actions_option_d\",\"execution_id\":\"${{ steps.setup.outputs.execution_id }}\",\"execution_window\":\"${{ steps.setup.outputs.execution_window }}\"${FORCE_PARAM}}" \
+              -H "User-Agent: GitHub-Actions-DailyNotifications/1.1-NoParams" \
+              -H "X-Execution-Source: github_actions_option_d" \
+              -H "X-Execution-ID: ${{ steps.setup.outputs.execution_id }}" \
+              -H "X-Execution-Window: ${{ steps.setup.outputs.execution_window }}" \
+              -d '{}' \
               2>&1) || true
             
-            # Extract response components
             HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
             TIME_TOTAL=$(echo "$RESPONSE" | grep -o 'TIME_TOTAL:[0-9.]*' | cut -d: -f2)
             RESPONSE_BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS:/d' | sed '/TIME_TOTAL:/d')
@@ -147,21 +115,17 @@ jobs:
             echo "⏱️  Request Duration: ${TIME_TOTAL:-'UNKNOWN'}s"
             echo "📄 Response Body: $RESPONSE_BODY"
             
-            # Evaluate response success
             if [ "${HTTP_STATUS:-0}" -eq 200 ]; then
-              # Additional JSON validation for successful responses
               if echo "$RESPONSE_BODY" | grep -q '"success"'; then
                 echo "✅ Function execution successful"
                 SUCCESS=true
                 
-                # Extract key metrics from response
                 USERS_PROCESSED=$(echo "$RESPONSE_BODY" | grep -o '"users_processed":[0-9]*' | cut -d: -f2)
                 NOTIFICATIONS_SCHEDULED=$(echo "$RESPONSE_BODY" | grep -o '"notificationsScheduled":[0-9]*' | cut -d: -f2)
                 
                 echo "👥 Users Processed: ${USERS_PROCESSED:-'N/A'}"
                 echo "📧 Notifications Scheduled: ${NOTIFICATIONS_SCHEDULED:-'N/A'}"
                 
-                # Set outputs for success reporting
                 echo "users_processed=${USERS_PROCESSED:-0}" >> $GITHUB_OUTPUT
                 echo "notifications_scheduled=${NOTIFICATIONS_SCHEDULED:-0}" >> $GITHUB_OUTPUT
                 echo "execution_successful=true" >> $GITHUB_OUTPUT
@@ -179,7 +143,6 @@ jobs:
               echo "🔍 Error response: $RESPONSE_BODY"
             fi
             
-            # Retry delay (except on last attempt)
             if [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; then
               DELAY_TIME=$((RETRY_DELAY * RETRY_COUNT))
               echo "⏳ Waiting ${DELAY_TIME}s before retry..."
@@ -187,14 +150,12 @@ jobs:
             fi
           done
           
-          # Final evaluation
           if [ "$SUCCESS" != "true" ]; then
             echo "💥 All retry attempts exhausted - execution failed"
             echo "execution_successful=false" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-      # STEP 4: SUCCESS LOGGING AND REPORTING
       - name: 📈 Success Reporting
         if: success() && steps.execute.outputs.execution_successful == 'true'
         run: |
@@ -206,46 +167,9 @@ jobs:
           echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
           echo "👥 Users Processed: ${{ steps.execute.outputs.users_processed }}"
           echo "📧 Notifications Scheduled: ${{ steps.execute.outputs.notifications_scheduled }}"
-          echo "🔄 Event Type: ${{ github.event_name }}"
-          echo "📋 Schedule: Option D (8AM, 12PM, 4PM, 8PM UTC)"
+          echo "📋 Version: No-Parameters Compatibility Mode"
           echo "=================================================="
-          
-          # Calculate next execution time
-          CURRENT_HOUR=$(date -u +%H)
-          case $CURRENT_HOUR in
-            08) NEXT_EXECUTION="12:00 PM UTC (Today)" ;;
-            12) NEXT_EXECUTION="4:00 PM UTC (Today)" ;;
-            16) NEXT_EXECUTION="8:00 PM UTC (Today)" ;;
-            20) NEXT_EXECUTION="8:00 AM UTC (Tomorrow)" ;;
-            *) NEXT_EXECUTION="Next scheduled time (8AM, 12PM, 4PM, or 8PM UTC)" ;;
-          esac
-          
-          echo "⏰ Next Scheduled Execution: $NEXT_EXECUTION"
-          
-          # Log to job summary
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## ✅ Daily Notifications - Execution Successful
-          
-          | Metric | Value |
-          |--------|--------|
-          | 📅 Execution Time | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |
-          | 🕐 Execution Window | ${{ steps.setup.outputs.execution_window }} |
-          | 🆔 Execution ID | \`${{ steps.setup.outputs.execution_id }}\` |
-          | 👥 Users Processed | ${{ steps.execute.outputs.users_processed }} |
-          | 📧 Notifications Scheduled | ${{ steps.execute.outputs.notifications_scheduled }} |
-          | 🔄 Trigger Type | ${{ github.event_name }} |
-          | 📋 Schedule Type | Option D (4 times daily) |
-          
-          ### 📊 Schedule Information
-          **Execution Times (UTC):** 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM
-          
-          **Next Execution:** $NEXT_EXECUTION
-          
-          ### 🌍 Timezone Coverage
-          This schedule provides optimal coverage for users across global timezones with 4 strategic execution windows.
-          EOF
 
-      # STEP 5: FAILURE HANDLING AND DIAGNOSTICS
       - name: 🚨 Failure Diagnostics
         if: failure()
         run: |
@@ -254,112 +178,12 @@ jobs:
           echo "📅 Failure Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "🕐 Scheduled Window: ${{ steps.setup.outputs.execution_window }}"
           echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
-          echo "🔄 Event Type: ${{ github.event_name }}"
-          echo "🔧 Runner OS: ${{ runner.os }}"
-          echo "📋 Schedule: Option D (8AM, 12PM, 4PM, 8PM UTC)"
+          echo "📋 Version: No-Parameters Compatibility Mode"
           echo "=================================================="
-          
-          echo "🔍 TROUBLESHOOTING CHECKLIST:"
-          echo "1. ✅ Verify Supabase service status: https://status.supabase.com/"
-          echo "2. ✅ Check API keys are not expired or revoked"
-          echo "3. ✅ Confirm database function 'handle_schedule_daily_notifications' exists"
-          echo "4. ✅ Verify GitHub Actions has not hit API rate limits"
-          echo "5. ✅ Check Supabase function logs for additional error details"
-          echo "6. ✅ Confirm execution window timing (should be 8, 12, 16, or 20 UTC)"
-          
-          # Calculate next execution opportunity
-          CURRENT_HOUR=$(date -u +%H)
-          if [ $CURRENT_HOUR -lt 8 ]; then
-            NEXT_OPPORTUNITY="8:00 AM UTC (Today)"
-          elif [ $CURRENT_HOUR -lt 12 ]; then
-            NEXT_OPPORTUNITY="12:00 PM UTC (Today)"
-          elif [ $CURRENT_HOUR -lt 16 ]; then
-            NEXT_OPPORTUNITY="4:00 PM UTC (Today)"
-          elif [ $CURRENT_HOUR -lt 20 ]; then
-            NEXT_OPPORTUNITY="8:00 PM UTC (Today)"
-          else
-            NEXT_OPPORTUNITY="8:00 AM UTC (Tomorrow)"
-          fi
-          
-          echo "⏰ Next Execution Opportunity: $NEXT_OPPORTUNITY"
-          
-          # Generate failure summary
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## ❌ Daily Notifications - Execution Failed
-          
-          | Detail | Value |
-          |--------|--------|
-          | 📅 Failure Time | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |
-          | 🕐 Scheduled Window | ${{ steps.setup.outputs.execution_window }} |
-          | 🆔 Execution ID | \`${{ steps.setup.outputs.execution_id }}\` |
-          | 🔄 Trigger Type | ${{ github.event_name }} |
-          | 📋 Schedule Type | Option D (4 times daily) |
-          
-          ### 🔧 Immediate Action Required
-          1. Check Supabase service status
-          2. Verify API credentials validity
-          3. Review function logs in Supabase dashboard
-          4. Consider manual execution for testing
-          
-          ### ⏰ Recovery Information
-          **Next Automatic Execution:** $NEXT_OPPORTUNITY
-          
-          **Schedule:** 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM UTC
-          
-          ### 📞 Support Resources
-          - [Supabase Status](https://status.supabase.com/)
-          - [GitHub Actions Documentation](https://docs.github.com/en/actions)
-          EOF
 
-      # STEP 6: CLEANUP AND FINALIZATION
       - name: 🧹 Cleanup
         if: always()
         run: |
           echo "🧹 Performing cleanup operations"
           echo "📊 Final execution status: ${{ job.status }}"
-          echo "🕐 Execution window: ${{ steps.setup.outputs.execution_window }}"
           echo "🏁 Workflow execution completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          
-          # Log schedule information for monitoring
-          echo "📋 Active Schedule: Option D - 4 executions daily"
-          echo "⏰ Execution Times: 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM UTC"
-
-# SCHEDULE CONFIGURATION DOCUMENTATION
-# =====================================
-# OPTION D SELECTED: '0 8,12,16,20 * * *'
-# 
-# EXECUTION TIMES (UTC):
-# - 08:00 UTC (8:00 AM) - Morning execution
-# - 12:00 UTC (12:00 PM) - Midday execution  
-# - 16:00 UTC (4:00 PM) - Afternoon execution
-# - 20:00 UTC (8:00 PM) - Evening execution
-#
-# TOTAL EXECUTIONS: 4 per day (28 per week)
-#
-# TIMEZONE COVERAGE ANALYSIS:
-# - 08:00 UTC covers: Asia-Pacific morning, Europe afternoon, Americas night
-# - 12:00 UTC covers: Asia-Pacific afternoon, Europe evening, Americas morning
-# - 16:00 UTC covers: Asia-Pacific evening, Europe night, Americas midday
-# - 20:00 UTC covers: Asia-Pacific night, Europe morning, Americas afternoon
-#
-# ALTERNATIVE SCHEDULE OPTIONS (COMMENTED OUT):
-
-# OPTION A: Every hour (24 executions daily)
-# on:
-#   schedule:
-#     - cron: '0 * * * *'
-
-# OPTION B: Every 30 minutes (48 executions daily)
-# on:
-#   schedule:
-#     - cron: '*/30 * * * *'
-
-# OPTION C: Every 2 hours (12 executions daily)  
-# on:
-#   schedule:
-#     - cron: '0 */2 * * *'
-
-# OPTION E: Business hours only (9 AM - 9 PM UTC, 13 executions daily)
-# on:
-#   schedule:
-#     - cron: '0 9-21 * * *'
