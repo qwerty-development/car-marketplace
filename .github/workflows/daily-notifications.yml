@@ -1,18 +1,21 @@
 # .github/workflows/daily-notifications.yml
 # PRODUCTION-GRADE DAILY NOTIFICATIONS SCHEDULER
-# VERSION: 1.0
+# VERSION: 1.1 - OPTION D CONFIGURATION
+# SCHEDULE: 8 AM, 12 PM, 4 PM, 8 PM UTC (4 executions daily)
 # IMPLEMENTATION DATE: 2025-01-08
 
 name: 🔔 Daily Notifications Scheduler
 
-# SCHEDULING CONFIGURATION
+# SCHEDULING CONFIGURATION - OPTION D SELECTED
 # RULE: UTC timezone for all schedule expressions
 # RULE: Cron format - minute hour day month weekday
+# CONFIGURATION: Targeted execution times for optimal timezone coverage
 on:
   schedule:
-    # PRODUCTION SCHEDULE: Every hour at minute 0 (UTC)
-    # RATIONALE: Provides comprehensive timezone coverage
-    - cron: '0 * * * *'
+    # OPTION D: Specific times (8 AM, 12 PM, 4 PM, 8 PM UTC)
+    # RATIONALE: Provides 4 strategic execution windows to cover global timezones
+    # COVERAGE: Ensures users receive notifications during appropriate hours
+    - cron: '0 8,12,16,20 * * *'
   
   # MANUAL TRIGGER CAPABILITY
   # PURPOSE: Testing and emergency execution
@@ -54,13 +57,27 @@ jobs:
         run: |
           echo "🚀 Initializing notification trigger execution"
           echo "📅 Execution timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕐 Schedule: Option D - 8AM, 12PM, 4PM, 8PM UTC"
           echo "🔧 Runner OS: ${{ runner.os }}"
           echo "📍 Workflow: ${{ github.workflow }}"
           echo "🔀 Event: ${{ github.event_name }}"
           
+          # Determine execution window for logging
+          CURRENT_HOUR=$(date -u +%H)
+          case $CURRENT_HOUR in
+            08) EXECUTION_WINDOW="Morning (8 AM UTC)" ;;
+            12) EXECUTION_WINDOW="Midday (12 PM UTC)" ;;
+            16) EXECUTION_WINDOW="Afternoon (4 PM UTC)" ;;
+            20) EXECUTION_WINDOW="Evening (8 PM UTC)" ;;
+            *) EXECUTION_WINDOW="Manual/Off-Schedule" ;;
+          esac
+          
+          echo "🌍 Execution Window: $EXECUTION_WINDOW"
+          
           # Set output variables for subsequent steps
           echo "execution_id=notify_$(date +%s)" >> $GITHUB_OUTPUT
           echo "start_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+          echo "execution_window=$EXECUTION_WINDOW" >> $GITHUB_OUTPUT
 
       # STEP 2: CONNECTIVITY VALIDATION
       - name: 🌐 Supabase Connectivity Test
@@ -90,6 +107,7 @@ jobs:
         timeout-minutes: 5
         run: |
           echo "🎯 Executing daily notification function"
+          echo "🕐 Execution Window: ${{ steps.setup.outputs.execution_window }}"
           echo "🔗 Target URL: ${{ secrets.SUPABASE_URL }}/rest/v1/rpc/handle_schedule_daily_notifications"
           
           # Prepare force execution parameter
@@ -116,8 +134,8 @@ jobs:
               -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
               -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
               -H "Content-Type: application/json" \
-              -H "User-Agent: GitHub-Actions-DailyNotifications/1.0" \
-              -d "{\"execution_source\":\"github_actions\",\"execution_id\":\"${{ steps.setup.outputs.execution_id }}\"${FORCE_PARAM}}" \
+              -H "User-Agent: GitHub-Actions-DailyNotifications/1.1-OptionD" \
+              -d "{\"execution_source\":\"github_actions_option_d\",\"execution_id\":\"${{ steps.setup.outputs.execution_id }}\",\"execution_window\":\"${{ steps.setup.outputs.execution_window }}\"${FORCE_PARAM}}" \
               2>&1) || true
             
             # Extract response components
@@ -184,11 +202,25 @@ jobs:
           echo "=================================================="
           echo "📅 Start Time: ${{ steps.setup.outputs.start_time }}"
           echo "📅 End Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕐 Execution Window: ${{ steps.setup.outputs.execution_window }}"
           echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
           echo "👥 Users Processed: ${{ steps.execute.outputs.users_processed }}"
           echo "📧 Notifications Scheduled: ${{ steps.execute.outputs.notifications_scheduled }}"
           echo "🔄 Event Type: ${{ github.event_name }}"
+          echo "📋 Schedule: Option D (8AM, 12PM, 4PM, 8PM UTC)"
           echo "=================================================="
+          
+          # Calculate next execution time
+          CURRENT_HOUR=$(date -u +%H)
+          case $CURRENT_HOUR in
+            08) NEXT_EXECUTION="12:00 PM UTC (Today)" ;;
+            12) NEXT_EXECUTION="4:00 PM UTC (Today)" ;;
+            16) NEXT_EXECUTION="8:00 PM UTC (Today)" ;;
+            20) NEXT_EXECUTION="8:00 AM UTC (Tomorrow)" ;;
+            *) NEXT_EXECUTION="Next scheduled time (8AM, 12PM, 4PM, or 8PM UTC)" ;;
+          esac
+          
+          echo "⏰ Next Scheduled Execution: $NEXT_EXECUTION"
           
           # Log to job summary
           cat >> $GITHUB_STEP_SUMMARY << EOF
@@ -197,13 +229,20 @@ jobs:
           | Metric | Value |
           |--------|--------|
           | 📅 Execution Time | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |
+          | 🕐 Execution Window | ${{ steps.setup.outputs.execution_window }} |
           | 🆔 Execution ID | \`${{ steps.setup.outputs.execution_id }}\` |
           | 👥 Users Processed | ${{ steps.execute.outputs.users_processed }} |
           | 📧 Notifications Scheduled | ${{ steps.execute.outputs.notifications_scheduled }} |
           | 🔄 Trigger Type | ${{ github.event_name }} |
+          | 📋 Schedule Type | Option D (4 times daily) |
           
-          ### 📊 Next Scheduled Execution
-          The next automatic execution will occur at the next hour mark (UTC).
+          ### 📊 Schedule Information
+          **Execution Times (UTC):** 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM
+          
+          **Next Execution:** $NEXT_EXECUTION
+          
+          ### 🌍 Timezone Coverage
+          This schedule provides optimal coverage for users across global timezones with 4 strategic execution windows.
           EOF
 
       # STEP 5: FAILURE HANDLING AND DIAGNOSTICS
@@ -213,9 +252,11 @@ jobs:
           echo "💥 EXECUTION FAILED - DIAGNOSTIC INFORMATION"
           echo "=================================================="
           echo "📅 Failure Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕐 Scheduled Window: ${{ steps.setup.outputs.execution_window }}"
           echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
           echo "🔄 Event Type: ${{ github.event_name }}"
           echo "🔧 Runner OS: ${{ runner.os }}"
+          echo "📋 Schedule: Option D (8AM, 12PM, 4PM, 8PM UTC)"
           echo "=================================================="
           
           echo "🔍 TROUBLESHOOTING CHECKLIST:"
@@ -224,6 +265,23 @@ jobs:
           echo "3. ✅ Confirm database function 'handle_schedule_daily_notifications' exists"
           echo "4. ✅ Verify GitHub Actions has not hit API rate limits"
           echo "5. ✅ Check Supabase function logs for additional error details"
+          echo "6. ✅ Confirm execution window timing (should be 8, 12, 16, or 20 UTC)"
+          
+          # Calculate next execution opportunity
+          CURRENT_HOUR=$(date -u +%H)
+          if [ $CURRENT_HOUR -lt 8 ]; then
+            NEXT_OPPORTUNITY="8:00 AM UTC (Today)"
+          elif [ $CURRENT_HOUR -lt 12 ]; then
+            NEXT_OPPORTUNITY="12:00 PM UTC (Today)"
+          elif [ $CURRENT_HOUR -lt 16 ]; then
+            NEXT_OPPORTUNITY="4:00 PM UTC (Today)"
+          elif [ $CURRENT_HOUR -lt 20 ]; then
+            NEXT_OPPORTUNITY="8:00 PM UTC (Today)"
+          else
+            NEXT_OPPORTUNITY="8:00 AM UTC (Tomorrow)"
+          fi
+          
+          echo "⏰ Next Execution Opportunity: $NEXT_OPPORTUNITY"
           
           # Generate failure summary
           cat >> $GITHUB_STEP_SUMMARY << EOF
@@ -232,14 +290,21 @@ jobs:
           | Detail | Value |
           |--------|--------|
           | 📅 Failure Time | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |
+          | 🕐 Scheduled Window | ${{ steps.setup.outputs.execution_window }} |
           | 🆔 Execution ID | \`${{ steps.setup.outputs.execution_id }}\` |
           | 🔄 Trigger Type | ${{ github.event_name }} |
+          | 📋 Schedule Type | Option D (4 times daily) |
           
           ### 🔧 Immediate Action Required
           1. Check Supabase service status
           2. Verify API credentials validity
           3. Review function logs in Supabase dashboard
           4. Consider manual execution for testing
+          
+          ### ⏰ Recovery Information
+          **Next Automatic Execution:** $NEXT_OPPORTUNITY
+          
+          **Schedule:** 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM UTC
           
           ### 📞 Support Resources
           - [Supabase Status](https://status.supabase.com/)
@@ -252,9 +317,49 @@ jobs:
         run: |
           echo "🧹 Performing cleanup operations"
           echo "📊 Final execution status: ${{ job.status }}"
+          echo "🕐 Execution window: ${{ steps.setup.outputs.execution_window }}"
           echo "🏁 Workflow execution completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Log schedule information for monitoring
+          echo "📋 Active Schedule: Option D - 4 executions daily"
+          echo "⏰ Execution Times: 8:00 AM, 12:00 PM, 4:00 PM, 8:00 PM UTC"
 
+# SCHEDULE CONFIGURATION DOCUMENTATION
+# =====================================
+# OPTION D SELECTED: '0 8,12,16,20 * * *'
+# 
+# EXECUTION TIMES (UTC):
+# - 08:00 UTC (8:00 AM) - Morning execution
+# - 12:00 UTC (12:00 PM) - Midday execution  
+# - 16:00 UTC (4:00 PM) - Afternoon execution
+# - 20:00 UTC (8:00 PM) - Evening execution
+#
+# TOTAL EXECUTIONS: 4 per day (28 per week)
+#
+# TIMEZONE COVERAGE ANALYSIS:
+# - 08:00 UTC covers: Asia-Pacific morning, Europe afternoon, Americas night
+# - 12:00 UTC covers: Asia-Pacific afternoon, Europe evening, Americas morning
+# - 16:00 UTC covers: Asia-Pacific evening, Europe night, Americas midday
+# - 20:00 UTC covers: Asia-Pacific night, Europe morning, Americas afternoon
+#
+# ALTERNATIVE SCHEDULE OPTIONS (COMMENTED OUT):
 
-on:
-  schedule:
-    - cron: '0 8,12,16,20 * * *'
+# OPTION A: Every hour (24 executions daily)
+# on:
+#   schedule:
+#     - cron: '0 * * * *'
+
+# OPTION B: Every 30 minutes (48 executions daily)
+# on:
+#   schedule:
+#     - cron: '*/30 * * * *'
+
+# OPTION C: Every 2 hours (12 executions daily)  
+# on:
+#   schedule:
+#     - cron: '0 */2 * * *'
+
+# OPTION E: Business hours only (9 AM - 9 PM UTC, 13 executions daily)
+# on:
+#   schedule:
+#     - cron: '0 9-21 * * *'
