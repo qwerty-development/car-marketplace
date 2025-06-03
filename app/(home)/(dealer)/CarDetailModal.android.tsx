@@ -612,7 +612,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
     try {
       router.push({
-        pathname: "/(home)/(user)/DealershipDetails",
+        pathname: "/(home)/(dealer)/DealershipDetails",
         params: { dealershipId: car.dealership_id },
       });
     } catch (error) {
@@ -1264,7 +1264,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   marginBottom: 12
                 }}
               >
-                Location ANDROID
+                Location
               </Text>
 
               <SafeMapView

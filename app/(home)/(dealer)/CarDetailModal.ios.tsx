@@ -462,7 +462,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   const handleDealershipPress = useCallback(() => {
     router.push({
-      pathname: "/(home)/(user)/DealershipDetails",
+      pathname: "/(home)/(dealer)/DealershipDetails",
       params: { dealershipId: car.dealership_id },
     });
   }, [router, car.dealership_id]);
