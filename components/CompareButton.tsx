@@ -60,6 +60,9 @@ const CompareButton: React.FC<CompareButtonProps> = ({
         onPress={onPress}
         disabled={!enabled}
       >
+        <Text className='text-white font-extrabold'>
+          Compare 
+        </Text>
         <Ionicons
           name="git-compare-outline"
           size={inHeader ? 24 : 24}
@@ -104,8 +107,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '900',
   }
 });
 

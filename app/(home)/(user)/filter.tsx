@@ -91,18 +91,67 @@ const PRICE_RANGES = [
 ];
 
 // Vehicle Colors with Gradients
-const VEHICLE_COLORS = [
-  { name: "Black", gradient: ["#000000", "#1a1a1a"] },
-  { name: "White", gradient: ["#ffffff", "#f5f5f5"] },
-  { name: "Silver", gradient: ["#C0C0C0", "#A8A8A8"] },
-  { name: "Gray", gradient: ["#808080", "#666666"] },
-  { name: "Red", gradient: ["#FF0000", "#CC0000"] },
-  { name: "Blue", gradient: ["#0000FF", "#0000CC"] },
-  { name: "Green", gradient: ["#008000", "#006600"] },
-  { name: "Brown", gradient: ["#8B4513", "#723A0F"] },
-  { name: "Beige", gradient: ["#F5F5DC", "#E8E8D0"] },
-  { name: "Gold", gradient: ["#FFD700", "#CCAC00"] },
+export const VEHICLE_COLORS = [
+  // 1. White (25 %)
+  { name: 'White', gradient: ['#ffffff', '#f5f5f5'] },
+
+  // 2. Black (22 %)
+  { name: 'Black', gradient: ['#000000', '#1a1a1a'] },
+
+  // 3. Neutral/Gray (20 %)
+  { name: 'Neutral', gradient: ['#808080', '#666666'] },
+
+  // 4. Silver (14 %)
+  { name: 'Silver', gradient: ['#C0C0C0', '#A8A8A8'] },
+
+  // 5. Blue (9 %)
+  { name: 'Blue', gradient: ['#0000FF', '#0000CC'] },
+  //   5a. Light Blue (subset of “Blue”)
+  { name: 'Light Blue', gradient: ['#ADD8E6', '#87CEEB'] },
+  //   5b. Navy (darker subset of “Blue”)
+  { name: 'Navy', gradient: ['#000080', '#000066'] },
+
+  // 6. Red (7.5 %)
+  { name: 'Red', gradient: ['#FF0000', '#CC0000'] },
+  //   6a. Burgundy (darker shade of “Red”)
+  { name: 'Burgundy', gradient: ['#800020', '#660019'] },
+  //   6b. Maroon (another deep red variant)
+  { name: 'Maroon', gradient: ['#800000', '#660000'] },
+
+  // 7. Green (2 %)
+  { name: 'Green', gradient: ['#008000', '#006600'] },
+  //   7a. Dark Green (darker subset of “Green”)
+  { name: 'Dark Green', gradient: ['#006400', '#004d00'] },
+  //   7b. Teal (green-blue variant)
+  { name: 'Teal', gradient: ['#008080', '#006666'] },
+
+  // 8. Brown (0.9 %)
+  { name: 'Brown', gradient: ['#8B4513', '#723A0F'] },
+  //   8a. Beige (light brown/neutral variant)
+  { name: 'Beige', gradient: ['#F5F5DC', '#E8E8D0'] },
+
+  // 9. Orange (0.3 %)
+  { name: 'Orange', gradient: ['#FFA500', '#CC8400'] },
+
+  // 10. Gold (0.1 %)
+  { name: 'Gold', gradient: ['#FFD700', '#CCAC00'] },
+
+  // 11. Purple (0.09 %)
+  { name: 'Purple', gradient: ['#800080', '#660066'] },
+
+  // 12. Yellow (0.08 %)
+  { name: 'Yellow', gradient: ['#FFFF00', '#CCCC00'] },
+
+  // 13. Pink (< 0.08 %)
+  { name: 'Pink', gradient: ['#FFC0CB', '#FF99A9'] },
+
+  // 14. Charcoal (darker gray variant, < 0.08 %)
+  { name: 'Charcoal', gradient: ['#333333', '#1a1a1a'] },
+
+  // 15. Champagne (very rare, < 0.05 %)
+  { name: 'Champagne', gradient: ['#F7E7CE', '#E6D5B8'] }
 ];
+
 
 // Transmission Options
 const TRANSMISSION_OPTIONS = [
@@ -474,7 +523,7 @@ const BrandSelector = memo(
                   />
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView className="mb-24" showsVerticalScrollIndicator={false}>
                   {filteredBrands.map((brand, index) => (
                     <TouchableOpacity
                       key={index}
@@ -1770,7 +1819,7 @@ const DealershipSelector = memo(
                   />
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView className="mb-24" showsVerticalScrollIndicator={false}>
                   {filteredDealerships.map((dealer) => (
                     <TouchableOpacity
                       key={dealer.id}

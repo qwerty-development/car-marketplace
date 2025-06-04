@@ -140,9 +140,9 @@ const OptimizedImage = memo(
   }
 );
 
-const CarItemSkeleton = memo(({ isDarkMode }:any) => {
+const CarItemSkeleton = memo(({ isDarkMode }: any) => {
   const fadeAnim = useRef(new Animated.Value(0.5)).current;
-  
+
   useEffect(() => {
     // Create shimmer effect
     Animated.loop(
@@ -185,7 +185,7 @@ const CarItemSkeleton = memo(({ isDarkMode }:any) => {
           opacity: fadeAnim,
         }}
       />
-      
+
       <View style={{ padding: 8 }}>
         {/* Title placeholder */}
         <Animated.View
@@ -197,7 +197,7 @@ const CarItemSkeleton = memo(({ isDarkMode }:any) => {
             opacity: fadeAnim,
           }}
         />
-        
+
         {/* Price placeholder */}
         <Animated.View
           style={{
@@ -213,7 +213,6 @@ const CarItemSkeleton = memo(({ isDarkMode }:any) => {
     </View>
   );
 });
-
 
 const getLogoUrl = (make: string, isLightMode: boolean) => {
   const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
@@ -915,28 +914,28 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }, 500),
     [user?.id]
   );
-// Inside handleBackPress in CarDetailModal.ios.tsx
-const handleBackPress = useCallback(() => {
-  try {
-    if (car.fromDeepLink === 'true') {
-      router.replace('/(home)/(user)');
-    } else {
-      router.back();
+  // Inside handleBackPress in CarDetailModal.ios.tsx
+  const handleBackPress = useCallback(() => {
+    try {
+      if (car.fromDeepLink === "true") {
+        router.replace("/(home)/(user)");
+      } else {
+        router.back();
 
-      // Safety timer - if we're still on the same screen after 100ms,
-      // assume back navigation failed and redirect to home
-      const timer = setTimeout(() => {
-        router.replace('/(home)/(user)');
-      }, 100);
+        // Safety timer - if we're still on the same screen after 100ms,
+        // assume back navigation failed and redirect to home
+        const timer = setTimeout(() => {
+          router.replace("/(home)/(user)");
+        }, 100);
 
-      return () => clearTimeout(timer);
+        return () => clearTimeout(timer);
+      }
+    } catch (error) {
+      // If any error occurs during navigation, safely redirect to home
+      console.error("Navigation error:", error);
+      router.replace("/(home)/(user)");
     }
-  } catch (error) {
-    // If any error occurs during navigation, safely redirect to home
-    console.error('Navigation error:', error);
-    router.replace('/(home)/(user)');
-  }
-}, [car, router]);
+  }, [car, router]);
   const trackWhatsAppClick = useCallback(
     debounce(async (carId: number) => {
       if (!user?.id || !carId) return;
@@ -970,31 +969,31 @@ const handleBackPress = useCallback(() => {
     });
   }, [car?.id, car?.dealership_phone, trackCallClick]);
 
-const handleShare = useCallback(async () => {
-  if (!car) return;
+  const handleShare = useCallback(async () => {
+    if (!car) return;
 
-  try {
-    // Use a consistent URL format
-    const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
+    try {
+      // Use a consistent URL format
+      const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
 
-    const message =
-      `Check out this ${car.year} ${car.make} ${car.model} for $${
-        car.price ? car.price.toLocaleString() : "N/A"
-      }!\n` +
-      `at ${car.dealership_name || "Dealership"} in ${
-        car.dealership_location || "Location"
-      }\n`
+      const message =
+        `Check out this ${car.year} ${car.make} ${car.model} for $${
+          car.price ? car.price.toLocaleString() : "N/A"
+        }!\n` +
+        `at ${car.dealership_name || "Dealership"} in ${
+          car.dealership_location || "Location"
+        }\n`;
 
-    await Share.share({
-      message,
-      url: shareUrl,
-      title: `${car.year} ${car.make} ${car.model}`
-    });
-  } catch (error) {
-    console.error("Share error:", error);
-    Alert.alert('Error', 'Failed to share car details');
-  }
-}, [car]);
+      await Share.share({
+        message,
+        url: shareUrl,
+        title: `${car.year} ${car.make} ${car.model}`,
+      });
+    } catch (error) {
+      console.error("Share error:", error);
+      Alert.alert("Error", "Failed to share car details");
+    }
+  }, [car]);
 
   const handleOpenInMaps = useCallback(() => {
     if (!car) return;
@@ -1692,130 +1691,132 @@ const handleShare = useCallback(async () => {
     MapViewMarker,
   ]);
 
-// First, let's create a CarSectionSkeleton component that doesn't include titles
-const CarSectionSkeleton = memo(({ isDarkMode }) => {
-  return (
-    <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
-      <FlatList
-        data={[1, 2, 3]} // Show 3 skeleton items
-        renderItem={() => <CarItemSkeleton isDarkMode={isDarkMode} />}
-        keyExtractor={(item) => `section-skeleton-${item}`}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      />
-    </View>
-  );
-});
-
-// Updated renderSimilarCars function without title during loading
-const renderSimilarCars = useCallback(() => {
-  // If not loaded yet, show the skeleton without any title
-  if (!loadingStatus.similarCarsLoaded) {
-    return <CarSectionSkeleton isDarkMode={isDarkMode} />;
-  }
-  
-  // If loaded but empty, return null (show nothing)
-  if (nonCriticalState.similarCars.length === 0) return null;
-  
-  // If loaded and we have content, show the full section with title
-  return (
-    <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
-      <Text
-        style={{
-          fontSize: 18,
-          fontWeight: "bold",
-          marginBottom: 8,
-          color: isDarkMode ? "#fff" : "#000",
-        }}
-      >
-        {nonCriticalState.similarCars[0]?.make === car.make &&
-        nonCriticalState.similarCars[0]?.model === car.model &&
-        nonCriticalState.similarCars[0]?.year === car.year
-          ? "Explore Similar Cars"
-          : "Similarly Priced Cars"}
-      </Text>
-
-      <FlatList
-        data={nonCriticalState.similarCars}
-        renderItem={renderCarItem}
-        keyExtractor={(item: any) => `similar-${item.id}`}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        initialNumToRender={2}
-        maxToRenderPerBatch={3}
-        windowSize={3}
-        removeClippedSubviews={true}
-      />
-    </View>
-  );
-}, [
-  nonCriticalState.similarCars,
-  car.make,
-  car.model,
-  car.year,
-  isDarkMode,
-  renderCarItem,
-  loadingStatus.similarCarsLoaded,
-]);
-
-// Updated renderDealerCars function without title during loading
-const renderDealerCars = useCallback(() => {
-  // If not loaded yet, show the skeleton without any title
-  // Include the bottom margin to ensure proper spacing at the end
-  if (!loadingStatus.dealerCarsLoaded) {
+  // First, let's create a CarSectionSkeleton component that doesn't include titles
+  const CarSectionSkeleton = memo(({ isDarkMode }) => {
     return (
-      <View style={{ marginBottom: 150 }}>
-        <CarSectionSkeleton isDarkMode={isDarkMode} />
+      <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
+        <FlatList
+          data={[1, 2, 3]} // Show 3 skeleton items
+          renderItem={() => <CarItemSkeleton isDarkMode={isDarkMode} />}
+          keyExtractor={(item) => `section-skeleton-${item}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+        />
       </View>
     );
+  });
+
+  // Updated renderSimilarCars function without title during loading
+  const renderSimilarCars = useCallback(() => {
+    // If not loaded yet, show the skeleton without any title
+    if (!loadingStatus.similarCarsLoaded) {
+      return <CarSectionSkeleton isDarkMode={isDarkMode} />;
+    }
+
+    // If loaded but empty, return null (show nothing)
+    if (nonCriticalState.similarCars.length === 0) return null;
+
+    // If loaded and we have content, show the full section with title
+    return (
+      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "bold",
+            marginBottom: 8,
+            color: isDarkMode ? "#fff" : "#000",
+          }}
+        >
+          {nonCriticalState.similarCars[0]?.make === car.make &&
+          nonCriticalState.similarCars[0]?.model === car.model &&
+          nonCriticalState.similarCars[0]?.year === car.year
+            ? "Explore Similar Cars"
+            : "Similarly Priced Cars"}
+        </Text>
+
+        <FlatList
+          data={nonCriticalState.similarCars}
+          renderItem={renderCarItem}
+          keyExtractor={(item: any) => `similar-${item.id}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={true}
+        />
+      </View>
+    );
+  }, [
+    nonCriticalState.similarCars,
+    car.make,
+    car.model,
+    car.year,
+    isDarkMode,
+    renderCarItem,
+    loadingStatus.similarCarsLoaded,
+  ]);
+
+  // Updated renderDealerCars function without title during loading
+  const renderDealerCars = useCallback(() => {
+    // If not loaded yet, show the skeleton without any title
+    // Include the bottom margin to ensure proper spacing at the end
+    if (!loadingStatus.dealerCarsLoaded) {
+      return (
+        <View style={{ marginBottom: 150 }}>
+          <CarSectionSkeleton isDarkMode={isDarkMode} />
+        </View>
+      );
+    }
+
+    // If loaded but empty, return null (show nothing)
+    if (nonCriticalState.dealerCars.length === 0) return null;
+
+    // If loaded and we have content, show the full section with title
+    return (
+      <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "bold",
+            marginBottom: 8,
+            color: isDarkMode ? "#fff" : "#000",
+          }}
+        >
+          More from {car.dealership_name || "Dealership"}
+        </Text>
+
+        <FlatList
+          data={nonCriticalState.dealerCars}
+          renderItem={renderCarItem}
+          keyExtractor={(item) => `dealer-${item.id}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={true}
+        />
+      </View>
+    );
+  }, [
+    nonCriticalState.dealerCars,
+    car.dealership_name,
+    isDarkMode,
+    renderCarItem,
+    loadingStatus.dealerCarsLoaded,
+  ]);
+
+  // Don't forget to ensure you have bottom spacing in your main content
+  // Add this at the end of your main content:
+  {
+    loadingStatus.similarCarsLoaded &&
+      loadingStatus.dealerCarsLoaded &&
+      nonCriticalState.similarCars.length === 0 &&
+      nonCriticalState.dealerCars.length === 0 && (
+        <View style={{ marginBottom: 160 }} />
+      );
   }
-  
-  // If loaded but empty, return null (show nothing)
-  if (nonCriticalState.dealerCars.length === 0) return null;
-  
-  // If loaded and we have content, show the full section with title
-  return (
-    <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
-      <Text
-        style={{
-          fontSize: 18,
-          fontWeight: "bold",
-          marginBottom: 8,
-          color: isDarkMode ? "#fff" : "#000",
-        }}
-      >
-        More from {car.dealership_name || "Dealership"}
-      </Text>
-
-      <FlatList
-        data={nonCriticalState.dealerCars}
-        renderItem={renderCarItem}
-        keyExtractor={(item) => `dealer-${item.id}`}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        initialNumToRender={2}
-        maxToRenderPerBatch={3}
-        windowSize={3}
-        removeClippedSubviews={true}
-      />
-    </View>
-  );
-}, [
-  nonCriticalState.dealerCars,
-  car.dealership_name,
-  isDarkMode,
-  renderCarItem,
-  loadingStatus.dealerCarsLoaded,
-]);
-
-// Don't forget to ensure you have bottom spacing in your main content
-// Add this at the end of your main content:
-{loadingStatus.similarCarsLoaded && 
- loadingStatus.dealerCarsLoaded && 
- nonCriticalState.similarCars.length === 0 && 
- nonCriticalState.dealerCars.length === 0 && (
-  <View style={{ marginBottom: 160 }} />
-)}
 
   // Optimized main render
   return (
@@ -1933,13 +1934,13 @@ const renderDealerCars = useCallback(() => {
             {/* Dealer Cars */}
             {renderDealerCars()}
 
-               {/* Add bottom padding if neither section has content after loading */}
-    {loadingStatus.similarCarsLoaded && 
-     loadingStatus.dealerCarsLoaded && 
-     nonCriticalState.similarCars.length === 0 && 
-     nonCriticalState.dealerCars.length === 0 && (
-      <View style={{ marginBottom: 160 }} />
-    )}
+            {/* Add bottom padding if neither section has content after loading */}
+            {loadingStatus.similarCarsLoaded &&
+              loadingStatus.dealerCarsLoaded &&
+              nonCriticalState.similarCars.length === 0 &&
+              nonCriticalState.dealerCars.length === 0 && (
+                <View style={{ marginBottom: 160 }} />
+              )}
           </>
         )}
         showsVerticalScrollIndicator={false}
@@ -1999,7 +2000,7 @@ const renderDealerCars = useCallback(() => {
                     fontWeight: "500",
                     color: isDarkMode ? "#fff" : "#000",
                   }}
-                  numberOfLines={1}
+                  numberOfLines={2}
                 >
                   {car.dealership_name || "Dealership"}
                 </Text>
@@ -2039,33 +2040,33 @@ const renderDealerCars = useCallback(() => {
         </View>
 
         <TouchableOpacity
-  onPress={handleOpenInMaps}  // CHANGE: from handleOpenInGoogleMaps to handleOpenInMaps
-  style={{
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    marginTop: 16,
-    borderRadius: 9999,
-    backgroundColor: isDarkMode ? "#fff" : "#000",
-    width: "100%",
-  }}
->
-  <Ionicons
-    name="navigate-outline"
-    size={24}
-    color={isDarkMode ? "black" : "white"}
-  />
-  <Text
-    style={{
-      color: isDarkMode ? "black" : "white",
-      fontWeight: "600",
-      marginLeft: 8,
-    }}
-  >
-    Open in Maps 
-  </Text>
-</TouchableOpacity>
+          onPress={handleOpenInMaps} // CHANGE: from handleOpenInGoogleMaps to handleOpenInMaps
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 12,
+            marginTop: 16,
+            borderRadius: 9999,
+            backgroundColor: isDarkMode ? "#fff" : "#000",
+            width: "100%",
+          }}
+        >
+          <Ionicons
+            name="navigate-outline"
+            size={24}
+            color={isDarkMode ? "black" : "white"}
+          />
+          <Text
+            style={{
+              color: isDarkMode ? "black" : "white",
+              fontWeight: "600",
+              marginLeft: 8,
+            }}
+          >
+            Open in Maps
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Autoclip Modal with Suspense */}
@@ -2180,45 +2181,45 @@ const styles = StyleSheet.create({
   },
   modalBackground: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   closeButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 40,
     right: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 20,
     padding: 8,
   },
 
   imageContainer: {
     width,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   fullscreenImage: {
-    width: width , // Slightly smaller than full width for better appearance
+    width: width, // Slightly smaller than full width for better appearance
     height: height,
   },
 
   imageCounter: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: "rgba(0,0,0,0.6)",
     borderRadius: 20,
   },
 
   imageCounterText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     fontSize: 16,
   },
 });

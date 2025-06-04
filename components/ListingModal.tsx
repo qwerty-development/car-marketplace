@@ -441,17 +441,29 @@ export const BrandSelector = memo(
 )
 
 export const VEHICLE_COLORS = [
-	{ name: 'Black', gradient: ['#000000', '#1a1a1a'] },
-	{ name: 'White', gradient: ['#ffffff', '#f5f5f5'] },
-	{ name: 'Silver', gradient: ['#C0C0C0', '#A8A8A8'] },
-	{ name: 'neutral', gradient: ['#808080', '#666666'] },
-	{ name: 'Red', gradient: ['#FF0000', '#CC0000'] },
-	{ name: 'Blue', gradient: ['#0000FF', '#0000CC'] },
-	{ name: 'Green', gradient: ['#008000', '#006600'] },
-	{ name: 'Brown', gradient: ['#8B4513', '#723A0F'] },
-	{ name: 'Beige', gradient: ['#F5F5DC', '#E8E8D0'] },
-	{ name: 'Gold', gradient: ['#FFD700', '#CCAC00'] }
-]
+  { name: 'Black', gradient: ['#000000', '#1a1a1a'] },
+  { name: 'White', gradient: ['#ffffff', '#f5f5f5'] },
+  { name: 'Silver', gradient: ['#C0C0C0', '#A8A8A8'] },
+  { name: 'Neutral', gradient: ['#808080', '#666666'] },
+  { name: 'Red', gradient: ['#FF0000', '#CC0000'] },
+  { name: 'Blue', gradient: ['#0000FF', '#0000CC'] },
+  { name: 'Green', gradient: ['#008000', '#006600'] },
+  { name: 'Brown', gradient: ['#8B4513', '#723A0F'] },
+  { name: 'Beige', gradient: ['#F5F5DC', '#E8E8D0'] },
+  { name: 'Gold', gradient: ['#FFD700', '#CCAC00'] },
+  { name: 'Yellow', gradient: ['#FFFF00', '#CCCC00'] },
+  { name: 'Orange', gradient: ['#FFA500', '#CC8400'] },
+  { name: 'Purple', gradient: ['#800080', '#660066'] },
+  { name: 'Maroon', gradient: ['#800000', '#660000'] },
+  { name: 'Teal', gradient: ['#008080', '#006666'] },
+  { name: 'Pink', gradient: ['#FFC0CB', '#FF99A9'] },
+  { name: 'Navy', gradient: ['#000080', '#000066'] },
+  { name: 'Charcoal', gradient: ['#333333', '#1a1a1a'] },
+  { name: 'Champagne', gradient: ['#F7E7CE', '#E6D5B8'] },
+  { name: 'Dark Green', gradient: ['#006400', '#004d00'] },
+  { name: 'Burgundy', gradient: ['#800020', '#660019'] },
+  { name: 'Light Blue', gradient: ['#ADD8E6', '#87CEEB'] },
+];
 
 // Model Dropdown Component
 export const ModelDropdown = memo(
