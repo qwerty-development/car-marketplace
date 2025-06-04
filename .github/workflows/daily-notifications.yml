@@ -1,0 +1,189 @@
+# .github/workflows/daily-notifications.yml
+# FALLBACK VERSION - NO PARAMETERS TO DATABASE FUNCTION
+# VERSION: 1.1-FALLBACK
+# USE ONLY IF DATABASE FUNCTION CANNOT BE UPDATED
+
+name: 🔔 Daily Notifications Scheduler
+
+on:
+  schedule:
+    - cron: '0 8,12,16,20 * * *'
+  workflow_dispatch:
+    inputs:
+      force_execution:
+        description: 'Force execution (bypasses throttling)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  NOTIFICATION_TIMEOUT: 30
+  MAX_RETRIES: 3
+  RETRY_DELAY: 5
+
+jobs:
+  trigger-notifications:
+    name: 📧 Execute Daily Notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+    
+    steps:
+      - name: 🔧 Environment Setup
+        id: setup
+        run: |
+          echo "🚀 Initializing notification trigger execution"
+          echo "📅 Execution timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕐 Schedule: Option D - 8AM, 12PM, 4PM, 8PM UTC"
+          
+          CURRENT_HOUR=$(date -u +%H)
+          case $CURRENT_HOUR in
+            08) EXECUTION_WINDOW="Morning (8 AM UTC)" ;;
+            12) EXECUTION_WINDOW="Midday (12 PM UTC)" ;;
+            16) EXECUTION_WINDOW="Afternoon (4 PM UTC)" ;;
+            20) EXECUTION_WINDOW="Evening (8 PM UTC)" ;;
+            *) EXECUTION_WINDOW="Manual/Off-Schedule" ;;
+          esac
+          
+          echo "🌍 Execution Window: $EXECUTION_WINDOW"
+          echo "execution_id=notify_$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+          echo "execution_window=$EXECUTION_WINDOW" >> $GITHUB_OUTPUT
+
+      - name: 🌐 Supabase Connectivity Test
+        id: connectivity
+        timeout-minutes: 2
+        run: |
+          echo "🔍 Testing Supabase endpoint connectivity"
+          
+          if curl -s --max-time 10 "${{ secrets.SUPABASE_URL }}/health" > /dev/null; then
+            echo "✅ Supabase endpoint reachable"
+          else
+            echo "⚠️  Supabase health endpoint not reachable, proceeding with function call"
+          fi
+          
+          if [[ "${{ secrets.SUPABASE_URL }}" =~ ^https://[a-zA-Z0-9]+\.supabase\.co$ ]]; then
+            echo "✅ Supabase URL format valid"
+          else
+            echo "❌ Invalid Supabase URL format"
+            exit 1
+          fi
+
+      - name: 📨 Execute Notification Function
+        id: execute
+        timeout-minutes: 5
+        run: |
+          echo "🎯 Executing daily notification function"
+          echo "🕐 Execution Window: ${{ steps.setup.outputs.execution_window }}"
+          echo "🔗 Target URL: ${{ secrets.SUPABASE_URL }}/rest/v1/rpc/handle_schedule_daily_notifications"
+          echo "📝 Note: Using no-parameter version for compatibility"
+          
+          RETRY_COUNT=0
+          MAX_RETRIES=${{ env.MAX_RETRIES }}
+          SUCCESS=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; do
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "🔄 Attempt $RETRY_COUNT of $MAX_RETRIES"
+            
+            # CRITICAL CHANGE: Send empty JSON object instead of parameters
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\nTIME_TOTAL:%{time_total}" \
+              --max-time ${{ env.NOTIFICATION_TIMEOUT }} \
+              --retry 0 \
+              -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/handle_schedule_daily_notifications" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              -H "Content-Type: application/json" \
+              -H "User-Agent: GitHub-Actions-DailyNotifications/1.1-NoParams" \
+              -H "X-Execution-Source: github_actions_option_d" \
+              -H "X-Execution-ID: ${{ steps.setup.outputs.execution_id }}" \
+              -H "X-Execution-Window: ${{ steps.setup.outputs.execution_window }}" \
+              -d '{}' \
+              2>&1) || true
+            
+            HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+            TIME_TOTAL=$(echo "$RESPONSE" | grep -o 'TIME_TOTAL:[0-9.]*' | cut -d: -f2)
+            RESPONSE_BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS:/d' | sed '/TIME_TOTAL:/d')
+            
+            echo "📊 HTTP Status: ${HTTP_STATUS:-'UNKNOWN'}"
+            echo "⏱️  Request Duration: ${TIME_TOTAL:-'UNKNOWN'}s"
+            echo "📄 Response Body: $RESPONSE_BODY"
+            
+            if [ "${HTTP_STATUS:-0}" -eq 200 ]; then
+              if echo "$RESPONSE_BODY" | grep -q '"success"'; then
+                echo "✅ Function execution successful"
+                SUCCESS=true
+                
+                USERS_PROCESSED=$(echo "$RESPONSE_BODY" | grep -o '"users_processed":[0-9]*' | cut -d: -f2)
+                NOTIFICATIONS_SCHEDULED=$(echo "$RESPONSE_BODY" | grep -o '"notificationsScheduled":[0-9]*' | cut -d: -f2)
+                
+                echo "👥 Users Processed: ${USERS_PROCESSED:-'N/A'}"
+                echo "📧 Notifications Scheduled: ${NOTIFICATIONS_SCHEDULED:-'N/A'}"
+                
+                echo "users_processed=${USERS_PROCESSED:-0}" >> $GITHUB_OUTPUT
+                echo "notifications_scheduled=${NOTIFICATIONS_SCHEDULED:-0}" >> $GITHUB_OUTPUT
+                echo "execution_successful=true" >> $GITHUB_OUTPUT
+                break
+              else
+                echo "⚠️  HTTP 200 but response indicates failure"
+                echo "🔍 Response content: $RESPONSE_BODY"
+              fi
+            elif [ "${HTTP_STATUS:-0}" -eq 429 ]; then
+              echo "🚫 Rate limited (HTTP 429) - will retry after delay"
+            elif [ "${HTTP_STATUS:-0}" -eq 503 ]; then
+              echo "🔧 Service unavailable (HTTP 503) - will retry after delay"
+            else
+              echo "❌ Request failed with HTTP status: ${HTTP_STATUS:-'UNKNOWN'}"
+              echo "🔍 Error response: $RESPONSE_BODY"
+            fi
+            
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; then
+              DELAY_TIME=$((RETRY_DELAY * RETRY_COUNT))
+              echo "⏳ Waiting ${DELAY_TIME}s before retry..."
+              sleep $DELAY_TIME
+            fi
+          done
+          
+          if [ "$SUCCESS" != "true" ]; then
+            echo "💥 All retry attempts exhausted - execution failed"
+            echo "execution_successful=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 📈 Success Reporting
+        if: success() && steps.execute.outputs.execution_successful == 'true'
+        run: |
+          echo "🎉 EXECUTION COMPLETED SUCCESSFULLY"
+          echo "=================================================="
+          echo "📅 Start Time: ${{ steps.setup.outputs.start_time }}"
+          echo "📅 End Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕐 Execution Window: ${{ steps.setup.outputs.execution_window }}"
+          echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
+          echo "👥 Users Processed: ${{ steps.execute.outputs.users_processed }}"
+          echo "📧 Notifications Scheduled: ${{ steps.execute.outputs.notifications_scheduled }}"
+          echo "📋 Version: No-Parameters Compatibility Mode"
+          echo "=================================================="
+
+      - name: 🚨 Failure Diagnostics
+        if: failure()
+        run: |
+          echo "💥 EXECUTION FAILED - DIAGNOSTIC INFORMATION"
+          echo "=================================================="
+          echo "📅 Failure Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕐 Scheduled Window: ${{ steps.setup.outputs.execution_window }}"
+          echo "🆔 Execution ID: ${{ steps.setup.outputs.execution_id }}"
+          echo "📋 Version: No-Parameters Compatibility Mode"
+          echo "=================================================="
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          echo "🧹 Performing cleanup operations"
+          echo "📊 Final execution status: ${{ job.status }}"
+          echo "🏁 Workflow execution completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
