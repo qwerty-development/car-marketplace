@@ -1,4 +1,4 @@
-// app/_layout.tsx - OPTIMIZED VERSION
+// app/_layout.tsx - PRODUCTION-READY FIXED VERSION
 import React, {
   useState,
   useEffect,
@@ -49,12 +49,11 @@ import {
   NotificationCacheManager,
 } from "@/utils/NotificationCacheManager";
 import { notificationCoordinator } from "@/utils/NotificationOperationCoordinator";
-
 import ModernUpdateAlert from "./update-alert";
 
 const { width, height } = Dimensions.get("window");
 
-// OPTIMIZATION 1: Consolidated notification handler configuration
+// CRITICAL SYSTEM: Notification handler configuration
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -64,7 +63,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Ignore warnings configuration remains the same
+// SYSTEM CONFIGURATION: Ignore warnings
 LogBox.ignoreLogs([
   "Encountered two children with the same key",
   "Non-serializable values were found in the navigation state",
@@ -89,10 +88,10 @@ LogBox.ignoreLogs([
 
 LogBox.ignoreAllLogs();
 
-// Prevent auto-hiding splash screen
+// CRITICAL SYSTEM: Prevent auto-hiding splash screen
 SplashScreen.preventAutoHideAsync();
 
-// Create a persistent QueryClient instance
+// PERSISTENT CONFIGURATION: QueryClient setup
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -105,27 +104,124 @@ const queryClient = new QueryClient({
   },
 });
 
-// Global declaration for pending deep links
+// GLOBAL SYSTEM: Deep link state management
 declare global {
   var pendingDeepLink: { type: string; id: string } | null;
 }
 
-// DeepLinkQueue and DeepLinkHandler remain the same...
+// CRITICAL SYSTEM: Initialization state management
+interface InitializationState {
+  auth: boolean;
+  notifications: boolean;
+  splash: boolean;
+  deepLinks: boolean;
+  permissions: boolean;
+}
+
+// TIMEOUT CONSTANTS: Prevent infinite loading
+const INITIALIZATION_TIMEOUT = 15000; // 15 seconds maximum wait
+const SPLASH_MIN_DURATION = 1000; // Minimum 1 second splash
+
+// CRITICAL CLASS: InitializationManager
+class InitializationManager {
+  private state: InitializationState = {
+    auth: false,
+    notifications: false,
+    splash: false,
+    deepLinks: false,
+    permissions: false,
+  };
+  
+  private callbacks: Set<() => void> = new Set();
+  private timeoutId: NodeJS.Timeout | null = null;
+  private startTime: number = Date.now();
+
+  constructor() {
+    // MANDATORY TIMEOUT: Prevent infinite loading
+    this.timeoutId = setTimeout(() => {
+      console.warn('[InitManager] TIMEOUT: Forcing completion after 15 seconds');
+      this.forceComplete();
+    }, INITIALIZATION_TIMEOUT);
+  }
+
+  // METHOD: Set component ready state
+  setReady(component: keyof InitializationState): void {
+    console.log(`[InitManager] Component ready: ${component}`);
+    this.state[component] = true;
+    this.checkComplete();
+  }
+
+  // PRIVATE METHOD: Check if all components ready
+  private checkComplete(): void {
+    const allReady = Object.values(this.state).every(ready => ready);
+    const minTimeElapsed = Date.now() - this.startTime >= SPLASH_MIN_DURATION;
+    
+    if (allReady && minTimeElapsed) {
+      this.complete();
+    } else if (allReady && !minTimeElapsed) {
+      // RULE: Wait for minimum splash duration
+      setTimeout(() => {
+        this.complete();
+      }, SPLASH_MIN_DURATION - (Date.now() - this.startTime));
+    }
+  }
+
+  // PRIVATE METHOD: Complete initialization
+  private complete(): void {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    
+    console.log('[InitManager] Initialization complete - App ready');
+    this.callbacks.forEach(callback => callback());
+    this.callbacks.clear();
+  }
+
+  // PRIVATE METHOD: Force completion on timeout
+  private forceComplete(): void {
+    // CRITICAL: Force all states to complete
+    Object.keys(this.state).forEach(key => {
+      this.state[key as keyof InitializationState] = true;
+    });
+    this.complete();
+  }
+
+  // METHOD: Register completion callback
+  onComplete(callback: () => void): void {
+    this.callbacks.add(callback);
+  }
+
+  // METHOD: Get initialization status
+  getStatus(): InitializationState {
+    return { ...this.state };
+  }
+}
+
+// GLOBAL INSTANCE: Initialization manager
+const initManager = new InitializationManager();
+
+// CRITICAL CLASS: DeepLinkQueue with timeout protection
 class DeepLinkQueue {
   private queue: string[] = [];
   private processing = false;
   private readyToProcess = false;
+  private processTimeout: NodeJS.Timeout | null = null;
 
+  // METHOD: Add URL to queue
   enqueue(url: string) {
     this.queue.push(url);
     this.processNextIfReady();
   }
 
+  // METHOD: Mark queue as ready
   setReady() {
     this.readyToProcess = true;
+    initManager.setReady('deepLinks');
     this.processNextIfReady();
   }
 
+  // PRIVATE METHOD: Process next URL if ready
   private async processNextIfReady() {
     if (!this.readyToProcess || this.processing || this.queue.length === 0) {
       return;
@@ -136,7 +232,19 @@ class DeepLinkQueue {
 
     if (url && this.processUrlCallback) {
       try {
+        // TIMEOUT PROTECTION: 5 second limit for deep link processing
+        this.processTimeout = setTimeout(() => {
+          console.warn('[DeepLinkQueue] TIMEOUT: Processing timeout, skipping URL:', url);
+          this.processing = false;
+          this.processNextIfReady();
+        }, 5000);
+
         await this.processUrlCallback(url);
+        
+        if (this.processTimeout) {
+          clearTimeout(this.processTimeout);
+          this.processTimeout = null;
+        }
       } catch (error) {
         console.error("Error processing queued deep link:", error);
       }
@@ -151,14 +259,16 @@ class DeepLinkQueue {
 
   private processUrlCallback: ((url: string) => Promise<void>) | null = null;
 
+  // METHOD: Set URL processing callback
   setProcessUrlCallback(callback: (url: string) => Promise<void>) {
     this.processUrlCallback = callback;
   }
 }
 
+// GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// OPTIMIZATION 2: DeepLinkHandler - Remove redundant badge clearing
+// COMPONENT: Enhanced DeepLinkHandler with timeout protection
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -171,12 +281,13 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // METHOD: Process deep link with timeout protection
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
       if (!url || isProcessingDeepLink) return;
 
       console.log(
-        `Processing ${isInitialLink ? "initial" : "runtime"} deep link:`,
+        `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
         url
       );
       setIsProcessingDeepLink(true);
@@ -185,10 +296,11 @@ const DeepLinkHandler = () => {
         const parsedUrl = Linking.parse(url);
         const { path, queryParams } = parsedUrl;
 
-        console.log("Parsed URL:", { path, queryParams });
+        console.log("[DeepLink] Parsed URL:", { path, queryParams });
 
+        // RULE: Handle auth callbacks
         if (url.includes("auth/callback") || url.includes("reset-password")) {
-          console.log("Handling auth callback");
+          console.log("[DeepLink] Handling auth callback");
           const accessToken = queryParams?.access_token;
           const refreshToken = queryParams?.refresh_token;
 
@@ -199,16 +311,17 @@ const DeepLinkHandler = () => {
             });
 
             if (error) {
-              console.error("Error setting session:", error);
+              console.error("[DeepLink] Error setting session:", error);
             } else {
-              console.log("Auth session set successfully");
+              console.log("[DeepLink] Auth session set successfully");
             }
           }
           return;
         }
 
+        // RULE: Wait for auth to be loaded
         if (!isLoaded) {
-          console.log("Auth not loaded yet, queueing deep link");
+          console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
           return;
         }
@@ -229,11 +342,12 @@ const DeepLinkHandler = () => {
 
           const isEffectivelySignedIn = isSignedIn || isGuest;
 
+          // RULE: Handle car deep links
           if (carId && !isNaN(Number(carId))) {
-            console.log(`Navigating to car details for ID: ${carId}`);
+            console.log(`[DeepLink] Navigating to car details for ID: ${carId}`);
 
             if (!isEffectivelySignedIn) {
-              console.log("User not signed in, redirecting to sign-in first");
+              console.log("[DeepLink] User not signed in, redirecting to sign-in first");
               global.pendingDeepLink = { type: "car", id: carId };
               router.replace("/(auth)/sign-in");
               return;
@@ -258,7 +372,7 @@ const DeepLinkHandler = () => {
                 },
               });
             } catch (error) {
-              console.error("Error prefetching car details:", error);
+              console.error("[DeepLink] Error prefetching car details:", error);
 
               router.push({
                 pathname: "/(home)/(user)/CarDetails",
@@ -269,8 +383,10 @@ const DeepLinkHandler = () => {
                 },
               });
             }
-          } else if (clipId && !isNaN(Number(clipId))) {
-            console.log(`Navigating to autoclip details for ID: ${clipId}`);
+          } 
+          // RULE: Handle clip deep links
+          else if (clipId && !isNaN(Number(clipId))) {
+            console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
 
             if (!isEffectivelySignedIn) {
               global.pendingDeepLink = { type: "autoclip", id: clipId };
@@ -312,11 +428,13 @@ const DeepLinkHandler = () => {
                 },
               });
             } catch (error) {
-              console.error("Error checking clip existence:", error);
+              console.error("[DeepLink] Error checking clip existence:", error);
               Alert.alert("Error", "Unable to load the requested content.");
               router.replace("/(home)/(user)" as any);
             }
-          } else if (
+          } 
+          // RULE: Handle invalid deep links
+          else if (
             path.startsWith("cars") ||
             path.startsWith("/cars") ||
             path.startsWith("car") ||
@@ -324,7 +442,7 @@ const DeepLinkHandler = () => {
             path.startsWith("/clips") ||
             path.startsWith("clip")
           ) {
-            console.warn("Invalid ID in deep link:", path);
+            console.warn("[DeepLink] Invalid ID in deep link:", path);
             Alert.alert(
               "Invalid Link",
               "The content you're looking for could not be found."
@@ -332,7 +450,7 @@ const DeepLinkHandler = () => {
           }
         }
       } catch (err) {
-        console.error("Deep link processing error:", err);
+        console.error("[DeepLink] Processing error:", err);
         Alert.alert("Error", "Unable to process the link. Please try again.");
       } finally {
         setIsProcessingDeepLink(false);
@@ -341,31 +459,38 @@ const DeepLinkHandler = () => {
     [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
   );
 
+  // EFFECT: Get initial URL
   useEffect(() => {
     Linking.getInitialURL()
       .then((url) => {
         if (url) {
-          console.log("App opened with initial URL:", url);
+          console.log("[DeepLink] App opened with initial URL:", url);
           setInitialUrl(url);
+        } else {
+          initManager.setReady('deepLinks');
         }
       })
       .catch((err) => {
-        console.error("Error getting initial URL:", err);
+        console.error("[DeepLink] Error getting initial URL:", err);
+        initManager.setReady('deepLinks');
       });
   }, []);
 
+  // EFFECT: Process initial URL when auth loaded
   useEffect(() => {
     if (initialUrl && isLoaded && !initialUrlProcessed.current) {
       initialUrlProcessed.current = true;
-      console.log("Processing initial URL after auth loaded:", initialUrl);
+      console.log("[DeepLink] Processing initial URL after auth loaded:", initialUrl);
       processDeepLink(initialUrl, true);
     }
   }, [initialUrl, isLoaded, processDeepLink]);
 
+  // EFFECT: Set URL processing callback
   useEffect(() => {
     deepLinkQueue.setProcessUrlCallback(processDeepLink);
   }, [processDeepLink]);
 
+  // EFFECT: Mark as initialized when auth loaded
   useEffect(() => {
     if (isLoaded) {
       initializationTimeoutRef.current = setTimeout(() => {
@@ -381,12 +506,13 @@ const DeepLinkHandler = () => {
     };
   }, [isLoaded]);
 
+  // EFFECT: Listen for runtime deep links
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
       if (isInitialized) {
         processDeepLink(url);
       } else {
-        console.log("App not initialized, queuing deep link");
+        console.log("[DeepLink] App not initialized, queuing deep link");
         deepLinkQueue.enqueue(url);
       }
     });
@@ -396,18 +522,19 @@ const DeepLinkHandler = () => {
     };
   }, [isInitialized, processDeepLink]);
 
+  // EFFECT: Handle pending deep links after sign-in
   useEffect(() => {
     if (isSignedIn && global.pendingDeepLink) {
       const { type, id } = global.pendingDeepLink;
 
       if (type === "car" && id) {
-        console.log("Processing pending car deep link after sign-in");
+        console.log("[DeepLink] Processing pending car deep link after sign-in");
         router.push({
           pathname: "/(home)/(user)/CarDetails",
           params: { carId: id, isDealerView: "false" },
         });
       } else if (type === "autoclip" && id) {
-        console.log("Processing pending autoclip deep link after sign-in");
+        console.log("[DeepLink] Processing pending autoclip deep link after sign-in");
         router.push({
           pathname: "/(home)/(user)/(tabs)/autoclips",
           params: { clipId: id },
@@ -418,15 +545,19 @@ const DeepLinkHandler = () => {
     }
   }, [isSignedIn, router]);
 
-  // REMOVED: Redundant badge clearing - handled centrally in RootLayout
   return null;
 };
 
+// COMPONENT: Environment variables check
 function EnvironmentVariablesCheck() {
+  useEffect(() => {
+    initManager.setReady('permissions');
+  }, []);
+  
   return null;
 }
 
-// OPTIMIZATION 3: Enhanced NotificationsProvider with cache and coordination
+// COMPONENT: Timeout-protected NotificationsProvider
 function NotificationsProvider() {
   const {
     unreadCount,
@@ -441,19 +572,25 @@ function NotificationsProvider() {
   >("idle");
   const initRetryCount = useRef(0);
   const MAX_INIT_RETRIES = 2;
+  const initTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // RULE 1: Use operation coordinator for initialization
+  // COMPUTED: Operation key for coordination
   const operationKey = useMemo(
     () => (user?.id ? `notification_init_${user.id}` : null),
     [user?.id]
   );
 
-  // RULE 2: Coordinated initialization with better state management
+  // EFFECT: Initialize notifications with timeout protection
   useEffect(() => {
     const initializeNotifications = async () => {
-      if (!user?.id || isGuest || !isSignedIn || !operationKey) return;
+      // RULE: Skip if no user or guest
+      if (!user?.id || isGuest || !isSignedIn || !operationKey) {
+        setInitializationState("completed");
+        initManager.setReady('notifications');
+        return;
+      }
 
-      // Check if already initialized or running
+      // RULE: Skip if already completed or running
       if (
         initializationState === "completed" ||
         initializationState === "running"
@@ -465,6 +602,13 @@ function NotificationsProvider() {
       }
 
       try {
+        // TIMEOUT PROTECTION: 8 second initialization timeout
+        initTimeoutRef.current = setTimeout(() => {
+          console.warn('[NotificationsProvider] TIMEOUT: Marking as completed after 8 seconds');
+          setInitializationState("completed");
+          initManager.setReady('notifications');
+        }, 8000);
+
         await notificationCoordinator.executeExclusive(
           operationKey,
           async (signal) => {
@@ -473,10 +617,9 @@ function NotificationsProvider() {
             );
             setInitializationState("running");
 
-            // Check for cancellation
             notificationCoordinator.checkAborted(signal);
 
-            // RULE 3: Set up Android channel once
+            // RULE: Set up Android channel
             if (Platform.OS === "android") {
               try {
                 await Notifications.setNotificationChannelAsync("default", {
@@ -502,7 +645,7 @@ function NotificationsProvider() {
               }
             }
 
-            // RULE 4: Check cached permissions first
+            // RULE: Check cached permissions
             let cachedPermissions =
               notificationCache.get<Notifications.NotificationPermissionsStatus>(
                 NotificationCacheManager.keys.permissions()
@@ -514,11 +657,12 @@ function NotificationsProvider() {
                 notificationCache.set(
                   NotificationCacheManager.keys.permissions(),
                   cachedPermissions,
-                  10 * 60 * 1000 // 10 minutes
+                  10 * 60 * 1000
                 );
               }
             }
 
+            // RULE: Request permissions if needed
             if (cachedPermissions?.status !== "granted") {
               console.log("[NotificationsProvider] Requesting permissions");
               const newPermissions =
@@ -526,11 +670,11 @@ function NotificationsProvider() {
 
               if (newPermissions?.status !== "granted") {
                 console.log("[NotificationsProvider] Permission denied");
-                setInitializationState("failed");
+                setInitializationState("completed");
+                initManager.setReady('notifications');
                 return;
               }
 
-              // Update cache
               notificationCache.set(
                 NotificationCacheManager.keys.permissions(),
                 newPermissions,
@@ -538,49 +682,48 @@ function NotificationsProvider() {
               );
             }
 
-            // RULE 5: Register with force flag
             console.log(
               "[NotificationsProvider] Registering for push notifications"
             );
-            await registerForPushNotifications(true);
+            
+            // RULE: Background registration - don't await
+            registerForPushNotifications(true).catch(error => {
+              console.warn('[NotificationsProvider] Background registration failed:', error);
+            });
 
             setInitializationState("completed");
             initRetryCount.current = 0;
-
-            // RULE 6: Verify after delay
-            setTimeout(async () => {
-              if (signal.aborted) return;
-
-              const token = await SecureStore.getItemAsync("expoPushToken");
-              if (!token) {
-                console.warn(
-                  "[NotificationsProvider] No token after registration, retrying"
-                );
-                if (initRetryCount.current < MAX_INIT_RETRIES) {
-                  initRetryCount.current++;
-                  setInitializationState("idle"); // Reset to trigger retry
-                }
-              }
-            }, 5000);
+            
+            if (initTimeoutRef.current) {
+              clearTimeout(initTimeoutRef.current);
+              initTimeoutRef.current = undefined;
+            }
+            
+            initManager.setReady('notifications');
           }
         );
       } catch (error: any) {
         if (error.message !== "Operation cancelled") {
           console.error("[NotificationsProvider] Initialization error:", error);
-          setInitializationState("failed");
-
-          // Schedule retry if under limit
-          if (initRetryCount.current < MAX_INIT_RETRIES) {
-            initRetryCount.current++;
-            setTimeout(() => {
-              setInitializationState("idle");
-            }, 5000 * Math.pow(2, initRetryCount.current));
+          setInitializationState("completed");
+          
+          if (initTimeoutRef.current) {
+            clearTimeout(initTimeoutRef.current);
+            initTimeoutRef.current = undefined;
           }
+          
+          initManager.setReady('notifications');
         }
       }
     };
 
     initializeNotifications();
+
+    return () => {
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+      }
+    };
   }, [
     user?.id,
     isSignedIn,
@@ -590,49 +733,10 @@ function NotificationsProvider() {
     initializationState,
   ]);
 
-  // RULE 7: Optimized foreground handling
-  useEffect(() => {
-    if (!user?.id || isGuest) return;
-
-    const subscription = AppState.addEventListener(
-      "change",
-      async (nextAppState) => {
-        if (nextAppState === "active" && initializationState === "completed") {
-          console.log(
-            "[NotificationsProvider] App active, checking token status"
-          );
-
-          // Use cached verification
-          const cachedVerification =
-            notificationCache.getCachedTokenVerification(user.id);
-
-          if (!cachedVerification || !cachedVerification.isValid) {
-            const token = await SecureStore.getItemAsync("expoPushToken");
-            if (!token) {
-              console.warn("[NotificationsProvider] No token on foreground");
-              setInitializationState("idle"); // Trigger re-initialization
-            }
-          }
-        }
-      }
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, [user?.id, isGuest, initializationState]);
-
-  // RULE 8: Development diagnostics
-  useEffect(() => {
-    if (__DEV__ && diagnosticInfo) {
-      console.log("[NotificationsProvider] Diagnostic info:", diagnosticInfo);
-    }
-  }, [diagnosticInfo]);
-
   return <EnvironmentVariablesCheck />;
 }
 
-// RootLayoutNav remains mostly the same...
+// COMPONENT: Enhanced RootLayoutNav with state management
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
@@ -642,16 +746,28 @@ function RootLayoutNav() {
   const isDarkMode = colorScheme === "dark";
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(false);
   const curtainPosition = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
+  // COMPUTED: Effective sign-in state
   const isEffectivelySignedIn = useMemo(
     () => isSignedIn || isGuest,
     [isSignedIn, isGuest]
   );
 
+  // COMPUTED: Current route group
   const inAuthGroup = useMemo(() => segments[0] === "(auth)", [segments]);
 
+  // EFFECT: Register for initialization completion
+  useEffect(() => {
+    initManager.onComplete(() => {
+      console.log('[RootLayoutNav] Initialization complete, app ready');
+      setIsAppReady(true);
+    });
+  }, []);
+
+  // EFFECT: Set up splash screen
   useEffect(() => {
     const prepareSplashScreen = async () => {
       try {
@@ -663,15 +779,17 @@ function RootLayoutNav() {
           }, 3000);
         }
       } catch (e) {
-        console.warn("Error setting up splash screen:", e);
+        console.warn("[RootLayoutNav] Error setting up splash screen:", e);
       }
     };
 
     prepareSplashScreen();
   }, []);
 
+  // EFFECT: Handle routing when app is ready
   useEffect(() => {
-    if (!isLoaded || isSigningOut || isSigningIn) return;
+    // RULE: Only route when fully ready
+    if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) return;
 
     if (isEffectivelySignedIn && inAuthGroup) {
       (router as any).replace("/(home)");
@@ -679,6 +797,7 @@ function RootLayoutNav() {
       router.replace("/(auth)/sign-in");
     }
   }, [
+    isAppReady,
     isLoaded,
     isEffectivelySignedIn,
     inAuthGroup,
@@ -687,6 +806,7 @@ function RootLayoutNav() {
     isSigningIn,
   ]);
 
+  // METHOD: Handle splash completion
   const handleSplashComplete = useCallback(() => {
     setSplashAnimationComplete(true);
 
@@ -708,7 +828,8 @@ function RootLayoutNav() {
     });
   }, [curtainPosition, contentOpacity]);
 
-  if (!isLoaded || isSigningOut || isSigningIn) {
+  // RULE: Show loader until everything is ready
+  if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) {
     return <LogoLoader />;
   }
 
@@ -737,6 +858,7 @@ function RootLayoutNav() {
   );
 }
 
+// STYLES: Component styling
 const styles = StyleSheet.create({
   contentContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -749,6 +871,7 @@ const styles = StyleSheet.create({
   },
 });
 
+// COMPONENT: Error fallback
 function ErrorFallback({ error, resetError }: any) {
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -761,20 +884,21 @@ function ErrorFallback({ error, resetError }: any) {
   );
 }
 
-// OPTIMIZATION 4: Main RootLayout with consolidated initialization
+// MAIN COMPONENT: Root Layout with initialization coordination
 export default function RootLayout() {
-  // RULE 1: Single badge clearing operation on app launch
   const badgeClearingRef = useRef(false);
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
 
-  // RULE 2: Consolidated app initialization
+  // EFFECT: Initialize app systems
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Keep splash screen visible
         await SplashScreen.preventAutoHideAsync();
 
-        // RULE 3: Single badge clear operation
+        // RULE: Mark splash as ready immediately
+        initManager.setReady('splash');
+
+        // RULE: Clear badge once
         if (!badgeClearingRef.current) {
           badgeClearingRef.current = true;
           try {
@@ -788,7 +912,7 @@ export default function RootLayout() {
           }
         }
 
-        // RULE 4: Cache initial permission status
+        // RULE: Cache initial permissions
         try {
           const permissionStatus = await Notifications.getPermissionsAsync();
           console.log(
@@ -796,11 +920,10 @@ export default function RootLayout() {
             permissionStatus.status
           );
 
-          // Cache the result
           notificationCache.set(
             NotificationCacheManager.keys.permissions(),
             permissionStatus,
-            10 * 60 * 1000 // 10 minutes
+            10 * 60 * 1000
           );
         } catch (notifError) {
           console.warn(
@@ -809,7 +932,12 @@ export default function RootLayout() {
           );
         }
 
-        // Android failsafe
+        // RULE: Mark auth as ready (will be overridden by AuthProvider)
+        setTimeout(() => {
+          initManager.setReady('auth');
+        }, 100);
+
+        // RULE: Android splash failsafe
         if (Platform.OS === "android") {
           setTimeout(() => {
             SplashScreen.hideAsync().catch(() => {});
@@ -817,13 +945,19 @@ export default function RootLayout() {
         }
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
+        // RULE: Force completion on error
+        initManager.setReady('splash');
+        initManager.setReady('auth');
+        initManager.setReady('notifications');
+        initManager.setReady('deepLinks');
+        initManager.setReady('permissions');
       }
     };
 
     initializeApp();
   }, []);
 
-  // RULE 5: Text scaling settings
+  // EFFECT: Configure text scaling
   useEffect(() => {
     if (Text.defaultProps == null) Text.defaultProps = {};
     if (TextInput.defaultProps == null) TextInput.defaultProps = {};
@@ -832,7 +966,7 @@ export default function RootLayout() {
     TextInput.defaultProps.allowFontScaling = false;
   }, []);
 
-  // RULE 6: OTA updates check
+  // EFFECT: Check for OTA updates
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
@@ -842,7 +976,6 @@ export default function RootLayout() {
           const result = await Updates.fetchUpdateAsync();
 
           if (result.isNew) {
-            // Show custom alert instead of native Alert
             setShowUpdateAlert(true);
           }
         } else {
@@ -856,40 +989,38 @@ export default function RootLayout() {
     checkForUpdates();
   }, []);
 
-  // RULE 7: Cleanup on unmount
+  // EFFECT: Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Clean up notification resources on app unmount
       notificationCoordinator.cleanup();
-      // Note: Don't destroy cache here as it's a singleton
     };
   }, []);
 
-return (
-  <ErrorBoundary FallbackComponent={ErrorFallback}>
-    <NetworkProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <GuestUserProvider>
-          <AuthProvider>
-            <DeepLinkHandler />
-            <QueryClientProvider client={queryClient}>
-              <ThemeProvider>
-                <StatusBarManager />
-                <FavoritesProvider>
-                  <NotificationsProvider />
-                  <RootLayoutNav />
-                  <ModernUpdateAlert 
-                    isVisible={showUpdateAlert} 
-                    onUpdate={async () => { await Updates.reloadAsync(); }} 
-                    onClose={() => setShowUpdateAlert(false)} 
-                  />
-                </FavoritesProvider>
-              </ThemeProvider>
-            </QueryClientProvider>
-          </AuthProvider>
-        </GuestUserProvider>
-      </GestureHandlerRootView>
-    </NetworkProvider>
-  </ErrorBoundary>
-);
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <NetworkProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <GuestUserProvider>
+            <AuthProvider>
+              <DeepLinkHandler />
+              <QueryClientProvider client={queryClient}>
+                <ThemeProvider>
+                  <StatusBarManager />
+                  <FavoritesProvider>
+                    <NotificationsProvider />
+                    <RootLayoutNav />
+                    <ModernUpdateAlert 
+                      isVisible={showUpdateAlert} 
+                      onUpdate={async () => { await Updates.reloadAsync(); }} 
+                      onClose={() => setShowUpdateAlert(false)} 
+                    />
+                  </FavoritesProvider>
+                </ThemeProvider>
+              </QueryClientProvider>
+            </AuthProvider>
+          </GuestUserProvider>
+        </GestureHandlerRootView>
+      </NetworkProvider>
+    </ErrorBoundary>
+  );
 }

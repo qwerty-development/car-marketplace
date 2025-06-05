@@ -1,4 +1,4 @@
-// app/(home)/_layout.tsx
+
 import React, { useEffect, useState, useRef } from "react";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useAuth } from "@/utils/AuthContext";
@@ -9,183 +9,300 @@ import { useTheme } from "@/utils/ThemeContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import LogoLoader from "@/components/LogoLoader";
 
-// Global sign-out flag with improved implementation
+// CRITICAL SYSTEM: Global sign-out flag management
 let isSigningOut = false;
 export { isSigningOut };
 
-// Improved setter with logging and operation cancellation
+// TIMEOUT CONSTANTS: Prevent infinite operations
+const OPERATION_TIMEOUTS = {
+  USER_CHECK: 8000, // 8 seconds max for user check
+  DATABASE_OPERATION: 5000, // 5 seconds max for individual DB operations
+  PROFILE_FETCH: 3000, // 3 seconds max for profile fetch
+  BACKGROUND_OPERATIONS: 10000, // 10 seconds max for background operations
+  ROUTING_OPERATION: 3000, // 3 seconds max for routing decisions
+  MASTER_TIMEOUT: 15000, // 15 seconds absolute maximum
+} as const;
+
+// CRITICAL INTERFACE: Operation state tracking
+interface OperationState {
+  userCheck: 'idle' | 'running' | 'completed' | 'failed';
+  profileFetch: 'idle' | 'running' | 'completed' | 'failed';
+  routing: 'idle' | 'running' | 'completed';
+}
+
+// METHOD: Set global sign-out state
 export function setIsSigningOut(value: boolean) {
   const previous = isSigningOut;
   isSigningOut = value;
 
-  // Log changes for debugging
   if (previous !== value) {
-    console.log(`Sign out state changed: ${previous} -> ${value}`);
+    console.log(`[HomeLayout] Sign out state changed: ${previous} -> ${value}`);
 
-    // Cancel any pending operations when signing out starts
     if (value === true) {
-      console.log("Cancelling pending operations due to sign out");
-      // Additional cleanup could be added here if needed
+      console.log("[HomeLayout] Cancelling pending operations due to sign out");
     }
   }
 }
 
-// Coordinated sign out function to improve sign out process
+// METHOD: Coordinate sign out process
 export async function coordinateSignOut(
   router: any,
   authSignOut: () => Promise<void>
 ) {
-  // Only proceed if not already signing out
+  // RULE: Prevent duplicate sign out attempts
   if (isSigningOut) {
-    console.log("Sign out already in progress");
+    console.log("[HomeLayout] Sign out already in progress");
     return;
   }
 
-  // Set global flag first to prevent concurrent operations
   setIsSigningOut(true);
 
   try {
-    // 1. Navigate to auth screen immediately to prevent further user interactions
-    console.log("Navigating to sign-in screen");
+    console.log("[HomeLayout] Navigating to sign-in screen");
     router.replace("/(auth)/sign-in");
 
-    // 2. Small delay to ensure navigation completes before heavier operations
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // 3. Trigger the actual sign out process
-    console.log("Executing auth sign out");
+    console.log("[HomeLayout] Executing auth sign out");
     await authSignOut();
 
-    console.log("Sign out coordination completed successfully");
+    console.log("[HomeLayout] Sign out coordination completed successfully");
     return true;
   } catch (error) {
-    console.error("Error during coordinated sign out:", error);
-
-    // Force navigation to sign-in on failure
+    console.error("[HomeLayout] Error during coordinated sign out:", error);
     router.replace("/(auth)/sign-in");
-
-    // Reset global flag
     setIsSigningOut(false);
     return false;
   }
 }
 
+// UTILITY: Timeout wrapper for database operations
+const withTimeout = <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operationName: string
+): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${operationName} timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      )
+    ),
+  ]);
+};
+
+// MAIN COMPONENT: Home Layout with comprehensive timeout protection
 export default function HomeLayout() {
   const { isLoaded, isSignedIn, user, profile } = useAuth();
   const router = useRouter();
   const segments = useSegments();
   const { isDarkMode } = useTheme();
   const { isGuest, guestId } = useGuestUser();
-  const [isCheckingUser, setIsCheckingUser] = useState(true);
-  const [isRouting, setIsRouting] = useState(true);
+  
+  // STATE MANAGEMENT: Enhanced operation tracking
+  const [operationState, setOperationState] = useState<OperationState>({
+    userCheck: 'idle',
+    profileFetch: 'idle',
+    routing: 'idle',
+  });
+  
+  const [showLoader, setShowLoader] = useState(true);
+  const [forceComplete, setForceComplete] = useState(false);
+  
+  // HOOKS: External dependencies
   const { registerForPushNotifications } = useNotifications();
+  
+  // REFS: Timeout and operation management
   const registrationAttempted = useRef(false);
+  const operationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
 
-  const [showLoader, setShowLoader] = useState(true)
+  // CRITICAL SYSTEM: Master timeout to prevent infinite loading
   useEffect(() => {
-    const timeout = setTimeout(() => setShowLoader(false), 1500)
-    return () => clearTimeout(timeout)
-  }, [])
+    const masterTimeout = setTimeout(() => {
+      console.warn('[HomeLayout] MASTER TIMEOUT: Forcing app to load after 15 seconds');
+      setForceComplete(true);
+      setShowLoader(false);
+      setOperationState({
+        userCheck: 'completed',
+        profileFetch: 'completed',
+        routing: 'completed',
+      });
+    }, OPERATION_TIMEOUTS.MASTER_TIMEOUT);
 
-  // 1) Check/Create Supabase user and handle notifications
+    return () => clearTimeout(masterTimeout);
+  }, []);
+
+  // CLEANUP SYSTEM: Timeout management
   useEffect(() => {
-// In app/(home)/_layout.tsx
-// Update the checkAndCreateUser function:
+    return () => {
+      // RULE: Clear all operation timeouts on unmount
+      operationTimeouts.current.forEach(timeout => clearTimeout(timeout));
+      operationTimeouts.current.clear();
+      
+      // RULE: Cancel background operations
+      backgroundOperationsRef.current.clear();
+    };
+  }, []);
 
-const checkAndCreateUser = async () => {
-  // Skip if signing out or no user info
-  if ((!user && !isGuest) || isSigningOut) return;
+  // CRITICAL EFFECT: Enhanced user check and creation with timeout protection
+  useEffect(() => {
+    const checkAndCreateUser = async () => {
+      // RULE: Skip if conditions not met
+      if ((!user && !isGuest) || isSigningOut || forceComplete) return;
+      if (operationState.userCheck !== 'idle') return;
 
-  try {
-    const userId = isGuest ? `guest_${guestId}` : user?.id;
-    if (!userId) return;
-
-    // CRITICAL CHANGE: Split into two phases - critical and non-critical
-    // Phase 1: Quick check for user existence - doesn't block UI
-    const { data: existingUser, error: fetchError } = await supabase
-      .from("users")
-      .select("id") // Only select ID for quick check
-      .eq("id", userId)
-      .single();
-
-    if (fetchError && fetchError.code !== "PGRST116") {
-      throw fetchError;
-    }
-
-    // Create user if they don't exist - critical operation
-    if (!existingUser) {
-      const email = isGuest
-        ? `guest_${guestId}@example.com`
-        : user?.email || "";
-
-      const name = isGuest
-        ? "Guest User"
-        : profile?.name || user?.user_metadata?.name || "";
-
-      await supabase.from("users").upsert(
-        [
-          {
-            id: userId,
-            name: name,
-            email: email,
-            favorite: [],
-            is_guest: isGuest,
-            last_active: new Date().toISOString(),
-          },
-        ],
-        {
-          onConflict: "id",
-          ignoreDuplicates: false,
-        }
-      );
-
-      console.log("Created new user in Supabase");
-    }
-
-    // CRITICAL CHANGE: Mark user checking as complete to unblock UI
-    // This allows the app to show the main interface faster
-    setIsCheckingUser(false);
-
-    // Phase 2: Non-critical operations moved to background
-    // These operations happen after UI is shown
-    setTimeout(async () => {
       try {
-        // Skip if sign out started during this operation
-        if (isSigningOut) return;
+        setOperationState(prev => ({ ...prev, userCheck: 'running' }));
         
-        // Update last_active timestamp (non-critical)
-        await supabase
-          .from("users")
-          .update({ last_active: new Date().toISOString() })
-          .eq("id", userId);
+        // TIMEOUT PROTECTION: User check operation timeout
+        const userCheckTimeout = setTimeout(() => {
+          console.warn('[HomeLayout] User check TIMEOUT: Completing anyway after 8 seconds');
+          setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
+        }, OPERATION_TIMEOUTS.USER_CHECK);
         
-        console.log("Updated last_active for user in Supabase");
+        operationTimeouts.current.set('userCheck', userCheckTimeout);
 
-        // Register for notifications as a background task (non-critical)
-        if (!isGuest && !isSigningOut) {
-          registerForPushNotifications().catch((notificationError) => {
-            console.error(
-              "Error in background push notification registration:",
-              notificationError
-            );
-          });
+        // STEP 1: Determine user ID
+        const userId = isGuest ? `guest_${guestId}` : user?.id;
+        if (!userId) {
+          setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
+          return;
         }
-      } catch (error) {
-        console.error("Background user sync error:", error);
-        // Non-blocking error - app continues to function
-      }
-    }, 3000); // 3 seconds after UI is shown
-    
-  } catch (error: any) {
-    console.error("Error in user sync:", error);
-    setIsCheckingUser(false);
-  }
-};
 
+        // STEP 2: Quick existence check with timeout protection
+        let existingUser;
+        try {
+          const result = await withTimeout(
+            supabase
+              .from("users")
+              .select("id")
+              .eq("id", userId)
+              .single(),
+            OPERATION_TIMEOUTS.DATABASE_OPERATION,
+            'user existence check'
+          );
+          existingUser = result.data;
+        } catch (error: any) {
+          if (error.message.includes('timed out')) {
+            console.warn('[HomeLayout] User existence check TIMEOUT: Assuming user needs creation');
+            existingUser = null;
+          } else if (error.code !== "PGRST116") {
+            throw error;
+          } else {
+            existingUser = null;
+          }
+        }
+
+        // STEP 3: Create user if doesn't exist
+        if (!existingUser) {
+          const email = isGuest
+            ? `guest_${guestId}@example.com`
+            : user?.email || "";
+
+          const name = isGuest
+            ? "Guest User"
+            : profile?.name || user?.user_metadata?.name || "";
+
+          try {
+            await withTimeout(
+              supabase.from("users").upsert(
+                [
+                  {
+                    id: userId,
+                    name: name,
+                    email: email,
+                    favorite: [],
+                    is_guest: isGuest,
+                    last_active: new Date().toISOString(),
+                  },
+                ],
+                {
+                  onConflict: "id",
+                  ignoreDuplicates: false,
+                }
+              ),
+              OPERATION_TIMEOUTS.DATABASE_OPERATION,
+              'user creation'
+            );
+
+            console.log("[HomeLayout] Created new user in Supabase");
+          } catch (createError: any) {
+            if (createError.message.includes('timed out')) {
+              console.warn('[HomeLayout] User creation TIMEOUT: Continuing anyway');
+            } else {
+              console.error('[HomeLayout] User creation error:', createError);
+            }
+          }
+        }
+
+        // STEP 4: Clear timeout and mark as completed
+        clearTimeout(userCheckTimeout);
+        operationTimeouts.current.delete('userCheck');
+        setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
+
+        // STEP 5: Background operations (non-blocking)
+        const backgroundOperations = async () => {
+          try {
+            if (isSigningOut || forceComplete) return;
+            
+            // BACKGROUND TASK: Update last_active (non-blocking)
+            const lastActivePromise = withTimeout(
+              supabase
+                .from("users")
+                .update({ last_active: new Date().toISOString() })
+                .eq("id", userId),
+              OPERATION_TIMEOUTS.DATABASE_OPERATION,
+              'last_active update'
+            ).catch(error => {
+              console.warn('[HomeLayout] Background last_active update failed:', error);
+            });
+
+            backgroundOperationsRef.current.add(lastActivePromise);
+            
+            // BACKGROUND TASK: Register for notifications (non-blocking)
+            if (!isGuest && !isSigningOut) {
+              const notificationPromise = registerForPushNotifications(false).catch((notificationError) => {
+                console.warn("[HomeLayout] Background push notification registration failed:", notificationError);
+              });
+              
+              backgroundOperationsRef.current.add(notificationPromise);
+            }
+
+            // TIMEOUT PROTECTION: Background operations timeout
+            const backgroundTimeout = setTimeout(() => {
+              console.warn('[HomeLayout] Background operations TIMEOUT after 10 seconds');
+            }, OPERATION_TIMEOUTS.BACKGROUND_OPERATIONS);
+
+            await Promise.allSettled(Array.from(backgroundOperationsRef.current));
+            clearTimeout(backgroundTimeout);
+            
+          } catch (error) {
+            console.warn('[HomeLayout] Background operations error:', error);
+          }
+        };
+
+        // RULE: Execute background operations without blocking UI
+        backgroundOperations();
+        
+      } catch (error: any) {
+        console.error("[HomeLayout] Error in user sync:", error);
+        setOperationState(prev => ({ ...prev, userCheck: 'failed' }));
+        
+        // RULE: Don't block app for user sync errors
+        setTimeout(() => {
+          setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
+        }, 1000);
+      }
+    };
+
+    // RULE: Execute user check when conditions are met
     if ((isSignedIn && user) || isGuest) {
       checkAndCreateUser();
     } else {
-      setIsCheckingUser(false);
+      setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
     }
   }, [
     isSignedIn,
@@ -194,37 +311,83 @@ const checkAndCreateUser = async () => {
     guestId,
     profile,
     registerForPushNotifications,
+    operationState.userCheck,
+    forceComplete,
   ]);
 
-  // Handle routing logic with sign-out awareness
+  // CRITICAL EFFECT: Enhanced routing logic with timeout protection
   useEffect(() => {
-    if (isSigningOut || !isLoaded) return;
+    // RULE: Skip if conditions not met
+    if (isSigningOut || !isLoaded || forceComplete) return;
+    if (operationState.routing !== 'idle') return;
 
-    // Wait until we finish checking user
-    if (isCheckingUser) return;
-
-    const isEffectivelySignedIn = isSignedIn || isGuest;
-
-    if (!isEffectivelySignedIn) {
-      router.replace("/(auth)/sign-in");
+    // RULE: Wait for user check to complete, but not indefinitely
+    if (operationState.userCheck === 'running') {
+      const routingTimeout = setTimeout(() => {
+        console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway after 3 seconds');
+        setOperationState(prev => ({ ...prev, routing: 'running' }));
+      }, OPERATION_TIMEOUTS.ROUTING_OPERATION);
+      
+      operationTimeouts.current.set('routing', routingTimeout);
       return;
     }
 
-    // Ensure profile is loaded before routing
-    if (!isGuest && !profile) {
-      return; // Wait until profile is ready
+    setOperationState(prev => ({ ...prev, routing: 'running' }));
+
+    // STEP 1: Determine effective sign-in state
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+
+    // STEP 2: Handle unauthenticated users
+    if (!isEffectivelySignedIn) {
+      router.replace("/(auth)/sign-in");
+      setOperationState(prev => ({ ...prev, routing: 'completed' }));
+      return;
     }
 
-    const role = isGuest ? "user" : profile?.role || "user";
+    // STEP 3: Handle guests (skip profile check)
+    if (isGuest) {
+      const correctRouteSegment = "(user)";
+      if (segments[1] !== correctRouteSegment) {
+        router.replace(`/(home)/${correctRouteSegment}`);
+      }
+      setOperationState(prev => ({ ...prev, routing: 'completed' }));
+      return;
+    }
+
+    // STEP 4: Handle authenticated users (ensure profile loaded)
+    if (!profile) {
+      // TIMEOUT PROTECTION: Profile loading timeout
+      const profileTimeout = setTimeout(() => {
+        console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role after 3 seconds');
+        const defaultRole = "user";
+        const correctRouteSegment = `(${defaultRole})`;
+        
+        if (segments[1] !== correctRouteSegment) {
+          router.replace(`/(home)/${correctRouteSegment}`);
+        }
+        setOperationState(prev => ({ ...prev, routing: 'completed' }));
+      }, OPERATION_TIMEOUTS.PROFILE_FETCH);
+      
+      operationTimeouts.current.set('profile', profileTimeout);
+      return;
+    }
+
+    // STEP 5: Clear profile timeout if set
+    const profileTimeout = operationTimeouts.current.get('profile');
+    if (profileTimeout) {
+      clearTimeout(profileTimeout);
+      operationTimeouts.current.delete('profile');
+    }
+
+    // STEP 6: Route based on user role
+    const role = profile?.role || "user";
     const correctRouteSegment = `(${role})`;
 
     if (segments[1] !== correctRouteSegment) {
-      setIsRouting(true);
       router.replace(`/(home)/${correctRouteSegment}`);
-      setIsRouting(false);
-    } else {
-      setIsRouting(false);
     }
+    
+    setOperationState(prev => ({ ...prev, routing: 'completed' }));
   }, [
     isLoaded,
     isSignedIn,
@@ -233,19 +396,50 @@ const checkAndCreateUser = async () => {
     profile,
     segments,
     router,
-    isCheckingUser,
+    operationState.userCheck,
+    operationState.routing,
+    forceComplete,
   ]);
 
-if (
-  showLoader || 
-  isCheckingUser || 
-  isRouting || 
-  !isLoaded || 
-  (!isGuest && !profile)
-) {
-  return <LogoLoader />
-}
+  // EFFECT: Loader management with multiple completion conditions
+  useEffect(() => {
+    const checkIfReady = () => {
+      // RULE: Force complete overrides everything
+      if (forceComplete) {
+        setShowLoader(false);
+        return;
+      }
 
+      // RULE: Check if all critical operations are done
+      const isUserCheckDone = operationState.userCheck === 'completed' || operationState.userCheck === 'failed';
+      const isRoutingDone = operationState.routing === 'completed';
+      const isBasicLoadingDone = isLoaded;
+
+      // RULE: All conditions must be met to hide loader
+      if (isUserCheckDone && isRoutingDone && isBasicLoadingDone) {
+        setShowLoader(false);
+      }
+    };
+
+    checkIfReady();
+  }, [operationState, isLoaded, forceComplete]);
+
+  // SAFETY SYSTEM: Emergency loader timeout
+  useEffect(() => {
+    const loaderTimeout = setTimeout(() => {
+      console.warn('[HomeLayout] EMERGENCY TIMEOUT: Showing app after 12 seconds');
+      setShowLoader(false);
+    }, 12000); // 12 second emergency timeout
+
+    return () => clearTimeout(loaderTimeout);
+  }, []);
+
+  // CONDITIONAL RENDERING: Show loader only when necessary
+  if (showLoader && !forceComplete) {
+    return <LogoLoader />;
+  }
+
+  // MAIN RENDER: Home layout container
   return (
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}

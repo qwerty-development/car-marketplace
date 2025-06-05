@@ -1,4 +1,4 @@
-// utils/AuthContext.tsx
+// utils/AuthContext.tsx - FIXED VERSION
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -9,6 +9,16 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
 import { router } from 'expo-router';
 import { NotificationService } from '@/services/NotificationService';
+
+// CRITICAL FIX 1: Enhanced timeout configurations
+const OPERATION_TIMEOUTS = {
+  SIGN_IN: 10000, // 10 seconds
+  SIGN_OUT: 8000, // 8 seconds
+  PROFILE_FETCH: 5000, // 5 seconds
+  TOKEN_REGISTRATION: 8000, // 8 seconds
+  SESSION_LOAD: 10000, // 10 seconds
+  OAUTH_PROCESS: 15000, // 15 seconds
+} as const;
 
 // Global signing out state management
 export let isGlobalSigningOut = false;
@@ -71,6 +81,23 @@ export const useAuth = () => {
   return context;
 };
 
+// CRITICAL FIX 2: Timeout utility for async operations
+const withTimeout = <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operationName: string
+): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${operationName} operation timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      )
+    ),
+  ]);
+};
+
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -80,9 +107,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { isGuest, clearGuestMode } = useGuestUser();
 
-  // Use React Native compatible timer type
+  // CRITICAL FIX 3: Enhanced cleanup management
   const tokenVerificationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const authSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
 
   // For OAuth redirects
   const redirectUri = makeRedirectUri({
@@ -90,32 +119,46 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     path: 'auth/callback'
   });
 
+  // CRITICAL FIX 4: Enhanced cleanup function
+  const cleanupOperation = (operationKey: string) => {
+    const timeout = operationTimeoutsRef.current.get(operationKey);
+    if (timeout) {
+      clearTimeout(timeout);
+      operationTimeoutsRef.current.delete(operationKey);
+    }
+  };
+
+  const setOperationTimeout = (operationKey: string, timeoutMs: number, callback: () => void) => {
+    cleanupOperation(operationKey);
+    const timeout = setTimeout(callback, timeoutMs);
+    operationTimeoutsRef.current.set(operationKey, timeout);
+    return timeout;
+  };
+
   /**
-   * Enhanced token registration strategy using NotificationService
-   * Eliminates code duplication and provides consistent token management
-   * 
-   * @param userId - The user ID to register token for
-   * @param attemptNumber - Current attempt number for retry logic
-   * @returns Promise<boolean> - Success status of token registration
+   * CRITICAL FIX 5: Enhanced token registration with timeout protection
    */
   const registerPushTokenForUser = async (
     userId: string, 
     attemptNumber: number = 1
   ): Promise<boolean> => {
     const maxAttempts = 3;
-    const baseDelay = 1000; // 1 second base delay
+    const baseDelay = 1000;
     
     try {
       console.log(`[AUTH] Token registration attempt ${attemptNumber}/${maxAttempts} for user: ${userId}`);
       
-      // Check if user is signing out to prevent unnecessary registration
       if (isGlobalSigningOut || isSigningOutState) {
         console.log('[AUTH] User is signing out, skipping token registration');
         return false;
       }
 
-      // Use NotificationService for token registration (eliminates code duplication)
-      const token = await NotificationService.registerForPushNotificationsAsync(userId, true);
+      // CRITICAL FIX 6: Add timeout to token registration
+      const token = await withTimeout(
+        NotificationService.registerForPushNotificationsAsync(userId, true),
+        OPERATION_TIMEOUTS.TOKEN_REGISTRATION,
+        'token registration'
+      );
       
       if (token) {
         console.log('[AUTH] Token registration successful via NotificationService');
@@ -123,7 +166,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       } else {
         console.log(`[AUTH] Token registration failed on attempt ${attemptNumber}`);
         
-        // Implement exponential backoff for retries
         if (attemptNumber < maxAttempts) {
           const delay = baseDelay * Math.pow(2, attemptNumber - 1);
           console.log(`[AUTH] Retrying token registration in ${delay}ms`);
@@ -134,10 +176,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         
         return false;
       }
-    } catch (error) {
-      console.error(`[AUTH] Token registration error on attempt ${attemptNumber}:`, error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn(`[AUTH] Token registration timed out on attempt ${attemptNumber}`);
+      } else {
+        console.error(`[AUTH] Token registration error on attempt ${attemptNumber}:`, error);
+      }
       
-      // Retry with exponential backoff for recoverable errors
       if (attemptNumber < maxAttempts) {
         const delay = baseDelay * Math.pow(2, attemptNumber - 1);
         console.log(`[AUTH] Retrying token registration after error in ${delay}ms`);
@@ -151,55 +196,67 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * Optimized token verification with intelligent caching and error recovery
-   * Uses NotificationService methods to eliminate code duplication
-   * 
-   * @param userId - The user ID to verify token for
+   * CRITICAL FIX 7: Non-blocking token verification with timeout
    */
   const verifyTokenRegistration = async (userId: string): Promise<void> => {
     try {
       console.log('[AUTH] Starting periodic token verification for user:', userId);
       
-      // Skip verification if user is signing out
       if (isGlobalSigningOut || isSigningOutState) {
         console.log('[AUTH] Skipping token verification - user signing out');
         return;
       }
 
-      // Use NotificationService for token verification (consistent with service layer)
-      const verification = await NotificationService.forceTokenVerification(userId);
+      // Add timeout to verification
+      const verification = await withTimeout(
+        NotificationService.forceTokenVerification(userId),
+        3000, // 3 second timeout for verification
+        'token verification'
+      );
       
       if (!verification.isValid) {
-        console.log('[AUTH] Token verification failed, initiating registration');
-        await registerPushTokenForUser(userId);
+        console.log('[AUTH] Token verification failed, scheduling background registration');
+        
+        // Schedule background registration without blocking
+        const registrationPromise = registerPushTokenForUser(userId).catch(error => {
+          console.warn('[AUTH] Background token registration failed:', error);
+        });
+        
+        backgroundOperationsRef.current.add(registrationPromise);
       } else if (verification.signedIn === false) {
         console.log('[AUTH] Token exists but marked as signed out, updating status');
         
         if (verification.token) {
-          const success = await NotificationService.markTokenAsSignedIn(userId, verification.token);
-          if (!success) {
-            console.log('[AUTH] Failed to mark token as signed in, re-registering');
-            await registerPushTokenForUser(userId);
-          }
+          const updatePromise = NotificationService.markTokenAsSignedIn(userId, verification.token).catch(error => {
+            console.warn('[AUTH] Background token status update failed:', error);
+          });
+          
+          backgroundOperationsRef.current.add(updatePromise);
         }
       } else {
         console.log('[AUTH] Token verification successful');
       }
-    } catch (error) {
-      console.error('[AUTH] Error during token verification:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Token verification timed out, scheduling background check');
+      } else {
+        console.error('[AUTH] Error during token verification:', error);
+      }
       
-      // Fallback: attempt registration after verification failure
+      // Schedule fallback registration without blocking
       setTimeout(() => {
         if (!isGlobalSigningOut && !isSigningOutState) {
-          registerPushTokenForUser(userId);
+          const fallbackPromise = registerPushTokenForUser(userId).catch(error => {
+            console.warn('[AUTH] Fallback token registration failed:', error);
+          });
+          backgroundOperationsRef.current.add(fallbackPromise);
         }
       }, 5000);
     }
   };
 
   /**
-   * Enhanced cleanup function for push token management
-   * Delegates to NotificationService for consistent token cleanup
+   * CRITICAL FIX 8: Enhanced cleanup function with timeout protection
    */
   const cleanupPushToken = async (): Promise<void> => {
     try {
@@ -209,28 +266,36 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
 
       console.log('[AUTH] Initiating push token cleanup via NotificationService');
-      const success = await NotificationService.cleanupPushToken(user.id);
+      
+      // Add timeout to cleanup operation
+      const success = await withTimeout(
+        NotificationService.cleanupPushToken(user.id),
+        3000, // 3 second timeout for cleanup
+        'push token cleanup'
+      );
 
       if (success) {
         console.log('[AUTH] Push token cleanup completed successfully');
       } else {
         console.log('[AUTH] Push token cleanup encountered issues but completed');
       }
-    } catch (error) {
-      console.error('[AUTH] Push token cleanup error:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Push token cleanup timed out');
+      } else {
+        console.error('[AUTH] Push token cleanup error:', error);
+      }
       // Continue with sign out process even if token cleanup fails
     }
   };
 
   /**
-   * Optimized local storage cleanup with error isolation
-   * Cleans only auth-related data, preserving notification tokens
+   * CRITICAL FIX 9: Enhanced local storage cleanup with timeout
    */
   const cleanupLocalStorage = async (): Promise<void> => {
     try {
       console.log('[AUTH] Starting auth-related local storage cleanup');
       
-      // Define auth-specific keys (excluding notification-related keys)
       const authKeys = [
         'supabase-auth-token',
         'lastActiveSession',
@@ -238,33 +303,44 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         'tempAuthData'
       ];
 
-      // Clean up auth keys with error isolation
+      // Add timeout to storage cleanup
       const cleanupPromises = authKeys.map(async (key) => {
         try {
-          await SecureStore.deleteItemAsync(key);
+          return withTimeout(
+            SecureStore.deleteItemAsync(key),
+            1000, // 1 second timeout per key
+            `storage cleanup for ${key}`
+          );
         } catch (error) {
-          console.error(`[AUTH] Error deleting key ${key}:`, error);
-          // Continue cleanup even if individual key deletion fails
+          console.warn(`[AUTH] Error deleting key ${key}:`, error);
         }
       });
 
-      await Promise.all(cleanupPromises);
+      await withTimeout(
+        Promise.allSettled(cleanupPromises),
+        5000, // 5 second total timeout for storage cleanup
+        'complete storage cleanup'
+      );
+      
       console.log('[AUTH] Auth-related local storage cleanup completed');
-    } catch (error) {
-      console.error('[AUTH] Local storage cleanup error:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Local storage cleanup timed out');
+      } else {
+        console.error('[AUTH] Local storage cleanup error:', error);
+      }
     }
   };
 
-  // Token verification effect with proper cleanup
+  // CRITICAL FIX 10: Token verification effect with proper cleanup and timeout
   useEffect(() => {
-    // Skip if not signed in or in guest mode
     if (!user?.id || isGuest) {
       return;
     }
 
     const verificationInterval = 12 * 60 * 60 * 1000; // 12 hours
     
-    // Initial verification with delay to allow auth state to stabilize
+    // Initial verification with delay and timeout
     const initialTimeout = setTimeout(() => {
       verifyTokenRegistration(user.id);
     }, 2000);
@@ -274,7 +350,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       verifyTokenRegistration(user.id);
     }, verificationInterval);
 
-    // Cleanup function
     return () => {
       if (initialTimeout) {
         clearTimeout(initialTimeout);
@@ -286,84 +361,106 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     };
   }, [user?.id, isGuest]);
   
-  // Auth state management effect
+  // CRITICAL FIX 11: Enhanced auth state management with timeout protection
   useEffect(() => {
     setIsLoaded(false);
 
-    // Set up auth state listener
+    // Set timeout for session loading
+    const sessionTimeout = setOperationTimeout('sessionLoad', OPERATION_TIMEOUTS.SESSION_LOAD, () => {
+      console.warn('[AUTH] Session loading timed out, marking as loaded');
+      setIsLoaded(true);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        console.log('[AUTH] Auth state change event:', event);
+        try {
+          console.log('[AUTH] Auth state change event:', event);
 
-        if (currentSession) {
-          setSession(currentSession);
-          setUser(currentSession.user);
+          if (currentSession) {
+            setSession(currentSession);
+            setUser(currentSession.user);
 
-          // Get user profile from the users table
-          if (currentSession.user && !isGuest) {
-            await fetchUserProfile(currentSession.user.id);
+            if (currentSession.user && !isGuest) {
+              await fetchUserProfile(currentSession.user.id);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
           }
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-        }
 
-        setIsLoaded(true);
+          // Clear the session timeout since we got a response
+          cleanupOperation('sessionLoad');
+          setIsLoaded(true);
+        } catch (error) {
+          console.error('[AUTH] Error in auth state change handler:', error);
+          // Still mark as loaded to prevent infinite loading
+          cleanupOperation('sessionLoad');
+          setIsLoaded(true);
+        }
       }
     );
 
-    // Store subscription reference for cleanup
     authSubscriptionRef.current = subscription;
 
-    // Check for existing session on startup
+    // Check for existing session on startup with timeout
     const loadSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResult = await withTimeout(
+          supabase.auth.getSession(),
+          OPERATION_TIMEOUTS.SESSION_LOAD,
+          'session load'
+        );
 
-        if (session) {
-          setSession(session);
-          setUser(session.user);
+        if (sessionResult?.data?.session) {
+          setSession(sessionResult.data.session);
+          setUser(sessionResult.data.session.user);
 
-          if (session.user && !isGuest) {
-            await fetchUserProfile(session.user.id);
+          if (sessionResult.data.session.user && !isGuest) {
+            await fetchUserProfile(sessionResult.data.session.user.id);
           }
         }
-      } catch (error) {
-        console.error('[AUTH] Error loading session:', error);
+      } catch (error: any) {
+        if (error.message.includes('timed out')) {
+          console.warn('[AUTH] Session load timed out');
+        } else {
+          console.error('[AUTH] Error loading session:', error);
+        }
       } finally {
+        cleanupOperation('sessionLoad');
         setIsLoaded(true);
       }
     };
 
     loadSession();
 
-    // Cleanup function
     return () => {
       if (authSubscriptionRef.current) {
         authSubscriptionRef.current.unsubscribe();
         authSubscriptionRef.current = null;
       }
+      cleanupOperation('sessionLoad');
     };
   }, [isGuest]);
 
   /**
-   * Enhanced OAuth user processing with improved error handling
-   * 
-   * @param session - The OAuth session data
-   * @returns Promise<UserProfile | null> - The created or existing user profile
+   * CRITICAL FIX 12: Enhanced OAuth user processing with timeout
    */
   const processOAuthUser = async (session: Session): Promise<UserProfile | null> => {
     try {
-      // Check if user exists in database
-      const { data: existingUser, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      const result = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single(),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'OAuth user check'
+      );
+
+      const { data: existingUser, error: fetchError } = result;
 
       if (fetchError && fetchError.code === 'PGRST116') {
-        // User doesn't exist, create new user
         const userName = session.user.user_metadata.full_name ||
                         session.user.user_metadata.name ||
                         'User';
@@ -378,19 +475,23 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           role: 'user',
         };
 
-        // Use upsert for atomic operation
-        const { data: upsertedUser, error: upsertError } = await supabase
-          .from('users')
-          .upsert([newUser], {
-            onConflict: 'id',
-            ignoreDuplicates: false
-          })
-          .select()
-          .single();
+        const upsertResult = await withTimeout(
+          supabase
+            .from('users')
+            .upsert([newUser], {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            })
+            .select()
+            .single(),
+          OPERATION_TIMEOUTS.PROFILE_FETCH,
+          'OAuth user creation'
+        );
+
+        const { data: upsertedUser, error: upsertError } = upsertResult;
 
         if (upsertError) {
           if (upsertError.code === '23505') {
-            // Handle race condition - user was created by another process
             console.log('[AUTH] User already exists, retrieving existing record');
             const { data: existingUser, error: getError } = await supabase
               .from('users')
@@ -409,7 +510,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           }
         }
 
-        // Update auth metadata with default role if needed
         if (!session.user.user_metadata.role) {
           await supabase.auth.updateUser({
             data: { role: 'user' }
@@ -423,7 +523,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return null;
       }
 
-      // Update auth metadata if needed
       if (!session.user.user_metadata.role) {
         await supabase.auth.updateUser({
           data: { role: existingUser?.role || 'user' }
@@ -431,29 +530,36 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
 
       return existingUser as UserProfile;
-    } catch (error) {
-      console.error('[AUTH] Error processing OAuth user:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] OAuth user processing timed out');
+      } else {
+        console.error('[AUTH] Error processing OAuth user:', error);
+      }
       return null;
     }
   };
 
   /**
-   * Enhanced user profile fetching with comprehensive error handling
-   * 
-   * @param userId - The user ID to fetch profile for
+   * CRITICAL FIX 13: Enhanced user profile fetching with timeout
    */
   const fetchUserProfile = async (userId: string): Promise<void> => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const result = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single(),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'profile fetch'
+      );
+
+      const { data, error } = result;
 
       if (error) {
         console.error('[AUTH] Error fetching user profile:', error);
 
-        // Handle user not found case
         if (error.code === 'PGRST116') {
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData?.session) {
@@ -470,28 +576,34 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (data) {
         setProfile(data as UserProfile);
       }
-    } catch (error) {
-      console.error('[AUTH] Error in fetchUserProfile:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Profile fetch timed out');
+      } else {
+        console.error('[AUTH] Error in fetchUserProfile:', error);
+      }
     }
   };
 
   /**
-   * Enhanced sign out process with comprehensive cleanup and error recovery
+   * CRITICAL FIX 14: Enhanced sign out with comprehensive timeout protection
    */
   const signOut = async (): Promise<void> => {
-    // Prevent multiple simultaneous sign out attempts
     if (isSigningOutState) {
       console.log('[AUTH] Sign out already in progress, ignoring duplicate request');
       return;
     }
   
     try {
-      // Set all signing out states
       setIsSigningOutState(true);
       setIsSigningOut(true);
       setGlobalSigningOut(true);
   
       console.log('[AUTH] Starting comprehensive sign out process');
+
+      // Clear all operation timeouts
+      operationTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      operationTimeoutsRef.current.clear();
 
       // Clear verification interval immediately
       if (tokenVerificationIntervalRef.current) {
@@ -499,34 +611,40 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         tokenVerificationIntervalRef.current = null;
       }
   
-      // Clean up push notification tokens
+      // Clean up push notification tokens with timeout
       if (user) {
         try {
           console.log('[AUTH] Cleaning up push notification tokens');
           
-          // Mark all user tokens as signed out
-          const { error: tokenUpdateError } = await supabase
-            .from('user_push_tokens')
-            .update({ 
-              signed_in: false,
-              last_updated: new Date().toISOString()
-            })
-            .eq('user_id', user.id);
+          const tokenUpdateResult = await withTimeout(
+            supabase
+              .from('user_push_tokens')
+              .update({ 
+                signed_in: false,
+                last_updated: new Date().toISOString()
+              })
+              .eq('user_id', user.id),
+            3000, // 3 second timeout
+            'token status update'
+          );
             
-          if (tokenUpdateError) {
-            console.error('[AUTH] Error marking tokens as signed out:', tokenUpdateError);
+          if (tokenUpdateResult.error) {
+            console.error('[AUTH] Error marking tokens as signed out:', tokenUpdateResult.error);
           } else {
             console.log('[AUTH] Successfully marked all tokens as signed out');
           }
 
-          // Clean up current device token
           await cleanupPushToken();
-        } catch (tokenError) {
-          console.error('[AUTH] Error during push token cleanup:', tokenError);
+        } catch (tokenError: any) {
+          if (tokenError.message.includes('timed out')) {
+            console.warn('[AUTH] Token cleanup timed out');
+          } else {
+            console.error('[AUTH] Error during push token cleanup:', tokenError);
+          }
         }
       }
   
-      // Execute Supabase sign out with retry logic
+      // Execute Supabase sign out with timeout and retry logic
       let signOutSuccess = false;
       let signOutAttempt = 0;
       const maxAttempts = 3;
@@ -535,20 +653,30 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         signOutAttempt++;
         try {
           console.log(`[AUTH] Supabase sign out attempt ${signOutAttempt}/${maxAttempts}`);
-          const { error } = await supabase.auth.signOut();
-  
-          if (error) {
-            console.error(`[AUTH] Sign out attempt ${signOutAttempt} failed:`, error);
+          
+          const signOutResult = await withTimeout(
+            supabase.auth.signOut(),
+            OPERATION_TIMEOUTS.SIGN_OUT,
+            'sign out'
+          );
+
+          if (signOutResult.error) {
+            console.error(`[AUTH] Sign out attempt ${signOutAttempt} failed:`, signOutResult.error);
             if (signOutAttempt < maxAttempts) {
-              const delay = Math.pow(2, signOutAttempt) * 500; // Exponential backoff
+              const delay = Math.pow(2, signOutAttempt) * 500;
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           } else {
             signOutSuccess = true;
             console.log('[AUTH] Supabase sign out successful');
           }
-        } catch (error) {
-          console.error(`[AUTH] Sign out attempt ${signOutAttempt} error:`, error);
+        } catch (error: any) {
+          if (error.message.includes('timed out')) {
+            console.warn(`[AUTH] Sign out attempt ${signOutAttempt} timed out`);
+          } else {
+            console.error(`[AUTH] Sign out attempt ${signOutAttempt} error:`, error);
+          }
+          
           if (signOutAttempt < maxAttempts) {
             const delay = Math.pow(2, signOutAttempt) * 500;
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -556,7 +684,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
   
-      // Clean up local storage
+      // Clean up local storage with timeout
       await cleanupLocalStorage();
   
       // Reset auth context state
@@ -615,7 +743,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * Enhanced sign in with streamlined token registration
+   * CRITICAL FIX 15: Enhanced sign in with timeout protection
    */
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
@@ -625,10 +753,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await clearGuestMode();
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const result = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+        }),
+        OPERATION_TIMEOUTS.SIGN_IN,
+        'sign in'
+      );
+
+      const { data, error } = result;
 
       if (error) throw error;
 
@@ -637,7 +771,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         
         console.log('[AUTH] Sign in successful, scheduling token registration');
         
-        // Delayed token registration for auth state stabilization
+        // Schedule background token registration
         setTimeout(async () => {
           try {
             const success = await registerPushTokenForUser(data.user.id);
@@ -654,15 +788,20 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       return { error: null };
     } catch (error: any) {
-      console.error('[AUTH] Sign in error:', error);
-      return { error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Sign in timed out');
+        return { error: new Error('Sign in timed out. Please try again.') };
+      } else {
+        console.error('[AUTH] Sign in error:', error);
+        return { error };
+      }
     } finally {
       setIsSigningIn(false);
     }
   };
 
   /**
-   * Enhanced Google sign in with streamlined token registration
+   * CRITICAL FIX 16: Enhanced Google sign in with timeout protection
    */
   const googleSignIn = async () => {
     try {
@@ -672,35 +811,50 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await clearGuestMode();
       }
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
+      const oauthResult = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUri,
+            skipBrowserRedirect: true,
+          },
+        }),
+        OPERATION_TIMEOUTS.OAUTH_PROCESS,
+        'Google OAuth initiation'
+      );
+
+      const { data, error } = oauthResult;
 
       if (error) throw error;
 
       if (data?.url) {
         console.log('[AUTH] Opening Google auth session');
 
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-        console.log('[AUTH] WebBrowser result:', result.type);
+        const browserResult = await withTimeout(
+          WebBrowser.openAuthSessionAsync(data.url, redirectUri),
+          OPERATION_TIMEOUTS.OAUTH_PROCESS,
+          'Google OAuth browser session'
+        );
 
-        if (result.type === 'success') {
+        console.log('[AUTH] WebBrowser result:', browserResult.type);
+
+        if (browserResult.type === 'success') {
           try {
-            // Extract tokens from URL
-            const url = new URL(result.url);
+            const url = new URL(browserResult.url);
             const hashParams = new URLSearchParams(url.hash.substring(1));
             const accessToken = hashParams.get('access_token');
 
             if (accessToken) {
-              // Set session manually
-              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: hashParams.get('refresh_token') || '',
-              });
+              const sessionResult = await withTimeout(
+                supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: hashParams.get('refresh_token') || '',
+                }),
+                OPERATION_TIMEOUTS.SIGN_IN,
+                'Google OAuth session setup'
+              );
+
+              const { data: sessionData, error: sessionError } = sessionResult;
 
               if (sessionError) throw sessionError;
 
@@ -715,7 +869,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
                 console.log('[AUTH] Google sign in successful, scheduling token registration');
                 
-                // Delayed token registration
                 setTimeout(async () => {
                   try {
                     await registerPushTokenForUser(sessionData.session.user.id);
@@ -757,16 +910,21 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       console.log('[AUTH] Google authentication failed');
       return { success: false };
-    } catch (error) {
-      console.error('[AUTH] Google sign in error:', error);
-      return { success: false, error };
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Google sign in timed out');
+        return { success: false, error: new Error('Google sign in timed out') };
+      } else {
+        console.error('[AUTH] Google sign in error:', error);
+        return { success: false, error };
+      }
     } finally {
       setIsSigningIn(false);
     }
   };
 
   /**
-   * Enhanced Apple sign in with streamlined token registration
+   * Enhanced Apple sign in with timeout protection
    */
   const appleSignIn = async () => {
     try {
@@ -776,13 +934,17 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await clearGuestMode();
       }
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: 'apple',
+          options: {
+            redirectTo: redirectUri,
+            skipBrowserRedirect: true,
+          },
+        }),
+        OPERATION_TIMEOUTS.OAUTH_PROCESS,
+        'Apple OAuth'
+      );
 
       if (error) throw error;
 
@@ -811,15 +973,19 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           }
         }
       }
-    } catch (error) {
-      console.error('[AUTH] Apple sign in error:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Apple sign in timed out');
+      } else {
+        console.error('[AUTH] Apple sign in error:', error);
+      }
     } finally {
       setIsSigningIn(false);
     }
   };
 
   /**
-   * Enhanced sign up with streamlined token registration
+   * Enhanced sign up with timeout protection
    */
   const signUp = async ({ email, password, name, role = 'user' }: SignUpCredentials) => {
     try {
@@ -827,12 +993,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await clearGuestMode();
       }
 
-      // Check if email exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle();
+      // Check if email exists with timeout
+      const existingUserResult = await withTimeout(
+        supabase
+          .from('users')
+          .select('email')
+          .eq('email', email)
+          .maybeSingle(),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'email existence check'
+      );
+
+      const { data: existingUser, error: checkError } = existingUserResult;
 
       if (existingUser) {
         return {
@@ -842,20 +1014,25 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
 
       // Proceed with signup
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: name,
-            role: role,
+      const signUpResult = await withTimeout(
+        supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name,
+              role: role,
+            },
+            emailRedirectTo: redirectUri,
           },
-          emailRedirectTo: redirectUri,
-        },
-      });
+        }),
+        OPERATION_TIMEOUTS.SIGN_IN,
+        'sign up'
+      );
+
+      const { data, error } = signUpResult;
 
       if (error) {
-        // Handle specific error cases
         if (error.message.includes("Unable to validate email address") ||
             (error.message.includes("already exists") && !error.message.includes("already registered"))) {
           return {
@@ -878,24 +1055,27 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       // Create user profile
       if (data.user) {
-        const { error: upsertError } = await supabase.from('users').upsert([{
-          id: data.user.id,
-          name: name,
-          email: email,
-          favorite: [],
-          last_active: new Date().toISOString(),
-          timezone: 'UTC',
-          role: role,
-        }], {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+        const upsertResult = await withTimeout(
+          supabase.from('users').upsert([{
+            id: data.user.id,
+            name: name,
+            email: email,
+            favorite: [],
+            last_active: new Date().toISOString(),
+            timezone: 'UTC',
+            role: role,
+          }], {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          }),
+          OPERATION_TIMEOUTS.PROFILE_FETCH,
+          'user profile creation'
+        );
 
-        if (upsertError && upsertError.code !== '23505') {
-          console.error('[AUTH] Error creating user profile:', upsertError);
+        if (upsertResult.error && upsertResult.error.code !== '23505') {
+          console.error('[AUTH] Error creating user profile:', upsertResult.error);
         }
 
-        // Register for push notifications if session exists
         if (data.session) {
           console.log('[AUTH] Sign up successful with session, scheduling token registration');
           
@@ -912,95 +1092,143 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const needsEmailVerification = data.session === null;
       return { error: null, needsEmailVerification, email: email };
     } catch (error: any) {
-      console.error('[AUTH] Sign up error:', error);
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Sign up timed out');
+        return {
+          error: new Error('Sign up timed out. Please try again.'),
+          needsEmailVerification: false
+        };
+      } else {
+        console.error('[AUTH] Sign up error:', error);
 
-      // Improve error messaging
-      if (error.message.includes("Unable to validate email address")) {
-        return {
-          error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
-          needsEmailVerification: false
-        };
-      } else if (error.message.includes('already registered') ||
-          error.message.includes('already in use') ||
-          error.message.includes('already exists')) {
-        return {
-          error: new Error('An account with this email already exists. Please sign in instead.'),
-          needsEmailVerification: false
-        };
+        if (error.message.includes("Unable to validate email address")) {
+          return {
+            error: new Error('This email is already linked to a social account. Please sign in with Google or Apple.'),
+            needsEmailVerification: false
+          };
+        } else if (error.message.includes('already registered') ||
+            error.message.includes('already in use') ||
+            error.message.includes('already exists')) {
+          return {
+            error: new Error('An account with this email already exists. Please sign in instead.'),
+            needsEmailVerification: false
+          };
+        }
+
+        return { error, needsEmailVerification: false };
       }
-
-      return { error, needsEmailVerification: false };
     }
   };
 
   /**
-   * Enhanced password reset with comprehensive error handling
+   * Enhanced password reset with timeout
    */
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUri,
-      });
+      const result = await withTimeout(
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: redirectUri,
+        }),
+        OPERATION_TIMEOUTS.SIGN_IN,
+        'password reset'
+      );
+
+      const { error } = result;
 
       if (error) throw error;
       return { error: null };
     } catch (error: any) {
-      console.error('[AUTH] Reset password error:', error);
-      return { error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Password reset timed out');
+        return { error: new Error('Password reset timed out. Please try again.') };
+      } else {
+        console.error('[AUTH] Reset password error:', error);
+        return { error };
+      }
     }
   };
 
   /**
-   * Enhanced password update with verification
+   * Enhanced password update with timeout
    */
   const updatePassword = async ({ currentPassword, newPassword }: { currentPassword: string, newPassword: string }) => {
     try {
       // Verify current password
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: currentPassword,
-      });
+      const signInResult = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: user?.email || '',
+          password: currentPassword,
+        }),
+        OPERATION_TIMEOUTS.SIGN_IN,
+        'password verification'
+      );
 
-      if (signInError) throw new Error('Current password is incorrect');
+      if (signInResult.error) throw new Error('Current password is incorrect');
 
       // Update to new password
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const updateResult = await withTimeout(
+        supabase.auth.updateUser({
+          password: newPassword,
+        }),
+        OPERATION_TIMEOUTS.SIGN_IN,
+        'password update'
+      );
 
-      if (error) throw error;
+      if (updateResult.error) throw updateResult.error;
       return { error: null };
     } catch (error: any) {
-      console.error('[AUTH] Update password error:', error);
-      return { error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Password update timed out');
+        return { error: new Error('Password update timed out. Please try again.') };
+      } else {
+        console.error('[AUTH] Update password error:', error);
+        return { error };
+      }
     }
   };
 
   /**
-   * Enhanced OTP verification
+   * Enhanced OTP verification with timeout
    */
   const verifyOtp = async (email: string, token: string) => {
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'signup',
-      });
+      const result = await withTimeout(
+        supabase.auth.verifyOtp({
+          email,
+          token,
+          type: 'signup',
+        }),
+        OPERATION_TIMEOUTS.SIGN_IN,
+        'OTP verification'
+      );
+
+      const { data, error } = result;
 
       if (error) throw error;
       return { error: null, data };
     } catch (error: any) {
-      console.error('[AUTH] OTP verification error:', error);
-      return { error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] OTP verification timed out');
+        return { error: new Error('OTP verification timed out. Please try again.') };
+      } else {
+        console.error('[AUTH] OTP verification error:', error);
+        return { error };
+      }
     }
   };
 
   /**
-   * Enhanced session refresh with token status maintenance
+   * Enhanced session refresh with timeout
    */
   const refreshSession = async () => {
     try {
-      const { data, error } = await supabase.auth.refreshSession();
+      const result = await withTimeout(
+        supabase.auth.refreshSession(),
+        OPERATION_TIMEOUTS.SESSION_LOAD,
+        'session refresh'
+      );
+
+      const { data, error } = result;
       if (error) throw error;
       
       if (data.session) {
@@ -1017,77 +1245,95 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           console.error('[AUTH] Error maintaining token status during refresh:', tokenError);
         }
       }
-    } catch (error) {
-      console.error('[AUTH] Session refresh error:', error);
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Session refresh timed out');
+      } else {
+        console.error('[AUTH] Session refresh error:', error);
+      }
     }
   };
 
   /**
-   * Enhanced user profile update
+   * Enhanced user profile update with timeout
    */
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     try {
       if (!user) throw new Error('No user is signed in');
 
-      // Update auth metadata if name is provided
       if (data.name) {
-        const { error: authUpdateError } = await supabase.auth.updateUser({
-          data: { name: data.name }
-        });
+        const authUpdateResult = await withTimeout(
+          supabase.auth.updateUser({
+            data: { name: data.name }
+          }),
+          OPERATION_TIMEOUTS.PROFILE_FETCH,
+          'auth metadata update'
+        );
 
-        if (authUpdateError) {
-          console.error('[AUTH] Error updating auth user metadata:', authUpdateError);
+        if (authUpdateResult.error) {
+          console.error('[AUTH] Error updating auth user metadata:', authUpdateResult.error);
         }
       }
 
-      // Update database profile
-      const { error } = await supabase
-        .from('users')
-        .update(data)
-        .eq('id', user.id);
+      const updateResult = await withTimeout(
+        supabase
+          .from('users')
+          .update(data)
+          .eq('id', user.id),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'profile update'
+      );
 
-      if (error) throw error;
+      if (updateResult.error) throw updateResult.error;
 
-      // Update local state
       if (profile) {
         setProfile({ ...profile, ...data });
       }
 
       return { error: null };
     } catch (error: any) {
-      console.error('[AUTH] Update profile error:', error);
-      return { error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Profile update timed out');
+        return { error: new Error('Profile update timed out. Please try again.') };
+      } else {
+        console.error('[AUTH] Update profile error:', error);
+        return { error };
+      }
     }
   };
 
   /**
-   * Enhanced user role update
+   * Enhanced user role update with timeout
    */
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
-      // Update auth metadata
-      const { error: metadataError } = await supabase.auth.admin.updateUserById(
-        userId,
-        { user_metadata: { role: newRole } }
+      const metadataUpdateResult = await withTimeout(
+        supabase.auth.admin.updateUserById(
+          userId,
+          { user_metadata: { role: newRole } }
+        ),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'role metadata update'
       );
 
-      if (metadataError) {
-        // Fallback to client-side update
-        const { error: clientUpdateError } = await supabase.auth.updateUser({
+      if (metadataUpdateResult.error) {
+        const clientUpdateResult = await supabase.auth.updateUser({
           data: { role: newRole }
         });
-        if (clientUpdateError) throw clientUpdateError;
+        if (clientUpdateResult.error) throw clientUpdateResult.error;
       }
 
-      // Update database
-      const { error: dbError } = await supabase
-        .from('users')
-        .update({ role: newRole })
-        .eq('id', userId);
+      const dbUpdateResult = await withTimeout(
+        supabase
+          .from('users')
+          .update({ role: newRole })
+          .eq('id', userId),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'role database update'
+      );
 
-      if (dbError) throw dbError;
+      if (dbUpdateResult.error) throw dbUpdateResult.error;
 
-      // Update local state if current user
       if (user && userId === user.id) {
         const updatedUser = { ...user };
         updatedUser.user_metadata = {
@@ -1103,10 +1349,33 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       return { error: null };
     } catch (error: any) {
-      console.error('[AUTH] Error updating user role:', error);
-      return { error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Role update timed out');
+        return { error: new Error('Role update timed out. Please try again.') };
+      } else {
+        console.error('[AUTH] Error updating user role:', error);
+        return { error };
+      }
     }
   };
+
+  // CRITICAL FIX 17: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all timeouts
+      operationTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      operationTimeoutsRef.current.clear();
+      
+      // Clear intervals
+      if (tokenVerificationIntervalRef.current) {
+        clearInterval(tokenVerificationIntervalRef.current);
+        tokenVerificationIntervalRef.current = null;
+      }
+      
+      // Cancel background operations
+      backgroundOperationsRef.current.clear();
+    };
+  }, []);
 
   return (
     <AuthContext.Provider
