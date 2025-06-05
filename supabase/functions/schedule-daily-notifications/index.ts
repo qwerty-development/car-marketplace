@@ -1,24 +1,11 @@
-// supabase/functions/schedule-daily-notifications/index.ts
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-);
-
-interface NotificationSchedule {
-  hour: number;
-  title: string;
-  message: string;
-  data: Record<string, any>;
-}
-
-// Define the notification schedules
-const notificationSchedules: NotificationSchedule[] = [
+const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+// SIMPLIFIED: SINGLE AFTERNOON NOTIFICATION SCHEDULE
+const notificationSchedules = [
   {
-    hour: 16, // 4 PM in user's local timezone
-    title: "🌅 Daily Update",
-    message: "Check out the latest car listings for today!",
+    hour: 16,
+    title: "🌆 Daily Update",
+    message: "Don't miss today's featured vehicles!",
     data: {
       screen: '/(home)/(user)',
       type: 'daily_reminder',
@@ -26,153 +13,152 @@ const notificationSchedules: NotificationSchedule[] = [
     }
   }
 ];
-
-// FIXED: Enhanced duplicate prevention with multiple time windows
-const checkPreviousNotifications = async (userId: string, hour: number) => {
-  console.log(`Checking for existing notifications for user ${userId} at hour ${hour}`);
-  
-  // Check for notifications sent in the last 2 hours (more robust)
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-  
-  // Check both pending_notifications and notifications tables
-  const [pendingCheck, sentCheck] = await Promise.all([
-    supabase
-      .from('pending_notifications')
-      .select('id, created_at')
-      .eq('user_id', userId)
-      .eq('type', 'daily_reminder')
-      .gte('created_at', twoHoursAgo.toISOString())
-      .maybeSingle(),
-    
-    supabase
-      .from('notifications')
-      .select('id, created_at')
-      .eq('user_id', userId)
-      .eq('type', 'daily_reminder')
-      .gte('created_at', twoHoursAgo.toISOString())
-      .maybeSingle()
-  ]);
-
-  const hasPending = !!pendingCheck.data;
-  const hasSent = !!sentCheck.data;
-  
-  console.log(`User ${userId} - Pending: ${hasPending}, Sent: ${hasSent}`);
-  
-  return hasPending || hasSent;
-};
-
-// FIXED: Proper timezone-aware hour calculation
-const getUserLocalHour = (timezone: string): number => {
+// RULE 2: ENHANCED DUPLICATE PREVENTION WITH SCHEDULE-SPECIFIC LOGIC
+const checkPreviousNotifications = async (userId, scheduleHour)=>{
+  console.log(`[DUPLICATE_CHECK] User ${userId} - Schedule hour ${scheduleHour}`);
   try {
-    // Use Intl.DateTimeFormat for accurate timezone conversion
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hour: 'numeric',
-      hour12: false
-    });
-    
-    const parts = formatter.formatToParts(new Date());
-    const hourPart = parts.find(part => part.type === 'hour');
-    
-    if (!hourPart) {
-      console.warn(`Could not extract hour for timezone ${timezone}, using UTC`);
-      return new Date().getUTCHours();
-    }
-    
-    return parseInt(hourPart.value, 10);
+    // CRITICAL: Check for ANY daily reminder in last 2 hours (not schedule-specific)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    console.log(`[DUPLICATE_CHECK] Checking since: ${twoHoursAgo.toISOString()}`);
+    const [pendingCheck, sentCheck] = await Promise.all([
+      supabase.from('pending_notifications').select('id, created_at').eq('user_id', userId).eq('type', 'daily_reminder').gte('created_at', twoHoursAgo.toISOString()).maybeSingle(),
+      supabase.from('notifications').select('id, created_at').eq('user_id', userId).eq('type', 'daily_reminder').gte('created_at', twoHoursAgo.toISOString()).maybeSingle()
+    ]);
+    const hasPending = !!pendingCheck.data;
+    const hasSent = !!sentCheck.data;
+    console.log(`[DUPLICATE_CHECK] User ${userId} - Pending: ${hasPending}, Sent: ${hasSent}`);
+    return hasPending || hasSent;
   } catch (error) {
-    console.error(`Error calculating hour for timezone ${timezone}:`, error);
+    console.error(`[DUPLICATE_CHECK] Error for user ${userId}:`, error);
+    return false; // Allow notification on error
+  }
+};
+// RULE 3: ENHANCED TIMEZONE CALCULATION WITH FALLBACK MECHANISMS
+const getUserLocalHour = (timezone)=>{
+  try {
+    console.log(`[TIMEZONE_CALC] Processing timezone: ${timezone}`);
+    const now = new Date();
+    // METHOD 1: Primary calculation using Intl.DateTimeFormat
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(now);
+      const hourPart = parts.find((part)=>part.type === 'hour');
+      if (hourPart) {
+        const localHour = parseInt(hourPart.value, 10);
+        console.log(`[TIMEZONE_CALC] Method 1 success - ${timezone}: ${localHour}`);
+        return localHour;
+      }
+    } catch (method1Error) {
+      console.warn(`[TIMEZONE_CALC] Method 1 failed for ${timezone}:`, method1Error);
+    }
+    // METHOD 2: Fallback using toLocaleString
+    try {
+      const localTime = now.toLocaleString('en-US', {
+        timeZone: timezone,
+        hour12: false,
+        hour: '2-digit'
+      });
+      const hourMatch = localTime.match(/(\d{2}):/);
+      if (hourMatch) {
+        const localHour = parseInt(hourMatch[1], 10);
+        console.log(`[TIMEZONE_CALC] Method 2 success - ${timezone}: ${localHour}`);
+        return localHour;
+      }
+    } catch (method2Error) {
+      console.warn(`[TIMEZONE_CALC] Method 2 failed for ${timezone}:`, method2Error);
+    }
+    // METHOD 3: UTC fallback
+    const utcHour = now.getUTCHours();
+    console.warn(`[TIMEZONE_CALC] All methods failed for ${timezone}, using UTC: ${utcHour}`);
+    return utcHour;
+  } catch (error) {
+    console.error(`[TIMEZONE_CALC] Critical error for ${timezone}:`, error);
     return new Date().getUTCHours();
   }
 };
-
-// FIXED: Improved schedule matching logic
-const isScheduleRelevant = (scheduleHour: number, userLocalHour: number): boolean => {
-  // Allow 1-hour window around the target time
+// RULE 4: SIMPLIFIED SCHEDULE MATCHING FOR SINGLE AFTERNOON NOTIFICATION
+const isScheduleRelevant = (scheduleHour, userLocalHour)=>{
+  console.log(`[SCHEDULE_MATCH] Schedule ${scheduleHour} vs User ${userLocalHour}`);
+  // Calculate time difference considering 24-hour boundaries
   const timeDiff = Math.abs(scheduleHour - userLocalHour);
-  
-  // Handle day boundary cases (e.g., 23 vs 1)
   const dayBoundaryDiff = Math.abs(timeDiff - 24);
-  
-  return Math.min(timeDiff, dayBoundaryDiff) <= 1;
+  const minDiff = Math.min(timeDiff, dayBoundaryDiff);
+  // RULE: Allow execution within 1 hour window OR exact match for single notification
+  const isExactMatch = minDiff === 0;
+  const isWithinWindow = minDiff <= 1;
+  const isRelevant = isExactMatch || isWithinWindow;
+  console.log(`[SCHEDULE_MATCH] Diff: ${minDiff}h, Exact: ${isExactMatch}, Window: ${isWithinWindow}, Result: ${isRelevant}`);
+  return isRelevant;
 };
-
-// EXECUTION THROTTLING: Prevent rapid successive executions
-const EXECUTION_KEY = 'daily_notification_last_run';
-const MIN_EXECUTION_INTERVAL = 10 * 60 * 1000; // 10 minutes
-
-const checkExecutionThrottle = async (): Promise<boolean> => {
+// RULE 5: EXECUTION THROTTLING FOR SINGLE NOTIFICATION
+const MIN_EXECUTION_INTERVAL = 30 * 60 * 1000; // 30 minutes for single notification
+const checkExecutionThrottle = async ()=>{
   try {
-    // Check if we've run recently by looking at latest log
-    const { data: lastLog } = await supabase
-      .from('notification_schedule_logs')
-      .select('scheduled_at')
-      .eq('success', true)
-      .order('scheduled_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
+    console.log(`[THROTTLE_CHECK] Checking execution throttling (${MIN_EXECUTION_INTERVAL / 1000}s interval)`);
+    const { data: lastLog } = await supabase.from('notification_schedule_logs').select('scheduled_at').eq('success', true).order('scheduled_at', {
+      ascending: false
+    }).limit(1).maybeSingle();
     if (lastLog) {
       const lastExecution = new Date(lastLog.scheduled_at);
       const timeSinceLastRun = Date.now() - lastExecution.getTime();
-      
+      console.log(`[THROTTLE_CHECK] Last: ${lastExecution.toISOString()}, Since: ${Math.round(timeSinceLastRun / 1000)}s`);
       if (timeSinceLastRun < MIN_EXECUTION_INTERVAL) {
-        console.log(`Execution throttled. Last run was ${Math.round(timeSinceLastRun / 1000)}s ago`);
+        console.log(`[THROTTLE_CHECK] BLOCKED - Too recent`);
         return false;
       }
     }
-    
+    console.log(`[THROTTLE_CHECK] ALLOWED - Proceeding`);
     return true;
   } catch (error) {
-    console.error('Error checking execution throttle:', error);
-    return true; // Allow execution on error
+    console.error('[THROTTLE_CHECK] Error:', error);
+    return true;
   }
 };
-
-Deno.serve(async (req) => {
+Deno.serve(async (req)=>{
   const startTime = Date.now();
-  console.log('=== DAILY NOTIFICATION SCHEDULING STARTED ===');
-  
+  console.log('=== SIMPLIFIED AFTERNOON NOTIFICATION SCHEDULING STARTED ===');
+  console.log(`[EXECUTION_START] ${new Date().toISOString()}`);
   try {
-    // EXECUTION THROTTLING CHECK
+    // STEP 1: EXECUTION THROTTLING CHECK
     const canExecute = await checkExecutionThrottle();
     if (!canExecute) {
-      return new Response(
-        JSON.stringify({ 
-          message: 'Execution throttled - ran too recently',
-          throttled: true 
-        }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return new Response(JSON.stringify({
+        message: 'Execution throttled - ran too recently',
+        throttled: true,
+        intervalSeconds: MIN_EXECUTION_INTERVAL / 1000
+      }), {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
     }
-
-    // Get current time information
+    // STEP 2: TIME ANALYSIS FOR SINGLE AFTERNOON SCHEDULE
     const now = new Date();
     const currentUtcHour = now.getUTCHours();
-    
-    console.log(`Current UTC time: ${now.toISOString()}, UTC Hour: ${currentUtcHour}`);
-
-    // FIXED: Better schedule filtering logic
-    const relevantSchedules = notificationSchedules.filter(schedule => {
-      // Check if any timezone could match this schedule within reasonable bounds
-      // This is a rough filter - precise matching happens per user
-      const hourDiffs = [];
-      for (let offset = -12; offset <= 14; offset++) { // Common timezone range
-        const adjustedHour = (currentUtcHour + offset + 24) % 24;
-        if (isScheduleRelevant(schedule.hour, adjustedHour)) {
-          hourDiffs.push(offset);
-        }
+    const currentUtcMinute = now.getUTCMinutes();
+    console.log(`[TIME_ANALYSIS] UTC: ${now.toISOString()}`);
+    console.log(`[TIME_ANALYSIS] UTC Hour: ${currentUtcHour}, Minute: ${currentUtcMinute}`);
+    console.log(`[TIME_ANALYSIS] Target schedule: 16:00 (4 PM) local time`);
+    // STEP 3: SINGLE SCHEDULE FILTERING
+    console.log(`[SCHEDULE_FILTER] Evaluating single afternoon schedule (hour 16)`);
+    const afternoonSchedule = notificationSchedules[0]; // Only one schedule now
+    let isRelevant = false;
+    // Test against multiple timezone offsets to find matches
+    for(let offset = -12; offset <= 14; offset++){
+      const adjustedHour = (currentUtcHour + offset + 24) % 24;
+      if (isScheduleRelevant(afternoonSchedule.hour, adjustedHour)) {
+        isRelevant = true;
+        console.log(`[SCHEDULE_FILTER] Afternoon schedule matches at UTC${offset >= 0 ? '+' : ''}${offset}`);
+        break;
       }
-      
-      const isRelevant = hourDiffs.length > 0;
-      console.log(`Schedule hour ${schedule.hour} - Relevant: ${isRelevant} (UTC: ${currentUtcHour})`);
-      return isRelevant;
-    });
-
-    if (relevantSchedules.length === 0) {
-      console.log('No relevant schedules for current time window');
-      
-      // Log this run
+    }
+    if (!isRelevant) {
+      console.log('[SCHEDULE_FILTER] TERMINATING - Afternoon schedule not relevant for current time');
       await supabase.from('notification_schedule_logs').insert({
         users_processed: 0,
         success: true,
@@ -180,208 +166,204 @@ Deno.serve(async (req) => {
           notificationsScheduled: 0,
           relevantSchedules: 0,
           currentTimeUtc: now.toUTCString(),
-          reason: 'No relevant schedules'
+          reason: 'Afternoon schedule (16:00) not relevant for current time',
+          currentUtcHour: currentUtcHour
         }
       });
-
-      return new Response(
-        JSON.stringify({ 
-          message: 'No relevant schedules for the current hour.',
-          currentUtcHour,
-          schedules: notificationSchedules.map(s => s.hour)
-        }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return new Response(JSON.stringify({
+        message: 'Afternoon schedule not relevant for current time',
+        currentUtcHour,
+        targetScheduleHour: 16,
+        reason: 'No timezone matches found for 4 PM notifications'
+      }), {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
     }
-
-    console.log(`Found ${relevantSchedules.length} relevant schedules`);
-
-    // FIXED: Enhanced user query with better filtering
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select(`
+    // STEP 4: USER RETRIEVAL WITH VALIDATION
+    console.log(`[USER_QUERY] Fetching users with active push tokens`);
+    const { data: users, error: usersError } = await supabase.from('users').select(`
         id,
         timezone,
         user_push_tokens!inner(token, signed_in, active)
-      `)
-      .neq('user_push_tokens.token', null)
-      .eq('user_push_tokens.signed_in', true)
-      .eq('user_push_tokens.active', true)
-      .neq('is_guest', true) // Exclude guest users
-      .limit(1000); // Reasonable limit for safety
-
+      `).neq('user_push_tokens.token', null).eq('user_push_tokens.signed_in', true).eq('user_push_tokens.active', true).neq('is_guest', true).limit(1000);
     if (usersError) {
-      console.error('Error fetching users:', usersError);
+      console.error('[USER_QUERY] Database error:', usersError);
       throw usersError;
     }
-
-    console.log(`Found ${users?.length || 0} eligible users`);
-
+    console.log(`[USER_QUERY] Retrieved ${users?.length || 0} eligible users`);
     if (!users || users.length === 0) {
+      console.log('[USER_QUERY] TERMINATING - No eligible users');
       await supabase.from('notification_schedule_logs').insert({
         users_processed: 0,
         success: true,
         metrics: {
           notificationsScheduled: 0,
-          relevantSchedules: relevantSchedules.length,
+          relevantSchedules: 1,
           currentTimeUtc: now.toUTCString(),
-          reason: 'No eligible users found'
+          reason: 'No eligible users with active push tokens'
         }
       });
-
-      return new Response(
-        JSON.stringify({ 
-          message: 'No eligible users found for notifications.',
-          relevantSchedules: relevantSchedules.length 
-        }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return new Response(JSON.stringify({
+        message: 'No eligible users found',
+        relevantSchedules: 1
+      }), {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
     }
-
-    // FIXED: Improved notification creation logic
+    // STEP 5: USER PROCESSING FOR AFTERNOON NOTIFICATIONS
     const notificationsToInsert = [];
     let usersProcessed = 0;
     let duplicatesSkipped = 0;
-
-    for (const user of users) {
+    let timezoneMatches = 0;
+    let exactMatches = 0;
+    let windowMatches = 0;
+    console.log(`[USER_PROCESSING] Processing ${users.length} users for afternoon notifications`);
+    for (const user of users){
       try {
         const userTimezone = user.timezone || 'UTC';
         const userLocalHour = getUserLocalHour(userTimezone);
-        
-        console.log(`Processing user ${user.id} - Timezone: ${userTimezone}, Local Hour: ${userLocalHour}`);
-
-        for (const schedule of relevantSchedules) {
-          // Check if this user should receive this schedule now
-          if (isScheduleRelevant(schedule.hour, userLocalHour)) {
-            console.log(`User ${user.id} matches schedule hour ${schedule.hour}`);
-            
-            // Enhanced duplicate check
-            const alreadySent = await checkPreviousNotifications(user.id, schedule.hour);
-            if (alreadySent) {
-              console.log(`Skipping duplicate for user ${user.id}`);
-              duplicatesSkipped++;
-              continue;
-            }
-
-            notificationsToInsert.push({
-              user_id: user.id,
-              type: 'daily_reminder',
-              data: {
-                title: schedule.title,
-                message: schedule.message,
-                ...schedule.data,
-                metadata: {
-                  scheduledFor: now.toISOString(),
-                  userTimezone: userTimezone,
-                  userLocalHour: userLocalHour,
-                  scheduleHour: schedule.hour,
-                  executionId: `daily_${startTime}_${user.id}` // Unique execution ID
-                }
-              },
-              processed: false
-            });
-            
-            console.log(`Notification queued for user ${user.id}`);
-          } else {
-            console.log(`User ${user.id} doesn't match schedule hour ${schedule.hour} (local: ${userLocalHour})`);
+        console.log(`[USER_${user.id}] Timezone: ${userTimezone}, Local Hour: ${userLocalHour}`);
+        // Check if user's local time matches afternoon schedule (16:00)
+        const timeDiff = Math.abs(afternoonSchedule.hour - userLocalHour);
+        const dayBoundaryDiff = Math.abs(timeDiff - 24);
+        const minDiff = Math.min(timeDiff, dayBoundaryDiff);
+        const isExactMatch = minDiff === 0;
+        const isWithinWindow = minDiff <= 1 && minDiff > 0;
+        const isMatch = isExactMatch || isWithinWindow;
+        console.log(`[USER_${user.id}] Afternoon check: Diff=${minDiff}h, Exact=${isExactMatch}, Window=${isWithinWindow}, Match=${isMatch}`);
+        if (isMatch) {
+          timezoneMatches++;
+          if (isExactMatch) exactMatches++;
+          if (isWithinWindow) windowMatches++;
+          console.log(`[USER_${user.id}] MATCHED - Checking for duplicates`);
+          const alreadySent = await checkPreviousNotifications(user.id, afternoonSchedule.hour);
+          if (alreadySent) {
+            console.log(`[USER_${user.id}] SKIPPED - Duplicate detected`);
+            duplicatesSkipped++;
+            continue;
           }
+          console.log(`[USER_${user.id}] CREATING afternoon notification`);
+          notificationsToInsert.push({
+            user_id: user.id,
+            type: 'daily_reminder',
+            data: {
+              title: afternoonSchedule.title,
+              message: afternoonSchedule.message,
+              ...afternoonSchedule.data,
+              metadata: {
+                scheduledFor: now.toISOString(),
+                userTimezone: userTimezone,
+                userLocalHour: userLocalHour,
+                scheduleHour: afternoonSchedule.hour,
+                timeDifference: minDiff,
+                matchType: isExactMatch ? 'exact' : 'window',
+                executionId: `afternoon_${startTime}_${user.id}`
+              }
+            },
+            processed: false
+          });
+          console.log(`[USER_${user.id}] QUEUED afternoon notification successfully`);
+        } else {
+          console.log(`[USER_${user.id}] NO MATCH - Not in afternoon window`);
         }
-        
         usersProcessed++;
       } catch (userError) {
-        console.error(`Error processing user ${user.id}:`, userError);
-        // Continue with other users
+        console.error(`[USER_${user.id}] Processing error:`, userError);
       }
     }
-
-    console.log(`Processed ${usersProcessed} users, ${notificationsToInsert.length} notifications to insert, ${duplicatesSkipped} duplicates skipped`);
-
+    // STEP 6: PROCESSING SUMMARY
+    console.log(`[PROCESSING_SUMMARY] Complete:`);
+    console.log(`[PROCESSING_SUMMARY] Users processed: ${usersProcessed}`);
+    console.log(`[PROCESSING_SUMMARY] Timezone matches: ${timezoneMatches} (exact: ${exactMatches}, window: ${windowMatches})`);
+    console.log(`[PROCESSING_SUMMARY] Notifications queued: ${notificationsToInsert.length}`);
+    console.log(`[PROCESSING_SUMMARY] Duplicates skipped: ${duplicatesSkipped}`);
     if (notificationsToInsert.length === 0) {
+      console.log(`[PROCESSING_SUMMARY] TERMINATING - No notifications to insert`);
       await supabase.from('notification_schedule_logs').insert({
         users_processed: usersProcessed,
         success: true,
         metrics: {
           notificationsScheduled: 0,
-          relevantSchedules: relevantSchedules.length,
+          relevantSchedules: 1,
           currentTimeUtc: now.toUTCString(),
           duplicatesSkipped: duplicatesSkipped,
-          reason: 'No notifications to schedule for this run'
+          timezoneMatches: timezoneMatches,
+          exactMatches: exactMatches,
+          windowMatches: windowMatches,
+          reason: 'All afternoon notifications filtered out (duplicates or no matches)'
         }
       });
-
-      return new Response(
-        JSON.stringify({ 
-          message: 'No notifications to schedule for this run.',
-          usersProcessed,
-          duplicatesSkipped
-        }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return new Response(JSON.stringify({
+        message: 'No afternoon notifications to schedule after filtering',
+        usersProcessed,
+        timezoneMatches,
+        exactMatches,
+        windowMatches,
+        duplicatesSkipped
+      }), {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
     }
-
-    // Insert notifications in batches for better performance
-    const BATCH_SIZE = 100;
-    let totalInserted = 0;
-    
-    for (let i = 0; i < notificationsToInsert.length; i += BATCH_SIZE) {
-      const batch = notificationsToInsert.slice(i, i + BATCH_SIZE);
-      
-      const { error: insertError } = await supabase
-        .from('pending_notifications')
-        .insert(batch);
-
-      if (insertError) {
-        console.error(`Error inserting batch ${Math.floor(i / BATCH_SIZE) + 1}:`, insertError);
-        throw insertError;
-      }
-      
-      totalInserted += batch.length;
-      console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(notificationsToInsert.length / BATCH_SIZE)}`);
+    // STEP 7: BATCH INSERTION
+    console.log(`[INSERTION] Starting insertion of ${notificationsToInsert.length} afternoon notifications`);
+    const { error: insertError } = await supabase.from('pending_notifications').insert(notificationsToInsert);
+    if (insertError) {
+      console.error(`[INSERTION] FAILED:`, insertError);
+      throw insertError;
     }
-
-    // Log the successful scheduling operation
+    console.log(`[INSERTION] SUCCESS: ${notificationsToInsert.length} afternoon notifications inserted`);
+    // STEP 8: SUCCESS LOGGING
     const executionTime = Date.now() - startTime;
-    const { error: logError } = await supabase
-      .from('notification_schedule_logs')
-      .insert({
-        users_processed: usersProcessed,
-        success: true,
-        metrics: {
-          notificationsScheduled: totalInserted,
-          relevantSchedules: relevantSchedules.length,
-          currentTimeUtc: now.toUTCString(),
-          duplicatesSkipped: duplicatesSkipped,
-          executionTimeMs: executionTime,
-          batchCount: Math.ceil(notificationsToInsert.length / BATCH_SIZE)
-        }
-      });
-
-    if (logError) {
-      console.error('Error logging scheduling operation:', logError);
-      // Don't throw - operation was successful
-    }
-
-    console.log('=== DAILY NOTIFICATION SCHEDULING COMPLETED SUCCESSFULLY ===');
-    console.log(`Total execution time: ${executionTime}ms`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Daily notifications scheduled successfully',
-        usersProcessed: usersProcessed,
-        notificationsScheduled: totalInserted,
+    console.log(`[SUCCESS] Afternoon notification scheduling completed in ${executionTime}ms`);
+    console.log(`[SUCCESS] Total afternoon notifications created: ${notificationsToInsert.length}`);
+    const { error: logError } = await supabase.from('notification_schedule_logs').insert({
+      users_processed: usersProcessed,
+      success: true,
+      metrics: {
+        notificationsScheduled: notificationsToInsert.length,
+        relevantSchedules: 1,
+        currentTimeUtc: now.toUTCString(),
         duplicatesSkipped: duplicatesSkipped,
-        executionTimeMs: executionTime
-      }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-
+        timezoneMatches: timezoneMatches,
+        exactMatches: exactMatches,
+        windowMatches: windowMatches,
+        executionTimeMs: executionTime,
+        scheduleType: 'afternoon_only'
+      }
+    });
+    if (logError) {
+      console.error('[SUCCESS] Error logging operation:', logError);
+    }
+    console.log('=== SIMPLIFIED AFTERNOON NOTIFICATION SCHEDULING SUCCESS ===');
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Afternoon notifications scheduled successfully',
+      usersProcessed: usersProcessed,
+      notificationsScheduled: notificationsToInsert.length,
+      timezoneMatches: timezoneMatches,
+      exactMatches: exactMatches,
+      windowMatches: windowMatches,
+      duplicatesSkipped: duplicatesSkipped,
+      executionTimeMs: executionTime,
+      scheduleHour: 16
+    }), {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error('=== DAILY NOTIFICATION SCHEDULING FAILED ===');
-    console.error('Error details:', error);
-
-    // Log the error
+    console.error('=== SIMPLIFIED AFTERNOON NOTIFICATION SCHEDULING FAILED ===');
+    console.error('[ERROR]', error);
     try {
       await supabase.from('notification_schedule_logs').insert({
         users_processed: 0,
@@ -394,16 +376,17 @@ Deno.serve(async (req) => {
         }
       });
     } catch (logError) {
-      console.error('Failed to log error:', logError);
+      console.error('[ERROR] Failed to log error:', logError);
     }
-
-    return new Response(
-      JSON.stringify({ 
-        error: 'Failed to schedule notifications', 
-        details: error.message,
-        executionTimeMs: executionTime
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      error: 'Failed to schedule afternoon notifications',
+      details: error.message,
+      executionTimeMs: executionTime
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 });
