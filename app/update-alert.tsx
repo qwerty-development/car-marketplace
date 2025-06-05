@@ -1,18 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Modal,
   ActivityIndicator,
+  Animated,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/utils/ThemeContext';
 
-const ElegantUpdateAlert = ({ isVisible, onUpdate, onClose }: any) => {
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+interface ModernUpdateAlertProps {
+  isVisible: boolean;
+  onUpdate: () => Promise<void>;
+  onClose?: () => void;
+}
+
+const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({ 
+  isVisible, 
+  onUpdate, 
+  onClose 
+}) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const { isDarkMode } = useTheme();
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Initialize animations when modal becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      // Reset animations
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.8);
+      progressAnim.setValue(0);
+      
+      // Entrance animation
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      // Start pulse animation for icon
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [isVisible]);
+
+  // Progress animation when updating
+  useEffect(() => {
+    if (isUpdating) {
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      progressAnim.setValue(0);
+    }
+  }, [isUpdating]);
 
   const handleUpdate = async () => {
     setIsUpdating(true);
@@ -24,90 +99,215 @@ const ElegantUpdateAlert = ({ isVisible, onUpdate, onClose }: any) => {
     }
   };
 
+  const handleClose = () => {
+    if (!isUpdating && onClose) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.8,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        onClose();
+      });
+    }
+  };
+
   return (
     <Modal
       visible={isVisible}
       transparent={true}
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent={true}
+      onRequestClose={handleClose}
     >
-      <View className="flex-1 justify-center items-center px-4">
-        {/* Backdrop with subtle blur effect */}
-        <View className="absolute inset-0 bg-black/60" />
+      <Animated.View 
+        style={{ 
+          flex: 1,
+          opacity: fadeAnim,
+        }}
+        className="justify-center items-center px-4"
+      >
+        {/* Backdrop */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={handleClose}
+          className="absolute inset-0"
+        >
+          <LinearGradient
+            colors={
+              isDarkMode 
+                ? ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']
+                : ['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']
+            }
+            style={{ flex: 1 }}
+          />
+        </TouchableOpacity>
         
         {/* Main Card */}
-        <View 
-          className={`max-w-sm w-full mx-4 rounded-3xl shadow-2xl overflow-hidden ${
+        <Animated.View 
+          style={{
+            transform: [{ scale: scaleAnim }],
+            maxWidth: Math.min(screenWidth - 32, 400),
+            width: '100%',
+          }}
+          className={`mx-4 rounded-3xl shadow-2xl overflow-hidden ${
             isDarkMode ? 'bg-[#242424]' : 'bg-white'
           }`}
         >
-          {/* Header Section */}
+          {/* Header Section with Gradient */}
           <View className="relative overflow-hidden">
             <LinearGradient
               colors={
                 isDarkMode 
-                  ? ['rgba(36, 36, 36, 0.95)', 'rgba(43, 43, 43, 0.95)']
-                  : ['rgba(255, 255, 255, 0.95)', 'rgba(225, 225, 225, 0.95)']
+                  ? ['rgba(213, 80, 4, 0.1)', 'rgba(36, 36, 36, 0.95)']
+                  : ['rgba(213, 80, 4, 0.05)', 'rgba(255, 255, 255, 0.95)']
               }
-              className="px-8 py-8"
+              className="px-8 pt-10 pb-6"
             >
-              {/* Icon Container */}
-              <View 
-                className={`w-16 h-16 rounded-2xl items-center justify-center mx-auto mb-4`}
+              {/* Floating Icon with Animation */}
+              <Animated.View 
+                style={{
+                  transform: [{ scale: pulseAnim }],
+                }}
+                className="items-center mb-6"
               >
-                <Ionicons 
-                  name="arrow-down-circle" 
-                  size={32} 
-                  color={isDarkMode ? "#FFFFFF" : "#000000"} 
-                />
-              </View>
+                <View 
+                  className={`w-20 h-20 rounded-3xl items-center justify-center ${
+                    isDarkMode ? 'bg-[#D55004]/20' : 'bg-[#D55004]/10'
+                  }`}
+                  style={{
+                    shadowColor: '#D55004',
+                    shadowOffset: {
+                      width: 0,
+                      height: 8,
+                    },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 16,
+                    elevation: 12,
+                  }}
+                >
+                  <Ionicons 
+                    name="download-outline" 
+                    size={36} 
+                    color="#D55004" 
+                  />
+                </View>
+              </Animated.View>
               
+              {/* Title */}
               <Text 
-                className={`text-xl font-bold text-center ${
+                className={`text-2xl font-bold text-center mb-2 ${
                   isDarkMode ? 'text-white' : 'text-black'
                 }`}
               >
-                Update Available
+                Fleet Update Ready
+              </Text>
+              
+              {/* Subtitle */}
+              <Text 
+                className={`text-base text-center ${
+                  isDarkMode ? 'text-white/70' : 'text-gray-600'
+                }`}
+              >
+                Enhanced features await
               </Text>
             </LinearGradient>
           </View>
 
           {/* Content Section */}
           <View className="px-8 py-6">
-            <Text 
-              className={`text-base text-center leading-6 mb-8 ${
-                isDarkMode ? 'text-white/80' : 'text-gray-600'
-              }`}
-            >
-              A new version has been downloaded and is ready to install. The app will restart to complete the update.
-            </Text>
+            {/* Feature Highlights */}
+            <View className="mb-8">
+              <View className="flex-row items-center mb-3">
+                <View 
+                  className={`w-2 h-2 rounded-full mr-3 ${
+                    isDarkMode ? 'bg-[#D55004]' : 'bg-[#D55004]'
+                  }`} 
+                />
+                <Text 
+                  className={`text-sm ${
+                    isDarkMode ? 'text-white/80' : 'text-gray-700'
+                  }`}
+                >
+                  Performance improvements and bug fixes
+                </Text>
+              </View>
+              
+              <View className="flex-row items-center mb-3">
+                <View 
+                  className={`w-2 h-2 rounded-full mr-3 ${
+                    isDarkMode ? 'bg-[#D55004]' : 'bg-[#D55004]'
+                  }`} 
+                />
+                <Text 
+                  className={`text-sm ${
+                    isDarkMode ? 'text-white/80' : 'text-gray-700'
+                  }`}
+                >
+                  Enhanced browsing experience
+                </Text>
+              </View>
+              
+              <View className="flex-row items-center">
+                <View 
+                  className={`w-2 h-2 rounded-full mr-3 ${
+                    isDarkMode ? 'bg-[#D55004]' : 'bg-[#D55004]'
+                  }`} 
+                />
+                <Text 
+                  className={`text-sm ${
+                    isDarkMode ? 'text-white/80' : 'text-gray-700'
+                  }`}
+                >
+                  New features and optimizations
+                </Text>
+              </View>
+            </View>
 
             {/* Action Buttons */}
             <View className="space-y-3">
               {/* Primary Update Button */}
               <TouchableOpacity
                 className={`relative overflow-hidden rounded-2xl shadow-lg ${
-                  isUpdating ? 'opacity-80' : 'active:opacity-90'
+                  isUpdating ? 'opacity-80' : 'active:opacity-70'
                 }`}
                 onPress={handleUpdate}
                 disabled={isUpdating}
-                activeOpacity={0.9}
+                activeOpacity={0.7}
+                style={{
+                  shadowColor: '#D55004',
+                  shadowOffset: {
+                    width: 0,
+                    height: 4,
+                  },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
               >
                 <LinearGradient
-                  colors={['#D55004', '#D55004']}
+                  colors={['#D55004', '#B8420C']}
                   className="py-4 px-6"
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                 >
                   {isUpdating ? (
                     <View className="flex-row items-center justify-center">
-                      <ActivityIndicator size="small" color="white" className="mr-3" />
-                      <Text className="text-white text-base font-semibold">
+                      <ActivityIndicator size="small" color="white" />
+                      <Text className="text-white text-base font-bold ml-3">
                         Installing Update...
                       </Text>
                     </View>
                   ) : (
                     <View className="flex-row items-center justify-center">
-                      <Ionicons name="download-outline" size={20} color="white" className="mr-2" />
-                      <Text className="text-white text-base font-semibold ml-2">
+                      <Ionicons name="rocket-outline" size={20} color="white" />
+                      <Text className="text-white text-base font-bold ml-2">
                         Install Now
                       </Text>
                     </View>
@@ -115,35 +315,67 @@ const ElegantUpdateAlert = ({ isVisible, onUpdate, onClose }: any) => {
                 </LinearGradient>
               </TouchableOpacity>
 
+             
             </View>
           </View>
 
           {/* Progress Indicator */}
           {isUpdating && (
-            <View className="px-8 pb-6">
+            <View className="px-8 pb-8">
+              {/* Progress Bar */}
               <View 
-                className={`h-1 rounded-full overflow-hidden ${
+                className={`h-2 rounded-full overflow-hidden mb-4 ${
                   isDarkMode ? 'bg-[#2b2b2b]' : 'bg-gray-200'
                 }`}
               >
-                <LinearGradient
-                  colors={['#DC2626', '#B91C1C']}
-                  className="h-full w-3/4 rounded-full"
-                />
+                <Animated.View
+                  style={{
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  }}
+                  className="h-full rounded-full"
+                >
+                  <LinearGradient
+                    colors={['#D55004', '#B8420C']}
+                    className="h-full rounded-full"
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                </Animated.View>
               </View>
+              
+              {/* Progress Text */}
               <Text 
-                className={`text-sm text-center mt-3 ${
+                className={`text-sm text-center ${
                   isDarkMode ? 'text-white/60' : 'text-gray-500'
                 }`}
               >
-                Please don't close the app during installation
+                Please keep the app open during installation
               </Text>
+              
+              {/* Warning */}
+              <View className="flex-row items-center justify-center mt-3">
+                <Ionicons 
+                  name="information-circle-outline" 
+                  size={16} 
+                  color={isDarkMode ? '#FFFFFF60' : '#6B7280'} 
+                />
+                <Text 
+                  className={`text-xs ml-2 ${
+                    isDarkMode ? 'text-white/40' : 'text-gray-400'
+                  }`}
+                >
+                  App will restart automatically
+                </Text>
+              </View>
             </View>
           )}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };
 
-export default ElegantUpdateAlert
+export default ModernUpdateAlert;
