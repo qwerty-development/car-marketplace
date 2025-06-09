@@ -459,6 +459,19 @@ const DeepLinkHandler = () => {
     [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
   );
 
+    useEffect(() => {
+    // Hide the static splash screen immediately when component mounts
+    const hideStaticSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        console.warn("Error hiding splash:", e);
+      }
+    };
+    
+    hideStaticSplash();
+  }, []);
+
   // EFFECT: Get initial URL
   useEffect(() => {
     Linking.getInitialURL()
@@ -772,12 +785,6 @@ function RootLayoutNav() {
     const prepareSplashScreen = async () => {
       try {
         await SplashScreen.preventAutoHideAsync();
-
-        if (Platform.OS === "android") {
-          setTimeout(() => {
-            SplashScreen.hideAsync().catch(() => {});
-          }, 3000);
-        }
       } catch (e) {
         console.warn("[RootLayoutNav] Error setting up splash screen:", e);
       }
@@ -807,26 +814,25 @@ function RootLayoutNav() {
   ]);
 
   // METHOD: Handle splash completion
-  const handleSplashComplete = useCallback(() => {
-    setSplashAnimationComplete(true);
+const handleSplashComplete = useCallback(() => {
+  setSplashAnimationComplete(true);
+  
+  // Hide the static splash IMMEDIATELY when custom splash completes
+  SplashScreen.hideAsync().catch(() => {});
 
-    Animated.sequence([
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-      Animated.timing(curtainPosition, {
-        toValue: -width,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(async () => {
-      try {
-        await SplashScreen.hideAsync();
-      } catch (e) {}
-    });
-  }, [curtainPosition, contentOpacity]);
+  Animated.sequence([
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 0,
+      useNativeDriver: true,
+    }),
+    Animated.timing(curtainPosition, {
+      toValue: -width,
+      duration: 300,
+      useNativeDriver: true,
+    }),
+  ]).start();
+}, [curtainPosition, contentOpacity]);
 
   // RULE: Show loader until everything is ready
   if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) {
