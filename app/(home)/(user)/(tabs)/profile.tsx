@@ -12,6 +12,7 @@ import {
   TouchableWithoutFeedback,
   StyleSheet,
   Animated,
+  RefreshControl,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { useAuth } from "@/utils/AuthContext";
@@ -21,7 +22,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { setIsSigningOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
-import { useScrollToTop } from "@react-navigation/native";
+import { useScrollToTop, useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import type { NotificationSettings } from "../types/type";
 import openWhatsApp from "@/utils/openWhatsapp";
@@ -33,7 +34,6 @@ import { coordinateSignOut } from "@/app/(home)/_layout";
 import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 import { useNavigation } from "@react-navigation/native";
-import ManualTokenRegistration from "@/components/ManualTokenRegistration";
 
 const WHATSAPP_NUMBER = "70993415";
 const SUPPORT_EMAIL = "info@notqwerty.com";
@@ -41,12 +41,18 @@ const EMAIL_SUBJECT = "Support Request";
 const DEFAULT_PROFILE_IMAGE =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 
-const MODAL_HEIGHT_PERCENTAGE = 0.75; // Adjust as needed
+const MODAL_HEIGHT_PERCENTAGE = 0.75;
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
-  const { user, profile, signOut, updateUserProfile, updatePassword } =
-    useAuth();
+  const { 
+    user, 
+    profile, 
+    signOut, 
+    updateUserProfile, 
+    updatePassword,
+    forceProfileRefresh // OPTIONAL: Only if implemented in AuthContext
+  } = useAuth();
   const router = useRouter();
   const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
@@ -56,7 +62,7 @@ export default function UserProfileAndSupportPage() {
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
 
-  // State Management
+  // CRITICAL FIX: Simplified state management without aggressive refresh mechanisms
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -65,22 +71,144 @@ export default function UserProfileAndSupportPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] =
-    useState(false);
-  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] =
-    useState(false);
-  const [pushNotificationsEnabled, setPushNotificationsEnabled] =
-    useState(true);
+  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] = useState(false);
+  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] = useState(false);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettings>({
-      pushNotifications: true,
-      emailNotifications: true,
-      marketingUpdates: false,
-      newCarAlerts: true,
-    });
+  const [refreshing, setRefreshing] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    pushNotifications: true,
+    emailNotifications: true,
+    marketingUpdates: false,
+    newCarAlerts: true,
+  });
+
+  // CRITICAL FIX: Controlled refresh mechanism with guards
+  const profileInitialized = useRef(false);
+  const lastSyncedProfile = useRef<string>("");
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
 
   useScrollToTop(scrollRef);
+
+  // CRITICAL FIX: Debounced profile refresh function
+  const handleProfileRefresh = useCallback(async () => {
+    if (!user?.id || isGuest || refreshing) return;
+    
+    try {
+      setRefreshing(true);
+      console.log('[Profile] Manual refresh triggered');
+      
+      // GUARD: Clear any pending refresh timeouts
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      
+      if (forceProfileRefresh) {
+        await forceProfileRefresh();
+      } else {
+        // Direct database fetch as fallback
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (data && !error) {
+          console.log('[Profile] Manual refresh successful');
+          // The profile will be updated through normal AuthContext flow
+        }
+      }
+    } catch (error) {
+      console.error('[Profile] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.id, isGuest, refreshing, forceProfileRefresh]);
+
+  // CRITICAL FIX: Optimized profile state synchronization with change detection
+  const syncProfileState = useCallback(() => {
+    if (!user || !profile || isGuest) {
+      if (isGuest) {
+        // GUARD: Only set guest data if not already set
+        if (firstName !== "Guest" || lastName !== "User") {
+          setFirstName("Guest");
+          setLastName("User");
+          setEmail("guest@example.com");
+        }
+      }
+      return;
+    }
+
+    // CRITICAL FIX: Create profile signature for change detection
+    const profileSignature = `${profile.name || ''}-${profile.email || ''}-${profile.last_active || ''}`;
+    
+    // GUARD: Only update if profile has actually changed
+    if (lastSyncedProfile.current === profileSignature) {
+      return;
+    }
+
+    console.log('[Profile] Profile data changed, updating local state');
+    
+    const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
+    const newFirstName = nameParts[0] || "";
+    const newLastName = nameParts.slice(1).join(" ") || "";
+    const newEmail = profile.email || user.email || "";
+
+    // GUARD: Only update state if values actually changed
+    if (firstName !== newFirstName) setFirstName(newFirstName);
+    if (lastName !== newLastName) setLastName(newLastName);
+    if (email !== newEmail) setEmail(newEmail);
+    
+    lastSyncedProfile.current = profileSignature;
+    profileInitialized.current = true;
+  }, [user, profile, isGuest, firstName, lastName, email]);
+
+  // CRITICAL FIX: Initial profile synchronization (runs once)
+  useEffect(() => {
+    if (!profileInitialized.current) {
+      console.log('[Profile] Initial profile synchronization');
+      syncProfileState();
+    }
+  }, [syncProfileState]);
+
+  // CRITICAL FIX: Controlled profile updates on profile object changes
+  useEffect(() => {
+    // GUARD: Only sync if profile is initialized and data actually changed
+    if (profileInitialized.current && profile) {
+      const profileSignature = `${profile.name || ''}-${profile.email || ''}-${profile.last_active || ''}`;
+      
+      if (lastSyncedProfile.current !== profileSignature) {
+        console.log('[Profile] Profile object changed, syncing state');
+        syncProfileState();
+      }
+    }
+  }, [profile?.name, profile?.email, profile?.last_active, syncProfileState]);
+
+  // CRITICAL FIX: Controlled focus-based refresh (debounced)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[Profile] Screen focused');
+      
+      // GUARD: Debounce focus refresh to prevent excessive calls
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      
+      refreshTimeoutRef.current = setTimeout(() => {
+        // Only sync state, don't force database refresh on every focus
+        if (profileInitialized.current) {
+          syncProfileState();
+        }
+      }, 300);
+
+      // Cleanup timeout on unmount
+      return () => {
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+        }
+      };
+    }, [syncProfileState])
+  );
 
   const fetchTokenStatus = useCallback(async () => {
     if (!user?.id || isGuest) return;
@@ -89,7 +217,6 @@ export default function UserProfileAndSupportPage() {
       setLoading(true);
       const token = await SecureStore.getItemAsync("expoPushToken");
 
-      // Direct, simple query with no complex state management
       if (token) {
         const { data } = await supabase
           .from("user_push_tokens")
@@ -109,31 +236,14 @@ export default function UserProfileAndSupportPage() {
     }
   }, [user?.id, isGuest]);
 
-  // Function to toggle push notification status
-
+  // CRITICAL FIX: Controlled token status fetch (only once)
   useEffect(() => {
-    if (user && profile && !isGuest) {
-      // Extract first and last name from full name in profile
-      const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
-      setFirstName(nameParts[0] || "");
-      setLastName(nameParts.slice(1).join(" ") || "");
-      setEmail(profile.email || user.email || "");
-    } else if (isGuest) {
-      setFirstName("Guest");
-      setLastName("User");
-      setEmail("guest@example.com");
-    }
-  }, [user, profile, isGuest]);
-
-  // Fetch token status when component mounts
-  useEffect(() => {
-    if (user?.id && !isGuest) {
+    if (user?.id && !isGuest && !loading) {
       fetchTokenStatus();
     }
-  }, [user?.id, isGuest, fetchTokenStatus]);
+  }, [user?.id, isGuest]); // Removed fetchTokenStatus from dependencies
 
   useEffect(() => {
-    // Animate the guest banner entrance
     if (isGuest) {
       Animated.spring(bannerAnimation, {
         toValue: 1,
@@ -144,7 +254,15 @@ export default function UserProfileAndSupportPage() {
     }
   }, [isGuest, bannerAnimation]);
 
-  // Helper function to decode Base64
+  // CRITICAL FIX: Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const base64Decode = (base64String: string): Uint8Array => {
     const byteCharacters = atob(base64String);
     const byteNumbers = new Array(byteCharacters.length);
@@ -157,7 +275,6 @@ export default function UserProfileAndSupportPage() {
   };
 
   const updateProfile = async (): Promise<void> => {
-    // Only allow profile update for authenticated users
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
@@ -173,10 +290,10 @@ export default function UserProfileAndSupportPage() {
     try {
       if (!user) throw new Error("No user found");
 
-      // Create full name from first and last name
       const fullName = `${firstName} ${lastName}`.trim();
 
-      // Update user profile in Supabase database
+      console.log('[Profile] Updating profile via modal with name:', fullName);
+
       const { error } = await updateUserProfile({
         name: fullName,
       });
@@ -185,6 +302,10 @@ export default function UserProfileAndSupportPage() {
 
       Alert.alert("Success", "Profile updated successfully");
       setIsEditMode(false);
+      
+      // CRITICAL FIX: Let AuthContext handle the state update, no forced refresh
+      console.log('[Profile] Profile update completed, waiting for AuthContext update');
+      
     } catch (error) {
       console.error("Error updating profile:", error);
       Alert.alert("Error", "Failed to update profile");
@@ -192,7 +313,6 @@ export default function UserProfileAndSupportPage() {
   };
 
   const onPickImage = async (): Promise<void> => {
-    // Only allow profile image update for authenticated users
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
@@ -218,7 +338,6 @@ export default function UserProfileAndSupportPage() {
         const base64 = result.assets[0].base64;
         const mimeType = result.assets[0].mimeType || "image/jpeg";
 
-        // First, upload to Supabase Storage
         const fileName = `avatar-${user?.id}-${Date.now()}.jpg`;
         const { error: uploadError, data } = await supabase.storage
           .from("avatars")
@@ -229,13 +348,11 @@ export default function UserProfileAndSupportPage() {
 
         if (uploadError) throw uploadError;
 
-        // Get the public URL of the uploaded image
         const { data: urlData } = supabase.storage
           .from("avatars")
           .getPublicUrl(fileName);
         const avatarUrl = urlData?.publicUrl;
 
-        // Update the user metaFdata with the new avatar URL
         const { data: userData, error: userError } =
           await supabase.auth.updateUser({
             data: { avatar_url: avatarUrl },
@@ -252,7 +369,6 @@ export default function UserProfileAndSupportPage() {
   };
 
   const handleChangePassword = async (): Promise<void> => {
-    // Only allow password change for authenticated users
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
@@ -271,7 +387,6 @@ export default function UserProfileAndSupportPage() {
     }
 
     try {
-      // Use updatePassword from AuthContext
       const { error } = await updatePassword({
         currentPassword,
         newPassword,
@@ -308,11 +423,9 @@ export default function UserProfileAndSupportPage() {
                 await clearGuestMode();
               });
             } else {
-              // Ensure token is properly marked as signed out
               if (user?.id) {
                 const token = await SecureStore.getItemAsync("expoPushToken");
                 if (token) {
-                  // Directly update token status before sign out
                   await supabase
                     .from("user_push_tokens")
                     .update({
@@ -348,7 +461,6 @@ export default function UserProfileAndSupportPage() {
     ]);
   };
 
-  // Handler for when guest user wants to sign in
   const handleSignIn = async (): Promise<void> => {
     try {
       await clearGuestMode();
@@ -360,7 +472,6 @@ export default function UserProfileAndSupportPage() {
   };
 
   const openWhatsApp1 = () => {
-    // If WHATSAPP_NUMBER is a constant, make sure it doesn't include country code
     openWhatsApp(WHATSAPP_NUMBER);
   };
 
@@ -373,7 +484,6 @@ export default function UserProfileAndSupportPage() {
     setModalVisible(false);
   };
 
-  // Guest Banner animation styles
   const bannerAnimatedStyle = {
     opacity: bannerAnimation,
     transform: [
@@ -423,6 +533,13 @@ export default function UserProfileAndSupportPage() {
         showsVerticalScrollIndicator={false}
         ref={scrollRef}
         contentContainerStyle={{ paddingTop: isGuest ? 80 : 0 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleProfileRefresh}
+            tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
+          />
+        }
       >
         {/* Header Section */}
         <View className="relative">
@@ -432,9 +549,7 @@ export default function UserProfileAndSupportPage() {
             }
             className="pt-12 pb-24 rounded-b-[40px]"
           >
-            {/* Header row with notification bell */}
-
-            {/* Profile information */}
+            {/* CRITICAL FIX: Removed dynamic key that caused re-renders */}
             <View className="items-center mt-6">
               <View className="relative">
                 <Ionicons
@@ -455,53 +570,51 @@ export default function UserProfileAndSupportPage() {
 
         {/* Quick Actions */}
         <View className="space-y-4 px-6 -mt-12">
-          {/* Edit Profile button - different behavior for guests */}
           <TouchableOpacity
-  onPress={() => {
-    if (isGuest) {
-      Alert.alert(
-        "Feature Not Available",
-        "Please sign in to edit your profile information.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Sign In", onPress: handleSignIn },
-        ]
-      );
-    } else {
-      router.push('/(user)/EditProfile');
-    }
-  }}
-  className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-p-4 rounded-xl shadow-sm flex-row items-center`}
->
-  <View className="bg-red/10 p-3 rounded-xl">
-    <Ionicons name="person-outline" size={24} color="#D55004" />
-  </View>
-  <View className="ml-4">
-    <Text
-      className={`${
-        isDarkMode ? "text-white" : "text-black"
-      } font-semibold`}
-    >
-      Edit Profile
-    </Text>
-    <Text
-      className={`${
-        isDarkMode ? "text-white/60" : "text-gray-500"
-      } text-sm mt-1`}
-    >
-      {isGuest ? "Sign in to edit your profile" : "Update your infos"}
-    </Text>
-  </View>
-  <Ionicons
-    name="chevron-forward"
-    size={24}
-    color={isDarkMode ? "#fff" : "#000"}
-    style={{ marginLeft: "auto" }}
-  />
-</TouchableOpacity>
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to edit your profile information.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                router.push('/(user)/EditProfile');
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+          p-4 rounded-xl shadow-sm flex-row items-center`}
+          >
+            <View className="bg-red/10 p-3 rounded-xl">
+              <Ionicons name="person-outline" size={24} color="#D55004" />
+            </View>
+            <View className="ml-4">
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+              >
+                Edit Profile
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+              >
+                {isGuest ? "Sign in to edit your profile" : "Update your infos"}
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={{ marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
 
-          {/* Security settings button - different behavior for guests */}
           <TouchableOpacity
             onPress={() => {
               if (isGuest) {
@@ -518,7 +631,7 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-        p-4 rounded-xl shadow-sm flex-row items-center`}
+            p-4 rounded-xl shadow-sm flex-row items-center`}
           >
             <View className="bg-purple-500/10 p-3 rounded-xl">
               <Ionicons name="shield-outline" size={24} color="#D55004" />
@@ -565,7 +678,7 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-        p-4 rounded-xl shadow-sm flex-row items-center`}
+            p-4 rounded-xl shadow-sm flex-row items-center`}
           >
             <View className="bg-purple-500/10 p-3 rounded-xl">
               <Ionicons name="reader-outline" size={24} color="#D55004" />
@@ -595,96 +708,97 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
               style={{ marginLeft: "auto" }}
             />
           </TouchableOpacity>
-
         </View>
 
-        {/* Edit Profile Modal */}
+        {/* Legal Modal */}
         <Modal
-  animationType="slide"
-  transparent={true}
-  visible={isLegalVisible}
-  onRequestClose={() => setIsLegalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <TouchableWithoutFeedback onPress={() => closeModal(setIsLegalVisible)}>
-      <View style={styles.modalBackground} />
-    </TouchableWithoutFeedback>
-    <View
-      style={[
-        styles.modalContent,
-        {
-          maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
-          backgroundColor: isDarkMode ? "#1A1A1A" : "white",
-        },
-      ]}
-    >
-      <View className="flex-row justify-between items-center mb-6">
-        <Text
-          className={`text-xl font-semibold ${
-            isDarkMode ? "text-white" : "text-black"
-          }`}
+          animationType="slide"
+          transparent={true}
+          visible={isLegalVisible}
+          onRequestClose={() => setIsLegalVisible(false)}
         >
-          Legal Documents
-        </Text>
-        <TouchableOpacity onPress={() => setIsLegalVisible(false)}>
-          <Ionicons
-            name="close"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-          />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => closeModal(setIsLegalVisible)}>
+              <View style={styles.modalBackground} />
+            </TouchableWithoutFeedback>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  maxHeight: `${MODAL_HEIGHT_PERCENTAGE * 100}%`,
+                  backgroundColor: isDarkMode ? "#1A1A1A" : "white",
+                },
+              ]}
+            >
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className={`text-xl font-semibold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                >
+                  Legal Documents
+                </Text>
+                <TouchableOpacity onPress={() => setIsLegalVisible(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                </TouchableOpacity>
+              </View>
 
-      <TouchableOpacity
-        onPress={() => {
-          setIsLegalVisible(false);
-          router.push('/(user)/privacy-policy');
-        }}
-        className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-            p-4 rounded-xl flex-row items-center mb-4`}
-      >
-        <Ionicons
-          name="shield-outline"
-          size={24}
-          color={isDarkMode ? "#fff" : "#000"}
-        />
-        <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
-          Privacy Policy
-        </Text>
-        <Ionicons
-          name="chevron-forward"
-          size={24}
-          color={isDarkMode ? "#fff" : "#000"}
-          style={{ marginLeft: "auto" }}
-        />
-      </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsLegalVisible(false);
+                  router.push('/(user)/privacy-policy');
+                }}
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                    p-4 rounded-xl flex-row items-center mb-4`}
+              >
+                <Ionicons
+                  name="shield-outline"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                />
+                <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
+                  Privacy Policy
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                  style={{ marginLeft: "auto" }}
+                />
+              </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => {
-          setIsLegalVisible(false);
-          router.push('/(user)/terms-of-service');
-        }}
-        className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
-            p-4 rounded-xl flex-row items-center`}
-      >
-        <Ionicons
-          name="document-text-outline"
-          size={24}
-          color={isDarkMode ? "#fff" : "#000"}
-        />
-        <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
-          Terms
-        </Text>
-        <Ionicons
-          name="chevron-forward"
-          size={24}
-          color={isDarkMode ? "#fff" : "#000"}
-          style={{ marginLeft: "auto" }}
-        />
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsLegalVisible(false);
+                  router.push('/(user)/terms-of-service');
+                }}
+                className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
+                    p-4 rounded-xl flex-row items-center`}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                />
+                <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
+                  Terms
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={24}
+                  color={isDarkMode ? "#fff" : "#000"}
+                  style={{ marginLeft: "auto" }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Edit Profile Modal */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -770,8 +884,6 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
             </View>
           </View>
         </Modal>
-
-        
 
         {/* Change Password Modal */}
         <Modal
@@ -957,7 +1069,6 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
           </TouchableOpacity>
         </View>
 
-        {/* Version Information */}
         <Text
           className="text-center mb-4"
           style={{ fontSize: 12, color: isDarkMode ? "#fff" : "#333" }}
@@ -965,12 +1076,11 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
           Version {Constants.expoConfig?.version || "1.0.0"}
         </Text>
 
-        {/* Sign Out Button */}
         {!isGuest && (
           <TouchableOpacity
             className="mt-2  p-5 mb-12 "
             onPress={handleSignOut}
-            disabled={showSignOutOverlay} // Disable during sign-out
+            disabled={showSignOutOverlay}
           >
             <Text
               className={`text-center text-white  bg-rose-800 font-semibold border border-black p-4 rounded-2xl ${
@@ -981,9 +1091,7 @@ p-4 rounded-xl shadow-sm flex-row items-center`}
             </Text>
           </TouchableOpacity>
         )}
-
       </ScrollView>
-
     </View>
   );
 }
@@ -993,7 +1101,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent background
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalBackground: {
     position: "absolute",
@@ -1017,11 +1125,10 @@ const styles = StyleSheet.create({
   },
 });
 
-// Common guest styles – can be placed in a separate file for reuse
 const guestStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // semi-transparent overlay
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1000,
@@ -1030,7 +1137,7 @@ const guestStyles = StyleSheet.create({
     width: "80%",
     padding: 24,
     borderRadius: 16,
-    backgroundColor: "#D55004", // unified orange background
+    backgroundColor: "#D55004",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },

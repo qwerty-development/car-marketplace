@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   ScrollView,
+  BackHandler,
 } from "react-native";
 import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "@/utils/ThemeContext";
@@ -18,27 +19,334 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/utils/supabase";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Linking from 'expo-linking';
+import { useFocusEffect } from '@react-navigation/native';
+
+/**
+ * CRITICAL SYSTEM: EditProfile Component with Complete State Synchronization
+ * 
+ * TECHNICAL SPECIFICATIONS:
+ * - Implements comprehensive error handling with database verification
+ * - Uses enhanced updateUserProfile function with proper state management
+ * - Includes automatic state refresh mechanisms
+ * - Provides real-time validation and feedback
+ * - Handles navigation with state synchronization triggers
+ */
 
 export default function EditProfileScreen() {
   const { isDarkMode } = useTheme();
-  const { user, profile, updateUserProfile, signOut } = useAuth();
+  const { 
+    user, 
+    profile, 
+    updateUserProfile, 
+    signOut,
+    forceProfileRefresh // CRITICAL: Add this if implemented in AuthContext
+  } = useAuth();
   const router = useRouter();
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
+  // CRITICAL SYSTEM: Enhanced state management with tracking
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  useEffect(() => {
+  // CRITICAL SYSTEM: State tracking and validation
+  const [initialData, setInitialData] = useState({ firstName: "", lastName: "", email: "" });
+  const [validationErrors, setValidationErrors] = useState({ firstName: "", lastName: "" });
+  const profileSyncRef = useRef<string>("");
+  const updateInProgressRef = useRef(false);
+
+  // CRITICAL SYSTEM: Enhanced profile data synchronization
+  const syncProfileData = useCallback(() => {
     if (user && profile) {
-      // Extract first and last name from full name in profile
-      const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
-      setFirstName(nameParts[0] || "");
-      setLastName(nameParts.slice(1).join(" ") || "");
-      setEmail(profile.email || user.email || "");
+      const profileSignature = `${profile.name}-${profile.email}-${profile.last_active}`;
+      
+      // Only sync if profile data has actually changed
+      if (profileSyncRef.current !== profileSignature) {
+        console.log('[EditProfile] Syncing profile data - signature changed');
+        console.log('[EditProfile] Profile data:', { name: profile.name, email: profile.email });
+        
+        const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
+        const newFirstName = nameParts[0] || "";
+        const newLastName = nameParts.slice(1).join(" ") || "";
+        const newEmail = profile.email || user.email || "";
+
+        setFirstName(newFirstName);
+        setLastName(newLastName);
+        setEmail(newEmail);
+        
+        // Update initial data for change tracking
+        setInitialData({
+          firstName: newFirstName,
+          lastName: newLastName,
+          email: newEmail
+        });
+        
+        profileSyncRef.current = profileSignature;
+        console.log('[EditProfile] Profile data synchronized successfully');
+      }
     }
   }, [user, profile]);
+
+  // CRITICAL SYSTEM: Multiple synchronization triggers
+  
+  // Trigger 1: Focus-based synchronization
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[EditProfile] Screen focused - syncing profile data');
+      syncProfileData();
+    }, [syncProfileData])
+  );
+
+  // Trigger 2: Initial load and profile changes
+  useEffect(() => {
+    syncProfileData();
+  }, [syncProfileData]);
+
+  // Trigger 3: Direct profile property monitoring
+  useEffect(() => {
+    if (profile?.name || profile?.email) {
+      console.log('[EditProfile] Profile properties changed, re-syncing');
+      syncProfileData();
+    }
+  }, [profile?.name, profile?.email, profile?.last_active, syncProfileData]);
+
+  // CRITICAL SYSTEM: Change tracking for unsaved changes warning
+  useEffect(() => {
+    const hasChanges = 
+      firstName !== initialData.firstName || 
+      lastName !== initialData.lastName;
+    
+    setHasUnsavedChanges(hasChanges);
+  }, [firstName, lastName, initialData]);
+
+  // CRITICAL SYSTEM: Form validation
+  const validateForm = useCallback(() => {
+    const errors = { firstName: "", lastName: "" };
+    let isValid = true;
+
+    if (!firstName.trim()) {
+      errors.firstName = "First name is required";
+      isValid = false;
+    } else if (firstName.trim().length < 2) {
+      errors.firstName = "First name must be at least 2 characters";
+      isValid = false;
+    }
+
+    if (!lastName.trim()) {
+      errors.lastName = "Last name is required";
+      isValid = false;
+    } else if (lastName.trim().length < 2) {
+      errors.lastName = "Last name must be at least 2 characters";
+      isValid = false;
+    }
+
+    setValidationErrors(errors);
+    return isValid;
+  }, [firstName, lastName]);
+
+  // CRITICAL SYSTEM: Enhanced database verification function
+  const verifyDatabaseUpdate = useCallback(async (expectedName: string): Promise<boolean> => {
+    try {
+      console.log('[EditProfile] Verifying database update...');
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('[EditProfile] Database verification failed:', error);
+        return false;
+      }
+
+      if (data?.name === expectedName) {
+        console.log('[EditProfile] Database verification successful');
+        return true;
+      } else {
+        console.warn('[EditProfile] Database verification failed - name mismatch');
+        console.warn('Expected:', expectedName, 'Found:', data?.name);
+        return false;
+      }
+    } catch (error) {
+      console.error('[EditProfile] Database verification error:', error);
+      return false;
+    }
+  }, [user?.id]);
+
+  // CRITICAL SYSTEM: Enhanced profile update with comprehensive error handling
+  const updateProfile = async () => {
+    if (updateInProgressRef.current) {
+      console.log('[EditProfile] Update already in progress, ignoring');
+      return;
+    }
+
+    try {
+      updateInProgressRef.current = true;
+      setLoading(true);
+      
+      if (!user) {
+        throw new Error("No user found");
+      }
+
+      // STEP 1: Validate form data
+      if (!validateForm()) {
+        console.log('[EditProfile] Form validation failed');
+        Alert.alert("Validation Error", "Please correct the errors and try again.");
+        return;
+      }
+
+      // STEP 2: Check if there are actual changes
+      const trimmedFirstName = firstName.trim();
+      const trimmedLastName = lastName.trim();
+      const fullName = `${trimmedFirstName} ${trimmedLastName}`;
+
+      if (fullName === profile?.name) {
+        console.log('[EditProfile] No changes detected');
+        Alert.alert("No Changes", "No changes were made to your profile.");
+        return;
+      }
+
+      console.log('[EditProfile] Starting profile update process');
+      console.log('[EditProfile] Current profile name:', profile?.name);
+      console.log('[EditProfile] New name:', fullName);
+
+      // STEP 3: Execute update via AuthContext
+      const { error } = await updateUserProfile({
+        name: fullName,
+      });
+
+      if (error) {
+        console.error('[EditProfile] AuthContext update failed:', error);
+        throw error;
+      }
+
+      console.log('[EditProfile] AuthContext update completed');
+
+      // STEP 4: Verify database update (with retry mechanism)
+      let verificationAttempts = 0;
+      const maxAttempts = 3;
+      let isVerified = false;
+
+      while (verificationAttempts < maxAttempts && !isVerified) {
+        verificationAttempts++;
+        console.log(`[EditProfile] Database verification attempt ${verificationAttempts}/${maxAttempts}`);
+        
+        // Wait a bit before verification to allow database propagation
+        await new Promise(resolve => setTimeout(resolve, 500 * verificationAttempts));
+        
+        isVerified = await verifyDatabaseUpdate(fullName);
+        
+        if (!isVerified && verificationAttempts < maxAttempts) {
+          console.log(`[EditProfile] Verification failed, retrying in ${500 * (verificationAttempts + 1)}ms`);
+        }
+      }
+
+      // STEP 5: Handle verification results
+      if (isVerified) {
+        console.log('[EditProfile] Profile update verified successfully');
+        
+        // Force profile refresh if available
+        if (forceProfileRefresh) {
+          console.log('[EditProfile] Triggering force profile refresh');
+          await forceProfileRefresh();
+        }
+
+        // Update initial data to reflect successful change
+        setInitialData({
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName,
+          email: email
+        });
+
+        // Success feedback and navigation
+        Alert.alert(
+          "Success", 
+          "Profile updated successfully!",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                console.log('[EditProfile] Navigating back with delay');
+                // Small delay to ensure all state updates are processed
+                setTimeout(() => {
+                  router.back();
+                }, 150);
+              }
+            }
+          ]
+        );
+      } else {
+        console.warn('[EditProfile] Database verification failed after all attempts');
+        Alert.alert(
+          "Partial Success",
+          "Profile may have been updated, but we couldn't verify the changes. Please check your profile and try again if needed."
+        );
+      }
+
+    } catch (error: any) {
+      console.error('[EditProfile] Profile update error:', error);
+      
+      // Detailed error handling
+      let errorMessage = "Failed to update profile. Please try again.";
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = "The update is taking longer than expected. Please check your connection and try again.";
+      } else if (error.message?.includes('network')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
+        errorMessage = "This name is already in use. Please choose a different name.";
+      }
+      
+      Alert.alert("Update Failed", errorMessage);
+      
+      // Revert to last known good state if needed
+      syncProfileData();
+      
+    } finally {
+      setLoading(false);
+      updateInProgressRef.current = false;
+    }
+  };
+
+  // CRITICAL SYSTEM: Enhanced navigation handling with unsaved changes warning
+  const handleBackPress = useCallback(() => {
+    if (hasUnsavedChanges) {
+      Alert.alert(
+        "Unsaved Changes",
+        "You have unsaved changes. Are you sure you want to go back?",
+        [
+          { text: "Stay", style: "cancel" },
+          { 
+            text: "Discard Changes", 
+            style: "destructive",
+            onPress: () => {
+              syncProfileData(); // Reset to original data
+              router.back();
+            }
+          }
+        ]
+      );
+      return true; // Prevent default back action
+    } else {
+      router.back();
+      return true;
+    }
+  }, [hasUnsavedChanges, router, syncProfileData]);
+
+  // CRITICAL SYSTEM: Hardware back button handling for Android
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        return handleBackPress();
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [handleBackPress])
+  );
 
   // Helper function to decode Base64
   const base64Decode = (base64String: string): Uint8Array => {
@@ -50,31 +358,6 @@ export default function EditProfileScreen() {
     }
 
     return new Uint8Array(byteNumbers);
-  };
-
-  const updateProfile = async () => {
-    try {
-      setLoading(true);
-      if (!user) throw new Error("No user found");
-
-      // Create full name from first and last name
-      const fullName = `${firstName} ${lastName}`.trim();
-
-      // Update user profile in Supabase database
-      const { error } = await updateUserProfile({
-        name: fullName,
-      });
-
-      if (error) throw error;
-
-      Alert.alert("Success", "Profile updated successfully");
-      router.back();
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Error", "Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const onPickImage = async () => {
@@ -91,7 +374,6 @@ export default function EditProfileScreen() {
         const base64 = result.assets[0].base64;
         const mimeType = result.assets[0].mimeType || "image/jpeg";
 
-        // First, upload to Supabase Storage
         const fileName = `avatar-${user?.id}-${Date.now()}.jpg`;
         const { error: uploadError, data } = await supabase.storage
           .from("avatars")
@@ -102,13 +384,11 @@ export default function EditProfileScreen() {
 
         if (uploadError) throw uploadError;
 
-        // Get the public URL of the uploaded image
         const { data: urlData } = supabase.storage
           .from("avatars")
           .getPublicUrl(fileName);
         const avatarUrl = urlData?.publicUrl;
 
-        // Update the user metadata with the new avatar URL
         const { data: userData, error: userError } =
           await supabase.auth.updateUser({
             data: { avatar_url: avatarUrl },
@@ -124,9 +404,9 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Handle account deletion process
+  // CRITICAL SYSTEM: Enhanced account deletion with proper state management
   const handleDeleteAccount = () => {
-    if (isDeletingAccount) return; // Prevent multiple calls
+    if (isDeletingAccount) return;
     
     Alert.alert(
       "Delete Account",
@@ -155,29 +435,24 @@ export default function EditProfileScreen() {
                     try {
                       setIsDeletingAccount(true);
                       
-                      // 1. Show a loading message
                       Alert.alert(
                         "Processing",
                         "Opening account deletion page. You will be signed out automatically."
                       );
                       
-                      // 2. Open the web deletion page
                       await Linking.openURL('https://fleetapp.me/account/delete');
                       
-                      // 3. Wait a moment to ensure the URL has opened
                       setTimeout(async () => {
                         try {
-                          // 4. Sign out the user
                           await signOut();
                           console.log("User signed out after deletion page opened");
                         } catch (signOutError) {
                           console.error("Error signing out after deletion redirect:", signOutError);
-                          // Still try to navigate to auth screen as fallback
                           router.replace('/(auth)/sign-in');
                         } finally {
                           setIsDeletingAccount(false);
                         }
-                      }, 500); // 0.5 second delay
+                      }, 500);
                     } catch (err) {
                       setIsDeletingAccount(false);
                       console.error('Error in account deletion process:', err);
@@ -206,9 +481,11 @@ export default function EditProfileScreen() {
       <ScrollView 
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
+        {/* CRITICAL SYSTEM: Enhanced header with unsaved changes indicator */}
         <View className="flex-row items-center mb-6">
-          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+          <TouchableOpacity onPress={handleBackPress} className="mr-4">
             <Ionicons
               name="arrow-back"
               size={24}
@@ -222,40 +499,68 @@ export default function EditProfileScreen() {
           >
             Edit Profile
           </Text>
+          {hasUnsavedChanges && (
+            <View className="ml-2 w-2 h-2 bg-red rounded-full" />
+          )}
         </View>
 
+        {/* CRITICAL SYSTEM: Enhanced form with validation feedback */}
         <View className="space-y-4 mt-4">
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-            First Name
+            First Name *
           </Text>
           <TextInput
             className={`${
               isDarkMode
                 ? "bg-neutral-800 text-white"
                 : "bg-neutral-100 text-black"
-            } p-4 rounded-xl`}
+            } p-4 rounded-xl ${
+              validationErrors.firstName ? 'border-2 border-red' : ''
+            }`}
             value={firstName}
-            onChangeText={setFirstName}
+            onChangeText={(text) => {
+              setFirstName(text);
+              if (validationErrors.firstName) {
+                setValidationErrors(prev => ({ ...prev, firstName: "" }));
+              }
+            }}
             placeholder="First Name"
             placeholderTextColor={isDarkMode ? "#999" : "#666"}
             cursorColor="#D55004"
+            editable={!loading}
+            maxLength={50}
           />
+          {validationErrors.firstName ? (
+            <Text className="text-red text-xs mt-1">{validationErrors.firstName}</Text>
+          ) : null}
           
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-            Last Name
+            Last Name *
           </Text>
           <TextInput
             className={`${
               isDarkMode
                 ? "bg-neutral-800 text-white"
                 : "bg-neutral-100 text-black"
-            } p-4 rounded-xl`}
+            } p-4 rounded-xl ${
+              validationErrors.lastName ? 'border-2 border-red' : ''
+            }`}
             value={lastName}
-            onChangeText={setLastName}
+            onChangeText={(text) => {
+              setLastName(text);
+              if (validationErrors.lastName) {
+                setValidationErrors(prev => ({ ...prev, lastName: "" }));
+              }
+            }}
             placeholder="Last Name"
             placeholderTextColor={isDarkMode ? "#999" : "#666"}
             cursorColor="#D55004"
+            editable={!loading}
+            maxLength={50}
           />
+          {validationErrors.lastName ? (
+            <Text className="text-red text-xs mt-1">{validationErrors.lastName}</Text>
+          ) : null}
           
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
             Email
@@ -271,16 +576,33 @@ export default function EditProfileScreen() {
             placeholder="Email"
             placeholderTextColor={isDarkMode ? "#999" : "#666"}
           />
+          <Text className={`text-xs ${isDarkMode ? "text-white/50" : "text-gray-500"}`}>
+            Email cannot be changed from this screen
+          </Text>
         </View>
 
+        {/* CRITICAL SYSTEM: Enhanced update button with loading state and validation */}
         <TouchableOpacity
-          className={`bg-red mt-8 p-4 rounded-xl ${loading ? "opacity-70" : ""}`}
+          className={`mt-8 p-4 rounded-xl ${
+            loading || !hasUnsavedChanges
+              ? "bg-neutral-500 opacity-70" 
+              : "bg-red"
+          }`}
           onPress={updateProfile}
-          disabled={loading}
+          disabled={loading || !hasUnsavedChanges}
         >
-          <Text className="text-white text-center font-semibold">
-            {loading ? "Updating..." : "Update Profile"}
-          </Text>
+          {loading ? (
+            <View className="flex-row justify-center items-center">
+              <ActivityIndicator size="small" color="#ffffff" />
+              <Text className="text-white text-center font-semibold ml-2">
+                Updating Profile...
+              </Text>
+            </View>
+          ) : (
+            <Text className="text-white text-center font-semibold">
+              {hasUnsavedChanges ? "Update Profile" : "No Changes to Save"}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Account Deletion Section */}
@@ -294,7 +616,7 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             className={`bg-rose-600 p-4 rounded-xl ${isDeletingAccount ? 'opacity-50' : ''}`}
             onPress={handleDeleteAccount}
-            disabled={isDeletingAccount}
+            disabled={isDeletingAccount || loading}
           >
             {isDeletingAccount ? (
               <View className="flex-row justify-center items-center">

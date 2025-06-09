@@ -45,6 +45,7 @@ interface AuthContextProps {
   appleSignIn: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<{ error: Error | null }>;
+  forceProfileRefresh: () => Promise<void>;
   updateUserRole: (userId: string, newRole: string) => Promise<{ error: Error | null }>;
 }
 
@@ -1254,14 +1255,29 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  /**
-   * Enhanced user profile update with timeout
-   */
-  const updateUserProfile = async (data: Partial<UserProfile>) => {
-    try {
-      if (!user) throw new Error('No user is signed in');
+const updateUserProfile = async (data: Partial<UserProfile>) => {
+  console.log('[AUTH] Starting profile update with data:', data);
+  
+  try {
+    if (!user) {
+      console.error('[AUTH] No user signed in for profile update');
+      throw new Error('No user is signed in');
+    }
 
-      if (data.name) {
+    // STEP 1: Store original profile for rollback
+    const originalProfile = profile ? { ...profile } : null;
+    
+    // STEP 2: Optimistically update local state first
+    if (profile && data) {
+      console.log('[AUTH] Optimistically updating local profile state');
+      const updatedProfile = { ...profile, ...data };
+      setProfile(updatedProfile);
+    }
+
+    // STEP 3: Update Supabase auth metadata (non-critical, can fail)
+    if (data.name) {
+      try {
+        console.log('[AUTH] Updating auth user metadata');
         const authUpdateResult = await withTimeout(
           supabase.auth.updateUser({
             data: { name: data.name }
@@ -1271,40 +1287,115 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         );
 
         if (authUpdateResult.error) {
-          console.error('[AUTH] Error updating auth user metadata:', authUpdateResult.error);
+          console.warn('[AUTH] Auth metadata update failed (non-critical):', authUpdateResult.error);
+          // Don't throw here - auth metadata failure is not critical
+        } else {
+          console.log('[AUTH] Auth metadata updated successfully');
         }
-      }
-
-      const updateResult = await withTimeout(
-        supabase
-          .from('users')
-          .update(data)
-          .eq('id', user.id),
-        OPERATION_TIMEOUTS.PROFILE_FETCH,
-        'profile update'
-      );
-
-      if (updateResult.error) throw updateResult.error;
-
-      if (profile) {
-        setProfile({ ...profile, ...data });
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      if (error.message.includes('timed out')) {
-        console.warn('[AUTH] Profile update timed out');
-        return { error: new Error('Profile update timed out. Please try again.') };
-      } else {
-        console.error('[AUTH] Update profile error:', error);
-        return { error };
+      } catch (authError: any) {
+        console.warn('[AUTH] Auth metadata update error (non-critical):', authError);
+        // Continue with database update even if auth metadata fails
       }
     }
-  };
 
-  /**
-   * Enhanced user role update with timeout
-   */
+    // STEP 4: Update database - THIS IS THE CRITICAL OPERATION
+    console.log('[AUTH] Updating user profile in database');
+    const updateResult = await withTimeout(
+      supabase
+        .from('users')
+        .update(data)
+        .eq('id', user.id)
+        .select()
+        .single(),
+      OPERATION_TIMEOUTS.PROFILE_FETCH,
+      'profile database update'
+    );
+
+    if (updateResult.error) {
+      console.error('[AUTH] Database update failed:', updateResult.error);
+      
+      // ROLLBACK: Revert optimistic update
+      if (originalProfile) {
+        console.log('[AUTH] Rolling back optimistic update');
+        setProfile(originalProfile);
+      }
+      
+      throw updateResult.error;
+    }
+
+    // STEP 5: Verify database update and refresh from source
+    console.log('[AUTH] Database update successful, verifying...');
+    
+    try {
+      // Force refresh from database to ensure consistency
+      const verifyResult = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single(),
+        3000,
+        'profile verification'
+      );
+
+      if (verifyResult.data) {
+        console.log('[AUTH] Profile verification successful, updating state with fresh data');
+        setProfile(verifyResult.data as UserProfile);
+      } else {
+        console.warn('[AUTH] Profile verification failed, keeping optimistic update');
+        // Keep the optimistic update if verification fails
+      }
+    } catch (verifyError) {
+      console.warn('[AUTH] Profile verification error (non-critical):', verifyError);
+      // Keep the optimistic update if verification fails
+    }
+
+    console.log('[AUTH] Profile update completed successfully');
+    return { error: null };
+
+  } catch (error: any) {
+    console.error('[AUTH] Profile update failed:', error);
+    
+    if (error.message.includes('timed out')) {
+      console.warn('[AUTH] Profile update timed out');
+      return { error: new Error('Profile update timed out. Please try again.') };
+    } else {
+      return { error };
+    }
+  }
+};
+
+const forceProfileRefresh = async () => {
+  if (!user?.id) {
+    console.warn('[AUTH] Cannot refresh profile - no user ID');
+    return;
+  }
+
+  try {
+    console.log('[AUTH] Force refreshing profile from database');
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('[AUTH] Force refresh failed:', error);
+      return;
+    }
+
+    if (data) {
+      console.log('[AUTH] Force refresh successful, updating profile state');
+      setProfile(data as UserProfile);
+    }
+  } catch (error) {
+    console.error('[AUTH] Force refresh error:', error);
+  }
+};
+
+
+// forceProfileRefresh: () => Promise<void>;
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
       const metadataUpdateResult = await withTimeout(
@@ -1397,6 +1488,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         appleSignIn,
         refreshSession,
         updateUserProfile,
+        forceProfileRefresh,
         updateUserRole
       }}
     >
