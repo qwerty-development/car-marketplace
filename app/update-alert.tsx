@@ -235,39 +235,11 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
                     isDarkMode ? 'text-white/80' : 'text-gray-700'
                   }`}
                 >
-                  Performance improvements and bug fixes
+                  Fix splash screen issue
                 </Text>
               </View>
               
-              <View className="flex-row items-center mb-3">
-                <View 
-                  className={`w-2 h-2 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-[#D55004]' : 'bg-[#D55004]'
-                  }`} 
-                />
-                <Text 
-                  className={`text-sm ${
-                    isDarkMode ? 'text-white/80' : 'text-gray-700'
-                  }`}
-                >
-                  Enhanced browsing experience
-                </Text>
-              </View>
-              
-              <View className="flex-row items-center">
-                <View 
-                  className={`w-2 h-2 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-[#D55004]' : 'bg-[#D55004]'
-                  }`} 
-                />
-                <Text 
-                  className={`text-sm ${
-                    isDarkMode ? 'text-white/80' : 'text-gray-700'
-                  }`}
-                >
-                  New features and optimizations
-                </Text>
-              </View>
+            
             </View>
 
             {/* Action Buttons */}
