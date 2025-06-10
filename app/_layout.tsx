@@ -749,19 +749,20 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
+
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const curtainPosition = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
 
-  // This effect now correctly handles routing only when auth is loaded.
+  // REMOVED: curtainPosition is no longer needed for a fade animation.
+  // const curtainPosition = useRef(new Animated.Value(0)).current;
+
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
@@ -777,34 +778,23 @@ function RootLayoutNav() {
   }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
 
+  // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
-    setSplashAnimationComplete(true);
-
-    SplashScreen.hideAsync().catch((e) => {
-      console.warn("Error hiding splash after animation:", e);
+    // This is called after your splash animation/video finishes.
+    // Now, we smoothly fade in the main app content.
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 400, // A gentle fade-in duration
+      useNativeDriver: true,
+    }).start(() => {
+      // After the content is fully visible, we can remove the splash component from the tree.
+      setSplashAnimationComplete(true);
     });
+  }, [contentOpacity]);
 
-    // This sequence reveals the content with the curtain animation from your original code.
-    Animated.sequence([
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-      Animated.timing(curtainPosition, {
-        toValue: -width,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [curtainPosition, contentOpacity]);
-
-  // THE FIX:
-  // We no longer show a LogoLoader. Instead, we render the main structure immediately.
-  // The CustomSplashScreen is visible by default, covering the app content.
-  // We guard the <Slot /> component, so it only renders after `isLoaded` is true, preventing router errors.
   return (
     <View style={{ flex: 1 }}>
+      {/* This View holds your main app content and will fade in */}
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
@@ -812,19 +802,10 @@ function RootLayoutNav() {
         {isLoaded ? <Slot /> : null}
       </Animated.View>
 
+      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
       {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-      ) : (
-        <Animated.View
-          style={[
-            styles.curtain,
-            {
-              backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
-              transform: [{ translateX: curtainPosition }],
-            },
-          ]}
-        />
-      )}
+      ) : null}
     </View>
   );
 }

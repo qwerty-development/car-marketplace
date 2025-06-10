@@ -21,8 +21,9 @@
       "barStyle": "light-content",
       "hidden": false
     },
-    "splash": {
-      "hide": true
+"splash": {
+      "image": "./assets/background-splash.png",
+      "resizeMode": "cover"
     },
     "ios": {
       "supportsTablet": true,
