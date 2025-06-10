@@ -1,38 +1,36 @@
+// components/SkeletonCarCard.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/utils/ThemeContext';
+import ShimmerPlaceholder from './ShimmerPlaceholder'; // 1. Import the new component
 
 const SkeletonCarCard = () => {
-  const { isDarkMode } = useTheme();
-
+  // 2. The parent card no longer needs a background color, it can be transparent
   return (
-    <View style={[styles.card, isDarkMode ? styles.darkCard : null]}>
-      <View style={styles.imageSkeleton} />
+    <View style={styles.card}>
+      {/* 3. Replace each View with a ShimmerPlaceholder, passing the style */}
+      <ShimmerPlaceholder style={styles.imageSkeleton} />
       <View style={styles.infoSkeleton}>
-        <View style={styles.titleSkeleton} />
-        <View style={styles.detailSkeleton} />
-        <View style={styles.detailSkeleton} />
+        <ShimmerPlaceholder style={styles.titleSkeleton} />
+        <ShimmerPlaceholder style={styles.detailSkeleton} />
+        <ShimmerPlaceholder style={[styles.detailSkeleton, { width: '40%' }]} />
       </View>
-      <View style={styles.footerSkeleton} />
+      <ShimmerPlaceholder style={styles.footerSkeleton} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#f0f0f0',
+    // The background is now handled by ShimmerPlaceholder, so this can be transparent
+    backgroundColor: 'transparent',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 8,
     overflow: 'hidden',
   },
-  darkCard: {
-    backgroundColor: '#333',
-  },
   imageSkeleton: {
     width: '100%',
     height: 200,
-    backgroundColor: '#ddd',
   },
   infoSkeleton: {
     padding: 16,
@@ -40,18 +38,17 @@ const styles = StyleSheet.create({
   titleSkeleton: {
     width: '80%',
     height: 24,
-    backgroundColor: '#ddd',
-    marginBottom: 8,
+    marginBottom: 12,
+    borderRadius: 4,
   },
   detailSkeleton: {
     width: '60%',
     height: 16,
-    backgroundColor: '#ddd',
-    marginBottom: 4,
+    marginBottom: 6,
+    borderRadius: 4,
   },
   footerSkeleton: {
     height: 50,
-    backgroundColor: '#eee',
   },
 });
 

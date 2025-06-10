@@ -1,6 +1,8 @@
+// components/SkeletonByBrands.tsx
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useTheme } from '@/utils/ThemeContext';
+import ShimmerPlaceholder from './ShimmerPlaceholder'; // Import
 
 const SkeletonByBrands = () => {
   const { isDarkMode } = useTheme();
@@ -17,8 +19,9 @@ const SkeletonByBrands = () => {
       >
         {Array.from({ length: 5 }).map((_, index) => (
           <View key={index} style={styles.skeletonItem}>
-            <View style={styles.skeletonLogo} />
-            <View style={styles.skeletonText} />
+            {/* Replace Views with ShimmerPlaceholders */}
+            <ShimmerPlaceholder style={styles.skeletonLogo} />
+            <ShimmerPlaceholder style={styles.skeletonText} />
           </View>
         ))}
       </ScrollView>
@@ -36,14 +39,13 @@ const styles = StyleSheet.create({
   skeletonLogo: {
     width: 80,
     height: 80,
-    backgroundColor: '#ddd',
-    borderRadius: 40,
+    borderRadius: 40, // Keep the shape
   },
   skeletonText: {
     width: 60,
     height: 12,
-    backgroundColor: '#ddd',
     marginTop: 8,
+    borderRadius: 4, // Add a slight radius for a softer look
   },
 });
 

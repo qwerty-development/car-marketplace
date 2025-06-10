@@ -758,46 +758,24 @@ function RootLayoutNav() {
   const isDarkMode = colorScheme === "dark";
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const [isAppReady, setIsAppReady] = useState(false);
-  const curtainPosition = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const curtainPosition = useRef(new Animated.Value(0)).current;
 
- const isEffectivelySignedIn = useMemo(
-    () => isSignedIn || isGuest,
-    [isSignedIn, isGuest]
-  );
-
-  const inAuthGroup = useMemo(() => segments[0] === "(auth)", [segments]);
-
-
+  // This effect now correctly handles routing only when auth is loaded.
   useEffect(() => {
-    initManager.onComplete(() => {
-      console.log('[RootLayoutNav] Initialization complete, app ready');
-      setIsAppReady(true);
-    });
-  }, []);
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-
-  // EFFECT: Handle routing when app is ready
-    useEffect(() => {
-    // RULE: Only route when fully ready AND splash animation is complete
-    if (!isAppReady || !isLoaded || isSigningOut || isSigningIn || !splashAnimationComplete) return;
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    const inAuthGroup = segments[0] === "(auth)";
 
     if (isEffectivelySignedIn && inAuthGroup) {
-      (router as any).replace("/(home)");
+      router.replace("/(home)");
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace("/(auth)/sign-in");
     }
-  }, [
-    isAppReady,
-    isLoaded,
-    isEffectivelySignedIn,
-    inAuthGroup,
-    router,
-    isSigningOut,
-    isSigningIn,
-    splashAnimationComplete
-  ]);
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
+
 
   const handleSplashComplete = useCallback(() => {
     setSplashAnimationComplete(true);
@@ -806,6 +784,7 @@ function RootLayoutNav() {
       console.warn("Error hiding splash after animation:", e);
     });
 
+    // This sequence reveals the content with the curtain animation from your original code.
     Animated.sequence([
       Animated.timing(contentOpacity, {
         toValue: 1,
@@ -820,33 +799,32 @@ function RootLayoutNav() {
     ]).start();
   }, [curtainPosition, contentOpacity]);
 
-  // SHOW CUSTOM SPLASH SCREEN FIRST - not LogoLoader
-  if (!splashAnimationComplete) {
-    return <CustomSplashScreen onAnimationComplete={handleSplashComplete} />;
-  }
-
-  // Show LogoLoader only in specific error cases or during transitions
-  if (isSigningOut || isSigningIn) {
-    return <LogoLoader />;
-  }
-
+  // THE FIX:
+  // We no longer show a LogoLoader. Instead, we render the main structure immediately.
+  // The CustomSplashScreen is visible by default, covering the app content.
+  // We guard the <Slot /> component, so it only renders after `isLoaded` is true, preventing router errors.
   return (
     <View style={{ flex: 1 }}>
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        <Slot />
+        {/* Guard the Slot component until auth state is known */}
+        {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.curtain,
-          {
-            backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
-            transform: [{ translateX: curtainPosition }],
-          },
-        ]}
-      />
+      {!splashAnimationComplete ? (
+        <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+      ) : (
+        <Animated.View
+          style={[
+            styles.curtain,
+            {
+              backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
+              transform: [{ translateX: curtainPosition }],
+            },
+          ]}
+        />
+      )}
     </View>
   );
 }

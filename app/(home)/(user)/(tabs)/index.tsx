@@ -8,7 +8,6 @@ import React, {
 import {
   View,
   FlatList,
-
   TouchableOpacity,
   StyleSheet,
   Text,
@@ -33,8 +32,6 @@ import { useScrollToTop } from "@react-navigation/native";
 import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
-
-
 
 const ITEMS_PER_PAGE = 7;
 
@@ -185,7 +182,6 @@ export default function BrowseCarsPage() {
       const { isDarkMode } = useTheme();
       return (
         <SafeAreaView style={{ backgroundColor: isDarkMode ? "#000" : "#fff" }}>
-
           <View
             style={{
               flexDirection: "row",
@@ -210,369 +206,380 @@ export default function BrowseCarsPage() {
     }
   );
 
-  const fetchCars = useCallback(
-    async (
-      page: number = 1,
-      currentFilters: Filters = filters,
-      currentSortOption: string | null = sortOption,
-      query: string = searchQuery
-    ) => {
-      if (page === 1) {
-        if (!hasFetched) {
-          setIsInitialLoading(true);
-        } else {
-          setRefreshing(true);
-        }
+const fetchCars = useCallback(
+  async (
+    page: number = 1,
+    currentFilters: Filters = filters,
+    currentSortOption: string | null = sortOption,
+    query: string = searchQuery
+  ) => {
+    if (page === 1) {
+      if (!hasFetched) {
+        setIsInitialLoading(true);
       } else {
-        setLoadingMore(true);
+        setRefreshing(true);
       }
-      try {
-        let queryBuilder = supabase
-          .from("cars")
-          .select(
-            `*, dealerships (name,logo,phone,location,latitude,longitude)`,
-            { count: "exact" }
-          )
-          .eq("status", "available");
-
-        // Special Filters
-        if (currentFilters.specialFilter) {
-          switch (currentFilters.specialFilter) {
-            case "newArrivals":
-              const sevenDaysAgo = new Date();
-              sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-              queryBuilder = queryBuilder.gte(
-                "listed_at",
-                sevenDaysAgo.toISOString()
-              );
-              break;
-            case "mostPopular":
-              currentSortOption = "views_desc";
-              break;
-          }
-        }
-
-        // Categories
-        if (currentFilters.categories && currentFilters.categories.length > 0) {
-          queryBuilder = queryBuilder.in("category", currentFilters.categories);
-        }
-
-        // Multi‑select filters
-        if (
-          Array.isArray(currentFilters.dealership) &&
-          currentFilters.dealership.length > 0
-        ) {
-          queryBuilder = queryBuilder.in(
-            "dealership_id",
-            currentFilters.dealership
-          );
-        }
-        if (
-          Array.isArray(currentFilters.make) &&
-          currentFilters.make.length > 0
-        ) {
-          queryBuilder = queryBuilder.in("make", currentFilters.make);
-        }
-        if (
-          Array.isArray(currentFilters.model) &&
-          currentFilters.model.length > 0
-        ) {
-          queryBuilder = queryBuilder.in("model", currentFilters.model);
-        }
-        if (
-          Array.isArray(currentFilters.condition) &&
-          currentFilters.condition.length > 0
-        ) {
-          queryBuilder = queryBuilder.in("condition", currentFilters.condition);
-        } else if (
-          typeof currentFilters.condition === "string" &&
-          currentFilters.condition
-        ) {
-          queryBuilder = queryBuilder.eq("condition", currentFilters.condition);
-        }
-
-        // Year Range
-        if (currentFilters.yearRange) {
-          queryBuilder = queryBuilder
-            .gte("year", currentFilters.yearRange[0])
-            .lte("year", currentFilters.yearRange[1]);
-        }
-        if (
-          Array.isArray(currentFilters.color) &&
-          currentFilters.color.length > 0
-        ) {
-          queryBuilder = queryBuilder.in("color", currentFilters.color);
-        }
-        if (
-          Array.isArray(currentFilters.transmission) &&
-          currentFilters.transmission.length > 0
-        ) {
-          queryBuilder = queryBuilder.in(
-            "transmission",
-            currentFilters.transmission
-          );
-        }
-        if (
-          Array.isArray(currentFilters.drivetrain) &&
-          currentFilters.drivetrain.length > 0
-        ) {
-          queryBuilder = queryBuilder.in(
-            "drivetrain",
-            currentFilters.drivetrain
-          );
-        }
-        if (
-  Array.isArray(currentFilters.source) &&
-  currentFilters.source.length > 0
-) {
-  queryBuilder = queryBuilder.in("source", currentFilters.source);
-} else if (
-  typeof currentFilters.source === "string" &&
-  currentFilters.source
-) {
-  queryBuilder = queryBuilder.eq("source", currentFilters.source);
-}
-
-// Fuel Type filter (uses the 'type' field in database)
-if (
-  Array.isArray(currentFilters.fuelType) &&
-  currentFilters.fuelType.length > 0
-) {
-  queryBuilder = queryBuilder.in("type", currentFilters.fuelType);
-} else if (
-  typeof currentFilters.fuelType === "string" &&
-  currentFilters.fuelType
-) {
-  queryBuilder = queryBuilder.eq("type", currentFilters.fuelType);
-}
-
-        // Price Range
-        if (currentFilters.priceRange) {
-          queryBuilder = queryBuilder
-            .gte("price", currentFilters.priceRange[0])
-            .lte("price", currentFilters.priceRange[1]);
-        }
-        // Mileage Range
-        if (currentFilters.mileageRange) {
-          queryBuilder = queryBuilder
-            .gte("mileage", currentFilters.mileageRange[0])
-            .lte("mileage", currentFilters.mileageRange[1]);
-        }
-
-// Replace the search query section in your fetchCars function with this enhanced implementation
-
-// Enhanced search query implementation
-if (query) {
-  const cleanQuery = query.trim().toLowerCase();
-  
-  // Split the query into individual terms for multi-term searches
-  const queryTerms = cleanQuery.split(/\s+/).filter(term => term.length > 0);
-  
-  if (queryTerms.length === 1) {
-    // Single term search - use existing OR logic
-    const singleTerm = queryTerms[0];
-    let searchConditions = [
-      `make.ilike.%${singleTerm}%`,
-      `model.ilike.%${singleTerm}%`,
-      `description.ilike.%${singleTerm}%`,
-      `color.ilike.%${singleTerm}%`,
-      `category.ilike.%${singleTerm}%`,
-      `transmission.ilike.%${singleTerm}%`,
-      `drivetrain.ilike.%${singleTerm}%`,
-      `type.ilike.%${singleTerm}%`,
-      `condition.ilike.%${singleTerm}%`,
-      `source.ilike.%${singleTerm}%`,
-    ];
-
-    // Add numeric search conditions for single terms
-    if (!isNaN(Number(singleTerm))) {
-      searchConditions = searchConditions.concat([
-        `year::text.ilike.%${singleTerm}%`,
-        `price::text.ilike.%${singleTerm}%`,
-        `mileage::text.ilike.%${singleTerm}%`,
-      ]);
+    } else {
+      setLoadingMore(true);
     }
+    try {
+      // =================================================================
+      // FOR TESTING: 5-second delay to show skeleton loaders.
+      // This will only run on the first page load.
+      // REMOVE THIS LINE FOR PRODUCTION!
+      if (page === 1) await new Promise((resolve) => setTimeout(resolve, 5000));
+      // =================================================================
 
-    queryBuilder = queryBuilder.or(searchConditions.join(","));
-    
-  } else if (queryTerms.length === 2) {
-    // Two-term search - optimized for make/model combinations like "BMW M3"
-    const [term1, term2] = queryTerms;
-    
-    // Strategy 1: First term is make, second term is model
-    const makeModelCondition = `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`;
-    
-    // Strategy 2: Reverse order - first term is model, second term is make
-    const modelMakeCondition = `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`;
-    
-    // Strategy 3: Both terms in any single field (fallback for description, etc.)
-    const combinedSearchConditions = [
-      `make.ilike.%${cleanQuery}%`,
-      `model.ilike.%${cleanQuery}%`,
-      `description.ilike.%${cleanQuery}%`,
-      `color.ilike.%${cleanQuery}%`,
-      `category.ilike.%${cleanQuery}%`,
-      `transmission.ilike.%${cleanQuery}%`,
-      `drivetrain.ilike.%${cleanQuery}%`,
-      `type.ilike.%${cleanQuery}%`,
-      `condition.ilike.%${cleanQuery}%`,
-      `source.ilike.%${cleanQuery}%`,
-    ];
-    
-    // Strategy 4: Individual terms in any field
-    const individualTermConditions:any = [];
-    queryTerms.forEach(term => {
-      individualTermConditions.push(
-        `make.ilike.%${term}%`,
-        `model.ilike.%${term}%`,
-        `description.ilike.%${term}%`,
-        `category.ilike.%${term}%`
-      );
-    });
-    
-    // Combine all strategies with OR logic
-    const allConditions = [
-      makeModelCondition,
-      modelMakeCondition,
-      ...combinedSearchConditions,
-      ...individualTermConditions
-    ];
-    
-    queryBuilder = queryBuilder.or(allConditions.join(","));
-    
-  } else {
-    // Multi-term search (3+ terms) - comprehensive approach
-    const multiTermConditions = [];
-    
-    // Strategy 1: All terms must appear across make, model, and description
-    const makeConditions = queryTerms.map(term => `make.ilike.%${term}%`);
-    const modelConditions = queryTerms.map(term => `model.ilike.%${term}%`);
-    const descConditions = queryTerms.map(term => `description.ilike.%${term}%`);
-    
-    // Strategy 2: Complete query in any field
-    multiTermConditions.push(
-      `make.ilike.%${cleanQuery}%`,
-      `model.ilike.%${cleanQuery}%`,
-      `description.ilike.%${cleanQuery}%`,
-      `category.ilike.%${cleanQuery}%`
-    );
-    
-    // Strategy 3: Individual terms in any field
-    queryTerms.forEach(term => {
-      multiTermConditions.push(
-        `make.ilike.%${term}%`,
-        `model.ilike.%${term}%`,
-        `description.ilike.%${term}%`,
-        `category.ilike.%${term}%`,
-        `color.ilike.%${term}%`
-      );
-    });
-    
-    queryBuilder = queryBuilder.or(multiTermConditions.join(","));
-  }
-}
+      let queryBuilder = supabase
+        .from("cars")
+        .select(
+          `*, dealerships (name,logo,phone,location,latitude,longitude)`,
+          { count: "exact" }
+        )
+        .eq("status", "available");
 
-        // Sorting: Only apply ordering if a sort option is provided.
-        if (currentSortOption) {
-          switch (currentSortOption) {
-            case "price_asc":
-              queryBuilder = queryBuilder.order("price", { ascending: true });
-              break;
-            case "price_desc":
-              queryBuilder = queryBuilder.order("price", { ascending: false });
-              break;
-            case "year_asc":
-              queryBuilder = queryBuilder.order("year", { ascending: true });
-              break;
-            case "year_desc":
-              queryBuilder = queryBuilder.order("year", { ascending: false });
-              break;
-            case "mileage_asc":
-              queryBuilder = queryBuilder.order("mileage", { ascending: true });
-              break;
-            case "mileage_desc":
-              queryBuilder = queryBuilder.order("mileage", {
-                ascending: false,
-              });
-              break;
-            case "views_desc":
-              queryBuilder = queryBuilder.order("views", { ascending: false });
-              break;
-          }
+      // Special Filters
+      if (currentFilters.specialFilter) {
+        switch (currentFilters.specialFilter) {
+          case "newArrivals":
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            queryBuilder = queryBuilder.gte(
+              "listed_at",
+              sevenDaysAgo.toISOString()
+            );
+            break;
+          case "mostPopular":
+            currentSortOption = "views_desc";
+            break;
         }
+      }
 
-        // Pagination calculations
-        const { count } = await queryBuilder;
-        if (!count) {
-          setCars([]);
-          setTotalPages(0);
-          setCurrentPage(1);
-          return;
-        }
-        const totalItems = count;
-        const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-        const safePageNumber = Math.min(page, totalPages);
-        const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE;
-        const endRange = Math.min(
-          safePageNumber * ITEMS_PER_PAGE - 1,
-          totalItems - 1
+      // Categories
+      if (currentFilters.categories && currentFilters.categories.length > 0) {
+        queryBuilder = queryBuilder.in("category", currentFilters.categories);
+      }
+
+      // Multi‑select filters
+      if (
+        Array.isArray(currentFilters.dealership) &&
+        currentFilters.dealership.length > 0
+      ) {
+        queryBuilder = queryBuilder.in(
+          "dealership_id",
+          currentFilters.dealership
         );
+      }
+      if (
+        Array.isArray(currentFilters.make) &&
+        currentFilters.make.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("make", currentFilters.make);
+      }
+      if (
+        Array.isArray(currentFilters.model) &&
+        currentFilters.model.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("model", currentFilters.model);
+      }
+      if (
+        Array.isArray(currentFilters.condition) &&
+        currentFilters.condition.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("condition", currentFilters.condition);
+      } else if (
+        typeof currentFilters.condition === "string" &&
+        currentFilters.condition
+      ) {
+        queryBuilder = queryBuilder.eq("condition", currentFilters.condition);
+      }
 
-        // Fetch data for current page
-        const { data, error } = await queryBuilder.range(startRange, endRange);
-
-        if (error) throw error;
-
-        // If no sort option is selected, randomize the order of the fetched data
-        if (!currentSortOption) {
-          for (let i = data.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [data[i], data[j]] = [data[j], data[i]];
-          }
-        }
-
-        // Merge dealership info into the car data
-        const newCars =
-          data?.map((item: any) => ({
-            ...item,
-            dealership_name: item.dealerships.name,
-            dealership_logo: item.dealerships.logo,
-            dealership_phone: item.dealerships.phone,
-            dealership_location: item.dealerships.location,
-            dealership_latitude: item.dealerships.latitude,
-            dealership_longitude: item.dealerships.longitude,
-          })) || [];
-
-        // Deduplicate car entries by id
-        const uniqueCars = Array.from(
-          new Set(newCars.map((car: any) => car.id))
-        ).map((id) => newCars.find((car: any) => car.id === id)) as Car[];
-
-        setCars((prevCars) =>
-          safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
+      // Year Range
+      if (currentFilters.yearRange) {
+        queryBuilder = queryBuilder
+          .gte("year", currentFilters.yearRange[0])
+          .lte("year", currentFilters.yearRange[1]);
+      }
+      if (
+        Array.isArray(currentFilters.color) &&
+        currentFilters.color.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("color", currentFilters.color);
+      }
+      if (
+        Array.isArray(currentFilters.transmission) &&
+        currentFilters.transmission.length > 0
+      ) {
+        queryBuilder = queryBuilder.in(
+          "transmission",
+          currentFilters.transmission
         );
-        setTotalPages(totalPages);
-        setCurrentPage(safePageNumber);
-      } catch (error) {
-        console.error("Error fetching cars:", error);
+      }
+      if (
+        Array.isArray(currentFilters.drivetrain) &&
+        currentFilters.drivetrain.length > 0
+      ) {
+        queryBuilder = queryBuilder.in(
+          "drivetrain",
+          currentFilters.drivetrain
+        );
+      }
+      if (
+        Array.isArray(currentFilters.source) &&
+        currentFilters.source.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("source", currentFilters.source);
+      } else if (
+        typeof currentFilters.source === "string" &&
+        currentFilters.source
+      ) {
+        queryBuilder = queryBuilder.eq("source", currentFilters.source);
+      }
+
+      // Fuel Type filter (uses the 'type' field in database)
+      if (
+        Array.isArray(currentFilters.fuelType) &&
+        currentFilters.fuelType.length > 0
+      ) {
+        queryBuilder = queryBuilder.in("type", currentFilters.fuelType);
+      } else if (
+        typeof currentFilters.fuelType === "string" &&
+        currentFilters.fuelType
+      ) {
+        queryBuilder = queryBuilder.eq("type", currentFilters.fuelType);
+      }
+
+      // Price Range
+      if (currentFilters.priceRange) {
+        queryBuilder = queryBuilder
+          .gte("price", currentFilters.priceRange[0])
+          .lte("price", currentFilters.priceRange[1]);
+      }
+      // Mileage Range
+      if (currentFilters.mileageRange) {
+        queryBuilder = queryBuilder
+          .gte("mileage", currentFilters.mileageRange[0])
+          .lte("mileage", currentFilters.mileageRange[1]);
+      }
+
+      // Enhanced search query implementation
+      if (query) {
+        const cleanQuery = query.trim().toLowerCase();
+
+        // Split the query into individual terms for multi-term searches
+        const queryTerms = cleanQuery
+          .split(/\s+/)
+          .filter((term) => term.length > 0);
+
+        if (queryTerms.length === 1) {
+          // Single term search - use existing OR logic
+          const singleTerm = queryTerms[0];
+          let searchConditions = [
+            `make.ilike.%${singleTerm}%`,
+            `model.ilike.%${singleTerm}%`,
+            `description.ilike.%${singleTerm}%`,
+            `color.ilike.%${singleTerm}%`,
+            `category.ilike.%${singleTerm}%`,
+            `transmission.ilike.%${singleTerm}%`,
+            `drivetrain.ilike.%${singleTerm}%`,
+            `type.ilike.%${singleTerm}%`,
+            `condition.ilike.%${singleTerm}%`,
+            `source.ilike.%${singleTerm}%`,
+          ];
+
+          // Add numeric search conditions for single terms
+          if (!isNaN(Number(singleTerm))) {
+            searchConditions = searchConditions.concat([
+              `year::text.ilike.%${singleTerm}%`,
+              `price::text.ilike.%${singleTerm}%`,
+              `mileage::text.ilike.%${singleTerm}%`,
+            ]);
+          }
+
+          queryBuilder = queryBuilder.or(searchConditions.join(","));
+        } else if (queryTerms.length === 2) {
+          // Two-term search - optimized for make/model combinations like "BMW M3"
+          const [term1, term2] = queryTerms;
+
+          // Strategy 1: First term is make, second term is model
+          const makeModelCondition = `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`;
+
+          // Strategy 2: Reverse order - first term is model, second term is make
+          const modelMakeCondition = `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`;
+
+          // Strategy 3: Both terms in any single field (fallback for description, etc.)
+          const combinedSearchConditions = [
+            `make.ilike.%${cleanQuery}%`,
+            `model.ilike.%${cleanQuery}%`,
+            `description.ilike.%${cleanQuery}%`,
+            `color.ilike.%${cleanQuery}%`,
+            `category.ilike.%${cleanQuery}%`,
+            `transmission.ilike.%${cleanQuery}%`,
+            `drivetrain.ilike.%${cleanQuery}%`,
+            `type.ilike.%${cleanQuery}%`,
+            `condition.ilike.%${cleanQuery}%`,
+            `source.ilike.%${cleanQuery}%`,
+          ];
+
+          // Strategy 4: Individual terms in any field
+          const individualTermConditions: any = [];
+          queryTerms.forEach((term) => {
+            individualTermConditions.push(
+              `make.ilike.%${term}%`,
+              `model.ilike.%${term}%`,
+              `description.ilike.%${term}%`,
+              `category.ilike.%${term}%`
+            );
+          });
+
+          // Combine all strategies with OR logic
+          const allConditions = [
+            makeModelCondition,
+            modelMakeCondition,
+            ...combinedSearchConditions,
+            ...individualTermConditions,
+          ];
+
+          queryBuilder = queryBuilder.or(allConditions.join(","));
+        } else {
+          // Multi-term search (3+ terms) - comprehensive approach
+          const multiTermConditions = [];
+
+          // Strategy 1: All terms must appear across make, model, and description
+          const makeConditions = queryTerms.map(
+            (term) => `make.ilike.%${term}%`
+          );
+          const modelConditions = queryTerms.map(
+            (term) => `model.ilike.%${term}%`
+          );
+          const descConditions = queryTerms.map(
+            (term) => `description.ilike.%${term}%`
+          );
+
+          // Strategy 2: Complete query in any field
+          multiTermConditions.push(
+            `make.ilike.%${cleanQuery}%`,
+            `model.ilike.%${cleanQuery}%`,
+            `description.ilike.%${cleanQuery}%`,
+            `category.ilike.%${cleanQuery}%`
+          );
+
+          // Strategy 3: Individual terms in any field
+          queryTerms.forEach((term) => {
+            multiTermConditions.push(
+              `make.ilike.%${term}%`,
+              `model.ilike.%${term}%`,
+              `description.ilike.%${term}%`,
+              `category.ilike.%${term}%`,
+              `color.ilike.%${term}%`
+            );
+          });
+
+          queryBuilder = queryBuilder.or(multiTermConditions.join(","));
+        }
+      }
+
+      // Sorting: Only apply ordering if a sort option is provided.
+      if (currentSortOption) {
+        switch (currentSortOption) {
+          case "price_asc":
+            queryBuilder = queryBuilder.order("price", { ascending: true });
+            break;
+          case "price_desc":
+            queryBuilder = queryBuilder.order("price", { ascending: false });
+            break;
+          case "year_asc":
+            queryBuilder = queryBuilder.order("year", { ascending: true });
+            break;
+          case "year_desc":
+            queryBuilder = queryBuilder.order("year", { ascending: false });
+            break;
+          case "mileage_asc":
+            queryBuilder = queryBuilder.order("mileage", { ascending: true });
+            break;
+          case "mileage_desc":
+            queryBuilder = queryBuilder.order("mileage", {
+              ascending: false,
+            });
+            break;
+          case "views_desc":
+            queryBuilder = queryBuilder.order("views", { ascending: false });
+            break;
+        }
+      }
+
+      // Pagination calculations
+      const { count } = await queryBuilder;
+      if (!count) {
         setCars([]);
         setTotalPages(0);
         setCurrentPage(1);
-      } finally {
-        if (page === 1) {
-          if (!hasFetched) {
-            setIsInitialLoading(false);
-          } else {
-            setRefreshing(false);
-          }
-          setHasFetched(true);
-        } else {
-          setLoadingMore(false);
+        return;
+      }
+      const totalItems = count;
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+      const safePageNumber = Math.min(page, totalPages);
+      const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE;
+      const endRange = Math.min(
+        safePageNumber * ITEMS_PER_PAGE - 1,
+        totalItems - 1
+      );
+
+      // Fetch data for current page
+      const { data, error } = await queryBuilder.range(startRange, endRange);
+
+      if (error) throw error;
+
+      // If no sort option is selected, randomize the order of the fetched data
+      if (!currentSortOption) {
+        for (let i = data.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [data[i], data[j]] = [data[j], data[i]];
         }
       }
-    },
-    [filters, sortOption, searchQuery, hasFetched]
-  );
+
+      // Merge dealership info into the car data
+      const newCars =
+        data?.map((item: any) => ({
+          ...item,
+          dealership_name: item.dealerships.name,
+          dealership_logo: item.dealerships.logo,
+          dealership_phone: item.dealerships.phone,
+          dealership_location: item.dealerships.location,
+          dealership_latitude: item.dealerships.latitude,
+          dealership_longitude: item.dealerships.longitude,
+        })) || [];
+
+      // Deduplicate car entries by id
+      const uniqueCars = Array.from(
+        new Set(newCars.map((car: any) => car.id))
+      ).map((id) => newCars.find((car: any) => car.id === id)) as Car[];
+
+      setCars((prevCars) =>
+        safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
+      );
+      setTotalPages(totalPages);
+      setCurrentPage(safePageNumber);
+    } catch (error) {
+      console.error("Error fetching cars:", error);
+      setCars([]);
+      setTotalPages(0);
+      setCurrentPage(1);
+    } finally {
+      if (page === 1) {
+        if (!hasFetched) {
+          setIsInitialLoading(false);
+        } else {
+          setRefreshing(false);
+        }
+        setHasFetched(true);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  },
+  [filters, sortOption, searchQuery, hasFetched]
+);
 
   // Debounce suggestions fetch
   useEffect(() => {
