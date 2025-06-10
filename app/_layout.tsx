@@ -1,4 +1,4 @@
-// app/_layout.tsx - IMMEDIATE SPLASH CONTROL VERSION
+// app/_layout.tsx - PRODUCTION-READY FIXED VERSION
 import React, {
   useState,
   useEffect,
@@ -88,10 +88,8 @@ LogBox.ignoreLogs([
 
 LogBox.ignoreAllLogs();
 
-// CRITICAL MODIFICATION: Keep splash prevention but don't interfere with CustomSplashScreen control
-SplashScreen.preventAutoHideAsync().catch((error) => {
-  console.warn('[RootLayout] Splash prevention warning:', error);
-});
+// CRITICAL SYSTEM: Prevent auto-hiding splash screen
+SplashScreen.preventAutoHideAsync();
 
 // PERSISTENT CONFIGURATION: QueryClient setup
 const queryClient = new QueryClient({
@@ -111,24 +109,25 @@ declare global {
   var pendingDeepLink: { type: string; id: string } | null;
 }
 
-// SIMPLIFIED SYSTEM: Streamlined initialization state management
+// CRITICAL SYSTEM: Initialization state management
 interface InitializationState {
   auth: boolean;
   notifications: boolean;
+  splash: boolean;
   deepLinks: boolean;
   permissions: boolean;
-  // REMOVED: splash - now controlled by CustomSplashScreen directly
 }
 
 // TIMEOUT CONSTANTS: Prevent infinite loading
-const INITIALIZATION_TIMEOUT = 12000; // Reduced from 15 seconds
-const SPLASH_MIN_DURATION = 500; // Reduced minimum duration
+const INITIALIZATION_TIMEOUT = 15000; // 15 seconds maximum wait
+const SPLASH_MIN_DURATION = 1000; // Minimum 1 second splash
 
-// STREAMLINED CLASS: InitializationManager
+// CRITICAL CLASS: InitializationManager
 class InitializationManager {
   private state: InitializationState = {
     auth: false,
     notifications: false,
+    splash: false,
     deepLinks: false,
     permissions: false,
   };
@@ -140,7 +139,7 @@ class InitializationManager {
   constructor() {
     // MANDATORY TIMEOUT: Prevent infinite loading
     this.timeoutId = setTimeout(() => {
-      console.warn('[InitManager] TIMEOUT: Forcing completion after 12 seconds');
+      console.warn('[InitManager] TIMEOUT: Forcing completion after 15 seconds');
       this.forceComplete();
     }, INITIALIZATION_TIMEOUT);
   }
@@ -160,7 +159,7 @@ class InitializationManager {
     if (allReady && minTimeElapsed) {
       this.complete();
     } else if (allReady && !minTimeElapsed) {
-      // RULE: Wait for minimum duration
+      // RULE: Wait for minimum splash duration
       setTimeout(() => {
         this.complete();
       }, SPLASH_MIN_DURATION - (Date.now() - this.startTime));
@@ -269,7 +268,7 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// CRITICAL MODIFICATION: DeepLinkHandler with splash control removed
+// COMPONENT: Enhanced DeepLinkHandler with timeout protection
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -460,8 +459,18 @@ const DeepLinkHandler = () => {
     [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
   );
 
-  // CRITICAL REMOVAL: No more splash hiding here - CustomSplashScreen handles this
-  // The previous useEffect that called SplashScreen.hideAsync() has been removed
+    useEffect(() => {
+    // Hide the static splash screen immediately when component mounts
+    const hideStaticSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        console.warn("Error hiding splash:", e);
+      }
+    };
+    
+    hideStaticSplash();
+  }, []);
 
   // EFFECT: Get initial URL
   useEffect(() => {
@@ -606,12 +615,12 @@ function NotificationsProvider() {
       }
 
       try {
-        // TIMEOUT PROTECTION: 6 second initialization timeout (reduced)
+        // TIMEOUT PROTECTION: 8 second initialization timeout
         initTimeoutRef.current = setTimeout(() => {
-          console.warn('[NotificationsProvider] TIMEOUT: Marking as completed after 6 seconds');
+          console.warn('[NotificationsProvider] TIMEOUT: Marking as completed after 8 seconds');
           setInitializationState("completed");
           initManager.setReady('notifications');
-        }, 6000);
+        }, 8000);
 
         await notificationCoordinator.executeExclusive(
           operationKey,
@@ -740,7 +749,7 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
-// CRITICAL MODIFICATION: Simplified RootLayoutNav with immediate splash control
+
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
@@ -748,67 +757,44 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const [isAppReady, setIsAppReady] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
 
-  const isEffectivelySignedIn = useMemo(
-    () => isSignedIn || isGuest,
-    [isSignedIn, isGuest]
-  );
+  // REMOVED: curtainPosition is no longer needed for a fade animation.
+  // const curtainPosition = useRef(new Animated.Value(0)).current;
 
-  const inAuthGroup = useMemo(() => segments[0] === "(auth)", [segments]);
-
-  // EFFECT: Listen for initialization completion
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
-    initManager.onComplete(() => {
-      console.log('[RootLayoutNav] Initialization complete, app ready');
-      setIsAppReady(true);
-    });
-  }, []);
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-  // EFFECT: Handle routing when app is ready
-  useEffect(() => {
-    // RULE: Only route when fully ready
-    if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) return;
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    const inAuthGroup = segments[0] === "(auth)";
 
     if (isEffectivelySignedIn && inAuthGroup) {
       router.replace("/(home)");
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace("/(auth)/sign-in");
     }
-  }, [
-    isAppReady,
-    isLoaded,
-    isEffectivelySignedIn,
-    inAuthGroup,
-    router,
-    isSigningOut,
-    isSigningIn,
-  ]);
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
-  // CRITICAL MODIFICATION: Simplified splash completion handler
+
+  // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
-    console.log('[RootLayoutNav] Splash video completed, showing content');
-    setSplashAnimationComplete(true);
-
-    // IMMEDIATE CONTENT DISPLAY: No additional splash hiding needed
+    // This is called after your splash animation/video finishes.
+    // Now, we smoothly fade in the main app content.
     Animated.timing(contentOpacity, {
       toValue: 1,
-      duration: 300, // Fast content fade-in
+      duration: 400, // A gentle fade-in duration
       useNativeDriver: true,
     }).start(() => {
-      console.log('[RootLayoutNav] Content fully visible');
+      // After the content is fully visible, we can remove the splash component from the tree.
+      setSplashAnimationComplete(true);
     });
   }, [contentOpacity]);
 
-  // RULE: Show loader until everything is ready
-  if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) {
-    return <LogoLoader />;
-  }
-
   return (
     <View style={{ flex: 1 }}>
-      {/* MAIN CONTENT: Fades in after splash completion */}
+      {/* This View holds your main app content and will fade in */}
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
@@ -816,7 +802,7 @@ function RootLayoutNav() {
         {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      {/* CUSTOM SPLASH: Complete control over splash lifecycle */}
+      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
       {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
       ) : null}
@@ -829,6 +815,11 @@ const styles = StyleSheet.create({
   contentContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
+  },
+  curtain: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "white",
+    zIndex: 2,
   },
 });
 
@@ -845,7 +836,7 @@ function ErrorFallback({ error, resetError }: any) {
   );
 }
 
-// MAIN COMPONENT: Root Layout with streamlined initialization
+// MAIN COMPONENT: Root Layout with initialization coordination
 export default function RootLayout() {
   const badgeClearingRef = useRef(false);
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
@@ -854,9 +845,10 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // CRITICAL: Keep splash screen visible - CustomSplashScreen will handle hiding
         await SplashScreen.preventAutoHideAsync();
-        console.log("[RootLayout] Splash screen prevention active - CustomSplashScreen has control");
+
+        // RULE: Mark splash as ready immediately
+        initManager.setReady('splash');
 
         // RULE: Clear badge once
         if (!badgeClearingRef.current) {
@@ -897,10 +889,16 @@ export default function RootLayout() {
           initManager.setReady('auth');
         }, 100);
 
-        // REMOVED: Android splash failsafe - CustomSplashScreen handles all platforms
+        // RULE: Android splash failsafe
+        if (Platform.OS === "android") {
+          setTimeout(() => {
+            SplashScreen.hideAsync().catch(() => {});
+          }, 3000);
+        }
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
         // RULE: Force completion on error
+        initManager.setReady('splash');
         initManager.setReady('auth');
         initManager.setReady('notifications');
         initManager.setReady('deepLinks');
