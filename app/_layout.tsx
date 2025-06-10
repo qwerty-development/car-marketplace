@@ -762,11 +762,10 @@ function RootLayoutNav() {
   const curtainPosition = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
-  const isEffectivelySignedIn = useMemo(
+ const isEffectivelySignedIn = useMemo(
     () => isSignedIn || isGuest,
     [isSignedIn, isGuest]
   );
-
 
   const inAuthGroup = useMemo(() => segments[0] === "(auth)", [segments]);
 
@@ -780,9 +779,9 @@ function RootLayoutNav() {
 
 
   // EFFECT: Handle routing when app is ready
-  useEffect(() => {
-    // RULE: Only route when fully ready
-    if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) return;
+    useEffect(() => {
+    // RULE: Only route when fully ready AND splash animation is complete
+    if (!isAppReady || !isLoaded || isSigningOut || isSigningIn || !splashAnimationComplete) return;
 
     if (isEffectivelySignedIn && inAuthGroup) {
       (router as any).replace("/(home)");
@@ -797,6 +796,7 @@ function RootLayoutNav() {
     router,
     isSigningOut,
     isSigningIn,
+    splashAnimationComplete
   ]);
 
   const handleSplashComplete = useCallback(() => {
@@ -820,8 +820,13 @@ function RootLayoutNav() {
     ]).start();
   }, [curtainPosition, contentOpacity]);
 
-  // RULE: Show loader until everything is ready
-  if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) {
+  // SHOW CUSTOM SPLASH SCREEN FIRST - not LogoLoader
+  if (!splashAnimationComplete) {
+    return <CustomSplashScreen onAnimationComplete={handleSplashComplete} />;
+  }
+
+  // Show LogoLoader only in specific error cases or during transitions
+  if (isSigningOut || isSigningIn) {
     return <LogoLoader />;
   }
 
@@ -833,19 +838,15 @@ function RootLayoutNav() {
         <Slot />
       </Animated.View>
 
-      {!splashAnimationComplete ? (
-        <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-      ) : (
-        <Animated.View
-          style={[
-            styles.curtain,
-            {
-              backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
-              transform: [{ translateX: curtainPosition }],
-            },
-          ]}
-        />
-      )}
+      <Animated.View
+        style={[
+          styles.curtain,
+          {
+            backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
+            transform: [{ translateX: curtainPosition }],
+          },
+        ]}
+      />
     </View>
   );
 }
