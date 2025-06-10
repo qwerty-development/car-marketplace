@@ -1,7 +1,8 @@
-// components/CustomSplashScreen.tsx - UPDATED WITH FADE-IN
+// app/CustomSplashScreen.tsx - IMMEDIATE CONTROL VERSION
 import React, { useRef, useEffect, useState } from 'react';
-import { StyleSheet, Animated } from 'react-native';
+import { StyleSheet, Animated, View } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import * as SplashScreen from 'expo-splash-screen';
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
@@ -10,55 +11,93 @@ interface SplashScreenProps {
 const CustomSplashScreen: React.FC<SplashScreenProps> = ({ 
   onAnimationComplete,
 }) => {
-  // 1. Opacity now starts at 0 (transparent) for the fade-in effect.
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  // IMMEDIATE VISIBILITY: Component starts completely opaque
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   
-  // 2. Use state to control when the video should start playing.
-  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
-
-  // 3. This useEffect handles the initial fade-in animation.
+  // VIDEO CONTROL: Start video immediately upon mount
+  const [shouldPlayVideo, setShouldPlayVideo] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+  
+  // AGGRESSIVE SPLASH HIDING: Hide built-in splash immediately upon mount
   useEffect(() => {
-    // Fade in the component when it mounts.
-    Animated.timing(fadeAnim, {
-      toValue: 1, // Animate to fully visible
-      duration: 500, // Duration of the fade-in
-      useNativeDriver: true,
-    }).start(() => {
-      // After the fade-in is complete, set the state to allow video playback.
-      setShouldPlayVideo(true);
-    });
-  }, []); // The empty array ensures this effect runs only once on mount.
-
-  // 4. This function handles the fade-out after the video finishes.
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      return;
-    }
-
-    // When the video finishes, trigger the fade-out animation.
-    if (status.didJustFinish) {
-      Animated.timing(fadeAnim, {
-        toValue: 0, // Animate to fully transparent
-        duration: 400,
-        useNativeDriver: true,
-      }).start(() => {
-        // After the fade-out, notify the parent component.
-        onAnimationComplete();
+    const immediateHideSplash = () => {
+      // SYNCHRONOUS OPERATION: Hide splash without await to prevent delays
+      SplashScreen.hideAsync().catch((error) => {
+        console.warn('[CustomSplash] Non-critical splash hide error:', error);
       });
+      console.log('[CustomSplash] Built-in splash hide initiated immediately');
+    };
+
+    // ZERO DELAY: Execute immediately
+    immediateHideSplash();
+  }, []);
+
+  // VIDEO LIFECYCLE MANAGEMENT
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (!status.isLoaded) return;
+
+    // COMPLETION DETECTION: Video finished successfully
+    if (status.didJustFinish) {
+      console.log('[CustomSplash] Video playback completed');
+      initiateCompletion();
     }
   };
 
+  // ERROR HANDLING: Video load/playback failures
+  const onVideoError = (error: string) => {
+    console.error('[CustomSplash] Video error detected:', error);
+    setVideoError(true);
+    
+    // FALLBACK COMPLETION: 1.5 second delay for graceful failure
+    setTimeout(() => {
+      initiateCompletion();
+    }, 1500);
+  };
+
+  // COMPLETION INITIATION: Fade out and signal completion
+  const initiateCompletion = () => {
+    console.log('[CustomSplash] Initiating completion sequence');
+    
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300, // Faster fade-out for immediate response
+      useNativeDriver: true,
+    }).start(() => {
+      console.log('[CustomSplash] Fade-out completed');
+      onAnimationComplete();
+    });
+  };
+
+  // ERROR FALLBACK: Complete after timeout if video fails to load
+  useEffect(() => {
+    const errorTimeout = setTimeout(() => {
+      if (videoError) {
+        console.warn('[CustomSplash] Video error timeout - forcing completion');
+        initiateCompletion();
+      }
+    }, 3000);
+
+    return () => clearTimeout(errorTimeout);
+  }, [videoError]);
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      {/* BACKGROUND LAYER: Solid black to prevent any underlying content visibility */}
+      <View style={styles.backgroundLayer} />
+      
+      {/* VIDEO LAYER: Immediate playback */}
       <Video
         style={StyleSheet.absoluteFill}
         source={require('../assets/splash.mp4')}
         resizeMode={ResizeMode.COVER} 
         isMuted={true}
         isLooping={false}
-        // 5. The video only starts playing AFTER the fade-in is complete.
         shouldPlay={shouldPlayVideo}
         onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+        onError={onVideoError}
+        useNativeControls={false}
+        progressUpdateIntervalMillis={50} // Faster status updates
+        positionMillis={0} // Start from beginning
       />
     </Animated.View>
   );
@@ -67,8 +106,13 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000', 
-    zIndex: 1000, 
+    zIndex: 9999, // MAXIMUM z-index to ensure top layer
+    backgroundColor: '#000000', // Solid black background
+  },
+  backgroundLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000', // Double-layer black to prevent flicker
+    zIndex: 1,
   },
 });
 

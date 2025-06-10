@@ -21,6 +21,11 @@
       "barStyle": "light-content",
       "hidden": false
     },
+    "splash": {
+      "image": "./assets/transparent-splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
@@ -41,6 +46,11 @@
       },
       "config": {
         "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
+      },
+      "splash": {
+        "image": "./assets/transparent-splash.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#000000"
       },
       "infoPlist": {
         "UIBackgroundModes": [
@@ -77,6 +87,11 @@
       },
       "softwareKeyboardLayoutMode": "pan",
       "allowBackup": true,
+      "splash": {
+        "image": "./assets/images/light-logo.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#000000"
+      },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
