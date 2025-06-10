@@ -22,22 +22,7 @@
       "hidden": false
     },
     "splash": {
-      "image": "./assets/images/app-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000",
-      "hide": true,
-      "dark": {
-        "image": "./assets/images/dark-logo.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#000000",
-        "hide": true
-      },
-      "light": { 
-        "image": "./assets/images/app-icon.png",
-        "resizeMode": "cover",
-        "backgroundColor": "#000000",
-        "hide": true
-      }
+      "hide": true
     },
     "ios": {
       "supportsTablet": true,
