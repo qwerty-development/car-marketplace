@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Animated, Dimensions, StyleSheet, useColorScheme, Image } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
+// components/CustomSplashScreen.tsx - UPDATED WITH FADE-IN
+import React, { useRef, useEffect, useState } from 'react';
+import { StyleSheet, Animated } from 'react-native';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
@@ -10,222 +10,65 @@ interface SplashScreenProps {
 const CustomSplashScreen: React.FC<SplashScreenProps> = ({ 
   onAnimationComplete,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === 'dark';
+  // 1. Opacity now starts at 0 (transparent) for the fade-in effect.
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   
+  // 2. Use state to control when the video should start playing.
+  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
 
-  const screenOpacity = useRef(new Animated.Value(1)).current; // Changed from 0 to 1
-  
-
-  const fLogoOpacity = useRef(new Animated.Value(0)).current;
-  const fLogoScale = useRef(new Animated.Value(0.8)).current;
-  const fLogoPosition = useRef(new Animated.Value(0)).current;
-  
-
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textRevealWidth = useRef(new Animated.Value(0)).current;
-
-  const getLogoSource = () => {
-    return isDarkMode 
-      ? require('../assets/images/light-logo.png')
-      : require('../assets/images/dark-logo.png');
-  };
-
-  // CRITICAL FIX: START ANIMATION IMMEDIATELY
+  // 3. This useEffect handles the initial fade-in animation.
   useEffect(() => {
-    // RULE: No initial fade-in needed since screenOpacity starts at 1
-    // This prevents any gap between static and custom splash
-    runLogoAnimation();
-  }, []);
+    // Fade in the component when it mounts.
+    Animated.timing(fadeAnim, {
+      toValue: 1, // Animate to fully visible
+      duration: 500, // Duration of the fade-in
+      useNativeDriver: true,
+    }).start(() => {
+      // After the fade-in is complete, set the state to allow video playback.
+      setShouldPlayVideo(true);
+    });
+  }, []); // The empty array ensures this effect runs only once on mount.
 
-  const runLogoAnimation = () => {
-    // F Logo appearance
-    const showFLogo = Animated.parallel([
-      Animated.timing(fLogoOpacity, {
-        toValue: 1,
-        duration: 200,
+  // 4. This function handles the fade-out after the video finishes.
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      return;
+    }
+
+    // When the video finishes, trigger the fade-out animation.
+    if (status.didJustFinish) {
+      Animated.timing(fadeAnim, {
+        toValue: 0, // Animate to fully transparent
+        duration: 400,
         useNativeDriver: true,
-      }),
-      Animated.spring(fLogoScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 50,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // Move F logo to left
-    const moveFLogoToLeft = Animated.timing(fLogoPosition, {
-      toValue: -width * 0.26,
-      duration: 300,
-      useNativeDriver: true,
-    });
-
-    // Show "leet" text
-    const showText = Animated.timing(textOpacity, {
-      toValue: 1,
-      duration: 0,
-      useNativeDriver: true,
-    });
-
-    // Reveal "leet" text animation
-    const revealText = Animated.timing(textRevealWidth, {
-      toValue: width * 0.5,
-      duration: 400,
-      useNativeDriver: false,
-    });
-
-    // Short pause at the end
-    const holdFinalState = Animated.delay(300);
-
-    // Fade out entire screen
-    const fadeOutScreen = Animated.timing(screenOpacity, {
-      toValue: 0,
-      duration: 400,
-      useNativeDriver: true,
-    });
-    
-    // Run the animation sequence
-    Animated.sequence([
-      showFLogo,
-      Animated.delay(150), 
-      moveFLogoToLeft,
-      Animated.delay(100),
-      showText,
-      revealText,
-      holdFinalState,
-      fadeOutScreen
-    ]).start(() => {
-      // Animation complete - notify parent
-      onAnimationComplete();
-    });
+      }).start(() => {
+        // After the fade-out, notify the parent component.
+        onAnimationComplete();
+      });
+    }
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-        },
-      ]}
-    >
-      {/* CRITICAL FIX: FULL SCREEN IMMEDIATE COVERAGE */}
-      <Animated.View 
-        style={[
-          styles.fullScreenCover,
-          { 
-            opacity: screenOpacity,
-            backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-          }
-        ]}
-      >
-        {/* Fleet logo animation */}
-        <View style={styles.fleetContainer}>
-          {/* F Logo */}
-          <Animated.View
-            style={[
-              styles.logoContainer,
-              styles.fLogoContainer,
-              {
-                opacity: fLogoOpacity,
-                position: 'absolute',
-                transform: [
-                  { scale: fLogoScale },
-                  { translateX: fLogoPosition }
-                ],
-              },
-            ]}
-          >
-            <Image
-              source={getLogoSource()}
-              style={styles.fLogo}
-              resizeMode="contain"
-            />
-          </Animated.View>
-          
-          {/* "leet" text that appears after F moves to the left */}
-          <Animated.View
-            style={[
-              styles.leetTextPosition,
-              { opacity: textOpacity }
-            ]}
-          >
-            <Animated.View
-              style={{
-                width: textRevealWidth,
-                overflow: 'hidden',
-              }}
-            >
-              <Image
-                source={require('../assets/logo-text.png')}
-                style={[
-                  styles.leetText,
-                  isDarkMode && { tintColor: '#FFFFFF' }
-                ]}
-                resizeMode="contain"
-              />
-            </Animated.View>
-          </Animated.View>
-        </View>
-      </Animated.View>
-    </View>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <Video
+        style={StyleSheet.absoluteFill}
+        source={require('../assets/splash.mp4')}
+        resizeMode={ResizeMode.COVER} 
+        isMuted={true}
+        isLooping={false}
+        // 5. The video only starts playing AFTER the fade-in is complete.
+        shouldPlay={shouldPlayVideo}
+        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+      />
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000, // CRITICAL FIX: Higher z-index to ensure coverage
-  },
-  fullScreenCover: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: width,
-    height: height,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1001,
-  },
-  logoContainer: {
-    width: width * 0.3,
-    height: width * 0.3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fleetContainer: {
-    position: 'relative', 
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: width * 0.3,
-    height: width * 0.3, 
-  },
-  fLogoContainer: {
-    width: width * 0.2,
-    height: width * 0.2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fLogo: {
-    width: '100%',
-    height: '63.5%',
-  },
-  leetTextPosition: {
-    height: width * 0.15,
-    position: 'absolute',
-    left: width * -0.035,
-    justifyContent: 'center',
-  },
-  leetText: {
-    height: width * 0.14,
-    width: width * 0.5,
-    alignSelf: 'flex-start',
+    backgroundColor: '#000', 
+    zIndex: 1000, 
   },
 });
 

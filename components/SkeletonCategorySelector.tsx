@@ -1,6 +1,8 @@
+// components/SkeletonCategorySelector.tsx
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useTheme } from '@/utils/ThemeContext';
+import ShimmerPlaceholder from './ShimmerPlaceholder'; // Import
 
 const SkeletonCategorySelector = () => {
   const { isDarkMode } = useTheme();
@@ -16,10 +18,8 @@ const SkeletonCategorySelector = () => {
         className="pl-4"
       >
         {Array.from({ length: 6 }).map((_, index) => (
-          <View key={index} style={styles.skeletonItem}>
-            <View style={styles.skeletonImage} />
-            <View style={styles.skeletonText} />
-          </View>
+          // The parent view no longer needs a background color
+          <ShimmerPlaceholder key={index} style={styles.skeletonItem} />
         ))}
       </ScrollView>
     </View>
@@ -31,23 +31,9 @@ const styles = StyleSheet.create({
     width: 100,
     height: 140,
     marginRight: 12,
-    backgroundColor: '#ddd',
     borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  skeletonImage: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#eee',
-    borderRadius: 30,
-    marginBottom: 8,
-  },
-  skeletonText: {
-    width: 80,
-    height: 12,
-    backgroundColor: '#eee',
-  },
+  // The inner views are no longer needed as the ShimmerPlaceholder is the full shape.
 });
 
 export default SkeletonCategorySelector;

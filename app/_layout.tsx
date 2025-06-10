@@ -749,103 +749,63 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
+
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const [isAppReady, setIsAppReady] = useState(false);
-  const curtainPosition = useRef(new Animated.Value(0)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
 
-  const isEffectivelySignedIn = useMemo(
-    () => isSignedIn || isGuest,
-    [isSignedIn, isGuest]
-  );
+  // REMOVED: curtainPosition is no longer needed for a fade animation.
+  // const curtainPosition = useRef(new Animated.Value(0)).current;
 
-
-  const inAuthGroup = useMemo(() => segments[0] === "(auth)", [segments]);
-
-
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
-    initManager.onComplete(() => {
-      console.log('[RootLayoutNav] Initialization complete, app ready');
-      setIsAppReady(true);
-    });
-  }, []);
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-
-  // EFFECT: Handle routing when app is ready
-  useEffect(() => {
-    // RULE: Only route when fully ready
-    if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) return;
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    const inAuthGroup = segments[0] === "(auth)";
 
     if (isEffectivelySignedIn && inAuthGroup) {
-      (router as any).replace("/(home)");
+      router.replace("/(home)");
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace("/(auth)/sign-in");
     }
-  }, [
-    isAppReady,
-    isLoaded,
-    isEffectivelySignedIn,
-    inAuthGroup,
-    router,
-    isSigningOut,
-    isSigningIn,
-  ]);
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
+
+  // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
-    setSplashAnimationComplete(true);
-
-    SplashScreen.hideAsync().catch((e) => {
-      console.warn("Error hiding splash after animation:", e);
+    // This is called after your splash animation/video finishes.
+    // Now, we smoothly fade in the main app content.
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 400, // A gentle fade-in duration
+      useNativeDriver: true,
+    }).start(() => {
+      // After the content is fully visible, we can remove the splash component from the tree.
+      setSplashAnimationComplete(true);
     });
-
-    Animated.sequence([
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-      Animated.timing(curtainPosition, {
-        toValue: -width,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [curtainPosition, contentOpacity]);
-
-  // RULE: Show loader until everything is ready
-  if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) {
-    return <LogoLoader />;
-  }
+  }, [contentOpacity]);
 
   return (
     <View style={{ flex: 1 }}>
+      {/* This View holds your main app content and will fade in */}
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        <Slot />
+        {/* Guard the Slot component until auth state is known */}
+        {isLoaded ? <Slot /> : null}
       </Animated.View>
 
+      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
       {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-      ) : (
-        <Animated.View
-          style={[
-            styles.curtain,
-            {
-              backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
-              transform: [{ translateX: curtainPosition }],
-            },
-          ]}
-        />
-      )}
+      ) : null}
     </View>
   );
 }
