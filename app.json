@@ -160,7 +160,6 @@
             "resizeMode": "cover"
           },
           "android": {
-            "backgroundColor": "#0c7cff",
             "image": "./assets/background-splash.png",
             "imageWidth": 150
           }
