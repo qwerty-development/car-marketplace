@@ -29,6 +29,16 @@
         "applinks:fleetapp.me",
         "applinks:www.fleetapp.me"
       ],
+            "splash": {
+        "image": "./assets/background-splash.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#ffffff",
+        "dark": {
+          "backgroundColor": "#000000",
+          "resizeMode": "cover",
+          "image": "./assets/background-splash.png"
+        }
+      },
       "config": {
         "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
       },
@@ -139,14 +149,6 @@
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you upload car images."
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/background-splash.png",
-          "resizeMode": "cover",
-          "backgroundColor": "#ffffff"
         }
       ],
       [
