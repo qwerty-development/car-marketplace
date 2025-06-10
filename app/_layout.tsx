@@ -749,7 +749,6 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
-// COMPONENT: Enhanced RootLayoutNav with state management
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
@@ -763,16 +762,15 @@ function RootLayoutNav() {
   const curtainPosition = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
-  // COMPUTED: Effective sign-in state
   const isEffectivelySignedIn = useMemo(
     () => isSignedIn || isGuest,
     [isSignedIn, isGuest]
   );
 
-  // COMPUTED: Current route group
+
   const inAuthGroup = useMemo(() => segments[0] === "(auth)", [segments]);
 
-  // EFFECT: Register for initialization completion
+
   useEffect(() => {
     initManager.onComplete(() => {
       console.log('[RootLayoutNav] Initialization complete, app ready');
@@ -780,18 +778,6 @@ function RootLayoutNav() {
     });
   }, []);
 
-  // EFFECT: Set up splash screen
-  useEffect(() => {
-    const prepareSplashScreen = async () => {
-      try {
-        await SplashScreen.preventAutoHideAsync();
-      } catch (e) {
-        console.warn("[RootLayoutNav] Error setting up splash screen:", e);
-      }
-    };
-
-    prepareSplashScreen();
-  }, []);
 
   // EFFECT: Handle routing when app is ready
   useEffect(() => {
@@ -813,26 +799,26 @@ function RootLayoutNav() {
     isSigningIn,
   ]);
 
-  // METHOD: Handle splash completion
-const handleSplashComplete = useCallback(() => {
-  setSplashAnimationComplete(true);
-  
-  // Hide the static splash IMMEDIATELY when custom splash completes
-  SplashScreen.hideAsync().catch(() => {});
+  const handleSplashComplete = useCallback(() => {
+    setSplashAnimationComplete(true);
 
-  Animated.sequence([
-    Animated.timing(contentOpacity, {
-      toValue: 1,
-      duration: 0,
-      useNativeDriver: true,
-    }),
-    Animated.timing(curtainPosition, {
-      toValue: -width,
-      duration: 300,
-      useNativeDriver: true,
-    }),
-  ]).start();
-}, [curtainPosition, contentOpacity]);
+    SplashScreen.hideAsync().catch((e) => {
+      console.warn("Error hiding splash after animation:", e);
+    });
+
+    Animated.sequence([
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(curtainPosition, {
+        toValue: -width,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [curtainPosition, contentOpacity]);
 
   // RULE: Show loader until everything is ready
   if (!isAppReady || !isLoaded || isSigningOut || isSigningIn) {

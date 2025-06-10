@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Animated, Dimensions, StyleSheet, useColorScheme, Image } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
@@ -13,35 +13,28 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
   
-  // Animation values
-  const screenOpacity = useRef(new Animated.Value(0)).current;
+
+  const screenOpacity = useRef(new Animated.Value(1)).current; // Changed from 0 to 1
   
-  // F logo animation values
+
   const fLogoOpacity = useRef(new Animated.Value(0)).current;
   const fLogoScale = useRef(new Animated.Value(0.8)).current;
-  const fLogoPosition = useRef(new Animated.Value(0)).current; // 0 = center, negative = left
+  const fLogoPosition = useRef(new Animated.Value(0)).current;
   
-  // Text animation values
+
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textRevealWidth = useRef(new Animated.Value(0)).current;
 
-  // Get the appropriate logo based on theme
   const getLogoSource = () => {
     return isDarkMode 
-      ? require('../assets/images/light-logo.png')  // White logo for dark mode
-      : require('../assets/images/dark-logo.png');  // Dark logo for light mode
+      ? require('../assets/images/light-logo.png')
+      : require('../assets/images/dark-logo.png');
   };
 
-  // Main animation sequence
+  // CRITICAL FIX: START ANIMATION IMMEDIATELY
   useEffect(() => {
-    // Initial fade in
-    Animated.timing(screenOpacity, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    // Run animation sequence immediately
+    // RULE: No initial fade-in needed since screenOpacity starts at 1
+    // This prevents any gap between static and custom splash
     runLogoAnimation();
   }, []);
 
@@ -103,7 +96,7 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
       holdFinalState,
       fadeOutScreen
     ]).start(() => {
-      // Animation complete
+      // Animation complete - notify parent
       onAnimationComplete();
     });
   };
@@ -117,16 +110,15 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
         },
       ]}
     >
-      {/* Main content container */}
+      {/* CRITICAL FIX: FULL SCREEN IMMEDIATE COVERAGE */}
       <Animated.View 
-        style={{ 
-          opacity: screenOpacity, 
-          flex: 1, 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          width: '100%',
-          height: '100%'
-        }}
+        style={[
+          styles.fullScreenCover,
+          { 
+            opacity: screenOpacity,
+            backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+          }
+        ]}
       >
         {/* Fleet logo animation */}
         <View style={styles.fleetContainer}>
@@ -186,7 +178,19 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,
+    zIndex: 1000, // CRITICAL FIX: Higher z-index to ensure coverage
+  },
+  fullScreenCover: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: width,
+    height: height,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1001,
   },
   logoContainer: {
     width: width * 0.3,
