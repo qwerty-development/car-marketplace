@@ -2,11 +2,19 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
     "userInterfaceStyle": "automatic",
+
+
+    "splash": {
+      "image": "./assets/background-splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#ffffff"
+    },
+
     "notification": {
       "icon": "./assets/images/app-icon.png",
       "color": "#D55004",
@@ -15,12 +23,14 @@
       "androidMode": "default",
       "androidCollapsedTitle": "New Cars Available!"
     },
+
     "androidStatusBar": {
       "backgroundColor": "#00000000",
       "translucent": true,
       "barStyle": "light-content",
       "hidden": false
     },
+
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
@@ -33,26 +43,19 @@
         "googleMapsApiKey": "AIzaSyDvW1iMajBuW0mqJHIyNFtDm8A7VkgkAdg"
       },
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ],
+        "UIBackgroundModes": ["remote-notification"],
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
-        "LSApplicationQueriesSchemes": [
-          "whatsapp",
-          "comgooglemaps",
-          "googlechromes"
-        ],
+        "LSApplicationQueriesSchemes": ["whatsapp", "comgooglemaps", "googlechromes"],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": [
-              "com.qwertyapp.clerkexpoquickstart",
-              "fleet"
-            ]
+            "CFBundleURLSchemes": ["com.qwertyapp.clerkexpoquickstart", "fleet"]
           }
         ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
+
+
     "android": {
       "config": {
         "googleMaps": {
@@ -84,107 +87,61 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            {
-              "scheme": "https",
-              "host": "www.fleetapp.me",
-              "pathPrefix": "/cars"
-            },
-            {
-              "scheme": "https",
-              "host": "fleetapp.me",
-              "pathPrefix": "/cars"
-            },
-            {
-              "scheme": "fleet",
-              "host": "*",
-              "pathPrefix": "/cars"
-            },
-            {
-              "scheme": "https",
-              "host": "www.fleetapp.me",
-              "pathPrefix": "/clips"
-            },
-            {
-              "scheme": "https",
-              "host": "fleetapp.me",
-              "pathPrefix": "/clips"
-            },
-            {
-              "scheme": "fleet",
-              "host": "*",
-              "pathPrefix": "/clips"
-            }
+            { "scheme": "https", "host": "www.fleetapp.me", "pathPrefix": "/cars" },
+            { "scheme": "https", "host": "fleetapp.me", "pathPrefix": "/cars" },
+            { "scheme": "fleet", "host": "*", "pathPrefix": "/cars" },
+            { "scheme": "https", "host": "www.fleetapp.me", "pathPrefix": "/clips" },
+            { "scheme": "https", "host": "fleetapp.me", "pathPrefix": "/clips" },
+            { "scheme": "fleet", "host": "*", "pathPrefix": "/clips" }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
+
+
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "./plugins/withCustomProguardRules",
       "./plugins/withCustomSplashScreen",
       "./plugins/withCopySplashAssets",
       "./plugins/withSplashScreenColors",
+
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you upload car images."
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/background-splash.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      [
-        "expo-file-system",
-        {
-          "filePermission": "The app needs access to files for image uploads."
-        }
-      ],
+
+      ["expo-image-picker", { "photosPermission": "The app accesses your photos to let you upload car images." }],
+      ["expo-file-system", { "filePermission": "The app needs access to files for image uploads." }],
       "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/logo.png",
-          "color": "#D55004",
-          "sounds": [
-            "./assets/sounds/notification.wav"
-          ],
-          "mode": "production"
-        }
-      ]
+
+      ["expo-notifications", {
+        "icon": "./assets/images/logo.png",
+        "color": "#D55004",
+        "sounds": ["./assets/sounds/notification.wav"],
+        "mode": "production"
+      }],
+
+
+      "expo-splash-screen"
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
+
+
+    "experiments": { "typedRoutes": true },
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
-      }
+      "router": { "origin": false },
+      "eas": { "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68" }
     },
-    "runtimeVersion": {
-       "policy": "appVersion"
-    },
+    "runtimeVersion": { "policy": "appVersion" },
     "updates": {
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },
+
     "owner": "qwerty-app"
   }
 }
