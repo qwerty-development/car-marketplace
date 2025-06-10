@@ -22,8 +22,6 @@ import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
-const TAB_BAR_HEIGHT = 50
-const CAR_CARD_HEIGHT = SCREEN_HEIGHT - TAB_BAR_HEIGHT
 
 // Brand logo fetching function (copied from AllBrandsPage)
 const getLogoUrl = (make: string, isLightMode: boolean) => {
@@ -46,7 +44,7 @@ const getLogoUrl = (make: string, isLightMode: boolean) => {
   }
 };
 
-// Car Card Skeleton Component
+// Car Card Skeleton Component - Updated for standard list layout
 const CarCardSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => {
   const fadeAnim = useRef(new Animated.Value(0.5)).current;
   
@@ -74,7 +72,7 @@ const CarCardSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => 
   return (
     <View 
       style={{ 
-        height: SCREEN_HEIGHT * 0.85, 
+        height: 420, // Standard card height instead of full screen
         marginVertical: 8, 
         marginHorizontal: 16,
         borderRadius: 16,
@@ -85,7 +83,7 @@ const CarCardSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => 
       {/* Image placeholder */}
       <Animated.View 
         style={{
-          height: '55%',
+          height: 240, // Fixed image height
           width: '100%',
           backgroundColor: shimmerColor,
           opacity: fadeAnim
@@ -136,23 +134,32 @@ const CarCardSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => 
         </View>
         
         {/* Price placeholder */}
+        <Animated.View 
+          style={{
+            height: 20,
+            width: '40%',
+            backgroundColor: shimmerColor,
+            borderRadius: 4,
+            opacity: fadeAnim
+          }}
+        />
       </View>
     </View>
   );
 });
 
-// Skeleton loading list
+// Skeleton loading list - Updated for standard scrolling
 const CarListSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => {
   return (
     <FlatList
-      data={[1, 2, 3]} // Show 3 skeleton cards
+      data={[1, 2, 3, 4, 5]} // Show 5 skeleton cards for better loading perception
       renderItem={() => <CarCardSkeleton isDarkMode={isDarkMode} />}
       keyExtractor={(item) => `skeleton-${item}`}
       showsVerticalScrollIndicator={false}
-      snapToAlignment='start'
-      decelerationRate='fast'
-      snapToInterval={CAR_CARD_HEIGHT}
-      contentContainerStyle={{ paddingBottom: 20 }}
+      contentContainerStyle={{ 
+        paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+        paddingTop: 8
+      }}
     />
   );
 });
@@ -210,6 +217,7 @@ export default function CarsByBrand() {
 				.select(`*, dealerships (name,logo,phone,location,latitude,longitude)`)
 				.eq('status', 'available')
 				.eq('make', brandName)
+				.order('listed_at', { ascending: false }) // Add default sorting
 
 			if (error) throw error
 
@@ -274,14 +282,16 @@ export default function CarsByBrand() {
 		[]
 	)
 
+	// Updated renderCarItem without cardHeight prop - let CarCard use natural height
 	const renderCarItem = useCallback(
-		({ item }: { item: any }) => (
+		({ item, index }: { item: any; index: number }) => (
 			<CarCard
 				car={item}
+				index={index} // Add index for potential animations
 				onPress={() => handleCarPress(item)}
 				onFavoritePress={() => handleFavoritePress(item.id)}
 				isFavorite={isFavorite(item.id)}
-				cardHeight={CAR_CARD_HEIGHT}
+				isDealer={false} // Specify this is not dealer view
 			/>
 		),
 		[handleCarPress, handleFavoritePress, isFavorite]
@@ -339,10 +349,20 @@ export default function CarsByBrand() {
 
 		if (cars.length === 0) {
 			return (
-				<View className='flex-1 justify-center items-center'>
+				<View className='flex-1 justify-center items-center px-4'>
+					<Ionicons 
+						name="car-outline" 
+						size={60} 
+						color={isDarkMode ? '#666' : '#999'} 
+						style={{ marginBottom: 16 }}
+					/>
 					<Text
-						className={`${isDarkMode ? 'text-white' : 'text-black'} text-lg`}>
-						No cars found for this brand.
+						className={`${isDarkMode ? 'text-white' : 'text-black'} text-lg text-center`}>
+						No cars found for {brand}.
+					</Text>
+					<Text
+						className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-sm text-center mt-2`}>
+						Try browsing other brands or check back later.
 					</Text>
 				</View>
 			)
@@ -352,12 +372,16 @@ export default function CarsByBrand() {
 			<FlatList
 				data={cars}
 				renderItem={renderCarItem}
-				keyExtractor={item => `${item.id}-${item.make}-${item.model}`}
+				keyExtractor={(item, index) => `${item.id}-${item.make}-${item.model}-${index}`}
 				showsVerticalScrollIndicator={false}
-				snapToAlignment='start'
-				decelerationRate='fast'
-				snapToInterval={CAR_CARD_HEIGHT}
-				contentContainerStyle={{ paddingBottom: 20 }}
+				// REMOVED: All TikTok-style snapping properties
+				// snapToAlignment='start'
+				// decelerationRate='fast' 
+				// snapToInterval={CAR_CARD_HEIGHT}
+				contentContainerStyle={{ 
+					paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+					paddingTop: 8 
+				}}
 				refreshControl={
 					<RefreshControl
 						refreshing={refreshing}
@@ -366,6 +390,12 @@ export default function CarsByBrand() {
 						colors={['#D55004']}
 					/>
 				}
+				// Optional: Add some performance optimizations for standard scrolling
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={10}
+				updateCellsBatchingPeriod={50}
+				initialNumToRender={5}
+				windowSize={10}
 			/>
 		)
 	}

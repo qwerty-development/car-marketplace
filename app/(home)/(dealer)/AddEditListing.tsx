@@ -495,11 +495,11 @@ export default function AddEditListing() {
             drivetrain: allowedData.drivetrain,
             type: allowedData.type,
             category: allowedData.category,
-            bought_price: allowedData.bought_price,
+            bought_price: allowedData.bought_price? allowedData.bought_price:0,
             date_bought: allowedData.date_bought
               ? new Date(allowedData.date_bought).toISOString()
               : null,
-            seller_name: allowedData.seller_name,
+            seller_name: allowedData.seller_name ? allowedData.seller_name : "NA",
               source: allowedData.source,
                features: formData.features || [],
             dealership_id: dealership.id,
@@ -2011,7 +2011,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             keyboardType="numeric"
             icon="cash-multiple"
             prefix="$"
-            required
             isDarkMode={isDarkMode}
           />
 
