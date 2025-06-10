@@ -21,11 +21,6 @@
       "barStyle": "light-content",
       "hidden": false
     },
-"splash": {
-      "image": "./assets/background-splash.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
@@ -72,11 +67,6 @@
       },
       "softwareKeyboardLayoutMode": "pan",
       "allowBackup": true,
-      "splash": {
-        "image": "./assets/images/light-logo.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#000000"
-      },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -152,13 +142,11 @@
         }
       ],
       [
-      "expo-splash-screen",
+        "expo-splash-screen",
         {
-          "ios": {
-            "backgroundColor": "#ffffff",
-            "image": "./assets/background-splash.png",
-            "resizeMode": "cover"
-          }
+          "image": "./assets/background-splash.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#ffffff"
         }
       ],
       [
@@ -176,9 +164,7 @@
           "sounds": [
             "./assets/sounds/notification.wav"
           ],
-          "mode": "production",
-          "developmentId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
-          "productionId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+          "mode": "production"
         }
       ]
     ],
@@ -186,7 +172,6 @@
       "typedRoutes": true
     },
     "extra": {
-      "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
       "router": {
         "origin": false
       },
@@ -194,14 +179,12 @@
         "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+       "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },
-    "owner": "qwerty-app",
-    "deepLinks": [
-      "https://www.fleetapp.me",
-      "fleet://"
-    ]
+    "owner": "qwerty-app"
   }
 }
