@@ -152,6 +152,21 @@
         }
       ],
       [
+      "expo-splash-screen",
+        {
+          "ios": {
+            "backgroundColor": "#ffffff",
+            "image": "./assets/background-splash.png",
+            "resizeMode": "cover"
+          },
+          "android": {
+            "backgroundColor": "#0c7cff",
+            "image": "./assets/background-splash.png",
+            "imageWidth": 150
+          }
+        }
+      ],
+      [
         "expo-file-system",
         {
           "filePermission": "The app needs access to files for image uploads."
