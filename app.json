@@ -125,10 +125,7 @@
         "color": "#D55004",
         "sounds": ["./assets/sounds/notification.wav"],
         "mode": "production"
-      }],
-
-
-      "expo-splash-screen"
+      }]
     ],
 
 
