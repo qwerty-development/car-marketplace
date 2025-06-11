@@ -950,7 +950,6 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <NetworkProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <GuestUserProvider>
             <AuthProvider>
@@ -972,7 +971,7 @@ export default function RootLayout() {
             </AuthProvider>
           </GuestUserProvider>
         </GestureHandlerRootView>
-      </NetworkProvider>
+
     </ErrorBoundary>
   );
 }
