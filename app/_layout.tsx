@@ -1,4 +1,4 @@
-// app/_layout.tsx - PRODUCTION-READY FIXED VERSION
+
 import React, {
   useState,
   useEffect,
