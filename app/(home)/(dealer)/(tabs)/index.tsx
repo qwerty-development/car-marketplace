@@ -37,59 +37,49 @@ const SUBSCRIPTION_WARNING_DAYS = 7
 const CustomHeader = ({ title, dealership }:any) => {
   const { isDarkMode } = useTheme();
 
-  // Define standardized styles
   const styles = StyleSheet.create({
-    container: {
+    container: { // For SafeAreaView
       backgroundColor: isDarkMode ? 'black' : 'white',
-      paddingBottom: Platform.OS === 'ios' ? 0 : 8,
       zIndex: 10,
+      paddingBottom: 12, // Unified bottom padding for the header area
     },
-    titleContainer: {
-      marginLeft: 16,
-      marginBottom: Platform.OS === 'ios' ? -14 : 0,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: isDarkMode ? 'white' : 'black',
-    },
-    dealershipContainer: {
+    titleContentWrapper: { // Wrapper for logo and title text
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: Platform.OS === 'ios' ? 12 : 8,
+      paddingHorizontal: 16, // Horizontal padding for the content
+      paddingTop: Platform.OS === 'ios' ? 8 : 12, // Top padding for the content
     },
     dealershipLogo: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      marginRight: 8,
+      width: 28, // Slightly larger logo
+      height: 28,
+      borderRadius: 14, // Half of width/height
+      marginRight: 10, // Space between logo and text
     },
-    dealershipName: {
-      fontSize: 14,
-      color: isDarkMode ? '#a1a1aa' : '#52525b',
+    headerText: { // Style for the main display text (dealership name or fallback)
+      fontSize: 24, // Prominent font size
+      fontWeight: 'bold',
+      color: isDarkMode ? 'white' : 'black',
+      flexShrink: 1, // Allow text to shrink if row is crowded
     }
   });
 
+  // Determine the text to display: dealership name if available, otherwise the original title prop.
+  const displayTitleText = dealership?.name ? dealership.name : title;
+
   return (
-    <SafeAreaView style={styles.container}>
-
-
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>{title}</Text>
-
-        {dealership && (
-          <View style={styles.dealershipContainer}>
-            {dealership.logo && (
-              <Image
-                source={{ uri: dealership.logo }}
-                style={styles.dealershipLogo}
-              />
-            )}
-            <Text style={styles.dealershipName}>
-              {dealership.name}
-            </Text>
-          </View>
+    // Apply SafeAreaView to the top edge; styles.container handles background and bottom padding.
+    <SafeAreaView edges={['top']} style={styles.container}>
+      <View style={styles.titleContentWrapper}>
+        {dealership?.logo && ( // Conditionally render logo if available
+          <Image
+            source={{ uri: dealership.logo }}
+            style={styles.dealershipLogo}
+          />
         )}
+        {/* Display the determined title text, allowing it to ellipsize if too long */}
+        <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">
+          {displayTitleText}
+        </Text>
       </View>
     </SafeAreaView>
   );
