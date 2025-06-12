@@ -1223,7 +1223,10 @@ const ListingCard = useMemo(
     colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
     style={{ flex: 1 }}>
     {/* Header */}
-    <CustomHeader title={`Hello ${profile?.name} 👋`} />
+	<CustomHeader 
+  title={`Hello ${dealership?.name || 'Dealer'}`} 
+  dealership={dealership} 
+/>
 
     {/* Subscription Warning */}
     {(subscriptionExpired || showWarning) && (
