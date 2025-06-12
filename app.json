@@ -30,12 +30,13 @@
         "applinks:www.fleetapp.me"
       ],
             "splash": {
+        "hide":true,
         "image": "./assets/background-splash.png",
-        "resizeMode": "cover",
+        "resizeMode": "contain",
         "backgroundColor": "#ffffff",
         "dark": {
           "backgroundColor": "#000000",
-          "resizeMode": "cover",
+          "resizeMode": "contain",
           "image": "./assets/background-splash.png"
         }
       },
