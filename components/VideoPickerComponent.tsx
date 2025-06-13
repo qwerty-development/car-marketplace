@@ -38,7 +38,7 @@ export default function VideoPickerButton({
 	onVideoSelect,
 	videoUri,
 	maxSize = 50 * 1024 * 1024, // 100MB
-	maxDuration = 25,
+	maxDuration = 20,
 	error,
 	disabled
 }: VideoPickerButtonProps) {

@@ -146,14 +146,6 @@
       "expo-secure-store",
       "expo-apple-authentication",
       [
-        "expo-av",
-        {
-          "microphonePermission": "Allow Fleet to access your microphone.",
-          "cameraPermission": "Allow Fleet to access your camera.",
-          "recordAudioAndroid": true
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you upload car images."

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
 	View,
 	Text,
@@ -9,6 +9,7 @@ import {
 	TextInput,
 	ActivityIndicator,
 	Platform,
+	KeyboardAvoidingView,
 	Dimensions
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
@@ -19,7 +20,7 @@ import VideoPickerButton from './VideoPickerComponent'
 import CarSelector from './CarSelector'
 import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av'
 import { BlurView } from 'expo-blur'
-import * as FileSystem from 'expo-file-system'
+import * as Haptics from 'expo-haptics'
 
 import Animated, {
 	FadeIn,
@@ -32,37 +33,33 @@ import Animated, {
 } from 'react-native-reanimated'
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024
+const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime']
+const MAX_VIDEO_DURATION = 20 * 1000
 
-// SIMPLIFIED CONSTANTS - Reduced complexity for production stability
-const MAX_VIDEO_SIZE = 30 * 1024 * 1024 // Reduced to 30MB for Android compatibility
-const ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'mov']
-const MAX_VIDEO_DURATION = 25 * 1000 // Increased to 30 seconds for flexibility
-
-// SIMPLIFIED VIDEO ASSET INTERFACE
-interface SimpleVideoAsset {
-	uri: string
-	duration?: number
-	fileSize?: number
-	width?: number
-	height?: number
-}
-
-// SAFE HAPTIC WRAPPER - Prevents crashes if haptics unavailable
-const safeHaptic = async () => {
+// Utility function for haptic feedback
+const triggerHaptic = async (style = 'light') => {
 	try {
-		const Haptics = await import('expo-haptics')
-		await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-	} catch {
-		// Silently fail if haptics unavailable
+		switch (style) {
+			case 'light':
+				await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+				break
+			case 'medium':
+				await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+				break
+			case 'heavy':
+				await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+				break
+			default:
+				await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+		}
+	} catch (error) {
+		console.error('Haptic error:', error)
 	}
 }
 
 // Enhanced Section Header Component
-const SectionHeader = React.memo(({ title, subtitle, isDarkMode }: {
-	title: string
-	subtitle?: string
-	isDarkMode: boolean
-}) => {
+const SectionHeader = React.memo(({ title, subtitle, isDarkMode }) => {
 	const scale = useSharedValue(1)
 
 	const animatedStyle = useAnimatedStyle(() => ({
@@ -99,397 +96,524 @@ const SectionHeader = React.memo(({ title, subtitle, isDarkMode }: {
 	)
 })
 
-// SIMPLIFIED INPUT COMPONENT - Removed complex animations that may cause issues
-const SimpleInput = React.memo(({
-	label,
-	value,
-	onChangeText,
-	placeholder,
-	multiline = false,
-	required = false,
-	error,
-	isDarkMode,
-	maxLength,
-	icon
-}: {
-	label: string
-	value: string
-	onChangeText: (text: string) => void
-	placeholder: string
-	multiline?: boolean
-	required?: boolean
-	error?: string
-	isDarkMode: boolean
-	maxLength?: number
-	icon?: string
-}) => {
-	return (
-		<View className='mb-6'>
-			<Text
-				className={`text-sm font-medium mb-2 ${
-					isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
-				}`}>
-				{label} {required && <Text className='text-red-500'>*</Text>}
-			</Text>
+// Enhanced Input Component
+const NeumorphicInput = React.memo(
+	({
+		label,
+		value,
+		onChangeText,
+		placeholder,
+		multiline = false,
+		required = false,
+		error,
+		isDarkMode,
+		maxLength,
+		icon,
+		onFocus,
+		onBlur
+	}) => {
+		const scale = useSharedValue(1)
+		const [isFocused, setIsFocused] = useState(false)
 
-			<View
-				className={`rounded-2xl overflow-hidden ${
-					isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
-				}`}>
-				<View className='flex-row items-center p-4'>
-					{icon && (
-						<MaterialCommunityIcons
-							name={icon as any}
-							size={20}
-							color={isDarkMode ? '#D55004' : '#666'}
-							style={{ marginRight: 12 }}
-						/>
-					)}
+		const handleFocus = useCallback(() => {
+			setIsFocused(true)
+			scale.value = withSpring(0.98)
+			triggerHaptic('light')
+			onFocus?.()
+		}, [onFocus])
 
-					<TextInput
-						value={value}
-						onChangeText={onChangeText}
-						placeholder={placeholder}
-						placeholderTextColor={isDarkMode ? '#666' : '#999'}
-						multiline={multiline}
-						numberOfLines={multiline ? 4 : 1}
-						maxLength={maxLength}
-						className={`flex-1 text-base ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}
-						style={{
-							height: multiline ? 100 : 50,
-							textAlignVertical: multiline ? 'top' : 'center'
-						}}
-					/>
+		const handleBlur = useCallback(() => {
+			setIsFocused(false)
+			scale.value = withSpring(1)
+			onBlur?.()
+		}, [onBlur])
 
-					{maxLength && (
-						<Text
-							className={`ml-2 text-xs ${
-								isDarkMode ? 'text-neutral-500' : 'text-neutral-400'
-							}`}>
-							{value.length}/{maxLength}
-						</Text>
-					)}
-				</View>
-			</View>
+		const animatedStyle = useAnimatedStyle(() => ({
+			transform: [{ scale: scale.value }]
+		}))
 
-			{error && (
-				<Text className='text-red-500 text-xs mt-1 ml-1'>
-					{error}
+		return (
+			<Animated.View
+				entering={FadeIn.duration(400)}
+				className='mb-6'
+				style={animatedStyle}>
+				<Text
+					className={`text-sm font-medium mb-2 ${
+						isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+					}`}>
+					{label} {required && <Text className='text-red'>*</Text>}
 				</Text>
-			)}
-		</View>
-	)
-})
 
-// SIMPLIFIED PROGRESS BAR
-const SimpleProgressBar = React.memo(({ progress, isDarkMode }: {
-	progress: number
-	isDarkMode: boolean
-}) => {
+				<BlurView
+					intensity={isDarkMode ? 20 : 40}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className={`rounded-2xl overflow-hidden ${
+						isFocused ? 'border border-red' : ''
+					}`}>
+					<LinearGradient
+						colors={
+							isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']
+						}
+						className='p-1 rounded-xl'
+						start={{ x: 0, y: 0 }}
+						end={{ x: 1, y: 1 }}>
+						<View className='flex-row items-center p-2'>
+							{icon && (
+								<View
+									className={`p-3 rounded-xl mr-2 ${
+										isDarkMode ? 'bg-black/30' : 'bg-white/30'
+									}`}>
+									<MaterialCommunityIcons
+										name={icon}
+										size={20}
+										color={isFocused ? '#D55004' : isDarkMode ? '#fff' : '#000'}
+									/>
+								</View>
+							)}
+
+							<TextInput
+               textAlignVertical="center"
+								value={value}
+								onChangeText={onChangeText}
+								placeholder={placeholder}
+								placeholderTextColor={isDarkMode ? '#666' : '#999'}
+								multiline={multiline}
+								numberOfLines={multiline ? 4 : 1}
+								maxLength={maxLength}
+								onFocus={handleFocus}
+								onBlur={handleBlur}
+								className={`flex-1 text-base px-2 ${
+									isDarkMode ? 'text-white' : 'text-black'
+								}`}
+								style={{
+									height: multiline ? 100 : 50,
+									textAlignVertical: multiline ? 'top' : 'center'
+								}}
+							/>
+
+							{maxLength && (
+								<Text
+									className={`ml-2 text-xs ${
+										isDarkMode ? 'text-neutral-500' : 'text-neutral-400'
+									}`}>
+									{value.length}/{maxLength}
+								</Text>
+							)}
+						</View>
+					</LinearGradient>
+				</BlurView>
+
+				{error && (
+					<Animated.Text
+						entering={FadeIn}
+						className='text-red text-xs mt-1 ml-1'>
+						{error}
+					</Animated.Text>
+				)}
+			</Animated.View>
+		)
+	}
+)
+
+// Enhanced Progress Bar Component
+const ProgressBar = React.memo(({ progress, isDarkMode }) => {
+	const progressAnim = useSharedValue(0)
+	const scale = useSharedValue(1)
+
+	useEffect(() => {
+		progressAnim.value = withTiming(progress, { duration: 500 })
+		scale.value = withSequence(withSpring(1.05), withSpring(1))
+	}, [progress])
+
+	const progressStyle = useAnimatedStyle(() => ({
+		width: `${progressAnim.value}%`,
+		transform: [{ scale: scale.value }]
+	}))
+
 	return (
-		<View className={`rounded-full overflow-hidden h-4 mb-4 ${
-			isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'
-		}`}>
-			<View
-				className='h-full bg-red-500 rounded-full'
-				style={{ width: `${progress}%` }}
-			/>
-			<Text
-				className={`absolute w-full text-center text-xs leading-4 ${
-					isDarkMode ? 'text-white' : 'text-black'
-				}`}>
-				{Math.round(progress)}%
-			</Text>
-		</View>
-	)
-})
-
-// SIMPLIFIED VIDEO PREVIEW
-const SimpleVideoPreview = React.memo(({
-	videoUri,
-	onPress,
-	isDarkMode,
-	isPlaying,
-	onPlaybackStatusUpdate,
-	videoRef
-}: {
-	videoUri: string
-	onPress?: () => void
-	isDarkMode: boolean
-	isPlaying: boolean
-	onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void
-	videoRef: React.RefObject<Video>
-}) => {
-	return (
-		<View className={`rounded-2xl overflow-hidden ${
-			isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'
-		}`}>
-			<TouchableOpacity onPress={onPress} className='relative'>
-				<Video
-					ref={videoRef}
-					source={{ uri: videoUri }}
-					style={{ width: '100%', height: 200 }}
-					resizeMode={ResizeMode.COVER}
-					isLooping
-					onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-					shouldPlay={isPlaying}
-				/>
-
-				<View className='absolute inset-0 justify-center items-center bg-black/30'>
-					<MaterialCommunityIcons
-						name={isPlaying ? 'pause' : 'play'}
-						size={40}
-						color='white'
+		<BlurView
+			intensity={isDarkMode ? 20 : 40}
+			tint={isDarkMode ? 'dark' : 'light'}
+			className='rounded-full overflow-hidden h-4 mb-4'>
+			<LinearGradient
+				colors={isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']}
+				className='w-full h-full'>
+				<Animated.View style={progressStyle}>
+					<LinearGradient
+						colors={['#D55004', '#FF6B00']}
+						start={{ x: 0, y: 0 }}
+						end={{ x: 1, y: 0 }}
+						className='h-full rounded-full'
 					/>
-				</View>
-			</TouchableOpacity>
-		</View>
+				</Animated.View>
+
+				<Text
+					className={`absolute w-full text-center text-xs ${
+						isDarkMode ? 'text-white' : 'text-black'
+					}`}>
+					{Math.round(progress)}%
+				</Text>
+			</LinearGradient>
+		</BlurView>
 	)
 })
 
-// SIMPLIFIED GUIDELINES
-const SimpleGuidelines = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => {
+// Enhanced Video Preview Component
+const VideoPreview = React.memo(
+	({
+		videoUri,
+		onPress,
+		isDarkMode,
+		isPlaying,
+		onPlaybackStatusUpdate,
+		videoRef
+	}) => {
+		const scale = useSharedValue(1)
+
+		const handlePress = useCallback(() => {
+			scale.value = withSequence(withSpring(0.95), withSpring(1))
+			triggerHaptic()
+			onPress?.()
+		}, [onPress])
+
+		const animatedStyle = useAnimatedStyle(() => ({
+			transform: [{ scale: scale.value }]
+		}))
+
+		return (
+			<Animated.View style={animatedStyle}>
+				<BlurView
+					intensity={isDarkMode ? 20 : 40}
+					tint={isDarkMode ? 'dark' : 'light'}
+					className='rounded-2xl overflow-hidden'>
+					<TouchableOpacity onPress={handlePress} className='relative'>
+						<Video
+							ref={videoRef}
+							source={{ uri: videoUri }}
+							style={{ width: '100%', height: 200 }}
+							resizeMode={ResizeMode.COVER}
+							isLooping
+							onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+							shouldPlay={isPlaying}
+						/>
+
+						<LinearGradient
+							colors={['transparent', 'rgba(0,0,0,0.5)']}
+							className='absolute inset-0 justify-center items-center'>
+							<MaterialCommunityIcons
+								name={isPlaying ? 'pause' : 'play'}
+								size={40}
+								color='white'
+							/>
+						</LinearGradient>
+					</TouchableOpacity>
+				</BlurView>
+			</Animated.View>
+		)
+	}
+)
+
+// Enhanced Guidelines Component
+const Guidelines = React.memo(({ isDarkMode }) => {
 	const guidelines = [
-		'Video must be less than 30MB',
-		'Maximum duration: 25 seconds',
-		'Supported formats: MP4, MOV',
-		'Title must be at least 3 characters'
+		{ icon: 'file-video', text: 'Video must be less than 50MB' },
+		{ icon: 'clock-outline', text: 'Maximum duration: 20 seconds' },
+		{ icon: 'file-document', text: 'Supported formats: MP4, MOV' },
+		{ icon: 'text', text: 'Title must be at least 3 characters' },
+		{
+			icon: 'text-box',
+			text: 'Description must be at least 10 characters'
+		}
 	]
 
 	return (
-		<View className={`p-4 rounded-2xl ${
-			isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
-		}`}>
-			{guidelines.map((text, index) => (
-				<View key={index} className='flex-row items-center mb-3 last:mb-0'>
-					<MaterialCommunityIcons
-						name='check-circle'
-						size={16}
-						color='#22c55e'
-						style={{ marginRight: 8 }}
-					/>
-					<Text
-						className={`text-sm ${
-							isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
-						}`}>
-						{text}
-					</Text>
-				</View>
-			))}
-		</View>
+		<BlurView
+			intensity={isDarkMode ? 20 : 40}
+			tint={isDarkMode ? 'dark' : 'light'}
+			className='p-4 rounded-2xl'>
+			<LinearGradient
+				colors={isDarkMode ? ['#1c1c1c', '#2d2d2d'] : ['#f5f5f5', '#e5e5e5']}
+				className='p-4 rounded-xl'
+				start={{ x: 0, y: 0 }}
+				end={{ x: 1, y: 1 }}>
+				{guidelines.map((item, index) => (
+					<Animated.View
+						key={index}
+						entering={FadeIn.delay(index * 100)}
+						className='flex-row items-center mb-3 last:mb-0'>
+						<MaterialCommunityIcons
+							name={item.icon}
+							size={20}
+							color={isDarkMode ? '#D55004' : '#FF6B00'}
+							className='mr-3'
+						/>
+						<Text
+							className={`text-sm flex-1 ${
+								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+							}`}>
+							{item.text}
+						</Text>
+					</Animated.View>
+				))}
+			</LinearGradient>
+		</BlurView>
 	)
 })
 
-// MAIN COMPONENT WITH SIMPLIFIED ERROR HANDLING
+// Main Component
 export default function CreateAutoClipModal({
 	isVisible,
 	onClose,
 	dealership,
 	onSuccess
-}: {
-	isVisible: boolean
-	onClose: () => void
-	dealership: { id: number } | null
-	onSuccess: () => void
 }) {
 	const { isDarkMode } = useTheme()
-	
-	// SIMPLIFIED STATE MANAGEMENT
-	const [formData, setFormData] = useState({
+	const [formState, setFormState] = useState({
 		title: '',
 		description: '',
-		selectedCarId: null as number | null,
-		video: null as SimpleVideoAsset | null
-	})
-	
-	const [errors, setErrors] = useState({
-		title: '',
-		description: '',
-		car: '',
-		video: ''
+		selectedCarId: null,
+		video: null,
+		titleError: '',
+		descriptionError: '',
+		carError: '',
+		videoError: null
 	})
 
 	const [isLoading, setIsLoading] = useState(false)
 	const [uploadProgress, setUploadProgress] = useState(0)
-	const [cars, setCars] = useState<any[]>([])
+	const [cars, setCars] = useState([])
 	const [isVideoPlaying, setIsVideoPlaying] = useState(false)
-	const videoRef = useRef<Video>(null)
+	const videoRef = useRef(null)
+	const modalScale = useSharedValue(1)
 
-	// SIMPLIFIED CLEANUP
+	// Animation setup for modal entrance
+	const slideAnim = useSharedValue(SCREEN_HEIGHT)
+
+	useEffect(() => {
+		if (isVisible) {
+			slideAnim.value = withSpring(0, {
+				damping: 15,
+				stiffness: 90
+			})
+		}
+	}, [isVisible])
+
+	// Cleanup function
 	const cleanup = useCallback(() => {
-		setFormData({
+		setFormState({
 			title: '',
 			description: '',
 			selectedCarId: null,
-			video: null
-		})
-		setErrors({
-			title: '',
-			description: '',
-			car: '',
-			video: ''
+			video: null,
+			titleError: '',
+			descriptionError: '',
+			carError: '',
+			videoError: null
 		})
 		setUploadProgress(0)
-		setIsVideoPlaying(false)
 		if (videoRef.current) {
-			try {
-				videoRef.current.unloadAsync()
-			} catch {
-				// Ignore errors during cleanup
-			}
+			videoRef.current.unloadAsync()
 		}
+		setIsVideoPlaying(false)
 	}, [])
 
-	// FETCH CARS - SIMPLIFIED ERROR HANDLING
-	const fetchCars = useCallback(async () => {
-		if (!dealership?.id) return
 
+useEffect(() => {
+  if (isVisible) {
+    fetchCars()
+  }
+}, [isVisible])
+
+	// Fetch cars data from Supabase
+	const fetchCars = async () => {
 		try {
 			setIsLoading(true)
-			
+			triggerHaptic('light')
+
 			const { data, error } = await supabase
 				.from('cars')
-				.select('id, make, model, year, price, status')
-				.eq('dealership_id', dealership.id)
+				.select(
+					`
+                id,
+                make,
+                model,
+                year,
+                price,
+                status,
+                auto_clips(id)
+            `
+				)
+				.eq('dealership_id', dealership!.id)
 				.eq('status', 'available')
 				.order('listed_at', { ascending: false })
 
 			if (error) throw error
 
-			// SIMPLIFIED: Check for existing autoclips separately
-			const carIds = data?.map(car => car.id) || []
-			const { data: existingClips } = await supabase
-				.from('auto_clips')
-				.select('car_id')
-				.in('car_id', carIds)
-
-			const usedCarIds = existingClips?.map(clip => clip.car_id) || []
-			const availableCars = data?.filter(car => !usedCarIds.includes(car.id)) || []
+			// Filter out cars that already have autoclips
+			const availableCars =
+				data
+					?.filter(car => !car.auto_clips || car.auto_clips.length === 0)
+					.map(({ auto_clips, ...car }) => car) || []
 
 			setCars(availableCars)
 		} catch (error) {
 			console.error('Error fetching cars:', error)
-			Alert.alert('Error', 'Failed to load cars. Please try again.')
+			Alert.alert('Error', 'Failed to load cars')
+			triggerHaptic('heavy')
 		} finally {
 			setIsLoading(false)
 		}
-	}, [dealership?.id])
+	}
 
-	useEffect(() => {
-		if (isVisible && dealership?.id) {
-			fetchCars()
-		}
-	}, [isVisible, dealership?.id, fetchCars])
-
-	// SIMPLIFIED FORM VALIDATION
+	// Form validation
 	const validateForm = useCallback(() => {
-		const newErrors = {
-			title: '',
-			description: '',
-			car: '',
-			video: ''
+		let isValid = true
+		const newState = { ...formState }
+
+		// Title validation
+		if (!formState.title.trim()) {
+			newState.titleError = 'Title is required'
+			isValid = false
+		} else if (formState.title.length < 3) {
+			newState.titleError = 'Title must be at least 3 characters'
+			isValid = false
+		} else {
+			newState.titleError = ''
 		}
 
-		if (!formData.title.trim()) {
-			newErrors.title = 'Title is required'
-		} else if (formData.title.length < 3) {
-			newErrors.title = 'Title must be at least 3 characters'
+		// Description validation
+		if (formState.description && formState.description.length < 10) {
+			newState.descriptionError = 'Description must be at least 10 characters'
+			isValid = false
+		} else {
+			newState.descriptionError = ''
 		}
 
-		if (!formData.selectedCarId) {
-			newErrors.car = 'Please select a car'
+		// Car selection validation
+		if (!formState.selectedCarId) {
+			newState.carError = 'Please select a car'
+			isValid = false
+		} else {
+			newState.carError = ''
 		}
 
-		if (!formData.video) {
-			newErrors.video = 'Please select a video'
+		// Video validation
+		if (!formState.video) {
+			newState.videoError = 'Please select a video'
+			isValid = false
 		}
 
-		setErrors(newErrors)
-		return !Object.values(newErrors).some(error => error !== '')
-	}, [formData])
+		setFormState(newState)
+		if (!isValid) triggerHaptic('heavy')
+		return isValid
+	}, [formState])
 
-	// SIMPLIFIED VIDEO SELECTION
-	const handleVideoSelect = useCallback(async (videoAsset: SimpleVideoAsset) => {
+	// Handle video selection
+	const handleVideoSelect = useCallback(async (videoAsset: VideoAsset) => {
 		try {
-			// BASIC VALIDATION ONLY
+			setFormState(prev => ({ ...prev, videoError: null }))
+			triggerHaptic('medium')
+
+			// Validate video size
 			if (videoAsset.fileSize && videoAsset.fileSize > MAX_VIDEO_SIZE) {
-				Alert.alert('Error', 'Video size must be less than 30MB')
-				return
+				throw new Error('Video size must be less than 50MB')
 			}
 
-			// CHECK FILE EXTENSION
-			const uri = videoAsset.uri
-			const extension = uri.split('.').pop()?.toLowerCase()
-			if (!extension || !ALLOWED_VIDEO_EXTENSIONS.includes(extension)) {
-				Alert.alert('Error', 'Please select an MP4 or MOV file')
-				return
+			// Validate video type
+			const fileExtension = videoAsset.uri.split('.').pop()?.toLowerCase()
+			if (!fileExtension || !ALLOWED_VIDEO_TYPES.includes(fileExtension)) {
+				throw new Error('Invalid video format. Please use MP4 or MOV files')
 			}
 
-			setFormData(prev => ({ ...prev, video: videoAsset }))
-			setErrors(prev => ({ ...prev, video: '' }))
-			safeHaptic()
-		} catch (error) {
-			console.error('Video selection error:', error)
-			Alert.alert('Error', 'Failed to select video. Please try again.')
+			// Validate video duration
+			if (videoAsset.duration && videoAsset.duration > MAX_VIDEO_DURATION) {
+				throw new Error(
+					`Video duration must be ${MAX_VIDEO_DURATION} seconds or less`
+				)
+			}
+
+			setFormState(prev => ({ ...prev, video: videoAsset }))
+			triggerHaptic('light')
+		} catch (error: any) {
+			setFormState(prev => ({
+				...prev,
+				video: null,
+				videoError: error.message
+			}))
+			triggerHaptic('heavy')
+			Alert.alert('Video Error', error.message)
 		}
 	}, [])
 
-	// SIMPLIFIED FORM SUBMISSION
-	const handleSubmit = useCallback(async () => {
-		if (!validateForm() || !dealership?.id || !formData.video) return
-
+	// Handle form submission
+	const handleSubmit = async () => {
 		try {
-			setIsLoading(true)
-			safeHaptic()
+			if (!validateForm()) return
 
-			// CHECK FOR EXISTING AUTOCLIP
-			const { data: existingClip } = await supabase
+			// Check if car already has an autoclip
+			const { data: existingClip, error: checkError } = await supabase
 				.from('auto_clips')
 				.select('id')
-				.eq('car_id', formData.selectedCarId)
+				.eq('car_id', formState.selectedCarId)
 				.single()
 
+			if (checkError && checkError.code !== 'PGRST116') {
+				throw checkError
+			}
+
 			if (existingClip) {
+				triggerHaptic('heavy')
 				Alert.alert('Error', 'This car already has an AutoClip')
 				return
 			}
 
-			// SIMPLIFIED FILE UPLOAD
-			const fileUri = formData.video.uri
-			const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.mp4`
-			const filePath = `${dealership.id}/${fileName}`
+			setIsLoading(true)
+			triggerHaptic('medium')
 
-			// READ FILE AS BASE64 FOR RELIABLE UPLOAD
-			const base64Data = await FileSystem.readAsStringAsync(fileUri, {
-				encoding: FileSystem.EncodingType.Base64
-			})
+			// File naming and path setup
+			const fileUri = formState.video!.uri
+			const isMovFile = fileUri.toLowerCase().endsWith('.mov')
+			const fileExtension = isMovFile ? 'mov' : 'mp4'
+			const fileName = `${Date.now()}_${Math.random()
+				.toString(36)
+				.substring(7)}.${fileExtension}`
+			const filePath = `${dealership!.id}/${fileName}`
 
-			// UPLOAD TO SUPABASE
+			// Progress handler
+			const progressHandler = (progress: number) => {
+				setUploadProgress(Math.round(progress * 100))
+				if (progress === 1) triggerHaptic('light')
+			}
+
+			// Upload video to Supabase storage
 			const { error: uploadError } = await supabase.storage
 				.from('autoclips')
-				.upload(filePath, decode(base64Data), {
-					contentType: 'video/mp4',
-					onUploadProgress: (event) => {
-						const progress = (event.loaded / event.total) * 100
-						setUploadProgress(Math.round(progress))
+				.upload(
+					filePath,
+					{
+						uri: fileUri,
+						type: isMovFile ? 'video/quicktime' : 'video/mp4',
+						name: fileName
+					},
+					{
+						onUploadProgress: event =>
+							progressHandler(event.loaded / event.total)
 					}
-				})
+				)
 
 			if (uploadError) throw uploadError
 
-			// GET PUBLIC URL
-			const { data: { publicUrl } } = supabase.storage
-				.from('autoclips')
-				.getPublicUrl(filePath)
+			// Get public URL
+			const {
+				data: { publicUrl }
+			} = supabase.storage.from('autoclips').getPublicUrl(filePath)
 
-			// CREATE DATABASE ENTRY
+			// Create database entry
 			const { error: dbError } = await supabase.from('auto_clips').insert({
-				dealership_id: dealership.id,
-				car_id: formData.selectedCarId,
-				title: formData.title.trim(),
-				description: formData.description.trim() || '',
+				dealership_id: dealership!.id,
+				car_id: formState.selectedCarId,
+				title: formState.title.trim(),
+				description: formState.description.trim(),
 				video_url: publicUrl,
 				thumbnail_url: publicUrl,
 				status: 'published',
@@ -502,216 +626,253 @@ export default function CreateAutoClipModal({
 
 			if (dbError) throw dbError
 
+			triggerHaptic('success')
 			Alert.alert('Success', 'AutoClip created successfully')
 			onSuccess()
 			handleClose()
 		} catch (error) {
-			console.error('Submission error:', error)
-			Alert.alert('Error', 'Failed to create AutoClip. Please try again.')
+			console.error('Error:', error)
+			triggerHaptic('error')
+			Alert.alert('Error', error.message || 'Failed to create AutoClip')
 		} finally {
 			setIsLoading(false)
 			setUploadProgress(0)
 		}
-	}, [formData, dealership, validateForm, onSuccess])
+	}
 
-	// SIMPLIFIED CLOSE HANDLER
+	// Handle modal close
 	const handleClose = useCallback(() => {
-		cleanup()
-		onClose()
+		slideAnim.value = withSpring(SCREEN_HEIGHT, {
+			damping: 15,
+			stiffness: 90
+		})
+
+		setTimeout(() => {
+			cleanup()
+			onClose()
+		}, 300)
+
+		triggerHaptic('light')
 	}, [cleanup, onClose])
 
-	// RENDER
+	// Animation styles
+	const modalStyle = useAnimatedStyle(() => ({
+		transform: [{ translateY: slideAnim.value }, { scale: modalScale.value }]
+	}))
+
+	// Render component
 	return (
 		<Modal
 			visible={isVisible}
-			animationType='slide'
+			animationType='none'
 			transparent
 			statusBarTranslucent>
-			<View className='flex-1 bg-black/50'>
-				<View className={`flex-1 mt-12 rounded-t-3xl ${
-					isDarkMode ? 'bg-black' : 'bg-white'
-				}`}>
-					{/* HEADER */}
-					<View className='px-6 py-4 border-b border-neutral-200/10'>
-						<View className='flex-row items-center justify-between'>
-							<TouchableOpacity onPress={handleClose} className='p-2'>
-								<Ionicons
-									name='close'
-									size={24}
-									color={isDarkMode ? 'white' : 'black'}
-								/>
-							</TouchableOpacity>
+			<View className='flex-1' style={{ zIndex: 99999 }}>
+				<Animated.View
+					entering={FadeIn}
+					exiting={FadeOut}
+					className='flex-1 bg-black/50'>
+					<BlurView
+						intensity={isDarkMode ? 30 : 20}
+						tint={isDarkMode ? 'dark' : 'light'}
+						className='flex-1'>
+						<Animated.View
+							style={modalStyle}
+							className={`flex-1 mt-12 rounded-t-3xl overflow-hidden ${
+								isDarkMode ? 'bg-black' : 'bg-white'
+							}`}>
+							{/* Header */}
+							<BlurView
+								intensity={isDarkMode ? 20 : 40}
+								tint={isDarkMode ? 'dark' : 'light'}
+								className='px-6 py-4 border-b border-neutral-200/10'>
+								<View className='flex-row items-center justify-between'>
+									<TouchableOpacity onPress={handleClose} className='p-2 -ml-2'>
+										<Ionicons
+											name='close'
+											size={24}
+											color={isDarkMode ? 'white' : 'black'}
+										/>
+									</TouchableOpacity>
 
-							<Text
-								className={`text-xl font-bold ${
-									isDarkMode ? 'text-white' : 'text-black'
-								}`}>
-								Create AutoClip
-							</Text>
-
-							<TouchableOpacity
-								onPress={handleSubmit}
-								disabled={isLoading || cars.length === 0}
-								className={`bg-red-500 px-4 py-2 rounded-full ${
-									isLoading || cars.length === 0 ? 'opacity-50' : ''
-								}`}>
-								{isLoading ? (
-									<ActivityIndicator color='white' size='small' />
-								) : (
-									<Text className='text-white font-medium'>Create</Text>
-								)}
-							</TouchableOpacity>
-						</View>
-					</View>
-
-					<ScrollView
-						className='flex-1 px-6'
-						showsVerticalScrollIndicator={false}
-						keyboardShouldPersistTaps='handled'>
-						
-						{/* VIDEO SECTION */}
-						<View className='py-4'>
-							<SectionHeader
-								title='Video Upload'
-								subtitle='Select a video to share'
-								isDarkMode={isDarkMode}
-							/>
-
-							{formData.video ? (
-								<SimpleVideoPreview
-									videoUri={formData.video.uri}
-									onPress={() => setIsVideoPlaying(!isVideoPlaying)}
-									isDarkMode={isDarkMode}
-									isPlaying={isVideoPlaying}
-									onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-										if (!status.isLoaded) return
-										setIsVideoPlaying(status.isPlaying || false)
-									}}
-									videoRef={videoRef}
-								/>
-							) : (
-								<VideoPickerButton
-									onVideoSelect={handleVideoSelect}
-									isDarkMode={isDarkMode}
-								/>
-							)}
-
-							{errors.video && (
-								<Text className='text-red-500 text-xs mt-2'>
-									{errors.video}
-								</Text>
-							)}
-						</View>
-
-						{/* FORM INPUTS */}
-						<View className='mb-8'>
-							<SectionHeader
-								title='Clip Details'
-								isDarkMode={isDarkMode}
-							/>
-
-							<SimpleInput
-								label='Title'
-								value={formData.title}
-								onChangeText={(text) => {
-									setFormData(prev => ({ ...prev, title: text }))
-									setErrors(prev => ({ ...prev, title: '' }))
-								}}
-								placeholder='Enter a catchy title...'
-								required
-								error={errors.title}
-								isDarkMode={isDarkMode}
-								maxLength={50}
-								icon='format-title'
-							/>
-
-							<SimpleInput
-								label='Description'
-								value={formData.description}
-								onChangeText={(text) => {
-									setFormData(prev => ({ ...prev, description: text }))
-									setErrors(prev => ({ ...prev, description: '' }))
-								}}
-								placeholder='Describe your video...'
-								multiline
-								error={errors.description}
-								isDarkMode={isDarkMode}
-								maxLength={500}
-								icon='text-box-outline'
-							/>
-						</View>
-
-						{/* CAR SELECTION */}
-						<View className='mb-8'>
-							<SectionHeader
-								title='Featured Vehicle'
-								subtitle='Select the car featured in this clip'
-								isDarkMode={isDarkMode}
-							/>
-
-							{cars.length > 0 ? (
-								<CarSelector
-									cars={cars}
-									selectedCarId={formData.selectedCarId}
-									onCarSelect={(id) => {
-										setFormData(prev => ({ ...prev, selectedCarId: id }))
-										setErrors(prev => ({ ...prev, car: '' }))
-									}}
-									error={errors.car}
-									isDarkMode={isDarkMode}
-								/>
-							) : (
-								<View className={`p-4 rounded-2xl ${
-									isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
-								}`}>
 									<Text
-										className={`text-center ${
+										className={`text-xl font-bold ${
 											isDarkMode ? 'text-white' : 'text-black'
 										}`}>
-										No cars available for new AutoClips.
-										{'\n'}All cars already have associated clips.
+										Create AutoClip
 									</Text>
+
+									<TouchableOpacity
+										onPress={handleSubmit}
+										disabled={isLoading || cars.length === 0}
+										className={`bg-red px-4 py-2 rounded-full ${
+											isLoading || cars.length === 0 ? 'opacity-50' : ''
+										}`}>
+										{isLoading ? (
+											<ActivityIndicator color='white' size='small' />
+										) : (
+											<Text className='text-white font-medium'>Create</Text>
+										)}
+									</TouchableOpacity>
 								</View>
-							)}
-						</View>
+							</BlurView>
 
-						{/* UPLOAD PROGRESS */}
-						{isLoading && uploadProgress > 0 && (
-							<View className='mb-8'>
-								<SectionHeader
-									title='Uploading'
-									subtitle={`Progress: ${uploadProgress}%`}
-									isDarkMode={isDarkMode}
-								/>
-								<SimpleProgressBar
-									progress={uploadProgress}
-									isDarkMode={isDarkMode}
-								/>
-							</View>
-						)}
+							<ScrollView
+								className='flex-1 px-6'
+								showsVerticalScrollIndicator={false}
+								keyboardShouldPersistTaps='handled'>
+								{/* Video Section */}
+								<View className='py-4'>
+									<SectionHeader
+										title='Video Upload'
+										subtitle='Select a video to share with your audience'
+										isDarkMode={isDarkMode}
+									/>
 
-						{/* GUIDELINES */}
-						<View className='mb-8'>
-							<SectionHeader
-								title='Guidelines'
-								isDarkMode={isDarkMode}
-							/>
-							<SimpleGuidelines isDarkMode={isDarkMode} />
-						</View>
+									{formState.video ? (
+										<VideoPreview
+											videoUri={formState.video.uri}
+											onPress={() => setIsVideoPlaying(!isVideoPlaying)}
+											isDarkMode={isDarkMode}
+											isPlaying={isVideoPlaying}
+											onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+												if (!status.isLoaded) return
+												setIsVideoPlaying(status.isPlaying)
+											}}
+											videoRef={videoRef}
+										/>
+									) : (
+										<VideoPickerButton
+											onVideoSelect={handleVideoSelect}
+											isDarkMode={isDarkMode}
+										/>
+									)}
 
-						<View className='h-20' />
-					</ScrollView>
-				</View>
+									{formState.videoError && (
+										<Animated.Text
+											entering={FadeIn}
+											className='text-red text-xs mt-2'>
+											{formState.videoError}
+										</Animated.Text>
+									)}
+								</View>
+
+								{/* Clip Details */}
+								<View className='mb-8'>
+									<SectionHeader
+										title='Clip Details'
+										subtitle='Add information about your AutoClip'
+										isDarkMode={isDarkMode}
+									/>
+
+									<NeumorphicInput
+										label='Title'
+										value={formState.title}
+										onChangeText={text =>
+											setFormState(prev => ({
+												...prev,
+												title: text,
+												titleError: ''
+											}))
+										}
+										placeholder='Enter a catchy title...'
+										required
+										error={formState.titleError}
+										isDarkMode={isDarkMode}
+										maxLength={50}
+										icon='format-title'
+									/>
+
+									<NeumorphicInput
+										label='Description'
+										value={formState.description}
+										onChangeText={text =>
+											setFormState(prev => ({
+												...prev,
+												description: text,
+												descriptionError: ''
+											}))
+										}
+										placeholder='Describe your video...'
+										multiline
+										error={formState.descriptionError}
+										isDarkMode={isDarkMode}
+										maxLength={500}
+										icon='text-box-outline'
+									/>
+								</View>
+
+								{/* Car Selection */}
+								<View className='mb-8'>
+									<SectionHeader
+										title='Featured Vehicle'
+										subtitle='Select the car featured in this clip'
+										isDarkMode={isDarkMode}
+									/>
+
+									{cars.length > 0 ? (
+										<CarSelector
+											cars={cars}
+											selectedCarId={formState.selectedCarId}
+											onCarSelect={id =>
+												setFormState(prev => ({
+													...prev,
+													selectedCarId: id,
+													carError: ''
+												}))
+											}
+											error={formState.carError}
+											isDarkMode={isDarkMode}
+										/>
+									) : (
+										<BlurView
+											intensity={isDarkMode ? 20 : 40}
+											tint={isDarkMode ? 'dark' : 'light'}
+											className='p-4 rounded-2xl'>
+											<Text
+												className={`text-center ${
+													isDarkMode ? 'text-white' : 'text-black'
+												}`}>
+												No cars available for new AutoClips.
+												{'\n'}
+												All cars already have associated clips.
+											</Text>
+										</BlurView>
+									)}
+								</View>
+
+								{/* Upload Progress */}
+								{isLoading && uploadProgress > 0 && (
+									<View className='mb-8'>
+										<SectionHeader
+											title='Uploading'
+											subtitle={`Progress: ${uploadProgress}%`}
+											isDarkMode={isDarkMode}
+										/>
+										<ProgressBar
+											progress={uploadProgress}
+											isDarkMode={isDarkMode}
+										/>
+									</View>
+								)}
+
+								{/* Guidelines */}
+								<View className='mb-8'>
+									<SectionHeader
+										title='Guidelines'
+										subtitle='Important information about creating AutoClips'
+										isDarkMode={isDarkMode}
+									/>
+									<Guidelines isDarkMode={isDarkMode} />
+								</View>
+
+								{/* Bottom Spacing */}
+								<View className='h-20' />
+							</ScrollView>
+						</Animated.View>
+					</BlurView>
+				</Animated.View>
 			</View>
 		</Modal>
 	)
-}
-
-// HELPER FUNCTION FOR BASE64 DECODE
-function decode(str: string): Uint8Array {
-	const bytes = new Uint8Array(str.length)
-	for (let i = 0; i < str.length; i++) {
-		bytes[i] = str.charCodeAt(i)
-	}
-	return bytes
 }
