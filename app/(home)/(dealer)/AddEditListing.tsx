@@ -83,16 +83,204 @@ const VEHICLE_FEATURES = [
   { id: 'remote_start', label: 'Remote Start', icon: 'remote' },
 ];
 
+/**
+ * Translates technical database and API errors into user-friendly messages
+ */
+const getErrorMessage = (error: any, context: string = '') => {
+  const errorMessage = error?.message || error?.toString() || 'Unknown error';
+  const lowerMessage = errorMessage.toLowerCase();
+
+  // Database validation errors
+  if (lowerMessage.includes('invalid input syntax for type bigint')) {
+    return 'Please enter valid numbers for price, year, and mileage fields. Make sure there are no letters or special characters.';
+  }
+
+  if (lowerMessage.includes('invalid input syntax for type integer')) {
+    return 'Please enter valid whole numbers for numeric fields like year and mileage.';
+  }
+
+  if (lowerMessage.includes('value too long')) {
+    return 'Some of your text entries are too long. Please shorten your description or other text fields.';
+  }
+
+  if (lowerMessage.includes('duplicate key value')) {
+    return 'This listing already exists. Please check if you\'ve already added this vehicle.';
+  }
+
+  if (lowerMessage.includes('foreign key constraint')) {
+    return 'There was an issue linking this listing to your dealership. Please try again or contact support.';
+  }
+
+  // Network and connection errors
+  if (lowerMessage.includes('network') || lowerMessage.includes('fetch')) {
+    return 'Connection problem. Please check your internet connection and try again.';
+  }
+
+  if (lowerMessage.includes('timeout')) {
+    return 'The request took too long. Please check your connection and try again.';
+  }
+
+  // Authentication and authorization errors
+  if (lowerMessage.includes('unauthorized') || lowerMessage.includes('forbidden')) {
+    return 'You don\'t have permission to perform this action. Please check your account status.';
+  }
+
+  if (lowerMessage.includes('subscription')) {
+    return 'Your subscription has expired or is invalid. Please renew your subscription to continue.';
+  }
+
+  // File upload errors
+  if (lowerMessage.includes('file') && lowerMessage.includes('size')) {
+    return 'One or more images are too large. Please choose smaller images or compress them.';
+  }
+
+  if (lowerMessage.includes('image') && context.includes('upload')) {
+    return 'Failed to upload images. Please try with different images or check your connection.';
+  }
+
+  // Validation errors
+  if (lowerMessage.includes('required') || lowerMessage.includes('missing')) {
+    return 'Please fill in all required fields before submitting.';
+  }
+
+  if (lowerMessage.includes('invalid') && lowerMessage.includes('email')) {
+    return 'Please enter a valid email address.';
+  }
+
+  if (lowerMessage.includes('invalid') && lowerMessage.includes('phone')) {
+    return 'Please enter a valid phone number.';
+  }
+
+  // Storage errors
+  if (lowerMessage.includes('storage') || lowerMessage.includes('bucket')) {
+    return 'File storage error. Please try uploading your images again.';
+  }
+
+  // Context-specific errors
+  switch (context) {
+    case 'submit':
+      return 'Failed to save your listing. Please check all fields and try again.';
+    case 'upload':
+      return 'Failed to upload images. Please try with smaller images or check your connection.';
+    case 'delete':
+      return 'Failed to delete the listing. Please try again or contact support.';
+    case 'fetch':
+      return 'Failed to load data. Please refresh the page and try again.';
+    case 'sold':
+      return 'Failed to mark as sold. Please check the selling price and buyer information.';
+    default:
+      return 'Something went wrong. Please check your information and try again, or contact support if the problem continues.';
+  }
+};
+
+/**
+ * Validates and sanitizes form data before submission
+ */
+const validateAndSanitizeFormData = (data: any) => {
+  const errors: string[] = [];
+  const sanitizedData = { ...data };
+
+  // Required fields validation
+  const requiredFields = [
+    { key: 'make', label: 'Vehicle Brand' },
+    { key: 'model', label: 'Vehicle Model' },
+    { key: 'year', label: 'Year' },
+    { key: 'price', label: 'Price' },
+    { key: 'condition', label: 'Condition' },
+    { key: 'transmission', label: 'Transmission' },
+    { key: 'mileage', label: 'Mileage' },
+    { key: 'drivetrain', label: 'Drive Train' },
+    { key: 'type', label: 'Fuel Type' },
+    { key: 'category', label: 'Category' },
+  ];
+
+  requiredFields.forEach(field => {
+    if (!data[field.key] || data[field.key] === '') {
+      errors.push(`${field.label} is required`);
+    }
+  });
+
+  // Numeric field validation and sanitization
+  const numericFields = [
+    { key: 'year', label: 'Year', min: 1900, max: new Date().getFullYear() + 2 },
+    { key: 'price', label: 'Price', min: 1, max: 10000000 },
+    { key: 'mileage', label: 'Mileage', min: 0, max: 1000000 },
+    { key: 'bought_price', label: 'Purchase Price', min: 0, max: 10000000, optional: true },
+  ];
+
+  numericFields.forEach(field => {
+    const value = data[field.key];
+    
+    if (field.optional && (!value || value === '')) {
+      sanitizedData[field.key] = null;
+      return;
+    }
+
+    if (!field.optional && (!value || value === '')) {
+      errors.push(`${field.label} is required`);
+      return;
+    }
+
+    // Convert to number and validate
+    const numValue = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '')) : value;
+    
+    if (isNaN(numValue)) {
+      errors.push(`${field.label} must be a valid number`);
+    } else if (numValue < field.min || numValue > field.max) {
+      errors.push(`${field.label} must be between ${field.min.toLocaleString()} and ${field.max.toLocaleString()}`);
+    } else {
+      sanitizedData[field.key] = numValue;
+    }
+  });
+
+  // Text field validation
+  if (data.description && data.description.length > 2000) {
+    errors.push('Description must be less than 2000 characters');
+  }
+
+  if (data.seller_name && data.seller_name.length > 100) {
+    errors.push('Seller name must be less than 100 characters');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedData
+  };
+};
+
+/**
+ * Validates numeric input in real-time
+ */
+const validateNumericInput = (value: string, fieldName: string, min: number, max: number) => {
+  if (!value || value.trim() === '') return null;
+  
+  const cleanValue = value.replace(/[^0-9]/g, '');
+  const numValue = parseInt(cleanValue);
+  
+  if (cleanValue !== value) {
+    return `${fieldName} should only contain numbers`;
+  }
+  
+  if (isNaN(numValue)) {
+    return `Please enter a valid ${fieldName.toLowerCase()}`;
+  }
+  
+  if (numValue < min || numValue > max) {
+    return `${fieldName} should be between ${min.toLocaleString()} and ${max.toLocaleString()}`;
+  }
+  
+  return null;
+};
+
 const FeatureSelector = memo(
   ({ selectedFeatures = [], onFeatureToggle, isDarkMode }: any) => {
-    // State Management
     const [showAllFeatures, setShowAllFeatures] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
 
-    // Filter features based on search query
     const filteredFeatures = useMemo(
       () =>
         VEHICLE_FEATURES.filter((feature) =>
@@ -101,14 +289,12 @@ const FeatureSelector = memo(
       [searchQuery]
     );
 
-    // Get paginated features for the modal
     const paginatedFeatures = useMemo(() => {
       const start = currentPage * PAGE_SIZE;
       const end = start + PAGE_SIZE;
       return filteredFeatures.slice(0, end);
     }, [filteredFeatures, currentPage]);
 
-    // Load more function for pagination
     const loadMore = useCallback(() => {
       if ((currentPage + 1) * PAGE_SIZE < filteredFeatures.length) {
         setCurrentPage((prev) => prev + 1);
@@ -118,13 +304,11 @@ const FeatureSelector = memo(
       }
     }, [currentPage, filteredFeatures.length]);
 
-    // Reset pagination when search query changes
     useEffect(() => {
       setCurrentPage(0);
       setHasMore(true);
     }, [searchQuery]);
 
-    // Render feature item component
     const FeatureItem = useCallback(
       ({ feature, isSelected, onPress, size = 'normal' }: any) => (
         <TouchableOpacity
@@ -179,7 +363,6 @@ const FeatureSelector = memo(
 
     return (
       <View>
-        {/* Header */}
         <View className="flex-row items-center justify-between mb-4">
           <Text
             className={`text-lg font-bold ${
@@ -202,7 +385,6 @@ const FeatureSelector = memo(
           </TouchableOpacity>
         </View>
 
-        {/* Selected Features Count Badge */}
         {selectedFeatures.length > 0 && (
           <View className="mb-3">
             <Text className={`text-sm ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
@@ -211,7 +393,6 @@ const FeatureSelector = memo(
           </View>
         )}
 
-        {/* Horizontal Scrollable List - Show selected features first, then others */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -228,7 +409,6 @@ const FeatureSelector = memo(
           ))}
         </ScrollView>
 
-        {/* All Features Modal with Pagination */}
         <Modal
           visible={showAllFeatures}
           animationType="slide"
@@ -242,7 +422,6 @@ const FeatureSelector = memo(
           >
             <TouchableOpacity
               className="flex-1"
-         
               onPress={() => setShowAllFeatures(false)}
             />
             <View
@@ -251,7 +430,6 @@ const FeatureSelector = memo(
               }`}
             >
               <View className="p-4">
-                {/* Modal Header */}
                 <View className="items-center mb-2">
                   <View className="w-16 h-1 rounded-full bg-gray-300" />
                 </View>
@@ -276,7 +454,6 @@ const FeatureSelector = memo(
                   </TouchableOpacity>
                 </View>
 
-                {/* Search Bar */}
                 <View
                   className={`flex-row items-center rounded-full border border-[#ccc] dark:border-[#555] px-4 h-12 mb-4`}
                 >
@@ -315,7 +492,6 @@ const FeatureSelector = memo(
                   ) : null}
                 </View>
 
-                {/* Selected Count Badge */}
                 {selectedFeatures.length > 0 && (
                   <View
                     className={`mb-4 p-3 rounded-xl ${
@@ -332,7 +508,6 @@ const FeatureSelector = memo(
                   </View>
                 )}
 
-                {/* Features List with Infinite Scroll */}
                 <FlatList
                   data={paginatedFeatures}
                   renderItem={({ item: feature }) => (
@@ -368,10 +543,6 @@ const FeatureSelector = memo(
   }
 );
 
-
-
-
-
 export default function AddEditListing() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
@@ -387,7 +558,7 @@ export default function AddEditListing() {
     bought_price: null,
     date_bought: new Date(),
     seller_name: null,
-    features:[]
+    features: []
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -400,6 +571,7 @@ export default function AddEditListing() {
     buyer_name: "",
   });
   const [hasChanges, setHasChanges] = useState(false);
+
   const isSubscriptionValid = useCallback(() => {
     if (!dealership) return false;
     const subscriptionEndDate = dealership.subscription_end_date;
@@ -409,48 +581,40 @@ export default function AddEditListing() {
     return endDate >= now;
   }, [dealership]);
 
-    const validateFormData = (data: any) => {
-    const requiredFields = [
-      "make",
-      "model",
-      "price",
-      "year",
-      "condition",
-      "transmission",
-      "mileage",
-      "drivetrain",
-      "type",
-      "category",
-    ];
-
-    const missingFields = requiredFields.filter((field) => {
-      if (field === "mileage") {
-        return (
-          data[field] === null ||
-          data[field] === undefined ||
-          data[field] === ""
-        );
-      }
-      return !data[field];
-    });
-
-    if (missingFields.length > 0) {
+  const validateFormData = (data: any) => {
+    const validation = validateAndSanitizeFormData(data);
+    
+    if (!validation.isValid) {
       Alert.alert(
-        "Missing Fields",
-        `Please fill in: ${missingFields.join(", ")}`
+        "Please Fix These Issues",
+        validation.errors.join('\n• '),
+        [{ text: "OK" }]
       );
-      return false;
+      return { isValid: false };
     }
-
-    return true;
+    
+    // Check images
+    if (!modalImages || modalImages.length === 0) {
+      Alert.alert(
+        "Images Required",
+        "Please add at least one image of your vehicle.",
+        [{ text: "OK" }]
+      );
+      return { isValid: false };
+    }
+    
+    return { isValid: true, sanitizedData: validation.sanitizedData };
   };
 
   const handleSubmit = useCallback(() => {
-    if (!validateFormData(formData)) return;
+    const validation = validateFormData(formData);
+    if (!validation.isValid) return;
+
     if (!dealership || !isSubscriptionValid()) {
       Alert.alert(
-        "Subscription Error",
-        "Your subscription is not valid or has expired."
+        "Subscription Issue",
+        "Your subscription has expired or is invalid. Please renew your subscription to continue adding or editing listings.",
+        [{ text: "OK" }]
       );
       return;
     }
@@ -459,34 +623,23 @@ export default function AddEditListing() {
       try {
         setIsLoading(true);
 
+        const dataToSubmit = validation.sanitizedData;
+
         if (initialData?.id) {
+          // Update existing listing
           const {
-            id,
-            listed_at,
-            date_modified,
-            views,
-            likes,
-            viewed_users,
-            liked_users,
-            sold_price,
-            date_sold,
-            buyer_name,
-            status,
-            dealership_name,
-            dealership_logo,
-            dealership_phone,
-            dealership_location,
-            dealership_latitude,
-            dealership_longitude,
-            ...allowedData
-          } = formData;
+            id, listed_at, date_modified, views, likes, viewed_users, liked_users,
+            sold_price, date_sold, buyer_name, status, dealership_name,
+            dealership_logo, dealership_phone, dealership_location,
+            dealership_latitude, dealership_longitude, ...allowedData
+          } = dataToSubmit;
 
           const dataToUpdate = {
             make: allowedData.make,
             model: allowedData.model,
             price: allowedData.price,
             year: allowedData.year,
-            description: allowedData.description,
+            description: allowedData.description || '',
             images: modalImages,
             condition: allowedData.condition,
             transmission: allowedData.transmission,
@@ -495,79 +648,42 @@ export default function AddEditListing() {
             drivetrain: allowedData.drivetrain,
             type: allowedData.type,
             category: allowedData.category,
-            bought_price: allowedData.bought_price? allowedData.bought_price:0,
+            bought_price: allowedData.bought_price || null,
             date_bought: allowedData.date_bought
               ? new Date(allowedData.date_bought).toISOString()
               : null,
-            seller_name: allowedData.seller_name ? allowedData.seller_name : "NA",
-              source: allowedData.source,
-               features: formData.features || [],
+            seller_name: allowedData.seller_name || null,
+            source: allowedData.source,
+            features: dataToSubmit.features || [],
             dealership_id: dealership.id,
           };
 
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from("cars")
             .update(dataToUpdate)
             .eq("id", initialData.id)
-            .eq("dealership_id", dealership.id)
-            .select(
-              `
-            id,
-            listed_at,
-            make,
-            model,
-            price,
-            year,
-            description,
-            images,
-            sold_price,
-            date_sold,
-            status,
-            dealership_id,
-            date_modified,
-            views,
-            likes,
-            condition,
-            transmission,
-            color,
-            mileage,
-            drivetrain,
-            viewed_users,
-            liked_users,
-            type,
-            category,
-            bought_price,
-            date_bought,
-            seller_name,
-            buyer_name,
-            source,
-            features
-          `
-            )
-            .single();
+            .eq("dealership_id", dealership.id);
 
           if (error) throw error;
 
-          Alert.alert("Success", "Listing updated successfully", [
-            { text: "OK", onPress: () => router.back() },
-          ]);
+          Alert.alert(
+            "Success! 🎉", 
+            "Your vehicle listing has been updated successfully.",
+            [{ text: "OK", onPress: () => router.back() }]
+          );
         } else {
+          // Create new listing
           const {
-            dealership_name,
-            dealership_logo,
-            dealership_phone,
-            dealership_location,
-            dealership_latitude,
-            dealership_longitude,
-            ...allowedData
-          } = formData;
+            dealership_name, dealership_logo, dealership_phone, dealership_location,
+            dealership_latitude, dealership_longitude, ...allowedData
+          } = dataToSubmit;
 
           const newListingData = {
             make: allowedData.make,
             model: allowedData.model,
             price: allowedData.price,
             year: allowedData.year,
-            description: allowedData.description,
+            description: allowedData.description || '',
             images: modalImages,
             condition: allowedData.condition,
             transmission: allowedData.transmission,
@@ -576,14 +692,14 @@ export default function AddEditListing() {
             drivetrain: allowedData.drivetrain,
             type: allowedData.type,
             category: allowedData.category,
-            bought_price: allowedData.bought_price,
+            bought_price: allowedData.bought_price || null,
             date_bought: allowedData.date_bought
               ? new Date(allowedData.date_bought).toISOString()
               : new Date().toISOString(),
-            seller_name: allowedData.seller_name,
+            seller_name: allowedData.seller_name || null,
             dealership_id: dealership.id,
-             source: allowedData.source,
-              features: formData.features || [],
+            source: allowedData.source,
+            features: dataToSubmit.features || [],
             status: "pending",
             views: 0,
             likes: 0,
@@ -591,23 +707,34 @@ export default function AddEditListing() {
             liked_users: [],
           };
 
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from("cars")
-            .insert(newListingData)
-            .select()
-            .single();
+            .insert(newListingData);
 
           if (error) throw error;
 
-          Alert.alert("Success", "New listing created successfully", [
-            { text: "OK", onPress: () => router.back() },
-          ]);
+          Alert.alert(
+            "Success! 🎉", 
+            "Your new vehicle listing has been created successfully and is now pending approval.",
+            [{ text: "OK", onPress: () => router.back() }]
+          );
         }
       } catch (error: any) {
         console.error("Error submitting listing:", error);
+        const friendlyMessage = getErrorMessage(error, 'submit');
+        
         Alert.alert(
-          "Error",
-          error?.message || "Failed to submit listing. Please try again."
+          "Couldn't Save Listing",
+          friendlyMessage,
+          [
+            { text: "OK" },
+            { 
+              text: "Try Again", 
+              onPress: () => {
+                setTimeout(() => handleSubmit(), 1000);
+              }
+            }
+          ]
         );
       } finally {
         setIsLoading(false);
@@ -616,22 +743,10 @@ export default function AddEditListing() {
     };
 
     submitListing();
-  }, [
-    formData,
-    modalImages,
-    initialData,
-    dealership,
-    router,
-    isSubscriptionValid,
-    validateFormData,
-  ]);
-
-
-
-
+  }, [formData, modalImages, initialData, dealership, router, isSubscriptionValid]);
 
   const handleGoBack = useCallback(() => {
-    if (initialData) { // Editing
+    if (initialData) {
       if (hasChanges) {
         Alert.alert(
           "Discard Changes?",
@@ -639,33 +754,97 @@ export default function AddEditListing() {
           [
             { text: "Cancel", style: "cancel" },
             { text: "Discard", style: "destructive", onPress: () => router.back() },
-            { text: "Save", onPress: handleSubmit } // Keep Save option
+            { text: "Save", onPress: handleSubmit }
           ]
         );
       } else {
         router.back();
       }
-    } else { // Adding
+    } else {
       if (hasChanges) {
-          Alert.alert(
-            "Discard Changes?",
-            "You have unsaved changes.  Do you want to discard them?",
-            [
-              { text: "Stay", style: "cancel" }, // Changed "Cancel" to "Stay"
-              { text: "Discard", style: "destructive", onPress: () => router.back() },
-            ]
-          );
+        Alert.alert(
+          "Discard Changes?",
+          "You have unsaved changes. Do you want to discard them?",
+          [
+            { text: "Stay", style: "cancel" },
+            { text: "Discard", style: "destructive", onPress: () => router.back() },
+          ]
+        );
       } else {
-          router.back();
+        router.back();
       }
-
     }
   }, [hasChanges, router, handleSubmit, initialData]);
 
+  // Enhanced handleInputChange with real-time validation
+  const handleInputChange = useCallback(
+    (key: string, value: any, customValue?: any) => {
+      setFormData((prev: any) => {
+        const newData = { ...prev, [key]: value };
+        
+        if (key === "make" && !value) {
+          newData.model = null;
+        }
+        
+        if (key === "color" && value === "Other" && customValue) {
+          newData.color = customValue;
+        }
 
+        // Real-time numeric validation with user feedback
+        if (key === "year") {
+          const error = validateNumericInput(value, "Year", 1900, new Date().getFullYear() + 2);
+          if (error && value) {
+            setTimeout(() => {
+              Alert.alert("Invalid Year", error, [{ text: "OK" }]);
+            }, 100);
+          }
+          const parsedYear = parseInt(value.replace(/[^0-9]/g, ''));
+          newData[key] = isNaN(parsedYear) ? '' : parsedYear.toString();
+        }
+        
+        else if (key === "price") {
+          const error = validateNumericInput(value, "Price", 1, 10000000);
+          if (error && value) {
+            setTimeout(() => {
+              Alert.alert("Invalid Price", error, [{ text: "OK" }]);
+            }, 100);
+          }
+          const parsedPrice = parseInt(value.replace(/[^0-9]/g, ''));
+          newData[key] = isNaN(parsedPrice) ? '' : parsedPrice.toString();
+        }
+        
+        else if (key === "mileage") {
+          const error = validateNumericInput(value, "Mileage", 0, 1000000);
+          if (error && value) {
+            setTimeout(() => {
+              Alert.alert("Invalid Mileage", error, [{ text: "OK" }]);
+            }, 100);
+          }
+          const parsedMileage = parseInt(value.replace(/[^0-9]/g, ''));
+          newData[key] = isNaN(parsedMileage) ? 0 : parsedMileage;
+        }
+        
+        else if (key === "bought_price") {
+          if (value && value.trim() !== '') {
+            const error = validateNumericInput(value, "Purchase Price", 0, 10000000);
+            if (error) {
+              setTimeout(() => {
+                Alert.alert("Invalid Purchase Price", error, [{ text: "OK" }]);
+              }, 100);
+            }
+            const parsedPrice = parseInt(value.replace(/[^0-9]/g, ''));
+            newData[key] = isNaN(parsedPrice) ? '' : parsedPrice.toString();
+          } else {
+            newData[key] = value;
+          }
+        }
 
-
-// Use this instead of direct setModalImages calls
+        return newData;
+      });
+      setHasChanges(true);
+    },
+    []
+  );
 
   // Fetch dealership and car data if editing
   useEffect(() => {
@@ -698,14 +877,23 @@ export default function AddEditListing() {
             date_bought: carData.date_bought
               ? new Date(carData.date_bought)
               : new Date(),
-              features: carData.features || [],
+            features: carData.features || [],
           });
 
           setModalImages(carData.images || []);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-        Alert.alert("Error", "Failed to load data");
+        const friendlyMessage = getErrorMessage(error, 'fetch');
+        
+        Alert.alert(
+          "Couldn't Load Data",
+          friendlyMessage,
+          [
+            { text: "Retry", onPress: () => fetchData() },
+            { text: "Go Back", onPress: () => router.back() }
+          ]
+        );
       } finally {
         setIsLoading(false);
       }
@@ -714,480 +902,394 @@ export default function AddEditListing() {
     fetchData();
   }, [params.dealershipId, params.listingId]);
 
-  const handleInputChange = useCallback(
-    (key: string, value: any, customValue?: any) => {
-      setFormData((prev: any) => {
-        const newData = { ...prev, [key]: value };
-        if (key === "make" && !value) {
-          newData.model = null;
-        }
-        if (key === "color" && value === "Other" && customValue) {
-          newData.color = customValue;
-        }
-
-        if (key === "mileage") {
-          const parsedMileage = parseInt(value);
-          newData[key] = isNaN(parsedMileage) ? 0 : parsedMileage;
-        }
-        return newData;
-      });
-      setHasChanges(true);
-    },
-    []
-  );
-/**
- * Processes and optimizes images with precise dimension control while preserving aspect ratio
- *
- * @param uri Source image URI
- * @returns Processed image URI or original URI on failure
- */
-const processImage = async (uri: string): Promise<string> => {
-  if (!uri) {
-    console.warn("processImage: No URI provided.");
-    return "";
-  }
-
-  try {
-    // Step 1: Get file information and analyze source characteristics
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) throw new Error("File does not exist");
-
-    console.log(`Original file size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)}MB`);
-
-    // Step 2: Detect iOS photos (typically larger with more metadata)
-    const isLikelyiOSPhoto =
-      uri.includes('HEIC') ||
-      uri.includes('IMG_') ||
-      uri.includes('DCIM') ||
-      uri.endsWith('.HEIC') ||
-      uri.endsWith('.heic') ||
-      fileInfo.size > 3 * 1024 * 1024;
-
-    // Step 3: Get original image dimensions
-    const imageMeta = await ImageManipulator.manipulateAsync(uri, []);
-    const originalWidth = imageMeta.width;
-    const originalHeight = imageMeta.height;
-
-    if (!originalWidth || !originalHeight) {
-      throw new Error("Unable to determine original image dimensions");
+  /**
+   * Processes and optimizes images with precise dimension control while preserving aspect ratio
+   */
+  const processImage = async (uri: string): Promise<string> => {
+    if (!uri) {
+      console.warn("processImage: No URI provided.");
+      return "";
     }
-
-    console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
-
-    // Step 4: Calculate target dimensions while preserving aspect ratio
-    const MAX_WIDTH = 1280;
-    const MAX_HEIGHT = 1280;
-    const aspectRatio = originalWidth / originalHeight;
-
-    let targetWidth = originalWidth;
-    let targetHeight = originalHeight;
-
-    if (originalWidth > MAX_WIDTH || originalHeight > MAX_HEIGHT) {
-      if (aspectRatio > 1) {
-        // Landscape orientation
-        targetWidth = MAX_WIDTH;
-        targetHeight = Math.round(MAX_WIDTH / aspectRatio);
-      } else {
-        // Portrait orientation
-        targetHeight = MAX_HEIGHT;
-        targetWidth = Math.round(MAX_HEIGHT * aspectRatio);
-      }
-    }
-
-    console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
-
-    // Step 5: Determine optimal compression level based on file size
-    let compressionLevel = 0.7; // Default compression
-
-    if (fileInfo.size > 10 * 1024 * 1024) {
-      compressionLevel = 0.5; // Aggressive compression for very large images
-    } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
-      compressionLevel = 0.6; // Stronger compression for large images and iOS photos
-    }
-
-    // Step 6: First-pass optimization with exact dimension control
-    const firstPass = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: targetWidth, height: targetHeight } }],
-      {
-        compress: compressionLevel,
-        format: ImageManipulator.SaveFormat.JPEG,
-        exif: false // Remove EXIF data to normalize orientation and reduce size
-      }
-    );
-
-    if (!firstPass.uri) {
-      throw new Error("First-pass image processing failed: no URI returned");
-    }
-
-    // Step 7: For iOS photos, apply second-pass to normalize format issues
-    let finalResult = firstPass;
-
-    if (isLikelyiOSPhoto) {
-      try {
-        console.log("Applying second-pass optimization for iOS photo");
-        finalResult = await ImageManipulator.manipulateAsync(
-          firstPass.uri,
-          [], // No transformations, just re-encode
-          {
-            compress: compressionLevel,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: false
-          }
-        );
-
-        if (!finalResult.uri) {
-          console.warn("Second-pass processing failed, using first-pass result");
-          finalResult = firstPass; // Fallback to first pass
-        }
-      } catch (secondPassError) {
-        console.warn("Error in second-pass processing:", secondPassError);
-        finalResult = firstPass; // Fallback to first pass
-      }
-    }
-
-    // Step 8: Verify final file size and report compression metrics
-    const processedInfo = await FileSystem.getInfoAsync(finalResult.uri);
-    if (processedInfo.exists && processedInfo.size) {
-      console.log(`Processed image size: ${(processedInfo.size / (1024 * 1024)).toFixed(2)}MB`);
-
-      // Calculate and log compression ratio
-      if (fileInfo.size) {
-        const ratio = (processedInfo.size / fileInfo.size * 100).toFixed(1);
-        console.log(`Compression ratio: ${ratio}% of original`);
-      }
-    }
-
-    return finalResult.uri;
-  } catch (error) {
-    console.error('processImage error:', error);
-    // Return original URI as fallback
-    return uri;
-  }
-};
-
-
-/**
- * CORRECTED: Handles batch uploading of multiple images with cross-platform compatibility
- * 
- * CRITICAL FIXES:
- * 1. Removed faulty Android direct upload approach
- * 2. Implemented proper file reading for both platforms
- * 3. Added comprehensive error handling and validation
- * 4. Optimized memory management for large images
- *
- * @param assets Array of image assets to upload
- * @returns Promise that resolves when all uploads complete
- */
-const handleMultipleImageUpload = useCallback(
-  async (assets: any[]) => {
-    if (!dealership?.id) {
-      console.error("No dealership ID available for upload");
-      return;
-    }
-
-    if (!assets?.length) {
-      console.warn("No assets provided for upload");
-      return;
-    }
-
-    setIsUploading(true);
 
     try {
-      // STEP 1: Configure batch processing parameters with platform optimization
-      const batchSize = Platform.OS === 'android' ? 2 : 3;
-      console.log(`Processing ${assets.length} images in batches of ${batchSize}`);
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) throw new Error("File does not exist");
 
-      const results = [];
-      let progressCounter = 0;
-      const totalImages = assets.length;
+      console.log(`Original file size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)}MB`);
 
-      // STEP 2: Process images in batches to prevent memory issues
-      for (let i = 0; i < assets.length; i += batchSize) {
-        const batchNumber = Math.floor(i/batchSize) + 1;
-        const totalBatches = Math.ceil(assets.length/batchSize);
-        console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
+      const isLikelyiOSPhoto =
+        uri.includes('HEIC') ||
+        uri.includes('IMG_') ||
+        uri.includes('DCIM') ||
+        uri.endsWith('.HEIC') ||
+        uri.endsWith('.heic') ||
+        fileInfo.size > 3 * 1024 * 1024;
 
-        const batch = assets.slice(i, i + batchSize);
+      const imageMeta = await ImageManipulator.manipulateAsync(uri, []);
+      const originalWidth = imageMeta.width;
+      const originalHeight = imageMeta.height;
 
-        // STEP 3: Process all images in current batch concurrently
-        const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
-          const index = i + batchIndex;
-          const imageNumber = index + 1;
+      if (!originalWidth || !originalHeight) {
+        throw new Error("Unable to determine original image dimensions");
+      }
 
-          try {
-            // STEP 3.1: Process and optimize image
-            console.log(`Processing image ${imageNumber}/${totalImages}`);
-            const processedUri = await processImage(asset.uri);
+      console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
 
-            if (!processedUri) {
-              console.error(`Failed to process image ${imageNumber}`);
-              return null;
-            }
+      const MAX_WIDTH = 1280;
+      const MAX_HEIGHT = 1280;
+      const aspectRatio = originalWidth / originalHeight;
 
-            // STEP 3.2: Validate processed file exists
-            const processedFileInfo = await FileSystem.getInfoAsync(processedUri);
-            if (!processedFileInfo.exists || !processedFileInfo.size) {
-              console.error(`Processed file invalid for image ${imageNumber}`);
-              return null;
-            }
+      let targetWidth = originalWidth;
+      let targetHeight = originalHeight;
 
-            console.log(`Processed file size: ${(processedFileInfo.size / (1024 * 1024)).toFixed(2)}MB`);
-
-            // STEP 3.3: Generate unique filename with high entropy
-            const timestamp = Date.now();
-            const randomId = Math.floor(Math.random() * 1000000);
-            const fileName = `${timestamp}_${randomId}_${index}.jpg`;
-            const filePath = `${dealership.id}/${fileName}`;
-
-            // STEP 3.4: CORRECTED UPLOAD LOGIC - Unified approach for both platforms
-            console.log(`Uploading image ${imageNumber}/${totalImages}`);
-
-            // CRITICAL FIX: Always read file content as base64 for reliable uploads
-            const base64Content = await FileSystem.readAsStringAsync(processedUri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-
-            if (!base64Content || base64Content.length === 0) {
-              throw new Error(`Empty file content for image ${imageNumber}`);
-            }
-
-            // Convert base64 to Buffer for Supabase upload
-            const fileBuffer = Buffer.from(base64Content, "base64");
-
-            // Upload configuration
-            const uploadOptions = {
-              contentType: "image/jpeg",
-              cacheControl: "3600", // 1 hour cache
-              upsert: false // Prevent accidental overwrites
-            };
-
-            // Execute upload with timeout protection
-            const uploadPromise = supabase.storage
-              .from("cars")
-              .upload(filePath, fileBuffer, uploadOptions);
-
-            // Add timeout protection for upload operation
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error(`Upload timeout for image ${imageNumber}`)), 30000)
-            );
-
-            const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as any;
-
-            if (uploadError) {
-              throw new Error(`Upload failed for image ${imageNumber}: ${uploadError.message}`);
-            }
-
-            // STEP 3.5: Retrieve and validate public URL
-            const { data: publicURLData } = supabase.storage
-              .from("cars")
-              .getPublicUrl(filePath);
-
-            if (!publicURLData?.publicUrl) {
-              throw new Error(`Failed to retrieve public URL for image ${imageNumber}`);
-            }
-
-            // STEP 3.6: Validate uploaded file accessibility
-            try {
-              // Quick validation: attempt to fetch headers to ensure file is accessible
-              const response = await fetch(publicURLData.publicUrl, { method: 'HEAD' });
-              if (!response.ok) {
-                throw new Error(`Uploaded file not accessible: ${response.status}`);
-              }
-            } catch (validationError) {
-              console.warn(`File accessibility validation failed for image ${imageNumber}:`, validationError);
-              // Continue anyway as this might be a temporary network issue
-            }
-
-            // STEP 3.7: Update progress counter
-            progressCounter++;
-            console.log(`Upload progress: ${progressCounter}/${totalImages} - URL: ${publicURLData.publicUrl}`);
-
-            return publicURLData.publicUrl;
-
-          } catch (error) {
-            console.error(`Error uploading image ${imageNumber}/${totalImages}:`, error);
-            
-            // Enhanced error logging for debugging
-            if (error instanceof Error) {
-              console.error(`Error details: ${error.message}`);
-              console.error(`Error stack: ${error.stack}`);
-            }
-            
-            return null;
-          }
-        });
-
-        // STEP 4: Wait for all images in current batch to complete
-        const batchResults = await Promise.all(batchPromises);
-        results.push(...batchResults);
-
-        // STEP 5: Memory management - pause between batches
-        if (i + batchSize < assets.length) {
-          const pauseDuration = Platform.OS === 'android' ? 500 : 200;
-          console.log(`Pausing ${pauseDuration}ms between batches for memory management`);
-          await new Promise(resolve => setTimeout(resolve, pauseDuration));
+      if (originalWidth > MAX_WIDTH || originalHeight > MAX_HEIGHT) {
+        if (aspectRatio > 1) {
+          targetWidth = MAX_WIDTH;
+          targetHeight = Math.round(MAX_WIDTH / aspectRatio);
+        } else {
+          targetHeight = MAX_HEIGHT;
+          targetWidth = Math.round(MAX_HEIGHT * aspectRatio);
         }
       }
 
-      // STEP 6: Process and validate results
-      const successfulUploads = results.filter(url => url !== null);
+      console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
 
-      if (successfulUploads.length === 0) {
-        throw new Error("No images were successfully uploaded");
+      let compressionLevel = 0.7;
+
+      if (fileInfo.size > 10 * 1024 * 1024) {
+        compressionLevel = 0.5;
+      } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
+        compressionLevel = 0.6;
       }
 
-      if (successfulUploads.length < totalImages) {
-        const failedCount = totalImages - successfulUploads.length;
-        console.warn(`Upload completed with ${failedCount} failures out of ${totalImages} total images`);
+      const firstPass = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: targetWidth, height: targetHeight } }],
+        {
+          compress: compressionLevel,
+          format: ImageManipulator.SaveFormat.JPEG,
+          exif: false
+        }
+      );
+
+      if (!firstPass.uri) {
+        throw new Error("First-pass image processing failed: no URI returned");
+      }
+
+      let finalResult = firstPass;
+
+      if (isLikelyiOSPhoto) {
+        try {
+          console.log("Applying second-pass optimization for iOS photo");
+          finalResult = await ImageManipulator.manipulateAsync(
+            firstPass.uri,
+            [],
+            {
+              compress: compressionLevel,
+              format: ImageManipulator.SaveFormat.JPEG,
+              base64: false
+            }
+          );
+
+          if (!finalResult.uri) {
+            console.warn("Second-pass processing failed, using first-pass result");
+            finalResult = firstPass;
+          }
+        } catch (secondPassError) {
+          console.warn("Error in second-pass processing:", secondPassError);
+          finalResult = firstPass;
+        }
+      }
+
+      const processedInfo = await FileSystem.getInfoAsync(finalResult.uri);
+      if (processedInfo.exists && processedInfo.size) {
+        console.log(`Processed image size: ${(processedInfo.size / (1024 * 1024)).toFixed(2)}MB`);
+
+        if (fileInfo.size) {
+          const ratio = (processedInfo.size / fileInfo.size * 100).toFixed(1);
+          console.log(`Compression ratio: ${ratio}% of original`);
+        }
+      }
+
+      return finalResult.uri;
+    } catch (error) {
+      console.error('processImage error:', error);
+      return uri;
+    }
+  };
+
+  /**
+   * Enhanced batch uploading of multiple images with better error handling
+   */
+  const handleMultipleImageUpload = useCallback(
+    async (assets: any[]) => {
+      if (!dealership?.id) {
+        Alert.alert(
+          "Setup Issue",
+          "Your dealership information is not properly configured. Please contact support."
+        );
+        return;
+      }
+
+      if (!assets?.length) {
+        Alert.alert(
+          "No Images Selected",
+          "Please select at least one image to upload."
+        );
+        return;
+      }
+
+      setIsUploading(true);
+
+      try {
+        const batchSize = Platform.OS === 'android' ? 2 : 3;
+        console.log(`Processing ${assets.length} images in batches of ${batchSize}`);
+
+        const results = [];
+        let progressCounter = 0;
+        const totalImages = assets.length;
+
+        for (let i = 0; i < assets.length; i += batchSize) {
+          const batch = assets.slice(i, i + batchSize);
+
+          const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
+            const index = i + batchIndex;
+            const imageNumber = index + 1;
+
+            try {
+              console.log(`Processing image ${imageNumber}/${totalImages}`);
+              const processedUri = await processImage(asset.uri);
+
+              if (!processedUri) {
+                throw new Error(`Failed to process image ${imageNumber}`);
+              }
+
+              const processedFileInfo = await FileSystem.getInfoAsync(processedUri);
+              if (!processedFileInfo.exists || !processedFileInfo.size) {
+                throw new Error(`Processed file is invalid for image ${imageNumber}`);
+              }
+
+              const timestamp = Date.now();
+              const randomId = Math.floor(Math.random() * 1000000);
+              const fileName = `${timestamp}_${randomId}_${index}.jpg`;
+              const filePath = `${dealership.id}/${fileName}`;
+
+              console.log(`Uploading image ${imageNumber}/${totalImages}`);
+
+              const base64Content = await FileSystem.readAsStringAsync(processedUri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+
+              if (!base64Content || base64Content.length === 0) {
+                throw new Error(`Image ${imageNumber} appears to be empty or corrupted`);
+              }
+
+              const fileBuffer = Buffer.from(base64Content, "base64");
+
+              const uploadOptions = {
+                contentType: "image/jpeg",
+                cacheControl: "3600",
+                upsert: false
+              };
+
+              const uploadPromise = supabase.storage
+                .from("cars")
+                .upload(filePath, fileBuffer, uploadOptions);
+
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Upload timed out for image ${imageNumber}`)), 30000)
+              );
+
+              const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as any;
+
+              if (uploadError) {
+                throw new Error(`Upload failed for image ${imageNumber}: ${uploadError.message}`);
+              }
+
+              const { data: publicURLData } = supabase.storage
+                .from("cars")
+                .getPublicUrl(filePath);
+
+              if (!publicURLData?.publicUrl) {
+                throw new Error(`Failed to get URL for image ${imageNumber}`);
+              }
+
+              progressCounter++;
+              console.log(`Upload progress: ${progressCounter}/${totalImages}`);
+
+              return publicURLData.publicUrl;
+
+            } catch (error) {
+              console.error(`Error uploading image ${imageNumber}/${totalImages}:`, error);
+              return null;
+            }
+          });
+
+          const batchResults = await Promise.all(batchPromises);
+          results.push(...batchResults);
+
+          if (i + batchSize < assets.length) {
+            const pauseDuration = Platform.OS === 'android' ? 500 : 200;
+            await new Promise(resolve => setTimeout(resolve, pauseDuration));
+          }
+        }
+
+        const successfulUploads = results.filter(url => url !== null);
+
+        if (successfulUploads.length === 0) {
+          throw new Error("No images were successfully uploaded");
+        }
+
+        if (successfulUploads.length < totalImages) {
+          const failedCount = totalImages - successfulUploads.length;
+          
+          Alert.alert(
+            "Partial Upload Success",
+            `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${failedCount} images failed to upload. You can try uploading the failed images again.`,
+            [{ text: "Continue", style: "default" }]
+          );
+        }
+
+        setModalImages((prevImages: any) => [...successfulUploads, ...prevImages]);
+        setFormData((prevData: { images: any; }) => ({
+          ...prevData,
+          images: [...successfulUploads, ...(prevData.images || [])],
+        }));
+        setHasChanges(true);
+
+        return successfulUploads;
+
+      } catch (error) {
+        console.error('Critical error in batch upload process:', error);
+        const friendlyMessage = getErrorMessage(error, 'upload');
         
         Alert.alert(
-          "Partial Upload Success",
-          `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${failedCount} images failed to upload.`,
-          [{ text: "Continue", style: "default" }]
+          "Upload Failed",
+          friendlyMessage,
+          [{ text: "OK" }]
         );
+        return [];
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [dealership, processImage, setModalImages, setFormData, setHasChanges, setIsUploading]
+  );
+
+  /**
+   * Enhanced image selection with better error handling
+   */
+  const handleImagePick = useCallback(async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Needed",
+          "We need access to your photo library to add images to your listing. Please enable photo library access in your device settings.",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => {
+              // You might want to implement opening settings here
+            }}
+          ]
+        );
+        return;
       }
 
-      console.log(`Upload batch complete: ${successfulUploads.length}/${totalImages} images successful`);
-
-      // STEP 7: Update state with new images (prepend new images)
-      setModalImages((prevImages: any) => [...successfulUploads, ...prevImages]);
-      setFormData((prevData: { images: any; }) => ({
-        ...prevData,
-        images: [...successfulUploads, ...(prevData.images || [])],
-      }));
-      setHasChanges(true);
-
-      return successfulUploads;
-
-    } catch (error) {
-      console.error('Critical error in batch upload process:', error);
-      
-      Alert.alert(
-        "Upload Failed",
-        `Failed to upload images: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again with fewer or smaller images.`
-      );
-      return [];
-    } finally {
-      setIsUploading(false);
-    }
-  },
-  [dealership, processImage, setModalImages, setFormData, setHasChanges, setIsUploading]
-);
-
-/**
- * Handles image selection from device library with memory-efficient configuration
- */
-const handleImagePick = useCallback(async () => {
-  try {
-    // Step 1: Request and verify permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Sorry, we need camera roll permissions to make this work!"
-      );
-      return;
-    }
-
-    // Step 2: Enforce maximum image limit
-    const MAX_IMAGES = 10;
-    if (modalImages.length >= MAX_IMAGES) {
-      Alert.alert(
-        "Maximum Images",
-        `You can upload a maximum of ${MAX_IMAGES} images per listing.`
-      );
-      return;
-    }
-
-    // Step 3: Calculate available slots and platform-specific limits
-    const remainingSlots = MAX_IMAGES - modalImages.length;
-
-    // Set stricter limits for Android due to memory constraints
-    const maxSelection = Platform.OS === 'android'
-      ? Math.min(remainingSlots, 10)  // Max 3 at once for Android
-      : Math.min(remainingSlots, 10); // Max 5 at once for iOS
-
-    console.log(`Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`);
-
-    // Step 4: Launch image picker with optimized configuration
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: maxSelection > 1,
-      selectionLimit: maxSelection,
-      quality: Platform.OS === 'android' ? 0.7 : 0.8, // Lower initial quality on Android
-      exif: false,    // Skip EXIF data to reduce memory usage
-      base64: false,  // Skip base64 encoding in picker
-      allowsEditing: false, // Disable editing to prevent memory issues
-    });
-
-    // Step 5: Handle selection result
-    if (result.canceled || !result.assets || result.assets.length === 0) {
-      console.log('Image picker canceled or no assets selected');
-      return;
-    }
-
-    // Step 6: Pre-analyze selected images for potential issues
-    let totalSize = 0;
-    let largeImageCount = 0;
-    const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
-
-    for (const asset of result.assets) {
-      const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-      if (fileInfo.exists && fileInfo.size) {
-        totalSize += fileInfo.size;
-        if (fileInfo.size > LARGE_IMAGE_THRESHOLD) {
-          largeImageCount++;
-        }
+      const MAX_IMAGES = 10;
+      if (modalImages.length >= MAX_IMAGES) {
+        Alert.alert(
+          "Maximum Images Reached",
+          `You can add up to ${MAX_IMAGES} images per listing. Please remove some images first if you want to add new ones.`
+        );
+        return;
       }
-    }
 
-    console.log(`Selected ${result.assets.length} images, total size: ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
+      const remainingSlots = MAX_IMAGES - modalImages.length;
+      const maxSelection = Platform.OS === 'android'
+        ? Math.min(remainingSlots, 3)
+        : Math.min(remainingSlots, 5);
 
-    // Step 7: Warn about potential issues with very large images
-    if (totalSize > 25 * 1024 * 1024 || largeImageCount > 2) {
-      Alert.alert(
-        "Large Images Detected",
-        "Some selected images are very large, which may cause slower uploads. Images will be optimized automatically.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Proceed Anyway",
-            onPress: () => {
-              setIsUploading(true);
-              handleMultipleImageUpload(result.assets)
-                .finally(() => setIsUploading(false));
+      console.log(`Opening image picker for ${maxSelection} images`);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: maxSelection > 1,
+        selectionLimit: maxSelection,
+        quality: Platform.OS === 'android' ? 0.7 : 0.8,
+        exif: false,
+        base64: false,
+        allowsEditing: false,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      // Pre-analyze selected images
+      let totalSize = 0;
+      let largeImageCount = 0;
+      const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+
+      for (const asset of result.assets) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+          if (fileInfo.exists && fileInfo.size) {
+            totalSize += fileInfo.size;
+            if (fileInfo.size > LARGE_IMAGE_THRESHOLD) {
+              largeImageCount++;
             }
           }
-        ],
-        { cancelable: true }
-      );
-      return;
-    }
+        } catch (error) {
+          console.warn('Could not analyze image size:', error);
+        }
+      }
 
-    // Step 8: Standard upload flow for normal-sized images
-    setIsUploading(true);
-    try {
-      await handleMultipleImageUpload(result.assets);
+      if (totalSize > 25 * 1024 * 1024 || largeImageCount > 2) {
+        Alert.alert(
+          "Large Images Detected",
+          "Some of your selected images are very large, which may take longer to upload. We'll automatically optimize them for you, but the upload might take a while.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Continue",
+              onPress: () => {
+                setIsUploading(true);
+                handleMultipleImageUpload(result.assets)
+                  .finally(() => setIsUploading(false));
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      setIsUploading(true);
+      try {
+        await handleMultipleImageUpload(result.assets);
+      } catch (error) {
+        const friendlyMessage = getErrorMessage(error, 'upload');
+        Alert.alert(
+          "Upload Failed",
+          friendlyMessage,
+          [{ text: "OK" }]
+        );
+      } finally {
+        setIsUploading(false);
+      }
     } catch (error) {
-      console.error("Error uploading images:", error);
+      console.error("Error in image picker:", error);
+      const friendlyMessage = Platform.OS === 'android'
+        ? "Couldn't open image picker. Try restarting the app or selecting fewer images."
+        : "Couldn't open image picker. Please try again.";
+      
       Alert.alert(
-        "Upload Failed",
-        "Failed to upload images. Please try again with fewer or smaller images."
+        "Couldn't Access Photos",
+        friendlyMessage,
+        [{ text: "OK" }]
       );
-    } finally {
-      setIsUploading(false);
     }
-  } catch (error) {
-    console.error("Error in image picker:", error);
-    Alert.alert(
-      "Error",
-      Platform.OS === 'android'
-        ? "Failed to open image picker. Try selecting fewer images or restart the app."
-        : "Failed to open image picker. Please try again."
-    );
-  }
-}, [modalImages.length, handleMultipleImageUpload]);
+  }, [modalImages.length, handleMultipleImageUpload]);
 
   const handleImageRemove = useCallback(async (imageUrl: string) => {
     try {
@@ -1205,10 +1307,16 @@ const handleImagePick = useCallback(async () => {
         ...prev,
         images: prev.images?.filter((url: string) => url !== imageUrl) || [],
       }));
-      setHasChanges(true); // Mark changes as made
+      setHasChanges(true);
     } catch (error) {
       console.error("Error removing image:", error);
-      Alert.alert("Error", "Failed to remove image. Please try again.");
+      const friendlyMessage = getErrorMessage(error, 'delete');
+      
+      Alert.alert(
+        "Couldn't Remove Image",
+        friendlyMessage,
+        [{ text: "OK" }]
+      );
     }
   }, []);
 
@@ -1218,53 +1326,36 @@ const handleImagePick = useCallback(async () => {
       ...prev,
       images: newOrder,
     }));
-    setHasChanges(true); // Mark changes as made
+    setHasChanges(true);
   }, []);
-
-
 
   const handleDeleteConfirmation = useCallback(() => {
     if (!dealership || !isSubscriptionValid()) {
       Alert.alert(
-        "Subscription Error",
-        "Your subscription is not valid or has expired."
+        "Subscription Issue",
+        "Your subscription has expired or is invalid. Please renew to perform this action."
       );
       return;
     }
 
     Alert.alert(
       "Delete Listing",
-      "Are you sure you want to delete this listing? This action cannot be undone.",
+      "Are you sure you want to permanently delete this listing? This action cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           onPress: async () => {
             try {
-              if (
-                !initialData ||
-                !initialData.id ||
-                !dealership ||
-                !dealership.id
-              ) {
-                console.error("Missing data for deletion:", {
-                  initialData: !!initialData,
-                  listingId: initialData?.id,
-                  dealership: !!dealership,
-                  dealershipId: dealership?.id,
-                });
+              if (!initialData?.id || !dealership?.id) {
                 Alert.alert(
                   "Error",
-                  "Unable to delete: missing required information"
+                  "Cannot delete: missing required information. Please try again."
                 );
                 return;
               }
 
               setIsLoading(true);
-
-              console.log(
-                `Deleting listing ID ${initialData.id} from dealership ${dealership.id}`
-              );
 
               const { error } = await supabase
                 .from("cars")
@@ -1272,20 +1363,21 @@ const handleImagePick = useCallback(async () => {
                 .eq("id", initialData.id)
                 .eq("dealership_id", dealership.id);
 
-              if (error) {
-                console.error("Supabase deletion error:", error);
-                throw error;
-              }
+              if (error) throw error;
 
-              console.log("Deletion successful");
-              Alert.alert("Success", "Listing deleted successfully", [
-                { text: "OK", onPress: () => router.back() },
-              ]);
+              Alert.alert(
+                "Deleted Successfully", 
+                "The listing has been permanently removed.",
+                [{ text: "OK", onPress: () => router.back() }]
+              );
             } catch (error: any) {
               console.error("Error deleting listing:", error);
+              const friendlyMessage = getErrorMessage(error, 'delete');
+              
               Alert.alert(
-                "Error",
-                `Failed to delete listing. Please try again. (${error.message})`
+                "Couldn't Delete Listing",
+                friendlyMessage,
+                [{ text: "OK" }]
               );
             } finally {
               setIsLoading(false);
@@ -1297,333 +1389,345 @@ const handleImagePick = useCallback(async () => {
     );
   }, [initialData, dealership, isSubscriptionValid, router]);
 
-const handleMarkAsSold = useCallback(
-  async (soldData = soldInfo) => {
-    if (!initialData || !dealership || !isSubscriptionValid()) {
-      setShowSoldModal(false);
-      return;
-    }
+  const handleMarkAsSold = useCallback(
+    async (soldData = soldInfo) => {
+      if (!initialData || !dealership || !isSubscriptionValid()) {
+        setShowSoldModal(false);
+        return;
+      }
 
-    if (!soldData.price || !soldData.date || !soldData.buyer_name) {
-      Alert.alert(
-        "Validation Error",
-        "Please fill in all the required fields."
-      );
-      return;
-    }
+      // Validate sold data
+      const errors: string[] = [];
+      
+      if (!soldData.price || soldData.price.trim() === '') {
+        errors.push('Selling price is required');
+      } else {
+        const price = parseInt(soldData.price.replace(/[^0-9]/g, ''));
+        if (isNaN(price) || price <= 0) {
+          errors.push('Please enter a valid selling price');
+        }
+      }
 
-    try {
-      setIsLoading(true);
+      if (!soldData.buyer_name || soldData.buyer_name.trim() === '') {
+        errors.push('Buyer name is required');
+      } else if (soldData.buyer_name.length > 100) {
+        errors.push('Buyer name is too long');
+      }
 
-      const { error } = await supabase
-        .from("cars")
-        .update({
-          status: "sold",
-          sold_price: parseInt(soldData.price),
-          date_sold: soldData.date,
-          buyer_name: soldData.buyer_name,
-        })
-        .eq("id", initialData.id)
-        .eq("dealership_id", dealership.id);
+      if (!soldData.date) {
+        errors.push('Sale date is required');
+      }
 
-      if (error) throw error;
+      if (errors.length > 0) {
+        Alert.alert(
+          "Please Fix These Issues",
+          errors.join('\n• '),
+          [{ text: "OK" }]
+        );
+        return;
+      }
 
-      setShowSoldModal(false);
-      Alert.alert("Success", "Listing marked as sold successfully", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (error) {
-      console.error("Error marking as sold:", error);
-      Alert.alert("Error", "Failed to mark listing as sold. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  },
-  [initialData, dealership, isSubscriptionValid, soldInfo, router]
-);
+      try {
+        setIsLoading(true);
 
+        const { error } = await supabase
+          .from("cars")
+          .update({
+            status: "sold",
+            sold_price: parseInt(soldData.price.replace(/[^0-9]/g, '')),
+            date_sold: soldData.date,
+            buyer_name: soldData.buyer_name.trim(),
+          })
+          .eq("id", initialData.id)
+          .eq("dealership_id", dealership.id);
 
-const SoldModal = () => {
-  const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
-  const [localBuyerName, setLocalBuyerName] = useState(soldInfo.buyer_name || "");
-  const [localDate, setLocalDate] = useState(soldInfo.date || new Date().toISOString().split("T")[0]);
-  const [showInlinePicker, setShowInlinePicker] = useState(false);
+        if (error) throw error;
 
-  // Sync local state with soldInfo when modal opens
-  useEffect(() => {
-    if (showSoldModal) {
-      setLocalPrice(soldInfo.price || "");
-      setLocalBuyerName(soldInfo.buyer_name || "");
-      setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
-    }
-  }, [showSoldModal, soldInfo]);
+        setShowSoldModal(false);
+        Alert.alert(
+          "Sold! 🎉", 
+          "The listing has been successfully marked as sold.",
+          [{ text: "OK", onPress: () => router.back() }]
+        );
+      } catch (error) {
+        console.error("Error marking as sold:", error);
+        const friendlyMessage = getErrorMessage(error, 'sold');
+        
+        Alert.alert(
+          "Couldn't Mark as Sold",
+          friendlyMessage,
+          [{ text: "OK" }]
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [initialData, dealership, isSubscriptionValid, soldInfo, router]
+  );
 
-const handleDateChange = (event: any, selectedDate: { toISOString: () => string; }) => {
-  // Hide the picker first to prevent UI issues
-  setShowInlinePicker(false);
+  const SoldModal = () => {
+    const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
+    const [localBuyerName, setLocalBuyerName] = useState(soldInfo.buyer_name || "");
+    const [localDate, setLocalDate] = useState(soldInfo.date || new Date().toISOString().split("T")[0]);
+    const [showInlinePicker, setShowInlinePicker] = useState(false);
 
-  // Handle both Android and iOS patterns safely
-  // On Android, cancelled = undefined selectedDate
-  // On iOS, we get an event.type
-  if (selectedDate) {
-    try {
-      // Add safety checks before using date methods
-      setLocalDate(selectedDate.toISOString().split("T")[0]);
-    } catch (error) {
-      console.warn("Date formatting error:", error);
-      // Fallback to current date
-      setLocalDate(new Date().toISOString().split("T")[0]);
-    }
-  }
-};
+    useEffect(() => {
+      if (showSoldModal) {
+        setLocalPrice(soldInfo.price || "");
+        setLocalBuyerName(soldInfo.buyer_name || "");
+        setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
+      }
+    }, [showSoldModal, soldInfo]);
 
-  const handleConfirm = () => {
-    if (!localPrice || !localBuyerName || !localDate) {
-      Alert.alert("Validation Error", "Please fill in all the required fields.");
-      return;
-    }
-    // Pass local values directly to the mark-as-sold function
-    handleMarkAsSold({ price: localPrice, buyer_name: localBuyerName, date: localDate });
-  };
+    const handleDateChange = (event: any, selectedDate: { toISOString: () => string; }) => {
+      setShowInlinePicker(false);
 
-  return (
-    <Modal
-      visible={showSoldModal}
-      transparent={true}
-      animationType="slide"
-      statusBarTranslucent={true}
-      onRequestClose={() => setShowSoldModal(false)}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={{ flex: 1 }}>
-          <BlurView
-            intensity={isDarkMode ? 30 : 20}
-            tint={isDarkMode ? "dark" : "light"}
-            style={{
-              flex: 1,
-              justifyContent: "center",
-              alignItems: "center"
-            }}
-          >
-            <View
+      if (selectedDate) {
+        try {
+          setLocalDate(selectedDate.toISOString().split("T")[0]);
+        } catch (error) {
+          console.warn("Date formatting error:", error);
+          setLocalDate(new Date().toISOString().split("T")[0]);
+        }
+      }
+    };
+
+    const handleConfirm = () => {
+      if (!localPrice || !localBuyerName || !localDate) {
+        Alert.alert("Validation Error", "Please fill in all the required fields.");
+        return;
+      }
+      handleMarkAsSold({ price: localPrice, buyer_name: localBuyerName, date: localDate });
+    };
+
+    return (
+      <Modal
+        visible={showSoldModal}
+        transparent={true}
+        animationType="slide"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowSoldModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={{ flex: 1 }}>
+            <BlurView
+              intensity={isDarkMode ? 30 : 20}
+              tint={isDarkMode ? "dark" : "light"}
               style={{
-                width: "90%",
-                maxWidth: 400,
-                borderRadius: 24,
-                padding: 24,
-                backgroundColor: isDarkMode ? "#171717" : "#ffffff",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-         
-                shadowRadius: 10,
-                elevation: 5
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center"
               }}
             >
-              {/* Header */}
               <View
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 24
+                  width: "90%",
+                  maxWidth: 400,
+                  borderRadius: 24,
+                  padding: 24,
+                  backgroundColor: isDarkMode ? "#171717" : "#ffffff",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowRadius: 10,
+                  elevation: 5
                 }}
               >
-                <Text
+                <View
                   style={{
-                    fontSize: 20,
-                    fontWeight: "bold",
-                    color: isDarkMode ? "#ffffff" : "#000000"
-                  }}
-                >
-                  Mark as Sold
-                </Text>
-                <TouchableOpacity onPress={() => setShowSoldModal(false)}>
-                  <Ionicons
-                    name="close-circle"
-                    size={24}
-                    color={isDarkMode ? "#FFFFFF" : "#000000"}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Selling Price */}
-              <View style={{ marginBottom: 16 }}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 8,
-                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
-                  }}
-                >
-                  Selling Price
-                </Text>
-                <TextInput
-                  value={localPrice}
-                  onChangeText={setLocalPrice}
-                  placeholder="Enter selling price"
-                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                  keyboardType="numeric"
-                  style={{
-                    height: 50,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                    borderRadius: 12,
-                    color: isDarkMode ? "#ffffff" : "#000000",
-                    fontSize: 16
-                  }}
-                />
-              </View>
-
-              {/* Buyer Name */}
-              <View style={{ marginBottom: 16 }}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 8,
-                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
-                  }}
-                >
-                  Buyer Name
-                </Text>
-                <TextInput
-                  value={localBuyerName}
-                  onChangeText={setLocalBuyerName}
-                  placeholder="Enter buyer name"
-                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                  style={{
-                    height: 50,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                    borderRadius: 12,
-                    color: isDarkMode ? "#ffffff" : "#000000",
-                    fontSize: 16
-                  }}
-                />
-              </View>
-
-              {/* Sale Date */}
-              <View style={{ marginBottom: 24 }}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 8,
-                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
-                  }}
-                >
-                  Sale Date
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowInlinePicker(true)}
-                  style={{
-                    height: 50,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                    borderRadius: 12
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 24
                   }}
                 >
                   <Text
                     style={{
-                      color: localDate
-                        ? isDarkMode
-                          ? "#ffffff"
-                          : "#000000"
-                        : isDarkMode
-                        ? "#9CA3AF"
-                        : "#6B7280",
+                      fontSize: 20,
+                      fontWeight: "bold",
+                      color: isDarkMode ? "#ffffff" : "#000000"
+                    }}
+                  >
+                    Mark as Sold
+                  </Text>
+                  <TouchableOpacity onPress={() => setShowSoldModal(false)}>
+                    <Ionicons
+                      name="close-circle"
+                      size={24}
+                      color={isDarkMode ? "#FFFFFF" : "#000000"}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ marginBottom: 16 }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "500",
+                      marginBottom: 8,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563"
+                    }}
+                  >
+                    Selling Price
+                  </Text>
+                  <TextInput
+                    value={localPrice}
+                    onChangeText={setLocalPrice}
+                    placeholder="Enter selling price"
+                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    keyboardType="numeric"
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                      borderRadius: 12,
+                      color: isDarkMode ? "#ffffff" : "#000000",
                       fontSize: 16
                     }}
-                  >
-                    {localDate || "Select date"}
-                  </Text>
-                </TouchableOpacity>
-                {showInlinePicker && (
-                  <DateTimePicker
-                    value={localDate ? new Date(localDate) : new Date()}
-                    mode="date"
-                    display="inline"
-                    onChange={handleDateChange}
-                    style={{ width: "100%" }}
                   />
-                )}
-              </View>
+                </View>
 
-              {/* Action Buttons */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginTop: 8
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => setShowSoldModal(false)}
-                  style={{
-                    flex: 1,
-                    marginRight: 8,
-                    height: 56,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
-                    borderRadius: 12
-                  }}
-                >
+                <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
+                      fontSize: 14,
+                      fontWeight: "500",
+                      marginBottom: 8,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563"
+                    }}
+                  >
+                    Buyer Name
+                  </Text>
+                  <TextInput
+                    value={localBuyerName}
+                    onChangeText={setLocalBuyerName}
+                    placeholder="Enter buyer name"
+                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                      borderRadius: 12,
                       color: isDarkMode ? "#ffffff" : "#000000",
-                      fontSize: 16,
-                      fontWeight: "600"
+                      fontSize: 16
                     }}
-                  >
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleConfirm}
-                  style={{
-                    flex: 1,
-                    marginLeft: 8,
-                    height: 56,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: "#16a34a",
-                    borderRadius: 12
-                  }}
-                >
+                  />
+                </View>
+
+                <View style={{ marginBottom: 24 }}>
                   <Text
                     style={{
-                      color: "#ffffff",
-                      fontSize: 16,
-                      fontWeight: "600"
+                      fontSize: 14,
+                      fontWeight: "500",
+                      marginBottom: 8,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563"
                     }}
                   >
-                    Confirm
+                    Sale Date
                   </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setShowInlinePicker(true)}
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                      borderRadius: 12
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: localDate
+                          ? isDarkMode
+                            ? "#ffffff"
+                            : "#000000"
+                          : isDarkMode
+                          ? "#9CA3AF"
+                          : "#6B7280",
+                        fontSize: 16
+                      }}
+                    >
+                      {localDate || "Select date"}
+                    </Text>
+                  </TouchableOpacity>
+                  {showInlinePicker && (
+                    <DateTimePicker
+                      value={localDate ? new Date(localDate) : new Date()}
+                      mode="date"
+                      display="inline"
+                      onChange={handleDateChange}
+                      style={{ width: "100%" }}
+                    />
+                  )}
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginTop: 8
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => setShowSoldModal(false)}
+                    style={{
+                      flex: 1,
+                      marginRight: 8,
+                      height: 56,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
+                      borderRadius: 12
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: isDarkMode ? "#ffffff" : "#000000",
+                        fontSize: 16,
+                        fontWeight: "600"
+                      }}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirm}
+                    style={{
+                      flex: 1,
+                      marginLeft: 8,
+                      height: 56,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "#16a34a",
+                      borderRadius: 12
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#ffffff",
+                        fontSize: 16,
+                        fontWeight: "600"
+                      }}
+                    >
+                      Confirm
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </BlurView>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
-
-
-
-
+            </BlurView>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -1644,22 +1748,22 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
           />
         </TouchableOpacity>
         <Text
-          className={`text-xl  font-bold ${
+          className={`text-xl font-bold ${
             isDarkMode ? "text-white" : "text-black"
           }`}
         >
           {initialData ? "Edit Vehicle" : "Add Vehicle"}
         </Text>
         {initialData && (
-  <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
-    <Ionicons
-      name="trash-bin-outline"
-      size={24}
-      color={isDarkMode ? "red" : "red"}
-    />
-  </TouchableOpacity>
-)}
- {!initialData && <View className="w-10 h-10"/>}
+          <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
+            <Ionicons
+              name="trash-bin-outline"
+              size={24}
+              color={isDarkMode ? "red" : "red"}
+            />
+          </TouchableOpacity>
+        )}
+        {!initialData && <View className="w-10 h-10"/>}
       </View>
 
       <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
@@ -1736,7 +1840,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
           </View>
         </View>
 
-
         <View className="mb-8">
           <SectionHeader
             title="Vehicle Color"
@@ -1781,7 +1884,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             ))}
           </ScrollView>
 
-
           <Text
             className={`text-sm font-medium mb-3 ${
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
@@ -1808,77 +1910,77 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         </View>
 
         <View className="mb-8">
-  <SectionHeader
-    title="Vehicle Source"
-    subtitle="Select where the vehicle was sourced from"
-    isDarkMode={isDarkMode}
-  />
+          <SectionHeader
+            title="Vehicle Source"
+            subtitle="Select where the vehicle was sourced from"
+            isDarkMode={isDarkMode}
+          />
 
-  <Text
-    className={`text-sm font-medium mb-3 ${
-      isDarkMode ? "text-neutral-300" : "text-neutral-700"
-    }`}
-  >
-    Source
-  </Text>
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    className="mb-6"
-  >
-    {SOURCE_OPTIONS.map((source) => (
-      <SelectionCard
-        key={source.value}
-        label={source.label}
-        icon={source.icon}
-        isSelected={formData.source === source.value}
-        onSelect={() => handleInputChange("source", source.value)}
-        isDarkMode={isDarkMode}
-      />
-    ))}
-  </ScrollView>
-</View>
-{/* Add this after the technical specifications section */}
-<View className="mb-8">
-  <SectionHeader
-    title="Vehicle Description"
-    subtitle="Add details about the vehicle's history and features"
-    isDarkMode={isDarkMode}
-  />
+          <Text
+            className={`text-sm font-medium mb-3 ${
+              isDarkMode ? "text-neutral-300" : "text-neutral-700"
+            }`}
+          >
+            Source
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mb-6"
+          >
+            {SOURCE_OPTIONS.map((source) => (
+              <SelectionCard
+                key={source.value}
+                label={source.label}
+                icon={source.icon}
+                isSelected={formData.source === source.value}
+                onSelect={() => handleInputChange("source", source.value)}
+                isDarkMode={isDarkMode}
+              />
+            ))}
+          </ScrollView>
+        </View>
 
-  <Text
-    className={`text-sm font-medium mb-2 ${
-      isDarkMode ? "text-neutral-300" : "text-neutral-700"
-    }`}
-  >
-    Description
-  </Text>
-  <View
-    className={`rounded-2xl overflow-hidden ${
-      isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
-    }`}
-  >
-    <BlurView
-      intensity={isDarkMode ? 20 : 40}
-      tint={isDarkMode ? "dark" : "light"}
-      className="p-4"
-    >
-      <TextInput
-        multiline
-        numberOfLines={6}
-        textAlignVertical="top"
-        value={formData.description}
-        onChangeText={(text) => handleInputChange("description", text)}
-        placeholder="Enter details about the vehicle, its history, features, etc."
-        placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-        className={`w-full text-base ${
-          isDarkMode ? "text-white" : "text-black"
-        }`}
-        style={{ height: 120 }}
-      />
-    </BlurView>
-  </View>
-</View>
+        <View className="mb-8">
+          <SectionHeader
+            title="Vehicle Description"
+            subtitle="Add details about the vehicle's history and features"
+            isDarkMode={isDarkMode}
+          />
+
+          <Text
+            className={`text-sm font-medium mb-2 ${
+              isDarkMode ? "text-neutral-300" : "text-neutral-700"
+            }`}
+          >
+            Description
+          </Text>
+          <View
+            className={`rounded-2xl overflow-hidden ${
+              isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
+            }`}
+          >
+            <BlurView
+              intensity={isDarkMode ? 20 : 40}
+              tint={isDarkMode ? "dark" : "light"}
+              className="p-4"
+            >
+              <TextInput
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+                value={formData.description}
+                onChangeText={(text) => handleInputChange("description", text)}
+                placeholder="Enter details about the vehicle, its history, features, etc."
+                placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                className={`w-full text-base ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
+                style={{ height: 120 }}
+              />
+            </BlurView>
+          </View>
+        </View>
 
         <View className="mb-8">
           <SectionHeader
@@ -1903,7 +2005,8 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             className={`text-sm font-medium mb-3 ${
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
-          >            Transmission
+          >
+            Transmission
           </Text>
           <View className="flex-row mb-6">
             {TRANSMISSIONS.map((trans) => (
@@ -1964,36 +2067,33 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         </View>
 
         <View className="mb-8">
-  <SectionHeader
-    title="Vehicle Features"
-    subtitle="Select additional features and options available in this vehicle"
-    isDarkMode={isDarkMode}
-  />
+          <SectionHeader
+            title="Vehicle Features"
+            subtitle="Select additional features and options available in this vehicle"
+            isDarkMode={isDarkMode}
+          />
 
-  <FeatureSelector
-    selectedFeatures={formData.features || []}
-    onFeatureToggle={(featureId:any) => {
-      setFormData((prev:any) => {
-        const currentFeatures = prev.features || [];
-        let updatedFeatures;
+          <FeatureSelector
+            selectedFeatures={formData.features || []}
+            onFeatureToggle={(featureId:any) => {
+              setFormData((prev:any) => {
+                const currentFeatures = prev.features || [];
+                let updatedFeatures;
 
-        if (currentFeatures.includes(featureId)) {
-          // Remove feature if already selected
-          updatedFeatures = currentFeatures.filter((id: any) => id !== featureId);
-        } else {
-          // Add feature if not selected
-          updatedFeatures = [...currentFeatures, featureId];
-        }
+                if (currentFeatures.includes(featureId)) {
+                  updatedFeatures = currentFeatures.filter((id: any) => id !== featureId);
+                } else {
+                  updatedFeatures = [...currentFeatures, featureId];
+                }
 
-        setHasChanges(true);
-        return { ...prev, features: updatedFeatures };
-      });
-    }}
-    isDarkMode={isDarkMode}
-  />
-</View>
+                setHasChanges(true);
+                return { ...prev, features: updatedFeatures };
+              });
+            }}
+            isDarkMode={isDarkMode}
+          />
+        </View>
 
-        {/* Purchase Information */}
         <View className="mb-8">
           <SectionHeader
             title="Purchase Information"
@@ -2014,7 +2114,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             isDarkMode={isDarkMode}
           />
 
-          {/* Date Picker Implementation */}
           <TouchableOpacity
             onPress={() => setShowDatePicker(true)}
             className="mb-6"
@@ -2046,65 +2145,64 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                 {formData.date_bought ? (
-  <Text
-    className={`ml-3 text-base ${
-      isDarkMode ? "text-white" : "text-black"
-    }`}
-  >
-    {(() => {
-      try {
-        const dateObj = new Date(formData.date_bought);
-        return !isNaN(dateObj.getTime())
-          ? format(dateObj, "PPP")
-          : "Select purchase date";
-      } catch (error) {
-        console.warn("Date display error:", error);
-        return "Select purchase date";
-      }
-    })()}
-  </Text>
-) : (
-  <Text
-    className={`ml-3 text-base ${
-      isDarkMode ? "text-neutral-400" : "text-neutral-500"
-    }`}
-  >
-    Select purchase date
-  </Text>
-)}
+                  {formData.date_bought ? (
+                    <Text
+                      className={`ml-3 text-base ${
+                        isDarkMode ? "text-white" : "text-black"
+                      }`}
+                    >
+                      {(() => {
+                        try {
+                          const dateObj = new Date(formData.date_bought);
+                          return !isNaN(dateObj.getTime())
+                            ? format(dateObj, "PPP")
+                            : "Select purchase date";
+                        } catch (error) {
+                          console.warn("Date display error:", error);
+                          return "Select purchase date";
+                        }
+                      })()}
+                    </Text>
+                  ) : (
+                    <Text
+                      className={`ml-3 text-base ${
+                        isDarkMode ? "text-neutral-400" : "text-neutral-500"
+                      }`}
+                    >
+                      Select purchase date
+                    </Text>
+                  )}
                 </Text>
               </BlurView>
             </View>
           </TouchableOpacity>
 
-        <DateTimePickerModal
-  isVisible={showDatePicker}
-  mode="date"
-  date={
-    formData.date_bought && !isNaN(new Date(formData.date_bought).getTime())
-      ? new Date(formData.date_bought)
-      : new Date()
-  }
-  onConfirm={(selectedDate) => {
-    try {
-      // Add safety check before calling toISOString
-      if (selectedDate && !isNaN(selectedDate.getTime())) {
-        handleInputChange("date_bought", selectedDate.toISOString());
-      } else {
-        handleInputChange("date_bought", new Date().toISOString());
-      }
-    } catch (error) {
-      console.warn("Date handling error:", error);
-      handleInputChange("date_bought", new Date().toISOString());
-    }
-    setShowDatePicker(false);
-  }}
-  onCancel={() => setShowDatePicker(false)}
-   isDarkModeEnabled={isDarkMode}
-  cancelButtonTestID="cancel-button"
-  confirmButtonTestID="confirm-button"
-/>
+          <DateTimePickerModal
+            isVisible={showDatePicker}
+            mode="date"
+            date={
+              formData.date_bought && !isNaN(new Date(formData.date_bought).getTime())
+                ? new Date(formData.date_bought)
+                : new Date()
+            }
+            onConfirm={(selectedDate) => {
+              try {
+                if (selectedDate && !isNaN(selectedDate.getTime())) {
+                  handleInputChange("date_bought", selectedDate.toISOString());
+                } else {
+                  handleInputChange("date_bought", new Date().toISOString());
+                }
+              } catch (error) {
+                console.warn("Date handling error:", error);
+                handleInputChange("date_bought", new Date().toISOString());
+              }
+              setShowDatePicker(false);
+            }}
+            onCancel={() => setShowDatePicker(false)}
+            isDarkModeEnabled={isDarkMode}
+            cancelButtonTestID="cancel-button"
+            confirmButtonTestID="confirm-button"
+          />
 
           <NeumorphicInput
             label="Bought From"
@@ -2117,13 +2215,12 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         </View>
       </ScrollView>
 
-       {/* Pinned Buttons - Conditional Rendering */}
-       <View
+      <View
         className={`p-4 -mb-2 ${
           isDarkMode ? "bg-black" : "bg-neutral-100"
         } border-t ${isDarkMode ? "border-neutral-800" : "border-neutral-200"}`}
       >
-        {initialData ? ( // Edit Mode Buttons
+        {initialData ? (
           <View className="flex-row justify-between">
             <TouchableOpacity
               onPress={() => (initialData?.status === 'available' ? setShowSoldModal(true) : null)}
@@ -2138,18 +2235,18 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             </TouchableOpacity>
 
             <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={!hasChanges}  // Disable if no changes
-                className={`flex-1 py-4 rounded-full items-center justify-center ml-2 ${
-                  hasChanges ? 'bg-red' : isDarkMode?'bg-neutral-900' :'bg-neutral-400' // Change color based on hasChanges
-                }`}
-              >
+              onPress={handleSubmit}
+              disabled={!hasChanges}
+              className={`flex-1 py-4 rounded-full items-center justify-center ml-2 ${
+                hasChanges ? 'bg-red' : isDarkMode?'bg-neutral-900' :'bg-neutral-400'
+              }`}
+            >
               <Text className={` ${
-                  hasChanges ? 'text-white' : isDarkMode?'text-neutral-600' :'text-neutral-100' // Change color based on hasChanges
+                  hasChanges ? 'text-white' : isDarkMode?'text-neutral-600' :'text-neutral-100'
                 } font-medium`}>Update</Text>
             </TouchableOpacity>
           </View>
-        ) : ( // Add Mode Button
+        ) : (
           <TouchableOpacity
             onPress={handleSubmit}
             className="w-full py-4 rounded-full bg-red items-center justify-center"
