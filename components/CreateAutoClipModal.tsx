@@ -35,7 +35,7 @@ import Animated, {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024
 const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime']
-const MAX_VIDEO_DURATION = 20 * 1000
+const MAX_VIDEO_DURATION = 25 * 1000
 
 // Utility function for haptic feedback
 const triggerHaptic = async (style = 'light') => {
@@ -269,16 +269,48 @@ const VideoPreview = React.memo(
 		videoRef
 	}) => {
 		const scale = useSharedValue(1)
+		const [previewError, setPreviewError] = useState<string | null>(null)
 
 		const handlePress = useCallback(() => {
-			scale.value = withSequence(withSpring(0.95), withSpring(1))
-			triggerHaptic()
-			onPress?.()
+			try {
+				scale.value = withSequence(withSpring(0.95), withSpring(1))
+				triggerHaptic()
+				onPress?.()
+			} catch (pressError) {
+				console.error('Video preview press error:', pressError)
+			}
 		}, [onPress])
+
+		const handleVideoError = useCallback((error: any) => {
+			console.error('Video preview error:', error)
+			setPreviewError('Preview unavailable')
+		}, [])
 
 		const animatedStyle = useAnimatedStyle(() => ({
 			transform: [{ scale: scale.value }]
 		}))
+
+		if (previewError) {
+			return (
+				<Animated.View style={animatedStyle}>
+					<BlurView
+						intensity={isDarkMode ? 20 : 40}
+						tint={isDarkMode ? 'dark' : 'light'}
+						className='rounded-2xl overflow-hidden'>
+						<View className='h-48 justify-center items-center bg-neutral-500/20'>
+							<MaterialCommunityIcons
+								name='video-off'
+								size={48}
+								color={isDarkMode ? '#666' : '#999'}
+							/>
+							<Text className={`mt-2 text-sm ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+								{previewError}
+							</Text>
+						</View>
+					</BlurView>
+				</Animated.View>
+			)
+		}
 
 		return (
 			<Animated.View style={animatedStyle}>
@@ -295,6 +327,9 @@ const VideoPreview = React.memo(
 							isLooping
 							onPlaybackStatusUpdate={onPlaybackStatusUpdate}
 							shouldPlay={isPlaying}
+							onError={handleVideoError}
+							useNativeControls={false}
+							isMuted={true} // Mute by default to prevent audio issues
 						/>
 
 						<LinearGradient
@@ -317,7 +352,7 @@ const VideoPreview = React.memo(
 const Guidelines = React.memo(({ isDarkMode }) => {
 	const guidelines = [
 		{ icon: 'file-video', text: 'Video must be less than 50MB' },
-		{ icon: 'clock-outline', text: 'Maximum duration: 20 seconds' },
+		{ icon: 'clock-outline', text: 'Maximum duration: 25 seconds' },
 		{ icon: 'file-document', text: 'Supported formats: MP4, MOV' },
 		{ icon: 'text', text: 'Title must be at least 3 characters' },
 		{
@@ -469,79 +504,210 @@ useEffect(() => {
 	const validateForm = useCallback(() => {
 		let isValid = true
 		const newState = { ...formState }
-
-		// Title validation
-		if (!formState.title.trim()) {
-			newState.titleError = 'Title is required'
-			isValid = false
-		} else if (formState.title.length < 3) {
-			newState.titleError = 'Title must be at least 3 characters'
-			isValid = false
-		} else {
-			newState.titleError = ''
-		}
-
-		// Description validation
-		if (formState.description && formState.description.length < 10) {
-			newState.descriptionError = 'Description must be at least 10 characters'
-			isValid = false
-		} else {
-			newState.descriptionError = ''
-		}
-
-		// Car selection validation
-		if (!formState.selectedCarId) {
-			newState.carError = 'Please select a car'
-			isValid = false
-		} else {
-			newState.carError = ''
-		}
-
-		// Video validation
-		if (!formState.video) {
-			newState.videoError = 'Please select a video'
-			isValid = false
-		}
-
-		setFormState(newState)
-		if (!isValid) triggerHaptic('heavy')
-		return isValid
-	}, [formState])
-
-	// Handle video selection
-	const handleVideoSelect = useCallback(async (videoAsset: VideoAsset) => {
+	
 		try {
+			// Title validation with enhanced checks
+			const trimmedTitle = formState.title?.trim() || ''
+			if (!trimmedTitle) {
+				newState.titleError = 'Title is required'
+				isValid = false
+			} else if (trimmedTitle.length < 3) {
+				newState.titleError = 'Title must be at least 3 characters'
+				isValid = false
+			} else if (trimmedTitle.length > 100) {
+				newState.titleError = 'Title must be less than 100 characters'
+				isValid = false
+			} else {
+				newState.titleError = ''
+			}
+	
+			// Description validation with enhanced checks
+			const trimmedDescription = formState.description?.trim() || ''
+			if (trimmedDescription && trimmedDescription.length > 0 && trimmedDescription.length < 10) {
+				newState.descriptionError = 'Description must be at least 10 characters if provided'
+				isValid = false
+			} else if (trimmedDescription.length > 500) {
+				newState.descriptionError = 'Description must be less than 500 characters'
+				isValid = false
+			} else {
+				newState.descriptionError = ''
+			}
+	
+			// Car selection validation
+			if (!formState.selectedCarId || formState.selectedCarId <= 0) {
+				newState.carError = 'Please select a car'
+				isValid = false
+			} else {
+				newState.carError = ''
+			}
+	
+			// Enhanced video validation
+			if (!formState.video) {
+				newState.videoError = 'Please select a video'
+				isValid = false
+			} else {
+				// Additional video validation
+				try {
+					if (!formState.video.uri || typeof formState.video.uri !== 'string') {
+						newState.videoError = 'Invalid video file'
+						isValid = false
+					} else if (formState.video.duration && formState.video.duration > MAX_VIDEO_DURATION) {
+						newState.videoError = `Video is too long (max ${MAX_VIDEO_DURATION / 1000}s)`
+						isValid = false
+					} else {
+						newState.videoError = null
+					}
+				} catch (videoValidationError) {
+					console.error('Video validation error:', videoValidationError)
+					newState.videoError = 'Video validation failed'
+					isValid = false
+				}
+			}
+	
+			setFormState(newState)
+			
+			if (!isValid) {
+				try {
+					triggerHaptic('heavy')
+				} catch (hapticError) {
+					console.warn('Validation haptic not available:', hapticError)
+				}
+			}
+	
+			return isValid
+		} catch (validationError) {
+			console.error('Form validation error:', validationError)
+			Alert.alert('Validation Error', 'Unable to validate form. Please try again.')
+			return false
+		}
+	}, [formState])
+	
+
+	const handleVideoSelect = useCallback(async (videoAsset: any) => {
+		try {
+			// Clear any existing video errors
 			setFormState(prev => ({ ...prev, videoError: null }))
-			triggerHaptic('medium')
-
-			// Validate video size
+			
+			// Trigger haptic feedback safely
+			try {
+				await triggerHaptic('medium')
+			} catch (hapticError) {
+				console.warn('Haptic feedback not available:', hapticError)
+			}
+	
+			// Enhanced validation with null checks
+			if (!videoAsset || !videoAsset.uri) {
+				throw new Error('Invalid video asset received')
+			}
+	
+			// Validate video size with better error handling
 			if (videoAsset.fileSize && videoAsset.fileSize > MAX_VIDEO_SIZE) {
-				throw new Error('Video size must be less than 50MB')
+				throw new Error(`Video size (${Math.round(videoAsset.fileSize / (1024 * 1024))}MB) must be less than ${Math.round(MAX_VIDEO_SIZE / (1024 * 1024))}MB`)
 			}
-
-			// Validate video type
-			const fileExtension = videoAsset.uri.split('.').pop()?.toLowerCase()
-			if (!fileExtension || !ALLOWED_VIDEO_TYPES.includes(fileExtension)) {
-				throw new Error('Invalid video format. Please use MP4 or MOV files')
+	
+			// Enhanced file extension validation
+			let fileExtension: string | undefined
+			try {
+				const uriParts = videoAsset.uri.split('.')
+				fileExtension = uriParts[uriParts.length - 1]?.toLowerCase()
+			} catch (extensionError) {
+				console.error('Error parsing file extension:', extensionError)
+				throw new Error('Could not determine video file format')
 			}
-
-			// Validate video duration
-			if (videoAsset.duration && videoAsset.duration > MAX_VIDEO_DURATION) {
-				throw new Error(
-					`Video duration must be ${MAX_VIDEO_DURATION} seconds or less`
-				)
+	
+			if (!fileExtension) {
+				throw new Error('Could not determine video file format')
 			}
-
-			setFormState(prev => ({ ...prev, video: videoAsset }))
-			triggerHaptic('light')
+	
+			// More comprehensive format validation
+			const allowedExtensions = ['mp4', 'mov', 'm4v']
+			if (!allowedExtensions.includes(fileExtension)) {
+				throw new Error(`Invalid video format (.${fileExtension}). Please use MP4 or MOV files`)
+			}
+	
+			// Enhanced duration validation with fallback handling
+			let videoDuration = videoAsset.duration || videoAsset.originalDuration || 0
+			
+			// Handle duration format inconsistencies across devices
+			if (videoDuration < 1000 && videoDuration > 0) {
+				// Some devices return duration in seconds, convert to milliseconds
+				videoDuration = videoDuration * 1000
+			}
+	
+			if (videoDuration > MAX_VIDEO_DURATION) {
+				const maxSeconds = Math.round(MAX_VIDEO_DURATION / 1000)
+				const actualSeconds = Math.round(videoDuration / 1000)
+				throw new Error(`Video duration (${actualSeconds}s) must be ${maxSeconds} seconds or less`)
+			}
+	
+			// Additional safety checks
+			try {
+				// Verify the URI is accessible (basic check)
+				if (!videoAsset.uri.startsWith('file://') && 
+					!videoAsset.uri.startsWith('content://') && 
+					!videoAsset.uri.startsWith('ph://')) {
+					console.warn('Unusual video URI format:', videoAsset.uri.substring(0, 50))
+				}
+	
+				// Create enhanced video asset with safer defaults
+				const enhancedVideoAsset = {
+					...videoAsset,
+					duration: videoDuration,
+					width: videoAsset.width || 1920,
+					height: videoAsset.height || 1080,
+					type: fileExtension === 'mov' ? 'video/quicktime' : 'video/mp4'
+				}
+	
+				// Update form state with enhanced asset
+				setFormState(prev => ({ 
+					...prev, 
+					video: enhancedVideoAsset,
+					videoError: null 
+				}))
+	
+				// Success haptic feedback
+				try {
+					await triggerHaptic('light')
+				} catch (hapticError) {
+					console.warn('Success haptic not available:', hapticError)
+				}
+	
+			} catch (processingError) {
+				console.error('Video processing error:', processingError)
+				throw new Error('Error processing selected video')
+			}
+	
 		} catch (error: any) {
-			setFormState(prev => ({
+			console.error('Video selection error:', error)
+			
+			// Enhanced error message handling
+			let errorMessage = 'Failed to select video'
+			if (error && typeof error.message === 'string') {
+				errorMessage = error.message
+			} else if (typeof error === 'string') {
+				errorMessage = error
+			}
+	
+			// Update form state with error
+			setFormState((prev:any) => ({
 				...prev,
 				video: null,
-				videoError: error.message
+				videoError: errorMessage
 			}))
-			triggerHaptic('heavy')
-			Alert.alert('Video Error', error.message)
+	
+			// Error haptic feedback
+			try {
+				await triggerHaptic('heavy')
+			} catch (hapticError) {
+				console.warn('Error haptic not available:', hapticError)
+			}
+	
+			// Show user-friendly error
+			Alert.alert(
+				'Video Selection Error', 
+				errorMessage,
+				[{ text: 'OK', style: 'default' }]
+			)
 		}
 	}, [])
 
