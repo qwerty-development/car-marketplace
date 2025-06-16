@@ -64,6 +64,11 @@
       }
     },
     "android": {
+        "splash": {
+    "image": "./assets/background-white.png",
+    "resizeMode": "cover",
+    "backgroundColor": "#ffffff"
+  },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
