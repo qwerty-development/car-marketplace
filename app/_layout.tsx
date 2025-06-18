@@ -757,14 +757,32 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  
+  // ENHANCED: Emergency splash timeout
+  const emergencySplashTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // REMOVED: curtainPosition is no longer needed for a fade animation.
-  // const curtainPosition = useRef(new Animated.Value(0)).current;
-
-  // This effect correctly handles routing only when auth is loaded.
+  // ENHANCED: Emergency splash timeout protection
   useEffect(() => {
-    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    // RULE: Force splash completion after 10 seconds maximum
+    emergencySplashTimeoutRef.current = setTimeout(() => {
+      console.warn('[RootLayoutNav] EMERGENCY: Forcing splash completion after 10 seconds');
+      if (!splashAnimationComplete) {
+        // RULE: Skip animation and show content immediately
+        contentOpacity.setValue(1);
+        setSplashAnimationComplete(true);
+      }
+    }, 10000);
+
+    return () => {
+      if (emergencySplashTimeoutRef.current) {
+        clearTimeout(emergencySplashTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ENHANCED: Auth routing with loading protection
+  useEffect(() => {
     if (!isLoaded || isSigningOut || isSigningIn) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
@@ -777,35 +795,59 @@ function RootLayoutNav() {
     }
   }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
-
-  // CHANGED: This function now handles a fade-in for the content.
+  // ENHANCED: Splash completion handler with error recovery
   const handleSplashComplete = useCallback(() => {
-    // This is called after your splash animation/video finishes.
-    // Now, we smoothly fade in the main app content.
-    Animated.timing(contentOpacity, {
-      toValue: 1,
-      duration: 400, // A gentle fade-in duration
-      useNativeDriver: true,
-    }).start(() => {
-      // After the content is fully visible, we can remove the splash component from the tree.
+    console.log('[RootLayoutNav] Splash completion initiated');
+    
+    // RULE: Clear emergency timeout since normal completion occurred
+    if (emergencySplashTimeoutRef.current) {
+      clearTimeout(emergencySplashTimeoutRef.current);
+      emergencySplashTimeoutRef.current = undefined;
+    }
+
+    // RULE: Fade in content with error recovery
+    try {
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start((finished) => {
+        if (finished) {
+          setSplashAnimationComplete(true);
+          console.log('[RootLayoutNav] Content fade-in completed successfully');
+        } else {
+          // RULE: Fallback for interrupted animation
+          console.warn('[RootLayoutNav] Animation interrupted, forcing completion');
+          contentOpacity.setValue(1);
+          setSplashAnimationComplete(true);
+        }
+      });
+    } catch (animationError) {
+      // RULE: Emergency fallback for animation errors
+      console.error('[RootLayoutNav] Animation error, forcing immediate display:', animationError);
+      contentOpacity.setValue(1);
       setSplashAnimationComplete(true);
-    });
+    }
   }, [contentOpacity]);
 
   return (
     <View style={{ flex: 1 }}>
-      {/* This View holds your main app content and will fade in */}
+      {/* ENHANCED: Content container with loading guard */}
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {/* Guard the Slot component until auth state is known */}
-        {isLoaded ? <Slot /> : null}
+        {/* RULE: Guard Slot component until auth state is known */}
+        {isLoaded ? <Slot /> : (
+          <View style={styles.loadingContainer}>
+            {/* OPTIONAL: Add loading indicator here if needed */}
+          </View>
+        )}
       </Animated.View>
 
-      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
-      {!splashAnimationComplete ? (
+      {/* ENHANCED: Splash screen with completion protection */}
+      {!splashAnimationComplete && (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-      ) : null}
+      )}
     </View>
   );
 }
@@ -815,6 +857,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000', // Match splash background
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   curtain: {
     ...StyleSheet.absoluteFillObject,
@@ -975,3 +1023,4 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
+
