@@ -1,6 +1,6 @@
-// components/CustomSplashScreen.tsx - ENHANCED WITH DEVICE COMPATIBILITY
+// components/CustomSplashScreen.tsx - CORRECTED WITH THEME-AWARE BACKGROUND
 import React, { useRef, useEffect, useState } from 'react';
-import { StyleSheet, Animated, Image, Platform, View } from 'react-native';
+import { StyleSheet, Animated, Platform, View, useColorScheme } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 
 interface SplashScreenProps {
@@ -9,10 +9,9 @@ interface SplashScreenProps {
 
 // DEVICE CAPABILITY DETECTION CONSTANTS
 const DEVICE_CAPABILITY_THRESHOLDS = {
-  LOW_END_MEMORY_MB: 2048, // 2GB RAM threshold
   TIMEOUT_VIDEO_LOAD: 3000, // 3 seconds max for video to start
   TIMEOUT_VIDEO_TOTAL: 8000, // 8 seconds max total video duration
-  FALLBACK_DISPLAY_DURATION: 2500, // 2.5 seconds for static fallback
+  FALLBACK_DISPLAY_DURATION: 2500, // 2.5 seconds for background fallback
 } as const;
 
 // ENHANCED SPLASH STATE MANAGEMENT
@@ -22,6 +21,10 @@ type VideoState = 'idle' | 'loading' | 'playing' | 'error' | 'completed';
 const CustomSplashScreen: React.FC<SplashScreenProps> = ({ 
   onAnimationComplete,
 }) => {
+  // THEME DETECTION
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+  
   // ANIMATION REFS
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
@@ -36,34 +39,26 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
   const fallbackTimeoutRef = useRef<NodeJS.Timeout>();
   const completionTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // DEVICE CAPABILITY DETECTION
-  const isLowEndDevice = useRef<boolean>(false);
+  // SIMPLIFIED DEVICE CAPABILITY DETECTION
+  const shouldUseVideoMode = useRef<boolean>(true);
 
   // METHOD: Initialize device capability detection
   useEffect(() => {
-    const detectDeviceCapability = async () => {
+    const detectDeviceCapability = () => {
       try {
-        // RULE: Assume low-end for older Android versions
-        if (Platform.OS === 'android' && Platform.Version < 26) {
-          isLowEndDevice.current = true;
-          console.log('[SplashScreen] Low-end device detected: Android API < 26');
-          return;
-        }
-
-        // RULE: Additional heuristics for low-end detection
-        // Note: In a real app, you might use react-native-device-info for more detailed detection
-        const isEmulator = __DEV__ && Platform.OS === 'android';
-        if (isEmulator) {
-          console.log('[SplashScreen] Emulator detected, using video mode');
-          isLowEndDevice.current = false;
+        // RULE: Use video mode by default, only fallback on actual errors
+        shouldUseVideoMode.current = true;
+        
+        // RULE: Only disable video for very old Android versions
+        if (Platform.OS === 'android' && Platform.Version < 21) {
+          shouldUseVideoMode.current = false;
+          console.log('[SplashScreen] Very old Android detected (API < 21), using background fallback');
         } else {
-          // RULE: Conservative approach for production
-          isLowEndDevice.current = Platform.OS === 'android';
-          console.log('[SplashScreen] Production Android detected, enabling fallback protection');
+          console.log('[SplashScreen] Device supports video mode');
         }
       } catch (error) {
-        console.warn('[SplashScreen] Device detection error, defaulting to fallback mode:', error);
-        isLowEndDevice.current = true;
+        console.warn('[SplashScreen] Device detection error, using video mode with fallback protection:', error);
+        shouldUseVideoMode.current = true;
       }
     };
 
@@ -111,14 +106,14 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
     });
   };
 
-  // METHOD: Handle fallback mode activation
-  const activateFallbackMode = (reason: string) => {
-    console.log(`[SplashScreen] Activating fallback mode: ${reason}`);
+  // METHOD: Handle fallback mode activation (now uses background instead of logo)
+  const activateBackgroundFallback = (reason: string) => {
+    console.log(`[SplashScreen] Activating background fallback: ${reason}`);
     setSplashMode('fallback');
     setVideoState('error');
     cleanupTimeouts();
 
-    // RULE: Display fallback for specified duration
+    // RULE: Display background fallback for specified duration
     fallbackTimeoutRef.current = setTimeout(() => {
       triggerCompletion();
     }, DEVICE_CAPABILITY_THRESHOLDS.FALLBACK_DISPLAY_DURATION);
@@ -136,14 +131,14 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
     }).start(() => {
       console.log('[SplashScreen] Fade-in complete, determining splash mode');
       
-      // RULE: Check if we should use fallback mode immediately
-      if (isLowEndDevice.current) {
-        console.log('[SplashScreen] Low-end device detected, using fallback mode');
-        activateFallbackMode('Low-end device detected');
+      // RULE: Check if we should use background fallback immediately (very rare cases)
+      if (!shouldUseVideoMode.current) {
+        console.log('[SplashScreen] Device does not support video, using background fallback');
+        activateBackgroundFallback('Device does not support video');
         return;
       }
 
-      // RULE: Attempt video mode for capable devices
+      // RULE: Attempt video mode for all capable devices
       console.log('[SplashScreen] Attempting video mode');
       setSplashMode('video');
       setVideoState('loading');
@@ -151,8 +146,8 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
       // TIMEOUT PROTECTION: Video load timeout
       videoLoadTimeoutRef.current = setTimeout(() => {
         if (videoState === 'loading') {
-          console.warn('[SplashScreen] Video load timeout, switching to fallback');
-          activateFallbackMode('Video load timeout');
+          console.warn('[SplashScreen] Video load timeout, switching to background fallback');
+          activateBackgroundFallback('Video load timeout');
         }
       }, DEVICE_CAPABILITY_THRESHOLDS.TIMEOUT_VIDEO_LOAD);
 
@@ -181,7 +176,7 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
       if (!status.isLoaded) {
         if ('error' in status && status.error) {
           console.error('[SplashScreen] Video loading error:', status.error);
-          activateFallbackMode(`Video error: ${status.error}`);
+          activateBackgroundFallback(`Video error: ${status.error}`);
         }
         return;
       }
@@ -206,15 +201,18 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
       }
     } catch (error) {
       console.error('[SplashScreen] Playback status handler error:', error);
-      activateFallbackMode(`Status handler error: ${error}`);
+      activateBackgroundFallback(`Status handler error: ${error}`);
     }
   };
 
   // METHOD: Handle video loading errors
   const onVideoError = (error: string) => {
     console.error('[SplashScreen] Video component error:', error);
-    activateFallbackMode(`Video component error: ${error}`);
+    activateBackgroundFallback(`Video component error: ${error}`);
   };
+
+  // COMPUTED: Dynamic background color based on theme
+  const backgroundColor = isDarkMode ? '#000000' : '#FFFFFF';
 
   // RENDER: Conditional splash content based on mode
   const renderSplashContent = () => {
@@ -240,19 +238,13 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
       case 'loading':
       default:
         return (
-          <View style={styles.fallbackContainer}>
-            <Image
-              source={require('../assets/images/logo.png')} // Use your app logo
-              style={styles.fallbackLogo}
-              resizeMode="contain"
-            />
-          </View>
+          <View style={[styles.backgroundContainer, { backgroundColor }]} />
         );
     }
   };
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View style={[styles.container, { backgroundColor, opacity: fadeAnim }]}>
       {renderSplashContent()}
     </Animated.View>
   );
@@ -261,18 +253,10 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
     zIndex: 1000,
   },
-  fallbackContainer: {
+  backgroundContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fallbackLogo: {
-    width: 120,
-    height: 120,
   },
 });
 
