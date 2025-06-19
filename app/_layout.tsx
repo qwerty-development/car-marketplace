@@ -1,4 +1,3 @@
-
 import React, {
   useState,
   useEffect,
@@ -749,9 +748,9 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
-
+// CRITICAL FIX: Enhanced RootLayoutNav with better coordination
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
+  const { isLoaded, isSignedIn, isSigningOut, isSigningIn, profile } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
@@ -761,6 +760,9 @@ function RootLayoutNav() {
   
   // ENHANCED: Emergency splash timeout
   const emergencySplashTimeoutRef = useRef<NodeJS.Timeout>();
+  // CRITICAL FIX: Navigation coordination
+  const navigationTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastNavigationRef = useRef<string>("");
 
   // ENHANCED: Emergency splash timeout protection
   useEffect(() => {
@@ -781,19 +783,58 @@ function RootLayoutNav() {
     };
   }, []);
 
-  // ENHANCED: Auth routing with loading protection
+  // CRITICAL FIX: Enhanced auth routing with profile-aware navigation
   useEffect(() => {
     if (!isLoaded || isSigningOut || isSigningIn) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = segments[0] === "(auth)";
 
-    if (isEffectivelySignedIn && inAuthGroup) {
-      router.replace("/(home)");
-    } else if (!isEffectivelySignedIn && !inAuthGroup) {
-      router.replace("/(auth)/sign-in");
+    // Clear any pending navigation
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
     }
-  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
+
+    if (isEffectivelySignedIn && inAuthGroup) {
+      // CRITICAL FIX: For authenticated users, wait for profile before navigating
+      if (isSignedIn && !isGuest && !profile) {
+        console.log('[RootLayoutNav] User signed in but profile not loaded, waiting...');
+        
+        // Wait for profile with timeout
+        navigationTimeoutRef.current = setTimeout(() => {
+          console.log('[RootLayoutNav] Profile timeout, navigating anyway');
+          const targetRoute = "/(home)";
+          if (lastNavigationRef.current !== targetRoute) {
+            lastNavigationRef.current = targetRoute;
+            router.replace(targetRoute);
+          }
+        }, 3000); // 3 second timeout for profile loading
+        
+        return;
+      }
+      
+      // Navigate to home immediately for guests or users with profiles
+      const targetRoute = "/(home)";
+      if (lastNavigationRef.current !== targetRoute) {
+        lastNavigationRef.current = targetRoute;
+        console.log('[RootLayoutNav] Navigating to home');
+        router.replace(targetRoute);
+      }
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
+      const targetRoute = "/(auth)/sign-in";
+      if (lastNavigationRef.current !== targetRoute) {
+        lastNavigationRef.current = targetRoute;
+        console.log('[RootLayoutNav] Navigating to sign-in');
+        router.replace(targetRoute);
+      }
+    }
+
+    return () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn, profile]);
 
   // ENHANCED: Splash completion handler with error recovery
   const handleSplashComplete = useCallback(() => {
@@ -1023,4 +1064,3 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
-
