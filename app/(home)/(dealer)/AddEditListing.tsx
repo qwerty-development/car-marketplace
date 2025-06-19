@@ -29,12 +29,12 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
 import { Buffer } from "buffer";
-import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImageManipulator from "expo-image-manipulator";
 import { useTheme } from "@/utils/ThemeContext";
 import { BlurView } from "expo-blur";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import ErrorBoundary from 'react-native-error-boundary';
+import ErrorBoundary from "react-native-error-boundary";
 import { format } from "date-fns";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -54,40 +54,40 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 const SOURCE_OPTIONS = [
-  { value: 'Company', label: 'Company Source', icon: 'office-building' },
-  { value: 'GCC', label: 'GCC', icon: 'map-marker' },
-  { value: 'USA', label: 'US', icon: 'flag' },
-  { value: 'Canada', label: 'Canada', icon: 'flag' },
-  { value: 'Europe', label: 'Europe', icon: 'earth' }
+  { value: "Company", label: "Company Source", icon: "office-building" },
+  { value: "GCC", label: "GCC", icon: "map-marker" },
+  { value: "USA", label: "US", icon: "flag" },
+  { value: "Canada", label: "Canada", icon: "flag" },
+  { value: "Europe", label: "Europe", icon: "earth" },
 ];
 const VEHICLE_FEATURES = [
-  { id: 'heated_seats', label: 'Heated Seats', icon: 'car-seat-heater' },
-  { id: 'keyless_entry', label: 'Keyless Entry', icon: 'key-wireless' },
-  { id: 'keyless_start', label: 'Keyless Start', icon: 'power' },
-  { id: 'power_mirrors', label: 'Power Mirrors', icon: 'car-side' },
-  { id: 'power_steering', label: 'Power Steering', icon: 'steering' },
-  { id: 'power_windows', label: 'Power Windows', icon: 'window-maximize' },
-  { id: 'backup_camera', label: 'Backup Camera', icon: 'camera' },
-  { id: 'bluetooth', label: 'Bluetooth', icon: 'bluetooth' },
-  { id: 'cruise_control', label: 'Cruise Control', icon: 'speedometer' },
-  { id: 'navigation', label: 'Navigation System', icon: 'map-marker' },
-  { id: 'sunroof', label: 'Sunroof', icon: 'weather-sunny' },
-  { id: 'leather_seats', label: 'Leather Seats', icon: 'car-seat' },
-  { id: 'third_row_seats', label: 'Third Row Seats', icon: 'seat-passenger' },
-  { id: 'parking_sensors', label: 'Parking Sensors', icon: 'parking' },
-  { id: 'lane_assist', label: 'Lane Departure Warning', icon: 'road-variant' },
-  { id: 'blind_spot', label: 'Blind Spot Monitoring', icon: 'eye-off' },
-  { id: 'apple_carplay', label: 'Apple CarPlay', icon: 'apple' },
-  { id: 'android_auto', label: 'Android Auto', icon: 'android' },
-  { id: 'premium_audio', label: 'Premium Audio', icon: 'speaker' },
-  { id: 'remote_start', label: 'Remote Start', icon: 'remote' },
+  { id: "heated_seats", label: "Heated Seats", icon: "car-seat-heater" },
+  { id: "keyless_entry", label: "Keyless Entry", icon: "key-wireless" },
+  { id: "keyless_start", label: "Keyless Start", icon: "power" },
+  { id: "power_mirrors", label: "Power Mirrors", icon: "car-side" },
+  { id: "power_steering", label: "Power Steering", icon: "steering" },
+  { id: "power_windows", label: "Power Windows", icon: "window-maximize" },
+  { id: "backup_camera", label: "Backup Camera", icon: "camera" },
+  { id: "bluetooth", label: "Bluetooth", icon: "bluetooth" },
+  { id: "cruise_control", label: "Cruise Control", icon: "speedometer" },
+  { id: "navigation", label: "Navigation System", icon: "map-marker" },
+  { id: "sunroof", label: "Sunroof", icon: "weather-sunny" },
+  { id: "leather_seats", label: "Leather Seats", icon: "car-seat" },
+  { id: "third_row_seats", label: "Third Row Seats", icon: "seat-passenger" },
+  { id: "parking_sensors", label: "Parking Sensors", icon: "parking" },
+  { id: "lane_assist", label: "Lane Departure Warning", icon: "road-variant" },
+  { id: "blind_spot", label: "Blind Spot Monitoring", icon: "eye-off" },
+  { id: "apple_carplay", label: "Apple CarPlay", icon: "apple" },
+  { id: "android_auto", label: "Android Auto", icon: "android" },
+  { id: "premium_audio", label: "Premium Audio", icon: "speaker" },
+  { id: "remote_start", label: "Remote Start", icon: "remote" },
 ];
 
 const FeatureSelector = memo(
   ({ selectedFeatures = [], onFeatureToggle, isDarkMode }: any) => {
     // State Management
     const [showAllFeatures, setShowAllFeatures] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState("");
     const [currentPage, setCurrentPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
@@ -126,38 +126,44 @@ const FeatureSelector = memo(
 
     // Render feature item component
     const FeatureItem = useCallback(
-      ({ feature, isSelected, onPress, size = 'normal' }: any) => (
+      ({ feature, isSelected, onPress, size = "normal" }: any) => (
         <TouchableOpacity
           onPress={onPress}
-          className={`${size === 'normal' ? 'mr-3' : ''} ${
-            isSelected ? 'scale-105' : ''
+          className={`${size === "normal" ? "mr-3" : ""} ${
+            isSelected ? "scale-105" : ""
           }`}
         >
           <BlurView
             intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? 'dark' : 'light'}
+            tint={isDarkMode ? "dark" : "light"}
             className={`rounded-2xl p-4 ${
-              size === 'normal'
-                ? 'w-[110px] h-[110px]'
-                : 'flex-row items-center p-4 mb-2'
+              size === "normal"
+                ? "w-[110px] h-[110px]"
+                : "flex-row items-center p-4 mb-2"
             } justify-between items-center`}
           >
             <View
               className={`${
-                size === 'normal' ? 'w-[40px] h-[40px]' : 'w-12 h-12'
+                size === "normal" ? "w-[40px] h-[40px]" : "w-12 h-12"
               } justify-center items-center mb-2`}
             >
               <MaterialCommunityIcons
                 name={feature.icon}
-                size={size === 'normal' ? 30 : 24}
-                color={isSelected ? '#D55004' : isDarkMode ? '#fff' : '#000'}
+                size={size === "normal" ? 30 : 24}
+                color={isSelected ? "#D55004" : isDarkMode ? "#fff" : "#000"}
               />
             </View>
             <Text
               className={`${
-                size === 'normal' ? 'text-center' : 'flex-1 ml-3'
+                size === "normal" ? "text-center" : "flex-1 ml-3"
               } text-sm font-medium
-              ${isSelected ? 'text-red' : isDarkMode ? 'text-white' : 'text-black'}`}
+              ${
+                isSelected
+                  ? "text-red"
+                  : isDarkMode
+                  ? "text-white"
+                  : "text-black"
+              }`}
               numberOfLines={2}
             >
               {feature.label}
@@ -165,7 +171,7 @@ const FeatureSelector = memo(
             {isSelected && (
               <View
                 className={`absolute top-2 right-2 bg-red rounded-full p-1 ${
-                  size === 'normal' ? '' : 'top-auto'
+                  size === "normal" ? "" : "top-auto"
                 }`}
               >
                 <Ionicons name="checkmark" size={12} color="white" />
@@ -183,12 +189,12 @@ const FeatureSelector = memo(
         <View className="flex-row items-center justify-between mb-4">
           <Text
             className={`text-lg font-bold ${
-              isDarkMode ? 'text-white' : 'text-black'
+              isDarkMode ? "text-white" : "text-black"
             }`}
           >
             {selectedFeatures.length > 0
               ? `${selectedFeatures.length} Selected Features`
-              : 'Select Features'}
+              : "Select Features"}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -205,8 +211,13 @@ const FeatureSelector = memo(
         {/* Selected Features Count Badge */}
         {selectedFeatures.length > 0 && (
           <View className="mb-3">
-            <Text className={`text-sm ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
-              {selectedFeatures.length} feature{selectedFeatures.length !== 1 ? 's' : ''} selected
+            <Text
+              className={`text-sm ${
+                isDarkMode ? "text-neutral-400" : "text-neutral-600"
+              }`}
+            >
+              {selectedFeatures.length} feature
+              {selectedFeatures.length !== 1 ? "s" : ""} selected
             </Text>
           </View>
         )}
@@ -237,17 +248,16 @@ const FeatureSelector = memo(
         >
           <BlurView
             intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? 'dark' : 'light'}
+            tint={isDarkMode ? "dark" : "light"}
             className="flex-1"
           >
             <TouchableOpacity
               className="flex-1"
-         
               onPress={() => setShowAllFeatures(false)}
             />
             <View
               className={`h-[85%] rounded-t-3xl ${
-                isDarkMode ? 'bg-black' : 'bg-white'
+                isDarkMode ? "bg-black" : "bg-white"
               }`}
             >
               <View className="p-4">
@@ -259,7 +269,7 @@ const FeatureSelector = memo(
                 <View className="flex-row justify-between items-center mb-4">
                   <Text
                     className={`text-xl font-bold ${
-                      isDarkMode ? 'text-white' : 'text-black'
+                      isDarkMode ? "text-white" : "text-black"
                     }`}
                   >
                     All Features ({filteredFeatures.length})
@@ -271,7 +281,7 @@ const FeatureSelector = memo(
                     <Ionicons
                       name="close"
                       size={24}
-                      color={isDarkMode ? 'white' : 'black'}
+                      color={isDarkMode ? "white" : "black"}
                     />
                   </TouchableOpacity>
                 </View>
@@ -283,16 +293,16 @@ const FeatureSelector = memo(
                   <FontAwesome
                     name="search"
                     size={20}
-                    color={isDarkMode ? 'white' : 'black'}
+                    color={isDarkMode ? "white" : "black"}
                   />
                   <TextInput
                     textAlignVertical="center"
                     className={`flex-1 px-3 h-full ${
-                      isDarkMode ? 'text-white' : 'text-black'
+                      isDarkMode ? "text-white" : "text-black"
                     }`}
-                    style={{ textAlignVertical: 'center' }}
+                    style={{ textAlignVertical: "center" }}
                     placeholder="Search features..."
-                    placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
+                    placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
                     value={searchQuery}
                     onChangeText={(text) => {
                       setSearchQuery(text);
@@ -302,14 +312,14 @@ const FeatureSelector = memo(
                   {searchQuery ? (
                     <TouchableOpacity
                       onPress={() => {
-                        setSearchQuery('');
+                        setSearchQuery("");
                         setCurrentPage(0);
                       }}
                     >
                       <Ionicons
                         name="close-circle"
                         size={20}
-                        color={isDarkMode ? 'white' : 'black'}
+                        color={isDarkMode ? "white" : "black"}
                       />
                     </TouchableOpacity>
                   ) : null}
@@ -319,15 +329,16 @@ const FeatureSelector = memo(
                 {selectedFeatures.length > 0 && (
                   <View
                     className={`mb-4 p-3 rounded-xl ${
-                      isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'
+                      isDarkMode ? "bg-neutral-800" : "bg-neutral-200"
                     }`}
                   >
                     <Text
                       className={`text-center ${
-                        isDarkMode ? 'text-white' : 'text-black'
+                        isDarkMode ? "text-white" : "text-black"
                       }`}
                     >
-                      {selectedFeatures.length} feature{selectedFeatures.length !== 1 ? 's' : ''} selected
+                      {selectedFeatures.length} feature
+                      {selectedFeatures.length !== 1 ? "s" : ""} selected
                     </Text>
                   </View>
                 )}
@@ -368,10 +379,6 @@ const FeatureSelector = memo(
   }
 );
 
-
-
-
-
 export default function AddEditListing() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
@@ -387,7 +394,7 @@ export default function AddEditListing() {
     bought_price: null,
     date_bought: new Date(),
     seller_name: null,
-    features:[]
+    features: [],
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -409,7 +416,7 @@ export default function AddEditListing() {
     return endDate >= now;
   }, [dealership]);
 
-    const validateFormData = (data: any) => {
+  const validateFormData = (data: any) => {
     const requiredFields = [
       "make",
       "model",
@@ -495,13 +502,17 @@ export default function AddEditListing() {
             drivetrain: allowedData.drivetrain,
             type: allowedData.type,
             category: allowedData.category,
-            bought_price: allowedData.bought_price? allowedData.bought_price:0,
+            bought_price: allowedData.bought_price
+              ? allowedData.bought_price
+              : 0,
             date_bought: allowedData.date_bought
               ? new Date(allowedData.date_bought).toISOString()
               : null,
-            seller_name: allowedData.seller_name ? allowedData.seller_name : "NA",
-              source: allowedData.source,
-               features: formData.features || [],
+            seller_name: allowedData.seller_name
+              ? allowedData.seller_name
+              : "NA",
+            source: allowedData.source,
+            features: formData.features || [],
             dealership_id: dealership.id,
           };
 
@@ -582,8 +593,8 @@ export default function AddEditListing() {
               : new Date().toISOString(),
             seller_name: allowedData.seller_name,
             dealership_id: dealership.id,
-             source: allowedData.source,
-              features: formData.features || [],
+            source: allowedData.source,
+            features: formData.features || [],
             status: "pending",
             views: 0,
             likes: 0,
@@ -626,46 +637,48 @@ export default function AddEditListing() {
     validateFormData,
   ]);
 
-
-
-
-
   const handleGoBack = useCallback(() => {
-    if (initialData) { // Editing
+    if (initialData) {
+      // Editing
       if (hasChanges) {
         Alert.alert(
           "Discard Changes?",
           "You have unsaved changes. Are you sure you want to leave?",
           [
             { text: "Cancel", style: "cancel" },
-            { text: "Discard", style: "destructive", onPress: () => router.back() },
-            { text: "Save", onPress: handleSubmit } // Keep Save option
+            {
+              text: "Discard",
+              style: "destructive",
+              onPress: () => router.back(),
+            },
+            { text: "Save", onPress: handleSubmit }, // Keep Save option
           ]
         );
       } else {
         router.back();
       }
-    } else { // Adding
+    } else {
+      // Adding
       if (hasChanges) {
-          Alert.alert(
-            "Discard Changes?",
-            "You have unsaved changes.  Do you want to discard them?",
-            [
-              { text: "Stay", style: "cancel" }, // Changed "Cancel" to "Stay"
-              { text: "Discard", style: "destructive", onPress: () => router.back() },
-            ]
-          );
+        Alert.alert(
+          "Discard Changes?",
+          "You have unsaved changes.  Do you want to discard them?",
+          [
+            { text: "Stay", style: "cancel" }, // Changed "Cancel" to "Stay"
+            {
+              text: "Discard",
+              style: "destructive",
+              onPress: () => router.back(),
+            },
+          ]
+        );
       } else {
-          router.back();
+        router.back();
       }
-
     }
   }, [hasChanges, router, handleSubmit, initialData]);
 
-
-
-
-// Use this instead of direct setModalImages calls
+  // Use this instead of direct setModalImages calls
 
   // Fetch dealership and car data if editing
   useEffect(() => {
@@ -698,7 +711,7 @@ export default function AddEditListing() {
             date_bought: carData.date_bought
               ? new Date(carData.date_bought)
               : new Date(),
-              features: carData.features || [],
+            features: carData.features || [],
           });
 
           setModalImages(carData.images || []);
@@ -735,459 +748,535 @@ export default function AddEditListing() {
     },
     []
   );
-/**
- * Processes and optimizes images with precise dimension control while preserving aspect ratio
- *
- * @param uri Source image URI
- * @returns Processed image URI or original URI on failure
- */
-const processImage = async (uri: string): Promise<string> => {
-  if (!uri) {
-    console.warn("processImage: No URI provided.");
-    return "";
-  }
-
-  try {
-    // Step 1: Get file information and analyze source characteristics
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) throw new Error("File does not exist");
-
-    console.log(`Original file size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)}MB`);
-
-    // Step 2: Detect iOS photos (typically larger with more metadata)
-    const isLikelyiOSPhoto =
-      uri.includes('HEIC') ||
-      uri.includes('IMG_') ||
-      uri.includes('DCIM') ||
-      uri.endsWith('.HEIC') ||
-      uri.endsWith('.heic') ||
-      fileInfo.size > 3 * 1024 * 1024;
-
-    // Step 3: Get original image dimensions
-    const imageMeta = await ImageManipulator.manipulateAsync(uri, []);
-    const originalWidth = imageMeta.width;
-    const originalHeight = imageMeta.height;
-
-    if (!originalWidth || !originalHeight) {
-      throw new Error("Unable to determine original image dimensions");
+  /**
+   * Processes and optimizes images with precise dimension control while preserving aspect ratio
+   *
+   * @param uri Source image URI
+   * @returns Processed image URI or original URI on failure
+   */
+  const processImage = async (uri: string): Promise<string> => {
+    if (!uri) {
+      console.warn("processImage: No URI provided.");
+      return "";
     }
 
-    console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
+    try {
+      // Step 1: Get file information and analyze source characteristics
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) throw new Error("File does not exist");
 
-    // Step 4: Calculate target dimensions while preserving aspect ratio
-    const MAX_WIDTH = 1280;
-    const MAX_HEIGHT = 1280;
-    const aspectRatio = originalWidth / originalHeight;
+      console.log(
+        `Original file size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)}MB`
+      );
 
-    let targetWidth = originalWidth;
-    let targetHeight = originalHeight;
+      // Step 2: Detect iOS photos (typically larger with more metadata)
+      const isLikelyiOSPhoto =
+        uri.includes("HEIC") ||
+        uri.includes("IMG_") ||
+        uri.includes("DCIM") ||
+        uri.endsWith(".HEIC") ||
+        uri.endsWith(".heic") ||
+        fileInfo.size > 3 * 1024 * 1024;
 
-    if (originalWidth > MAX_WIDTH || originalHeight > MAX_HEIGHT) {
-      if (aspectRatio > 1) {
-        // Landscape orientation
-        targetWidth = MAX_WIDTH;
-        targetHeight = Math.round(MAX_WIDTH / aspectRatio);
-      } else {
-        // Portrait orientation
-        targetHeight = MAX_HEIGHT;
-        targetWidth = Math.round(MAX_HEIGHT * aspectRatio);
+      // Step 3: Get original image dimensions
+      const imageMeta = await ImageManipulator.manipulateAsync(uri, []);
+      const originalWidth = imageMeta.width;
+      const originalHeight = imageMeta.height;
+
+      if (!originalWidth || !originalHeight) {
+        throw new Error("Unable to determine original image dimensions");
       }
-    }
 
-    console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
+      console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
 
-    // Step 5: Determine optimal compression level based on file size
-    let compressionLevel = 0.7; // Default compression
+      // Step 4: Calculate target dimensions while preserving aspect ratio
+      const MAX_WIDTH = 1280;
+      const MAX_HEIGHT = 1280;
+      const aspectRatio = originalWidth / originalHeight;
 
-    if (fileInfo.size > 10 * 1024 * 1024) {
-      compressionLevel = 0.5; // Aggressive compression for very large images
-    } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
-      compressionLevel = 0.6; // Stronger compression for large images and iOS photos
-    }
+      let targetWidth = originalWidth;
+      let targetHeight = originalHeight;
 
-    // Step 6: First-pass optimization with exact dimension control
-    const firstPass = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: targetWidth, height: targetHeight } }],
-      {
-        compress: compressionLevel,
-        format: ImageManipulator.SaveFormat.JPEG,
-        exif: false // Remove EXIF data to normalize orientation and reduce size
+      if (originalWidth > MAX_WIDTH || originalHeight > MAX_HEIGHT) {
+        if (aspectRatio > 1) {
+          // Landscape orientation
+          targetWidth = MAX_WIDTH;
+          targetHeight = Math.round(MAX_WIDTH / aspectRatio);
+        } else {
+          // Portrait orientation
+          targetHeight = MAX_HEIGHT;
+          targetWidth = Math.round(MAX_HEIGHT * aspectRatio);
+        }
       }
-    );
 
-    if (!firstPass.uri) {
-      throw new Error("First-pass image processing failed: no URI returned");
-    }
+      console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
 
-    // Step 7: For iOS photos, apply second-pass to normalize format issues
-    let finalResult = firstPass;
+      // Step 5: Determine optimal compression level based on file size
+      let compressionLevel = 0.7; // Default compression
 
-    if (isLikelyiOSPhoto) {
-      try {
-        console.log("Applying second-pass optimization for iOS photo");
-        finalResult = await ImageManipulator.manipulateAsync(
-          firstPass.uri,
-          [], // No transformations, just re-encode
-          {
-            compress: compressionLevel,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: false
+      if (fileInfo.size > 10 * 1024 * 1024) {
+        compressionLevel = 0.5; // Aggressive compression for very large images
+      } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
+        compressionLevel = 0.6; // Stronger compression for large images and iOS photos
+      }
+
+      // Step 6: First-pass optimization with exact dimension control
+      const firstPass = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: targetWidth, height: targetHeight } }],
+        {
+          compress: compressionLevel,
+          format: ImageManipulator.SaveFormat.JPEG,
+          exif: false, // Remove EXIF data to normalize orientation and reduce size
+        }
+      );
+
+      if (!firstPass.uri) {
+        throw new Error("First-pass image processing failed: no URI returned");
+      }
+
+      // Step 7: For iOS photos, apply second-pass to normalize format issues
+      let finalResult = firstPass;
+
+      if (isLikelyiOSPhoto) {
+        try {
+          console.log("Applying second-pass optimization for iOS photo");
+          finalResult = await ImageManipulator.manipulateAsync(
+            firstPass.uri,
+            [], // No transformations, just re-encode
+            {
+              compress: compressionLevel,
+              format: ImageManipulator.SaveFormat.JPEG,
+              base64: false,
+            }
+          );
+
+          if (!finalResult.uri) {
+            console.warn(
+              "Second-pass processing failed, using first-pass result"
+            );
+            finalResult = firstPass; // Fallback to first pass
           }
-        );
-
-        if (!finalResult.uri) {
-          console.warn("Second-pass processing failed, using first-pass result");
+        } catch (secondPassError) {
+          console.warn("Error in second-pass processing:", secondPassError);
           finalResult = firstPass; // Fallback to first pass
         }
-      } catch (secondPassError) {
-        console.warn("Error in second-pass processing:", secondPassError);
-        finalResult = firstPass; // Fallback to first pass
-      }
-    }
-
-    // Step 8: Verify final file size and report compression metrics
-    const processedInfo = await FileSystem.getInfoAsync(finalResult.uri);
-    if (processedInfo.exists && processedInfo.size) {
-      console.log(`Processed image size: ${(processedInfo.size / (1024 * 1024)).toFixed(2)}MB`);
-
-      // Calculate and log compression ratio
-      if (fileInfo.size) {
-        const ratio = (processedInfo.size / fileInfo.size * 100).toFixed(1);
-        console.log(`Compression ratio: ${ratio}% of original`);
-      }
-    }
-
-    return finalResult.uri;
-  } catch (error) {
-    console.error('processImage error:', error);
-    // Return original URI as fallback
-    return uri;
-  }
-};
-
-
-/**
- * CORRECTED: Handles batch uploading of multiple images with cross-platform compatibility
- * 
- * CRITICAL FIXES:
- * 1. Removed faulty Android direct upload approach
- * 2. Implemented proper file reading for both platforms
- * 3. Added comprehensive error handling and validation
- * 4. Optimized memory management for large images
- *
- * @param assets Array of image assets to upload
- * @returns Promise that resolves when all uploads complete
- */
-const handleMultipleImageUpload = useCallback(
-  async (assets: any[]) => {
-    if (!dealership?.id) {
-      console.error("No dealership ID available for upload");
-      return;
-    }
-
-    if (!assets?.length) {
-      console.warn("No assets provided for upload");
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      // STEP 1: Configure batch processing parameters with platform optimization
-      const batchSize = Platform.OS === 'android' ? 2 : 3;
-      console.log(`Processing ${assets.length} images in batches of ${batchSize}`);
-
-      const results = [];
-      let progressCounter = 0;
-      const totalImages = assets.length;
-
-      // STEP 2: Process images in batches to prevent memory issues
-      for (let i = 0; i < assets.length; i += batchSize) {
-        const batchNumber = Math.floor(i/batchSize) + 1;
-        const totalBatches = Math.ceil(assets.length/batchSize);
-        console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
-
-        const batch = assets.slice(i, i + batchSize);
-
-        // STEP 3: Process all images in current batch concurrently
-        const batchPromises = batch.map(async (asset: { uri: string }, batchIndex: number) => {
-          const index = i + batchIndex;
-          const imageNumber = index + 1;
-
-          try {
-            // STEP 3.1: Process and optimize image
-            console.log(`Processing image ${imageNumber}/${totalImages}`);
-            const processedUri = await processImage(asset.uri);
-
-            if (!processedUri) {
-              console.error(`Failed to process image ${imageNumber}`);
-              return null;
-            }
-
-            // STEP 3.2: Validate processed file exists
-            const processedFileInfo = await FileSystem.getInfoAsync(processedUri);
-            if (!processedFileInfo.exists || !processedFileInfo.size) {
-              console.error(`Processed file invalid for image ${imageNumber}`);
-              return null;
-            }
-
-            console.log(`Processed file size: ${(processedFileInfo.size / (1024 * 1024)).toFixed(2)}MB`);
-
-            // STEP 3.3: Generate unique filename with high entropy
-            const timestamp = Date.now();
-            const randomId = Math.floor(Math.random() * 1000000);
-            const fileName = `${timestamp}_${randomId}_${index}.jpg`;
-            const filePath = `${dealership.id}/${fileName}`;
-
-            // STEP 3.4: CORRECTED UPLOAD LOGIC - Unified approach for both platforms
-            console.log(`Uploading image ${imageNumber}/${totalImages}`);
-
-            // CRITICAL FIX: Always read file content as base64 for reliable uploads
-            const base64Content = await FileSystem.readAsStringAsync(processedUri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-
-            if (!base64Content || base64Content.length === 0) {
-              throw new Error(`Empty file content for image ${imageNumber}`);
-            }
-
-            // Convert base64 to Buffer for Supabase upload
-            const fileBuffer = Buffer.from(base64Content, "base64");
-
-            // Upload configuration
-            const uploadOptions = {
-              contentType: "image/jpeg",
-              cacheControl: "3600", // 1 hour cache
-              upsert: false // Prevent accidental overwrites
-            };
-
-            // Execute upload with timeout protection
-            const uploadPromise = supabase.storage
-              .from("cars")
-              .upload(filePath, fileBuffer, uploadOptions);
-
-            // Add timeout protection for upload operation
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error(`Upload timeout for image ${imageNumber}`)), 30000)
-            );
-
-            const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as any;
-
-            if (uploadError) {
-              throw new Error(`Upload failed for image ${imageNumber}: ${uploadError.message}`);
-            }
-
-            // STEP 3.5: Retrieve and validate public URL
-            const { data: publicURLData } = supabase.storage
-              .from("cars")
-              .getPublicUrl(filePath);
-
-            if (!publicURLData?.publicUrl) {
-              throw new Error(`Failed to retrieve public URL for image ${imageNumber}`);
-            }
-
-            // STEP 3.6: Validate uploaded file accessibility
-            try {
-              // Quick validation: attempt to fetch headers to ensure file is accessible
-              const response = await fetch(publicURLData.publicUrl, { method: 'HEAD' });
-              if (!response.ok) {
-                throw new Error(`Uploaded file not accessible: ${response.status}`);
-              }
-            } catch (validationError) {
-              console.warn(`File accessibility validation failed for image ${imageNumber}:`, validationError);
-              // Continue anyway as this might be a temporary network issue
-            }
-
-            // STEP 3.7: Update progress counter
-            progressCounter++;
-            console.log(`Upload progress: ${progressCounter}/${totalImages} - URL: ${publicURLData.publicUrl}`);
-
-            return publicURLData.publicUrl;
-
-          } catch (error) {
-            console.error(`Error uploading image ${imageNumber}/${totalImages}:`, error);
-            
-            // Enhanced error logging for debugging
-            if (error instanceof Error) {
-              console.error(`Error details: ${error.message}`);
-              console.error(`Error stack: ${error.stack}`);
-            }
-            
-            return null;
-          }
-        });
-
-        // STEP 4: Wait for all images in current batch to complete
-        const batchResults = await Promise.all(batchPromises);
-        results.push(...batchResults);
-
-        // STEP 5: Memory management - pause between batches
-        if (i + batchSize < assets.length) {
-          const pauseDuration = Platform.OS === 'android' ? 500 : 200;
-          console.log(`Pausing ${pauseDuration}ms between batches for memory management`);
-          await new Promise(resolve => setTimeout(resolve, pauseDuration));
-        }
       }
 
-      // STEP 6: Process and validate results
-      const successfulUploads = results.filter(url => url !== null);
-
-      if (successfulUploads.length === 0) {
-        throw new Error("No images were successfully uploaded");
-      }
-
-      if (successfulUploads.length < totalImages) {
-        const failedCount = totalImages - successfulUploads.length;
-        console.warn(`Upload completed with ${failedCount} failures out of ${totalImages} total images`);
-        
-        Alert.alert(
-          "Partial Upload Success",
-          `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${failedCount} images failed to upload.`,
-          [{ text: "Continue", style: "default" }]
+      // Step 8: Verify final file size and report compression metrics
+      const processedInfo = await FileSystem.getInfoAsync(finalResult.uri);
+      if (processedInfo.exists && processedInfo.size) {
+        console.log(
+          `Processed image size: ${(processedInfo.size / (1024 * 1024)).toFixed(
+            2
+          )}MB`
         );
-      }
 
-      console.log(`Upload batch complete: ${successfulUploads.length}/${totalImages} images successful`);
-
-      // STEP 7: Update state with new images (prepend new images)
-      setModalImages((prevImages: any) => [...successfulUploads, ...prevImages]);
-      setFormData((prevData: { images: any; }) => ({
-        ...prevData,
-        images: [...successfulUploads, ...(prevData.images || [])],
-      }));
-      setHasChanges(true);
-
-      return successfulUploads;
-
-    } catch (error) {
-      console.error('Critical error in batch upload process:', error);
-      
-      Alert.alert(
-        "Upload Failed",
-        `Failed to upload images: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again with fewer or smaller images.`
-      );
-      return [];
-    } finally {
-      setIsUploading(false);
-    }
-  },
-  [dealership, processImage, setModalImages, setFormData, setHasChanges, setIsUploading]
-);
-
-/**
- * Handles image selection from device library with memory-efficient configuration
- */
-const handleImagePick = useCallback(async () => {
-  try {
-    // Step 1: Request and verify permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Sorry, we need camera roll permissions to make this work!"
-      );
-      return;
-    }
-
-    // Step 2: Enforce maximum image limit
-    const MAX_IMAGES = 10;
-    if (modalImages.length >= MAX_IMAGES) {
-      Alert.alert(
-        "Maximum Images",
-        `You can upload a maximum of ${MAX_IMAGES} images per listing.`
-      );
-      return;
-    }
-
-    // Step 3: Calculate available slots and platform-specific limits
-    const remainingSlots = MAX_IMAGES - modalImages.length;
-
-    // Set stricter limits for Android due to memory constraints
-    const maxSelection = Platform.OS === 'android'
-      ? Math.min(remainingSlots, 10)  // Max 3 at once for Android
-      : Math.min(remainingSlots, 10); // Max 5 at once for iOS
-
-    console.log(`Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`);
-
-    // Step 4: Launch image picker with optimized configuration
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: maxSelection > 1,
-      selectionLimit: maxSelection,
-      quality: Platform.OS === 'android' ? 0.7 : 0.8, // Lower initial quality on Android
-      exif: false,    // Skip EXIF data to reduce memory usage
-      base64: false,  // Skip base64 encoding in picker
-      allowsEditing: false, // Disable editing to prevent memory issues
-    });
-
-    // Step 5: Handle selection result
-    if (result.canceled || !result.assets || result.assets.length === 0) {
-      console.log('Image picker canceled or no assets selected');
-      return;
-    }
-
-    // Step 6: Pre-analyze selected images for potential issues
-    let totalSize = 0;
-    let largeImageCount = 0;
-    const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
-
-    for (const asset of result.assets) {
-      const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-      if (fileInfo.exists && fileInfo.size) {
-        totalSize += fileInfo.size;
-        if (fileInfo.size > LARGE_IMAGE_THRESHOLD) {
-          largeImageCount++;
+        // Calculate and log compression ratio
+        if (fileInfo.size) {
+          const ratio = ((processedInfo.size / fileInfo.size) * 100).toFixed(1);
+          console.log(`Compression ratio: ${ratio}% of original`);
         }
       }
-    }
 
-    console.log(`Selected ${result.assets.length} images, total size: ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
-
-    // Step 7: Warn about potential issues with very large images
-    if (totalSize > 25 * 1024 * 1024 || largeImageCount > 2) {
-      Alert.alert(
-        "Large Images Detected",
-        "Some selected images are very large, which may cause slower uploads. Images will be optimized automatically.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Proceed Anyway",
-            onPress: () => {
-              setIsUploading(true);
-              handleMultipleImageUpload(result.assets)
-                .finally(() => setIsUploading(false));
-            }
-          }
-        ],
-        { cancelable: true }
-      );
-      return;
-    }
-
-    // Step 8: Standard upload flow for normal-sized images
-    setIsUploading(true);
-    try {
-      await handleMultipleImageUpload(result.assets);
+      return finalResult.uri;
     } catch (error) {
-      console.error("Error uploading images:", error);
-      Alert.alert(
-        "Upload Failed",
-        "Failed to upload images. Please try again with fewer or smaller images."
-      );
-    } finally {
-      setIsUploading(false);
+      console.error("processImage error:", error);
+      // Return original URI as fallback
+      return uri;
     }
-  } catch (error) {
-    console.error("Error in image picker:", error);
-    Alert.alert(
-      "Error",
-      Platform.OS === 'android'
-        ? "Failed to open image picker. Try selecting fewer images or restart the app."
-        : "Failed to open image picker. Please try again."
-    );
-  }
-}, [modalImages.length, handleMultipleImageUpload]);
+  };
+
+  /**
+   * CORRECTED: Handles batch uploading of multiple images with cross-platform compatibility
+   *
+   * CRITICAL FIXES:
+   * 1. Removed faulty Android direct upload approach
+   * 2. Implemented proper file reading for both platforms
+   * 3. Added comprehensive error handling and validation
+   * 4. Optimized memory management for large images
+   *
+   * @param assets Array of image assets to upload
+   * @returns Promise that resolves when all uploads complete
+   */
+  const handleMultipleImageUpload = useCallback(
+    async (assets: any[]) => {
+      if (!dealership?.id) {
+        console.error("No dealership ID available for upload");
+        return;
+      }
+
+      if (!assets?.length) {
+        console.warn("No assets provided for upload");
+        return;
+      }
+
+      setIsUploading(true);
+
+      try {
+        // STEP 1: Configure batch processing parameters with platform optimization
+        const batchSize = Platform.OS === "android" ? 2 : 3;
+        console.log(
+          `Processing ${assets.length} images in batches of ${batchSize}`
+        );
+
+        const results = [];
+        let progressCounter = 0;
+        const totalImages = assets.length;
+
+        // STEP 2: Process images in batches to prevent memory issues
+        for (let i = 0; i < assets.length; i += batchSize) {
+          const batchNumber = Math.floor(i / batchSize) + 1;
+          const totalBatches = Math.ceil(assets.length / batchSize);
+          console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
+
+          const batch = assets.slice(i, i + batchSize);
+
+          // STEP 3: Process all images in current batch concurrently
+          const batchPromises = batch.map(
+            async (asset: { uri: string }, batchIndex: number) => {
+              const index = i + batchIndex;
+              const imageNumber = index + 1;
+
+              try {
+                // STEP 3.1: Process and optimize image
+                console.log(`Processing image ${imageNumber}/${totalImages}`);
+                const processedUri = await processImage(asset.uri);
+
+                if (!processedUri) {
+                  console.error(`Failed to process image ${imageNumber}`);
+                  return null;
+                }
+
+                // STEP 3.2: Validate processed file exists
+                const processedFileInfo = await FileSystem.getInfoAsync(
+                  processedUri
+                );
+                if (!processedFileInfo.exists || !processedFileInfo.size) {
+                  console.error(
+                    `Processed file invalid for image ${imageNumber}`
+                  );
+                  return null;
+                }
+
+                console.log(
+                  `Processed file size: ${(
+                    processedFileInfo.size /
+                    (1024 * 1024)
+                  ).toFixed(2)}MB`
+                );
+
+                // STEP 3.3: Generate unique filename with high entropy
+                const timestamp = Date.now();
+                const randomId = Math.floor(Math.random() * 1000000);
+                const fileName = `${timestamp}_${randomId}_${index}.jpg`;
+                const filePath = `${dealership.id}/${fileName}`;
+
+                // STEP 3.4: CORRECTED UPLOAD LOGIC - Unified approach for both platforms
+                console.log(`Uploading image ${imageNumber}/${totalImages}`);
+
+                // CRITICAL FIX: Always read file content as base64 for reliable uploads
+                const base64Content = await FileSystem.readAsStringAsync(
+                  processedUri,
+                  {
+                    encoding: FileSystem.EncodingType.Base64,
+                  }
+                );
+
+                if (!base64Content || base64Content.length === 0) {
+                  throw new Error(
+                    `Empty file content for image ${imageNumber}`
+                  );
+                }
+
+                // Convert base64 to Buffer for Supabase upload
+                const fileBuffer = Buffer.from(base64Content, "base64");
+
+                // Upload configuration
+                const uploadOptions = {
+                  contentType: "image/jpeg",
+                  cacheControl: "3600", // 1 hour cache
+                  upsert: false, // Prevent accidental overwrites
+                };
+
+                // Execute upload with timeout protection
+                const uploadPromise = supabase.storage
+                  .from("cars")
+                  .upload(filePath, fileBuffer, uploadOptions);
+
+                // Add timeout protection for upload operation
+                const timeoutPromise = new Promise((_, reject) =>
+                  setTimeout(
+                    () =>
+                      reject(
+                        new Error(`Upload timeout for image ${imageNumber}`)
+                      ),
+                    30000
+                  )
+                );
+
+                const { error: uploadError } = (await Promise.race([
+                  uploadPromise,
+                  timeoutPromise,
+                ])) as any;
+
+                if (uploadError) {
+                  throw new Error(
+                    `Upload failed for image ${imageNumber}: ${uploadError.message}`
+                  );
+                }
+
+                // STEP 3.5: Retrieve and validate public URL
+                const { data: publicURLData } = supabase.storage
+                  .from("cars")
+                  .getPublicUrl(filePath);
+
+                if (!publicURLData?.publicUrl) {
+                  throw new Error(
+                    `Failed to retrieve public URL for image ${imageNumber}`
+                  );
+                }
+
+                // STEP 3.6: Validate uploaded file accessibility
+                try {
+                  // Quick validation: attempt to fetch headers to ensure file is accessible
+                  const response = await fetch(publicURLData.publicUrl, {
+                    method: "HEAD",
+                  });
+                  if (!response.ok) {
+                    throw new Error(
+                      `Uploaded file not accessible: ${response.status}`
+                    );
+                  }
+                } catch (validationError) {
+                  console.warn(
+                    `File accessibility validation failed for image ${imageNumber}:`,
+                    validationError
+                  );
+                  // Continue anyway as this might be a temporary network issue
+                }
+
+                // STEP 3.7: Update progress counter
+                progressCounter++;
+                console.log(
+                  `Upload progress: ${progressCounter}/${totalImages} - URL: ${publicURLData.publicUrl}`
+                );
+
+                return publicURLData.publicUrl;
+              } catch (error) {
+                console.error(
+                  `Error uploading image ${imageNumber}/${totalImages}:`,
+                  error
+                );
+
+                // Enhanced error logging for debugging
+                if (error instanceof Error) {
+                  console.error(`Error details: ${error.message}`);
+                  console.error(`Error stack: ${error.stack}`);
+                }
+
+                return null;
+              }
+            }
+          );
+
+          // STEP 4: Wait for all images in current batch to complete
+          const batchResults = await Promise.all(batchPromises);
+          results.push(...batchResults);
+
+          // STEP 5: Memory management - pause between batches
+          if (i + batchSize < assets.length) {
+            const pauseDuration = Platform.OS === "android" ? 500 : 200;
+            console.log(
+              `Pausing ${pauseDuration}ms between batches for memory management`
+            );
+            await new Promise((resolve) => setTimeout(resolve, pauseDuration));
+          }
+        }
+
+        // STEP 6: Process and validate results
+        const successfulUploads = results.filter((url) => url !== null);
+
+        if (successfulUploads.length === 0) {
+          throw new Error("No images were successfully uploaded");
+        }
+
+        if (successfulUploads.length < totalImages) {
+          const failedCount = totalImages - successfulUploads.length;
+          console.warn(
+            `Upload completed with ${failedCount} failures out of ${totalImages} total images`
+          );
+
+          Alert.alert(
+            "Partial Upload Success",
+            `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${failedCount} images failed to upload.`,
+            [{ text: "Continue", style: "default" }]
+          );
+        }
+
+        console.log(
+          `Upload batch complete: ${successfulUploads.length}/${totalImages} images successful`
+        );
+
+        // STEP 7: Update state with new images (prepend new images)
+        setModalImages((prevImages: any) => [
+          ...successfulUploads,
+          ...prevImages,
+        ]);
+        setFormData((prevData: { images: any }) => ({
+          ...prevData,
+          images: [...successfulUploads, ...(prevData.images || [])],
+        }));
+        setHasChanges(true);
+
+        return successfulUploads;
+      } catch (error) {
+        console.error("Critical error in batch upload process:", error);
+
+        Alert.alert(
+          "Upload Failed",
+          `Failed to upload images: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }. Please try again with fewer or smaller images.`
+        );
+        return [];
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [
+      dealership,
+      processImage,
+      setModalImages,
+      setFormData,
+      setHasChanges,
+      setIsUploading,
+    ]
+  );
+
+  /**
+   * Handles image selection from device library with memory-efficient configuration
+   */
+  const handleImagePick = useCallback(async () => {
+    try {
+      // Step 1: Request and verify permissions
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Sorry, we need camera roll permissions to make this work!"
+        );
+        return;
+      }
+
+      // Step 2: Enforce maximum image limit
+      const MAX_IMAGES = 10;
+      if (modalImages.length >= MAX_IMAGES) {
+        Alert.alert(
+          "Maximum Images",
+          `You can upload a maximum of ${MAX_IMAGES} images per listing.`
+        );
+        return;
+      }
+
+      // Step 3: Calculate available slots and platform-specific limits
+      const remainingSlots = MAX_IMAGES - modalImages.length;
+
+      // Set stricter limits for Android due to memory constraints
+      const maxSelection =
+        Platform.OS === "android"
+          ? Math.min(remainingSlots, 10) // Max 3 at once for Android
+          : Math.min(remainingSlots, 10); // Max 5 at once for iOS
+
+      console.log(
+        `Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`
+      );
+
+      // Step 4: Launch image picker with optimized configuration
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: maxSelection > 1,
+        selectionLimit: maxSelection,
+        quality: Platform.OS === "android" ? 0.7 : 0.8, // Lower initial quality on Android
+        exif: false, // Skip EXIF data to reduce memory usage
+        base64: false, // Skip base64 encoding in picker
+        allowsEditing: false, // Disable editing to prevent memory issues
+      });
+
+      // Step 5: Handle selection result
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        console.log("Image picker canceled or no assets selected");
+        return;
+      }
+
+      // Step 6: Pre-analyze selected images for potential issues
+      let totalSize = 0;
+      let largeImageCount = 0;
+      const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+
+      for (const asset of result.assets) {
+        const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+        if (fileInfo.exists && fileInfo.size) {
+          totalSize += fileInfo.size;
+          if (fileInfo.size > LARGE_IMAGE_THRESHOLD) {
+            largeImageCount++;
+          }
+        }
+      }
+
+      console.log(
+        `Selected ${result.assets.length} images, total size: ${(
+          totalSize /
+          (1024 * 1024)
+        ).toFixed(2)}MB`
+      );
+
+      // Step 7: Warn about potential issues with very large images
+      if (totalSize > 25 * 1024 * 1024 || largeImageCount > 2) {
+        Alert.alert(
+          "Large Images Detected",
+          "Some selected images are very large, which may cause slower uploads. Images will be optimized automatically.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Proceed Anyway",
+              onPress: () => {
+                setIsUploading(true);
+                handleMultipleImageUpload(result.assets).finally(() =>
+                  setIsUploading(false)
+                );
+              },
+            },
+          ],
+          { cancelable: true }
+        );
+        return;
+      }
+
+      // Step 8: Standard upload flow for normal-sized images
+      setIsUploading(true);
+      try {
+        await handleMultipleImageUpload(result.assets);
+      } catch (error) {
+        console.error("Error uploading images:", error);
+        Alert.alert(
+          "Upload Failed",
+          "Failed to upload images. Please try again with fewer or smaller images."
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Error in image picker:", error);
+      Alert.alert(
+        "Error",
+        Platform.OS === "android"
+          ? "Failed to open image picker. Try selecting fewer images or restart the app."
+          : "Failed to open image picker. Please try again."
+      );
+    }
+  }, [modalImages.length, handleMultipleImageUpload]);
 
   const handleImageRemove = useCallback(async (imageUrl: string) => {
     try {
@@ -1220,8 +1309,6 @@ const handleImagePick = useCallback(async () => {
     }));
     setHasChanges(true); // Mark changes as made
   }, []);
-
-
 
   const handleDeleteConfirmation = useCallback(() => {
     if (!dealership || !isSubscriptionValid()) {
@@ -1297,333 +1384,345 @@ const handleImagePick = useCallback(async () => {
     );
   }, [initialData, dealership, isSubscriptionValid, router]);
 
-const handleMarkAsSold = useCallback(
-  async (soldData = soldInfo) => {
-    if (!initialData || !dealership || !isSubscriptionValid()) {
-      setShowSoldModal(false);
-      return;
-    }
+  const handleMarkAsSold = useCallback(
+    async (soldData = soldInfo) => {
+      if (!initialData || !dealership || !isSubscriptionValid()) {
+        setShowSoldModal(false);
+        return;
+      }
 
-    if (!soldData.price || !soldData.date || !soldData.buyer_name) {
-      Alert.alert(
-        "Validation Error",
-        "Please fill in all the required fields."
-      );
-      return;
-    }
+      if (!soldData.price || !soldData.date || !soldData.buyer_name) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all the required fields."
+        );
+        return;
+      }
 
-    try {
-      setIsLoading(true);
+      try {
+        setIsLoading(true);
 
-      const { error } = await supabase
-        .from("cars")
-        .update({
-          status: "sold",
-          sold_price: parseInt(soldData.price),
-          date_sold: soldData.date,
-          buyer_name: soldData.buyer_name,
-        })
-        .eq("id", initialData.id)
-        .eq("dealership_id", dealership.id);
+        const { error } = await supabase
+          .from("cars")
+          .update({
+            status: "sold",
+            sold_price: parseInt(soldData.price),
+            date_sold: soldData.date,
+            buyer_name: soldData.buyer_name,
+          })
+          .eq("id", initialData.id)
+          .eq("dealership_id", dealership.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setShowSoldModal(false);
-      Alert.alert("Success", "Listing marked as sold successfully", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (error) {
-      console.error("Error marking as sold:", error);
-      Alert.alert("Error", "Failed to mark listing as sold. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  },
-  [initialData, dealership, isSubscriptionValid, soldInfo, router]
-);
+        setShowSoldModal(false);
+        Alert.alert("Success", "Listing marked as sold successfully", [
+          { text: "OK", onPress: () => router.back() },
+        ]);
+      } catch (error) {
+        console.error("Error marking as sold:", error);
+        Alert.alert(
+          "Error",
+          "Failed to mark listing as sold. Please try again."
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [initialData, dealership, isSubscriptionValid, soldInfo, router]
+  );
 
+  const SoldModal = () => {
+    const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
+    const [localBuyerName, setLocalBuyerName] = useState(
+      soldInfo.buyer_name || ""
+    );
+    const [localDate, setLocalDate] = useState(
+      soldInfo.date || new Date().toISOString().split("T")[0]
+    );
+    const [showInlinePicker, setShowInlinePicker] = useState(false);
 
-const SoldModal = () => {
-  const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
-  const [localBuyerName, setLocalBuyerName] = useState(soldInfo.buyer_name || "");
-  const [localDate, setLocalDate] = useState(soldInfo.date || new Date().toISOString().split("T")[0]);
-  const [showInlinePicker, setShowInlinePicker] = useState(false);
+    // Sync local state with soldInfo when modal opens
+    useEffect(() => {
+      if (showSoldModal) {
+        setLocalPrice(soldInfo.price || "");
+        setLocalBuyerName(soldInfo.buyer_name || "");
+        setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
+      }
+    }, [showSoldModal, soldInfo]);
 
-  // Sync local state with soldInfo when modal opens
-  useEffect(() => {
-    if (showSoldModal) {
-      setLocalPrice(soldInfo.price || "");
-      setLocalBuyerName(soldInfo.buyer_name || "");
-      setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
-    }
-  }, [showSoldModal, soldInfo]);
+    const handleDateChange = (
+      event: any,
+      selectedDate: { toISOString: () => string }
+    ) => {
+      // Hide the picker first to prevent UI issues
+      setShowInlinePicker(false);
 
-const handleDateChange = (event: any, selectedDate: { toISOString: () => string; }) => {
-  // Hide the picker first to prevent UI issues
-  setShowInlinePicker(false);
+      // Handle both Android and iOS patterns safely
+      // On Android, cancelled = undefined selectedDate
+      // On iOS, we get an event.type
+      if (selectedDate) {
+        try {
+          // Add safety checks before using date methods
+          setLocalDate(selectedDate.toISOString().split("T")[0]);
+        } catch (error) {
+          console.warn("Date formatting error:", error);
+          // Fallback to current date
+          setLocalDate(new Date().toISOString().split("T")[0]);
+        }
+      }
+    };
 
-  // Handle both Android and iOS patterns safely
-  // On Android, cancelled = undefined selectedDate
-  // On iOS, we get an event.type
-  if (selectedDate) {
-    try {
-      // Add safety checks before using date methods
-      setLocalDate(selectedDate.toISOString().split("T")[0]);
-    } catch (error) {
-      console.warn("Date formatting error:", error);
-      // Fallback to current date
-      setLocalDate(new Date().toISOString().split("T")[0]);
-    }
-  }
-};
+    const handleConfirm = () => {
+      if (!localPrice || !localBuyerName || !localDate) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all the required fields."
+        );
+        return;
+      }
+      // Pass local values directly to the mark-as-sold function
+      handleMarkAsSold({
+        price: localPrice,
+        buyer_name: localBuyerName,
+        date: localDate,
+      });
+    };
 
-  const handleConfirm = () => {
-    if (!localPrice || !localBuyerName || !localDate) {
-      Alert.alert("Validation Error", "Please fill in all the required fields.");
-      return;
-    }
-    // Pass local values directly to the mark-as-sold function
-    handleMarkAsSold({ price: localPrice, buyer_name: localBuyerName, date: localDate });
-  };
-
-  return (
-    <Modal
-      visible={showSoldModal}
-      transparent={true}
-      animationType="slide"
-      statusBarTranslucent={true}
-      onRequestClose={() => setShowSoldModal(false)}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={{ flex: 1 }}>
-          <BlurView
-            intensity={isDarkMode ? 30 : 20}
-            tint={isDarkMode ? "dark" : "light"}
-            style={{
-              flex: 1,
-              justifyContent: "center",
-              alignItems: "center"
-            }}
-          >
-            <View
+    return (
+      <Modal
+        visible={showSoldModal}
+        transparent={true}
+        animationType="slide"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowSoldModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={{ flex: 1 }}>
+            <BlurView
+              intensity={isDarkMode ? 30 : 20}
+              tint={isDarkMode ? "dark" : "light"}
               style={{
-                width: "90%",
-                maxWidth: 400,
-                borderRadius: 24,
-                padding: 24,
-                backgroundColor: isDarkMode ? "#171717" : "#ffffff",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-         
-                shadowRadius: 10,
-                elevation: 5
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
               }}
             >
-              {/* Header */}
               <View
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 24
+                  width: "90%",
+                  maxWidth: 400,
+                  borderRadius: 24,
+                  padding: 24,
+                  backgroundColor: isDarkMode ? "#171717" : "#ffffff",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+
+                  shadowRadius: 10,
+                  elevation: 5,
                 }}
               >
-                <Text
+                {/* Header */}
+                <View
                   style={{
-                    fontSize: 20,
-                    fontWeight: "bold",
-                    color: isDarkMode ? "#ffffff" : "#000000"
-                  }}
-                >
-                  Mark as Sold
-                </Text>
-                <TouchableOpacity onPress={() => setShowSoldModal(false)}>
-                  <Ionicons
-                    name="close-circle"
-                    size={24}
-                    color={isDarkMode ? "#FFFFFF" : "#000000"}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Selling Price */}
-              <View style={{ marginBottom: 16 }}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 8,
-                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
-                  }}
-                >
-                  Selling Price
-                </Text>
-                <TextInput
-                  value={localPrice}
-                  onChangeText={setLocalPrice}
-                  placeholder="Enter selling price"
-                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                  keyboardType="numeric"
-                  style={{
-                    height: 50,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                    borderRadius: 12,
-                    color: isDarkMode ? "#ffffff" : "#000000",
-                    fontSize: 16
-                  }}
-                />
-              </View>
-
-              {/* Buyer Name */}
-              <View style={{ marginBottom: 16 }}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 8,
-                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
-                  }}
-                >
-                  Buyer Name
-                </Text>
-                <TextInput
-                  value={localBuyerName}
-                  onChangeText={setLocalBuyerName}
-                  placeholder="Enter buyer name"
-                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                  style={{
-                    height: 50,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                    borderRadius: 12,
-                    color: isDarkMode ? "#ffffff" : "#000000",
-                    fontSize: 16
-                  }}
-                />
-              </View>
-
-              {/* Sale Date */}
-              <View style={{ marginBottom: 24 }}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "500",
-                    marginBottom: 8,
-                    color: isDarkMode ? "#d4d4d4" : "#4b5563"
-                  }}
-                >
-                  Sale Date
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowInlinePicker(true)}
-                  style={{
-                    height: 50,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                    borderRadius: 12
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 24,
                   }}
                 >
                   <Text
                     style={{
-                      color: localDate
-                        ? isDarkMode
-                          ? "#ffffff"
-                          : "#000000"
-                        : isDarkMode
-                        ? "#9CA3AF"
-                        : "#6B7280",
-                      fontSize: 16
+                      fontSize: 20,
+                      fontWeight: "bold",
+                      color: isDarkMode ? "#ffffff" : "#000000",
                     }}
                   >
-                    {localDate || "Select date"}
+                    Mark as Sold
                   </Text>
-                </TouchableOpacity>
-                {showInlinePicker && (
-                  <DateTimePicker
-                    value={localDate ? new Date(localDate) : new Date()}
-                    mode="date"
-                    display="inline"
-                    onChange={handleDateChange}
-                    style={{ width: "100%" }}
-                  />
-                )}
-              </View>
+                  <TouchableOpacity onPress={() => setShowSoldModal(false)}>
+                    <Ionicons
+                      name="close-circle"
+                      size={24}
+                      color={isDarkMode ? "#FFFFFF" : "#000000"}
+                    />
+                  </TouchableOpacity>
+                </View>
 
-              {/* Action Buttons */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginTop: 8
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => setShowSoldModal(false)}
-                  style={{
-                    flex: 1,
-                    marginRight: 8,
-                    height: 56,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
-                    borderRadius: 12
-                  }}
-                >
+                {/* Selling Price */}
+                <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
+                      fontSize: 14,
+                      fontWeight: "500",
+                      marginBottom: 8,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                    }}
+                  >
+                    Selling Price
+                  </Text>
+                  <TextInput
+                    value={localPrice}
+                    onChangeText={setLocalPrice}
+                    placeholder="Enter selling price"
+                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    keyboardType="numeric"
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                      borderRadius: 12,
                       color: isDarkMode ? "#ffffff" : "#000000",
                       fontSize: 16,
-                      fontWeight: "600"
                     }}
-                  >
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleConfirm}
-                  style={{
-                    flex: 1,
-                    marginLeft: 8,
-                    height: 56,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: "#16a34a",
-                    borderRadius: 12
-                  }}
-                >
+                  />
+                </View>
+
+                {/* Buyer Name */}
+                <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
-                      color: "#ffffff",
-                      fontSize: 16,
-                      fontWeight: "600"
+                      fontSize: 14,
+                      fontWeight: "500",
+                      marginBottom: 8,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
                     }}
                   >
-                    Confirm
+                    Buyer Name
                   </Text>
-                </TouchableOpacity>
+                  <TextInput
+                    value={localBuyerName}
+                    onChangeText={setLocalBuyerName}
+                    placeholder="Enter buyer name"
+                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                      borderRadius: 12,
+                      color: isDarkMode ? "#ffffff" : "#000000",
+                      fontSize: 16,
+                    }}
+                  />
+                </View>
+
+                {/* Sale Date */}
+                <View style={{ marginBottom: 24 }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "500",
+                      marginBottom: 8,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                    }}
+                  >
+                    Sale Date
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowInlinePicker(true)}
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: localDate
+                          ? isDarkMode
+                            ? "#ffffff"
+                            : "#000000"
+                          : isDarkMode
+                          ? "#9CA3AF"
+                          : "#6B7280",
+                        fontSize: 16,
+                      }}
+                    >
+                      {localDate || "Select date"}
+                    </Text>
+                  </TouchableOpacity>
+                  {showInlinePicker && (
+                    <DateTimePicker
+                      value={localDate ? new Date(localDate) : new Date()}
+                      mode="date"
+                      display="inline"
+                      onChange={handleDateChange}
+                      style={{ width: "100%" }}
+                    />
+                  )}
+                </View>
+
+                {/* Action Buttons */}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginTop: 8,
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => setShowSoldModal(false)}
+                    style={{
+                      flex: 1,
+                      marginRight: 8,
+                      height: 56,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: isDarkMode ? "#ffffff" : "#000000",
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirm}
+                    style={{
+                      flex: 1,
+                      marginLeft: 8,
+                      height: 56,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "#16a34a",
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#ffffff",
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Confirm
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </BlurView>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
-
-
-
-
+            </BlurView>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -1651,15 +1750,15 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
           {initialData ? "Edit Vehicle" : "Add Vehicle"}
         </Text>
         {initialData && (
-  <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
-    <Ionicons
-      name="trash-bin-outline"
-      size={24}
-      color={isDarkMode ? "red" : "red"}
-    />
-  </TouchableOpacity>
-)}
- {!initialData && <View className="w-10 h-10"/>}
+          <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
+            <Ionicons
+              name="trash-bin-outline"
+              size={24}
+              color={isDarkMode ? "red" : "red"}
+            />
+          </TouchableOpacity>
+        )}
+        {!initialData && <View className="w-10 h-10" />}
       </View>
 
       <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
@@ -1685,7 +1784,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             subtitle="Select your vehicle's make and model"
             isDarkMode={isDarkMode}
           />
-
           <Text
             className={`text-sm font-medium mb-3 ${
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
@@ -1693,6 +1791,9 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
           >
             Brand
           </Text>
+          // Add this right after the "Brand" label and before the BrandSelector
+          component
+          {/* Selected Make Display */}
           <BrandSelector
             selectedBrand={formData.make}
             onSelectBrand={(make: any) => {
@@ -1701,7 +1802,43 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             }}
             isDarkMode={isDarkMode}
           />
-
+          {formData.make && (
+            <View
+              className={`mb-3 p-3 rounded-xl border ${
+                isDarkMode
+                  ? "bg-neutral-800 border-neutral-700"
+                  : "bg-neutral-100 border-neutral-300"
+              }`}
+            >
+              <View className="flex-row items-center">
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={20}
+                  color="#16a34a"
+                />
+                <Text
+                  className={`ml-2 font-medium ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                >
+                  Selected: {formData.make}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    handleInputChange("make", "");
+                    handleInputChange("model", "");
+                  }}
+                  className="ml-auto p-1"
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={isDarkMode ? "#ef4444" : "#dc2626"}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           {formData.make && (
             <ModelDropdown
               make={formData.make}
@@ -1710,7 +1847,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
               isDarkMode={isDarkMode}
             />
           )}
-
           <View className="n">
             <NeumorphicInput
               label="Year"
@@ -1735,7 +1871,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             />
           </View>
         </View>
-
 
         <View className="mb-8">
           <SectionHeader
@@ -1781,7 +1916,6 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             ))}
           </ScrollView>
 
-
           <Text
             className={`text-sm font-medium mb-3 ${
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
@@ -1808,77 +1942,77 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         </View>
 
         <View className="mb-8">
-  <SectionHeader
-    title="Vehicle Source"
-    subtitle="Select where the vehicle was sourced from"
-    isDarkMode={isDarkMode}
-  />
+          <SectionHeader
+            title="Vehicle Source"
+            subtitle="Select where the vehicle was sourced from"
+            isDarkMode={isDarkMode}
+          />
 
-  <Text
-    className={`text-sm font-medium mb-3 ${
-      isDarkMode ? "text-neutral-300" : "text-neutral-700"
-    }`}
-  >
-    Source
-  </Text>
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    className="mb-6"
-  >
-    {SOURCE_OPTIONS.map((source) => (
-      <SelectionCard
-        key={source.value}
-        label={source.label}
-        icon={source.icon}
-        isSelected={formData.source === source.value}
-        onSelect={() => handleInputChange("source", source.value)}
-        isDarkMode={isDarkMode}
-      />
-    ))}
-  </ScrollView>
-</View>
-{/* Add this after the technical specifications section */}
-<View className="mb-8">
-  <SectionHeader
-    title="Vehicle Description"
-    subtitle="Add details about the vehicle's history and features"
-    isDarkMode={isDarkMode}
-  />
+          <Text
+            className={`text-sm font-medium mb-3 ${
+              isDarkMode ? "text-neutral-300" : "text-neutral-700"
+            }`}
+          >
+            Source
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mb-6"
+          >
+            {SOURCE_OPTIONS.map((source) => (
+              <SelectionCard
+                key={source.value}
+                label={source.label}
+                icon={source.icon}
+                isSelected={formData.source === source.value}
+                onSelect={() => handleInputChange("source", source.value)}
+                isDarkMode={isDarkMode}
+              />
+            ))}
+          </ScrollView>
+        </View>
+        {/* Add this after the technical specifications section */}
+        <View className="mb-8">
+          <SectionHeader
+            title="Vehicle Description"
+            subtitle="Add details about the vehicle's history and features"
+            isDarkMode={isDarkMode}
+          />
 
-  <Text
-    className={`text-sm font-medium mb-2 ${
-      isDarkMode ? "text-neutral-300" : "text-neutral-700"
-    }`}
-  >
-    Description
-  </Text>
-  <View
-    className={`rounded-2xl overflow-hidden ${
-      isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
-    }`}
-  >
-    <BlurView
-      intensity={isDarkMode ? 20 : 40}
-      tint={isDarkMode ? "dark" : "light"}
-      className="p-4"
-    >
-      <TextInput
-        multiline
-        numberOfLines={6}
-        textAlignVertical="top"
-        value={formData.description}
-        onChangeText={(text) => handleInputChange("description", text)}
-        placeholder="Enter details about the vehicle, its history, features, etc."
-        placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-        className={`w-full text-base ${
-          isDarkMode ? "text-white" : "text-black"
-        }`}
-        style={{ height: 120 }}
-      />
-    </BlurView>
-  </View>
-</View>
+          <Text
+            className={`text-sm font-medium mb-2 ${
+              isDarkMode ? "text-neutral-300" : "text-neutral-700"
+            }`}
+          >
+            Description
+          </Text>
+          <View
+            className={`rounded-2xl overflow-hidden ${
+              isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
+            }`}
+          >
+            <BlurView
+              intensity={isDarkMode ? 20 : 40}
+              tint={isDarkMode ? "dark" : "light"}
+              className="p-4"
+            >
+              <TextInput
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+                value={formData.description}
+                onChangeText={(text) => handleInputChange("description", text)}
+                placeholder="Enter details about the vehicle, its history, features, etc."
+                placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                className={`w-full text-base ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
+                style={{ height: 120 }}
+              />
+            </BlurView>
+          </View>
+        </View>
 
         <View className="mb-8">
           <SectionHeader
@@ -1903,7 +2037,9 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
             className={`text-sm font-medium mb-3 ${
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
-          >            Transmission
+          >
+            {" "}
+            Transmission
           </Text>
           <View className="flex-row mb-6">
             {TRANSMISSIONS.map((trans) => (
@@ -1964,34 +2100,36 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         </View>
 
         <View className="mb-8">
-  <SectionHeader
-    title="Vehicle Features"
-    subtitle="Select additional features and options available in this vehicle"
-    isDarkMode={isDarkMode}
-  />
+          <SectionHeader
+            title="Vehicle Features"
+            subtitle="Select additional features and options available in this vehicle"
+            isDarkMode={isDarkMode}
+          />
 
-  <FeatureSelector
-    selectedFeatures={formData.features || []}
-    onFeatureToggle={(featureId:any) => {
-      setFormData((prev:any) => {
-        const currentFeatures = prev.features || [];
-        let updatedFeatures;
+          <FeatureSelector
+            selectedFeatures={formData.features || []}
+            onFeatureToggle={(featureId: any) => {
+              setFormData((prev: any) => {
+                const currentFeatures = prev.features || [];
+                let updatedFeatures;
 
-        if (currentFeatures.includes(featureId)) {
-          // Remove feature if already selected
-          updatedFeatures = currentFeatures.filter((id: any) => id !== featureId);
-        } else {
-          // Add feature if not selected
-          updatedFeatures = [...currentFeatures, featureId];
-        }
+                if (currentFeatures.includes(featureId)) {
+                  // Remove feature if already selected
+                  updatedFeatures = currentFeatures.filter(
+                    (id: any) => id !== featureId
+                  );
+                } else {
+                  // Add feature if not selected
+                  updatedFeatures = [...currentFeatures, featureId];
+                }
 
-        setHasChanges(true);
-        return { ...prev, features: updatedFeatures };
-      });
-    }}
-    isDarkMode={isDarkMode}
-  />
-</View>
+                setHasChanges(true);
+                return { ...prev, features: updatedFeatures };
+              });
+            }}
+            isDarkMode={isDarkMode}
+          />
+        </View>
 
         {/* Purchase Information */}
         <View className="mb-8">
@@ -2046,65 +2184,66 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                 {formData.date_bought ? (
-  <Text
-    className={`ml-3 text-base ${
-      isDarkMode ? "text-white" : "text-black"
-    }`}
-  >
-    {(() => {
-      try {
-        const dateObj = new Date(formData.date_bought);
-        return !isNaN(dateObj.getTime())
-          ? format(dateObj, "PPP")
-          : "Select purchase date";
-      } catch (error) {
-        console.warn("Date display error:", error);
-        return "Select purchase date";
-      }
-    })()}
-  </Text>
-) : (
-  <Text
-    className={`ml-3 text-base ${
-      isDarkMode ? "text-neutral-400" : "text-neutral-500"
-    }`}
-  >
-    Select purchase date
-  </Text>
-)}
+                  {formData.date_bought ? (
+                    <Text
+                      className={`ml-3 text-base ${
+                        isDarkMode ? "text-white" : "text-black"
+                      }`}
+                    >
+                      {(() => {
+                        try {
+                          const dateObj = new Date(formData.date_bought);
+                          return !isNaN(dateObj.getTime())
+                            ? format(dateObj, "PPP")
+                            : "Select purchase date";
+                        } catch (error) {
+                          console.warn("Date display error:", error);
+                          return "Select purchase date";
+                        }
+                      })()}
+                    </Text>
+                  ) : (
+                    <Text
+                      className={`ml-3 text-base ${
+                        isDarkMode ? "text-neutral-400" : "text-neutral-500"
+                      }`}
+                    >
+                      Select purchase date
+                    </Text>
+                  )}
                 </Text>
               </BlurView>
             </View>
           </TouchableOpacity>
 
-        <DateTimePickerModal
-  isVisible={showDatePicker}
-  mode="date"
-  date={
-    formData.date_bought && !isNaN(new Date(formData.date_bought).getTime())
-      ? new Date(formData.date_bought)
-      : new Date()
-  }
-  onConfirm={(selectedDate) => {
-    try {
-      // Add safety check before calling toISOString
-      if (selectedDate && !isNaN(selectedDate.getTime())) {
-        handleInputChange("date_bought", selectedDate.toISOString());
-      } else {
-        handleInputChange("date_bought", new Date().toISOString());
-      }
-    } catch (error) {
-      console.warn("Date handling error:", error);
-      handleInputChange("date_bought", new Date().toISOString());
-    }
-    setShowDatePicker(false);
-  }}
-  onCancel={() => setShowDatePicker(false)}
-   isDarkModeEnabled={isDarkMode}
-  cancelButtonTestID="cancel-button"
-  confirmButtonTestID="confirm-button"
-/>
+          <DateTimePickerModal
+            isVisible={showDatePicker}
+            mode="date"
+            date={
+              formData.date_bought &&
+              !isNaN(new Date(formData.date_bought).getTime())
+                ? new Date(formData.date_bought)
+                : new Date()
+            }
+            onConfirm={(selectedDate) => {
+              try {
+                // Add safety check before calling toISOString
+                if (selectedDate && !isNaN(selectedDate.getTime())) {
+                  handleInputChange("date_bought", selectedDate.toISOString());
+                } else {
+                  handleInputChange("date_bought", new Date().toISOString());
+                }
+              } catch (error) {
+                console.warn("Date handling error:", error);
+                handleInputChange("date_bought", new Date().toISOString());
+              }
+              setShowDatePicker(false);
+            }}
+            onCancel={() => setShowDatePicker(false)}
+            isDarkModeEnabled={isDarkMode}
+            cancelButtonTestID="cancel-button"
+            confirmButtonTestID="confirm-button"
+          />
 
           <NeumorphicInput
             label="Bought From"
@@ -2117,8 +2256,8 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         </View>
       </ScrollView>
 
-       {/* Pinned Buttons - Conditional Rendering */}
-       <View
+      {/* Pinned Buttons - Conditional Rendering */}
+      <View
         className={`p-4 -mb-2 ${
           isDarkMode ? "bg-black" : "bg-neutral-100"
         } border-t ${isDarkMode ? "border-neutral-800" : "border-neutral-200"}`}
@@ -2126,30 +2265,49 @@ const handleDateChange = (event: any, selectedDate: { toISOString: () => string;
         {initialData ? ( // Edit Mode Buttons
           <View className="flex-row justify-between">
             <TouchableOpacity
-              onPress={() => (initialData?.status === 'available' ? setShowSoldModal(true) : null)}
-              disabled={initialData?.status === 'sold'}
+              onPress={() =>
+                initialData?.status === "available"
+                  ? setShowSoldModal(true)
+                  : null
+              }
+              disabled={initialData?.status === "sold"}
               className={`flex-1 py-4 rounded-full items-center justify-center mr-2 ${
-                initialData?.status === 'sold' ? 'bg-orange-600 opacity-50' : 'bg-green-600'
+                initialData?.status === "sold"
+                  ? "bg-orange-600 opacity-50"
+                  : "bg-green-600"
               }`}
             >
               <Text className="text-white font-medium">
-                {initialData?.status === 'sold' ? 'Sold' : 'Mark as Sold'}
+                {initialData?.status === "sold" ? "Sold" : "Mark as Sold"}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={!hasChanges}  // Disable if no changes
-                className={`flex-1 py-4 rounded-full items-center justify-center ml-2 ${
-                  hasChanges ? 'bg-red' : isDarkMode?'bg-neutral-900' :'bg-neutral-400' // Change color based on hasChanges
-                }`}
+              onPress={handleSubmit}
+              disabled={!hasChanges} // Disable if no changes
+              className={`flex-1 py-4 rounded-full items-center justify-center ml-2 ${
+                hasChanges
+                  ? "bg-red"
+                  : isDarkMode
+                  ? "bg-neutral-900"
+                  : "bg-neutral-400" // Change color based on hasChanges
+              }`}
+            >
+              <Text
+                className={` ${
+                  hasChanges
+                    ? "text-white"
+                    : isDarkMode
+                    ? "text-neutral-600"
+                    : "text-neutral-100" // Change color based on hasChanges
+                } font-medium`}
               >
-              <Text className={` ${
-                  hasChanges ? 'text-white' : isDarkMode?'text-neutral-600' :'text-neutral-100' // Change color based on hasChanges
-                } font-medium`}>Update</Text>
+                Update
+              </Text>
             </TouchableOpacity>
           </View>
-        ) : ( // Add Mode Button
+        ) : (
+          // Add Mode Button
           <TouchableOpacity
             onPress={handleSubmit}
             className="w-full py-4 rounded-full bg-red items-center justify-center"
