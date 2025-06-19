@@ -113,10 +113,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const authSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
-  
-  // CRITICAL FIX 4: Profile fetch coordination
-  const profileFetchInProgressRef = useRef<string | null>(null);
-  const oauthInProgressRef = useRef<boolean>(false);
 
   // For OAuth redirects
   const redirectUri = makeRedirectUri({
@@ -124,7 +120,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     path: 'auth/callback'
   });
 
-  // CRITICAL FIX 5: Enhanced cleanup function
+  // CRITICAL FIX 4: Enhanced cleanup function
   const cleanupOperation = (operationKey: string) => {
     const timeout = operationTimeoutsRef.current.get(operationKey);
     if (timeout) {
@@ -141,7 +137,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 6: Enhanced token registration with timeout protection
+   * CRITICAL FIX 5: Enhanced token registration with timeout protection
    */
   const registerPushTokenForUser = async (
     userId: string, 
@@ -158,7 +154,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return false;
       }
 
-      // CRITICAL FIX 7: Add timeout to token registration
+      // CRITICAL FIX 6: Add timeout to token registration
       const token = await withTimeout(
         NotificationService.registerForPushNotificationsAsync(userId, true),
         OPERATION_TIMEOUTS.TOKEN_REGISTRATION,
@@ -201,7 +197,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 8: Non-blocking token verification with timeout
+   * CRITICAL FIX 7: Non-blocking token verification with timeout
    */
   const verifyTokenRegistration = async (userId: string): Promise<void> => {
     try {
@@ -261,7 +257,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 9: Enhanced cleanup function with timeout protection
+   * CRITICAL FIX 8: Enhanced cleanup function with timeout protection
    */
   const cleanupPushToken = async (): Promise<void> => {
     try {
@@ -295,7 +291,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 10: Enhanced local storage cleanup with timeout
+   * CRITICAL FIX 9: Enhanced local storage cleanup with timeout
    */
   const cleanupLocalStorage = async (): Promise<void> => {
     try {
@@ -337,7 +333,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  // CRITICAL FIX 11: Token verification effect with proper cleanup and timeout
+  // CRITICAL FIX 10: Token verification effect with proper cleanup and timeout
   useEffect(() => {
     if (!user?.id || isGuest) {
       return;
@@ -366,7 +362,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     };
   }, [user?.id, isGuest]);
   
-  // CRITICAL FIX 12: Enhanced auth state management with timeout protection and OAuth coordination
+  // CRITICAL FIX 11: Enhanced auth state management with timeout protection
   useEffect(() => {
     setIsLoaded(false);
 
@@ -385,20 +381,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setSession(currentSession);
             setUser(currentSession.user);
 
-            // CRITICAL FIX: Prevent duplicate profile fetch during OAuth
-            if (currentSession.user && !isGuest && !oauthInProgressRef.current) {
-              console.log('[AUTH] Fetching profile from auth state change');
+            if (currentSession.user && !isGuest) {
               await fetchUserProfile(currentSession.user.id);
-            } else if (oauthInProgressRef.current) {
-              console.log('[AUTH] OAuth in progress, skipping duplicate profile fetch');
             }
           } else if (event === 'SIGNED_OUT') {
             setSession(null);
             setUser(null);
             setProfile(null);
-            // Clear OAuth flag on sign out
-            oauthInProgressRef.current = false;
-            profileFetchInProgressRef.current = null;
           }
 
           // Clear the session timeout since we got a response
@@ -456,25 +445,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   }, [isGuest]);
 
   /**
-   * CRITICAL FIX 13: Enhanced OAuth user processing with timeout and deduplication
+   * CRITICAL FIX 12: Enhanced OAuth user processing with timeout
    */
   const processOAuthUser = async (session: Session): Promise<UserProfile | null> => {
-    const userId = session.user.id;
-    
-    // Prevent duplicate processing
-    if (profileFetchInProgressRef.current === userId) {
-      console.log('[AUTH] Profile fetch already in progress for user:', userId);
-      return null;
-    }
-    
-    profileFetchInProgressRef.current = userId;
-    
     try {
       const result = await withTimeout(
         supabase
           .from('users')
           .select('*')
-          .eq('id', userId)
+          .eq('id', session.user.id)
           .single(),
         OPERATION_TIMEOUTS.PROFILE_FETCH,
         'OAuth user check'
@@ -488,7 +467,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                         'User';
 
         const newUser: Partial<UserProfile> = {
-          id: userId,
+          id: session.user.id,
           name: userName,
           email: session.user.email || '',
           favorite: [],
@@ -518,7 +497,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             const { data: existingUser, error: getError } = await supabase
               .from('users')
               .select('*')
-              .eq('id', userId)
+              .eq('id', session.user.id)
               .single();
 
             if (getError) {
@@ -559,23 +538,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         console.error('[AUTH] Error processing OAuth user:', error);
       }
       return null;
-    } finally {
-      profileFetchInProgressRef.current = null;
     }
   };
 
   /**
-   * CRITICAL FIX 14: Enhanced user profile fetching with timeout and deduplication
+   * CRITICAL FIX 13: Enhanced user profile fetching with timeout
    */
   const fetchUserProfile = async (userId: string): Promise<void> => {
-    // Prevent duplicate fetches
-    if (profileFetchInProgressRef.current === userId) {
-      console.log('[AUTH] Profile fetch already in progress for user:', userId);
-      return;
-    }
-    
-    profileFetchInProgressRef.current = userId;
-    
     try {
       const result = await withTimeout(
         supabase
@@ -606,7 +575,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
 
       if (data) {
-        console.log('[AUTH] Profile fetched successfully:', data);
         setProfile(data as UserProfile);
       }
     } catch (error: any) {
@@ -615,13 +583,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       } else {
         console.error('[AUTH] Error in fetchUserProfile:', error);
       }
-    } finally {
-      profileFetchInProgressRef.current = null;
     }
   };
 
   /**
-   * CRITICAL FIX 15: Enhanced sign out with comprehensive timeout protection
+   * CRITICAL FIX 14: Enhanced sign out with comprehensive timeout protection
    */
   const signOut = async (): Promise<void> => {
     if (isSigningOutState) {
@@ -633,10 +599,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setIsSigningOutState(true);
       setIsSigningOut(true);
       setGlobalSigningOut(true);
-      
-      // Clear OAuth flag
-      oauthInProgressRef.current = false;
-      profileFetchInProgressRef.current = null;
   
       console.log('[AUTH] Starting comprehensive sign out process');
 
@@ -782,7 +744,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 16: Enhanced sign in with timeout protection
+   * CRITICAL FIX 15: Enhanced sign in with timeout protection
    */
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
@@ -840,14 +802,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 17: Enhanced Google sign in with proper OAuth coordination
+   * CRITICAL FIX 16: Enhanced Google sign in with timeout protection
    */
   const googleSignIn = async () => {
     try {
       setIsSigningIn(true);
-      oauthInProgressRef.current = true; // CRITICAL: Set OAuth flag
-
-      console.log('[AUTH] Starting Google OAuth flow');
 
       if (isGuest) {
         await clearGuestMode();
@@ -887,8 +846,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             const accessToken = hashParams.get('access_token');
 
             if (accessToken) {
-              console.log('[AUTH] Setting session from OAuth result');
-              
               const sessionResult = await withTimeout(
                 supabase.auth.setSession({
                   access_token: accessToken,
@@ -903,35 +860,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
               if (sessionError) throw sessionError;
 
               if (sessionData.session) {
-                console.log('[AUTH] Session set successfully, processing user profile');
-                
-                // CRITICAL: Set session and user immediately for routing
                 setSession(sessionData.session);
                 setUser(sessionData.session.user);
 
-                // CRITICAL: Process OAuth user and set profile
                 const userProfile = await processOAuthUser(sessionData.session);
                 if (userProfile) {
-                  console.log('[AUTH] User profile processed successfully:', userProfile);
                   setProfile(userProfile);
-                } else {
-                  console.warn('[AUTH] Failed to process user profile, using default');
-                  // Set a minimal profile to allow routing
-                  const defaultProfile: UserProfile = {
-                    id: sessionData.session.user.id,
-                    name: sessionData.session.user.user_metadata?.name || 'User',
-                    email: sessionData.session.user.email || '',
-                    favorite: [],
-                    last_active: new Date().toISOString(),
-                    timezone: 'UTC',
-                    role: 'user'
-                  };
-                  setProfile(defaultProfile);
                 }
 
                 console.log('[AUTH] Google sign in successful, scheduling token registration');
                 
-                // Schedule background token registration without blocking
                 setTimeout(async () => {
                   try {
                     await registerPushTokenForUser(sessionData.session.user.id);
@@ -940,33 +878,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                   }
                 }, 1000);
                 
-                // CRITICAL: Clear OAuth flag after successful completion
-                oauthInProgressRef.current = false;
-                
                 return { success: true, user: sessionData.session.user };
               }
             }
           } catch (extractError) {
             console.error('[AUTH] Error processing Google auth result:', extractError);
-            oauthInProgressRef.current = false;
           }
         }
       }
 
       // Fallback session check
       try {
-        console.log('[AUTH] Checking for existing session as fallback');
         const { data: currentSession } = await supabase.auth.getSession();
         if (currentSession?.session?.user) {
           console.log('[AUTH] Google sign in fallback path successful');
           setSession(currentSession.session);
           setUser(currentSession.session.user);
-          
-          // Process profile for fallback path too
-          const userProfile = await processOAuthUser(currentSession.session);
-          if (userProfile) {
-            setProfile(userProfile);
-          }
           
           setTimeout(async () => {
             try {
@@ -976,7 +903,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
           }, 1000);
           
-          oauthInProgressRef.current = false;
           return { success: true, user: currentSession.session.user };
         }
       } catch (sessionCheckError) {
@@ -984,10 +910,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
 
       console.log('[AUTH] Google authentication failed');
-      oauthInProgressRef.current = false;
       return { success: false };
     } catch (error: any) {
-      oauthInProgressRef.current = false;
       if (error.message.includes('timed out')) {
         console.warn('[AUTH] Google sign in timed out');
         return { success: false, error: new Error('Google sign in timed out') };
@@ -997,10 +921,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
     } finally {
       setIsSigningIn(false);
-      // Ensure OAuth flag is cleared
-      setTimeout(() => {
-        oauthInProgressRef.current = false;
-      }, 2000);
     }
   };
 
@@ -1010,7 +930,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const appleSignIn = async () => {
     try {
       setIsSigningIn(true);
-      oauthInProgressRef.current = true;
 
       if (isGuest) {
         await clearGuestMode();
@@ -1037,9 +956,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           const { data: sessionData } = await supabase.auth.getSession();
 
           if (sessionData?.session) {
-            setSession(sessionData.session);
-            setUser(sessionData.session.user);
-            
             const userProfile = await processOAuthUser(sessionData.session);
 
             if (userProfile) {
@@ -1066,7 +982,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
     } finally {
       setIsSigningIn(false);
-      oauthInProgressRef.current = false;
     }
   };
 
@@ -1535,7 +1450,7 @@ const forceProfileRefresh = async () => {
     }
   };
 
-  // CRITICAL FIX 18: Cleanup on unmount
+  // CRITICAL FIX 17: Cleanup on unmount
   useEffect(() => {
     return () => {
       // Clear all timeouts
@@ -1550,10 +1465,6 @@ const forceProfileRefresh = async () => {
       
       // Cancel background operations
       backgroundOperationsRef.current.clear();
-      
-      // Clear OAuth flags
-      oauthInProgressRef.current = false;
-      profileFetchInProgressRef.current = null;
     };
   }, []);
 

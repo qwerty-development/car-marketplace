@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -748,147 +749,63 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
-// CRITICAL FIX: Enhanced RootLayoutNav with better coordination
+
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn, isSigningOut, isSigningIn, profile } = useAuth();
+  const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  
-  // ENHANCED: Emergency splash timeout
-  const emergencySplashTimeoutRef = useRef<NodeJS.Timeout>();
-  // CRITICAL FIX: Navigation coordination
-  const navigationTimeoutRef = useRef<NodeJS.Timeout>();
-  const lastNavigationRef = useRef<string>("");
+  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
 
-  // ENHANCED: Emergency splash timeout protection
+  // REMOVED: curtainPosition is no longer needed for a fade animation.
+  // const curtainPosition = useRef(new Animated.Value(0)).current;
+
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
-    // RULE: Force splash completion after 10 seconds maximum
-    emergencySplashTimeoutRef.current = setTimeout(() => {
-      console.warn('[RootLayoutNav] EMERGENCY: Forcing splash completion after 10 seconds');
-      if (!splashAnimationComplete) {
-        // RULE: Skip animation and show content immediately
-        contentOpacity.setValue(1);
-        setSplashAnimationComplete(true);
-      }
-    }, 10000);
-
-    return () => {
-      if (emergencySplashTimeoutRef.current) {
-        clearTimeout(emergencySplashTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // CRITICAL FIX: Enhanced auth routing with profile-aware navigation
-  useEffect(() => {
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = segments[0] === "(auth)";
 
-    // Clear any pending navigation
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current);
-    }
-
     if (isEffectivelySignedIn && inAuthGroup) {
-      // CRITICAL FIX: For authenticated users, wait for profile before navigating
-      if (isSignedIn && !isGuest && !profile) {
-        console.log('[RootLayoutNav] User signed in but profile not loaded, waiting...');
-        
-        // Wait for profile with timeout
-        navigationTimeoutRef.current = setTimeout(() => {
-          console.log('[RootLayoutNav] Profile timeout, navigating anyway');
-          const targetRoute = "/(home)";
-          if (lastNavigationRef.current !== targetRoute) {
-            lastNavigationRef.current = targetRoute;
-            router.replace(targetRoute);
-          }
-        }, 3000); // 3 second timeout for profile loading
-        
-        return;
-      }
-      
-      // Navigate to home immediately for guests or users with profiles
-      const targetRoute = "/(home)";
-      if (lastNavigationRef.current !== targetRoute) {
-        lastNavigationRef.current = targetRoute;
-        console.log('[RootLayoutNav] Navigating to home');
-        router.replace(targetRoute);
-      }
+      router.replace("/(home)");
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
-      const targetRoute = "/(auth)/sign-in";
-      if (lastNavigationRef.current !== targetRoute) {
-        lastNavigationRef.current = targetRoute;
-        console.log('[RootLayoutNav] Navigating to sign-in');
-        router.replace(targetRoute);
-      }
+      router.replace("/(auth)/sign-in");
     }
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
-    return () => {
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-      }
-    };
-  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn, profile]);
 
-  // ENHANCED: Splash completion handler with error recovery
+  // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
-    console.log('[RootLayoutNav] Splash completion initiated');
-    
-    // RULE: Clear emergency timeout since normal completion occurred
-    if (emergencySplashTimeoutRef.current) {
-      clearTimeout(emergencySplashTimeoutRef.current);
-      emergencySplashTimeoutRef.current = undefined;
-    }
-
-    // RULE: Fade in content with error recovery
-    try {
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start((finished) => {
-        if (finished) {
-          setSplashAnimationComplete(true);
-          console.log('[RootLayoutNav] Content fade-in completed successfully');
-        } else {
-          // RULE: Fallback for interrupted animation
-          console.warn('[RootLayoutNav] Animation interrupted, forcing completion');
-          contentOpacity.setValue(1);
-          setSplashAnimationComplete(true);
-        }
-      });
-    } catch (animationError) {
-      // RULE: Emergency fallback for animation errors
-      console.error('[RootLayoutNav] Animation error, forcing immediate display:', animationError);
-      contentOpacity.setValue(1);
+    // This is called after your splash animation/video finishes.
+    // Now, we smoothly fade in the main app content.
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 400, // A gentle fade-in duration
+      useNativeDriver: true,
+    }).start(() => {
+      // After the content is fully visible, we can remove the splash component from the tree.
       setSplashAnimationComplete(true);
-    }
+    });
   }, [contentOpacity]);
 
   return (
     <View style={{ flex: 1 }}>
-      {/* ENHANCED: Content container with loading guard */}
+      {/* This View holds your main app content and will fade in */}
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {/* RULE: Guard Slot component until auth state is known */}
-        {isLoaded ? <Slot /> : (
-          <View style={styles.loadingContainer}>
-            {/* OPTIONAL: Add loading indicator here if needed */}
-          </View>
-        )}
+        {/* Guard the Slot component until auth state is known */}
+        {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      {/* ENHANCED: Splash screen with completion protection */}
-      {!splashAnimationComplete && (
+      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
+      {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-      )}
+      ) : null}
     </View>
   );
 }
@@ -898,12 +815,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#000', // Match splash background
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   curtain: {
     ...StyleSheet.absoluteFillObject,
