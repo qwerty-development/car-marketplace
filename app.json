@@ -65,9 +65,14 @@
     },
     "android": {
         "splash": {
-    "image": "./assets/background-white.png",
+    "image": "./assets/background-black.png",
     "resizeMode": "cover",
-    "backgroundColor": "#ffffff"
+    "backgroundColor": "#000000",
+    "dark": {
+          "backgroundColor": "#000000",
+          "resizeMode": "cover",
+          "image": "./assets/background-black.png"
+        }
   },
       "config": {
         "googleMaps": {
