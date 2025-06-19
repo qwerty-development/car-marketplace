@@ -235,7 +235,7 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
                     isDarkMode ? 'text-white/80' : 'text-gray-700'
                   }`}
                 >
-                  Fix splash screen issue
+                  In delership view,you can see the selected brand when adding a car, and no more overlay issues in autoclips
                 </Text>
               </View>
               
