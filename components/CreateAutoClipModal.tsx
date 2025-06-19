@@ -888,14 +888,6 @@ useEffect(() => {
 								showsVerticalScrollIndicator={false}
 								keyboardShouldPersistTaps='handled'>
 								{/* Video Section */}
-																<View className='mb-'>
-									<SectionHeader
-										title='Guidelines'
-										subtitle='Important information about creating AutoClips'
-										isDarkMode={isDarkMode}
-									/>
-									<Guidelines isDarkMode={isDarkMode} />
-								</View>
 								<View className='py-4'>
 									<SectionHeader
 										title='Video Upload'
@@ -1031,7 +1023,14 @@ useEffect(() => {
 								)}
 
 								{/* Guidelines */}
-
+								<View className='mb-8'>
+									<SectionHeader
+										title='Guidelines'
+										subtitle='Important information about creating AutoClips'
+										isDarkMode={isDarkMode}
+									/>
+									<Guidelines isDarkMode={isDarkMode} />
+								</View>
 
 								{/* Bottom Spacing */}
 								<View className='h-20' />
