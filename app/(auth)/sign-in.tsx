@@ -25,6 +25,7 @@ import Constants from "expo-constants";
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 
+
 maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get("window");
@@ -101,7 +102,7 @@ const AnimatedBlob: React.FC<BlobProps> = ({ position, size, delay, duration }) 
   );
 };
 
-// BRUTE FORCE: Enhanced OAuth Component with better error handling
+// OAuth Component
 const SignInWithOAuth = () => {
   const [isLoading, setIsLoading] = useState<{
     google: boolean;
@@ -128,180 +129,128 @@ const SignInWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
-  // BRUTE FORCE: Improved Google Auth with explicit error handling and navigation
   const handleGoogleAuth = async () => {
     try {
       setIsLoading(prev => ({ ...prev, google: true }));
   
-      console.log("[SignIn] Initiating Google sign-in flow");
-      
-      // Call the enhanced googleSignIn method
+      // Step 1: Call googleSignIn with detailed logging
+      console.log("Initiating Google sign-in flow");
       const result = await googleSignIn();
-      
-      console.log("[SignIn] Google sign-in result:", result);
-      
-      // The navigation is now handled by the AuthContext
-      // But we can add additional safety checks here
-      if (result?.success) {
-        console.log("[SignIn] Google sign-in successful, waiting for navigation");
-        
-        // Additional safety net - force navigation if it doesn't happen automatically
-        setTimeout(() => {
-          try {
-            // Check if we're still on the sign-in page
-            const currentSegments = router.canGoBack() ? [] : ['auth', 'sign-in'];
-            if (currentSegments.includes('sign-in')) {
-              console.log("[SignIn] Safety net: Forcing navigation to home");
-              router.replace('/(home)/(user)');
-            }
-          } catch (navError) {
-            console.warn("[SignIn] Safety navigation failed:", navError);
-          }
-        }, 3000);
-      } else {
-        console.log("[SignIn] Google sign-in was not successful");
-        Alert.alert(
-          "Sign In Failed",
-          "Google sign-in was not completed. Please try again.",
-          [{ text: "OK" }]
-        );
-      }
+      console.log("Google sign-in result:", JSON.stringify(result));
+  
+      // The navigation is now handled by the auth context and root layout
+      // The 3-second delay we added will show the LogoLoader
     } catch (err) {
       console.error("Google OAuth error:", err);
-      Alert.alert(
-        "Sign In Error",
-        "Failed to sign in with Google. Please try again.",
-        [{ text: "OK" }]
-      );
+
     } finally {
-      // Reset loading state with a delay to prevent UI flashing
-      setTimeout(() => {
-        setIsLoading(prev => ({ ...prev, google: false }));
-      }, 1000);
+      setIsLoading(prev => ({ ...prev, google: false }));
     }
   };
 
-  // BRUTE FORCE: Enhanced Apple Sign-In with better token handling
-  const handleAppleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, apple: true }));
+// For Apple Sign-In:
+const handleAppleAuth = async () => {
+  try {
+    setIsLoading(prev => ({ ...prev, apple: true }));
 
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+
+    // Sign in via Supabase Auth
+    if (credential.identityToken) {
+      const { error, data } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
       });
 
-      // Sign in via Supabase Auth
-      if (credential.identityToken) {
-        const { error, data } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: credential.identityToken,
-        });
+      if (error) {
+        throw error;
+      }
 
-        if (error) {
-          throw error;
-        }
-
-        // CRITICAL: Force token registration AFTER successful sign-in
-        if (data?.user) {
-          console.log("[APPLE-AUTH] Sign-in successful, registering push token");
-          
-          // Wait briefly for auth session to stabilize (important)
-          setTimeout(async () => {
-            try {
-              // THIS IS THE CRITICAL PART - Direct database operation
-              const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-              const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-              const token = tokenResponse.data;
+      // CRITICAL: Force token registration AFTER successful sign-in
+      if (data?.user) {
+        console.log("[APPLE-AUTH] Sign-in successful, registering push token");
+        
+        // Wait briefly for auth session to stabilize (important)
+        setTimeout(async () => {
+          try {
+            // THIS IS THE CRITICAL PART - Direct database operation
+            const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
+            const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+            const token = tokenResponse.data;
+            
+            // 1. Save to storage
+            await SecureStore.setItemAsync('expoPushToken', token);
+            
+            // 2. Check if token exists for this user
+            const { data: existingToken } = await supabase
+              .from('user_push_tokens')
+              .select('id')
+              .eq('user_id', data.user.id)
+              .eq('token', token)
+              .maybeSingle();
               
-              // 1. Save to storage
-              await SecureStore.setItemAsync('expoPushToken', token);
-              
-              // 2. Check if token exists for this user
-              const { data: existingToken } = await supabase
+            if (existingToken) {
+              // 3a. Update if exists
+              await supabase
                 .from('user_push_tokens')
-                .select('id')
-                .eq('user_id', data.user.id)
-                .eq('token', token)
-                .maybeSingle();
+                .update({
+                  signed_in: true,
+                  active: true,
+                  last_updated: new Date().toISOString()
+                })
+                .eq('id', existingToken.id);
                 
-              if (existingToken) {
-                // 3a. Update if exists
-                await supabase
-                  .from('user_push_tokens')
-                  .update({
-                    signed_in: true,
-                    active: true,
-                    last_updated: new Date().toISOString()
-                  })
-                  .eq('id', existingToken.id);
-                  
-                console.log("[APPLE-AUTH] Updated existing token");
+              console.log("[APPLE-AUTH] Updated existing token");
+            } else {
+              // 3b. Insert if doesn't exist
+              const { error: insertError } = await supabase
+                .from('user_push_tokens')
+                .insert({
+                  user_id: data.user.id,
+                  token: token,
+                  device_type: Platform.OS,
+                  signed_in: true,
+                  active: true,
+                  last_updated: new Date().toISOString()
+                });
+                
+              if (insertError) {
+                console.error("[APPLE-AUTH] Token insert error:", insertError);
               } else {
-                // 3b. Insert if doesn't exist
-                const { error: insertError } = await supabase
-                  .from('user_push_tokens')
-                  .insert({
-                    user_id: data.user.id,
-                    token: token,
-                    device_type: Platform.OS,
-                    signed_in: true,
-                    active: true,
-                    last_updated: new Date().toISOString()
-                  });
-                  
-                if (insertError) {
-                  console.error("[APPLE-AUTH] Token insert error:", insertError);
-                } else {
-                  console.log("[APPLE-AUTH] Inserted new token");
-                }
+                console.log("[APPLE-AUTH] Inserted new token");
               }
-            } catch (tokenError) {
-              console.error("[APPLE-AUTH] Token registration error:", tokenError);
             }
-          }, 1000);
-
-          // Additional safety net for Apple sign-in navigation
-          setTimeout(() => {
-            try {
-              const currentSegments = router.canGoBack() ? [] : ['auth', 'sign-in'];
-              if (currentSegments.includes('sign-in')) {
-                console.log("[APPLE-AUTH] Safety net: Forcing navigation to home");
-                router.replace('/(home)/(user)');
-              }
-            } catch (navError) {
-              console.warn("[APPLE-AUTH] Safety navigation failed:", navError);
-            }
-          }, 2000);
-        }
-      } else {
-        throw new Error('No identity token received from Apple');
+          } catch (tokenError) {
+            console.error("[APPLE-AUTH] Token registration error:", tokenError);
+          }
+        }, 1000);
       }
-    } catch (err: any) {
-      if (err.code === 'ERR_REQUEST_CANCELED') {
-        console.log('User canceled Apple sign-in');
-      } else {
-        console.error("Apple OAuth error:", err);
-        Alert.alert(
-          "Sign In Error",
-          "Failed to sign in with Apple. Please try again.",
-          [{ text: "OK" }]
-        );
-      }
-    } finally {
-      setTimeout(() => {
-        setIsLoading(prev => ({ ...prev, apple: false }));
-      }, 1000);
+    } else {
+      throw new Error('No identity token received from Apple');
     }
-  };
-
+  } catch (err: any) {
+    if (err.code === 'ERR_REQUEST_CANCELED') {
+      console.log('User canceled Apple sign-in');
+    } else {
+      console.error("Apple OAuth error:", err);
+    }
+  } finally {
+    setIsLoading(prev => ({ ...prev, apple: false }));
+  }
+};
   return (
     <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
 
+
+
         {Platform.OS === 'ios' && appleAuthAvailable ? (
+
           <View style={{ width: 56, height: 56, overflow: 'hidden', borderRadius: 28 }}>
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -355,9 +304,11 @@ const SignInWithOAuth = () => {
               <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
             )}
           </TouchableOpacity>
+
+
         )}
 
-        <TouchableOpacity
+                <TouchableOpacity
           onPress={handleGoogleAuth}
           disabled={isLoading.google}
           style={{
@@ -401,7 +352,6 @@ export default function SignInPage() {
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
-  // BRUTE FORCE: Enhanced regular sign-in with better navigation
   const handleSubmit = useCallback(async () => {
     if (!isLoaded) {
       return;
@@ -431,74 +381,56 @@ export default function SignInPage() {
   
     setIsLoading(true);
     try {
-      console.log("[SignIn] Attempting regular sign-in");
-      
-      // Use the enhanced signIn method from AuthContext
-      const result = await signIn({
+      // Use a manual approach instead of the signIn method from auth context
+      // This ensures we can handle errors before any navigation happens
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: emailAddress,
         password,
       });
-
-      if (result.error) {
+  
+      if (error) {
         // Handle specific error types
-        if (result.error.message?.toLowerCase().includes('invalid login credentials') || 
-            result.error.message?.toLowerCase().includes('password') ||
-            result.error.message?.toLowerCase().includes('incorrect')) {
+        if (error.message?.toLowerCase().includes('invalid login credentials') || 
+            error.message?.toLowerCase().includes('password') ||
+            error.message?.toLowerCase().includes('incorrect')) {
           setPasswordError("Incorrect password. Please try again.");
-        } else if (result.error.message?.toLowerCase().includes('user not found') || 
-                   result.error.message?.toLowerCase().includes('no user') ||
-                   result.error.message?.toLowerCase().includes('email')) {
+        } else if (error.message?.toLowerCase().includes('user not found') || 
+                   error.message?.toLowerCase().includes('no user') ||
+                   error.message?.toLowerCase().includes('email')) {
           setEmailError("No account found with this email address.");
         } else {
           // General error handling
-          setError(result.error.message || "Sign in failed. Please try again.");
+          setError(error.message || "Sign in failed. Please try again.");
         }
-        return;
+        return; // Return early to prevent any navigation
       }
-
-      console.log("[SignIn] Regular sign-in successful");
-      
-      // Additional safety net for regular sign-in
-      setTimeout(() => {
-        try {
-          const currentSegments = router.canGoBack() ? [] : ['auth', 'sign-in'];
-          if (currentSegments.includes('sign-in')) {
-            console.log("[SignIn] Safety net: Forcing navigation after regular sign-in");
-            router.replace('/(home)/(user)');
-          }
-        } catch (navError) {
-          console.warn("[SignIn] Safety navigation failed:", navError);
-        }
-      }, 2000);
-
+  
+      // Only if authentication is successful, use the auth context's signIn
+      // which might handle additional logic like setting up the user session
+      if (data.user) {
+        await signIn({
+          email: emailAddress,
+          password,
+        });
+        // No need to navigate - let auth context handle it
+      }
     } catch (err) {
       console.error("Sign in error:", JSON.stringify(err, null, 2));
       setError("An unexpected error occurred. Please try again.");
     } finally {
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
+      setIsLoading(false);
     }
-  }, [isLoaded, signIn, emailAddress, password]);
+  }, [isLoaded, signIn, emailAddress, password, supabase.auth]);
 
   // Handle guest login
   const handleGuestSignIn = async () => {
     setIsGuestLoading(true);
     try {
-      console.log("[SignIn] Setting guest mode");
-      
       // Set guest mode which will be detected by auth context
       await setGuestMode(true);
       
-      // Additional safety net for guest mode
-      setTimeout(() => {
-        try {
-          router.replace('/(home)/(user)');
-        } catch (navError) {
-          console.warn("[SignIn] Guest mode navigation failed:", navError);
-        }
-      }, 1500);
-      
+      // Let the auth routing handle navigation instead of doing it here
+      // The root layout will detect the guest mode and navigate appropriately
     } catch (err) {
       console.error("Guest mode error:", err);
       Alert.alert(
@@ -506,9 +438,7 @@ export default function SignInPage() {
         "Failed to continue as guest. Please try again."
       );
     } finally {
-      setTimeout(() => {
-        setIsGuestLoading(false);
-      }, 1000);
+      setIsGuestLoading(false);
     }
   };
 
@@ -655,6 +585,9 @@ export default function SignInPage() {
           )}
         </TouchableOpacity>
 
+
+
+
         <SignInWithOAuth />
 
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>
@@ -678,9 +611,9 @@ export default function SignInPage() {
         </TouchableOpacity>
       </View>
 
-      <Text className="text-center text-red" style={{ fontSize: 12, }}>
-        Version {Constants.expoConfig?.version }
-      </Text>
+<Text className="text-center text-red" style={{ fontSize: 12, }}>
+  Version {Constants.expoConfig?.version }
+</Text>
     </View>
   );
 }

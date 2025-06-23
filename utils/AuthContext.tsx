@@ -1,4 +1,4 @@
-// utils/AuthContext.tsx - FIXED VERSION WITH EXPLICIT NAVIGATION
+// utils/AuthContext.tsx - FIXED VERSION
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -18,7 +18,6 @@ const OPERATION_TIMEOUTS = {
   TOKEN_REGISTRATION: 8000, // 8 seconds
   SESSION_LOAD: 10000, // 10 seconds
   OAUTH_PROCESS: 15000, // 15 seconds
-  NAVIGATION_DELAY: 1500, // 1.5 seconds for navigation stability
 } as const;
 
 // Global signing out state management
@@ -98,55 +97,6 @@ const withTimeout = <T>(
       )
     ),
   ]);
-};
-
-// BRUTE FORCE FIX: Force navigation utility
-const forceNavigateToHome = (userRole: string = 'user') => {
-  console.log(`[AUTH] FORCE NAVIGATION: Navigating to home with role: ${userRole}`);
-  
-  // Multiple navigation attempts with different strategies
-  const navigateWithFallback = () => {
-    try {
-      // Primary navigation
-      router.replace(`/(home)/(${userRole})`);
-    } catch (error1) {
-      console.warn('[AUTH] Primary navigation failed, trying fallback 1:', error1);
-      try {
-        // Fallback 1: Navigate to general home first
-        router.replace('/(home)');
-      } catch (error2) {
-        console.warn('[AUTH] Fallback 1 failed, trying fallback 2:', error2);
-        try {
-          // Fallback 2: Navigate to user home directly
-          router.replace('/(home)/(user)');
-        } catch (error3) {
-          console.error('[AUTH] All navigation attempts failed:', error3);
-          // Final fallback: Force reload
-          setTimeout(() => {
-            try {
-              router.replace('/');
-            } catch (finalError) {
-              console.error('[AUTH] Final navigation attempt failed:', finalError);
-            }
-          }, 500);
-        }
-      }
-    }
-  };
-
-  // Execute navigation with delay for stability
-  setTimeout(navigateWithFallback, 300);
-  
-  // Secondary attempt for extra safety
-  setTimeout(() => {
-    try {
-      if (router.canGoBack()) {
-        router.replace(`/(home)/(${userRole})`);
-      }
-    } catch (error) {
-      console.warn('[AUTH] Secondary navigation attempt failed:', error);
-    }
-  }, 1000);
 };
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
@@ -835,10 +785,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             console.error('[AUTH] Token registration error during sign in:', tokenError);
           }
         }, 1000);
-        const userRole = profile?.role || 'user';
-        setTimeout(() => {
-          forceNavigateToHome(userRole);
-        }, OPERATION_TIMEOUTS.NAVIGATION_DELAY);
       }
       
       return { error: null };
@@ -855,6 +801,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
+  /**
+   * CRITICAL FIX 16: Enhanced Google sign in with timeout protection
+   */
   const googleSignIn = async () => {
     try {
       setIsSigningIn(true);
@@ -897,8 +846,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             const accessToken = hashParams.get('access_token');
 
             if (accessToken) {
-              console.log('[AUTH] Setting session from Google OAuth');
-              
               const sessionResult = await withTimeout(
                 supabase.auth.setSession({
                   access_token: accessToken,
@@ -912,7 +859,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
               if (sessionError) throw sessionError;
 
-              if (sessionData.session) {  
+              if (sessionData.session) {
                 setSession(sessionData.session);
                 setUser(sessionData.session.user);
 
@@ -921,7 +868,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                   setProfile(userProfile);
                 }
 
-                // Schedule background token registration
+                console.log('[AUTH] Google sign in successful, scheduling token registration');
+                
                 setTimeout(async () => {
                   try {
                     await registerPushTokenForUser(sessionData.session.user.id);
@@ -929,28 +877,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     console.error('[AUTH] Token registration error during Google sign in:', tokenError);
                   }
                 }, 1000);
-                
-                // BRUTE FORCE: Explicit navigation after successful Google sign-in
-                const userRole = userProfile?.role || 'user';
-                console.log(`[AUTH] GOOGLE SUCCESS: Forcing navigation to role: ${userRole}`);
-                
-                // Multiple navigation strategies for maximum reliability
-                setTimeout(() => {
-                  forceNavigateToHome(userRole);
-                }, 500);
-
-                // Additional safety net
-                setTimeout(() => {
-                  try {
-                    const currentSegments = router.canGoBack() ? [''] : [];
-                    if (!currentSegments.includes('(home)')) {
-                      console.log('[AUTH] Safety net: Force navigation attempt 2');
-                      forceNavigateToHome(userRole);
-                    }
-                  } catch (error) {
-                    console.warn('[AUTH] Safety net navigation failed:', error);
-                  }
-                }, 2000);
                 
                 return { success: true, user: sessionData.session.user };
               }
@@ -961,20 +887,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
 
-      // Fallback session check with explicit navigation
+      // Fallback session check
       try {
-        console.log('[AUTH] Attempting fallback session check');
         const { data: currentSession } = await supabase.auth.getSession();
         if (currentSession?.session?.user) {
           console.log('[AUTH] Google sign in fallback path successful');
           setSession(currentSession.session);
           setUser(currentSession.session.user);
-          
-          // Process profile for fallback path
-          const userProfile = await processOAuthUser(currentSession.session);
-          if (userProfile) {
-            setProfile(userProfile);
-          }
           
           setTimeout(async () => {
             try {
@@ -983,12 +902,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
               console.error('[AUTH] Token registration error during Google sign in fallback:', tokenError);
             }
           }, 1000);
-          
-          // BRUTE FORCE: Navigation for fallback path
-          const userRole = userProfile?.role || 'user';
-          setTimeout(() => {
-            forceNavigateToHome(userRole);
-          }, 500);
           
           return { success: true, user: currentSession.session.user };
         }
@@ -1007,15 +920,12 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return { success: false, error };
       }
     } finally {
-      // Reset signing in state with delay to allow navigation to complete
-      setTimeout(() => {
-        setIsSigningIn(false);
-      }, 2000);
+      setIsSigningIn(false);
     }
   };
 
   /**
-   * Enhanced Apple sign in with timeout protection and explicit navigation
+   * Enhanced Apple sign in with timeout protection
    */
   const appleSignIn = async () => {
     try {
@@ -1061,12 +971,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error('[AUTH] Token registration error during Apple sign in:', tokenError);
               }
             }, 1000);
-
-            // BRUTE FORCE: Explicit navigation for Apple sign-in
-            const userRole = userProfile?.role || 'user';
-            setTimeout(() => {
-              forceNavigateToHome(userRole);
-            }, OPERATION_TIMEOUTS.NAVIGATION_DELAY);
           }
         }
       }
@@ -1183,11 +1087,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
               console.error('[AUTH] Token registration error during sign up:', tokenError);
             }
           }, 1000);
-
-          // BRUTE FORCE: Add navigation for immediate sign-up success
-          setTimeout(() => {
-            forceNavigateToHome(role);
-          }, OPERATION_TIMEOUTS.NAVIGATION_DELAY);
         }
       }
 
@@ -1495,6 +1394,8 @@ const forceProfileRefresh = async () => {
   }
 };
 
+
+// forceProfileRefresh: () => Promise<void>;
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
       const metadataUpdateResult = await withTimeout(
