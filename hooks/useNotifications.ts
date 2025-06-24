@@ -1,4 +1,4 @@
-// hooks/useNotifications.ts - FIXED VERSION - Prevents Registration Loop
+// hooks/useNotifications.ts - FIXED VERSION
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform, AppState, AppStateStatus } from 'react-native';
@@ -26,8 +26,7 @@ const OPERATION_TIMEOUTS = {
 const STORAGE_KEYS = {
   PUSH_TOKEN: 'expoPushToken',
   REGISTRATION_STATE: 'notificationRegistrationState',
-  TOKEN_REFRESH_TIME: 'pushTokenRefreshTime',
-  PERMISSION_DENIAL_STATE: 'permissionDenialState', // NEW: Track permission denials
+  TOKEN_REFRESH_TIME: 'pushTokenRefreshTime'
 } as const;
 
 // Configuration constants
@@ -42,9 +41,6 @@ const CONFIG = {
   RECENT_REGISTRATION_THRESHOLD: 24 * 60 * 60 * 1000, // 24 hours
   TOKEN_VERIFICATION_INTERVAL: 12 * 60 * 60 * 1000, // 12 hours
   FOREGROUND_VERIFICATION_DELAY: 2000, // 2 seconds
-  // NEW: Permission denial handling
-  PERMISSION_DENIAL_COOLDOWN: 60 * 60 * 1000, // 1 hour cooldown after denial
-  APP_STATE_DEBOUNCE_DELAY: 1000, // 1 second debounce for app state changes
 } as const;
 
 interface RegistrationState {
@@ -52,13 +48,6 @@ interface RegistrationState {
   attempts: number;
   lastError?: string;
   registered: boolean;
-}
-
-// NEW: Permission denial state interface
-interface PermissionDenialState {
-  deniedAt: number;
-  consecutiveDenials: number;
-  lastDenialReason?: string;
 }
 
 interface UseNotificationsReturn {
@@ -114,10 +103,6 @@ export function useNotifications(): UseNotificationsReturn {
   const networkStatus = useRef<boolean>(true);
   const verificationTimer = useRef<NodeJS.Timeout | null>(null);
   const [initializationComplete, setInitializationComplete] = useState(false);
-  
-  // NEW: App state change debouncing
-  const appStateChangeTimer = useRef<NodeJS.Timeout | null>(null);
-  const lastAppStateChange = useRef<number>(0);
 
   // CRITICAL FIX 4: Cleanup function for timeouts
   const cleanupTimeout = useCallback((key: string) => {
@@ -151,42 +136,6 @@ export function useNotifications(): UseNotificationsReturn {
       }
     }
   }, []);
-
-  /**
-   * NEW: Permission denial state management
-   */
-  const getPermissionDenialState = useCallback(async (): Promise<PermissionDenialState | null> => {
-    try {
-      const stateJson = await SecureStore.getItemAsync(STORAGE_KEYS.PERMISSION_DENIAL_STATE);
-      return stateJson ? JSON.parse(stateJson) : null;
-    } catch (error) {
-      debugLog('Error reading permission denial state:', error);
-      return null;
-    }
-  }, [debugLog]);
-
-  const savePermissionDenialState = useCallback(async (state: PermissionDenialState): Promise<void> => {
-    try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.PERMISSION_DENIAL_STATE, JSON.stringify(state));
-    } catch (error) {
-      debugLog('Error saving permission denial state:', error);
-    }
-  }, [debugLog]);
-
-  const isInPermissionDenialCooldown = useCallback(async (): Promise<boolean> => {
-    const denialState = await getPermissionDenialState();
-    if (!denialState) return false;
-
-    const timeSinceDenial = Date.now() - denialState.deniedAt;
-    const isInCooldown = timeSinceDenial < CONFIG.PERMISSION_DENIAL_COOLDOWN;
-    
-    if (isInCooldown) {
-      const remainingTime = Math.ceil((CONFIG.PERMISSION_DENIAL_COOLDOWN - timeSinceDenial) / 1000 / 60);
-      debugLog(`Permission denial cooldown active. ${remainingTime} minutes remaining.`);
-    }
-    
-    return isInCooldown;
-  }, [getPermissionDenialState, debugLog]);
 
   /**
    * CRITICAL FIX 6: Memoized operation keys for coordinator
@@ -392,7 +341,7 @@ export function useNotifications(): UseNotificationsReturn {
   }, [debugLog]);
 
   /**
-   * CRITICAL FIX 11: Main registration function with comprehensive timeout protection and permission denial handling
+   * CRITICAL FIX 11: Main registration function with comprehensive timeout protection
    */
   const registerForPushNotifications = useCallback(async (force = false) => {
     if (!user?.id || !operationKeys.registration) {
@@ -403,16 +352,6 @@ export function useNotifications(): UseNotificationsReturn {
     if (isSigningOut) {
       debugLog('User is signing out, skipping registration');
       return;
-    }
-
-    // NEW: Check permission denial cooldown BEFORE attempting registration
-    if (!force) {
-      const inCooldown = await isInPermissionDenialCooldown();
-      if (inCooldown) {
-        debugLog('Skipping registration due to permission denial cooldown');
-        setInitializationComplete(true);
-        return;
-      }
     }
 
     try {
@@ -495,16 +434,6 @@ export function useNotifications(): UseNotificationsReturn {
                   debugLog('Permission denied by user');
                   setIsPermissionGranted(false);
                   
-                  // NEW: Save permission denial state with cooldown
-                  const denialState = await getPermissionDenialState();
-                  const newDenialState: PermissionDenialState = {
-                    deniedAt: Date.now(),
-                    consecutiveDenials: (denialState?.consecutiveDenials || 0) + 1,
-                    lastDenialReason: 'User denied permission'
-                  };
-                  
-                  await savePermissionDenialState(newDenialState);
-                  
                   await saveRegistrationState({
                     lastAttemptTime: Date.now(),
                     attempts: 0,
@@ -519,9 +448,6 @@ export function useNotifications(): UseNotificationsReturn {
               }
 
               setIsPermissionGranted(true);
-              
-              // NEW: Clear permission denial state on successful permission grant
-              await SecureStore.deleteItemAsync(STORAGE_KEYS.PERMISSION_DENIAL_STATE);
 
               if (!force) {
                 const cachedVerification = notificationCache.getCachedTokenVerification(user.id);
@@ -600,7 +526,7 @@ export function useNotifications(): UseNotificationsReturn {
       setLoading(false);
       setInitializationComplete(true);
     }
-  }, [user?.id, operationKeys.registration, handleTokenRefresh, getRegistrationState, saveRegistrationState, debugLog, cleanupTimeout, setOperationTimeout, isInPermissionDenialCooldown, getPermissionDenialState, savePermissionDenialState]);
+  }, [user?.id, operationKeys.registration, handleTokenRefresh, getRegistrationState, saveRegistrationState, debugLog, cleanupTimeout, setOperationTimeout]);
 
   /**
    * CRITICAL FIX 12: Enhanced cleanup function with timeout protection
@@ -628,10 +554,6 @@ export function useNotifications(): UseNotificationsReturn {
       if (verificationTimer.current) {
         clearTimeout(verificationTimer.current);
         verificationTimer.current = null;
-      }
-      if (appStateChangeTimer.current) {
-        clearTimeout(appStateChangeTimer.current);
-        appStateChangeTimer.current = null;
       }
 
       if (user?.id) {
@@ -783,25 +705,12 @@ export function useNotifications(): UseNotificationsReturn {
   }, [user?.id, operationKeys.verification, registerForPushNotifications, debugLog]);
 
   /**
-   * CRITICAL FIX 15: Enhanced App state monitoring with debouncing and permission checking
+   * CRITICAL FIX 15: App state monitoring with timeout protection
    */
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      const now = Date.now();
       const previousState = appState.current;
       appState.current = nextAppState;
-
-      // NEW: Debounce rapid app state changes
-      if (appStateChangeTimer.current) {
-        clearTimeout(appStateChangeTimer.current);
-      }
-
-      // NEW: Rate limiting for app state changes
-      if (now - lastAppStateChange.current < CONFIG.APP_STATE_DEBOUNCE_DELAY) {
-        debugLog('App state change too frequent, debouncing');
-        return;
-      }
-      lastAppStateChange.current = now;
 
       if (isGlobalSigningOut) {
         debugLog('Skipping notification operations during sign-out');
@@ -818,66 +727,47 @@ export function useNotifications(): UseNotificationsReturn {
 
         NotificationService.setBadgeCount(0).catch(() => {});
 
-        // NEW: Debounce the foreground verification
-        appStateChangeTimer.current = setTimeout(async () => {
-          notificationCoordinator.debounceVerification(
-            user.id,
-            async () => {
-              try {
-                // NEW: Check permission denial cooldown before attempting registration
-                const inCooldown = await isInPermissionDenialCooldown();
-                if (inCooldown) {
-                  debugLog('Skipping foreground registration due to permission denial cooldown');
-                  return;
-                }
+        notificationCoordinator.debounceVerification(
+          user.id,
+          async () => {
+            try {
+              const cachedVerification = notificationCache.getCachedTokenVerification(user.id);
+              
+              if (cachedVerification?.isValid) {
+                debugLog('Using cached verification on foreground');
+                return;
+              }
 
-                const cachedVerification = notificationCache.getCachedTokenVerification(user.id);
-                
-                if (cachedVerification?.isValid) {
-                  debugLog('Using cached verification on foreground');
-                  return;
-                }
+              const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
+              
+              if (!storedToken) {
+                debugLog('No token found, initiating registration');
+                await registerForPushNotifications(true);
+                return;
+              }
 
-                const storedToken = await SecureStore.getItemAsync(STORAGE_KEYS.PUSH_TOKEN);
-                
-                if (!storedToken) {
-                  debugLog('No token found, checking permission before initiating registration');
-                  
-                  // NEW: Check current permission status before attempting registration
-                  const currentPermissions = await NotificationService.getPermissions();
-                  if (currentPermissions?.status !== 'granted') {
-                    debugLog('Permission not granted, skipping automatic registration');
-                    return;
-                  }
-                  
-                  debugLog('Permission granted, initiating registration');
-                  await registerForPushNotifications(true);
-                  return;
-                }
-
-                const verification = await withTimeout(
-                  NotificationService.forceTokenVerification(user.id),
-                  OPERATION_TIMEOUTS.TOKEN_VERIFICATION,
-                  'foreground token verification'
-                );
-                
-                if (!verification.isValid) {
-                  debugLog('Token invalid, re-registering');
-                  await registerForPushNotifications(true);
-                } else if (verification.signedIn === false) {
-                  debugLog('Token needs sign-in status update');
-                  await NotificationService.markTokenAsSignedIn(user.id, verification.token);
-                }
-              } catch (error: any) {
-                if (error.message.includes('timed out')) {
-                  debugLog('Foreground verification timed out');
-                } else {
-                  debugLog('Error during foreground verification:', error);
-                }
+              const verification = await withTimeout(
+                NotificationService.forceTokenVerification(user.id),
+                OPERATION_TIMEOUTS.TOKEN_VERIFICATION,
+                'foreground token verification'
+              );
+              
+              if (!verification.isValid) {
+                debugLog('Token invalid, re-registering');
+                await registerForPushNotifications(true);
+              } else if (verification.signedIn === false) {
+                debugLog('Token needs sign-in status update');
+                await NotificationService.markTokenAsSignedIn(user.id, verification.token);
+              }
+            } catch (error: any) {
+              if (error.message.includes('timed out')) {
+                debugLog('Foreground verification timed out');
+              } else {
+                debugLog('Error during foreground verification:', error);
               }
             }
-          );
-        }, CONFIG.APP_STATE_DEBOUNCE_DELAY);
+          }
+        );
 
         refreshNotifications();
       }
@@ -885,11 +775,8 @@ export function useNotifications(): UseNotificationsReturn {
 
     return () => {
       subscription.remove();
-      if (appStateChangeTimer.current) {
-        clearTimeout(appStateChangeTimer.current);
-      }
     };
-  }, [user?.id, operationKeys.verification, registerForPushNotifications, refreshNotifications, debugLog, isInPermissionDenialCooldown]);
+  }, [user?.id, operationKeys.verification, registerForPushNotifications, refreshNotifications, debugLog]);
 
   /**
    * CRITICAL FIX 16: Initial setup with comprehensive timeout protection
@@ -967,7 +854,7 @@ export function useNotifications(): UseNotificationsReturn {
         debugLog('Error during initial setup:', initialError);
       }
 
-      // Stage 2: Deferred token registration with timeout and permission checking
+      // Stage 2: Deferred token registration with timeout
       setTimeout(async () => {
         if (!mounted || isGlobalSigningOut || !user?.id) {
           setInitializationComplete(true);
@@ -975,17 +862,6 @@ export function useNotifications(): UseNotificationsReturn {
         }
 
         try {
-          // NEW: Check permission denial cooldown during initialization
-          const inCooldown = await isInPermissionDenialCooldown();
-          if (inCooldown) {
-            debugLog('Skipping initialization registration due to permission denial cooldown');
-            if (initializationTimeout.current) {
-              clearTimeout(initializationTimeout.current);
-            }
-            setInitializationComplete(true);
-            return;
-          }
-
           const cachedVerification = notificationCache.getCachedTokenVerification(user.id);
           
           if (cachedVerification?.isValid) {
@@ -1079,10 +955,6 @@ export function useNotifications(): UseNotificationsReturn {
         clearTimeout(verificationTimer.current);
         verificationTimer.current = null;
       }
-      if (appStateChangeTimer.current) {
-        clearTimeout(appStateChangeTimer.current);
-        appStateChangeTimer.current = null;
-      }
 
       // Remove listeners
       if (notificationListener.current) {
@@ -1114,8 +986,7 @@ export function useNotifications(): UseNotificationsReturn {
     refreshNotifications,
     registerForPushNotifications,
     handleTokenRefresh,
-    debugLog,
-    isInPermissionDenialCooldown
+    debugLog
   ]);
 
   return {

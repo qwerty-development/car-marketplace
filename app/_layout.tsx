@@ -570,7 +570,7 @@ function EnvironmentVariablesCheck() {
   return null;
 }
 
-// COMPONENT: Fixed NotificationsProvider - Compatible with Loop Prevention
+// COMPONENT: Timeout-protected NotificationsProvider
 function NotificationsProvider() {
   const {
     unreadCount,
@@ -580,9 +580,11 @@ function NotificationsProvider() {
   } = useNotifications();
   const { user, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
-  const [initializationState, setInitializationState] = useState
+  const [initializationState, setInitializationState] = useState<
     "idle" | "running" | "completed" | "failed"
   >("idle");
+  const initRetryCount = useRef(0);
+  const MAX_INIT_RETRIES = 2;
   const initTimeoutRef = useRef<NodeJS.Timeout>();
 
   // COMPUTED: Operation key for coordination
@@ -591,24 +593,7 @@ function NotificationsProvider() {
     [user?.id]
   );
 
-  // NEW: Check permission denial state before initialization
-  const checkPermissionDenialState = useCallback(async (): Promise<boolean> => {
-    try {
-      const denialStateJson = await SecureStore.getItemAsync('permissionDenialState');
-      if (!denialStateJson) return false;
-      
-      const denialState = JSON.parse(denialStateJson);
-      const timeSinceDenial = Date.now() - denialState.deniedAt;
-      const PERMISSION_DENIAL_COOLDOWN = 60 * 60 * 1000; // 1 hour
-      
-      return timeSinceDenial < PERMISSION_DENIAL_COOLDOWN;
-    } catch (error) {
-      console.warn('[NotificationsProvider] Error checking permission denial state:', error);
-      return false;
-    }
-  }, []);
-
-  // EFFECT: Initialize notifications with permission denial awareness
+  // EFFECT: Initialize notifications with timeout protection
   useEffect(() => {
     const initializeNotifications = async () => {
       // RULE: Skip if no user or guest
@@ -647,16 +632,7 @@ function NotificationsProvider() {
 
             notificationCoordinator.checkAborted(signal);
 
-            // NEW: Check permission denial cooldown before any setup
-            const inDenialCooldown = await checkPermissionDenialState();
-            if (inDenialCooldown) {
-              console.log('[NotificationsProvider] Permission denial cooldown active, skipping initialization');
-              setInitializationState("completed");
-              initManager.setReady('notifications');
-              return;
-            }
-
-            // RULE: Set up Android channel (non-blocking)
+            // RULE: Set up Android channel
             if (Platform.OS === "android") {
               try {
                 await Notifications.setNotificationChannelAsync("default", {
@@ -682,37 +658,54 @@ function NotificationsProvider() {
               }
             }
 
-            // RULE: Check current permissions (non-blocking)
+            // RULE: Check cached permissions
             let cachedPermissions =
               notificationCache.get<Notifications.NotificationPermissionsStatus>(
                 NotificationCacheManager.keys.permissions()
               );
 
             if (!cachedPermissions) {
-              try {
-                cachedPermissions = await Notifications.getPermissionsAsync();
-                if (cachedPermissions) {
-                  notificationCache.set(
-                    NotificationCacheManager.keys.permissions(),
-                    cachedPermissions,
-                    10 * 60 * 1000
-                  );
-                }
-              } catch (permError) {
-                console.warn('[NotificationsProvider] Permission check failed:', permError);
+              cachedPermissions = await Notifications.getPermissionsAsync();
+              if (cachedPermissions) {
+                notificationCache.set(
+                  NotificationCacheManager.keys.permissions(),
+                  cachedPermissions,
+                  10 * 60 * 1000
+                );
               }
             }
 
-            // FIXED: Let useNotifications handle registration - don't force or duplicate
+            // RULE: Request permissions if needed
+            if (cachedPermissions?.status !== "granted") {
+              console.log("[NotificationsProvider] Requesting permissions");
+              const newPermissions =
+                await Notifications.requestPermissionsAsync();
+
+              if (newPermissions?.status !== "granted") {
+                console.log("[NotificationsProvider] Permission denied");
+                setInitializationState("completed");
+                initManager.setReady('notifications');
+                return;
+              }
+
+              notificationCache.set(
+                NotificationCacheManager.keys.permissions(),
+                newPermissions,
+                10 * 60 * 1000
+              );
+            }
+
             console.log(
-              "[NotificationsProvider] Delegating registration to useNotifications hook"
+              "[NotificationsProvider] Registering for push notifications"
             );
             
-            // CRITICAL FIX: Don't call registerForPushNotifications here
-            // The useNotifications hook will handle this internally with proper permission checking
-            // Just mark as completed since the hook manages its own initialization
+            // RULE: Background registration - don't await
+            registerForPushNotifications(true).catch(error => {
+              console.warn('[NotificationsProvider] Background registration failed:', error);
+            });
 
             setInitializationState("completed");
+            initRetryCount.current = 0;
             
             if (initTimeoutRef.current) {
               clearTimeout(initTimeoutRef.current);
@@ -748,10 +741,9 @@ function NotificationsProvider() {
     user?.id,
     isSignedIn,
     isGuest,
+    registerForPushNotifications,
     operationKey,
     initializationState,
-    checkPermissionDenialState, // FIXED: Stable dependency
-    // REMOVED: registerForPushNotifications - prevents unnecessary re-runs
   ]);
 
   return <EnvironmentVariablesCheck />;

@@ -1,4 +1,4 @@
-// utils/AuthContext.tsx - HOOK STABILITY FIXED VERSION
+// utils/AuthContext.tsx - FIXED VERSION
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -108,10 +108,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { isGuest, clearGuestMode } = useGuestUser();
 
-  // CRITICAL FIX 3: Stable refs for cleanup management
-  const isMountedRef = useRef(true);
-  const authInitializedRef = useRef(false);
-  const tokenVerificationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // CRITICAL FIX 3: Enhanced cleanup management
+  const tokenVerificationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const authSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
@@ -122,17 +120,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     path: 'auth/callback'
   });
 
-  // CRITICAL FIX 4: Component mount tracking
-  useEffect(() => {
-    isMountedRef.current = true;
-    
-    return () => {
-      isMountedRef.current = false;
-      console.log('[AUTH] AuthProvider unmounting');
-    };
-  }, []);
-
-  // CRITICAL FIX 5: Enhanced cleanup function
+  // CRITICAL FIX 4: Enhanced cleanup function
   const cleanupOperation = (operationKey: string) => {
     const timeout = operationTimeoutsRef.current.get(operationKey);
     if (timeout) {
@@ -149,7 +137,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 6: Enhanced token registration with timeout protection
+   * CRITICAL FIX 5: Enhanced token registration with timeout protection
    */
   const registerPushTokenForUser = async (
     userId: string, 
@@ -161,25 +149,25 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     try {
       console.log(`[AUTH] Token registration attempt ${attemptNumber}/${maxAttempts} for user: ${userId}`);
       
-      if (isGlobalSigningOut || isSigningOutState || !isMountedRef.current) {
-        console.log('[AUTH] User is signing out or component unmounted, skipping token registration');
+      if (isGlobalSigningOut || isSigningOutState) {
+        console.log('[AUTH] User is signing out, skipping token registration');
         return false;
       }
 
-      // CRITICAL FIX 7: Add timeout to token registration
+      // CRITICAL FIX 6: Add timeout to token registration
       const token = await withTimeout(
         NotificationService.registerForPushNotificationsAsync(userId, true),
         OPERATION_TIMEOUTS.TOKEN_REGISTRATION,
         'token registration'
       );
       
-      if (token && isMountedRef.current) {
+      if (token) {
         console.log('[AUTH] Token registration successful via NotificationService');
         return true;
       } else {
         console.log(`[AUTH] Token registration failed on attempt ${attemptNumber}`);
         
-        if (attemptNumber < maxAttempts && isMountedRef.current) {
+        if (attemptNumber < maxAttempts) {
           const delay = baseDelay * Math.pow(2, attemptNumber - 1);
           console.log(`[AUTH] Retrying token registration in ${delay}ms`);
           
@@ -196,7 +184,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         console.error(`[AUTH] Token registration error on attempt ${attemptNumber}:`, error);
       }
       
-      if (attemptNumber < maxAttempts && isMountedRef.current) {
+      if (attemptNumber < maxAttempts) {
         const delay = baseDelay * Math.pow(2, attemptNumber - 1);
         console.log(`[AUTH] Retrying token registration after error in ${delay}ms`);
         
@@ -209,77 +197,67 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 8: Stable token verification function
+   * CRITICAL FIX 7: Non-blocking token verification with timeout
    */
-  const setupTokenVerification = (userId: string) => {
-    if (!userId || isGuest || !isMountedRef.current) {
-      return;
-    }
-
-    // Clear any existing verification
-    if (tokenVerificationIntervalRef.current) {
-      clearInterval(tokenVerificationIntervalRef.current);
-      tokenVerificationIntervalRef.current = null;
-    }
-
-    console.log('[AUTH] Setting up token verification for user:', userId);
-
-    const verifyToken = async () => {
-      if (!isMountedRef.current || isGlobalSigningOut || isSigningOutState) {
-        console.log('[AUTH] Skipping token verification - component unmounted or signing out');
+  const verifyTokenRegistration = async (userId: string): Promise<void> => {
+    try {
+      console.log('[AUTH] Starting periodic token verification for user:', userId);
+      
+      if (isGlobalSigningOut || isSigningOutState) {
+        console.log('[AUTH] Skipping token verification - user signing out');
         return;
       }
 
-      try {
-        const verification = await withTimeout(
-          NotificationService.forceTokenVerification(userId),
-          3000,
-          'token verification'
-        );
+      // Add timeout to verification
+      const verification = await withTimeout(
+        NotificationService.forceTokenVerification(userId),
+        3000, // 3 second timeout for verification
+        'token verification'
+      );
+      
+      if (!verification.isValid) {
+        console.log('[AUTH] Token verification failed, scheduling background registration');
         
-        if (!verification.isValid && isMountedRef.current) {
-          console.log('[AUTH] Token verification failed, scheduling background registration');
-          
-          const registrationPromise = registerPushTokenForUser(userId).catch(error => {
-            console.warn('[AUTH] Background token registration failed:', error);
-          });
-          
-          backgroundOperationsRef.current.add(registrationPromise);
-        } else if (verification.signedIn === false && verification.token && isMountedRef.current) {
-          console.log('[AUTH] Token exists but marked as signed out, updating status');
-          
+        // Schedule background registration without blocking
+        const registrationPromise = registerPushTokenForUser(userId).catch(error => {
+          console.warn('[AUTH] Background token registration failed:', error);
+        });
+        
+        backgroundOperationsRef.current.add(registrationPromise);
+      } else if (verification.signedIn === false) {
+        console.log('[AUTH] Token exists but marked as signed out, updating status');
+        
+        if (verification.token) {
           const updatePromise = NotificationService.markTokenAsSignedIn(userId, verification.token).catch(error => {
             console.warn('[AUTH] Background token status update failed:', error);
           });
           
           backgroundOperationsRef.current.add(updatePromise);
         }
-      } catch (error: any) {
-        if (error.message.includes('timed out')) {
-          console.warn('[AUTH] Token verification timed out');
-        } else {
-          console.error('[AUTH] Error during token verification:', error);
+      } else {
+        console.log('[AUTH] Token verification successful');
+      }
+    } catch (error: any) {
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Token verification timed out, scheduling background check');
+      } else {
+        console.error('[AUTH] Error during token verification:', error);
+      }
+      
+      // Schedule fallback registration without blocking
+      setTimeout(() => {
+        if (!isGlobalSigningOut && !isSigningOutState) {
+          const fallbackPromise = registerPushTokenForUser(userId).catch(error => {
+            console.warn('[AUTH] Fallback token registration failed:', error);
+          });
+          backgroundOperationsRef.current.add(fallbackPromise);
         }
-      }
-    };
-
-    // Initial verification with delay
-    setTimeout(() => {
-      if (isMountedRef.current) {
-        verifyToken();
-      }
-    }, 2000);
-
-    // Set up periodic verification
-    tokenVerificationIntervalRef.current = setInterval(() => {
-      if (isMountedRef.current) {
-        verifyToken();
-      }
-    }, 12 * 60 * 60 * 1000); // 12 hours
+      }, 5000);
+    }
   };
 
   /**
-   * CRITICAL FIX 9: Enhanced cleanup function with timeout protection
+   * CRITICAL FIX 8: Enhanced cleanup function with timeout protection
    */
   const cleanupPushToken = async (): Promise<void> => {
     try {
@@ -290,9 +268,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       console.log('[AUTH] Initiating push token cleanup via NotificationService');
       
+      // Add timeout to cleanup operation
       const success = await withTimeout(
         NotificationService.cleanupPushToken(user.id),
-        3000,
+        3000, // 3 second timeout for cleanup
         'push token cleanup'
       );
 
@@ -307,11 +286,12 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       } else {
         console.error('[AUTH] Push token cleanup error:', error);
       }
+      // Continue with sign out process even if token cleanup fails
     }
   };
 
   /**
-   * CRITICAL FIX 10: Enhanced local storage cleanup with timeout
+   * CRITICAL FIX 9: Enhanced local storage cleanup with timeout
    */
   const cleanupLocalStorage = async (): Promise<void> => {
     try {
@@ -324,11 +304,12 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         'tempAuthData'
       ];
 
+      // Add timeout to storage cleanup
       const cleanupPromises = authKeys.map(async (key) => {
         try {
           return withTimeout(
             SecureStore.deleteItemAsync(key),
-            1000,
+            1000, // 1 second timeout per key
             `storage cleanup for ${key}`
           );
         } catch (error) {
@@ -338,7 +319,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       await withTimeout(
         Promise.allSettled(cleanupPromises),
-        5000,
+        5000, // 5 second total timeout for storage cleanup
         'complete storage cleanup'
       );
       
@@ -352,24 +333,47 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  // CRITICAL FIX 11: STABLE auth state management effect (NO DEPENDENCIES)
+  // CRITICAL FIX 10: Token verification effect with proper cleanup and timeout
   useEffect(() => {
-    console.log('[AUTH] Initializing auth state management');
+    if (!user?.id || isGuest) {
+      return;
+    }
+
+    const verificationInterval = 12 * 60 * 60 * 1000; // 12 hours
+    
+    // Initial verification with delay and timeout
+    const initialTimeout = setTimeout(() => {
+      verifyTokenRegistration(user.id);
+    }, 2000);
+
+    // Set up periodic verification
+    tokenVerificationIntervalRef.current = setInterval(() => {
+      verifyTokenRegistration(user.id);
+    }, verificationInterval);
+
+    return () => {
+      if (initialTimeout) {
+        clearTimeout(initialTimeout);
+      }
+      if (tokenVerificationIntervalRef.current) {
+        clearInterval(tokenVerificationIntervalRef.current);
+        tokenVerificationIntervalRef.current = null;
+      }
+    };
+  }, [user?.id, isGuest]);
+  
+  // CRITICAL FIX 11: Enhanced auth state management with timeout protection
+  useEffect(() => {
     setIsLoaded(false);
-    authInitializedRef.current = false;
 
     // Set timeout for session loading
     const sessionTimeout = setOperationTimeout('sessionLoad', OPERATION_TIMEOUTS.SESSION_LOAD, () => {
       console.warn('[AUTH] Session loading timed out, marking as loaded');
-      if (isMountedRef.current) {
-        setIsLoaded(true);
-      }
+      setIsLoaded(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        if (!isMountedRef.current) return;
-        
         try {
           console.log('[AUTH] Auth state change event:', event);
 
@@ -377,10 +381,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setSession(currentSession);
             setUser(currentSession.user);
 
-            // Only fetch profile for non-guest users
-            if (currentSession.user) {
-              // Check if this is a guest user by checking the context separately
-              // We'll handle guest detection in a separate effect
+            if (currentSession.user && !isGuest) {
               await fetchUserProfile(currentSession.user.id);
             }
           } else if (event === 'SIGNED_OUT') {
@@ -389,25 +390,21 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setProfile(null);
           }
 
+          // Clear the session timeout since we got a response
           cleanupOperation('sessionLoad');
-          if (isMountedRef.current) {
-            setIsLoaded(true);
-            authInitializedRef.current = true;
-          }
+          setIsLoaded(true);
         } catch (error) {
           console.error('[AUTH] Error in auth state change handler:', error);
+          // Still mark as loaded to prevent infinite loading
           cleanupOperation('sessionLoad');
-          if (isMountedRef.current) {
-            setIsLoaded(true);
-            authInitializedRef.current = true;
-          }
+          setIsLoaded(true);
         }
       }
     );
 
     authSubscriptionRef.current = subscription;
 
-    // Check for existing session on startup
+    // Check for existing session on startup with timeout
     const loadSession = async () => {
       try {
         const sessionResult = await withTimeout(
@@ -416,11 +413,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           'session load'
         );
 
-        if (sessionResult?.data?.session && isMountedRef.current) {
+        if (sessionResult?.data?.session) {
           setSession(sessionResult.data.session);
           setUser(sessionResult.data.session.user);
 
-          if (sessionResult.data.session.user) {
+          if (sessionResult.data.session.user && !isGuest) {
             await fetchUserProfile(sessionResult.data.session.user.id);
           }
         }
@@ -432,49 +429,23 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       } finally {
         cleanupOperation('sessionLoad');
-        if (isMountedRef.current) {
-          setIsLoaded(true);
-          authInitializedRef.current = true;
-        }
+        setIsLoaded(true);
       }
     };
 
     loadSession();
 
     return () => {
-      console.log('[AUTH] Cleaning up auth state management');
       if (authSubscriptionRef.current) {
         authSubscriptionRef.current.unsubscribe();
         authSubscriptionRef.current = null;
       }
       cleanupOperation('sessionLoad');
     };
-  }, []); // CRITICAL: Empty dependency array for stability
-
-  // CRITICAL FIX 12: Separate stable effect for token verification setup
-  useEffect(() => {
-    // Only set up token verification when we have a user and auth is initialized
-    if (user?.id && !isGuest && authInitializedRef.current && isMountedRef.current) {
-      console.log('[AUTH] Setting up token verification for authenticated user');
-      setupTokenVerification(user.id);
-    } else {
-      // Clean up token verification when no user
-      if (tokenVerificationIntervalRef.current) {
-        clearInterval(tokenVerificationIntervalRef.current);
-        tokenVerificationIntervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (tokenVerificationIntervalRef.current) {
-        clearInterval(tokenVerificationIntervalRef.current);
-        tokenVerificationIntervalRef.current = null;
-      }
-    };
-  }, [user?.id, isGuest]); // Minimal, stable dependencies
+  }, [isGuest]);
 
   /**
-   * CRITICAL FIX 13: Enhanced OAuth user processing with timeout
+   * CRITICAL FIX 12: Enhanced OAuth user processing with timeout
    */
   const processOAuthUser = async (session: Session): Promise<UserProfile | null> => {
     try {
@@ -571,11 +542,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 14: Enhanced user profile fetching with timeout
+   * CRITICAL FIX 13: Enhanced user profile fetching with timeout
    */
   const fetchUserProfile = async (userId: string): Promise<void> => {
-    if (!isMountedRef.current) return;
-    
     try {
       const result = await withTimeout(
         supabase
@@ -594,9 +563,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
         if (error.code === 'PGRST116') {
           const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData?.session && isMountedRef.current) {
+          if (sessionData?.session) {
             const createdProfile = await processOAuthUser(sessionData.session);
-            if (createdProfile && isMountedRef.current) {
+            if (createdProfile) {
               setProfile(createdProfile);
               return;
             }
@@ -605,7 +574,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return;
       }
 
-      if (data && isMountedRef.current) {
+      if (data) {
         setProfile(data as UserProfile);
       }
     } catch (error: any) {
@@ -618,7 +587,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * CRITICAL FIX 15: Enhanced sign out with comprehensive timeout protection
+   * CRITICAL FIX 14: Enhanced sign out with comprehensive timeout protection
    */
   const signOut = async (): Promise<void> => {
     if (isSigningOutState) {
@@ -656,7 +625,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 last_updated: new Date().toISOString()
               })
               .eq('user_id', user.id),
-            3000,
+            3000, // 3 second timeout
             'token status update'
           );
             
@@ -720,72 +689,62 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       await cleanupLocalStorage();
   
       // Reset auth context state
-      if (isMountedRef.current) {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-      }
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       
       // UI stabilization delay
       await new Promise(resolve => setTimeout(resolve, 1500));
   
       // Safe navigation with error recovery
-      if (isMountedRef.current) {
-        requestAnimationFrame(() => {
-          try {
-            router.replace('/(auth)/sign-in');
-          } catch (navError) {
-            console.log('[AUTH] Primary navigation error, attempting fallback:', navError);
-            requestAnimationFrame(() => {
-              try {
-                router.replace('/(auth)/sign-in');
-              } catch (fallbackError) {
-                console.error('[AUTH] Fallback navigation also failed:', fallbackError);
-              }
-            });
-          }
-        });
-      }
+      requestAnimationFrame(() => {
+        try {
+          router.replace('/(auth)/sign-in');
+        } catch (navError) {
+          console.log('[AUTH] Primary navigation error, attempting fallback:', navError);
+          requestAnimationFrame(() => {
+            try {
+              router.replace('/(auth)/sign-in');
+            } catch (fallbackError) {
+              console.error('[AUTH] Fallback navigation also failed:', fallbackError);
+            }
+          });
+        }
+      });
   
     } catch (error) {
       console.error('[AUTH] Sign out process error:', error);
   
       // Force state cleanup even on error
-      if (isMountedRef.current) {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-      }
-
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+  
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      if (isMountedRef.current) {
-        requestAnimationFrame(() => {
-          try {
+      requestAnimationFrame(() => {
+        try {
+          router.replace('/(auth)/sign-in');
+        } catch (navError) {
+          console.log('[AUTH] Error recovery navigation handled:', navError);
+          setTimeout(() => {
             router.replace('/(auth)/sign-in');
-          } catch (navError) {
-            console.log('[AUTH] Error recovery navigation handled:', navError);
-            setTimeout(() => {
-              router.replace('/(auth)/sign-in');
-            }, 100);
-          }
-        });
-      }
+          }, 100);
+        }
+      });
     } finally {
       // Reset signing out states with delay
       setTimeout(() => {
-        if (isMountedRef.current) {
-          setIsSigningOutState(false);
-          setIsSigningOut(false);
-          setGlobalSigningOut(false);
-          console.log('[AUTH] Sign out process completed');
-        }
+        setIsSigningOutState(false);
+        setIsSigningOut(false);
+        setGlobalSigningOut(false);
+        console.log('[AUTH] Sign out process completed');
       }, 2000);
     }
   };
 
   /**
-   * CRITICAL FIX 16: Enhanced sign in with timeout protection
+   * CRITICAL FIX 15: Enhanced sign in with timeout protection
    */
   const signIn = async ({ email, password }: SignInCredentials) => {
     try {
@@ -808,24 +767,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       if (error) throw error;
 
-      if (data.user && isMountedRef.current) {
+      if (data.user) {
         await fetchUserProfile(data.user.id);
         
         console.log('[AUTH] Sign in successful, scheduling token registration');
         
         // Schedule background token registration
         setTimeout(async () => {
-          if (isMountedRef.current) {
-            try {
-              const success = await registerPushTokenForUser(data.user.id);
-              if (success) {
-                console.log('[AUTH] Token registration completed successfully');
-              } else {
-                console.log('[AUTH] Token registration completed with issues');
-              }
-            } catch (tokenError) {
-              console.error('[AUTH] Token registration error during sign in:', tokenError);
+          try {
+            const success = await registerPushTokenForUser(data.user.id);
+            if (success) {
+              console.log('[AUTH] Token registration completed successfully');
+            } else {
+              console.log('[AUTH] Token registration completed with issues');
             }
+          } catch (tokenError) {
+            console.error('[AUTH] Token registration error during sign in:', tokenError);
           }
         }, 1000);
       }
@@ -840,14 +797,12 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return { error };
       }
     } finally {
-      if (isMountedRef.current) {
-        setIsSigningIn(false);
-      }
+      setIsSigningIn(false);
     }
   };
 
   /**
-   * CRITICAL FIX 17: Enhanced Google sign in with timeout protection
+   * CRITICAL FIX 16: Enhanced Google sign in with timeout protection
    */
   const googleSignIn = async () => {
     try {
@@ -904,24 +859,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
               if (sessionError) throw sessionError;
 
-              if (sessionData.session && isMountedRef.current) {
+              if (sessionData.session) {
                 setSession(sessionData.session);
                 setUser(sessionData.session.user);
 
                 const userProfile = await processOAuthUser(sessionData.session);
-                if (userProfile && isMountedRef.current) {
+                if (userProfile) {
                   setProfile(userProfile);
                 }
 
                 console.log('[AUTH] Google sign in successful, scheduling token registration');
                 
                 setTimeout(async () => {
-                  if (isMountedRef.current) {
-                    try {
-                      await registerPushTokenForUser(sessionData.session.user.id);
-                    } catch (tokenError) {
-                      console.error('[AUTH] Token registration error during Google sign in:', tokenError);
-                    }
+                  try {
+                    await registerPushTokenForUser(sessionData.session.user.id);
+                  } catch (tokenError) {
+                    console.error('[AUTH] Token registration error during Google sign in:', tokenError);
                   }
                 }, 1000);
                 
@@ -937,18 +890,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       // Fallback session check
       try {
         const { data: currentSession } = await supabase.auth.getSession();
-        if (currentSession?.session?.user && isMountedRef.current) {
+        if (currentSession?.session?.user) {
           console.log('[AUTH] Google sign in fallback path successful');
           setSession(currentSession.session);
           setUser(currentSession.session.user);
           
           setTimeout(async () => {
-            if (isMountedRef.current) {
-              try {
-                await registerPushTokenForUser(currentSession.session.user.id);
-              } catch (tokenError) {
-                console.error('[AUTH] Token registration error during Google sign in fallback:', tokenError);
-              }
+            try {
+              await registerPushTokenForUser(currentSession.session.user.id);
+            } catch (tokenError) {
+              console.error('[AUTH] Token registration error during Google sign in fallback:', tokenError);
             }
           }, 1000);
           
@@ -969,9 +920,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return { success: false, error };
       }
     } finally {
-      if (isMountedRef.current) {
-        setIsSigningIn(false);
-      }
+      setIsSigningIn(false);
     }
   };
 
@@ -1006,22 +955,20 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         if (result.type === 'success') {
           const { data: sessionData } = await supabase.auth.getSession();
 
-          if (sessionData?.session && isMountedRef.current) {
+          if (sessionData?.session) {
             const userProfile = await processOAuthUser(sessionData.session);
 
-            if (userProfile && isMountedRef.current) {
+            if (userProfile) {
               setProfile(userProfile);
             }
 
             console.log('[AUTH] Apple sign in successful, scheduling token registration');
             
             setTimeout(async () => {
-              if (isMountedRef.current) {
-                try {
-                  await registerPushTokenForUser(sessionData.session.user.id);
-                } catch (tokenError) {
-                  console.error('[AUTH] Token registration error during Apple sign in:', tokenError);
-                }
+              try {
+                await registerPushTokenForUser(sessionData.session.user.id);
+              } catch (tokenError) {
+                console.error('[AUTH] Token registration error during Apple sign in:', tokenError);
               }
             }, 1000);
           }
@@ -1034,9 +981,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         console.error('[AUTH] Apple sign in error:', error);
       }
     } finally {
-      if (isMountedRef.current) {
-        setIsSigningIn(false);
-      }
+      setIsSigningIn(false);
     }
   };
 
@@ -1110,7 +1055,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
 
       // Create user profile
-      if (data.user && isMountedRef.current) {
+      if (data.user) {
         const upsertResult = await withTimeout(
           supabase.from('users').upsert([{
             id: data.user.id,
@@ -1136,12 +1081,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           console.log('[AUTH] Sign up successful with session, scheduling token registration');
           
           setTimeout(async () => {
-            if (isMountedRef.current) {
-              try {
-                await registerPushTokenForUser(data.user.id);
-              } catch (tokenError) {
-                console.error('[AUTH] Token registration error during sign up:', tokenError);
-              }
+            try {
+              await registerPushTokenForUser(data.user.id);
+            } catch (tokenError) {
+              console.error('[AUTH] Token registration error during sign up:', tokenError);
             }
           }, 1000);
         }
@@ -1289,7 +1232,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const { data, error } = result;
       if (error) throw error;
       
-      if (data.session && isMountedRef.current) {
+      if (data.session) {
         setSession(data.session);
         setUser(data.session.user);
         
@@ -1312,141 +1255,147 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  const updateUserProfile = async (data: Partial<UserProfile>) => {
-    console.log('[AUTH] Starting profile update with data:', data);
+const updateUserProfile = async (data: Partial<UserProfile>) => {
+  console.log('[AUTH] Starting profile update with data:', data);
+  
+  try {
+    if (!user) {
+      console.error('[AUTH] No user signed in for profile update');
+      throw new Error('No user is signed in');
+    }
+
+    // STEP 1: Store original profile for rollback
+    const originalProfile = profile ? { ...profile } : null;
     
-    try {
-      if (!user) {
-        console.error('[AUTH] No user signed in for profile update');
-        throw new Error('No user is signed in');
-      }
+    // STEP 2: Optimistically update local state first
+    if (profile && data) {
+      console.log('[AUTH] Optimistically updating local profile state');
+      const updatedProfile = { ...profile, ...data };
+      setProfile(updatedProfile);
+    }
 
-      // STEP 1: Store original profile for rollback
-      const originalProfile = profile ? { ...profile } : null;
-      
-      // STEP 2: Optimistically update local state first
-      if (profile && data && isMountedRef.current) {
-        console.log('[AUTH] Optimistically updating local profile state');
-        const updatedProfile = { ...profile, ...data };
-        setProfile(updatedProfile);
-      }
-
-      // STEP 3: Update Supabase auth metadata (non-critical, can fail)
-      if (data.name) {
-        try {
-          console.log('[AUTH] Updating auth user metadata');
-          const authUpdateResult = await withTimeout(
-            supabase.auth.updateUser({
-              data: { name: data.name }
-            }),
-            OPERATION_TIMEOUTS.PROFILE_FETCH,
-            'auth metadata update'
-          );
-
-          if (authUpdateResult.error) {
-            console.warn('[AUTH] Auth metadata update failed (non-critical):', authUpdateResult.error);
-          } else {
-            console.log('[AUTH] Auth metadata updated successfully');
-          }
-        } catch (authError: any) {
-          console.warn('[AUTH] Auth metadata update error (non-critical):', authError);
-        }
-      }
-
-      // STEP 4: Update database - THIS IS THE CRITICAL OPERATION
-      console.log('[AUTH] Updating user profile in database');
-      const updateResult = await withTimeout(
-        supabase
-          .from('users')
-          .update(data)
-          .eq('id', user.id)
-          .select()
-          .single(),
-        OPERATION_TIMEOUTS.PROFILE_FETCH,
-        'profile database update'
-      );
-
-      if (updateResult.error) {
-        console.error('[AUTH] Database update failed:', updateResult.error);
-        
-        // ROLLBACK: Revert optimistic update
-        if (originalProfile && isMountedRef.current) {
-          console.log('[AUTH] Rolling back optimistic update');
-          setProfile(originalProfile);
-        }
-        
-        throw updateResult.error;
-      }
-
-      // STEP 5: Verify database update and refresh from source
-      console.log('[AUTH] Database update successful, verifying...');
-      
+    // STEP 3: Update Supabase auth metadata (non-critical, can fail)
+    if (data.name) {
       try {
-        // Force refresh from database to ensure consistency
-        const verifyResult = await withTimeout(
-          supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single(),
-          3000,
-          'profile verification'
+        console.log('[AUTH] Updating auth user metadata');
+        const authUpdateResult = await withTimeout(
+          supabase.auth.updateUser({
+            data: { name: data.name }
+          }),
+          OPERATION_TIMEOUTS.PROFILE_FETCH,
+          'auth metadata update'
         );
 
-        if (verifyResult.data && isMountedRef.current) {
-          console.log('[AUTH] Profile verification successful, updating state with fresh data');
-          setProfile(verifyResult.data as UserProfile);
+        if (authUpdateResult.error) {
+          console.warn('[AUTH] Auth metadata update failed (non-critical):', authUpdateResult.error);
+          // Don't throw here - auth metadata failure is not critical
         } else {
-          console.warn('[AUTH] Profile verification failed, keeping optimistic update');
+          console.log('[AUTH] Auth metadata updated successfully');
         }
-      } catch (verifyError) {
-        console.warn('[AUTH] Profile verification error (non-critical):', verifyError);
-      }
-
-      console.log('[AUTH] Profile update completed successfully');
-      return { error: null };
-
-    } catch (error: any) {
-      console.error('[AUTH] Profile update failed:', error);
-      
-      if (error.message.includes('timed out')) {
-        console.warn('[AUTH] Profile update timed out');
-        return { error: new Error('Profile update timed out. Please try again.') };
-      } else {
-        return { error };
+      } catch (authError: any) {
+        console.warn('[AUTH] Auth metadata update error (non-critical):', authError);
+        // Continue with database update even if auth metadata fails
       }
     }
-  };
 
-  const forceProfileRefresh = async () => {
-    if (!user?.id || !isMountedRef.current) {
-      console.warn('[AUTH] Cannot refresh profile - no user ID or component unmounted');
+    // STEP 4: Update database - THIS IS THE CRITICAL OPERATION
+    console.log('[AUTH] Updating user profile in database');
+    const updateResult = await withTimeout(
+      supabase
+        .from('users')
+        .update(data)
+        .eq('id', user.id)
+        .select()
+        .single(),
+      OPERATION_TIMEOUTS.PROFILE_FETCH,
+      'profile database update'
+    );
+
+    if (updateResult.error) {
+      console.error('[AUTH] Database update failed:', updateResult.error);
+      
+      // ROLLBACK: Revert optimistic update
+      if (originalProfile) {
+        console.log('[AUTH] Rolling back optimistic update');
+        setProfile(originalProfile);
+      }
+      
+      throw updateResult.error;
+    }
+
+    // STEP 5: Verify database update and refresh from source
+    console.log('[AUTH] Database update successful, verifying...');
+    
+    try {
+      // Force refresh from database to ensure consistency
+      const verifyResult = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single(),
+        3000,
+        'profile verification'
+      );
+
+      if (verifyResult.data) {
+        console.log('[AUTH] Profile verification successful, updating state with fresh data');
+        setProfile(verifyResult.data as UserProfile);
+      } else {
+        console.warn('[AUTH] Profile verification failed, keeping optimistic update');
+        // Keep the optimistic update if verification fails
+      }
+    } catch (verifyError) {
+      console.warn('[AUTH] Profile verification error (non-critical):', verifyError);
+      // Keep the optimistic update if verification fails
+    }
+
+    console.log('[AUTH] Profile update completed successfully');
+    return { error: null };
+
+  } catch (error: any) {
+    console.error('[AUTH] Profile update failed:', error);
+    
+    if (error.message.includes('timed out')) {
+      console.warn('[AUTH] Profile update timed out');
+      return { error: new Error('Profile update timed out. Please try again.') };
+    } else {
+      return { error };
+    }
+  }
+};
+
+const forceProfileRefresh = async () => {
+  if (!user?.id) {
+    console.warn('[AUTH] Cannot refresh profile - no user ID');
+    return;
+  }
+
+  try {
+    console.log('[AUTH] Force refreshing profile from database');
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('[AUTH] Force refresh failed:', error);
       return;
     }
 
-    try {
-      console.log('[AUTH] Force refreshing profile from database');
-      
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.error('[AUTH] Force refresh failed:', error);
-        return;
-      }
-
-      if (data && isMountedRef.current) {
-        console.log('[AUTH] Force refresh successful, updating profile state');
-        setProfile(data as UserProfile);
-      }
-    } catch (error) {
-      console.error('[AUTH] Force refresh error:', error);
+    if (data) {
+      console.log('[AUTH] Force refresh successful, updating profile state');
+      setProfile(data as UserProfile);
     }
-  };
+  } catch (error) {
+    console.error('[AUTH] Force refresh error:', error);
+  }
+};
 
+
+// forceProfileRefresh: () => Promise<void>;
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
       const metadataUpdateResult = await withTimeout(
@@ -1476,7 +1425,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       if (dbUpdateResult.error) throw dbUpdateResult.error;
 
-      if (user && userId === user.id && isMountedRef.current) {
+      if (user && userId === user.id) {
         const updatedUser = { ...user };
         updatedUser.user_metadata = {
           ...updatedUser.user_metadata,
@@ -1501,11 +1450,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
-  // CRITICAL FIX 18: Final cleanup on unmount
+  // CRITICAL FIX 17: Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('[AUTH] AuthProvider final cleanup');
-      
       // Clear all timeouts
       operationTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
       operationTimeoutsRef.current.clear();
@@ -1514,12 +1461,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (tokenVerificationIntervalRef.current) {
         clearInterval(tokenVerificationIntervalRef.current);
         tokenVerificationIntervalRef.current = null;
-      }
-      
-      // Clear auth subscription
-      if (authSubscriptionRef.current) {
-        authSubscriptionRef.current.unsubscribe();
-        authSubscriptionRef.current = null;
       }
       
       // Cancel background operations
