@@ -21,22 +21,7 @@ interface Suggestions {
   models: string[];
 }
 
-
-
-export default function SearchScreen() {
-    const router = useRouter();
-    const { isDarkMode } = useTheme();
-    const { user } = useAuth();
-    const [searchQuery, setSearchQuery] = useState("");
-    const [recentSearches, setRecentSearches] = useState<string[]>([]);
-    const [suggestions, setSuggestions] = useState<Suggestions>({
-      makes: [],
-      models: [],
-    });
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const params = useLocalSearchParams<{ currentQuery?: string }>();
-
-        const getLogoUrl = useCallback((make: string, isLightMode: boolean) => {
+    const getLogoUrl = useCallback((make: string, isLightMode: boolean) => {
       const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
       switch (formattedMake) {
         case "range-rover":
@@ -65,6 +50,19 @@ export default function SearchScreen() {
           return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
       }
     }, []);
+
+export default function SearchScreen() {
+    const router = useRouter();
+    const { isDarkMode } = useTheme();
+    const { user } = useAuth();
+    const [searchQuery, setSearchQuery] = useState("");
+    const [recentSearches, setRecentSearches] = useState<string[]>([]);
+    const [suggestions, setSuggestions] = useState<Suggestions>({
+      makes: [],
+      models: [],
+    });
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const params = useLocalSearchParams<{ currentQuery?: string }>();
 
     // Fetch recent searches when component mounts and when user changes
     useEffect(() => {
