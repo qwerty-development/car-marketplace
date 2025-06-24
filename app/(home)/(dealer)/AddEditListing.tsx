@@ -1791,6 +1791,8 @@ export default function AddEditListing() {
           >
             Brand
           </Text>
+          // Add this right after the "Brand" label and before the BrandSelector
+          component
           {/* Selected Make Display */}
           <BrandSelector
             selectedBrand={formData.make}
