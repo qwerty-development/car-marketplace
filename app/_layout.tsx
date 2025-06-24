@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -120,7 +121,6 @@ interface InitializationState {
 // TIMEOUT CONSTANTS: Prevent infinite loading
 const INITIALIZATION_TIMEOUT = 15000; // 15 seconds maximum wait
 const SPLASH_MIN_DURATION = 1000; // Minimum 1 second splash
-const NAVIGATION_RETRY_DELAY = 300; // 300ms between navigation retries
 
 // CRITICAL CLASS: InitializationManager
 class InitializationManager {
@@ -749,258 +749,63 @@ function NotificationsProvider() {
   return <EnvironmentVariablesCheck />;
 }
 
-// BRUTE FORCE: Enhanced navigation utility
-const forceNavigationWithRetries = (targetPath: string, maxAttempts: number = 3) => {
-  let attempts = 0;
-  
-  const attemptNavigation = () => {
-    attempts++;
-    console.log(`[RootLayoutNav] Navigation attempt ${attempts}/${maxAttempts} to: ${targetPath}`);
-    
-    try {
-      router.replace(targetPath as any);
-      console.log(`[RootLayoutNav] Navigation attempt ${attempts} successful`);
-    } catch (error) {
-      console.warn(`[RootLayoutNav] Navigation attempt ${attempts} failed:`, error);
-      
-      if (attempts < maxAttempts) {
-        const delay = attempts * NAVIGATION_RETRY_DELAY;
-        setTimeout(attemptNavigation, delay);
-      } else {
-        console.error(`[RootLayoutNav] All ${maxAttempts} navigation attempts failed to: ${targetPath}`);
-        
-        // Final fallback: try basic paths
-        try {
-          if (targetPath.includes('/(home)')) {
-            router.replace('/');
-          }
-        } catch (finalError) {
-          console.error('[RootLayoutNav] Final navigation fallback failed:', finalError);
-        }
-      }
-    }
-  };
-  
-  attemptNavigation();
-};
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn, isSigningOut, isSigningIn, profile } = useAuth();
+  const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  
-  // BRUTE FORCE: Track navigation state
-  const [lastNavigationAttempt, setLastNavigationAttempt] = useState<string>('');
-  const navigationTimeoutRef = useRef<NodeJS.Timeout>();
-  
-  // ENHANCED: Emergency splash timeout
-  const emergencySplashTimeoutRef = useRef<NodeJS.Timeout>();
+  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
 
-  // ENHANCED: Emergency splash timeout protection
+  // REMOVED: curtainPosition is no longer needed for a fade animation.
+  // const curtainPosition = useRef(new Animated.Value(0)).current;
+
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
-    // RULE: Force splash completion after 10 seconds maximum
-    emergencySplashTimeoutRef.current = setTimeout(() => {
-      console.warn('[RootLayoutNav] EMERGENCY: Forcing splash completion after 10 seconds');
-      if (!splashAnimationComplete) {
-        // RULE: Skip animation and show content immediately
-        contentOpacity.setValue(1);
-        setSplashAnimationComplete(true);
-      }
-    }, 10000);
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-    return () => {
-      if (emergencySplashTimeoutRef.current) {
-        clearTimeout(emergencySplashTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // BRUTE FORCE: Robust auth routing with multiple fallbacks
-  useEffect(() => {
-    // RULE: Skip navigation if app is not ready
-    if (!isLoaded || isSigningOut) {
-      console.log('[RootLayoutNav] Skipping navigation - not ready or signing out');
-      return;
-    }
-
-    // RULE: Give signing in process time to complete (but not too much)
-    if (isSigningIn) {
-      console.log('[RootLayoutNav] User is signing in, waiting...');
-      
-      // Clear any existing timeout
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-      }
-      
-      // Set timeout to proceed with navigation even if isSigningIn doesn't reset
-      navigationTimeoutRef.current = setTimeout(() => {
-        console.warn('[RootLayoutNav] Sign-in timeout, proceeding with navigation');
-        performNavigation();
-      }, 3000); // 3 second timeout
-      
-      return;
-    }
-
-    // Clear sign-in timeout if not signing in
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current);
-      navigationTimeoutRef.current = undefined;
-    }
-
-    performNavigation();
-  }, [isLoaded, isSignedIn, isGuest, segments, isSigningOut, isSigningIn, profile]);
-
-  // BRUTE FORCE: Centralized navigation logic
-  const performNavigation = useCallback(() => {
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = segments[0] === "(auth)";
-    const inHomeGroup = segments[0] === "(home)";
 
-    console.log('[RootLayoutNav] Navigation state:', {
-      isLoaded,
-      isSignedIn,
-      isGuest,
-      isEffectivelySignedIn,
-      inAuthGroup,
-      inHomeGroup,
-      segments: segments.join('/'),
-      profileRole: profile?.role
-    });
-
-    // RULE 1: Authenticated/Guest users should not be in auth group
     if (isEffectivelySignedIn && inAuthGroup) {
-      const targetRole = profile?.role || (isGuest ? 'user' : 'user');
-      const targetPath = `/(home)/(${targetRole})`;
-      
-      console.log(`[RootLayoutNav] RULE 1: Signed in user in auth group, redirecting to: ${targetPath}`);
-      
-      if (lastNavigationAttempt !== targetPath) {
-        setLastNavigationAttempt(targetPath);
-        forceNavigationWithRetries(targetPath);
-      }
-      return;
+      router.replace("/(home)");
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
+      router.replace("/(auth)/sign-in");
     }
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
-    // RULE 2: Unauthenticated users should not be in home group
-    if (!isEffectivelySignedIn && inHomeGroup) {
-      const targetPath = "/(auth)/sign-in";
-      
-      console.log('[RootLayoutNav] RULE 2: Unauthenticated user in home group, redirecting to sign-in');
-      
-      if (lastNavigationAttempt !== targetPath) {
-        setLastNavigationAttempt(targetPath);
-        forceNavigationWithRetries(targetPath);
-      }
-      return;
-    }
 
-    // RULE 3: Ensure correct role-based routing within home group
-    if (isEffectivelySignedIn && inHomeGroup) {
-      const currentRole = segments[1];
-      const expectedRole = profile?.role || (isGuest ? 'user' : 'user');
-      
-      // Remove parentheses for comparison
-      const cleanCurrentRole = currentRole?.replace(/[()]/g, '');
-      
-      if (!currentRole || cleanCurrentRole !== expectedRole) {
-        const targetPath = `/(home)/(${expectedRole})`;
-        
-        console.log(`[RootLayoutNav] RULE 3: Wrong role routing, current: ${cleanCurrentRole}, expected: ${expectedRole}, redirecting to: ${targetPath}`);
-        
-        if (lastNavigationAttempt !== targetPath) {
-          setLastNavigationAttempt(targetPath);
-          forceNavigationWithRetries(targetPath);
-        }
-        return;
-      }
-    }
-
-    // RULE 4: Fallback - if user is signed in but somehow not in the right place
-    if (isEffectivelySignedIn && !inHomeGroup && !inAuthGroup) {
-      const targetRole = profile?.role || (isGuest ? 'user' : 'user');
-      const targetPath = `/(home)/(${targetRole})`;
-      
-      console.log(`[RootLayoutNav] RULE 4: Fallback navigation to: ${targetPath}`);
-      
-      if (lastNavigationAttempt !== targetPath) {
-        setLastNavigationAttempt(targetPath);
-        forceNavigationWithRetries(targetPath);
-      }
-      return;
-    }
-
-    console.log('[RootLayoutNav] Navigation is correct, no action needed');
-  }, [isLoaded, isSignedIn, isGuest, segments, profile, lastNavigationAttempt]);
-
-  // ENHANCED: Splash completion handler with error recovery
+  // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
-    console.log('[RootLayoutNav] Splash completion initiated');
-    
-    // RULE: Clear emergency timeout since normal completion occurred
-    if (emergencySplashTimeoutRef.current) {
-      clearTimeout(emergencySplashTimeoutRef.current);
-      emergencySplashTimeoutRef.current = undefined;
-    }
-
-    // RULE: Fade in content with error recovery
-    try {
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start((finished) => {
-        if (finished) {
-          setSplashAnimationComplete(true);
-          console.log('[RootLayoutNav] Content fade-in completed successfully');
-        } else {
-          // RULE: Fallback for interrupted animation
-          console.warn('[RootLayoutNav] Animation interrupted, forcing completion');
-          contentOpacity.setValue(1);
-          setSplashAnimationComplete(true);
-        }
-      });
-    } catch (animationError) {
-      // RULE: Emergency fallback for animation errors
-      console.error('[RootLayoutNav] Animation error, forcing immediate display:', animationError);
-      contentOpacity.setValue(1);
+    // This is called after your splash animation/video finishes.
+    // Now, we smoothly fade in the main app content.
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 400, // A gentle fade-in duration
+      useNativeDriver: true,
+    }).start(() => {
+      // After the content is fully visible, we can remove the splash component from the tree.
       setSplashAnimationComplete(true);
-    }
+    });
   }, [contentOpacity]);
-
-  // CLEANUP: Clear timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-      }
-      if (emergencySplashTimeoutRef.current) {
-        clearTimeout(emergencySplashTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return (
     <View style={{ flex: 1 }}>
-      {/* ENHANCED: Content container with loading guard */}
+      {/* This View holds your main app content and will fade in */}
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {/* RULE: Guard Slot component until auth state is known */}
-        {isLoaded ? <Slot /> : (
-          <View style={styles.loadingContainer}>
-            {/* OPTIONAL: Add loading indicator here if needed */}
-          </View>
-        )}
+        {/* Guard the Slot component until auth state is known */}
+        {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      {/* ENHANCED: Splash screen with completion protection */}
-      {!splashAnimationComplete && (
+      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
+      {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-      )}
+      ) : null}
     </View>
   );
 }
@@ -1010,12 +815,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#000', // Match splash background
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   curtain: {
     ...StyleSheet.absoluteFillObject,
