@@ -30,6 +30,7 @@ import { Image } from "expo-image";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { supabase } from "@/utils/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getLogoUrl } from "@/hooks/getLogoUrl";
 
 const { width } = Dimensions.get("window");
 
@@ -248,23 +249,7 @@ interface BrandSelectorProps {
 const BRANDS_CACHE_KEY = "cachedBrandsSelector";
 const CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
 
-const getLogoUrl = (make: string, isLightMode: boolean): string => {
-  const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
-  switch (formattedMake) {
-    case "range-rover":
-      return isLightMode
-        ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
-        : "https://www.carlogos.org/car-logos/land-rover-logo.png";
-    case "infiniti":
-      return "https://www.carlogos.org/car-logos/infiniti-logo.png";
-    case "audi":
-      return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
-    case "nissan":
-      return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
-    default:
-      return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
-  }
-};
+
 
 const BrandSelector = memo(
   ({ selectedBrands, onSelectBrand, isDarkMode }: BrandSelectorProps) => {

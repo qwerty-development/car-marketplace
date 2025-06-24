@@ -18,33 +18,14 @@ import { supabase } from '@/utils/supabase'
 import { FontAwesome } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import SkeletonByBrands from '@/components/SkeletonByBrands'
+import { getLogoUrl } from '@/hooks/getLogoUrl'
 
 interface Brand {
 	name: string
 	logoUrl: string
 }
 
-const getLogoUrl = (make: string, isLightMode: boolean) => {
-	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
 
-	// Handle special cases
-	switch (formattedMake) {
-		case 'range-rover':
-			return isLightMode
-				? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
-				: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
-		case 'infiniti':
-			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
-		case 'jetour':
-			return 'https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg'
-		case 'audi':
-			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
-		case 'nissan':
-			return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
-		default:
-			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
-	}
-}
 
 const ByBrands = React.memo(() => {
 	const [brands, setBrands] = useState<Brand[]>([])

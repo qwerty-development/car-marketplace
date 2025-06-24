@@ -30,6 +30,7 @@ import ErrorBoundary from "react-native-error-boundary";
 
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { getLogoUrl } from "@/hooks/getLogoUrl";
 
 const { width } = Dimensions.get("window");
 
@@ -177,29 +178,7 @@ const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#33
   );
 });
 
-// Car logo loader with fallbacks
-const getLogoUrl = (make: string, isLightMode: boolean) => {
-  if (!make) return ''; // Prevent crashes with undefined
 
-  const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
-
-  switch (formattedMake) {
-    case "range-rover":
-      return isLightMode
-        ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
-        : "https://www.carlogos.org/car-logos/land-rover-logo.png";
-    case "infiniti":
-      return "https://www.carlogos.org/car-logos/infiniti-logo.png";
-    case "jetour":
-      return "https://upload.wikimedia.org/wikipedia/commons/8/8a/Jetour_Logo.png?20230608073743";
-    case "audi":
-      return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
-    case "nissan":
-      return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
-    default:
-      return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
-  }
-};
 
 // Action button component
 const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (

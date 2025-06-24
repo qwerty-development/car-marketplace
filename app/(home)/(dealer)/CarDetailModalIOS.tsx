@@ -25,6 +25,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { Image } from 'expo-image'
 import { Radius } from 'lucide-react-native'
 import { useAuth } from '@/utils/AuthContext'
+import { getLogoUrl } from '@/hooks/getLogoUrl'
 
 const { width, height } = Dimensions.get('window')
 
@@ -53,23 +54,7 @@ const OptimizedImage = memo(({ source, style, onLoad }: any) => {
 	)
 })
 
-const getLogoUrl = (make: string, isLightMode: boolean) => {
-	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
-	switch (formattedMake) {
-		case 'range-rover':
-			return isLightMode
-				? 'https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png'
-				: 'https://www.carlogos.org/car-logos/land-rover-logo.png'
-		case 'infiniti':
-			return 'https://www.carlogos.org/car-logos/infiniti-logo.png'
-		case 'audi':
-			return 'https://www.freepnglogos.com/uploads/audi-logo-2.png'
-		case 'nissan':
-			return 'https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png'
-		default:
-			return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`
-	}
-}
+
 
 const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (
 	<TouchableOpacity onPress={onPress} className='items-center mx-2'>

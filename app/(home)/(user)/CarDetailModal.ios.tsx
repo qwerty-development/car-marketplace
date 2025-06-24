@@ -33,6 +33,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import { useAuth } from "@/utils/AuthContext";
+import { getLogoUrl } from "@/hooks/getLogoUrl";
 let MapView: any;
 let MapViewMarker: any;
 
@@ -214,26 +215,6 @@ const CarItemSkeleton = memo(({ isDarkMode }: any) => {
   );
 });
 
-const getLogoUrl = (make: string, isLightMode: boolean) => {
-  const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
-
-  switch (formattedMake) {
-    case "range-rover":
-      return isLightMode
-        ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
-        : "https://www.carlogos.org/car-logos/land-rover-logo.png";
-    case "infiniti":
-      return "https://www.carlogos.org/car-logos/infiniti-logo.png";
-    case "jetour":
-      return "https://upload.wikimedia.org/wikipedia/commons/8/8a/Jetour_Logo.png?20230608073743";
-    case "audi":
-      return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
-    case "nissan":
-      return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
-    default:
-      return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
-  }
-};
 
 // Memoized simple components
 const ActionButton = memo(({ icon, onPress, text, isDarkMode }: any) => (
