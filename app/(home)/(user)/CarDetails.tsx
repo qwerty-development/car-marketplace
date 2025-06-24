@@ -8,21 +8,72 @@ import { useTheme } from '@/utils/ThemeContext'
 import ErrorBoundary from 'react-native-error-boundary'
 import { Ionicons } from '@expo/vector-icons'
 
-// Lazy load the detail screen component to improve initial load time
-const CarDetailScreen = React.lazy(() => import('./CarDetailModal'))
+// **CRITICAL FIX 1: Enhanced error boundary with better error handling**
+const EnhancedErrorBoundary = ({ children, onError }: any) => {
+  return (
+    <ErrorBoundary
+      FallbackComponent={ErrorFallback}
+      onError={(error, errorInfo) => {
+        console.error("Enhanced Error Boundary caught error:", error, errorInfo);
+        // Report to crash analytics if available
+        onError?.(error, errorInfo);
+      }}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+};
 
-// Error fallback component for handling component failures gracefully
-const ErrorFallback = ({ error, resetError }:any) => (
+// **CRITICAL FIX 2: Improved lazy loading with fallback**
+let CarDetailScreen: React.ComponentType<any> | null = null;
+
+const loadCarDetailScreen = async () => {
+  try {
+    if (!CarDetailScreen) {
+      const module = require('./CarDetailModal');
+      CarDetailScreen = module.default;
+    }
+    return CarDetailScreen;
+  } catch (error) {
+    console.error('Failed to load CarDetailScreen:', error);
+    // Return a fallback component
+    return ({ car, onFavoritePress }: any) => (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={50} color="#D55004" />
+        <Text style={styles.errorTitle}>Failed to load car details</Text>
+        <Text style={styles.errorMessage}>Please try refreshing the page</Text>
+        <TouchableOpacity
+          style={styles.resetButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.resetButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+};
+
+// **CRITICAL FIX 3: Enhanced error fallback component**
+const ErrorFallback = ({ error, resetError }: any) => (
   <View style={styles.errorContainer}>
     <Ionicons name="alert-circle-outline" size={50} color="#D55004" />
     <Text style={styles.errorTitle}>Something went wrong</Text>
-    <Text style={styles.errorMessage}>We're having trouble displaying this car</Text>
+    <Text style={styles.errorMessage}>
+      {error?.message || "We're having trouble displaying this car"}
+    </Text>
     <TouchableOpacity style={styles.resetButton} onPress={resetError}>
       <Text style={styles.resetButtonText}>Try Again</Text>
     </TouchableOpacity>
     <TouchableOpacity
       style={styles.backButton}
-      onPress={() => router.back()}
+      onPress={() => {
+        try {
+          router.back();
+        } catch (navError) {
+          console.error('Navigation error in fallback:', navError);
+          router.replace('/(home)/(user)');
+        }
+      }}
     >
       <Text style={styles.backButtonText}>Go Back</Text>
     </TouchableOpacity>
@@ -34,6 +85,7 @@ export default function CarDetailsPage() {
   const [car, setCar] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<Error | null>(null)
+  const [componentReady, setComponentReady] = useState(false)
   const { toggleFavorite } = useFavorites()
   const { prefetchCarDetails } = useCarDetails()
   const { isDarkMode } = useTheme()
@@ -41,10 +93,12 @@ export default function CarDetailsPage() {
   const isDealer = params.isDealerView === 'true'
   const [appState, setAppState] = useState(AppState.currentState)
 
-  // Refs to track mounting state and loading timeout
+  // **CRITICAL FIX 4: Enhanced refs with proper cleanup tracking**
   const isMountedRef = useRef(true)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const dataLoadedRef = useRef(false)
+  const componentLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const cleanupExecutedRef = useRef(false)
 
   // Performance monitoring
   const [loadTimes, setLoadTimes] = useState<{
@@ -53,183 +107,285 @@ export default function CarDetailsPage() {
     renderComplete?: number;
   }>({ start: Date.now() })
 
-  // Handle app state changes to optimize resource usage
+  // **CRITICAL FIX 5: Enhanced cleanup function**
+  const executeCleanup = useCallback(() => {
+    if (cleanupExecutedRef.current) return;
+    cleanupExecutedRef.current = true;
+
+    console.log('[CarDetails] Executing cleanup');
+    
+    isMountedRef.current = false;
+    
+    // Clear all timeouts
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    
+    if (componentLoadTimeoutRef.current) {
+      clearTimeout(componentLoadTimeoutRef.current);
+      componentLoadTimeoutRef.current = null;
+    }
+  }, []);
+
+  // **CRITICAL FIX 6: Improved app state handling**
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      setAppState(nextAppState)
-    })
+      if (isMountedRef.current) {
+        setAppState(nextAppState);
+      }
+    });
 
     return () => {
-      subscription.remove()
-    }
-  }, [])
+      try {
+        subscription.remove();
+      } catch (error) {
+        console.warn('Error removing AppState listener:', error);
+      }
+    };
+  }, []);
 
-  // Cleanup on component unmount
+  // **CRITICAL FIX 7: Enhanced component unmount cleanup**
   useEffect(() => {
     return () => {
-      isMountedRef.current = false
-      // Clear the timeout if component unmounts
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-        loadingTimeoutRef.current = null
-      }
-    }
-  }, [])
+      executeCleanup();
+    };
+  }, [executeCleanup]);
 
+  // **CRITICAL FIX 8: Safe favorite handling with error boundaries**
   const handleFavoritePress = useCallback(
     async (carId: any) => {
-      if (!carId) return;
+      if (!carId || !isMountedRef.current) return;
 
       try {
-        const newLikesCount = await toggleFavorite(carId)
-        if (car && car.id === carId) {
-          setCar((prev: any) => ({ ...prev, likes: newLikesCount }))
+        const newLikesCount = await toggleFavorite(carId);
+        if (car && car.id === carId && isMountedRef.current) {
+          setCar((prev: any) => ({ ...prev, likes: newLikesCount }));
         }
       } catch (error) {
-        console.error('Error toggling favorite:', error)
+        console.error('Error toggling favorite:', error);
+        // Don't throw - just log the error
       }
     },
     [car, toggleFavorite]
-  )
+  );
 
-  // Handle retry when fetching fails
+  // **CRITICAL FIX 9: Enhanced retry with proper state reset**
   const handleRetry = useCallback(() => {
-    setLoadError(null)
-    setIsLoading(true)
-    setLoadTimes({ start: Date.now() })
-    dataLoadedRef.current = false
+    if (!isMountedRef.current) return;
 
-    // Reset the timeout on retry
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current)
-    }
+    try {
+      setLoadError(null);
+      setIsLoading(true);
+      setComponentReady(false);
+      setLoadTimes({ start: Date.now() });
+      dataLoadedRef.current = false;
 
-    loadingTimeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current && !dataLoadedRef.current) {
-        setLoadError(new Error('Loading timeout - please try again'))
-        setIsLoading(false)
+      // Reset the timeout on retry
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
-    }, 15000)
 
-    loadCarDetails()
-  }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
+      loadingTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current && !dataLoadedRef.current) {
+          setLoadError(new Error('Loading timeout - please try again'));
+          setIsLoading(false);
+        }
+      }, 15000);
 
-  // Extract car details loading logic to a reusable function
+      loadCarDetails();
+    } catch (error) {
+      console.error('Error in handleRetry:', error);
+      if (isMountedRef.current) {
+        setLoadError(new Error('Failed to retry loading'));
+        setIsLoading(false);
+      }
+    }
+  }, [carId, params.prefetchedData]);
+
+  // **CRITICAL FIX 10: Enhanced car details loading with better error handling**
   const loadCarDetails = useCallback(async () => {
+    if (!isMountedRef.current) return;
+
     if (!carId && !params.prefetchedData) {
-      setLoadError(new Error('No car ID or prefetched data provided'))
-      setIsLoading(false)
-      return
+      setLoadError(new Error('No car ID or prefetched data provided'));
+      setIsLoading(false);
+      return;
     }
 
     try {
-      // First attempt to use prefetched data with validation
+      // First attempt to use prefetched data with enhanced validation
       if (params.prefetchedData) {
         try {
-          const prefetchedData = params.prefetchedData as string
-          // Basic validation before parsing
-          if (typeof prefetchedData === 'string' && prefetchedData.trim().startsWith('{')) {
-            const prefetchedCar = JSON.parse(prefetchedData)
+          const prefetchedData = params.prefetchedData as string;
+          
+          // Enhanced validation
+          if (typeof prefetchedData === 'string' && 
+              prefetchedData.trim().startsWith('{') && 
+              prefetchedData.trim().endsWith('}')) {
+            
+            const prefetchedCar = JSON.parse(prefetchedData);
 
-            // Validate that parsed data is usable
-            if (prefetchedCar && prefetchedCar.id) {
-              setCar(prefetchedCar)
-              setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }))
+            // Validate that parsed data is usable and has required fields
+            if (prefetchedCar && 
+                prefetchedCar.id && 
+                typeof prefetchedCar.id !== 'undefined' &&
+                prefetchedCar.make &&
+                prefetchedCar.model) {
+              
+              if (!isMountedRef.current) return;
+              
+              setCar(prefetchedCar);
+              setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }));
 
               // Mark data as loaded and clear the timeout
-              dataLoadedRef.current = true
+              dataLoadedRef.current = true;
               if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current)
-                loadingTimeoutRef.current = null
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
               }
 
-              setIsLoading(false)
-              return
+              setIsLoading(false);
+              return;
             }
           }
         } catch (parseError) {
-          console.error('Error parsing prefetched data:', parseError)
+          console.error('Error parsing prefetched data:', parseError);
           // Continue to fallback fetch below
         }
       }
 
       // Fallback to fetching if no prefetched data or parsing failed
       if (!carId) {
-        throw new Error('No valid car ID available')
+        throw new Error('No valid car ID available');
       }
 
-      const fetchedCar = await prefetchCarDetails(carId)
+      const fetchedCar = await prefetchCarDetails(carId);
       if (!fetchedCar) {
-        throw new Error('Car not found')
+        throw new Error('Car not found');
       }
 
-      if (!isMountedRef.current) return; // Ensure component is still mounted
+      if (!isMountedRef.current) return;
 
-      setCar(fetchedCar)
-      setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }))
-      setLoadError(null)
+      setCar(fetchedCar);
+      setLoadTimes(prev => ({ ...prev, dataLoaded: Date.now() }));
+      setLoadError(null);
 
       // Mark data as loaded and clear the timeout
-      dataLoadedRef.current = true
+      dataLoadedRef.current = true;
       if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-        loadingTimeoutRef.current = null
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
 
     } catch (error) {
-      if (!isMountedRef.current) return; // Ensure component is still mounted
+      if (!isMountedRef.current) return;
 
-      console.error('Error loading car details:', error)
-      setLoadError(error instanceof Error ? error : new Error('Failed to load car details'))
+      console.error('Error loading car details:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load car details';
+      setLoadError(new Error(errorMessage));
     } finally {
       if (isMountedRef.current) {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
-  }, [carId, params.prefetchedData, prefetchCarDetails])
+  }, [carId, params.prefetchedData, prefetchCarDetails]);
 
-  // Load car details on mount with proper cleanup and timeout handling
+  // **CRITICAL FIX 11: Enhanced component loading with timeout protection**
   useEffect(() => {
-    setIsLoading(true)
-    setLoadError(null)
-    setLoadTimes({ start: Date.now() })
-    dataLoadedRef.current = false
+    const loadComponent = async () => {
+      if (!isMountedRef.current) return;
+
+      try {
+        // Set a timeout for component loading
+        componentLoadTimeoutRef.current = setTimeout(() => {
+          if (isMountedRef.current && !componentReady) {
+            console.warn('Component loading timeout, setting ready anyway');
+            setComponentReady(true);
+          }
+        }, 5000);
+
+        await loadCarDetailScreen();
+        
+        if (isMountedRef.current) {
+          setComponentReady(true);
+          if (componentLoadTimeoutRef.current) {
+            clearTimeout(componentLoadTimeoutRef.current);
+            componentLoadTimeoutRef.current = null;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading component:', error);
+        if (isMountedRef.current) {
+          setComponentReady(true); // Set ready anyway to show fallback
+        }
+      }
+    };
+
+    loadComponent();
+  }, []);
+
+  // **CRITICAL FIX 12: Enhanced initial loading effect**
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+
+    setIsLoading(true);
+    setLoadError(null);
+    setLoadTimes({ start: Date.now() });
+    dataLoadedRef.current = false;
 
     // Start the loading timeout
     if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current)
+      clearTimeout(loadingTimeoutRef.current);
     }
 
     loadingTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current && !dataLoadedRef.current) {
-        console.log('Loading timeout occurred')
-        setLoadError(new Error('Loading timeout - please try again'))
-        setIsLoading(false)
+        console.log('Loading timeout occurred');
+        setLoadError(new Error('Loading timeout - please try again'));
+        setIsLoading(false);
       }
-    }, 15000) // 15 second timeout
+    }, 15000);
 
-    loadCarDetails()
+    loadCarDetails();
 
     // Cleanup function: clear timeout if component unmounts or deps change
     return () => {
       if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current)
-        loadingTimeoutRef.current = null
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
-    }
-  }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
+    };
+  }, [carId, params.prefetchedData]);
 
-
-  // Optimize memory usage when app goes to background
+  // **CRITICAL FIX 13: Safe memory optimization**
   useEffect(() => {
-    if (appState !== 'active' && car) {
-      // Clear unnecessary data when app is in background
-      if (car.similarCars) car.similarCars = [];
-      if (car.dealerCars) car.dealerCars = [];
+    if (appState !== 'active' && car && isMountedRef.current) {
+      try {
+        // Safely clear unnecessary data when app is in background
+        const optimizedCar = { ...car };
+        if (optimizedCar.similarCars) optimizedCar.similarCars = [];
+        if (optimizedCar.dealerCars) optimizedCar.dealerCars = [];
+        setCar(optimizedCar);
+      } catch (error) {
+        console.warn('Error optimizing memory:', error);
+      }
     }
   }, [appState, car]);
 
-  // Render with proper loading states and error handling
+  // **CRITICAL FIX 14: Enhanced render with multiple safety checks**
+  if (!componentReady) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
+        <ActivityIndicator size="large" color="#D55004" />
+        <Text style={{ marginTop: 16, color: isDarkMode ? '#CCCCCC' : '#666666' }}>
+          Initializing...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -280,15 +436,24 @@ export default function CarDetailsPage() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              try {
+                router.back();
+              } catch (navError) {
+                console.error('Navigation error:', navError);
+                router.replace('/(home)/(user)');
+              }
+            }}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       ) : car ? (
-        <ErrorBoundary
-          FallbackComponent={ErrorFallback}
-          onError={(error) => console.error("CarDetailScreen crashed:", error)}
+        <EnhancedErrorBoundary
+          onError={(error: Error, errorInfo: any) => {
+            console.error("CarDetailScreen error:", error, errorInfo);
+            // Could report to crash analytics here
+          }}
         >
           <Suspense fallback={
             <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
@@ -302,17 +467,19 @@ export default function CarDetailsPage() {
               styles.screenContainer,
               { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
             ]}>
-              <CarDetailScreen
-              car={{
-    ...car,
-    fromDeepLink: params.fromDeepLink
-  }}
-  isDealer={isDealer}
-  onFavoritePress={handleFavoritePress}
-/>
+              {CarDetailScreen && (
+                <CarDetailScreen
+                  car={{
+                    ...car,
+                    fromDeepLink: params.fromDeepLink
+                  }}
+                  isDealer={isDealer}
+                  onFavoritePress={handleFavoritePress}
+                />
+              )}
             </View>
           </Suspense>
-        </ErrorBoundary>
+        </EnhancedErrorBoundary>
       ) : (
         <View style={[
           styles.emptyContainer,
@@ -328,7 +495,14 @@ export default function CarDetailsPage() {
           </Text>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              try {
+                router.back();
+              } catch (navError) {
+                console.error('Navigation error:', navError);
+                router.replace('/(home)/(user)');
+              }
+            }}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>

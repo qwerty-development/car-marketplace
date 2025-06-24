@@ -51,7 +51,7 @@ export default function UserProfileAndSupportPage() {
     signOut, 
     updateUserProfile, 
     updatePassword,
-    forceProfileRefresh // OPTIONAL: Only if implemented in AuthContext
+    forceProfileRefresh
   } = useAuth();
   const router = useRouter();
   const navigation = useNavigation();
@@ -59,10 +59,8 @@ export default function UserProfileAndSupportPage() {
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
-  const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
-  const [isLegalVisible, setIsLegalVisible] = useState(false);
 
-  // CRITICAL FIX: Simplified state management without aggressive refresh mechanisms
+  // CRITICAL FIX: Simplified state management
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -76,6 +74,8 @@ export default function UserProfileAndSupportPage() {
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
+  const [isLegalVisible, setIsLegalVisible] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     pushNotifications: true,
     emailNotifications: true,
@@ -83,25 +83,114 @@ export default function UserProfileAndSupportPage() {
     newCarAlerts: true,
   });
 
-  // CRITICAL FIX: Controlled refresh mechanism with guards
-  const profileInitialized = useRef(false);
-  const lastSyncedProfile = useRef<string>("");
-  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  // CRITICAL FIX: Refs for cleanup and state management
+  const isMountedRef = useRef(true);
+  const initializationCompleteRef = useRef(false);
+  const lastProfileSignatureRef = useRef<string>("");
 
   useScrollToTop(scrollRef);
 
-  // CRITICAL FIX: Debounced profile refresh function
+  // CRITICAL FIX: Stable profile signature function (no dependencies)
+  const getProfileSignature = useCallback(() => {
+    if (!user || !profile || isGuest) {
+      return isGuest ? "guest" : "no-profile";
+    }
+    return `${profile.name || ''}-${profile.email || ''}-${user.id}`;
+  }, []); // No dependencies to prevent recreation
+
+  // CRITICAL FIX: Stable sync function with minimal dependencies
+  const syncProfileData = useCallback(() => {
+    if (!isMountedRef.current) return;
+    
+    const currentSignature = getProfileSignature();
+    
+    // Only sync if profile actually changed
+    if (lastProfileSignatureRef.current === currentSignature && initializationCompleteRef.current) {
+      return;
+    }
+
+    console.log('[Profile] Syncing profile data');
+    
+    if (isGuest) {
+      setFirstName("Guest");
+      setLastName("User");
+      setEmail("guest@example.com");
+    } else if (user && profile) {
+      const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
+      setFirstName(nameParts[0] || "");
+      setLastName(nameParts.slice(1).join(" ") || "");
+      setEmail(profile.email || user.email || "");
+    }
+    
+    lastProfileSignatureRef.current = currentSignature;
+    initializationCompleteRef.current = true;
+  }, [isGuest]); // Only isGuest as dependency 
+
+  // CRITICAL FIX: Initial profile sync (runs once)
+  useEffect(() => {
+    if (!initializationCompleteRef.current) {
+      console.log('[Profile] Initial profile sync');
+      syncProfileData();
+    }
+  }, [syncProfileData]);
+
+  // CRITICAL FIX: Profile change detection without complex dependencies
+  useEffect(() => {
+    if (initializationCompleteRef.current && isMountedRef.current) {
+      const currentSignature = getProfileSignature();
+      if (lastProfileSignatureRef.current !== currentSignature) {
+        console.log('[Profile] Profile changed, syncing');
+        syncProfileData();
+      }
+    }
+  }, [user?.id, profile?.name, profile?.email, isGuest, syncProfileData, getProfileSignature]);
+
+  // CRITICAL FIX: Simplified focus effect without problematic dependencies
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[Profile] Screen focused');
+      
+      // Simple state sync without complex dependencies
+      if (initializationCompleteRef.current && isMountedRef.current) {
+        syncProfileData();
+      }
+      
+      return () => {
+        // Simple cleanup
+        console.log('[Profile] Screen unfocused');
+      };
+    }, []) // Empty dependency array to prevent recreation
+  );
+
+  // CRITICAL FIX: Component mount/unmount tracking
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+      console.log('[Profile] Component unmounting');
+    };
+  }, []);
+
+  // CRITICAL FIX: Guest banner animation (stable)
+  useEffect(() => {
+    if (isGuest && isMountedRef.current) {
+      Animated.spring(bannerAnimation, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isGuest, bannerAnimation]);
+
+  // CRITICAL FIX: Stable refresh handler
   const handleProfileRefresh = useCallback(async () => {
-    if (!user?.id || isGuest || refreshing) return;
+    if (!user?.id || isGuest || refreshing || !isMountedRef.current) return;
     
     try {
       setRefreshing(true);
       console.log('[Profile] Manual refresh triggered');
-      
-      // GUARD: Clear any pending refresh timeouts
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
       
       if (forceProfileRefresh) {
         await forceProfileRefresh();
@@ -113,111 +202,28 @@ export default function UserProfileAndSupportPage() {
           .eq('id', user.id)
           .single();
 
-        if (data && !error) {
+        if (data && !error && isMountedRef.current) {
           console.log('[Profile] Manual refresh successful');
-          // The profile will be updated through normal AuthContext flow
         }
       }
     } catch (error) {
       console.error('[Profile] Refresh error:', error);
     } finally {
-      setRefreshing(false);
+      if (isMountedRef.current) {
+        setRefreshing(false);
+      }
     }
   }, [user?.id, isGuest, refreshing, forceProfileRefresh]);
 
-  // CRITICAL FIX: Optimized profile state synchronization with change detection
-  const syncProfileState = useCallback(() => {
-    if (!user || !profile || isGuest) {
-      if (isGuest) {
-        // GUARD: Only set guest data if not already set
-        if (firstName !== "Guest" || lastName !== "User") {
-          setFirstName("Guest");
-          setLastName("User");
-          setEmail("guest@example.com");
-        }
-      }
-      return;
-    }
-
-    // CRITICAL FIX: Create profile signature for change detection
-    const profileSignature = `${profile.name || ''}-${profile.email || ''}-${profile.last_active || ''}`;
-    
-    // GUARD: Only update if profile has actually changed
-    if (lastSyncedProfile.current === profileSignature) {
-      return;
-    }
-
-    console.log('[Profile] Profile data changed, updating local state');
-    
-    const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
-    const newFirstName = nameParts[0] || "";
-    const newLastName = nameParts.slice(1).join(" ") || "";
-    const newEmail = profile.email || user.email || "";
-
-    // GUARD: Only update state if values actually changed
-    if (firstName !== newFirstName) setFirstName(newFirstName);
-    if (lastName !== newLastName) setLastName(newLastName);
-    if (email !== newEmail) setEmail(newEmail);
-    
-    lastSyncedProfile.current = profileSignature;
-    profileInitialized.current = true;
-  }, [user, profile, isGuest, firstName, lastName, email]);
-
-  // CRITICAL FIX: Initial profile synchronization (runs once)
-  useEffect(() => {
-    if (!profileInitialized.current) {
-      console.log('[Profile] Initial profile synchronization');
-      syncProfileState();
-    }
-  }, [syncProfileState]);
-
-  // CRITICAL FIX: Controlled profile updates on profile object changes
-  useEffect(() => {
-    // GUARD: Only sync if profile is initialized and data actually changed
-    if (profileInitialized.current && profile) {
-      const profileSignature = `${profile.name || ''}-${profile.email || ''}-${profile.last_active || ''}`;
-      
-      if (lastSyncedProfile.current !== profileSignature) {
-        console.log('[Profile] Profile object changed, syncing state');
-        syncProfileState();
-      }
-    }
-  }, [profile?.name, profile?.email, profile?.last_active, syncProfileState]);
-
-  // CRITICAL FIX: Controlled focus-based refresh (debounced)
-  useFocusEffect(
-    useCallback(() => {
-      console.log('[Profile] Screen focused');
-      
-      // GUARD: Debounce focus refresh to prevent excessive calls
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      
-      refreshTimeoutRef.current = setTimeout(() => {
-        // Only sync state, don't force database refresh on every focus
-        if (profileInitialized.current) {
-          syncProfileState();
-        }
-      }, 300);
-
-      // Cleanup timeout on unmount
-      return () => {
-        if (refreshTimeoutRef.current) {
-          clearTimeout(refreshTimeoutRef.current);
-        }
-      };
-    }, [syncProfileState])
-  );
-
+  // CRITICAL FIX: Stable token status fetch
   const fetchTokenStatus = useCallback(async () => {
-    if (!user?.id || isGuest) return;
+    if (!user?.id || isGuest || !isMountedRef.current) return;
 
     try {
       setLoading(true);
       const token = await SecureStore.getItemAsync("expoPushToken");
 
-      if (token) {
+      if (token && isMountedRef.current) {
         const { data } = await supabase
           .from("user_push_tokens")
           .select("active, signed_in")
@@ -225,43 +231,25 @@ export default function UserProfileAndSupportPage() {
           .eq("token", token)
           .single();
 
-        if (data) {
+        if (data && isMountedRef.current) {
           setPushNotificationsEnabled(data.active && data.signed_in);
         }
       }
     } catch (error) {
       console.error("Error in fetchTokenStatus:", error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user?.id, isGuest]);
 
-  // CRITICAL FIX: Controlled token status fetch (only once)
+  // CRITICAL FIX: Single token status fetch on mount
   useEffect(() => {
-    if (user?.id && !isGuest && !loading) {
+    if (user?.id && !isGuest && !loading && initializationCompleteRef.current) {
       fetchTokenStatus();
     }
   }, [user?.id, isGuest]); // Removed fetchTokenStatus from dependencies
-
-  useEffect(() => {
-    if (isGuest) {
-      Animated.spring(bannerAnimation, {
-        toValue: 1,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isGuest, bannerAnimation]);
-
-  // CRITICAL FIX: Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const base64Decode = (base64String: string): Uint8Array => {
     const byteCharacters = atob(base64String);
@@ -303,8 +291,7 @@ export default function UserProfileAndSupportPage() {
       Alert.alert("Success", "Profile updated successfully");
       setIsEditMode(false);
       
-      // CRITICAL FIX: Let AuthContext handle the state update, no forced refresh
-      console.log('[Profile] Profile update completed, waiting for AuthContext update');
+      console.log('[Profile] Profile update completed');
       
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -454,7 +441,9 @@ export default function UserProfileAndSupportPage() {
               "There was a problem signing out, but we've redirected you to the sign-in screen."
             );
           } finally {
-            setShowSignOutOverlay(false);
+            if (isMountedRef.current) {
+              setShowSignOutOverlay(false);
+            }
           }
         },
       },
@@ -549,7 +538,6 @@ export default function UserProfileAndSupportPage() {
             }
             className="pt-12 pb-24 rounded-b-[40px]"
           >
-            {/* CRITICAL FIX: Removed dynamic key that caused re-renders */}
             <View className="items-center mt-6">
               <View className="relative">
                 <Ionicons
@@ -1092,6 +1080,8 @@ export default function UserProfileAndSupportPage() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {showSignOutOverlay && <SignOutOverlay />}
     </View>
   );
 }

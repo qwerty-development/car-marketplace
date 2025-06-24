@@ -33,13 +33,41 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import { useAuth } from "@/utils/AuthContext";
-let MapView: any;
-let MapViewMarker: any;
 
-// Lazy load heavy components
-const AutoclipModal = React.lazy(() => import("@/components/AutoclipModal"));
-const EmptyMapComponent = (props: any) => <View {...props} />;
-EmptyMapComponent.Marker = (props: any) => <View {...props} />;
+// **CRITICAL FIX 1: Safe dynamic import with error handling**
+let MapView: any = null;
+let MapViewMarker: any = null;
+
+const loadMapComponents = async () => {
+  try {
+    if (Platform.OS === "ios") {
+      const mapModule = await import("react-native-maps");
+      MapView = mapModule.default;
+      MapViewMarker = mapModule.Marker;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.warn("Failed to load map components:", error);
+    return false;
+  }
+};
+
+// **CRITICAL FIX 2: Safe lazy loading with fallback**
+let AutoclipModal: React.ComponentType<any> | null = null;
+
+const loadAutoclipModal = async () => {
+  try {
+    if (!AutoclipModal) {
+      const module = await import("@/components/AutoclipModal");
+      AutoclipModal = module.default;
+    }
+    return AutoclipModal;
+  } catch (error) {
+    console.warn("Failed to load AutoclipModal:", error);
+    return null;
+  }
+};
 
 const { width, height } = Dimensions.get("window");
 
@@ -78,20 +106,31 @@ const VEHICLE_FEATURES = {
   ],
 };
 
-// Memoized image component with improved loading strategy
+// **CRITICAL FIX 3: Enhanced image component with comprehensive error handling**
 const OptimizedImage = memo(
   ({ source, style, onLoad, contentFit = "cover" }: any) => {
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState(false);
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+      return () => {
+        isMountedRef.current = false;
+      };
+    }, []);
 
     const handleLoad = useCallback(() => {
-      setLoaded(true);
-      onLoad?.();
+      if (isMountedRef.current) {
+        setLoaded(true);
+        onLoad?.();
+      }
     }, [onLoad]);
 
     const handleError = useCallback(() => {
-      setError(true);
-      console.log("Image failed to load:", source?.uri);
+      if (isMountedRef.current) {
+        setError(true);
+        console.log("Image failed to load:", source?.uri);
+      }
     }, [source?.uri]);
 
     // Use a lightweight blurhash
@@ -140,12 +179,14 @@ const OptimizedImage = memo(
   }
 );
 
+// **CRITICAL FIX 4: Enhanced skeleton with proper cleanup**
 const CarItemSkeleton = memo(({ isDarkMode }: any) => {
   const fadeAnim = useRef(new Animated.Value(0.5)).current;
+  const animationRef = useRef<any>(null);
 
   useEffect(() => {
-    // Create shimmer effect
-    Animated.loop(
+    // Create shimmer effect with proper cleanup
+    animationRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(fadeAnim, {
           toValue: 0.8,
@@ -158,7 +199,16 @@ const CarItemSkeleton = memo(({ isDarkMode }: any) => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    
+    animationRef.current.start();
+
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+    };
   }, [fadeAnim]);
 
   const bgColor = isDarkMode ? "#1c1c1c" : "#f0f0f0";
@@ -214,35 +264,35 @@ const CarItemSkeleton = memo(({ isDarkMode }: any) => {
   );
 });
 
-    const getLogoUrl = useCallback((make: string, isLightMode: boolean) => {
-      const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
-      switch (formattedMake) {
-        case "range-rover":
-          return isLightMode
-            ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
-            : "https://www.carlogos.org/car-logos/land-rover-logo.png";
-        case "infiniti":
-          return "https://www.carlogos.org/car-logos/infiniti-logo.png";
-        case "jetour":
-          return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
-        case "audi":
-          return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
-        case "nissan":
-          return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
-        case "deepal":
-          return "https://www.chinacarstrading.com/wp-content/uploads/2023/04/deepal-logo2.png";
-        case "denza":
-          return "https://upload.wikimedia.org/wikipedia/en/5/5e/Denza_logo.png";
-        case "voyah":
-          return "https://i0.wp.com/www.caradviser.io/wp-content/uploads/2024/07/VOYAH.png?fit=722%2C722&ssl=1";
-        case "rox":
-          return "https://contactcars.fra1.cdn.digitaloceanspaces.com/contactcars-production/Images/Large/Makes/f64aa1a8-fb87-4028-b60e-7128f4588f5e_202502061346164286.jpg";
-        case "xiaomi":
-          return "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/1024px-Xiaomi_logo_%282021-%29.svg.png";
-        default:
-          return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
-      }
-    }, []);
+const getLogoUrl = useCallback((make: string, isLightMode: boolean) => {
+  const formattedMake = make.toLowerCase().replace(/\s+/g, "-");
+  switch (formattedMake) {
+    case "range-rover":
+      return isLightMode
+        ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
+        : "https://www.carlogos.org/car-logos/land-rover-logo.png";
+    case "infiniti":
+      return "https://www.carlogos.org/car-logos/infiniti-logo.png";
+    case "jetour":
+      return "https://1000logos.net/wp-content/uploads/2023/12/Jetour-Logo.jpg";
+    case "audi":
+      return "https://www.freepnglogos.com/uploads/audi-logo-2.png";
+    case "nissan":
+      return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
+    case "deepal":
+      return "https://www.chinacarstrading.com/wp-content/uploads/2023/04/deepal-logo2.png";
+    case "denza":
+      return "https://upload.wikimedia.org/wikipedia/en/5/5e/Denza_logo.png";
+    case "voyah":
+      return "https://i0.wp.com/www.caradviser.io/wp-content/uploads/2024/07/VOYAH.png?fit=722%2C722&ssl=1";
+    case "rox":
+      return "https://contactcars.fra1.cdn.digitaloceanspaces.com/contactcars-production/Images/Large/Makes/f64aa1a8-fb87-4028-b60e-7128f4588f5e_202502061346164286.jpg";
+    case "xiaomi":
+      return "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Xiaomi_logo_%282021-%29.svg/1024px-Xiaomi_logo_%282021-%29.svg.png";
+    default:
+      return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
+  }
+}, []);
 
 // Memoized simple components
 const ActionButton = memo(({ icon, onPress, text, isDarkMode }: any) => (
@@ -429,7 +479,7 @@ const getRelativeTime = (dateString: string) => {
   }
 };
 
-// Main component with performance optimizations
+// **CRITICAL FIX 5: Enhanced main component with comprehensive error handling**
 const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   if (!car) return null;
 
@@ -443,7 +493,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     null
   );
 
-  // Split state into critical and non-critical groups
+  // **CRITICAL FIX 6: Consolidated state management**
   const [criticalState, setCriticalState] = useState({
     autoclips: [],
     selectedClip: null,
@@ -454,6 +504,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     similarCars: [],
     dealerCars: [],
     isMapVisible: false,
+    mapComponentsLoaded: false,
+    autoclipModalLoaded: false,
   });
 
   // Track which sections have loaded
@@ -464,20 +516,51 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     dealerCarsLoaded: false,
   });
 
-  // App state tracking for background optimization
+  // **CRITICAL FIX 7: Enhanced refs with proper cleanup tracking**
+  const isMountedRef = useRef(true);
   const appStateRef = useRef(AppState.currentState);
   const [isActive, setIsActive] = useState(true);
-
-  // Performance tracking
   const performanceRef = useRef({
     startTime: Date.now(),
     firstImageLoaded: 0,
     criticalContentLoaded: 0,
   });
+  const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // Track app state changes to optimize resource usage
+  // **CRITICAL FIX 8: Enhanced cleanup function**
+  const clearAllTimeouts = useCallback(() => {
+    timeoutRefs.current.forEach((timeout) => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    });
+    timeoutRefs.current.clear();
+  }, []);
+
+  const setManagedTimeout = useCallback((key: string, callback: () => void, delay: number) => {
+    // Clear existing timeout with same key
+    const existingTimeout = timeoutRefs.current.get(key);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
+    // Set new timeout
+    const newTimeout = setTimeout(() => {
+      if (isMountedRef.current) {
+        callback();
+      }
+      timeoutRefs.current.delete(key);
+    }, delay);
+    
+    timeoutRefs.current.set(key, newTimeout);
+    return newTimeout;
+  }, []);
+
+  // **CRITICAL FIX 9: Enhanced app state tracking**
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (!isMountedRef.current) return;
+
       const currentState = appStateRef.current;
       appStateRef.current = nextAppState;
 
@@ -491,29 +574,47 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         // App went to background
         setIsActive(false);
 
-        // Clear memory-intensive data
-        setNonCriticalState((prev) => ({
-          ...prev,
-          similarCars: [],
-          dealerCars: [],
-          isMapVisible: false,
-        }));
+        // **CRITICAL FIX 10: Safe memory management**
+        try {
+          setNonCriticalState((prev) => ({
+            ...prev,
+            similarCars: [],
+            dealerCars: [],
+            isMapVisible: false,
+          }));
 
-        // Release image cache if app goes to background
-        if (Platform.OS === "ios") {
-          try {
-            Image.clearMemoryCache();
-          } catch (e) {
-            console.error("Failed to clear image cache:", e);
+          // **CRITICAL FIX 11: Safe image cache clearing**
+          if (Platform.OS === "ios") {
+            setManagedTimeout('clearImageCache', () => {
+              try {
+                Image.clearMemoryCache();
+              } catch (e) {
+                console.warn("Failed to clear image cache:", e);
+              }
+            }, 100);
           }
+        } catch (error) {
+          console.warn("Error during background memory optimization:", error);
         }
       }
     });
 
     return () => {
-      subscription.remove();
+      try {
+        subscription.remove();
+      } catch (error) {
+        console.warn("Error removing AppState listener:", error);
+      }
     };
-  }, []);
+  }, [setManagedTimeout]);
+
+  // **CRITICAL FIX 12: Enhanced component cleanup**
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      clearAllTimeouts();
+    };
+  }, [clearAllTimeouts]);
 
   // Adds performance tracking to initial load
   useEffect(() => {
@@ -538,10 +639,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     };
 
     // Schedule tracking to run after first render completes
-    const timeout = setTimeout(trackPerformance, 3000);
-
-    return () => clearTimeout(timeout);
-  }, []);
+    setManagedTimeout('performanceTracking', trackPerformance, 3000);
+  }, [setManagedTimeout]);
 
   // Handle first image loaded
   const handleFirstImageLoaded = useCallback(() => {
@@ -555,9 +654,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }
   }, []);
 
-  // Staggered data loading strategy - only load autoclips initially
+  // **CRITICAL FIX 13: Enhanced autoclips fetching with error handling**
   const fetchAutoclips = useCallback(async () => {
-    if (!car || !car.id) return;
+    if (!car || !car.id || !isMountedRef.current) return;
 
     try {
       const { data, error } = await supabase
@@ -569,72 +668,116 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       if (error) throw error;
 
-      setCriticalState((prev) => ({
-        ...prev,
-        autoclips: data || [],
-      }));
+      if (isMountedRef.current) {
+        setCriticalState((prev) => ({
+          ...prev,
+          autoclips: data || [],
+        }));
 
-      setLoadingStatus((prev) => ({
-        ...prev,
-        autoclipsLoaded: true,
-      }));
+        setLoadingStatus((prev) => ({
+          ...prev,
+          autoclipsLoaded: true,
+        }));
+      }
     } catch (error) {
       console.error("Error fetching autoclips:", error);
-      setCriticalState((prev) => ({
-        ...prev,
-        autoclips: [],
-      }));
+      if (isMountedRef.current) {
+        setCriticalState((prev) => ({
+          ...prev,
+          autoclips: [],
+        }));
 
-      setLoadingStatus((prev) => ({
-        ...prev,
-        autoclipsLoaded: true,
-      }));
+        setLoadingStatus((prev) => ({
+          ...prev,
+          autoclipsLoaded: true,
+        }));
+      }
     }
   }, [car?.id]);
 
+  // **CRITICAL FIX 14: Enhanced map component loading**
   useEffect(() => {
-    // Only load on iOS and when visible
-    if (Platform.OS === "ios" && nonCriticalState.isMapVisible) {
-      import("react-native-maps")
-        .then((module) => {
-          MapView = module.default;
-          MapViewMarker = module.Marker;
-          // Force re-render
-          setNonCriticalState((prev) => ({ ...prev }));
-        })
-        .catch((error) => {
-          console.error("Error loading maps:", error);
-        });
+    const loadMapComponentsAsync = async () => {
+      if (!isMountedRef.current) return;
+
+      try {
+        const loaded = await loadMapComponents();
+        if (isMountedRef.current) {
+          setNonCriticalState(prev => ({ 
+            ...prev, 
+            mapComponentsLoaded: loaded 
+          }));
+        }
+      } catch (error) {
+        console.warn("Error loading map components:", error);
+        if (isMountedRef.current) {
+          setNonCriticalState(prev => ({ 
+            ...prev, 
+            mapComponentsLoaded: false 
+          }));
+        }
+      }
+    };
+
+    if (Platform.OS === "ios" && nonCriticalState.isMapVisible && !nonCriticalState.mapComponentsLoaded) {
+      loadMapComponentsAsync();
     }
-  }, [nonCriticalState.isMapVisible]);
+  }, [nonCriticalState.isMapVisible, nonCriticalState.mapComponentsLoaded]);
+
+  // **CRITICAL FIX 15: Enhanced autoclip modal loading**
+  useEffect(() => {
+    const loadAutoclipModalAsync = async () => {
+      if (!isMountedRef.current) return;
+
+      try {
+        await loadAutoclipModal();
+        if (isMountedRef.current) {
+          setNonCriticalState(prev => ({ 
+            ...prev, 
+            autoclipModalLoaded: true 
+          }));
+        }
+      } catch (error) {
+        console.warn("Error loading autoclip modal:", error);
+        if (isMountedRef.current) {
+          setNonCriticalState(prev => ({ 
+            ...prev, 
+            autoclipModalLoaded: false 
+          }));
+        }
+      }
+    };
+
+    loadAutoclipModalAsync();
+  }, []);
 
   // Load critical data on mount
   useEffect(() => {
-    if (car && car.id) {
+    if (car && car.id && isMountedRef.current) {
       // Track critical content load
       if (performanceRef.current.criticalContentLoaded === 0) {
         performanceRef.current.criticalContentLoaded = Date.now();
       }
 
       // Fetch autoclips with slight delay to prioritize UI rendering
-      InteractionManager.runAfterInteractions(() => {
-        fetchAutoclips();
-      });
+      setManagedTimeout('fetchAutoclips', () => {
+        if (isMountedRef.current) {
+          fetchAutoclips();
+        }
+      }, 100);
 
       // Track view after a slight delay to prioritize UI
-      const trackViewTimer = setTimeout(() => {
-        if (user && car.id) {
+      setManagedTimeout('trackView', () => {
+        if (user && car.id && isMountedRef.current) {
           trackCarView(car.id, user.id);
         }
       }, 1000);
-
-      return () => clearTimeout(trackViewTimer);
     }
-  }, [car?.id, user?.id]);
+  }, [car?.id, user?.id, fetchAutoclips, setManagedTimeout]);
 
   // Delayed loading of non-critical data (similar cars, dealer cars)
   useEffect(() => {
-    if (!car || !car.id) return;
+    if (!car || !car.id || !isMountedRef.current) return;
 
     // Only load these once critical content is loaded and app is active
     if (
@@ -643,40 +786,41 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       isActive
     ) {
       // Staggered loading of similar cars
-      const similarCarsTimer = setTimeout(() => {
-        fetchSimilarCars();
+      setManagedTimeout('fetchSimilarCars', () => {
+        if (isMountedRef.current) {
+          fetchSimilarCars();
+        }
       }, 1500);
 
       // Staggered loading of dealer cars
-      const dealerCarsTimer = setTimeout(() => {
-        fetchDealerCars();
+      setManagedTimeout('fetchDealerCars', () => {
+        if (isMountedRef.current) {
+          fetchDealerCars();
+        }
       }, 2500);
 
       // Show map with even more delay
-      const mapTimer = setTimeout(() => {
-        setNonCriticalState((prev) => ({
-          ...prev,
-          isMapVisible: true,
-        }));
+      setManagedTimeout('showMap', () => {
+        if (isMountedRef.current) {
+          setNonCriticalState((prev) => ({
+            ...prev,
+            isMapVisible: true,
+          }));
+        }
       }, 3000);
-
-      return () => {
-        clearTimeout(similarCarsTimer);
-        clearTimeout(dealerCarsTimer);
-        clearTimeout(mapTimer);
-      };
     }
   }, [
     car?.id,
     loadingStatus.imagesLoaded,
     loadingStatus.autoclipsLoaded,
     isActive,
+    setManagedTimeout,
   ]);
 
-  // Track view API call
+  // **CRITICAL FIX 16: Enhanced track car view with error handling**
   const trackCarView = useCallback(
     async (carId: any, userId: any) => {
-      if (!carId || !userId) return;
+      if (!carId || !userId || !isMountedRef.current) return;
 
       try {
         const { data, error } = await supabase.rpc("track_car_view", {
@@ -686,7 +830,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
         if (error) throw error;
 
-        if (data && onViewUpdate) {
+        if (data && onViewUpdate && isMountedRef.current) {
           onViewUpdate(carId, data);
         }
       } catch (error) {
@@ -696,10 +840,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     [onViewUpdate]
   );
 
-  // Handle clip like with debouncing
+  // **CRITICAL FIX 17: Enhanced clip like handling**
   const handleClipLike = useCallback(
     debounce(async (clipId: any) => {
-      if (!user || !clipId) return;
+      if (!user || !clipId || !isMountedRef.current) return;
 
       try {
         const { data: newLikesCount, error } = await supabase.rpc(
@@ -712,34 +856,36 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
         if (error) throw error;
 
-        setCriticalState((prev) => {
-          const updatedAutoclips = prev.autoclips.map((clip: any) =>
-            clip.id === clipId
-              ? {
-                  ...clip,
-                  likes: newLikesCount,
-                  liked_users: clip.liked_users?.includes(user.id)
-                    ? clip.liked_users.filter((id: string) => id !== user.id)
-                    : [...(clip.liked_users || []), user.id],
-                }
-              : clip
-          );
+        if (isMountedRef.current) {
+          setCriticalState((prev) => {
+            const updatedAutoclips = prev.autoclips.map((clip: any) =>
+              clip.id === clipId
+                ? {
+                    ...clip,
+                    likes: newLikesCount,
+                    liked_users: clip.liked_users?.includes(user.id)
+                      ? clip.liked_users.filter((id: string) => id !== user.id)
+                      : [...(clip.liked_users || []), user.id],
+                  }
+                : clip
+            );
 
-          return {
-            ...prev,
-            autoclips: updatedAutoclips,
-          };
-        });
+            return {
+              ...prev,
+              autoclips: updatedAutoclips,
+            };
+          });
+        }
       } catch (error) {
         console.error("Error toggling autoclip like:", error);
       }
     }, 300),
-    [user, supabase]
+    [user]
   );
 
-  // Fetch similar cars with error handling and optimization
+  // **CRITICAL FIX 18: Enhanced similar cars fetching**
   const fetchSimilarCars = useCallback(async () => {
-    if (!car || !car.id || !car.make) return;
+    if (!car || !car.id || !car.make || !isMountedRef.current) return;
 
     try {
       // First, try to find cars with same make, model, and year
@@ -757,7 +903,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       if (exactMatchError) throw exactMatchError;
 
-      if (exactMatches && exactMatches.length > 0) {
+      if (exactMatches && exactMatches.length > 0 && isMountedRef.current) {
         const newCars = exactMatches.map((item) => ({
           id: item.id,
           make: item.make,
@@ -788,7 +934,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       }
 
       // If no exact matches, fall back to similarly priced cars
-      if (car.price) {
+      if (car.price && isMountedRef.current) {
         const { data: priceMatches, error: priceMatchError } = await supabase
           .from("cars")
           .select(
@@ -802,7 +948,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
         if (priceMatchError) throw priceMatchError;
 
-        if (priceMatches && priceMatches.length > 0) {
+        if (priceMatches && priceMatches.length > 0 && isMountedRef.current) {
           const newCars = priceMatches.map((item) => ({
             id: item.id,
             make: item.make,
@@ -823,27 +969,31 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         }
       }
 
-      setLoadingStatus((prev) => ({
-        ...prev,
-        similarCarsLoaded: true,
-      }));
+      if (isMountedRef.current) {
+        setLoadingStatus((prev) => ({
+          ...prev,
+          similarCarsLoaded: true,
+        }));
+      }
     } catch (error) {
       console.error("Error fetching similar cars:", error);
-      setNonCriticalState((prev) => ({
-        ...prev,
-        similarCars: [],
-      }));
+      if (isMountedRef.current) {
+        setNonCriticalState((prev) => ({
+          ...prev,
+          similarCars: [],
+        }));
 
-      setLoadingStatus((prev) => ({
-        ...prev,
-        similarCarsLoaded: true,
-      }));
+        setLoadingStatus((prev) => ({
+          ...prev,
+          similarCarsLoaded: true,
+        }));
+      }
     }
   }, [car?.id, car?.make, car?.model, car?.year, car?.price]);
 
-  // Fetch dealer cars with error handling and optimization
+  // **CRITICAL FIX 19: Enhanced dealer cars fetching**
   const fetchDealerCars = useCallback(async () => {
-    if (!car || !car.dealership_id || !car.id) return;
+    if (!car || !car.dealership_id || !car.id || !isMountedRef.current) return;
 
     try {
       const { data, error } = await supabase
@@ -858,7 +1008,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       if (error) throw error;
 
-      if (data) {
+      if (data && isMountedRef.current) {
         const newCars = data.map((item) => ({
           id: item.id,
           make: item.make,
@@ -877,40 +1027,50 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         }));
       }
 
-      setLoadingStatus((prev) => ({
-        ...prev,
-        dealerCarsLoaded: true,
-      }));
+      if (isMountedRef.current) {
+        setLoadingStatus((prev) => ({
+          ...prev,
+          dealerCarsLoaded: true,
+        }));
+      }
     } catch (error) {
       console.error("Error fetching dealer cars:", error);
-      setNonCriticalState((prev) => ({
-        ...prev,
-        dealerCars: [],
-      }));
+      if (isMountedRef.current) {
+        setNonCriticalState((prev) => ({
+          ...prev,
+          dealerCars: [],
+        }));
 
-      setLoadingStatus((prev) => ({
-        ...prev,
-        dealerCarsLoaded: true,
-      }));
+        setLoadingStatus((prev) => ({
+          ...prev,
+          dealerCarsLoaded: true,
+        }));
+      }
     }
   }, [car?.dealership_id, car?.id]);
 
-  // Optimized navigation to dealership details
+  // **CRITICAL FIX 20: Enhanced navigation functions**
   const handleDealershipPress = useCallback(() => {
-    if (!car.dealership_id) return;
+    if (!car.dealership_id || !isMountedRef.current) return;
 
-    InteractionManager.runAfterInteractions(() => {
-      router.push({
-        pathname: "/(home)/(user)/DealershipDetails",
-        params: { dealershipId: car.dealership_id },
+    try {
+      InteractionManager.runAfterInteractions(() => {
+        if (isMountedRef.current) {
+          router.push({
+            pathname: "/(home)/(user)/DealershipDetails",
+            params: { dealershipId: car.dealership_id },
+          });
+        }
       });
-    });
+    } catch (error) {
+      console.error("Error navigating to dealership:", error);
+    }
   }, [router, car?.dealership_id]);
 
-  // Tracking functions for analytics - all debounced
+  // **CRITICAL FIX 21: Enhanced tracking functions**
   const trackCallClick = useCallback(
     debounce(async (carId: number) => {
-      if (!user?.id || !carId) return;
+      if (!user?.id || !carId || !isMountedRef.current) return;
 
       try {
         await supabase.rpc("track_car_call", {
@@ -923,31 +1083,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }, 500),
     [user?.id]
   );
-  // Inside handleBackPress in CarDetailModal.ios.tsx
-  const handleBackPress = useCallback(() => {
-    try {
-      if (car.fromDeepLink === "true") {
-        router.replace("/(home)/(user)");
-      } else {
-        router.back();
 
-        // Safety timer - if we're still on the same screen after 100ms,
-        // assume back navigation failed and redirect to home
-        const timer = setTimeout(() => {
-          router.replace("/(home)/(user)");
-        }, 100);
-
-        return () => clearTimeout(timer);
-      }
-    } catch (error) {
-      // If any error occurs during navigation, safely redirect to home
-      console.error("Navigation error:", error);
-      router.replace("/(home)/(user)");
-    }
-  }, [car, router]);
   const trackWhatsAppClick = useCallback(
     debounce(async (carId: number) => {
-      if (!user?.id || !carId) return;
+      if (!user?.id || !carId || !isMountedRef.current) return;
 
       try {
         await supabase.rpc("track_car_whatsapp", {
@@ -961,25 +1100,60 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     [user?.id]
   );
 
-  // Action handlers with error protection
+  // **CRITICAL FIX 22: Enhanced back press handling**
+  const handleBackPress = useCallback(() => {
+    if (!isMountedRef.current) return;
+
+    try {
+      if (car.fromDeepLink === "true") {
+        router.replace("/(home)/(user)");
+      } else {
+        router.back();
+
+        // Safety timer - if we're still on the same screen after 100ms,
+        // assume back navigation failed and redirect to home
+        setManagedTimeout('navigationFallback', () => {
+          if (isMountedRef.current) {
+            router.replace("/(home)/(user)");
+          }
+        }, 100);
+      }
+    } catch (error) {
+      // If any error occurs during navigation, safely redirect to home
+      console.error("Navigation error:", error);
+      try {
+        router.replace("/(home)/(user)");
+      } catch (fallbackError) {
+        console.error("Fallback navigation also failed:", fallbackError);
+      }
+    }
+  }, [car, router, setManagedTimeout]);
+
+  // **CRITICAL FIX 23: Enhanced action handlers**
   const handleCall = useCallback(() => {
-    if (!car || !car.dealership_phone) {
+    if (!car || !car.dealership_phone || !isMountedRef.current) {
       Alert.alert("Phone number not available");
       return;
     }
 
-    // Track the call click first
-    trackCallClick(car.id);
+    try {
+      // Track the call click first
+      trackCallClick(car.id);
 
-    // Then proceed with the call
-    Linking.openURL(`tel:${car.dealership_phone}`).catch((err) => {
-      console.error("Error opening phone app:", err);
-      Alert.alert("Error", "Could not open phone app");
-    });
+      // Then proceed with the call
+      Linking.openURL(`tel:${car.dealership_phone}`).catch((err) => {
+        console.error("Error opening phone app:", err);
+        if (isMountedRef.current) {
+          Alert.alert("Error", "Could not open phone app");
+        }
+      });
+    } catch (error) {
+      console.error("Error in handleCall:", error);
+    }
   }, [car?.id, car?.dealership_phone, trackCallClick]);
 
   const handleShare = useCallback(async () => {
-    if (!car) return;
+    if (!car || !isMountedRef.current) return;
 
     try {
       // Use a consistent URL format
@@ -1000,12 +1174,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       });
     } catch (error) {
       console.error("Share error:", error);
-      Alert.alert("Error", "Failed to share car details");
+      if (isMountedRef.current) {
+        Alert.alert("Error", "Failed to share car details");
+      }
     }
   }, [car]);
 
   const handleOpenInMaps = useCallback(() => {
-    if (!car) return;
+    if (!car || !isMountedRef.current) return;
 
     const { dealership_latitude, dealership_longitude } = car;
 
@@ -1017,92 +1193,86 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       return;
     }
 
-    if (Platform.OS === "ios") {
-      Alert.alert("Open Maps", "Choose your preferred maps application", [
-        {
-          text: "Apple Maps",
-          onPress: () => {
-            const appleMapsUrl = `maps:0,0?q=${dealership_latitude},${dealership_longitude}`;
-            Linking.openURL(appleMapsUrl).catch(() => {
-              Alert.alert("Error", "Could not open Maps");
-            });
-          },
-        },
-        {
-          text: "Google Maps",
-          onPress: () => {
-            const googleMapsUrl = `comgooglemaps://?q=${dealership_latitude},${dealership_longitude}&zoom=14`;
-            Linking.openURL(googleMapsUrl).catch(() => {
-              // If Google Maps app isn't installed, fallback to browser
-              const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
-              Linking.openURL(fallbackUrl).catch(() => {
-                Alert.alert("Error", "Could not open Maps");
+    try {
+      if (Platform.OS === "ios") {
+        Alert.alert("Open Maps", "Choose your preferred maps application", [
+          {
+            text: "Apple Maps",
+            onPress: () => {
+              const appleMapsUrl = `maps:0,0?q=${dealership_latitude},${dealership_longitude}`;
+              Linking.openURL(appleMapsUrl).catch(() => {
+                if (isMountedRef.current) {
+                  Alert.alert("Error", "Could not open Maps");
+                }
               });
-            });
+            },
           },
-        },
-        { text: "Cancel", style: "cancel" },
-      ]);
-    } else {
-      // Android: open Google Maps directly
-      const googleMapsUrl = `geo:${dealership_latitude},${dealership_longitude}?q=${dealership_latitude},${dealership_longitude}`;
-      Linking.openURL(googleMapsUrl).catch(() => {
-        // Fallback to browser if necessary
-        const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
-        Linking.openURL(fallbackUrl).catch(() => {
-          Alert.alert("Error", "Could not open Maps");
+          {
+            text: "Google Maps",
+            onPress: () => {
+              const googleMapsUrl = `comgooglemaps://?q=${dealership_latitude},${dealership_longitude}&zoom=14`;
+              Linking.openURL(googleMapsUrl).catch(() => {
+                // If Google Maps app isn't installed, fallback to browser
+                const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
+                Linking.openURL(fallbackUrl).catch(() => {
+                  if (isMountedRef.current) {
+                    Alert.alert("Error", "Could not open Maps");
+                  }
+                });
+              });
+            },
+          },
+          { text: "Cancel", style: "cancel" },
+        ]);
+      } else {
+        // Android: open Google Maps directly
+        const googleMapsUrl = `geo:${dealership_latitude},${dealership_longitude}?q=${dealership_latitude},${dealership_longitude}`;
+        Linking.openURL(googleMapsUrl).catch(() => {
+          // Fallback to browser if necessary
+          const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${dealership_latitude},${dealership_longitude}`;
+          Linking.openURL(fallbackUrl).catch(() => {
+            if (isMountedRef.current) {
+              Alert.alert("Error", "Could not open Maps");
+            }
+          });
         });
-      });
+      }
+    } catch (error) {
+      console.error("Error in handleOpenInMaps:", error);
     }
-  }, [car?.dealership_latitude, car?.dealership_longitude]);
-
-  const handleOpenInGoogleMaps = useCallback(() => {
-    if (!car) return;
-
-    const latitude = car.dealership_latitude || 0;
-    const longitude = car.dealership_longitude || 0;
-
-    if (!latitude || !longitude) {
-      Alert.alert(
-        "Location unavailable",
-        "No location available for this dealership"
-      );
-      return;
-    }
-
-    const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
-
-    Linking.openURL(url).catch((err) => {
-      console.error("Error opening Google Maps:", err);
-      Alert.alert("Error", "Could not open Google Maps");
-    });
   }, [car?.dealership_latitude, car?.dealership_longitude]);
 
   const handleWhatsAppPress = useCallback(() => {
-    if (!car || !car.dealership_phone) {
+    if (!car || !car.dealership_phone || !isMountedRef.current) {
       Alert.alert("Phone number not available");
       return;
     }
 
-    // Track the WhatsApp click first
-    trackWhatsAppClick(car.id);
+    try {
+      // Track the WhatsApp click first
+      trackWhatsAppClick(car.id);
 
-    const cleanedPhoneNumber = car.dealership_phone
-      .toString()
-      .replace(/\D/g, "");
-    const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
-      car.model
-    } listed for $${car.price ? car.price.toLocaleString() : "N/A"} on Fleet`;
-    const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
-      message
-    )}`;
+      const cleanedPhoneNumber = car.dealership_phone
+        .toString()
+        .replace(/\D/g, "");
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
+        car.model
+      } listed for $${car.price ? car.price.toLocaleString() : "N/A"} on Fleet`;
+      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
+        message
+      )}`;
 
-    Linking.openURL(webURL).catch(() => {
-      Alert.alert(
-        "Error",
-        "Unable to open WhatsApp. Please make sure it is installed on your device."
-      );
-    });
+      Linking.openURL(webURL).catch(() => {
+        if (isMountedRef.current) {
+          Alert.alert(
+            "Error",
+            "Unable to open WhatsApp. Please make sure it is installed on your device."
+          );
+        }
+      });
+    } catch (error) {
+      console.error("Error in handleWhatsAppPress:", error);
+    }
   }, [car, trackWhatsAppClick]);
 
   // Memoized render functions
@@ -1121,12 +1291,16 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             overflow: "hidden",
           }}
           onPress={() => {
-            InteractionManager.runAfterInteractions(() => {
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: { carId: item.id },
+            if (isMountedRef.current) {
+              InteractionManager.runAfterInteractions(() => {
+                if (isMountedRef.current) {
+                  router.push({
+                    pathname: "/(home)/(user)/CarDetails",
+                    params: { carId: item.id },
+                  });
+                }
               });
-            });
+            }
           }}
         >
           <OptimizedImage
@@ -1224,7 +1398,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     [car.features]
   );
 
-  // Extracted component renderers to reduce main render function complexity
+  // **CRITICAL FIX 24: Enhanced render functions with error boundaries**
   const renderImageCarousel = useCallback(
     () => (
       <View
@@ -1241,7 +1415,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             <FlatList
               data={car.images}
               renderItem={({ item, index }) => (
-                <Pressable onPress={() => setSelectedImageIndex(index)}>
+                <Pressable onPress={() => {
+                  if (isMountedRef.current) {
+                    setSelectedImageIndex(index);
+                  }
+                }}>
                   <OptimizedImage
                     source={{ uri: item }}
                     style={{ width, height: 350 }}
@@ -1257,10 +1435,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               windowSize={3}
               removeClippedSubviews={true}
               onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / width
-                );
-                setActiveImageIndex(newIndex);
+                if (isMountedRef.current) {
+                  const newIndex = Math.round(
+                    event.nativeEvent.contentOffset.x / width
+                  );
+                  setActiveImageIndex(newIndex);
+                }
               }}
               keyExtractor={(_, index) => `image-${index}`}
             />
@@ -1387,11 +1567,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           {criticalState.autoclips.length > 0 && (
             <TouchableOpacity
               onPress={() => {
-                setCriticalState((prev) => ({
-                  ...prev,
-                  selectedClip: criticalState.autoclips[0],
-                  showClipModal: true,
-                }));
+                if (isMountedRef.current) {
+                  setCriticalState((prev) => ({
+                    ...prev,
+                    selectedClip: criticalState.autoclips[0],
+                    showClipModal: true,
+                  }));
+                }
               }}
               style={{
                 backgroundColor: "#D55004",
@@ -1611,7 +1793,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       );
     }
 
-    // Lazy-loaded map component
+    // Enhanced map component with better error handling
     return (
       <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
         <Text
@@ -1626,7 +1808,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </Text>
 
         <View style={{ height: 200, borderRadius: 10, overflow: "hidden" }}>
-          {Platform.OS === "ios" && MapView ? (
+          {Platform.OS === "ios" && MapView && nonCriticalState.mapComponentsLoaded ? (
             <MapView style={{ flex: 1 }} region={mapRegion} liteMode={false}>
               {MapViewMarker && (
                 <MapViewMarker
@@ -1660,7 +1842,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   marginTop: 8,
                 }}
               >
-                {Platform.OS === "ios" ? "Loading map..." : "Map not available"}
+                {Platform.OS === "ios" && !nonCriticalState.mapComponentsLoaded
+                  ? "Loading map..."
+                  : "Map not available"}
               </Text>
             </View>
           )}
@@ -1689,6 +1873,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     );
   }, [
     nonCriticalState.isMapVisible,
+    nonCriticalState.mapComponentsLoaded,
     car.dealership_latitude,
     car.dealership_longitude,
     car.dealership_name,
@@ -1700,7 +1885,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     MapViewMarker,
   ]);
 
-  // First, let's create a CarSectionSkeleton component that doesn't include titles
+  // CarSectionSkeleton component that doesn't include titles
   const CarSectionSkeleton = memo(({ isDarkMode }) => {
     return (
       <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
@@ -1769,7 +1954,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   // Updated renderDealerCars function without title during loading
   const renderDealerCars = useCallback(() => {
     // If not loaded yet, show the skeleton without any title
-    // Include the bottom margin to ensure proper spacing at the end
     if (!loadingStatus.dealerCarsLoaded) {
       return (
         <View style={{ marginBottom: 150 }}>
@@ -1816,18 +2000,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     loadingStatus.dealerCarsLoaded,
   ]);
 
-  // Don't forget to ensure you have bottom spacing in your main content
-  // Add this at the end of your main content:
-  {
-    loadingStatus.similarCarsLoaded &&
-      loadingStatus.dealerCarsLoaded &&
-      nonCriticalState.similarCars.length === 0 &&
-      nonCriticalState.dealerCars.length === 0 && (
-        <View style={{ marginBottom: 160 }} />
-      );
-  }
-
-  // Optimized main render
+  // **CRITICAL FIX 25: Enhanced main render with comprehensive error handling**
   return (
     <View
       style={[
@@ -2049,7 +2222,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </View>
 
         <TouchableOpacity
-          onPress={handleOpenInMaps} // CHANGE: from handleOpenInGoogleMaps to handleOpenInMaps
+          onPress={handleOpenInMaps}
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -2078,49 +2251,52 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* Autoclip Modal with Suspense */}
-      {criticalState.showClipModal && (
-        <React.Suspense
-          fallback={
-            <View style={styles.modalBackground}>
-              <ActivityIndicator size="large" color="#D55004" />
-            </View>
-          }
-        >
-          <AutoclipModal
-            isVisible={criticalState.showClipModal}
-            onClose={() => {
+      {/* **CRITICAL FIX 26: Enhanced Autoclip Modal with safe loading** */}
+      {criticalState.showClipModal && AutoclipModal && nonCriticalState.autoclipModalLoaded && (
+        <AutoclipModal
+          isVisible={criticalState.showClipModal}
+          onClose={() => {
+            if (isMountedRef.current) {
               setCriticalState((prev) => ({
                 ...prev,
                 showClipModal: false,
                 selectedClip: null,
               }));
-            }}
-            clip={criticalState.selectedClip}
-            onLikePress={() =>
-              criticalState.selectedClip &&
-              handleClipLike(criticalState.selectedClip.id)
             }
-            isLiked={criticalState.selectedClip?.liked_users?.includes(
-              user?.id
-            )}
-          />
-        </React.Suspense>
+          }}
+          clip={criticalState.selectedClip}
+          onLikePress={() => {
+            if (criticalState.selectedClip && isMountedRef.current) {
+              handleClipLike(criticalState.selectedClip.id);
+            }
+          }}
+          isLiked={criticalState.selectedClip?.liked_users?.includes(
+            user?.id
+          )}
+        />
       )}
 
-      {/* Image Modal (Optimized) */}
+      {/* **CRITICAL FIX 27: Enhanced Image Modal with safe handling** */}
       {selectedImageIndex !== null && car.images && (
         <Modal
           visible={true}
           transparent={true}
           animationType="fade"
-          onRequestClose={() => setSelectedImageIndex(null)}
+          onRequestClose={() => {
+            if (isMountedRef.current) {
+              setSelectedImageIndex(null);
+            }
+          }}
         >
           <View style={styles.modalBackground}>
             {/* Close button with improved positioning */}
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setSelectedImageIndex(null)}
+              onPress={() => {
+                if (isMountedRef.current) {
+                  setSelectedImageIndex(null);
+                }
+              }}
               hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
             >
               <Ionicons name="close" size={32} color="white" />
@@ -2134,10 +2310,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               showsHorizontalScrollIndicator={false}
               initialScrollIndex={selectedImageIndex}
               onMomentumScrollEnd={(e) => {
-                const newIndex = Math.round(
-                  e.nativeEvent.contentOffset.x / width
-                );
-                setSelectedImageIndex(newIndex);
+                if (isMountedRef.current) {
+                  const newIndex = Math.round(
+                    e.nativeEvent.contentOffset.x / width
+                  );
+                  setSelectedImageIndex(newIndex);
+                }
               }}
               keyExtractor={(_, index) => `fullscreen-${index}`}
               getItemLayout={(_, index) => ({
@@ -2213,7 +2391,7 @@ const styles = StyleSheet.create({
   },
 
   fullscreenImage: {
-    width: width, // Slightly smaller than full width for better appearance
+    width: width,
     height: height,
   },
 
