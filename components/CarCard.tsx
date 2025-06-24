@@ -28,6 +28,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCarDetails } from "@/hooks/useCarDetails";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
+import * as Haptics from 'expo-haptics'; // Add this import
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -126,7 +127,11 @@ const SpecItem = ({
 
 const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
   <StyledPressable
-    onPress={onPress}
+    onPress={async () => {
+      // Add haptic feedback for action buttons
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }}
     className="items-center justify-center active:opacity-70"
     style={{
       width: 44,
@@ -241,6 +246,9 @@ export default function CarCard({
 
   const handleCardPress = useCallback(async () => {
     try {
+      // Add haptic feedback when card is pressed
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
       // Start prefetching before navigation
       const prefetchedData = await prefetchCarDetails(car.id);
 
@@ -306,7 +314,10 @@ export default function CarCard({
     }
   }, [car]);
   
-  const handleDealershipPress = useCallback(() => {
+  const handleDealershipPress = useCallback(async () => {
+    // Add haptic feedback for dealership press
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     const route = isDealer
       ? "/(home)/(dealer)/DealershipDetails"
       : "/(home)/(user)/DealershipDetails";
@@ -315,6 +326,12 @@ export default function CarCard({
       params: { dealershipId: car.dealership_id },
     });
   }, [isDealer, router, car.dealership_id]);
+
+  const handleFavoritePress = useCallback(async () => {
+    // Add haptic feedback for favorite button
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onFavoritePress(car.id);
+  }, [onFavoritePress, car.id]);
 
   const formattedLocation = useMemo(() => {
     if (car.dealership_location?.length > 20) {
@@ -403,7 +420,7 @@ export default function CarCard({
           {/* Favorite Button */}
           {!isDealer && (
             <StyledPressable
-              onPress={() => onFavoritePress(car.id)}
+              onPress={handleFavoritePress}
               className={`absolute top-4 left-4 active:opacity-70`}
             >
               <Ionicons
@@ -422,7 +439,7 @@ export default function CarCard({
       car,
       isFavorite,
       isDealer,
-      onFavoritePress,
+      handleFavoritePress,
       isDarkMode,
       handleCardPress,
       displayedImages.length,
