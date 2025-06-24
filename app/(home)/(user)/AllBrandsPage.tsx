@@ -158,7 +158,9 @@ export default function AllBrandsPage() {
       const { data, error } = await supabase
         .from("cars")
         .select("make")
+        .eq("status","available")
         .order("make");
+        
 
       if (error) throw error;
 
