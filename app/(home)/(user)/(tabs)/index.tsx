@@ -873,8 +873,7 @@ const fetchCars = useCallback(
               refreshing={refreshing}
               onRefresh={onRefresh}
               colors={["#D55004"]}
-              tintColor={isDarkMode ? "#FFFFFF" : "#D55004"}
-              titleColor={isDarkMode ? "#FFFFFF" : "#000000"}
+              tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
             />
           }
           ref={flatListRef}
@@ -1010,4 +1009,4 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     paddingRight: 8, // Reduced padding to accommodate the clear button
   },
-});
+}); 

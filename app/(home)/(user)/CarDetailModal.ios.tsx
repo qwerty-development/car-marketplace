@@ -1807,21 +1807,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
       ]}
     >
-      {/* Back button */}
-      <TouchableOpacity
-        onPress={handleBackPress}
-        style={{
-          position: "absolute",
-          top: 35,
-          left: 10,
-          zIndex: 50,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          borderRadius: 24,
-          padding: 8,
-        }}
-      >
-        <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
 
       {/* Main content */}
       <FlatList

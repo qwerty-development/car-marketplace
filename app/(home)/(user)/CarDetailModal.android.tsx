@@ -1372,26 +1372,6 @@ ${shareUrl}`
           { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
         ]}
       >
-        {/* Back button */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            position: 'absolute',
-            top: 40,
-            left: 16,
-            zIndex: 50,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            borderRadius: 25,
-            padding: 8,
-            elevation: 5
-          }}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
 
         <ScrollView
           ref={scrollViewRef}
