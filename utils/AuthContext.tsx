@@ -1,3 +1,4 @@
+// utils/AuthContext.tsx - FIXED VERSION
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -8,7 +9,6 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
 import { router } from 'expo-router';
 import { NotificationService } from '@/services/NotificationService';
-import { Alert } from 'react-native';
 
 // CRITICAL FIX 1: Enhanced timeout configurations
 const OPERATION_TIMEOUTS = {
@@ -114,9 +114,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
 
+  // For OAuth redirects
   const redirectUri = makeRedirectUri({
     scheme: 'com.qwertyapp.clerkexpoquickstart',
-    path: 'auth/callback' // This must match the path of your new callback screen
+    path: 'auth/callback'
   });
 
   // CRITICAL FIX 4: Enhanced cleanup function
@@ -379,7 +380,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           if (currentSession) {
             setSession(currentSession);
             setUser(currentSession.user);
-            setIsSigningIn(false);
 
             if (currentSession.user && !isGuest) {
               await fetchUserProfile(currentSession.user.id);
@@ -800,46 +800,132 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setIsSigningIn(false);
     }
   };
+
+  /**
+   * CRITICAL FIX 16: Enhanced Google sign in with timeout protection
+   */
   const googleSignIn = async () => {
     try {
       setIsSigningIn(true);
+
       if (isGuest) {
         await clearGuestMode();
       }
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
+      const oauthResult = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUri,
+            skipBrowserRedirect: true,
+          },
+        }),
+        OPERATION_TIMEOUTS.OAUTH_PROCESS,
+        'Google OAuth initiation'
+      );
 
-      if (error) {
-        console.error('[AUTH] Google OAuth initiation error:', error);
-        throw error;
-      }
+      const { data, error } = oauthResult;
 
-      if (data.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      if (error) throw error;
 
-        if (result.type !== 'success') {
-            console.log("[AUTH] OAuth flow was cancelled or dismissed by the user.");
-            setIsSigningIn(false); 
+      if (data?.url) {
+        console.log('[AUTH] Opening Google auth session');
+
+        const browserResult = await withTimeout(
+          WebBrowser.openAuthSessionAsync(data.url, redirectUri),
+          OPERATION_TIMEOUTS.OAUTH_PROCESS,
+          'Google OAuth browser session'
+        );
+
+        console.log('[AUTH] WebBrowser result:', browserResult.type);
+
+        if (browserResult.type === 'success') {
+          try {
+            const url = new URL(browserResult.url);
+            const hashParams = new URLSearchParams(url.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+
+            if (accessToken) {
+              const sessionResult = await withTimeout(
+                supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: hashParams.get('refresh_token') || '',
+                }),
+                OPERATION_TIMEOUTS.SIGN_IN,
+                'Google OAuth session setup'
+              );
+
+              const { data: sessionData, error: sessionError } = sessionResult;
+
+              if (sessionError) throw sessionError;
+
+              if (sessionData.session) {
+                setSession(sessionData.session);
+                setUser(sessionData.session.user);
+
+                const userProfile = await processOAuthUser(sessionData.session);
+                if (userProfile) {
+                  setProfile(userProfile);
+                }
+
+                console.log('[AUTH] Google sign in successful, scheduling token registration');
+                
+                setTimeout(async () => {
+                  try {
+                    await registerPushTokenForUser(sessionData.session.user.id);
+                  } catch (tokenError) {
+                    console.error('[AUTH] Token registration error during Google sign in:', tokenError);
+                  }
+                }, 1000);
+                
+                return { success: true, user: sessionData.session.user };
+              }
+            }
+          } catch (extractError) {
+            console.error('[AUTH] Error processing Google auth result:', extractError);
+          }
         }
-
-      } else {
-        throw new Error('Supabase did not return an OAuth URL.');
       }
+
+      // Fallback session check
+      try {
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (currentSession?.session?.user) {
+          console.log('[AUTH] Google sign in fallback path successful');
+          setSession(currentSession.session);
+          setUser(currentSession.session.user);
+          
+          setTimeout(async () => {
+            try {
+              await registerPushTokenForUser(currentSession.session.user.id);
+            } catch (tokenError) {
+              console.error('[AUTH] Token registration error during Google sign in fallback:', tokenError);
+            }
+          }, 1000);
+          
+          return { success: true, user: currentSession.session.user };
+        }
+      } catch (sessionCheckError) {
+        console.error('[AUTH] Error checking session after Google auth:', sessionCheckError);
+      }
+
+      console.log('[AUTH] Google authentication failed');
+      return { success: false };
     } catch (error: any) {
-      console.error('[AUTH] Google sign in error:', error);
-      setIsSigningIn(false); // Reset on error
-      Alert.alert('Sign-In Error', 'Could not start the Google Sign-In process. Please check your connection and try again.');
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Google sign in timed out');
+        return { success: false, error: new Error('Google sign in timed out') };
+      } else {
+        console.error('[AUTH] Google sign in error:', error);
+        return { success: false, error };
+      }
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
   /**
-   * Enhanced Apple sign in with timeout protection - This follows the same pattern as Google Sign In now
+   * Enhanced Apple sign in with timeout protection
    */
   const appleSignIn = async () => {
     try {
@@ -849,37 +935,55 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await clearGuestMode();
       }
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithOAuth({
           provider: 'apple',
           options: {
             redirectTo: redirectUri,
             skipBrowserRedirect: true,
           },
-        });
+        }),
+        OPERATION_TIMEOUTS.OAUTH_PROCESS,
+        'Apple OAuth'
+      );
 
-      if (error) {
-        console.error('[AUTH] Apple OAuth initiation error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      if (data.url) {
+      if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
-        if (result.type !== 'success') {
-          console.log("[AUTH] Apple OAuth flow was cancelled or dismissed.");
-          setIsSigningIn(false);
+        if (result.type === 'success') {
+          const { data: sessionData } = await supabase.auth.getSession();
+
+          if (sessionData?.session) {
+            const userProfile = await processOAuthUser(sessionData.session);
+
+            if (userProfile) {
+              setProfile(userProfile);
+            }
+
+            console.log('[AUTH] Apple sign in successful, scheduling token registration');
+            
+            setTimeout(async () => {
+              try {
+                await registerPushTokenForUser(sessionData.session.user.id);
+              } catch (tokenError) {
+                console.error('[AUTH] Token registration error during Apple sign in:', tokenError);
+              }
+            }, 1000);
+          }
         }
-      } else {
-        throw new Error('Supabase did not return an OAuth URL for Apple Sign-In.');
       }
     } catch (error: any) {
-      console.error('[AUTH] Apple sign in error:', error);
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Apple sign in timed out');
+      } else {
+        console.error('[AUTH] Apple sign in error:', error);
+      }
+    } finally {
       setIsSigningIn(false);
-      Alert.alert('Sign-In Error', 'Could not start the Apple Sign-In process. Please try again.');
     }
   };
-  // ===================== END OF UPDATED FUNCTIONS =====================
-
 
   /**
    * Enhanced sign up with timeout protection
