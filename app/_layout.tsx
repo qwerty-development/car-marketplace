@@ -1,4 +1,3 @@
-
 import React, {
   useState,
   useEffect,
@@ -286,6 +285,11 @@ const DeepLinkHandler = () => {
     async (url: string, isInitialLink = false) => {
       if (!url || isProcessingDeepLink) return;
 
+
+      if (url.includes("auth/callback")) {
+        console.log("[DeepLink] Ignoring auth callback URL.");
+        return; 
+      }
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
         url
@@ -297,29 +301,20 @@ const DeepLinkHandler = () => {
         const { path, queryParams } = parsedUrl;
 
         console.log("[DeepLink] Parsed URL:", { path, queryParams });
-
-        // RULE: Handle auth callbacks
-        if (url.includes("auth/callback") || url.includes("reset-password")) {
-          console.log("[DeepLink] Handling auth callback");
-          const accessToken = queryParams?.access_token;
-          const refreshToken = queryParams?.refresh_token;
-
-          if (accessToken && refreshToken) {
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken as string,
-              refresh_token: refreshToken as string,
-            });
-
-            if (error) {
-              console.error("[DeepLink] Error setting session:", error);
-            } else {
-              console.log("[DeepLink] Auth session set successfully");
-            }
-          }
-          return;
+        if (url.includes("reset-password")) {
+          console.log("[DeepLink] Handling password reset link");
+           const accessToken = queryParams?.access_token;
+           const refreshToken = queryParams?.refresh_token;
+ 
+           if (accessToken && refreshToken) {
+             await supabase.auth.setSession({
+               access_token: accessToken as string,
+               refresh_token: refreshToken as string,
+             });
+           }
+           return;
         }
 
-        // RULE: Wait for auth to be loaded
         if (!isLoaded) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
