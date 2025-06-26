@@ -1,4 +1,4 @@
-// utils/AuthContext.tsx - FIXED VERSION WITH GOOGLE OAUTH FIX
+// utils/AuthContext.tsx - FIXED VERSION
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -114,13 +114,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
 
-  // OAUTH FIX: Updated redirect URI to match app scheme
+  // For OAuth redirects
   const redirectUri = makeRedirectUri({
-    scheme: 'fleet', // Use the scheme from app.json
+    scheme: 'com.qwertyapp.clerkexpoquickstart',
     path: 'auth/callback'
   });
-
-  console.log('[AUTH] Using redirect URI:', redirectUri);
 
   // CRITICAL FIX 4: Enhanced cleanup function
   const cleanupOperation = (operationKey: string) => {
@@ -804,7 +802,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * GOOGLE OAUTH FIX: Enhanced Google sign in with brute force navigation fix
+   * CRITICAL FIX 16: Enhanced Google sign in with timeout protection
    */
   const googleSignIn = async () => {
     try {
@@ -813,8 +811,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (isGuest) {
         await clearGuestMode();
       }
-
-      console.log('[AUTH] Starting Google OAuth with redirect URI:', redirectUri);
 
       const oauthResult = await withTimeout(
         supabase.auth.signInWithOAuth({
@@ -833,7 +829,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (error) throw error;
 
       if (data?.url) {
-        console.log('[AUTH] Opening Google auth session with URL:', data.url);
+        console.log('[AUTH] Opening Google auth session');
 
         const browserResult = await withTimeout(
           WebBrowser.openAuthSessionAsync(data.url, redirectUri),
@@ -841,42 +837,19 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           'Google OAuth browser session'
         );
 
-        console.log('[AUTH] WebBrowser result:', browserResult);
+        console.log('[AUTH] WebBrowser result:', browserResult.type);
 
         if (browserResult.type === 'success') {
-          console.log('[AUTH] OAuth success, processing result URL:', browserResult.url);
-          
           try {
             const url = new URL(browserResult.url);
-            console.log('[AUTH] Parsed OAuth URL:', url.href);
-            
-            // Try both hash and query parameters for token extraction
-            let accessToken = null;
-            let refreshToken = null;
-
-            // Check hash parameters first (more common for OAuth)
-            if (url.hash) {
-              const hashParams = new URLSearchParams(url.hash.substring(1));
-              accessToken = hashParams.get('access_token');
-              refreshToken = hashParams.get('refresh_token');
-              console.log('[AUTH] Hash params - access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
-            }
-
-            // Fallback to query parameters
-            if (!accessToken && url.search) {
-              const queryParams = new URLSearchParams(url.search);
-              accessToken = queryParams.get('access_token');
-              refreshToken = queryParams.get('refresh_token');
-              console.log('[AUTH] Query params - access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
-            }
+            const hashParams = new URLSearchParams(url.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
 
             if (accessToken) {
-              console.log('[AUTH] Found tokens, setting session');
-              
               const sessionResult = await withTimeout(
                 supabase.auth.setSession({
                   access_token: accessToken,
-                  refresh_token: refreshToken || '',
+                  refresh_token: hashParams.get('refresh_token') || '',
                 }),
                 OPERATION_TIMEOUTS.SIGN_IN,
                 'Google OAuth session setup'
@@ -884,13 +857,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
               const { data: sessionData, error: sessionError } = sessionResult;
 
-              if (sessionError) {
-                console.error('[AUTH] Session setup error:', sessionError);
-                throw sessionError;
-              }
+              if (sessionError) throw sessionError;
 
               if (sessionData.session) {
-                console.log('[AUTH] Session established successfully');
                 setSession(sessionData.session);
                 setUser(sessionData.session.user);
 
@@ -908,25 +877,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                     console.error('[AUTH] Token registration error during Google sign in:', tokenError);
                   }
                 }, 1000);
-
-                // BRUTE FORCE FIX: Force navigation to home after successful OAuth
-                console.log('[AUTH] BRUTE FORCE: Forcing navigation to home');
-                setTimeout(() => {
-                  try {
-                    router.replace('/(home)');
-                    console.log('[AUTH] BRUTE FORCE: Navigation to home completed');
-                  } catch (navError) {
-                    console.error('[AUTH] BRUTE FORCE: Navigation error, trying fallback');
-                    setTimeout(() => {
-                      router.replace('/(home)/(user)');
-                    }, 500);
-                  }
-                }, 100);
                 
                 return { success: true, user: sessionData.session.user };
               }
-            } else {
-              console.warn('[AUTH] No access token found in OAuth result');
             }
           } catch (extractError) {
             console.error('[AUTH] Error processing Google auth result:', extractError);
@@ -934,23 +887,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
 
-      // BRUTE FORCE FALLBACK: Always check for session after OAuth attempt
-      console.log('[AUTH] BRUTE FORCE FALLBACK: Checking for existing session');
-      
-      // Wait a bit for OAuth to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Fallback session check
       try {
         const { data: currentSession } = await supabase.auth.getSession();
         if (currentSession?.session?.user) {
-          console.log('[AUTH] BRUTE FORCE FALLBACK: Found existing session');
+          console.log('[AUTH] Google sign in fallback path successful');
           setSession(currentSession.session);
           setUser(currentSession.session.user);
-          
-          const userProfile = await processOAuthUser(currentSession.session);
-          if (userProfile) {
-            setProfile(userProfile);
-          }
           
           setTimeout(async () => {
             try {
@@ -959,20 +902,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
               console.error('[AUTH] Token registration error during Google sign in fallback:', tokenError);
             }
           }, 1000);
-
-          // BRUTE FORCE: Force navigation here too
-          console.log('[AUTH] BRUTE FORCE FALLBACK: Forcing navigation to home');
-          setTimeout(() => {
-            try {
-              router.replace('/(home)');
-              console.log('[AUTH] BRUTE FORCE FALLBACK: Navigation completed');
-            } catch (navError) {
-              console.error('[AUTH] BRUTE FORCE FALLBACK: Navigation error');
-              setTimeout(() => {
-                router.replace('/(home)/(user)');
-              }, 500);
-            }
-          }, 100);
           
           return { success: true, user: currentSession.session.user };
         }
@@ -980,7 +909,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         console.error('[AUTH] Error checking session after Google auth:', sessionCheckError);
       }
 
-      console.log('[AUTH] Google authentication failed - no session found');
+      console.log('[AUTH] Google authentication failed');
       return { success: false };
     } catch (error: any) {
       if (error.message.includes('timed out')) {
@@ -1042,18 +971,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 console.error('[AUTH] Token registration error during Apple sign in:', tokenError);
               }
             }, 1000);
-
-            // Force navigation for Apple sign in too
-            setTimeout(() => {
-              try {
-                router.replace('/(home)');
-              } catch (navError) {
-                console.error('[AUTH] Apple sign in navigation error');
-                setTimeout(() => {
-                  router.replace('/(home)/(user)');
-                }, 500);
-              }
-            }, 100);
           }
         }
       }

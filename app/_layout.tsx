@@ -267,7 +267,7 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// COMPONENT: Enhanced DeepLinkHandler with OAuth callback fix
+// COMPONENT: Enhanced DeepLinkHandler with timeout protection
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -280,10 +280,12 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // METHOD: Process deep link with OAuth callback handling fix
+  // METHOD: Process deep link with timeout protection
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
       if (!url || isProcessingDeepLink) return;
+
+
 
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
@@ -296,100 +298,6 @@ const DeepLinkHandler = () => {
         const { path, queryParams } = parsedUrl;
 
         console.log("[DeepLink] Parsed URL:", { path, queryParams });
-
-        // OAUTH FIX: Handle OAuth callback URLs properly instead of ignoring them
-        if (url.includes("auth/callback")) {
-          console.log("[DeepLink] OAUTH FIX: Processing OAuth callback URL");
-          
-          try {
-            // Extract tokens from the URL
-            const urlObj = new URL(url);
-            let accessToken = null;
-            let refreshToken = null;
-
-            // Check hash parameters first
-            if (urlObj.hash) {
-              const hashParams = new URLSearchParams(urlObj.hash.substring(1));
-              accessToken = hashParams.get('access_token');
-              refreshToken = hashParams.get('refresh_token');
-            }
-
-            // Fallback to query parameters
-            if (!accessToken && urlObj.search) {
-              const queryParams = new URLSearchParams(urlObj.search);
-              accessToken = queryParams.get('access_token');
-              refreshToken = queryParams.get('refresh_token');
-            }
-
-            console.log("[DeepLink] OAUTH FIX: Found tokens:", !!accessToken, !!refreshToken);
-
-            if (accessToken) {
-              // Set the session with the tokens
-              const { data, error } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
-
-              if (error) {
-                console.error("[DeepLink] OAUTH FIX: Session setup error:", error);
-              } else if (data.session) {
-                console.log("[DeepLink] OAUTH FIX: Session established successfully");
-                
-                // BRUTE FORCE: Force navigation to home after OAuth
-                setTimeout(() => {
-                  try {
-                    console.log("[DeepLink] OAUTH FIX: Forcing navigation to home");
-                    router.replace('/(home)');
-                  } catch (navError) {
-                    console.error("[DeepLink] OAUTH FIX: Navigation error, trying fallback");
-                    setTimeout(() => {
-                      router.replace('/(home)/(user)');
-                    }, 500);
-                  }
-                }, 100);
-              }
-            } else {
-              console.log("[DeepLink] OAUTH FIX: No tokens found, checking for existing session");
-              
-              // Check if we already have a session (OAuth might have completed elsewhere)
-              const { data: sessionData } = await supabase.auth.getSession();
-              if (sessionData?.session) {
-                console.log("[DeepLink] OAUTH FIX: Found existing session, navigating to home");
-                setTimeout(() => {
-                  try {
-                    router.replace('/(home)');
-                  } catch (navError) {
-                    console.error("[DeepLink] OAUTH FIX: Navigation error with existing session");
-                    setTimeout(() => {
-                      router.replace('/(home)/(user)');
-                    }, 500);
-                  }
-                }, 100);
-              } else {
-                console.log("[DeepLink] OAUTH FIX: No session found, staying on current page");
-              }
-            }
-          } catch (oauthError) {
-            console.error("[DeepLink] OAUTH FIX: Error processing OAuth callback:", oauthError);
-            
-            // Fallback: Try to navigate to home anyway if we have a session
-            setTimeout(async () => {
-              try {
-                const { data: sessionData } = await supabase.auth.getSession();
-                if (sessionData?.session) {
-                  router.replace('/(home)');
-                }
-              } catch (fallbackError) {
-                console.error("[DeepLink] OAUTH FIX: Fallback check failed:", fallbackError);
-              }
-            }, 1000);
-          }
-          
-          setIsProcessingDeepLink(false);
-          return; // Exit early for OAuth callbacks
-        }
-
-        // Handle password reset links
         if (url.includes("reset-password")) {
           console.log("[DeepLink] Handling password reset link");
            const accessToken = queryParams?.access_token;
@@ -401,14 +309,12 @@ const DeepLinkHandler = () => {
                refresh_token: refreshToken as string,
              });
            }
-           setIsProcessingDeepLink(false);
            return;
         }
 
         if (!isLoaded) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
-          setIsProcessingDeepLink(false);
           return;
         }
 
@@ -436,7 +342,6 @@ const DeepLinkHandler = () => {
               console.log("[DeepLink] User not signed in, redirecting to sign-in first");
               global.pendingDeepLink = { type: "car", id: carId };
               router.replace("/(auth)/sign-in");
-              setIsProcessingDeepLink(false);
               return;
             }
 
@@ -478,7 +383,6 @@ const DeepLinkHandler = () => {
             if (!isEffectivelySignedIn) {
               global.pendingDeepLink = { type: "autoclip", id: clipId };
               router.replace("/(auth)/sign-in");
-              setIsProcessingDeepLink(false);
               return;
             }
 
@@ -505,7 +409,6 @@ const DeepLinkHandler = () => {
                     },
                   ]
                 );
-                setIsProcessingDeepLink(false);
                 return;
               }
 
