@@ -280,251 +280,176 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
 
-// Replace the processDeepLink function in your DeepLinkHandler component
-// in app/_layout.tsx with this BRUTE FORCE version:
+  // METHOD: Process deep link with timeout protection
+  const processDeepLink = useCallback(
+    async (url: string, isInitialLink = false) => {
+      if (!url || isProcessingDeepLink) return;
 
-const processDeepLink = useCallback(
-  async (url: string, isInitialLink = false) => {
-    if (!url || isProcessingDeepLink) return;
 
-    console.log(
-      `[BRUTE FORCE DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
-      url
-    );
-    setIsProcessingDeepLink(true);
 
-    try {
-      // BRUTE FORCE: Handle auth callbacks FIRST
-      if (url.includes("auth/callback") || url.includes("/callback")) {
-        console.log("[BRUTE FORCE DeepLink] Handling auth callback URL");
-        
-        // Extract tokens from URL
-        let accessToken, refreshToken;
-        
-        try {
-          if (url.includes('#')) {
-            const hashPart = url.split('#')[1];
-            const params = new URLSearchParams(hashPart);
-            accessToken = params.get('access_token');
-            refreshToken = params.get('refresh_token');
-          } else if (url.includes('?')) {
-            const queryPart = url.split('?')[1];
-            const params = new URLSearchParams(queryPart);
-            accessToken = params.get('access_token');
-            refreshToken = params.get('refresh_token');
-          }
-          
-          console.log('[BRUTE FORCE DeepLink] Tokens extracted:', { 
-            hasAccess: !!accessToken, 
-            hasRefresh: !!refreshToken 
-          });
+      console.log(
+        `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
+        url
+      );
+      setIsProcessingDeepLink(true);
 
-          if (accessToken && refreshToken) {
-            console.log('[BRUTE FORCE DeepLink] Setting session directly');
-            
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-
-            if (error) {
-              console.error('[BRUTE FORCE DeepLink] Session error:', error);
-            } else {
-              console.log('[BRUTE FORCE DeepLink] Session set, forcing redirect');
-            }
-            
-            // BRUTE FORCE: Multiple redirect attempts
-            router.replace('/(home)');
-            
-            setTimeout(() => {
-              router.replace('/(home)');
-            }, 500);
-            
-            setTimeout(() => {
-              router.push('/(home)');
-            }, 1000);
-            
-          } else {
-            // If no tokens, navigate to callback route to handle it there
-            console.log('[BRUTE FORCE DeepLink] No tokens found, navigating to callback route');
-            router.push('/(auth)/callback' as any);
-          }
-        } catch (tokenError) {
-          console.error('[BRUTE FORCE DeepLink] Token extraction error:', tokenError);
-          router.push('/(auth)/callback' as any);
-        }
-        
-        setIsProcessingDeepLink(false);
-        return;
-      }
-
-      // BRUTE FORCE: Handle password reset
-      if (url.includes("reset-password")) {
-        console.log("[BRUTE FORCE DeepLink] Handling password reset link");
-        
+      try {
         const parsedUrl = Linking.parse(url);
-        const { queryParams } = parsedUrl;
-        
-        const accessToken = queryParams?.access_token;
-        const refreshToken = queryParams?.refresh_token;
+        const { path, queryParams } = parsedUrl;
 
-        if (accessToken && refreshToken) {
-          await supabase.auth.setSession({
-            access_token: accessToken as string,
-            refresh_token: refreshToken as string,
-          });
+        console.log("[DeepLink] Parsed URL:", { path, queryParams });
+        if (url.includes("reset-password")) {
+          console.log("[DeepLink] Handling password reset link");
+           const accessToken = queryParams?.access_token;
+           const refreshToken = queryParams?.refresh_token;
+ 
+           if (accessToken && refreshToken) {
+             await supabase.auth.setSession({
+               access_token: accessToken as string,
+               refresh_token: refreshToken as string,
+             });
+           }
+           return;
         }
-        setIsProcessingDeepLink(false);
-        return;
-      }
 
-      if (!isLoaded) {
-        console.log("[BRUTE FORCE DeepLink] Auth not loaded, queueing deep link");
-        deepLinkQueue.enqueue(url);
-        setIsProcessingDeepLink(false);
-        return;
-      }
+        if (!isLoaded) {
+          console.log("[DeepLink] Auth not loaded, queueing deep link");
+          deepLinkQueue.enqueue(url);
+          return;
+        }
 
-      const parsedUrl = Linking.parse(url);
-      const { path, queryParams } = parsedUrl;
+        if (path) {
+          const carIdMatch =
+            path.match(/^cars\/(\d+)$/) ||
+            path.match(/^\/cars\/(\d+)$/) ||
+            path.match(/^car\/(\d+)$/);
 
-      console.log("[BRUTE FORCE DeepLink] Parsed URL:", { path, queryParams });
+          const clipIdMatch =
+            path.match(/^clips\/(\d+)$/) ||
+            path.match(/^\/clips\/(\d+)$/) ||
+            path.match(/^clip\/(\d+)$/);
 
-      if (path) {
-        const carIdMatch =
-          path.match(/^cars\/(\d+)$/) ||
-          path.match(/^\/cars\/(\d+)$/) ||
-          path.match(/^car\/(\d+)$/);
+          const carId = carIdMatch ? carIdMatch[1] : null;
+          const clipId = clipIdMatch ? clipIdMatch[1] : null;
 
-        const clipIdMatch =
-          path.match(/^clips\/(\d+)$/) ||
-          path.match(/^\/clips\/(\d+)$/) ||
-          path.match(/^clip\/(\d+)$/);
+          const isEffectivelySignedIn = isSignedIn || isGuest;
 
-        const carId = carIdMatch ? carIdMatch[1] : null;
-        const clipId = clipIdMatch ? clipIdMatch[1] : null;
+          // RULE: Handle car deep links
+          if (carId && !isNaN(Number(carId))) {
+            console.log(`[DeepLink] Navigating to car details for ID: ${carId}`);
 
-        const isEffectivelySignedIn = isSignedIn || isGuest;
+            if (!isEffectivelySignedIn) {
+              console.log("[DeepLink] User not signed in, redirecting to sign-in first");
+              global.pendingDeepLink = { type: "car", id: carId };
+              router.replace("/(auth)/sign-in");
+              return;
+            }
 
-        // Handle car deep links
-        if (carId && !isNaN(Number(carId))) {
-          console.log(`[BRUTE FORCE DeepLink] Navigating to car details for ID: ${carId}`);
+            try {
+              if (isInitialLink) {
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
 
-          if (!isEffectivelySignedIn) {
-            console.log("[BRUTE FORCE DeepLink] User not signed in, redirecting to sign-in first");
-            global.pendingDeepLink = { type: "car", id: carId };
-            router.replace("/(auth)/sign-in");
-            setIsProcessingDeepLink(false);
-            return;
-          }
+              const prefetchedData = await prefetchCarDetails(carId);
 
-          try {
+              router.push({
+                pathname: "/(home)/(user)/CarDetails",
+                params: {
+                  carId,
+                  isDealerView: "false",
+                  prefetchedData: prefetchedData
+                    ? JSON.stringify(prefetchedData)
+                    : undefined,
+                  fromDeepLink: "true",
+                },
+              });
+            } catch (error) {
+              console.error("[DeepLink] Error prefetching car details:", error);
+
+              router.push({
+                pathname: "/(home)/(user)/CarDetails",
+                params: {
+                  carId,
+                  isDealerView: "false",
+                  fromDeepLink: "true",
+                },
+              });
+            }
+          } 
+          // RULE: Handle clip deep links
+          else if (clipId && !isNaN(Number(clipId))) {
+            console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
+
+            if (!isEffectivelySignedIn) {
+              global.pendingDeepLink = { type: "autoclip", id: clipId };
+              router.replace("/(auth)/sign-in");
+              return;
+            }
+
             if (isInitialLink) {
               await new Promise((resolve) => setTimeout(resolve, 500));
             }
 
-            const prefetchedData = await prefetchCarDetails(carId);
+            try {
+              const { data: clipExists, error } = await supabase
+                .from("auto_clips")
+                .select("id, status")
+                .eq("id", clipId)
+                .eq("status", "published")
+                .single();
 
-            router.push({
-              pathname: "/(home)/(user)/CarDetails",
-              params: {
-                carId,
-                isDealerView: "false",
-                prefetchedData: prefetchedData
-                  ? JSON.stringify(prefetchedData)
-                  : undefined,
-                fromDeepLink: "true",
-              },
-            });
-          } catch (error) {
-            console.error("[BRUTE FORCE DeepLink] Error prefetching car details:", error);
+              if (error || !clipExists) {
+                Alert.alert(
+                  "Content Not Available",
+                  "This video is no longer available or has been removed.",
+                  [
+                    {
+                      text: "OK",
+                      onPress: () => router.replace("/(home)/(user)" as any),
+                    },
+                  ]
+                );
+                return;
+              }
 
-            router.push({
-              pathname: "/(home)/(user)/CarDetails",
-              params: {
-                carId,
-                isDealerView: "false",
-                fromDeepLink: "true",
-              },
-            });
-          }
-        } 
-        // Handle clip deep links
-        else if (clipId && !isNaN(Number(clipId))) {
-          console.log(`[BRUTE FORCE DeepLink] Navigating to autoclip details for ID: ${clipId}`);
-
-          if (!isEffectivelySignedIn) {
-            global.pendingDeepLink = { type: "autoclip", id: clipId };
-            router.replace("/(auth)/sign-in");
-            setIsProcessingDeepLink(false);
-            return;
-          }
-
-          if (isInitialLink) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
-
-          try {
-            const { data: clipExists, error } = await supabase
-              .from("auto_clips")
-              .select("id, status")
-              .eq("id", clipId)
-              .eq("status", "published")
-              .single();
-
-            if (error || !clipExists) {
-              Alert.alert(
-                "Content Not Available",
-                "This video is no longer available or has been removed.",
-                [
-                  {
-                    text: "OK",
-                    onPress: () => router.replace("/(home)/(user)" as any),
-                  },
-                ]
-              );
-              setIsProcessingDeepLink(false);
-              return;
+              router.push({
+                pathname: "/(home)/(user)/(tabs)/autoclips",
+                params: {
+                  clipId,
+                  fromDeepLink: "true",
+                },
+              });
+            } catch (error) {
+              console.error("[DeepLink] Error checking clip existence:", error);
+              Alert.alert("Error", "Unable to load the requested content.");
+              router.replace("/(home)/(user)" as any);
             }
-
-            router.push({
-              pathname: "/(home)/(user)/(tabs)/autoclips",
-              params: {
-                clipId,
-                fromDeepLink: "true",
-              },
-            });
-          } catch (error) {
-            console.error("[BRUTE FORCE DeepLink] Error checking clip existence:", error);
-            Alert.alert("Error", "Unable to load the requested content.");
-            router.replace("/(home)/(user)" as any);
+          } 
+          // RULE: Handle invalid deep links
+          else if (
+            path.startsWith("cars") ||
+            path.startsWith("/cars") ||
+            path.startsWith("car") ||
+            path.startsWith("clips") ||
+            path.startsWith("/clips") ||
+            path.startsWith("clip")
+          ) {
+            console.warn("[DeepLink] Invalid ID in deep link:", path);
+            Alert.alert(
+              "Invalid Link",
+              "The content you're looking for could not be found."
+            );
           }
-        } 
-        // Handle invalid deep links
-        else if (
-          path.startsWith("cars") ||
-          path.startsWith("/cars") ||
-          path.startsWith("car") ||
-          path.startsWith("clips") ||
-          path.startsWith("/clips") ||
-          path.startsWith("clip")
-        ) {
-          console.warn("[BRUTE FORCE DeepLink] Invalid ID in deep link:", path);
-          Alert.alert(
-            "Invalid Link",
-            "The content you're looking for could not be found."
-          );
         }
+      } catch (err) {
+        console.error("[DeepLink] Processing error:", err);
+        Alert.alert("Error", "Unable to process the link. Please try again.");
+      } finally {
+        setIsProcessingDeepLink(false);
       }
-    } catch (err) {
-      console.error("[BRUTE FORCE DeepLink] Processing error:", err);
-      Alert.alert("Error", "Unable to process the link. Please try again.");
-    } finally {
-      setIsProcessingDeepLink(false);
-    }
-  },
-  [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
-);
+    },
+    [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
+  );
 
     useEffect(() => {
     // Hide the static splash screen immediately when component mounts
@@ -830,146 +755,20 @@ function RootLayoutNav() {
   // const curtainPosition = useRef(new Animated.Value(0)).current;
 
   // This effect correctly handles routing only when auth is loaded.
-useEffect(() => {
-  // BRUTE FORCE: Force redirect on auth state change
-  if (!isLoaded || isSigningOut || isSigningIn) {
-    console.log('[BRUTE FORCE Nav] Auth not ready, waiting...', { isLoaded, isSigningOut, isSigningIn });
-    return;
-  }
+  useEffect(() => {
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-  const isEffectivelySignedIn = isSignedIn || isGuest;
-  const inAuthGroup = segments[0] === "(auth)";
-  
-  console.log('[BRUTE FORCE Nav] Navigation check:', { 
-    isEffectivelySignedIn, 
-    inAuthGroup, 
-    segments,
-    isSignedIn,
-    isGuest 
-  });
-
-  if (isEffectivelySignedIn && inAuthGroup) {
-    console.log('[BRUTE FORCE Nav] User signed in but in auth group, redirecting to home');
-    
-    // BRUTE FORCE: Multiple redirect attempts
-    router.replace("/(home)");
-    
-    setTimeout(() => {
-      console.log('[BRUTE FORCE Nav] Backup redirect attempt 1');
-      router.replace("/(home)");
-    }, 100);
-    
-    setTimeout(() => {
-      console.log('[BRUTE FORCE Nav] Backup redirect attempt 2');
-      router.push("/(home)");
-    }, 500);
-    
-    setTimeout(() => {
-      console.log('[BRUTE FORCE Nav] Nuclear redirect attempt');
-      try {
-        router.dismissAll();
-        router.replace("/(home)");
-      } catch (e) {
-        console.log('[BRUTE FORCE Nav] Nuclear failed, trying push');
-        router.push("/(home)");
-      }
-    }, 1000);
-    
-  } else if (!isEffectivelySignedIn && !inAuthGroup) {
-    console.log('[BRUTE FORCE Nav] User not signed in and not in auth group, redirecting to sign-in');
-    router.replace("/(auth)/sign-in");
-  } else {
-    console.log('[BRUTE FORCE Nav] Navigation state is correct, no action needed');
-  }
-}, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
-
-// BRUTE FORCE: Additional effect to catch auth state changes
-useEffect(() => {
-  if (isLoaded && isSignedIn) {
-    console.log('[BRUTE FORCE Nav] User signed in detected, checking current route');
-    
-    // If we're on any auth route when signed in, force redirect
-    if (segments[0] === "(auth)") {
-      console.log('[BRUTE FORCE Nav] Signed in user on auth route, forcing redirect');
-      
-      router.replace("/(home)");
-      
-      // Backup redirects
-      setTimeout(() => router.replace("/(home)"), 200);
-      setTimeout(() => router.push("/(home)"), 500);
-    }
-  }
-}, [isSignedIn, isLoaded, segments, router]);
-
-
-// Add this NUCLEAR FAILSAFE at the end of your RootLayoutNav component:
-
-// NUCLEAR OPTION: Failsafe navigation check every 2 seconds
-useEffect(() => {
-  const interval = setInterval(() => {
-    if (!isLoaded) return;
-    
     const isEffectivelySignedIn = isSignedIn || isGuest;
-    const currentRoute = segments.join('/');
-    
-    console.log('[NUCLEAR FAILSAFE] Route check:', { 
-      currentRoute, 
-      isEffectivelySignedIn,
-      segments 
-    });
-    
-    // If signed in but on auth routes (except callback), force redirect
-    if (isEffectivelySignedIn && segments[0] === "(auth)" && !segments.includes("callback")) {
-      console.log('[NUCLEAR FAILSAFE] FORCING REDIRECT - Signed in user on auth route');
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (isEffectivelySignedIn && inAuthGroup) {
       router.replace("/(home)");
-    }
-    
-    // If on +not-found and signed in, redirect home
-    if (isEffectivelySignedIn && (currentRoute.includes('+not-found') || currentRoute === '')) {
-      console.log('[NUCLEAR FAILSAFE] FORCING REDIRECT - 404 page detected');
-      router.replace("/(home)");
-    }
-    
-    // If not signed in and not on auth routes, redirect to sign in
-    if (!isEffectivelySignedIn && segments[0] !== "(auth)") {
-      console.log('[NUCLEAR FAILSAFE] FORCING REDIRECT - Not signed in, not on auth');
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace("/(auth)/sign-in");
     }
-  }, 2000);
-  
-  return () => clearInterval(interval);
-}, [isLoaded, isSignedIn, isGuest, segments, router]);
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
-// MEGA NUCLEAR: Check for 404 pages and fix them
-useEffect(() => {
-  const checkFor404 = () => {
-    const currentPath = segments.join('/');
-    
-    if (currentPath.includes('+not-found') || 
-        currentPath.includes('404') || 
-        currentPath === '' ||
-        (isSignedIn && segments[0] === "(auth)" && !segments.includes("callback"))) {
-      
-      console.log('[MEGA NUCLEAR] 404 OR ROUTING ISSUE DETECTED:', currentPath);
-      
-      if (isSignedIn || isGuest) {
-        console.log('[MEGA NUCLEAR] Redirecting to home');
-        router.replace("/(home)");
-      } else {
-        console.log('[MEGA NUCLEAR] Redirecting to sign-in');
-        router.replace("/(auth)/sign-in");
-      }
-    }
-  };
-  
-  // Check immediately
-  checkFor404();
-  
-  // Check again after a delay
-  const timeout = setTimeout(checkFor404, 1000);
-  
-  return () => clearTimeout(timeout);
-}, [segments, isSignedIn, isGuest, router]);
 
   // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
