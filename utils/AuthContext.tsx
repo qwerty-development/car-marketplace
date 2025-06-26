@@ -113,25 +113,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const authSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
-  
-  // BRUTE FORCE: OAuth session detector
-  const oauthSessionDetectorRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastKnownSessionId = useRef<string | null>(null);
 
-  // BRUTE FORCE OAUTH FIX: Multiple redirect URI strategies
+  // OAUTH FIX: Updated redirect URI to match app scheme
   const redirectUri = makeRedirectUri({
-    scheme: 'fleet',
-    path: 'auth/callback'
-  });
-  
-  // Backup redirect URIs for different scenarios
-  const fallbackRedirectUri = makeRedirectUri({
-    scheme: 'com.qwertyapp.clerkexpoquickstart',
+    scheme: 'fleet', // Use the scheme from app.json
     path: 'auth/callback'
   });
 
-  console.log('[AUTH] Primary redirect URI:', redirectUri);
-  console.log('[AUTH] Fallback redirect URI:', fallbackRedirectUri);
+  console.log('[AUTH] Using redirect URI:', redirectUri);
 
   // CRITICAL FIX 4: Enhanced cleanup function
   const cleanupOperation = (operationKey: string) => {
@@ -149,86 +138,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     return timeout;
   };
 
-
-  const startOAuthSessionDetector = () => {
-    if (oauthSessionDetectorRef.current) {
-      clearInterval(oauthSessionDetectorRef.current);
-    }
-
-    console.log('[AUTH] BRUTE FORCE: Starting OAuth session detector');
-    
-    oauthSessionDetectorRef.current = setInterval(async () => {
-      try {
-        // Skip if we're signing out or already have a session
-        if (isSigningOutState || isGlobalSigningOut || (user && session)) {
-          return;
-        }
-
-        const { data: currentSession } = await supabase.auth.getSession();
-        
-        if (currentSession?.session?.user) {
-          const currentSessionId = currentSession.session.user.id;
-          
-          // Check if this is a new session we haven't seen before
-          if (currentSessionId !== lastKnownSessionId.current) {
-            console.log('[AUTH] BRUTE FORCE DETECTOR: New session detected!');
-            lastKnownSessionId.current = currentSessionId;
-            
-            setSession(currentSession.session);
-            setUser(currentSession.session.user);
-
-            try {
-              const userProfile = await processOAuthUser(currentSession.session);
-              if (userProfile) {
-                setProfile(userProfile);
-              }
-            } catch (profileError) {
-              console.error('[AUTH] BRUTE FORCE DETECTOR: Profile processing error:', profileError);
-            }
-
-            // Schedule token registration
-            setTimeout(async () => {
-              try {
-                await registerPushTokenForUser(currentSession.session.user.id);
-              } catch (tokenError) {
-                console.error('[AUTH] BRUTE FORCE DETECTOR: Token registration error:', tokenError);
-              }
-            }, 1000);
-
-            // Navigate to home
-            setTimeout(() => {
-              try {
-                router.replace('/(home)');
-                console.log('[AUTH] BRUTE FORCE DETECTOR: Navigation completed');
-              } catch (navError) {
-                console.error('[AUTH] BRUTE FORCE DETECTOR: Navigation error');
-                setTimeout(() => {
-                  router.replace('/(home)/(user)');
-                }, 500);
-              }
-            }, 100);
-
-            // Stop the detector since we found the session
-            if (oauthSessionDetectorRef.current) {
-              clearInterval(oauthSessionDetectorRef.current);
-              oauthSessionDetectorRef.current = null;
-              console.log('[AUTH] BRUTE FORCE DETECTOR: Stopped - session found');
-            }
-          }
-        }
-      } catch (detectorError) {
-        console.error('[AUTH] BRUTE FORCE DETECTOR: Error:', detectorError);
-      }
-    }, 2000); // Check every 2 seconds
-  };
-
-  const stopOAuthSessionDetector = () => {
-    if (oauthSessionDetectorRef.current) {
-      clearInterval(oauthSessionDetectorRef.current);
-      oauthSessionDetectorRef.current = null;
-      console.log('[AUTH] BRUTE FORCE DETECTOR: Stopped');
-    }
-  };
+  /**
+   * CRITICAL FIX 5: Enhanced token registration with timeout protection
+   */
   const registerPushTokenForUser = async (
     userId: string, 
     attemptNumber: number = 1
@@ -892,7 +804,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   /**
-   * BRUTE FORCE GOOGLE OAUTH: Complete rewrite with polling and fallback strategies
+   * GOOGLE OAUTH FIX: Enhanced Google sign in with brute force navigation fix
    */
   const googleSignIn = async () => {
     try {
@@ -902,22 +814,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await clearGuestMode();
       }
 
-      console.log('[AUTH] BRUTE FORCE: Starting Google OAuth with multiple strategies');
-      console.log('[AUTH] BRUTE FORCE: Primary redirect URI:', redirectUri);
-      console.log('[AUTH] BRUTE FORCE: Fallback redirect URI:', fallbackRedirectUri);
+      console.log('[AUTH] Starting Google OAuth with redirect URI:', redirectUri);
 
-      // Start the OAuth session detector immediately
-      startOAuthSessionDetector();
-
-      // STRATEGY 1: Try with primary redirect URI
-      console.log('[AUTH] STRATEGY 1: Attempting OAuth with primary redirect');
-      
       const oauthResult = await withTimeout(
         supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
             redirectTo: redirectUri,
-            skipBrowserRedirect: false, // Let it redirect naturally
+            skipBrowserRedirect: true,
           },
         }),
         OPERATION_TIMEOUTS.OAUTH_PROCESS,
@@ -926,217 +830,167 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       const { data, error } = oauthResult;
 
-      if (error) {
-        console.error('[AUTH] OAuth initiation error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data?.url) {
-        console.log('[AUTH] BRUTE FORCE: OAuth URL generated:', data.url);
-        console.log('[AUTH] BRUTE FORCE: Opening OAuth URL, background detector is running');
+        console.log('[AUTH] Opening Google auth session with URL:', data.url);
 
-        // Start polling for session in the background
-        let pollCount = 0;
-        const maxPolls = 30; // Poll for 30 seconds
-        let sessionFound = false;
+        const browserResult = await withTimeout(
+          WebBrowser.openAuthSessionAsync(data.url, redirectUri),
+          OPERATION_TIMEOUTS.OAUTH_PROCESS,
+          'Google OAuth browser session'
+        );
 
-        const pollForSession = async (): Promise<boolean> => {
+        console.log('[AUTH] WebBrowser result:', browserResult);
+
+        if (browserResult.type === 'success') {
+          console.log('[AUTH] OAuth success, processing result URL:', browserResult.url);
+          
           try {
-            const { data: currentSession } = await supabase.auth.getSession();
-            if (currentSession?.session?.user) {
-              console.log('[AUTH] BRUTE FORCE POLLING: Session found!');
-              setSession(currentSession.session);
-              setUser(currentSession.session.user);
+            const url = new URL(browserResult.url);
+            console.log('[AUTH] Parsed OAuth URL:', url.href);
+            
+            // Try both hash and query parameters for token extraction
+            let accessToken = null;
+            let refreshToken = null;
 
-              const userProfile = await processOAuthUser(currentSession.session);
-              if (userProfile) {
-                setProfile(userProfile);
+            // Check hash parameters first (more common for OAuth)
+            if (url.hash) {
+              const hashParams = new URLSearchParams(url.hash.substring(1));
+              accessToken = hashParams.get('access_token');
+              refreshToken = hashParams.get('refresh_token');
+              console.log('[AUTH] Hash params - access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
+            }
+
+            // Fallback to query parameters
+            if (!accessToken && url.search) {
+              const queryParams = new URLSearchParams(url.search);
+              accessToken = queryParams.get('access_token');
+              refreshToken = queryParams.get('refresh_token');
+              console.log('[AUTH] Query params - access_token:', !!accessToken, 'refresh_token:', !!refreshToken);
+            }
+
+            if (accessToken) {
+              console.log('[AUTH] Found tokens, setting session');
+              
+              const sessionResult = await withTimeout(
+                supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken || '',
+                }),
+                OPERATION_TIMEOUTS.SIGN_IN,
+                'Google OAuth session setup'
+              );
+
+              const { data: sessionData, error: sessionError } = sessionResult;
+
+              if (sessionError) {
+                console.error('[AUTH] Session setup error:', sessionError);
+                throw sessionError;
               }
 
-              setTimeout(async () => {
-                try {
-                  await registerPushTokenForUser(currentSession.session.user.id);
-                } catch (tokenError) {
-                  console.error('[AUTH] Token registration error during polling:', tokenError);
+              if (sessionData.session) {
+                console.log('[AUTH] Session established successfully');
+                setSession(sessionData.session);
+                setUser(sessionData.session.user);
+
+                const userProfile = await processOAuthUser(sessionData.session);
+                if (userProfile) {
+                  setProfile(userProfile);
                 }
-              }, 1000);
 
-              // BRUTE FORCE: Navigate to home
-              setTimeout(() => {
-                try {
-                  router.replace('/(home)');
-                  console.log('[AUTH] BRUTE FORCE POLLING: Navigation completed');
-                } catch (navError) {
-                  console.error('[AUTH] BRUTE FORCE POLLING: Navigation error');
-                  setTimeout(() => {
-                    router.replace('/(home)/(user)');
-                  }, 500);
-                }
-              }, 100);
+                console.log('[AUTH] Google sign in successful, scheduling token registration');
+                
+                setTimeout(async () => {
+                  try {
+                    await registerPushTokenForUser(sessionData.session.user.id);
+                  } catch (tokenError) {
+                    console.error('[AUTH] Token registration error during Google sign in:', tokenError);
+                  }
+                }, 1000);
 
-              return true;
+                // BRUTE FORCE FIX: Force navigation to home after successful OAuth
+                console.log('[AUTH] BRUTE FORCE: Forcing navigation to home');
+                setTimeout(() => {
+                  try {
+                    router.replace('/(home)');
+                    console.log('[AUTH] BRUTE FORCE: Navigation to home completed');
+                  } catch (navError) {
+                    console.error('[AUTH] BRUTE FORCE: Navigation error, trying fallback');
+                    setTimeout(() => {
+                      router.replace('/(home)/(user)');
+                    }, 500);
+                  }
+                }, 100);
+                
+                return { success: true, user: sessionData.session.user };
+              }
+            } else {
+              console.warn('[AUTH] No access token found in OAuth result');
             }
-            return false;
-          } catch (pollError) {
-            console.warn('[AUTH] Session poll error:', pollError);
-            return false;
-          }
-        };
-
-        // Start background polling
-        const startPolling = () => {
-          const pollInterval = setInterval(async () => {
-            pollCount++;
-            console.log(`[AUTH] BRUTE FORCE POLLING: Attempt ${pollCount}/${maxPolls}`);
-            
-            if (pollCount >= maxPolls) {
-              clearInterval(pollInterval);
-              console.log('[AUTH] BRUTE FORCE POLLING: Max attempts reached');
-              return;
-            }
-
-            const found = await pollForSession();
-            if (found) {
-              sessionFound = true;
-              clearInterval(pollInterval);
-              console.log('[AUTH] BRUTE FORCE POLLING: Session found, stopping poll');
-            }
-          }, 1000); // Poll every second
-
-          return pollInterval;
-        };
-
-        // Open the OAuth URL
-        try {
-          console.log('[AUTH] BRUTE FORCE: Opening browser for OAuth');
-          
-          // Start polling immediately
-          const pollInterval = startPolling();
-
-          // Try to open the URL (this might redirect to website, but that's ok)
-          const browserResult = await WebBrowser.openAuthSessionAsync(
-            data.url, 
-            redirectUri
-          ).catch((browserError) => {
-            console.log('[AUTH] BRUTE FORCE: Browser session failed, but continuing with polling:', browserError);
-            return { type: 'dismiss' }; // Continue anyway
-          });
-
-          console.log('[AUTH] BRUTE FORCE: Browser result:', browserResult);
-
-          // Wait a bit for OAuth to potentially complete
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          // Check one more time if we got a session during the browser flow
-          if (!sessionFound) {
-            const finalCheck = await pollForSession();
-            if (finalCheck) {
-              sessionFound = true;
-              clearInterval(pollInterval);
-            }
-          }
-
-          // If still no session, wait a bit more and try final strategies
-          if (!sessionFound) {
-            console.log('[AUTH] BRUTE FORCE: No session yet, trying final strategies');
-            
-            // STRATEGY 2: Wait longer and check again
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            const strategy2Check = await pollForSession();
-            if (strategy2Check) {
-              sessionFound = true;
-              clearInterval(pollInterval);
-            }
-          }
-
-          // Clean up polling
-          clearInterval(pollInterval);
-
-          if (sessionFound) {
-            console.log('[AUTH] BRUTE FORCE: Success via polling');
-            return { success: true };
-          }
-
-        } catch (browserError) {
-          console.log('[AUTH] BRUTE FORCE: Browser error, checking for session anyway:', browserError);
-          
-          // Even if browser fails, check for session
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const emergencyCheck = await pollForSession();
-          if (emergencyCheck) {
-            console.log('[AUTH] BRUTE FORCE: Success via emergency check');
-            return { success: true };
+          } catch (extractError) {
+            console.error('[AUTH] Error processing Google auth result:', extractError);
           }
         }
       }
 
-      // STRATEGY 3: Final fallback - try different OAuth approach
-      console.log('[AUTH] STRATEGY 3: Final fallback with different options');
+      // BRUTE FORCE FALLBACK: Always check for session after OAuth attempt
+      console.log('[AUTH] BRUTE FORCE FALLBACK: Checking for existing session');
+      
+      // Wait a bit for OAuth to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       try {
-        const fallbackResult = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: fallbackRedirectUri,
-            queryParams: {
-              prompt: 'select_account',
-            },
-          },
-        });
-
-        if (fallbackResult.data?.url) {
-          console.log('[AUTH] STRATEGY 3: Fallback URL generated, opening');
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (currentSession?.session?.user) {
+          console.log('[AUTH] BRUTE FORCE FALLBACK: Found existing session');
+          setSession(currentSession.session);
+          setUser(currentSession.session.user);
           
-          // Try one more time with the fallback
-          await WebBrowser.openAuthSessionAsync(
-            fallbackResult.data.url, 
-            fallbackRedirectUri
-          ).catch(() => {
-            console.log('[AUTH] STRATEGY 3: Fallback browser also failed');
-          });
-
-          // Wait and check for session
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          
-          const { data: finalSession } = await supabase.auth.getSession();
-          if (finalSession?.session?.user) {
-            console.log('[AUTH] STRATEGY 3: Success!');
-            setSession(finalSession.session);
-            setUser(finalSession.session.user);
-
-            const userProfile = await processOAuthUser(finalSession.session);
-            if (userProfile) {
-              setProfile(userProfile);
-            }
-
-            setTimeout(() => {
-              try {
-                router.replace('/(home)');
-              } catch (navError) {
-                setTimeout(() => {
-                  router.replace('/(home)/(user)');
-                }, 500);
-              }
-            }, 100);
-
-            return { success: true, user: finalSession.session.user };
+          const userProfile = await processOAuthUser(currentSession.session);
+          if (userProfile) {
+            setProfile(userProfile);
           }
+          
+          setTimeout(async () => {
+            try {
+              await registerPushTokenForUser(currentSession.session.user.id);
+            } catch (tokenError) {
+              console.error('[AUTH] Token registration error during Google sign in fallback:', tokenError);
+            }
+          }, 1000);
+
+          // BRUTE FORCE: Force navigation here too
+          console.log('[AUTH] BRUTE FORCE FALLBACK: Forcing navigation to home');
+          setTimeout(() => {
+            try {
+              router.replace('/(home)');
+              console.log('[AUTH] BRUTE FORCE FALLBACK: Navigation completed');
+            } catch (navError) {
+              console.error('[AUTH] BRUTE FORCE FALLBACK: Navigation error');
+              setTimeout(() => {
+                router.replace('/(home)/(user)');
+              }, 500);
+            }
+          }, 100);
+          
+          return { success: true, user: currentSession.session.user };
         }
-      } catch (fallbackError) {
-        console.error('[AUTH] STRATEGY 3: Fallback failed:', fallbackError);
+      } catch (sessionCheckError) {
+        console.error('[AUTH] Error checking session after Google auth:', sessionCheckError);
       }
 
-      console.log('[AUTH] BRUTE FORCE: All strategies failed, but detector is still running');
-      console.log('[AUTH] BRUTE FORCE: If OAuth completed externally, detector will catch it');
-      
-      // Return success=false but don't stop the detector - it might still catch the session
+      console.log('[AUTH] Google authentication failed - no session found');
       return { success: false };
-
     } catch (error: any) {
-      console.error('[AUTH] BRUTE FORCE: OAuth error:', error);
-      return { success: false, error };
+      if (error.message.includes('timed out')) {
+        console.warn('[AUTH] Google sign in timed out');
+        return { success: false, error: new Error('Google sign in timed out') };
+      } else {
+        console.error('[AUTH] Google sign in error:', error);
+        return { success: false, error };
+      }
     } finally {
-      // Don't stop the detector here - let it run until we find a session or user cancels
       setIsSigningIn(false);
     }
   };
@@ -1691,9 +1545,6 @@ const forceProfileRefresh = async () => {
         clearInterval(tokenVerificationIntervalRef.current);
         tokenVerificationIntervalRef.current = null;
       }
-      
-      // Stop OAuth session detector
-      stopOAuthSessionDetector();
       
       // Cancel background operations
       backgroundOperationsRef.current.clear();
