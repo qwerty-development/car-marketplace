@@ -887,272 +887,324 @@ export default function AddEditListing() {
     }
   };
 
-  /**
-   * CORRECTED: Handles batch uploading of multiple images with cross-platform compatibility
-   *
-   * CRITICAL FIXES:
-   * 1. Removed faulty Android direct upload approach
-   * 2. Implemented proper file reading for both platforms
-   * 3. Added comprehensive error handling and validation
-   * 4. Optimized memory management for large images
-   *
-   * @param assets Array of image assets to upload
-   * @returns Promise that resolves when all uploads complete
-   */
-  const handleMultipleImageUpload = useCallback(
-    async (assets: any[]) => {
-      if (!dealership?.id) {
-        console.error("No dealership ID available for upload");
-        return;
-      }
 
-      if (!assets?.length) {
-        console.warn("No assets provided for upload");
-        return;
-      }
+const handleMultipleImageUpload = useCallback(
+  async (assets: any[]) => {
+    if (!dealership?.id) {
+      console.error("No dealership ID available for upload");
+      return;
+    }
 
-      setIsUploading(true);
+    if (!assets?.length) {
+      console.warn("No assets provided for upload");
+      return;
+    }
 
-      try {
-        // STEP 1: Configure batch processing parameters with platform optimization
-        const batchSize = Platform.OS === "android" ? 2 : 3;
-        console.log(
-          `Processing ${assets.length} images in batches of ${batchSize}`
-        );
+    setIsUploading(true);
 
-        const results = [];
-        let progressCounter = 0;
-        const totalImages = assets.length;
+    try {
+      // STEP 1: Configure batch processing parameters with platform optimization
+      const batchSize = Platform.OS === "android" ? 2 : 3;
+      console.log(
+        `Processing ${assets.length} images in batches of ${batchSize}`
+      );
 
-        // STEP 2: Process images in batches to prevent memory issues
-        for (let i = 0; i < assets.length; i += batchSize) {
-          const batchNumber = Math.floor(i / batchSize) + 1;
-          const totalBatches = Math.ceil(assets.length / batchSize);
-          console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
+      const results: { url: string | null; uploaded: boolean; error?: string }[] = [];
+      let progressCounter = 0;
+      const totalImages = assets.length;
 
-          const batch = assets.slice(i, i + batchSize);
+      // STEP 2: Process images in batches to prevent memory issues
+      for (let i = 0; i < assets.length; i += batchSize) {
+        const batchNumber = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(assets.length / batchSize);
+        console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
 
-          // STEP 3: Process all images in current batch concurrently
-          const batchPromises = batch.map(
-            async (asset: { uri: string }, batchIndex: number) => {
-              const index = i + batchIndex;
-              const imageNumber = index + 1;
+        const batch = assets.slice(i, i + batchSize);
 
-              try {
-                // STEP 3.1: Process and optimize image
-                console.log(`Processing image ${imageNumber}/${totalImages}`);
-                const processedUri = await processImage(asset.uri);
+        // STEP 3: Process all images in current batch concurrently
+        const batchPromises = batch.map(
+          async (asset: { uri: string }, batchIndex: number) => {
+            const index = i + batchIndex;
+            const imageNumber = index + 1;
+            let uploadSuccessful = false;
+            let publicUrl: string | null = null;
+            let errorMessage = "";
 
-                if (!processedUri) {
-                  console.error(`Failed to process image ${imageNumber}`);
-                  return null;
-                }
+            try {
+              // STEP 3.1: Process and optimize image
+              console.log(`Processing image ${imageNumber}/${totalImages}`);
+              const processedUri = await processImage(asset.uri);
 
-                // STEP 3.2: Validate processed file exists
-                const processedFileInfo = await FileSystem.getInfoAsync(
-                  processedUri
-                );
-                if (!processedFileInfo.exists || !processedFileInfo.size) {
-                  console.error(
-                    `Processed file invalid for image ${imageNumber}`
-                  );
-                  return null;
-                }
-
-                console.log(
-                  `Processed file size: ${(
-                    processedFileInfo.size /
-                    (1024 * 1024)
-                  ).toFixed(2)}MB`
-                );
-
-                // STEP 3.3: Generate unique filename with high entropy
-                const timestamp = Date.now();
-                const randomId = Math.floor(Math.random() * 1000000);
-                const fileName = `${timestamp}_${randomId}_${index}.jpg`;
-                const filePath = `${dealership.id}/${fileName}`;
-
-                // STEP 3.4: CORRECTED UPLOAD LOGIC - Unified approach for both platforms
-                console.log(`Uploading image ${imageNumber}/${totalImages}`);
-
-                // CRITICAL FIX: Always read file content as base64 for reliable uploads
-                const base64Content = await FileSystem.readAsStringAsync(
-                  processedUri,
-                  {
-                    encoding: FileSystem.EncodingType.Base64,
-                  }
-                );
-
-                if (!base64Content || base64Content.length === 0) {
-                  throw new Error(
-                    `Empty file content for image ${imageNumber}`
-                  );
-                }
-
-                // Convert base64 to Buffer for Supabase upload
-                const fileBuffer = Buffer.from(base64Content, "base64");
-
-                // Upload configuration
-                const uploadOptions = {
-                  contentType: "image/jpeg",
-                  cacheControl: "3600", // 1 hour cache
-                  upsert: false, // Prevent accidental overwrites
+              if (!processedUri) {
+                console.error(`Failed to process image ${imageNumber}`);
+                return { 
+                  url: null, 
+                  uploaded: false, 
+                  error: "Image processing failed" 
                 };
-
-                // Execute upload with timeout protection
-                const uploadPromise = supabase.storage
-                  .from("cars")
-                  .upload(filePath, fileBuffer, uploadOptions);
-
-                // Add timeout protection for upload operation
-                const timeoutPromise = new Promise((_, reject) =>
-                  setTimeout(
-                    () =>
-                      reject(
-                        new Error(`Upload timeout for image ${imageNumber}`)
-                      ),
-                    30000
-                  )
-                );
-
-                const { error: uploadError } = (await Promise.race([
-                  uploadPromise,
-                  timeoutPromise,
-                ])) as any;
-
-                if (uploadError) {
-                  throw new Error(
-                    `Upload failed for image ${imageNumber}: ${uploadError.message}`
-                  );
-                }
-
-                // STEP 3.5: Retrieve and validate public URL
-                const { data: publicURLData } = supabase.storage
-                  .from("cars")
-                  .getPublicUrl(filePath);
-
-                if (!publicURLData?.publicUrl) {
-                  throw new Error(
-                    `Failed to retrieve public URL for image ${imageNumber}`
-                  );
-                }
-
-                // STEP 3.6: Validate uploaded file accessibility
-                try {
-                  // Quick validation: attempt to fetch headers to ensure file is accessible
-                  const response = await fetch(publicURLData.publicUrl, {
-                    method: "HEAD",
-                  });
-                  if (!response.ok) {
-                    throw new Error(
-                      `Uploaded file not accessible: ${response.status}`
-                    );
-                  }
-                } catch (validationError) {
-                  console.warn(
-                    `File accessibility validation failed for image ${imageNumber}:`,
-                    validationError
-                  );
-                  // Continue anyway as this might be a temporary network issue
-                }
-
-                // STEP 3.7: Update progress counter
-                progressCounter++;
-                console.log(
-                  `Upload progress: ${progressCounter}/${totalImages} - URL: ${publicURLData.publicUrl}`
-                );
-
-                return publicURLData.publicUrl;
-              } catch (error) {
-                console.error(
-                  `Error uploading image ${imageNumber}/${totalImages}:`,
-                  error
-                );
-
-                // Enhanced error logging for debugging
-                if (error instanceof Error) {
-                  console.error(`Error details: ${error.message}`);
-                  console.error(`Error stack: ${error.stack}`);
-                }
-
-                return null;
               }
+
+              // STEP 3.2: Validate processed file exists
+              const processedFileInfo = await FileSystem.getInfoAsync(
+                processedUri
+              );
+              if (!processedFileInfo.exists || !processedFileInfo.size) {
+                console.error(
+                  `Processed file invalid for image ${imageNumber}`
+                );
+                return { 
+                  url: null, 
+                  uploaded: false, 
+                  error: "Processed file is invalid" 
+                };
+              }
+
+              console.log(
+                `Processed file size: ${(
+                  processedFileInfo.size /
+                  (1024 * 1024)
+                ).toFixed(2)}MB`
+              );
+
+              // STEP 3.3: Generate unique filename with high entropy
+              const timestamp = Date.now();
+              const randomId = Math.floor(Math.random() * 1000000);
+              const fileName = `${timestamp}_${randomId}_${index}.jpg`;
+              const filePath = `${dealership.id}/${fileName}`;
+
+              // STEP 3.4: UPLOAD LOGIC - The critical part
+              console.log(`Uploading image ${imageNumber}/${totalImages}`);
+
+              // Read file content as base64 for reliable uploads
+              const base64Content = await FileSystem.readAsStringAsync(
+                processedUri,
+                {
+                  encoding: FileSystem.EncodingType.Base64,
+                }
+              );
+
+              if (!base64Content || base64Content.length === 0) {
+                throw new Error(
+                  `Empty file content for image ${imageNumber}`
+                );
+              }
+
+              // Convert base64 to Buffer for Supabase upload
+              const fileBuffer = Buffer.from(base64Content, "base64");
+
+              // Upload configuration
+              const uploadOptions = {
+                contentType: "image/jpeg",
+                cacheControl: "3600", // 1 hour cache
+                upsert: false, // Prevent accidental overwrites
+              };
+
+              // Execute upload with timeout protection
+              const uploadPromise = supabase.storage
+                .from("cars")
+                .upload(filePath, fileBuffer, uploadOptions);
+
+              // Add timeout protection for upload operation
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(
+                  () =>
+                    reject(
+                      new Error(`Upload timeout for image ${imageNumber}`)
+                    ),
+                  30000
+                )
+              );
+
+              const { error: uploadError } = (await Promise.race([
+                uploadPromise,
+                timeoutPromise,
+              ])) as any;
+
+              if (uploadError) {
+                throw new Error(
+                  `Upload failed for image ${imageNumber}: ${uploadError.message}`
+                );
+              }
+
+              // STEP 3.5: Retrieve public URL - THIS IS WHERE SUCCESS IS DETERMINED
+              const { data: publicURLData } = supabase.storage
+                .from("cars")
+                .getPublicUrl(filePath);
+
+              if (!publicURLData?.publicUrl) {
+                throw new Error(
+                  `Failed to retrieve public URL for image ${imageNumber}`
+                );
+              }
+
+              // AT THIS POINT, UPLOAD IS SUCCESSFUL
+              uploadSuccessful = true;
+              publicUrl = publicURLData.publicUrl;
+
+              // STEP 3.6: OPTIONAL validation - DON'T FAIL UPLOAD IF THIS FAILS
+              try {
+                console.log(`Validating accessibility for image ${imageNumber}`);
+                const response = await fetch(publicURLData.publicUrl, {
+                  method: "HEAD",
+                  timeout: 5000, // 5 second timeout for validation
+                });
+                
+                if (!response.ok) {
+                  console.warn(
+                    `Validation warning for image ${imageNumber}: HTTP ${response.status} (upload still successful)`
+                  );
+                } else {
+                  console.log(`Image ${imageNumber} validation successful`);
+                }
+              } catch (validationError) {
+                // CRITICAL: Don't fail the upload because validation failed
+                console.warn(
+                  `Validation failed for image ${imageNumber} (upload still successful):`,
+                  validationError
+                );
+              }
+
+              // STEP 3.7: Update progress counter
+              progressCounter++;
+              console.log(
+                `Upload progress: ${progressCounter}/${totalImages} - URL: ${publicUrl}`
+              );
+
+              return { 
+                url: publicUrl, 
+                uploaded: true 
+              };
+
+            } catch (error) {
+              console.error(
+                `Error uploading image ${imageNumber}/${totalImages}:`,
+                error
+              );
+
+              // Enhanced error logging for debugging
+              if (error instanceof Error) {
+                console.error(`Error details: ${error.message}`);
+                errorMessage = error.message;
+              }
+
+              // IMPORTANT: If upload was successful but validation failed, still count as success
+              if (uploadSuccessful && publicUrl) {
+                console.log(
+                  `Image ${imageNumber} upload succeeded despite validation error`
+                );
+                return { 
+                  url: publicUrl, 
+                  uploaded: true,
+                  error: `Validation warning: ${errorMessage}`
+                };
+              }
+
+              return { 
+                url: null, 
+                uploaded: false, 
+                error: errorMessage || "Unknown error"
+              };
             }
-          );
-
-          // STEP 4: Wait for all images in current batch to complete
-          const batchResults = await Promise.all(batchPromises);
-          results.push(...batchResults);
-
-          // STEP 5: Memory management - pause between batches
-          if (i + batchSize < assets.length) {
-            const pauseDuration = Platform.OS === "android" ? 500 : 200;
-            console.log(
-              `Pausing ${pauseDuration}ms between batches for memory management`
-            );
-            await new Promise((resolve) => setTimeout(resolve, pauseDuration));
           }
-        }
-
-        // STEP 6: Process and validate results
-        const successfulUploads = results.filter((url) => url !== null);
-
-        if (successfulUploads.length === 0) {
-          throw new Error("No images were successfully uploaded");
-        }
-
-        if (successfulUploads.length < totalImages) {
-          const failedCount = totalImages - successfulUploads.length;
-          console.warn(
-            `Upload completed with ${failedCount} failures out of ${totalImages} total images`
-          );
-
-          Alert.alert(
-            "Partial Upload Success",
-            `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${failedCount} images failed to upload.`,
-            [{ text: "Continue", style: "default" }]
-          );
-        }
-
-        console.log(
-          `Upload batch complete: ${successfulUploads.length}/${totalImages} images successful`
         );
 
-        // STEP 7: Update state with new images (prepend new images)
-        setModalImages((prevImages: any) => [
-          ...successfulUploads,
-          ...prevImages,
-        ]);
-        setFormData((prevData: { images: any }) => ({
-          ...prevData,
-          images: [...successfulUploads, ...(prevData.images || [])],
-        }));
-        setHasChanges(true);
+        // STEP 4: Wait for all images in current batch to complete
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
 
-        return successfulUploads;
-      } catch (error) {
-        console.error("Critical error in batch upload process:", error);
+        // STEP 5: Memory management - pause between batches
+        if (i + batchSize < assets.length) {
+          const pauseDuration = Platform.OS === "android" ? 500 : 200;
+          console.log(
+            `Pausing ${pauseDuration}ms between batches for memory management`
+          );
+          await new Promise((resolve) => setTimeout(resolve, pauseDuration));
+        }
+      }
+
+      // STEP 6: Process and validate results - IMPROVED LOGIC
+      const successfulUploads = results
+        .filter((result) => result.uploaded && result.url)
+        .map((result) => result.url!);
+
+      const actualFailures = results.filter((result) => !result.uploaded);
+      const validationWarnings = results.filter(
+        (result) => result.uploaded && result.error
+      );
+
+      console.log(`Upload summary:
+        - Total images: ${totalImages}
+        - Successful uploads: ${successfulUploads.length}
+        - Actual failures: ${actualFailures.length}
+        - Validation warnings: ${validationWarnings.length}
+      `);
+
+      // STEP 7: Handle different scenarios
+      if (successfulUploads.length === 0) {
+        throw new Error("No images were successfully uploaded");
+      }
+
+      // Show appropriate user feedback
+      if (actualFailures.length > 0) {
+        console.warn(
+          `Upload completed with ${actualFailures.length} actual failures out of ${totalImages} total images`
+        );
 
         Alert.alert(
-          "Upload Failed",
-          `Failed to upload images: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }. Please try again with fewer or smaller images.`
+          "Partial Upload Success",
+          `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${actualFailures.length} images failed to upload.`,
+          [{ text: "Continue", style: "default" }]
         );
-        return [];
-      } finally {
-        setIsUploading(false);
+      } else if (validationWarnings.length > 0) {
+        console.log(
+          `All uploads successful with ${validationWarnings.length} validation warnings`
+        );
+        // Don't show alert for validation warnings - uploads were successful
+      } else {
+        console.log("All uploads completed successfully");
+        // Optionally show success message
+        // Alert.alert("Success", "All images uploaded successfully");
       }
-    },
-    [
-      dealership,
-      processImage,
-      setModalImages,
-      setFormData,
-      setHasChanges,
-      setIsUploading,
-    ]
-  );
+
+      console.log(
+        `Upload batch complete: ${successfulUploads.length}/${totalImages} images successful`
+      );
+
+      // STEP 8: Update state with successful uploads only
+      setModalImages((prevImages: any) => [
+        ...successfulUploads,
+        ...prevImages,
+      ]);
+      setFormData((prevData: { images: any }) => ({
+        ...prevData,
+        images: [...successfulUploads, ...(prevData.images || [])],
+      }));
+      setHasChanges(true);
+
+      return successfulUploads;
+    } catch (error) {
+      console.error("Critical error in batch upload process:", error);
+
+      Alert.alert(
+        "Upload Failed",
+        `Failed to upload images: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }. Please try again with fewer or smaller images.`
+      );
+      return [];
+    } finally {
+      setIsUploading(false);
+    }
+  },
+  [
+    dealership,
+    processImage,
+    setModalImages,
+    setFormData,
+    setHasChanges,
+    setIsUploading,
+  ]
+);
 
   /**
    * Handles image selection from device library with memory-efficient configuration
