@@ -29,7 +29,7 @@
         "applinks:fleetapp.me",
         "applinks:www.fleetapp.me"
       ],
-      "splash": {
+            "splash": {
         "image": "./assets/background-white.png",
         "resizeMode": "cover",
         "backgroundColor": "#ffffff",
@@ -64,11 +64,11 @@
       }
     },
     "android": {
-      "splash": {
-        "image": "./assets/background-white.png",
-        "resizeMode": "cover",
-        "backgroundColor": "#ffffff"
-      },
+        "splash": {
+    "image": "./assets/background-white.png",
+    "resizeMode": "cover",
+    "backgroundColor": "#ffffff"
+  },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
@@ -101,100 +101,32 @@
           "data": [
             {
               "scheme": "https",
-              "host": "fleetapp.me",
-              "pathPattern": "/cars/.*"
-            },
-            {
-              "scheme": "https",
               "host": "www.fleetapp.me",
-              "pathPattern": "/cars/.*"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "fleetapp.me",
-              "pathPattern": "/clips/.*"
+              "pathPrefix": "/cars"
             },
-            {
-              "scheme": "https",
-              "host": "www.fleetapp.me",
-              "pathPattern": "/clips/.*"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": false,
-          "data": [
-            {
-              "scheme": "fleet",
-              "pathPattern": "/cars/.*"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": false,
-          "data": [
-            {
-              "scheme": "fleet",
-              "pathPattern": "/clips/.*"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
             {
               "scheme": "https",
               "host": "fleetapp.me",
               "pathPrefix": "/cars"
             },
             {
+              "scheme": "fleet",
+              "host": "*",
+              "pathPrefix": "/cars"
+            },
+            {
               "scheme": "https",
               "host": "www.fleetapp.me",
-              "pathPrefix": "/cars"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
+              "pathPrefix": "/clips"
+            },
             {
               "scheme": "https",
               "host": "fleetapp.me",
               "pathPrefix": "/clips"
             },
             {
-              "scheme": "https",
-              "host": "www.fleetapp.me",
+              "scheme": "fleet",
+              "host": "*",
               "pathPrefix": "/clips"
             }
           ],
