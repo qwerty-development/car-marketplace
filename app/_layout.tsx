@@ -286,10 +286,7 @@ const DeepLinkHandler = () => {
       if (!url || isProcessingDeepLink) return;
 
 
-      if (url.includes("auth/callback")) {
-        console.log("[DeepLink] Ignoring auth callback URL.");
-        return; 
-      }
+
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
         url
