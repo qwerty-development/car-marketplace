@@ -235,7 +235,7 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
                     isDarkMode ? 'text-white/80' : 'text-gray-700'
                   }`}
                 >
-                  Fix splash screen issue
+                  Removed the back button from cards, and fixed the pull to refresh in the home screen
                 </Text>
               </View>
               
