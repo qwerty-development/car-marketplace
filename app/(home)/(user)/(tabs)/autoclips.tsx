@@ -293,168 +293,289 @@ export default function AutoClips() {
   const androidDeepLinkRetry = useRef(0);
   const MAX_ANDROID_RETRIES = 3;
 
-  // ANDROID FIX: Enhanced deep link handling with retry mechanism
-  useEffect(() => {
-    const handleDeepLink = async () => {
-      if (!params.clipId || isLoading || autoClips.length === 0 || deepLinkHandled.current) {
-        return;
-      }
+useEffect(() => {
+  const handleDeepLink = async () => {
+    // ANDROID FIX 1: Enhanced validation and retry logic
+    if (!params.clipId || isLoading || deepLinkHandled.current) {
+      return;
+    }
 
-      console.log(`[AutoClips] Processing deep link for clipId: ${params.clipId}`);
+    // ANDROID FIX 2: Handle case where autoClips is still loading
+    if (autoClips.length === 0) {
+      // Wait for data to load, but with timeout
+      const maxWaitTime = 5000; // 5 seconds max wait
+      const startTime = Date.now();
       
-      const targetClipIndex = autoClips.findIndex(
-        clip => clip.id.toString() === params.clipId
-      );
-      
-      if (targetClipIndex !== -1) {
-        console.log(`[AutoClips] Found clip at index ${targetClipIndex}`);
+      const waitForData = () => {
+        return new Promise<boolean>((resolve) => {
+          const checkInterval = setInterval(() => {
+            if (autoClips.length > 0) {
+              clearInterval(checkInterval);
+              resolve(true);
+            } else if (Date.now() - startTime > maxWaitTime) {
+              clearInterval(checkInterval);
+              resolve(false);
+            }
+          }, 100);
+        });
+      };
+
+      const dataLoaded = await waitForData();
+      if (!dataLoaded) {
+        console.warn('[AutoClips] ANDROID: Timeout waiting for data, forcing refresh');
         
-        // Mark that we're handling deep link navigation
-        setIsNavigatingToDeepLink(true);
-        deepLinkHandled.current = true;
-        
-        // ANDROID FIX: Add platform-specific handling
+        // Force data refresh on Android
         if (Platform.OS === 'android') {
-          // Stop all videos immediately on Android
-          Object.entries(videoRefs.current).forEach(([clipId, ref]) => {
-            if (ref?.current) {
-              ref.current.pauseAsync().catch(() => {});
-              ref.current.setPositionAsync(0).catch(() => {});
-            }
-          });
+          setRefreshing(true);
+          await fetchData();
+          setRefreshing(false);
           
-          // Reset states
-          setIsPlaying({});
-          setVideoProgress({});
-          setVideoDuration({});
-          
-          // Wait longer for Android to stabilize
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } else {
-          // iOS - lighter touch
-          Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-            try {
-              await ref?.current?.pauseAsync();
-              await ref?.current?.setPositionAsync(0);
-            } catch (err) {
-              console.error("Error stopping video during deep link:", err);
-            }
-          });
-          
-          setIsPlaying({});
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        // Scroll to target with platform-specific approach
-        try {
-          if (Platform.OS === 'android') {
-            // Android: Use getItemLayout for more reliable scrolling
-            flatListRef.current?.scrollToIndex({
-              index: targetClipIndex,
-              animated: false,
-              viewPosition: 0, // Ensure it's at the top
-            });
-          } else {
-            // iOS: Standard approach
-            flatListRef.current?.scrollToIndex({
-              index: targetClipIndex,
-              animated: false,
-            });
+          // Try one more time after refresh
+          if (autoClips.length === 0) {
+            Alert.alert(
+              'Content Loading Error',
+              'Unable to load videos. Please try again.',
+              [
+                { 
+                  text: 'Retry', 
+                  onPress: () => {
+                    deepLinkHandled.current = false;
+                    onRefresh();
+                  }
+                },
+                { 
+                  text: 'Go Back', 
+                  onPress: () => router.back()
+                }
+              ]
+            );
+            return;
           }
+        }
+      }
+    }
+
+    console.log(`[AutoClips] ANDROID: Processing deep link for clipId: ${params.clipId}`);
+    
+    const targetClipIndex = autoClips.findIndex(
+      clip => clip.id.toString() === params.clipId
+    );
+    
+    if (targetClipIndex !== -1) {
+      console.log(`[AutoClips] ANDROID: Found clip at index ${targetClipIndex}`);
+      
+      // Mark that we're handling deep link navigation
+      setIsNavigatingToDeepLink(true);
+      deepLinkHandled.current = true;
+      
+      if (Platform.OS === 'android') {
+        // ANDROID FIX 3: Enhanced video stopping and state reset
+        console.log('[AutoClips] ANDROID: Stopping all videos and resetting state');
+        
+        // Stop all videos with error handling
+        const stopPromises = Object.entries(videoRefs.current).map(async ([clipId, ref]) => {
+          try {
+            if (ref?.current) {
+              await ref.current.pauseAsync();
+              await ref.current.setPositionAsync(0);
+            }
+          } catch (err) {
+            console.warn(`[AutoClips] ANDROID: Error stopping video ${clipId}:`, err);
+          }
+        });
+        
+        await Promise.allSettled(stopPromises);
+        
+        // Reset all states
+        setIsPlaying({});
+        setVideoProgress({});
+        setVideoDuration({});
+        
+        // ANDROID FIX 4: Enhanced scrolling with multiple fallbacks
+        try {
+          console.log('[AutoClips] ANDROID: Attempting scroll to index', targetClipIndex);
           
-          // Set the current video index
-          setCurrentVideoIndex(targetClipIndex);
+          // Method 1: Direct scroll with getItemLayout
+          flatListRef.current?.scrollToIndex({
+            index: targetClipIndex,
+            animated: false,
+            viewPosition: 0,
+          });
           
-          // ANDROID FIX: Verify scroll position after a delay
-          if (Platform.OS === 'android') {
-            setTimeout(() => {
-              // Double-check scroll position on Android
-              const currentClip = autoClips[targetClipIndex];
-              if (currentClip) {
-                console.log(`[AutoClips] Android: Verifying scroll to clip ${currentClip.id}`);
+          // ANDROID FIX 5: Verify scroll position after delay
+          setTimeout(async () => {
+            try {
+              // Double-check scroll position
+              console.log('[AutoClips] ANDROID: Verifying scroll position');
+              
+              // Method 2: Fallback scroll if needed
+              flatListRef.current?.scrollToIndex({
+                index: targetClipIndex,
+                animated: false,
+                viewPosition: 0,
+              });
+              
+              // Set current video index
+              setCurrentVideoIndex(targetClipIndex);
+              
+              // ANDROID FIX 6: Enhanced video playback initialization
+              if (params.fromDeepLink === 'true') {
+                console.log('[AutoClips] ANDROID: Initializing video playback from deep link');
+                setAllowVideoPlayback(true);
                 
-                // Enable video playback if from deep link
-                if (params.fromDeepLink === 'true') {
-                  setAllowVideoPlayback(true);
-                  
-                  // Start playing the target video
-                  setTimeout(() => {
+                // Wait for scroll to complete, then start video
+                setTimeout(() => {
+                  const currentClip = autoClips[targetClipIndex];
+                  if (currentClip) {
                     const videoRef = videoRefs.current[currentClip.id];
                     if (videoRef?.current) {
                       videoRef.current.playAsync().catch((err) => {
-                        console.warn('[AutoClips] Error starting video:', err);
+                        console.warn('[AutoClips] ANDROID: Error starting video:', err);
                       });
                       setIsPlaying(prev => ({ ...prev, [currentClip.id]: true }));
                     }
-                  }, 500);
-                }
+                  }
+                }, 1000);
               }
               
-              // Allow normal navigation after delay
+              // Complete navigation
               setTimeout(() => {
                 setIsNavigatingToDeepLink(false);
-                console.log(`[AutoClips] Android: Deep link navigation complete`);
-              }, 1000);
-            }, 800);
-          } else {
-            // iOS: Standard timing
-            if (params.fromDeepLink === 'true') {
-              setAllowVideoPlayback(true);
+                console.log('[AutoClips] ANDROID: Deep link navigation complete');
+              }, 1500);
+              
+            } catch (verifyError) {
+              console.error('[AutoClips] ANDROID: Error during scroll verification:', verifyError);
+              
+              // ANDROID FIX 7: Final fallback - manual scroll
+              try {
+                const itemHeight = height;
+                const scrollOffset = targetClipIndex * itemHeight;
+                
+                flatListRef.current?.scrollToOffset({
+                  offset: scrollOffset,
+                  animated: false,
+                });
+                
+                setCurrentVideoIndex(targetClipIndex);
+                setIsNavigatingToDeepLink(false);
+                
+              } catch (finalError) {
+                console.error('[AutoClips] ANDROID: All scroll methods failed:', finalError);
+                setIsNavigatingToDeepLink(false);
+                
+                Alert.alert(
+                  'Navigation Error',
+                  'Unable to navigate to the specific video. Showing from the beginning.',
+                  [{ text: 'OK' }]
+                );
+              }
             }
-            
-            setTimeout(() => {
-              setIsNavigatingToDeepLink(false);
-              console.log(`[AutoClips] iOS: Deep link navigation complete`);
-            }, 1000);
-          }
+          }, 1000);
           
         } catch (scrollError) {
-          console.error('[AutoClips] Scroll error:', scrollError);
+          console.error('[AutoClips] ANDROID: Initial scroll error:', scrollError);
           
-          // ANDROID FIX: Retry mechanism for scroll failures
-          if (Platform.OS === 'android' && androidDeepLinkRetry.current < MAX_ANDROID_RETRIES) {
+          // ANDROID FIX 8: Retry mechanism for scroll failures
+          if (androidDeepLinkRetry.current < MAX_ANDROID_RETRIES) {
             androidDeepLinkRetry.current++;
-            console.log(`[AutoClips] Android scroll retry ${androidDeepLinkRetry.current}/${MAX_ANDROID_RETRIES}`);
+            console.log(`[AutoClips] ANDROID: Scroll retry ${androidDeepLinkRetry.current}/${MAX_ANDROID_RETRIES}`);
             
             setTimeout(() => {
-              deepLinkHandled.current = false; // Allow retry
+              deepLinkHandled.current = false;
               setIsNavigatingToDeepLink(false);
-            }, 1000);
+            }, 2000);
           } else {
-            // Give up and just play from current position
             setIsNavigatingToDeepLink(false);
             setAllowVideoPlayback(true);
+            
+            Alert.alert(
+              'Navigation Error',
+              'Unable to navigate to the specific video. Starting from current position.',
+              [{ text: 'OK' }]
+            );
           }
         }
         
       } else {
-        // Clip not found
-        console.warn('[AutoClips] Clip not found in current list:', params.clipId);
-        
-        // ANDROID FIX: Better error handling
-        if (Platform.OS === 'android') {
-          // On Android, try refreshing the data once
-          if (androidDeepLinkRetry.current === 0) {
-            androidDeepLinkRetry.current++;
-            console.log('[AutoClips] Android: Refreshing data to find clip');
-            
-            setRefreshing(true);
-            await fetchData();
-            setRefreshing(false);
-            
-            // Reset flag to try again
-            deepLinkHandled.current = false;
-            return;
+        // iOS handling (unchanged)
+        Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+          try {
+            await ref?.current?.pauseAsync();
+            await ref?.current?.setPositionAsync(0);
+          } catch (err) {
+            console.error("Error stopping video during deep link:", err);
           }
-        }
+        });
         
-        Alert.alert('Clip Not Found', 'The requested video is no longer available.');
-        deepLinkHandled.current = true;
+        setIsPlaying({});
+        
+        try {
+          flatListRef.current?.scrollToIndex({
+            index: targetClipIndex,
+            animated: false,
+          });
+          
+          setCurrentVideoIndex(targetClipIndex);
+          
+          if (params.fromDeepLink === 'true') {
+            setAllowVideoPlayback(true);
+          }
+          
+          setTimeout(() => {
+            setIsNavigatingToDeepLink(false);
+          }, 1000);
+          
+        } catch (scrollError) {
+          console.error('[AutoClips] iOS: Scroll error:', scrollError);
+          setIsNavigatingToDeepLink(false);
+          setAllowVideoPlayback(true);
+        }
       }
-    };
+      
+    } else {
+      // ANDROID FIX 9: Enhanced clip not found handling
+      console.warn('[AutoClips] Clip not found in current list:', params.clipId);
+      
+      if (Platform.OS === 'android') {
+        // On Android, try refreshing the data once
+        if (androidDeepLinkRetry.current === 0) {
+          androidDeepLinkRetry.current++;
+          console.log('[AutoClips] ANDROID: Refreshing data to find clip');
+          
+          setRefreshing(true);
+          await fetchData();
+          setRefreshing(false);
+          
+          // Reset flag to try again
+          deepLinkHandled.current = false;
+          return;
+        } else {
+          // Give up after retry
+          Alert.alert(
+            'Video Not Found', 
+            'The requested video could not be found. It may have been removed.',
+            [
+              {
+                text: 'Browse Videos',
+                onPress: () => {
+                  setAllowVideoPlayback(true);
+                  deepLinkHandled.current = true;
+                }
+              }
+            ]
+          );
+        }
+      } else {
+        Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+      }
+      
+      deepLinkHandled.current = true;
+    }
+  };
 
-    handleDeepLink();
-  }, [params.clipId, isLoading, autoClips, params.fromDeepLink]);
+  handleDeepLink();
+}, [params.clipId, isLoading, autoClips, params.fromDeepLink]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
@@ -656,18 +777,24 @@ export default function AutoClips() {
     }
   }, [initializeClipAnimations]);
 
-  // ENHANCED: onRefresh with deep link reset
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    
-    // Reset deep link handling when refreshing
-    deepLinkHandled.current = false;
-    androidDeepLinkRetry.current = 0;
-    setIsNavigatingToDeepLink(false);
-    
-    await fetchData();
-    setRefreshing(false);
-  }, [fetchData]);
+const onRefresh = useCallback(async () => {
+  setRefreshing(true);
+  
+  // Reset deep link handling when refreshing
+  deepLinkHandled.current = false;
+  androidDeepLinkRetry.current = 0;
+  setIsNavigatingToDeepLink(false);
+  
+  // ANDROID FIX: Clear video states before refresh
+  if (Platform.OS === 'android') {
+    setIsPlaying({});
+    setVideoProgress({});
+    setVideoDuration({});
+  }
+  
+  await fetchData();
+  setRefreshing(false);
+}, [fetchData]);
 
   const handlePlaybackStatusUpdate = useCallback(
     (status: any, clipId: number) => {
@@ -1202,44 +1329,49 @@ export default function AutoClips() {
     getEstimatedBufferSize,
   ]);
 
-  // ENHANCED: onViewableItemsChanged with Android support
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: any) => {
-      // Enhanced deep link navigation protection
-      if (isNavigatingToDeepLink) {
-        console.log('[ViewabilityChanged] Skipping due to deep link navigation');
-        return;
-      }
+const onViewableItemsChanged = useCallback(
+  ({ viewableItems }: any) => {
+    // Enhanced deep link navigation protection
+    if (isNavigatingToDeepLink) {
+      console.log('[ViewabilityChanged] ANDROID: Skipping due to deep link navigation');
+      return;
+    }
+    
+    if (viewableItems.length > 0) {
+      const visibleClip = viewableItems[0].item;
+      const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id);
       
-      if (viewableItems.length > 0) {
-        const visibleClip = viewableItems[0].item;
-        const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id);
+      if (newIndex !== currentVideoIndex && newIndex !== -1) {
+        console.log(`[ViewabilityChanged] ANDROID: Changing from index ${currentVideoIndex} to ${newIndex}`);
         
-        if (newIndex !== currentVideoIndex && newIndex !== -1) {
-          console.log(`[ViewabilityChanged] Changing from index ${currentVideoIndex} to ${newIndex}`);
-          
-          // Clear existing view timer
-          if (viewTimers.current[currentVideoIndex]) {
-            clearTimeout(viewTimers.current[currentVideoIndex]);
-          }
-          
-          // Update current video index
-          setCurrentVideoIndex(newIndex);
-          
-          // Start new view timer
-          viewTimers.current[newIndex] = setTimeout(() => {
-            trackClipView(visibleClip.id);
-          }, 5000);
-          
-          // ANDROID FIX: More robust video transitions
-          if (Platform.OS === 'android') {
-            // Android: Sequential video handling to prevent conflicts
-            Object.entries(videoRefs.current).forEach(async ([clipId, ref], index) => {
+        // Clear existing view timer
+        if (viewTimers.current[currentVideoIndex]) {
+          clearTimeout(viewTimers.current[currentVideoIndex]);
+        }
+        
+        // Update current video index
+        setCurrentVideoIndex(newIndex);
+        
+        // Start new view timer
+        viewTimers.current[newIndex] = setTimeout(() => {
+          trackClipView(visibleClip.id);
+        }, 5000);
+        
+        // ANDROID FIX 12: Sequential video handling to prevent conflicts
+        if (Platform.OS === 'android') {
+          // Android: Process videos sequentially with delays
+          const processVideoSequentially = async () => {
+            const videoEntries = Object.entries(videoRefs.current);
+            
+            for (let i = 0; i < videoEntries.length; i++) {
+              const [clipId, ref] = videoEntries[i];
               const shouldPlay = clipId === visibleClip.id.toString();
               
               try {
-                // Add small delays between operations on Android
-                await new Promise(resolve => setTimeout(resolve, index * 50));
+                // Small delay between video operations on Android
+                if (i > 0) {
+                  await new Promise(resolve => setTimeout(resolve, 50));
+                }
                 
                 if (shouldPlay) {
                   await ref?.current?.setPositionAsync(0);
@@ -1252,34 +1384,38 @@ export default function AutoClips() {
                   setIsPlaying(prev => ({ ...prev, [clipId]: false }));
                 }
               } catch (err) {
-                console.error("Error transitioning video on Android:", err);
+                console.error("ANDROID: Error transitioning video:", err);
               }
-            });
-          } else {
-            // iOS: Standard approach
-            Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-              const shouldPlay = clipId === visibleClip.id.toString();
-              try {
-                if (shouldPlay) {
-                  await ref?.current?.setPositionAsync(0);
-                  if (allowVideoPlayback) {
-                    await ref?.current?.playAsync();
-                    setIsPlaying(prev => ({ ...prev, [clipId]: true }));
-                  }
-                } else {
-                  await ref?.current?.pauseAsync();
-                  setIsPlaying(prev => ({ ...prev, [clipId]: false }));
+            }
+          };
+          
+          processVideoSequentially();
+          
+        } else {
+          // iOS: Standard approach (unchanged)
+          Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+            const shouldPlay = clipId === visibleClip.id.toString();
+            try {
+              if (shouldPlay) {
+                await ref?.current?.setPositionAsync(0);
+                if (allowVideoPlayback) {
+                  await ref?.current?.playAsync();
+                  setIsPlaying(prev => ({ ...prev, [clipId]: true }));
                 }
-              } catch (err) {
-                console.error("Error transitioning video:", err);
+              } else {
+                await ref?.current?.pauseAsync();
+                setIsPlaying(prev => ({ ...prev, [clipId]: false }));
               }
-            });
-          }
+            } catch (err) {
+              console.error("Error transitioning video:", err);
+            }
+          });
         }
       }
-    },
-    [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]
-  );
+    }
+  },
+  [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]
+);
 
   const handleSplashFinish = () => {
     console.log("Splash finished, enabling video playback");
