@@ -952,7 +952,13 @@ useEffect(() => {
       
       console.log('[MEGA NUCLEAR] 404 OR ROUTING ISSUE DETECTED:', currentPath);
       
-
+      if (isSignedIn || isGuest) {
+        console.log('[MEGA NUCLEAR] Redirecting to home');
+        router.replace("/(home)");
+      } else {
+        console.log('[MEGA NUCLEAR] Redirecting to sign-in');
+        router.replace("/(auth)/sign-in");
+      }
     }
   };
   
