@@ -268,7 +268,7 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// CRITICAL FIX: Enhanced DeepLinkHandler with Android route resolution fixes
+// Enhanced DeepLinkHandler with Android-specific fixes
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -281,23 +281,18 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // ANDROID FIX 1: Enhanced route validation with exact path matching
+  // NEW: Add route validation helper
   const validateRoute = useCallback((pathname: string): boolean => {
     try {
-      console.log(`[RouteValidation] Validating route: ${pathname}`);
-      
       // Check if the route exists by attempting to resolve it
       const segments = pathname.split('/').filter(Boolean);
       
-      // ANDROID FIX: More specific validation for autoclips route
+      // Validate autoclips route specifically
       if (pathname.includes('autoclips')) {
-        const requiredSegments = ['(home)', '(user)', '(tabs)', 'autoclips'];
-        const hasAllSegments = requiredSegments.every(segment => 
-          segments.includes(segment.replace(/[()]/g, ''))
-        );
-        
-        console.log(`[RouteValidation] AutoClips route validation: ${hasAllSegments}`);
-        return hasAllSegments;
+        return segments.includes('(home)') && 
+               segments.includes('(user)') && 
+               segments.includes('(tabs)') && 
+               segments.includes('autoclips');
       }
       
       return true;
@@ -307,13 +302,17 @@ const DeepLinkHandler = () => {
     }
   }, []);
 
-  // ANDROID FIX 2: Completely rewritten navigation strategy
+  // NEW: Enhanced navigation with Android-specific handling
   const navigateToAutoclip = useCallback(async (clipId: string, isInitialLink = false) => {
-    console.log(`[DeepLink] Starting ENHANCED autoclip navigation for ID: ${clipId}`);
+    console.log(`[DeepLink] Starting autoclip navigation for ID: ${clipId}`);
     
     try {
-      // Step 1: Validate clip exists first (universal check)
-      console.log(`[DeepLink] Validating clip existence: ${clipId}`);
+      // ANDROID FIX: Add extra delay for route resolution
+      if (Platform.OS === 'android') {
+        await new Promise(resolve => setTimeout(resolve, isInitialLink ? 1000 : 500));
+      }
+      
+      // Validate clip exists first
       const { data: clipExists, error } = await supabase
         .from("auto_clips")
         .select("id, status")
@@ -322,7 +321,7 @@ const DeepLinkHandler = () => {
         .single();
 
       if (error || !clipExists) {
-        console.warn('[DeepLink] Clip not found or not published:', clipId, error);
+        console.warn('[DeepLink] Clip not found or not published:', clipId);
         Alert.alert(
           "Content Not Available",
           "This video is no longer available or has been removed.",
@@ -330,8 +329,12 @@ const DeepLinkHandler = () => {
             {
               text: "OK",
               onPress: () => {
-                // ANDROID FIX: Use consistent fallback navigation
-                router.replace("/(home)/(user)/(tabs)" as any);
+                // ANDROID FIX: Use replace instead of push for fallback
+                if (Platform.OS === 'android') {
+                  router.replace("/(home)/(user)/(tabs)" as any);
+                } else {
+                  router.replace("/(home)/(user)" as any);
+                }
               },
             },
           ]
@@ -339,100 +342,64 @@ const DeepLinkHandler = () => {
         return false;
       }
 
-      // ANDROID FIX 3: Platform-specific navigation strategies
-      if (Platform.OS === 'android') {
-        console.log('[DeepLink] ANDROID: Using direct navigation approach');
+      // ANDROID FIX: Validate route before navigation
+      const targetRoute = "/(home)/(user)/(tabs)/autoclips";
+      if (!validateRoute(targetRoute)) {
+        console.error('[DeepLink] Route validation failed for:', targetRoute);
         
-        // Android Strategy: Direct navigation with parameter pre-storage
-        try {
-          // Store parameters in a way that survives navigation
-          const navigationParams = {
-            clipId,
-            fromDeepLink: "true",
-            timestamp: Date.now().toString()
-          };
-          
-          console.log('[DeepLink] ANDROID: Navigating directly with params:', navigationParams);
-          
-          // ANDROID FIX: Use replace for initial links, push for runtime links
-          const navigationMethod = isInitialLink ? 'replace' : 'push';
-          
-          router[navigationMethod]({
-            pathname: "/(home)/(user)/(tabs)/autoclips" as any,
-            params: navigationParams
-          });
-          
-          return true;
-          
-        } catch (androidNavError) {
-          console.error('[DeepLink] ANDROID: Direct navigation failed:', androidNavError);
-          
-          // ANDROID FALLBACK: Multi-step navigation with enhanced error handling
-          console.log('[DeepLink] ANDROID: Falling back to multi-step navigation');
-          
-          // Step 1: Navigate to base route
-          router.replace("/(home)/(user)" as any);
-          
-          // Step 2: Wait and navigate to tabs
-          await new Promise(resolve => setTimeout(resolve, 500));
-          router.push("/(home)/(user)/(tabs)" as any);
-          
-          // Step 3: Wait and navigate to autoclips with params
-          await new Promise(resolve => setTimeout(resolve, 800));
+        // Fallback to tab navigation
+        router.replace("/(home)/(user)/(tabs)" as any);
+        
+        // Try again after a delay
+        setTimeout(() => {
           router.push({
-            pathname: "/(home)/(user)/(tabs)/autoclips" as any,
-            params: {
-              clipId,
-              fromDeepLink: "true",
-              fallbackNavigation: "true"
-            }
+            pathname: targetRoute as any,
+            params: { clipId, fromDeepLink: "true" }
           });
-          
-          return true;
-        }
-        
-      } else {
-        // iOS Strategy: Standard approach (working)
-        console.log('[DeepLink] iOS: Using standard navigation');
-        
-        if (isInitialLink) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        router.push({
-          pathname: "/(home)/(user)/(tabs)/autoclips" as any,
-          params: {
-            clipId,
-            fromDeepLink: "true",
-          },
-        });
-        
-        return true;
+        }, 1000);
+        return false;
       }
+
+      // ANDROID FIX: Use different navigation strategy
+      if (Platform.OS === 'android') {
+        // For Android, navigate to tabs first, then to autoclips
+        console.log('[DeepLink] Android: Navigating to tabs first');
+        router.replace("/(home)/(user)/(tabs)" as any);
+        
+        // Small delay before navigating to specific tab
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      console.log('[DeepLink] Navigating to autoclips with params:', { clipId, fromDeepLink: "true" });
       
+      // Navigate to autoclips
+      router.push({
+        pathname: "/(home)/(user)/(tabs)/autoclips" as any,
+        params: {
+          clipId,
+          fromDeepLink: "true",
+        },
+      });
+
+      return true;
     } catch (error) {
-      console.error("[DeepLink] CRITICAL ERROR in autoclip navigation:", error);
+      console.error("[DeepLink] Error in autoclip navigation:", error);
       
-      // ENHANCED ERROR HANDLING with detailed logging
-      const errorDetails = {
-        clipId,
-        platform: Platform.OS,
-        isInitialLink,
-        error: error.message,
-        stack: error.stack
-      };
-      
-      console.error('[DeepLink] Error details:', errorDetails);
-      
+      // ANDROID FIX: Better error handling with fallback
       Alert.alert(
         "Navigation Error", 
-        `Unable to load the requested content. ${Platform.OS === 'android' ? 'Trying alternative route.' : ''}`,
+        Platform.OS === 'android' 
+          ? "Unable to load the requested content. Redirecting to home."
+          : "Unable to load the requested content.",
         [
           {
             text: "OK",
             onPress: () => {
-              // ANDROID FIX: Always provide a working fallback
-              router.replace("/(home)/(user)/(tabs)" as any);
+              if (Platform.OS === 'android') {
+                router.replace("/(home)/(user)/(tabs)" as any);
+              } else {
+                router.replace("/(home)/(user)" as any);
+              }
             },
           },
         ]
@@ -441,13 +408,10 @@ const DeepLinkHandler = () => {
     }
   }, [router, validateRoute]);
 
-  // ANDROID FIX 4: Enhanced process deep link with better error recovery
+  // METHOD: Process deep link with enhanced Android support
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
-      if (!url || isProcessingDeepLink) {
-        console.log('[DeepLink] Skipping processing - no URL or already processing');
-        return;
-      }
+      if (!url || isProcessingDeepLink) return;
 
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
@@ -459,14 +423,9 @@ const DeepLinkHandler = () => {
         const parsedUrl = Linking.parse(url);
         const { path, queryParams } = parsedUrl;
 
-        console.log("[DeepLink] Parsed URL details:", { 
-          path, 
-          queryParams, 
-          platform: Platform.OS,
-          isInitialLink 
-        });
+        console.log("[DeepLink] Parsed URL:", { path, queryParams });
 
-        // Handle auth callbacks (unchanged)
+        // RULE: Handle auth callbacks
         if (url.includes("auth/callback") || url.includes("reset-password")) {
           console.log("[DeepLink] Handling auth callback");
           const accessToken = queryParams?.access_token;
@@ -487,7 +446,7 @@ const DeepLinkHandler = () => {
           return;
         }
 
-        // Wait for auth to be loaded
+        // RULE: Wait for auth to be loaded
         if (!isLoaded) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
@@ -495,27 +454,22 @@ const DeepLinkHandler = () => {
         }
 
         if (path) {
-          // ANDROID FIX 5: Enhanced URL pattern matching
           const carIdMatch =
             path.match(/^cars\/(\d+)$/) ||
             path.match(/^\/cars\/(\d+)$/) ||
-            path.match(/^car\/(\d+)$/) ||
-            path.match(/.*\/cars\/(\d+)$/); // Additional pattern for complex URLs
+            path.match(/^car\/(\d+)$/);
 
           const clipIdMatch =
             path.match(/^clips\/(\d+)$/) ||
             path.match(/^\/clips\/(\d+)$/) ||
-            path.match(/^clip\/(\d+)$/) ||
-            path.match(/.*\/clips\/(\d+)$/); // Additional pattern for complex URLs
+            path.match(/^clip\/(\d+)$/);
 
           const carId = carIdMatch ? carIdMatch[1] : null;
           const clipId = clipIdMatch ? clipIdMatch[1] : null;
 
-          console.log(`[DeepLink] Extracted IDs - Car: ${carId}, Clip: ${clipId}`);
-
           const isEffectivelySignedIn = isSignedIn || isGuest;
 
-          // Handle car deep links (unchanged)
+          // RULE: Handle car deep links
           if (carId && !isNaN(Number(carId))) {
             console.log(`[DeepLink] Navigating to car details for ID: ${carId}`);
 
@@ -534,7 +488,7 @@ const DeepLinkHandler = () => {
               const prefetchedData = await prefetchCarDetails(carId);
 
               router.push({
-                pathname: "/(home)/(user)/CarDetailModal" as any,
+                pathname: "/(home)/(user)/CarDetailModal" as any, // FIXED: Use correct route name
                 params: {
                   carId,
                   isDealerView: "false",
@@ -548,7 +502,7 @@ const DeepLinkHandler = () => {
               console.error("[DeepLink] Error prefetching car details:", error);
 
               router.push({
-                pathname: "/(home)/(user)/CarDetailModal" as any,
+                pathname: "/(home)/(user)/CarDetailModal" as any, // FIXED: Use correct route name
                 params: {
                   carId,
                   isDealerView: "false",
@@ -557,9 +511,9 @@ const DeepLinkHandler = () => {
               });
             }
           } 
-          // ENHANCED: Handle clip deep links with robust Android support
+          // ENHANCED: Handle clip deep links with Android-specific logic
           else if (clipId && !isNaN(Number(clipId))) {
-            console.log(`[DeepLink] Processing autoclip deep link for ID: ${clipId} on ${Platform.OS}`);
+            console.log(`[DeepLink] Processing autoclip deep link for ID: ${clipId}`);
 
             if (!isEffectivelySignedIn) {
               console.log("[DeepLink] User not signed in, storing pending deep link");
@@ -568,21 +522,13 @@ const DeepLinkHandler = () => {
               return;
             }
 
-            // ANDROID FIX 6: Add platform-specific delays
-            if (Platform.OS === 'android' && isInitialLink) {
-              console.log('[DeepLink] ANDROID: Adding initial link delay');
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
             // Use the enhanced navigation function
             const success = await navigateToAutoclip(clipId, isInitialLink);
             if (!success) {
               console.warn('[DeepLink] Failed to navigate to autoclip:', clipId);
-            } else {
-              console.log('[DeepLink] Successfully initiated navigation to autoclip:', clipId);
             }
           } 
-          // Handle invalid deep links
+          // RULE: Handle invalid deep links
           else if (
             path.startsWith("cars") ||
             path.startsWith("/cars") ||
@@ -599,7 +545,7 @@ const DeepLinkHandler = () => {
           }
         }
       } catch (err) {
-        console.error("[DeepLink] CRITICAL processing error:", err);
+        console.error("[DeepLink] Processing error:", err);
         Alert.alert("Error", "Unable to process the link. Please try again.");
       } finally {
         setIsProcessingDeepLink(false);
@@ -608,8 +554,112 @@ const DeepLinkHandler = () => {
     [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails, navigateToAutoclip]
   );
 
-  // Rest of the component remains the same...
-  // (Include all the useEffect hooks from the original code)
+  // EFFECT: Hide static splash screen
+  useEffect(() => {
+    const hideStaticSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        console.warn("Error hiding splash:", e);
+      }
+    };
+    
+    hideStaticSplash();
+  }, []);
+
+  // EFFECT: Get initial URL
+  useEffect(() => {
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          console.log("[DeepLink] App opened with initial URL:", url);
+          setInitialUrl(url);
+        } else {
+          initManager.setReady('deepLinks');
+        }
+      })
+      .catch((err) => {
+        console.error("[DeepLink] Error getting initial URL:", err);
+        initManager.setReady('deepLinks');
+      });
+  }, []);
+
+  // EFFECT: Process initial URL when auth loaded
+  useEffect(() => {
+    if (initialUrl && isLoaded && !initialUrlProcessed.current) {
+      initialUrlProcessed.current = true;
+      console.log("[DeepLink] Processing initial URL after auth loaded:", initialUrl);
+      
+      // ANDROID FIX: Add extra delay for initial URL processing
+      const delay = Platform.OS === 'android' ? 1500 : 500;
+      setTimeout(() => {
+        processDeepLink(initialUrl, true);
+      }, delay);
+    }
+  }, [initialUrl, isLoaded, processDeepLink]);
+
+  // EFFECT: Set URL processing callback
+  useEffect(() => {
+    deepLinkQueue.setProcessUrlCallback(processDeepLink);
+  }, [processDeepLink]);
+
+  // EFFECT: Mark as initialized when auth loaded
+  useEffect(() => {
+    if (isLoaded) {
+      // ANDROID FIX: Longer delay for Android initialization
+      const delay = Platform.OS === 'android' ? 800 : 300;
+      initializationTimeoutRef.current = setTimeout(() => {
+        setIsInitialized(true);
+        deepLinkQueue.setReady();
+      }, delay);
+    }
+
+    return () => {
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+      }
+    };
+  }, [isLoaded]);
+
+  // EFFECT: Listen for runtime deep links
+  useEffect(() => {
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      if (isInitialized) {
+        processDeepLink(url);
+      } else {
+        console.log("[DeepLink] App not initialized, queuing deep link");
+        deepLinkQueue.enqueue(url);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isInitialized, processDeepLink]);
+
+  // ENHANCED: Handle pending deep links after sign-in with Android support
+  useEffect(() => {
+    if (isSignedIn && global.pendingDeepLink) {
+      const { type, id } = global.pendingDeepLink;
+
+      if (type === "car" && id) {
+        console.log("[DeepLink] Processing pending car deep link after sign-in");
+        router.push({
+          pathname: "/(home)/(user)/CarDetailModal" as any, // FIXED: Use correct route name
+          params: { carId: id, isDealerView: "false" },
+        });
+      } else if (type === "autoclip" && id) {
+        console.log("[DeepLink] Processing pending autoclip deep link after sign-in");
+        
+        // Use enhanced navigation for pending autoclip
+        setTimeout(() => {
+          navigateToAutoclip(id, false);
+        }, Platform.OS === 'android' ? 1000 : 500);
+      }
+
+      global.pendingDeepLink = null;
+    }
+  }, [isSignedIn, router, navigateToAutoclip]);
 
   return null;
 };
