@@ -1397,7 +1397,6 @@ const forceProfileRefresh = async () => {
         isSignedIn: !!user || !!session,
         isSigningOut: isSigningOutState,
         isSigningIn,
-        signIn,
         signUp,
         signOut,
         resetPassword,
