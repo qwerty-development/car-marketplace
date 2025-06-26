@@ -1,5 +1,5 @@
 // app/(auth)/callback.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/utils/supabase';
@@ -8,113 +8,64 @@ import { useAuth } from '@/utils/AuthContext';
 export default function OAuthCallback() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { isSignedIn, isLoaded } = useAuth();
-  const [processed, setProcessed] = useState(false);
+  const { isSignedIn } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
-      if (processed) return;
-      setProcessed(true);
-      
       try {
-        console.log('[CALLBACK ROUTE] Processing with params:', params);
-        
-        // Get URL from window if available (web) or use params
-        let accessToken, refreshToken;
-        
-        // Try to get from window location first (web OAuth)
-        if (typeof window !== 'undefined' && window.location) {
-          const urlParams = new URLSearchParams(window.location.hash.substring(1));
-          accessToken = urlParams.get('access_token');
-          refreshToken = urlParams.get('refresh_token');
-        }
-        
-        // Fallback to route params (mobile OAuth)
-        if (!accessToken) {
-          accessToken = params.access_token as string;
-          refreshToken = params.refresh_token as string;
-        }
+        console.log('[OAuth Callback] Processing OAuth callback with params:', params);
 
-        console.log('[CALLBACK ROUTE] Tokens found:', { 
-          hasAccess: !!accessToken, 
-          hasRefresh: !!refreshToken 
-        });
+        // Extract tokens from URL parameters
+        const accessToken = params.access_token as string;
+        const refreshToken = params.refresh_token as string;
+        const tokenType = params.token_type as string;
 
         if (accessToken && refreshToken) {
-          console.log('[CALLBACK ROUTE] Setting session...');
+          console.log('[OAuth Callback] Setting session with tokens');
           
+          // Set the session with the tokens
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
 
           if (error) {
-            console.error('[CALLBACK ROUTE] Session error:', error);
-          } else {
-            console.log('[CALLBACK ROUTE] Session set successfully');
+            console.error('[OAuth Callback] Error setting session:', error);
+            // Redirect to sign-in on error
+            router.replace('/(auth)/sign-in');
+            return;
           }
-          
-          // BRUTE FORCE: Multiple redirect attempts
-          console.log('[CALLBACK ROUTE] Starting redirect sequence...');
-          
-          // Wait a moment for auth state to update
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Attempt 1: Immediate redirect
-          router.replace('/(home)');
-          
-          // Attempt 2: Delayed redirect
-          setTimeout(() => {
-            router.replace('/(home)');
-          }, 500);
-          
-          // Attempt 3: Force navigation after 1 second
-          setTimeout(() => {
-            router.push('/(home)');
-          }, 1000);
-          
-          // Attempt 4: Nuclear option after 2 seconds
-          setTimeout(() => {
-            try {
-              router.dismissAll();
+
+          if (data.session) {
+            console.log('[OAuth Callback] Session set successfully, redirecting to home');
+            // Wait a moment for auth state to update, then redirect
+            setTimeout(() => {
               router.replace('/(home)');
-            } catch (e) {
-              console.log('[CALLBACK ROUTE] Nuclear redirect failed, trying push');
-              router.push('/(home)');
-            }
-          }, 2000);
-          
+            }, 1000);
+          } else {
+            console.error('[OAuth Callback] No session data received');
+            router.replace('/(auth)/sign-in');
+          }
         } else {
-          console.error('[CALLBACK ROUTE] No tokens found, redirecting to sign-in');
+          console.error('[OAuth Callback] Missing tokens in callback');
           router.replace('/(auth)/sign-in');
         }
       } catch (error) {
-        console.error('[CALLBACK ROUTE] Error:', error);
+        console.error('[OAuth Callback] Error processing callback:', error);
         router.replace('/(auth)/sign-in');
       }
     };
 
-    // Start processing immediately
     handleCallback();
-  }, [params, router, processed]);
+  }, [params, router]);
 
-  // BRUTE FORCE: If user becomes signed in, redirect immediately
+  // Redirect if already signed in
   useEffect(() => {
-    if (isLoaded && isSignedIn && !processed) {
-      console.log('[CALLBACK ROUTE] User signed in detected, forcing redirect');
+    if (isSignedIn) {
+      console.log('[OAuth Callback] User already signed in, redirecting to home');
       router.replace('/(home)');
     }
-  }, [isSignedIn, isLoaded, router, processed]);
-
-  // BRUTE FORCE: Timeout fallback - redirect after 5 seconds no matter what
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      console.log('[CALLBACK ROUTE] Timeout reached, forcing redirect to home');
-      router.replace('/(home)');
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [router]);
+  }, [isSignedIn, router]);
 
   return (
     <View style={{ 
@@ -131,14 +82,6 @@ export default function OAuthCallback() {
         textAlign: 'center'
       }}>
         Completing sign in...
-      </Text>
-      <Text style={{ 
-        marginTop: 8, 
-        fontSize: 12, 
-        color: '#999',
-        textAlign: 'center'
-      }}>
-        Please wait, redirecting you now...
       </Text>
     </View>
   );

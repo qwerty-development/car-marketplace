@@ -2,24 +2,23 @@
 import { Redirect, Stack } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
 import { useGuestUser } from '@/utils/GuestUserContext'
-import { useSegments } from 'expo-router'
 
+/**
+ * Authentication Layout
+ *
+ * This layout handles the routing logic for unauthenticated screens.
+ * It prevents authenticated or guest users from accessing auth screens
+ * by redirecting them to the home screen.
+ */
 export default function UnAuthenticatedLayout() {
+  // Get authentication state from Supabase Auth context
   const { isSignedIn } = useAuth()
+
+  // Get guest user state
   const { isGuest } = useGuestUser()
-  const segments = useSegments()
 
-  console.log('[AUTH LAYOUT] Current segments:', segments)
-  console.log('[AUTH LAYOUT] Auth state:', { isSignedIn, isGuest })
-
-  // BRUTE FORCE: Allow callback route to always render
-  const isCallbackRoute = segments.includes('callback')
-  
-  if (isCallbackRoute) {
-    console.log('[AUTH LAYOUT] Callback route detected, allowing through')
-    // Let callback route handle its own logic - DO NOT REDIRECT
-  } else if (isSignedIn || isGuest) {
-    console.log('[AUTH LAYOUT] User authenticated, redirecting to home')
+  // Redirect authenticated or guest users to home
+  if (isSignedIn || isGuest) {
     return <Redirect href={'/'} />
   }
 
@@ -35,13 +34,6 @@ export default function UnAuthenticatedLayout() {
       <Stack.Screen name='sign-up' options={{ headerShown: false }} />
       <Stack.Screen name='terms-of-service' options={{ headerShown: false }} />
       <Stack.Screen name='privacy-policy' options={{ headerShown: false }} />
-      <Stack.Screen 
-        name='callback' 
-        options={{ 
-          headerShown: false,
-          gestureEnabled: false, // Prevent swipe back
-        }} 
-      />
     </Stack>
   )
 }
