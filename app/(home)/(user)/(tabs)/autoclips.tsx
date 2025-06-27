@@ -290,16 +290,8 @@ export default function AutoClips() {
 const deepLinkRetryCount = useRef(0);
 const MAX_DEEPLINK_RETRIES = 5;
   
-// ADD THIS TO app/(home)/(user)/(tabs)/autoclips.tsx
-// Replace the existing deep link handling effect with this enhanced version
 
-// Add these imports at the top
-import * as SecureStore from 'expo-secure-store';
 
-// Add this after the existing state declarations
-const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
-const deepLinkRetryCount = useRef(0);
-const MAX_DEEPLINK_RETRIES = 5;
 
 // REPLACE the existing deep link effect with this enhanced version:
 useEffect(() => {
