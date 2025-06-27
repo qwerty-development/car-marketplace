@@ -132,115 +132,72 @@ const segments = useSegments(); // ADD THIS LINE
   }, []);
 
 
-// COMPLETE REPLACEMENT for handleGoogleAuth in app/(auth)/sign-in.tsx
-
 const handleGoogleAuth = async () => {
   try {
     setIsLoading(prev => ({ ...prev, google: true }));
 
+    // Step 1: Call googleSignIn with detailed logging
     console.log("[SIGN-IN] Initiating Google sign-in flow");
     const result = await googleSignIn();
     console.log("[SIGN-IN] Google sign-in result:", JSON.stringify(result));
 
-    // BRUTE FORCE FIX: Check for ANY success indication
-    const isSuccess = result && (
-      result.success === true || 
-      result.user || 
-      (typeof result === 'object' && Object.keys(result).length > 0)
-    );
-
-    if (isSuccess) {
-      console.log("[SIGN-IN] Google auth successful, implementing BRUTE FORCE navigation");
-      
-      // CRITICAL: Set a flag in localStorage to indicate successful Google sign-in
-      try {
-        await SecureStore.setItemAsync('justSignedInWithGoogle', 'true');
-        await SecureStore.setItemAsync('googleSignInTimestamp', Date.now().toString());
-      } catch (e) {
-        console.log("[SIGN-IN] SecureStore error, using fallback");
-      }
-      
-      // BRUTE FORCE APPROACH 1: Multiple navigation attempts with increasing delays
-      const navigationAttempts = [
-        { delay: 100, method: 'replace', path: '/(home)/(user)' },
-        { delay: 300, method: 'replace', path: '/(home)' },
-        { delay: 600, method: 'push', path: '/(home)/(user)' },
-        { delay: 1000, method: 'replace', path: '/(home)/(user)/(tabs)' },
-        { delay: 1500, method: 'dismissAll', path: '/(home)' },
-      ];
-
-      // Execute all navigation attempts
-      navigationAttempts.forEach(({ delay, method, path }) => {
-        setTimeout(() => {
-          try {
-            console.log(`[SIGN-IN] Navigation attempt: ${method} to ${path} after ${delay}ms`);
-            
-            if (method === 'dismissAll') {
-              router.dismissAll();
-              setTimeout(() => router.replace(path as any), 50);
-            } else if (method === 'replace') {
-              router.replace(path as any);
-            } else if (method === 'push') {
-              router.push(path as any);
-            }
-          } catch (navError) {
-            console.log(`[SIGN-IN] Navigation attempt failed at ${delay}ms:`, navError);
-          }
-        }, delay);
-      });
-
-      // BRUTE FORCE APPROACH 2: Force reload as last resort
-      setTimeout(() => {
-        const currentPath = window.location?.pathname || '';
-        console.log("[SIGN-IN] Current path after 2s:", currentPath);
+    // FIXED: Proper type checking for the result
+    if (result && typeof result === 'object') {
+      if (result.success === true || result.user) {
+        console.log("[SIGN-IN] Google auth successful, preparing navigation");
         
-        if (currentPath.includes('auth') || currentPath.includes('not-found') || currentPath.includes('404')) {
-          console.log("[SIGN-IN] FINAL RESORT: Force navigating away from auth/404");
-          
-          // Nuclear option: Clear the entire navigation stack
-          try {
-            router.dismissAll();
-          } catch (e) {}
-          
-          // Force navigation with multiple attempts
-          setTimeout(() => router.replace('/(home)'), 100);
-          setTimeout(() => router.replace('/(home)/(user)'), 200);
-          setTimeout(() => router.push('/(home)/(user)/(tabs)'), 300);
-        }
-      }, 2000);
-
-      // BRUTE FORCE APPROACH 3: Set interval to check navigation state
-      let checkCount = 0;
-      const maxChecks = 10;
-      const navCheckInterval = setInterval(() => {
-        checkCount++;
+        // Force a small delay to ensure auth state propagates
+        await new Promise(resolve => setTimeout(resolve, 500));
         
+        // Try multiple navigation approaches
         try {
-    const currentSegments = segments;
-          const isStillOnAuth = currentSegments.includes('(auth)') || 
+          // Approach 1: Direct navigation to home
+          router.replace('/(home)');
+          console.log("[SIGN-IN] Primary navigation executed");
+        } catch (navError) {
+          console.error("[SIGN-IN] Primary navigation failed:", navError);
+          
+          // Approach 2: Navigate to specific user route
+          try {
+            router.replace('/(home)/(user)');
+            console.log("[SIGN-IN] Secondary navigation executed");
+          } catch (secondaryError) {
+            console.error("[SIGN-IN] Secondary navigation failed:", secondaryError);
+            
+            // Approach 3: Push navigation as last resort
+            setTimeout(() => {
+              router.push('/(home)');
+              console.log("[SIGN-IN] Fallback push navigation executed");
+            }, 1000);
+          }
+        }
+        
+        // FIXED: Use segments to check current route
+        setTimeout(() => {
+          const currentSegments = segments;
+          const isOnAuthPage = currentSegments.includes('(auth)') || 
                                currentSegments.includes('sign-in');
           
-          
-          if (isStillOnAuth && checkCount <= maxChecks) {
-            console.log(`[SIGN-IN] Still on auth/404, forcing navigation (check ${checkCount})`);
+          if (isOnAuthPage) {
+            console.log("[SIGN-IN] Still on auth page, forcing navigation");
             router.replace('/(home)/(user)');
           } else {
-            clearInterval(navCheckInterval);
+            console.log("[SIGN-IN] Successfully navigated away from auth page");
           }
-        } catch (e) {
-          console.log("[SIGN-IN] Error in navigation check:", e);
-        }
+        }, 2000);
         
-        if (checkCount >= maxChecks) {
-          clearInterval(navCheckInterval);
-        }
-      }, 500);
-
+      } else {
+        console.error("[SIGN-IN] Google auth returned unsuccessful result");
+        Alert.alert(
+          "Sign In Failed", 
+          "Google sign-in was not successful. Please try again."
+        );
+      }
     } else {
-      console.error("[SIGN-IN] Google auth failed");
+      console.error("[SIGN-IN] Google auth did not return expected result format");
       Alert.alert(
-        "Sign In Failed", 
-        "Google sign-in was not successful. Please try again."
+        "Sign In Error", 
+        "An unexpected error occurred during Google sign-in. Please try again."
       );
     }
 

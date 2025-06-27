@@ -38,7 +38,6 @@ import { Ionicons } from "@expo/vector-icons";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { shareContent } from "@/utils/shareUtils";
 import { useLocalSearchParams } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 
 // --- constants ---
 const { height, width } = Dimensions.get("window");
@@ -286,166 +285,33 @@ export default function AutoClips() {
   const params = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
   const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
-const deepLinkRetryCount = useRef(0);
-const MAX_DEEPLINK_RETRIES = 5;
   
-
-
-
-// REPLACE the existing deep link effect with this enhanced version:
+// Add a separate effect to handle deep link navigation after data loads
 useEffect(() => {
-  const processDeepLinkWithRetry = async () => {
-    // Check multiple sources for clip ID
-    let targetClipId: string | null = null;
+  if (params.clipId && !isLoading && autoClips.length > 0) {
+    const targetClipIndex = autoClips.findIndex(
+      clip => clip.id.toString() === params.clipId
+    );
     
-    // Source 1: URL params
-    if (params.clipId) {
-      targetClipId = params.clipId;
-      console.log('[AUTOCLIPS] Clip ID from params:', targetClipId);
-    }
-    
-    // Source 2: Global fallback (Android)
-    if (!targetClipId && global.pendingAutoclipId) {
-      targetClipId = global.pendingAutoclipId;
-      console.log('[AUTOCLIPS] Clip ID from global fallback:', targetClipId);
-      global.pendingAutoclipId = null; // Clear after use
-    }
-    
-    // Source 3: SecureStore fallback
-    if (!targetClipId) {
-      try {
-        const storedClipId = await SecureStore.getItemAsync('pendingClipId');
-        const storedTimestamp = await SecureStore.getItemAsync('pendingClipTimestamp');
-        
-        if (storedClipId && storedTimestamp) {
-          const timeDiff = Date.now() - parseInt(storedTimestamp, 10);
-          // Only use if stored within last 30 seconds
-          if (timeDiff < 30000) {
-            targetClipId = storedClipId;
-            console.log('[AUTOCLIPS] Clip ID from SecureStore:', targetClipId);
-            
-            // Clear after use
-            await SecureStore.deleteItemAsync('pendingClipId');
-            await SecureStore.deleteItemAsync('pendingClipTimestamp');
-          }
-        }
-      } catch (e) {
-        console.log('[AUTOCLIPS] SecureStore error:', e);
-      }
-    }
-    
-    // Process the clip if we have an ID
-    if (targetClipId && !deepLinkProcessed && !isLoading) {
-      console.log('[AUTOCLIPS] Processing deep link for clip:', targetClipId);
-      
-      if (autoClips.length === 0) {
-        // Data not loaded yet, retry
-        if (deepLinkRetryCount.current < MAX_DEEPLINK_RETRIES) {
-          deepLinkRetryCount.current++;
-          console.log(`[AUTOCLIPS] Data not ready, retry ${deepLinkRetryCount.current}/${MAX_DEEPLINK_RETRIES}`);
-          setTimeout(() => processDeepLinkWithRetry(), 500);
-        }
-        return;
-      }
-      
-      const targetClipIndex = autoClips.findIndex(
-        clip => clip.id.toString() === targetClipId
-      );
-      
-      if (targetClipIndex !== -1) {
-        console.log('[AUTOCLIPS] Found clip at index:', targetClipIndex);
-        setDeepLinkProcessed(true);
-        
-        // Multiple attempts to scroll to the clip
-        const scrollAttempts = [100, 300, 500, 800, 1200];
-        
-        scrollAttempts.forEach((delay, index) => {
-          setTimeout(() => {
-            try {
-              console.log(`[AUTOCLIPS] Scroll attempt ${index + 1} at ${delay}ms`);
-              
-              flatListRef.current?.scrollToIndex({
-                index: targetClipIndex,
-                animated: false,
-              });
-              
-              // Update video state
-              setCurrentVideoIndex(targetClipIndex);
-              
-              // Force video to play
-              if (params.fromDeepLink === 'true' || params.androidForce === 'true') {
-                setAllowVideoPlayback(true);
-                
-                // Ensure the target video starts playing
-                const targetClip = autoClips[targetClipIndex];
-                if (targetClip) {
-                  setIsPlaying(prev => ({
-                    ...prev,
-                    [targetClip.id]: true
-                  }));
-                  
-                  // Force video ref to play
-                  setTimeout(() => {
-                    const videoRef = videoRefs.current[targetClip.id];
-                    if (videoRef?.current) {
-                      videoRef.current.playAsync().catch(e => {
-                        console.log('[AUTOCLIPS] Error playing video:', e);
-                      });
-                    }
-                  }, 200);
-                }
-              }
-            } catch (scrollError) {
-              console.log(`[AUTOCLIPS] Scroll error at ${delay}ms:`, scrollError);
-            }
-          }, delay);
+    if (targetClipIndex !== -1) {
+      // Wait for the FlatList to be ready
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index: targetClipIndex,
+          animated: false,
         });
         
-      } else {
-        console.log('[AUTOCLIPS] Clip not found in list');
-        
-        // Try one more time after a delay (data might still be loading)
-        if (deepLinkRetryCount.current < MAX_DEEPLINK_RETRIES) {
-          deepLinkRetryCount.current++;
-          setTimeout(() => processDeepLinkWithRetry(), 1000);
-        } else {
-          Alert.alert('Clip Not Found', 'The requested video is no longer available.');
-        }
-      }
-    }
-  };
-  
-  // Run the processing
-  processDeepLinkWithRetry();
-  
-  // Also run when data changes
-}, [params.clipId, params.fromDeepLink, params.androidForce, isLoading, autoClips.length]);
-
-// ADD this effect to handle Android-specific recovery
-useEffect(() => {
-  if (Platform.OS === 'android' && params.fallbackAttempt === 'true') {
-    console.log('[AUTOCLIPS] Android fallback attempt detected');
-    
-    // Force a re-render and retry
-    setTimeout(() => {
-      if (params.clipId) {
-        const clipIndex = autoClips.findIndex(
-          clip => clip.id.toString() === params.clipId
-        );
-        
-        if (clipIndex !== -1) {
-          flatListRef.current?.scrollToIndex({
-            index: clipIndex,
-            animated: false,
-          });
-          setCurrentVideoIndex(clipIndex);
+        setCurrentVideoIndex(targetClipIndex);
+        if (params.fromDeepLink === 'true') {
           setAllowVideoPlayback(true);
         }
-      }
-    }, 1000);
+      }, 500);
+    } else {
+      // Handle case where clip isn't found
+      Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+    }
   }
-}, [params.fallbackAttempt, params.clipId, autoClips]);
+}, [params.clipId, isLoading, autoClips]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
