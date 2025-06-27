@@ -1,3 +1,5 @@
+// ENHANCED app/+not-found.tsx with Google Sign-In Detection
+
 import { Link, Stack, useRouter } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +9,7 @@ import { useGuestUser } from "@/utils/GuestUserContext";
 import { coordinateSignOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
+import * as SecureStore from 'expo-secure-store';
 
 export default function NotFoundScreen() {
   const { isDarkMode } = useTheme();
@@ -16,65 +19,98 @@ export default function NotFoundScreen() {
   const [redirectAttempts, setRedirectAttempts] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // CRITICAL FIX: Auto-redirect authenticated users
+  // CRITICAL: Check for Google Sign-In flag
   useEffect(() => {
-    // Wait for auth to be loaded
+    const checkGoogleSignIn = async () => {
+      try {
+        const justSignedIn = await SecureStore.getItemAsync('justSignedInWithGoogle');
+        const signInTimestamp = await SecureStore.getItemAsync('googleSignInTimestamp');
+        
+        if (justSignedIn === 'true' && signInTimestamp) {
+          const timeDiff = Date.now() - parseInt(signInTimestamp, 10);
+          
+          // If signed in within the last 10 seconds, force immediate redirect
+          if (timeDiff < 10000) {
+            console.log('[404] GOOGLE SIGN-IN DETECTED: Force immediate redirect');
+            
+            // Clear the flags
+            await SecureStore.deleteItemAsync('justSignedInWithGoogle');
+            await SecureStore.deleteItemAsync('googleSignInTimestamp');
+            
+            // IMMEDIATE REDIRECT - NO DELAYS
+            router.replace('/(home)/(user)');
+            
+            // Backup redirects
+            setTimeout(() => router.replace('/(home)'), 50);
+            setTimeout(() => router.push('/(home)/(user)/(tabs)'), 100);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('[404] Error checking Google sign-in flag:', e);
+      }
+    };
+
+    checkGoogleSignIn();
+  }, [router]);
+
+  // ENHANCED: More aggressive auto-redirect for authenticated users
+  useEffect(() => {
     if (!isLoaded) return;
 
     const effectivelySignedIn = isSignedIn || isGuest;
 
-    // If user is signed in and we haven't redirected yet
-    if (effectivelySignedIn && !isRedirecting && redirectAttempts < 3) {
+    if (effectivelySignedIn && !isRedirecting && redirectAttempts < 5) {
       setIsRedirecting(true);
       
-      // Log for debugging
-      console.log('[404 Page] User is authenticated, attempting redirect. Attempt:', redirectAttempts + 1);
+      console.log('[404] AUTHENTICATED USER DETECTED: Aggressive redirect attempt', redirectAttempts + 1);
       
-      // Try immediate redirect first
-      try {
-        router.replace('/(home)');
-        console.log('[404 Page] Immediate redirect attempted');
-      } catch (error) {
-        console.error('[404 Page] Immediate redirect failed:', error);
-      }
-
-      // Fallback: Try again with delay
-      const timeouts = [100, 500, 1000]; // Increasing delays for each attempt
-      const delay = timeouts[redirectAttempts] || 1000;
+      // IMMEDIATE ACTIONS
+      router.replace('/(home)/(user)');
       
-      setTimeout(() => {
-        try {
-          // Force navigation to home
-          router.replace('/(home)/(user)');
-          console.log('[404 Page] Delayed redirect attempted after', delay, 'ms');
-        } catch (error) {
-          console.error('[404 Page] Delayed redirect failed:', error);
-          
-          // Last resort: force refresh
-          if (redirectAttempts === 2) {
-            console.log('[404 Page] Final attempt - forcing navigation');
-            // Use push instead of replace as last resort
-            router.push('/(home)');
+      // RAPID FIRE FALLBACKS
+      const rapidFallbacks = [50, 100, 200, 300, 500];
+      rapidFallbacks.forEach((delay, index) => {
+        setTimeout(() => {
+          try {
+            if (index % 2 === 0) {
+              router.replace('/(home)/(user)');
+            } else {
+              router.push('/(home)/(user)/(tabs)');
+            }
+          } catch (e) {
+            console.log(`[404] Redirect attempt at ${delay}ms failed:`, e);
           }
-        }
-        
+        }, delay);
+      });
+      
+      // Complete the attempt
+      setTimeout(() => {
         setIsRedirecting(false);
         setRedirectAttempts(prev => prev + 1);
-      }, delay);
+      }, 600);
     }
   }, [isLoaded, isSignedIn, isGuest, router, redirectAttempts, isRedirecting]);
 
-  // ADDITIONAL FIX: Refresh button for manual recovery
+  // NUCLEAR OPTION: Force refresh after 1 second if still on 404
+  useEffect(() => {
+    if (isSignedIn || isGuest) {
+      const nuclearTimeout = setTimeout(() => {
+        console.log('[404] NUCLEAR OPTION: Still on 404 after 1s, forcing navigation');
+        router.dismissAll();
+        setTimeout(() => {
+          router.replace('/(home)');
+        }, 100);
+      }, 1000);
+
+      return () => clearTimeout(nuclearTimeout);
+    }
+  }, [isSignedIn, isGuest, router]);
+
   const handleRefresh = () => {
-    console.log('[404 Page] Manual refresh triggered');
-    
-    // Clear any navigation state
-    router.replace('/(home)');
-    
-    // If that doesn't work, try with a delay
-    setTimeout(() => {
-      router.push('/(home)/(user)');
-    }, 100);
+    console.log('[404] Manual refresh triggered');
+    router.dismissAll();
+    setTimeout(() => router.replace('/(home)/(user)'), 100);
   };
 
   const handleSignOut = async () => {
@@ -110,6 +146,17 @@ export default function NotFoundScreen() {
     ]);
   };
 
+  // MINIMAL RENDER for authenticated users to reduce flash
+  if ((isSignedIn || isGuest) && redirectAttempts < 2) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
+        <View style={styles.content}>
+          <ActivityIndicator size="large" color="#D55004" />
+        </View>
+      </View>
+    );
+  }
+
   // Show loading state while checking auth
   if (!isLoaded) {
     return (
@@ -123,6 +170,7 @@ export default function NotFoundScreen() {
     );
   }
 
+  // Regular 404 page content
   return (
     <>
       <Stack.Screen options={{ 
@@ -172,18 +220,8 @@ export default function NotFoundScreen() {
             styles.subtitle,
             { color: isDarkMode ? "#FFFFFF80" : "#00000080" }
           ]}>
-            Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
+            Sorry, we couldn't find the page you're looking for.
           </Text>
-
-          {/* Show redirect message if user is authenticated */}
-          {(isSignedIn || isGuest) && redirectAttempts > 0 && (
-            <Text style={[
-              styles.redirectMessage,
-              { color: "#D55004" }
-            ]}>
-              Redirecting you to the home page...
-            </Text>
-          )}
 
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
@@ -195,25 +233,6 @@ export default function NotFoundScreen() {
               <Ionicons name="home-outline" size={20} color="white" style={styles.buttonIcon} />
               <Text style={styles.primaryButtonText}>Go to Home</Text>
             </TouchableOpacity>
-
-            {/* Refresh Button for authenticated users */}
-            {(isSignedIn || isGuest) && (
-              <TouchableOpacity 
-                style={[
-                  styles.secondaryButton,
-                  { 
-                    borderColor: "#D55004",
-                    backgroundColor: isDarkMode ? "#D5500410" : "#D5500405" 
-                  }
-                ]}
-                onPress={handleRefresh}
-              >
-                <Ionicons name="refresh-outline" size={20} color="#D55004" style={styles.buttonIcon} />
-                <Text style={[styles.secondaryButtonText, { color: "#D55004" }]}>
-                  Refresh Navigation
-                </Text>
-              </TouchableOpacity>
-            )}
 
             {/* Go Back Button */}
             <TouchableOpacity 
@@ -314,12 +333,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 48,
     paddingHorizontal: 20,
-  },
-  redirectMessage: {
-    fontSize: 14,
-    fontStyle: "italic",
-    marginBottom: 20,
-    textAlign: "center",
   },
   buttonContainer: {
     width: "100%",
