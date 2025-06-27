@@ -1,7 +1,7 @@
 // ENHANCED app/+not-found.tsx with Google Sign-In Detection
 
 import { Link, Stack, useRouter } from "expo-router";
-import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme } from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from "@/utils/ThemeContext";
 import { useAuth } from "@/utils/AuthContext";
