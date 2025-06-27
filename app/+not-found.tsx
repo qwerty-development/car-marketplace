@@ -6,12 +6,76 @@ import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import { coordinateSignOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
 
 export default function NotFoundScreen() {
   const { isDarkMode } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoaded, isSignedIn } = useAuth();
   const { isGuest, clearGuestMode } = useGuestUser();
   const router = useRouter();
+  const [redirectAttempts, setRedirectAttempts] = useState(0);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // CRITICAL FIX: Auto-redirect authenticated users
+  useEffect(() => {
+    // Wait for auth to be loaded
+    if (!isLoaded) return;
+
+    const effectivelySignedIn = isSignedIn || isGuest;
+
+    // If user is signed in and we haven't redirected yet
+    if (effectivelySignedIn && !isRedirecting && redirectAttempts < 3) {
+      setIsRedirecting(true);
+      
+      // Log for debugging
+      console.log('[404 Page] User is authenticated, attempting redirect. Attempt:', redirectAttempts + 1);
+      
+      // Try immediate redirect first
+      try {
+        router.replace('/(home)');
+        console.log('[404 Page] Immediate redirect attempted');
+      } catch (error) {
+        console.error('[404 Page] Immediate redirect failed:', error);
+      }
+
+      // Fallback: Try again with delay
+      const timeouts = [100, 500, 1000]; // Increasing delays for each attempt
+      const delay = timeouts[redirectAttempts] || 1000;
+      
+      setTimeout(() => {
+        try {
+          // Force navigation to home
+          router.replace('/(home)/(user)');
+          console.log('[404 Page] Delayed redirect attempted after', delay, 'ms');
+        } catch (error) {
+          console.error('[404 Page] Delayed redirect failed:', error);
+          
+          // Last resort: force refresh
+          if (redirectAttempts === 2) {
+            console.log('[404 Page] Final attempt - forcing navigation');
+            // Use push instead of replace as last resort
+            router.push('/(home)');
+          }
+        }
+        
+        setIsRedirecting(false);
+        setRedirectAttempts(prev => prev + 1);
+      }, delay);
+    }
+  }, [isLoaded, isSignedIn, isGuest, router, redirectAttempts, isRedirecting]);
+
+  // ADDITIONAL FIX: Refresh button for manual recovery
+  const handleRefresh = () => {
+    console.log('[404 Page] Manual refresh triggered');
+    
+    // Clear any navigation state
+    router.replace('/(home)');
+    
+    // If that doesn't work, try with a delay
+    setTimeout(() => {
+      router.push('/(home)/(user)');
+    }, 100);
+  };
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -45,6 +109,19 @@ export default function NotFoundScreen() {
       },
     ]);
   };
+
+  // Show loading state while checking auth
+  if (!isLoaded) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
+        <View style={styles.content}>
+          <Text style={{ color: isDarkMode ? "#FFFFFF" : "#000000", fontSize: 18 }}>
+            Loading...
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -98,18 +175,45 @@ export default function NotFoundScreen() {
             Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
           </Text>
 
+          {/* Show redirect message if user is authenticated */}
+          {(isSignedIn || isGuest) && redirectAttempts > 0 && (
+            <Text style={[
+              styles.redirectMessage,
+              { color: "#D55004" }
+            ]}>
+              Redirecting you to the home page...
+            </Text>
+          )}
+
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             {/* Go Home Button */}
-            <Link href="/" asChild>
-              <TouchableOpacity style={[
-                styles.primaryButton,
-                { backgroundColor: "#D55004" }
-              ]}>
-                <Ionicons name="home-outline" size={20} color="white" style={styles.buttonIcon} />
-                <Text style={styles.primaryButtonText}>Go to Home</Text>
+            <TouchableOpacity 
+              style={[styles.primaryButton, { backgroundColor: "#D55004" }]}
+              onPress={handleRefresh}
+            >
+              <Ionicons name="home-outline" size={20} color="white" style={styles.buttonIcon} />
+              <Text style={styles.primaryButtonText}>Go to Home</Text>
+            </TouchableOpacity>
+
+            {/* Refresh Button for authenticated users */}
+            {(isSignedIn || isGuest) && (
+              <TouchableOpacity 
+                style={[
+                  styles.secondaryButton,
+                  { 
+                    borderColor: "#D55004",
+                    backgroundColor: isDarkMode ? "#D5500410" : "#D5500405" 
+                  }
+                ]}
+                onPress={handleRefresh}
+              >
+                <Ionicons name="refresh-outline" size={20} color="#D55004" style={styles.buttonIcon} />
+                <Text style={[styles.secondaryButtonText, { color: "#D55004" }]}>
+                  Refresh Navigation
+                </Text>
               </TouchableOpacity>
-            </Link>
+            )}
 
             {/* Go Back Button */}
             <TouchableOpacity 
@@ -210,6 +314,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 48,
     paddingHorizontal: 20,
+  },
+  redirectMessage: {
+    fontSize: 14,
+    fontStyle: "italic",
+    marginBottom: 20,
+    textAlign: "center",
   },
   buttonContainer: {
     width: "100%",

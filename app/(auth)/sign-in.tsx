@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, useSegments } from "expo-router";
+
 import {
   Text,
   TextInput,
@@ -109,7 +110,8 @@ const SignInWithOAuth = () => {
     apple: boolean;
   }>({ google: false, apple: false });
   const { googleSignIn } = useAuth();
-  const router = useRouter();
+const router = useRouter();
+const segments = useSegments(); // ADD THIS LINE
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
@@ -129,25 +131,86 @@ const SignInWithOAuth = () => {
     checkAppleAuthAvailability();
   }, []);
 
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, google: true }));
-  
-      // Step 1: Call googleSignIn with detailed logging
-      console.log("Initiating Google sign-in flow");
-      const result = await googleSignIn();
-      console.log("Google sign-in result:", JSON.stringify(result));
-  
-      // The navigation is now handled by the auth context and root layout
-      // The 3-second delay we added will show the LogoLoader
-    } catch (err) {
-      console.error("Google OAuth error:", err);
 
-    } finally {
-      setIsLoading(prev => ({ ...prev, google: false }));
+const handleGoogleAuth = async () => {
+  try {
+    setIsLoading(prev => ({ ...prev, google: true }));
+
+    // Step 1: Call googleSignIn with detailed logging
+    console.log("[SIGN-IN] Initiating Google sign-in flow");
+    const result = await googleSignIn();
+    console.log("[SIGN-IN] Google sign-in result:", JSON.stringify(result));
+
+    // FIXED: Proper type checking for the result
+    if (result && typeof result === 'object') {
+      if (result.success === true || result.user) {
+        console.log("[SIGN-IN] Google auth successful, preparing navigation");
+        
+        // Force a small delay to ensure auth state propagates
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Try multiple navigation approaches
+        try {
+          // Approach 1: Direct navigation to home
+          router.replace('/(home)');
+          console.log("[SIGN-IN] Primary navigation executed");
+        } catch (navError) {
+          console.error("[SIGN-IN] Primary navigation failed:", navError);
+          
+          // Approach 2: Navigate to specific user route
+          try {
+            router.replace('/(home)/(user)');
+            console.log("[SIGN-IN] Secondary navigation executed");
+          } catch (secondaryError) {
+            console.error("[SIGN-IN] Secondary navigation failed:", secondaryError);
+            
+            // Approach 3: Push navigation as last resort
+            setTimeout(() => {
+              router.push('/(home)');
+              console.log("[SIGN-IN] Fallback push navigation executed");
+            }, 1000);
+          }
+        }
+        
+        // FIXED: Use segments to check current route
+        setTimeout(() => {
+          const currentSegments = segments;
+          const isOnAuthPage = currentSegments.includes('(auth)') || 
+                               currentSegments.includes('sign-in');
+          
+          if (isOnAuthPage) {
+            console.log("[SIGN-IN] Still on auth page, forcing navigation");
+            router.replace('/(home)/(user)');
+          } else {
+            console.log("[SIGN-IN] Successfully navigated away from auth page");
+          }
+        }, 2000);
+        
+      } else {
+        console.error("[SIGN-IN] Google auth returned unsuccessful result");
+        Alert.alert(
+          "Sign In Failed", 
+          "Google sign-in was not successful. Please try again."
+        );
+      }
+    } else {
+      console.error("[SIGN-IN] Google auth did not return expected result format");
+      Alert.alert(
+        "Sign In Error", 
+        "An unexpected error occurred during Google sign-in. Please try again."
+      );
     }
-  };
 
+  } catch (err) {
+    console.error("[SIGN-IN] Google OAuth error:", err);
+    Alert.alert(
+      "Sign In Error", 
+      "Failed to sign in with Google. Please try again."
+    );
+  } finally {
+    setIsLoading(prev => ({ ...prev, google: false }));
+  }
+};
 // For Apple Sign-In:
 const handleAppleAuth = async () => {
   try {

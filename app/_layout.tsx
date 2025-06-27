@@ -281,145 +281,200 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // METHOD: Process deep link with timeout protection
-  const processDeepLink = useCallback(
-    async (url: string, isInitialLink = false) => {
-      if (!url || isProcessingDeepLink) return;
 
-      console.log(
-        `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
-        url
-      );
-      setIsProcessingDeepLink(true);
+const processDeepLink = useCallback(
+  async (url: string, isInitialLink = false) => {
+    if (!url || isProcessingDeepLink) return;
 
-      try {
-        const parsedUrl = Linking.parse(url);
-        const { path, queryParams } = parsedUrl;
+    console.log(
+      `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
+      url
+    );
+    setIsProcessingDeepLink(true);
 
-        console.log("[DeepLink] Parsed URL:", { path, queryParams });
+    try {
+      const parsedUrl = Linking.parse(url);
+      const { path, queryParams } = parsedUrl;
 
-        // RULE: Handle auth callbacks
-        if (url.includes("auth/callback") || url.includes("reset-password")) {
-          console.log("[DeepLink] Handling auth callback");
-          const accessToken = queryParams?.access_token;
-          const refreshToken = queryParams?.refresh_token;
+      console.log("[DeepLink] Parsed URL:", { path, queryParams });
 
-          if (accessToken && refreshToken) {
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken as string,
-              refresh_token: refreshToken as string,
-            });
+      // RULE: Handle auth callbacks
+      if (url.includes("auth/callback") || url.includes("reset-password")) {
+        console.log("[DeepLink] Handling auth callback");
+        const accessToken = queryParams?.access_token;
+        const refreshToken = queryParams?.refresh_token;
 
-            if (error) {
-              console.error("[DeepLink] Error setting session:", error);
-            } else {
-              console.log("[DeepLink] Auth session set successfully");
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken as string,
+            refresh_token: refreshToken as string,
+          });
+
+          if (error) {
+            console.error("[DeepLink] Error setting session:", error);
+          } else {
+            console.log("[DeepLink] Auth session set successfully");
+          }
+        }
+        return;
+      }
+
+      // RULE: Wait for auth to be loaded
+      if (!isLoaded) {
+        console.log("[DeepLink] Auth not loaded, queueing deep link");
+        deepLinkQueue.enqueue(url);
+        return;
+      }
+
+      if (path) {
+        // ENHANCED FIX: Normalize path for better matching
+        const normalizedPath = path.toLowerCase().replace(/^\/+/, '');
+        console.log("[DeepLink] Normalized path:", normalizedPath);
+
+        // ENHANCED PATTERN MATCHING for both cars and clips
+        const carPatterns = [
+          /^cars?\/(\d+)$/,
+          /^\/cars?\/(\d+)$/,
+          /^car\/(\d+)$/,
+          /^\/car\/(\d+)$/
+        ];
+
+        const clipPatterns = [
+          /^clips?\/(\d+)$/,
+          /^\/clips?\/(\d+)$/,
+          /^clip\/(\d+)$/,
+          /^\/clip\/(\d+)$/,
+          /^autoclips?\/(\d+)$/,
+          /^\/autoclips?\/(\d+)$/
+        ];
+
+        let carId: string | null = null;
+        let clipId: string | null = null;
+
+        // Test car patterns
+        for (const pattern of carPatterns) {
+          const match = normalizedPath.match(pattern);
+          if (match) {
+            carId = match[1];
+            break;
+          }
+        }
+
+        // Test clip patterns
+        if (!carId) {
+          for (const pattern of clipPatterns) {
+            const match = normalizedPath.match(pattern);
+            if (match) {
+              clipId = match[1];
+              break;
             }
           }
-          return;
         }
 
-        // RULE: Wait for auth to be loaded
-        if (!isLoaded) {
-          console.log("[DeepLink] Auth not loaded, queueing deep link");
-          deepLinkQueue.enqueue(url);
-          return;
-        }
+        const isEffectivelySignedIn = isSignedIn || isGuest;
 
-        if (path) {
-          const carIdMatch =
-            path.match(/^cars\/(\d+)$/) ||
-            path.match(/^\/cars\/(\d+)$/) ||
-            path.match(/^car\/(\d+)$/);
+        // RULE: Handle car deep links
+        if (carId && !isNaN(Number(carId))) {
+          console.log(`[DeepLink] Navigating to car details for ID: ${carId}`);
 
-          const clipIdMatch =
-            path.match(/^clips\/(\d+)$/) ||
-            path.match(/^\/clips\/(\d+)$/) ||
-            path.match(/^clip\/(\d+)$/);
+          if (!isEffectivelySignedIn) {
+            console.log("[DeepLink] User not signed in, redirecting to sign-in first");
+            global.pendingDeepLink = { type: "car", id: carId };
+            router.replace("/(auth)/sign-in");
+            return;
+          }
 
-          const carId = carIdMatch ? carIdMatch[1] : null;
-          const clipId = clipIdMatch ? clipIdMatch[1] : null;
-
-          const isEffectivelySignedIn = isSignedIn || isGuest;
-
-          // RULE: Handle car deep links
-          if (carId && !isNaN(Number(carId))) {
-            console.log(`[DeepLink] Navigating to car details for ID: ${carId}`);
-
-            if (!isEffectivelySignedIn) {
-              console.log("[DeepLink] User not signed in, redirecting to sign-in first");
-              global.pendingDeepLink = { type: "car", id: carId };
-              router.replace("/(auth)/sign-in");
-              return;
-            }
-
-            try {
-              if (isInitialLink) {
-                await new Promise((resolve) => setTimeout(resolve, 500));
-              }
-
-              const prefetchedData = await prefetchCarDetails(carId);
-
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId,
-                  isDealerView: "false",
-                  prefetchedData: prefetchedData
-                    ? JSON.stringify(prefetchedData)
-                    : undefined,
-                  fromDeepLink: "true",
-                },
-              });
-            } catch (error) {
-              console.error("[DeepLink] Error prefetching car details:", error);
-
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId,
-                  isDealerView: "false",
-                  fromDeepLink: "true",
-                },
-              });
-            }
-          } 
-          // RULE: Handle clip deep links
-          else if (clipId && !isNaN(Number(clipId))) {
-            console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
-
-            if (!isEffectivelySignedIn) {
-              global.pendingDeepLink = { type: "autoclip", id: clipId };
-              router.replace("/(auth)/sign-in");
-              return;
-            }
-
+          try {
             if (isInitialLink) {
               await new Promise((resolve) => setTimeout(resolve, 500));
             }
 
-            try {
-              const { data: clipExists, error } = await supabase
-                .from("auto_clips")
-                .select("id, status")
-                .eq("id", clipId)
-                .eq("status", "published")
-                .single();
+            const prefetchedData = await prefetchCarDetails(carId);
 
-              if (error || !clipExists) {
-                Alert.alert(
-                  "Content Not Available",
-                  "This video is no longer available or has been removed.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => router.replace("/(home)/(user)" as any),
-                    },
-                  ]
-                );
-                return;
-              }
+            // ANDROID FIX: Add platform-specific navigation delay
+            if (Platform.OS === 'android') {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
 
+            router.push({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId,
+                isDealerView: "false",
+                prefetchedData: prefetchedData
+                  ? JSON.stringify(prefetchedData)
+                  : undefined,
+                fromDeepLink: "true",
+              },
+            });
+          } catch (error) {
+            console.error("[DeepLink] Error prefetching car details:", error);
+
+            router.push({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId,
+                isDealerView: "false",
+                fromDeepLink: "true",
+              },
+            });
+          }
+        } 
+        // RULE: Handle clip deep links with Android-specific fixes
+        else if (clipId && !isNaN(Number(clipId))) {
+          console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
+
+          if (!isEffectivelySignedIn) {
+            global.pendingDeepLink = { type: "autoclip", id: clipId };
+            router.replace("/(auth)/sign-in");
+            return;
+          }
+
+          if (isInitialLink) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+
+          try {
+            const { data: clipExists, error } = await supabase
+              .from("auto_clips")
+              .select("id, status")
+              .eq("id", clipId)
+              .eq("status", "published")
+              .single();
+
+            if (error || !clipExists) {
+              Alert.alert(
+                "Content Not Available",
+                "This video is no longer available or has been removed.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => router.replace("/(home)/(user)" as any),
+                  },
+                ]
+              );
+              return;
+            }
+
+            // ANDROID SPECIFIC FIX: Use a more explicit navigation approach
+            if (Platform.OS === 'android') {
+              console.log("[DeepLink] Android detected, using enhanced navigation");
+              
+              // First navigate to home to ensure proper route stack
+              router.replace("/(home)/(user)");
+              
+              // Then navigate to autoclips with delay
+              setTimeout(() => {
+                router.push({
+                  pathname: "/(home)/(user)/(tabs)/autoclips",
+                  params: {
+                    clipId,
+                    fromDeepLink: "true",
+                  },
+                });
+              }, 500);
+            } else {
+              // iOS can handle direct navigation
               router.push({
                 pathname: "/(home)/(user)/(tabs)/autoclips",
                 params: {
@@ -427,37 +482,54 @@ const DeepLinkHandler = () => {
                   fromDeepLink: "true",
                 },
               });
-            } catch (error) {
-              console.error("[DeepLink] Error checking clip existence:", error);
-              Alert.alert("Error", "Unable to load the requested content.");
-              router.replace("/(home)/(user)" as any);
             }
-          } 
-          // RULE: Handle invalid deep links
-          else if (
-            path.startsWith("cars") ||
-            path.startsWith("/cars") ||
-            path.startsWith("car") ||
-            path.startsWith("clips") ||
-            path.startsWith("/clips") ||
-            path.startsWith("clip")
-          ) {
-            console.warn("[DeepLink] Invalid ID in deep link:", path);
-            Alert.alert(
-              "Invalid Link",
-              "The content you're looking for could not be found."
-            );
+          } catch (error) {
+            console.error("[DeepLink] Error checking clip existence:", error);
+            Alert.alert("Error", "Unable to load the requested content.");
+            router.replace("/(home)/(user)" as any);
           }
+        } 
+        // RULE: Handle invalid deep links
+        else if (
+          normalizedPath.includes("car") ||
+          normalizedPath.includes("clip") ||
+          normalizedPath.includes("autoclip")
+        ) {
+          console.warn("[DeepLink] Invalid ID in deep link:", path);
+          Alert.alert(
+            "Invalid Link",
+            "The content you're looking for could not be found.",
+            [
+              {
+                text: "Go to Home",
+                onPress: () => router.replace("/(home)/(user)"),
+              },
+            ]
+          );
+        } else {
+          console.warn("[DeepLink] Unrecognized deep link pattern:", path);
+          // Try to navigate to home instead of showing 404
+          router.replace("/(home)/(user)");
         }
-      } catch (err) {
-        console.error("[DeepLink] Processing error:", err);
-        Alert.alert("Error", "Unable to process the link. Please try again.");
-      } finally {
-        setIsProcessingDeepLink(false);
       }
-    },
-    [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
-  );
+    } catch (err) {
+      console.error("[DeepLink] Processing error:", err);
+      Alert.alert(
+        "Error", 
+        "Unable to process the link. Please try again.",
+        [
+          {
+            text: "Go to Home",
+            onPress: () => router.replace("/(home)/(user)"),
+          },
+        ]
+      );
+    } finally {
+      setIsProcessingDeepLink(false);
+    }
+  },
+  [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
+);
 
     useEffect(() => {
     // Hide the static splash screen immediately when component mounts
