@@ -42,16 +42,17 @@ const DEFAULT_PROFILE_IMAGE =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 
 const MODAL_HEIGHT_PERCENTAGE = 0.75;
+import * as Updates from 'expo-updates';
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
-  const { 
-    user, 
-    profile, 
-    signOut, 
-    updateUserProfile, 
+  const {
+    user,
+    profile,
+    signOut,
+    updateUserProfile,
     updatePassword,
-    forceProfileRefresh // OPTIONAL: Only if implemented in AuthContext
+    forceProfileRefresh, // OPTIONAL: Only if implemented in AuthContext
   } = useAuth();
   const router = useRouter();
   const navigation = useNavigation();
@@ -71,17 +72,21 @@ export default function UserProfileAndSupportPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] = useState(false);
-  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] = useState(false);
-  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [isSecuritySettingsVisible, setIsSecuritySettingsVisible] =
+    useState(false);
+  const [isNotificationSettingsVisible, setIsNotificationSettingsVisible] =
+    useState(false);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] =
+    useState(true);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    pushNotifications: true,
-    emailNotifications: true,
-    marketingUpdates: false,
-    newCarAlerts: true,
-  });
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings>({
+      pushNotifications: true,
+      emailNotifications: true,
+      marketingUpdates: false,
+      newCarAlerts: true,
+    });
 
   // CRITICAL FIX: Controlled refresh mechanism with guards
   const profileInitialized = useRef(false);
@@ -93,33 +98,33 @@ export default function UserProfileAndSupportPage() {
   // CRITICAL FIX: Debounced profile refresh function
   const handleProfileRefresh = useCallback(async () => {
     if (!user?.id || isGuest || refreshing) return;
-    
+
     try {
       setRefreshing(true);
-      console.log('[Profile] Manual refresh triggered');
-      
+      console.log("[Profile] Manual refresh triggered");
+
       // GUARD: Clear any pending refresh timeouts
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
-      
+
       if (forceProfileRefresh) {
         await forceProfileRefresh();
       } else {
         // Direct database fetch as fallback
         const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
+          .from("users")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (data && !error) {
-          console.log('[Profile] Manual refresh successful');
+          console.log("[Profile] Manual refresh successful");
           // The profile will be updated through normal AuthContext flow
         }
       }
     } catch (error) {
-      console.error('[Profile] Refresh error:', error);
+      console.error("[Profile] Refresh error:", error);
     } finally {
       setRefreshing(false);
     }
@@ -140,15 +145,17 @@ export default function UserProfileAndSupportPage() {
     }
 
     // CRITICAL FIX: Create profile signature for change detection
-    const profileSignature = `${profile.name || ''}-${profile.email || ''}-${profile.last_active || ''}`;
-    
+    const profileSignature = `${profile.name || ""}-${profile.email || ""}-${
+      profile.last_active || ""
+    }`;
+
     // GUARD: Only update if profile has actually changed
     if (lastSyncedProfile.current === profileSignature) {
       return;
     }
 
-    console.log('[Profile] Profile data changed, updating local state');
-    
+    console.log("[Profile] Profile data changed, updating local state");
+
     const nameParts = profile.name ? profile.name.split(" ") : ["", ""];
     const newFirstName = nameParts[0] || "";
     const newLastName = nameParts.slice(1).join(" ") || "";
@@ -158,7 +165,7 @@ export default function UserProfileAndSupportPage() {
     if (firstName !== newFirstName) setFirstName(newFirstName);
     if (lastName !== newLastName) setLastName(newLastName);
     if (email !== newEmail) setEmail(newEmail);
-    
+
     lastSyncedProfile.current = profileSignature;
     profileInitialized.current = true;
   }, [user, profile, isGuest, firstName, lastName, email]);
@@ -166,7 +173,7 @@ export default function UserProfileAndSupportPage() {
   // CRITICAL FIX: Initial profile synchronization (runs once)
   useEffect(() => {
     if (!profileInitialized.current) {
-      console.log('[Profile] Initial profile synchronization');
+      console.log("[Profile] Initial profile synchronization");
       syncProfileState();
     }
   }, [syncProfileState]);
@@ -175,10 +182,12 @@ export default function UserProfileAndSupportPage() {
   useEffect(() => {
     // GUARD: Only sync if profile is initialized and data actually changed
     if (profileInitialized.current && profile) {
-      const profileSignature = `${profile.name || ''}-${profile.email || ''}-${profile.last_active || ''}`;
-      
+      const profileSignature = `${profile.name || ""}-${profile.email || ""}-${
+        profile.last_active || ""
+      }`;
+
       if (lastSyncedProfile.current !== profileSignature) {
-        console.log('[Profile] Profile object changed, syncing state');
+        console.log("[Profile] Profile object changed, syncing state");
         syncProfileState();
       }
     }
@@ -187,13 +196,13 @@ export default function UserProfileAndSupportPage() {
   // CRITICAL FIX: Controlled focus-based refresh (debounced)
   useFocusEffect(
     useCallback(() => {
-      console.log('[Profile] Screen focused');
-      
+      console.log("[Profile] Screen focused");
+
       // GUARD: Debounce focus refresh to prevent excessive calls
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
-      
+
       refreshTimeoutRef.current = setTimeout(() => {
         // Only sync state, don't force database refresh on every focus
         if (profileInitialized.current) {
@@ -292,7 +301,7 @@ export default function UserProfileAndSupportPage() {
 
       const fullName = `${firstName} ${lastName}`.trim();
 
-      console.log('[Profile] Updating profile via modal with name:', fullName);
+      console.log("[Profile] Updating profile via modal with name:", fullName);
 
       const { error } = await updateUserProfile({
         name: fullName,
@@ -302,10 +311,11 @@ export default function UserProfileAndSupportPage() {
 
       Alert.alert("Success", "Profile updated successfully");
       setIsEditMode(false);
-      
+
       // CRITICAL FIX: Let AuthContext handle the state update, no forced refresh
-      console.log('[Profile] Profile update completed, waiting for AuthContext update');
-      
+      console.log(
+        "[Profile] Profile update completed, waiting for AuthContext update"
+      );
     } catch (error) {
       console.error("Error updating profile:", error);
       Alert.alert("Error", "Failed to update profile");
@@ -496,6 +506,36 @@ export default function UserProfileAndSupportPage() {
     ],
   };
 
+   const handleDealershipRedirect = async () => {
+    try {
+      Alert.alert(
+        "Switch to Dealership Interface",
+        "You will be redirected to the dealership interface. The app will reload.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Continue",
+            onPress: async () => {
+              try {
+                // Reload the entire app
+                await Updates.reloadAsync();
+              } catch (error) {
+                console.error('Error reloading app:', error);
+                Alert.alert('Error', 'Failed to reload app. Please restart manually.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error switching to dealership interface:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
   return (
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
@@ -564,6 +604,24 @@ export default function UserProfileAndSupportPage() {
               <Text className="text-white/80 text-sm">
                 {isGuest ? "" : email}
               </Text>
+
+              {/* Dealer Role Check and Button */}
+              {!isGuest && profile?.role === "dealer" && (
+                <TouchableOpacity
+                  onPress={handleDealershipRedirect}
+                  className="mt-6 bg-red px-6 py-3 rounded-full flex-row items-center"
+                >
+                  <Ionicons
+                    name="business"
+                    size={20}
+                    color="white"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text className="text-white font-semibold">
+                    You are a dealership, go to dealership interface
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </LinearGradient>
         </View>
@@ -582,7 +640,7 @@ export default function UserProfileAndSupportPage() {
                   ]
                 );
               } else {
-                router.push('/(user)/EditProfile');
+                router.push("/(user)/EditProfile");
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
@@ -627,7 +685,7 @@ export default function UserProfileAndSupportPage() {
                   ]
                 );
               } else {
-                router.push('/(user)/ChangePassword');
+                router.push("/(user)/ChangePassword");
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
@@ -696,9 +754,7 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest
-                  ? "Sign in to access legal"
-                  : "Privacy and terms"}
+                {isGuest ? "Sign in to access legal" : "Privacy and terms"}
               </Text>
             </View>
             <Ionicons
@@ -718,7 +774,9 @@ export default function UserProfileAndSupportPage() {
           onRequestClose={() => setIsLegalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => closeModal(setIsLegalVisible)}>
+            <TouchableWithoutFeedback
+              onPress={() => closeModal(setIsLegalVisible)}
+            >
               <View style={styles.modalBackground} />
             </TouchableWithoutFeedback>
             <View
@@ -750,7 +808,7 @@ export default function UserProfileAndSupportPage() {
               <TouchableOpacity
                 onPress={() => {
                   setIsLegalVisible(false);
-                  router.push('/(user)/privacy-policy');
+                  router.push("/(user)/privacy-policy");
                 }}
                 className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                     p-4 rounded-xl flex-row items-center mb-4`}
@@ -760,7 +818,9 @@ export default function UserProfileAndSupportPage() {
                   size={24}
                   color={isDarkMode ? "#fff" : "#000"}
                 />
-                <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
+                <Text
+                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                >
                   Privacy Policy
                 </Text>
                 <Ionicons
@@ -774,7 +834,7 @@ export default function UserProfileAndSupportPage() {
               <TouchableOpacity
                 onPress={() => {
                   setIsLegalVisible(false);
-                  router.push('/(user)/terms-of-service');
+                  router.push("/(user)/terms-of-service");
                 }}
                 className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-100"}
                     p-4 rounded-xl flex-row items-center`}
@@ -784,7 +844,9 @@ export default function UserProfileAndSupportPage() {
                   size={24}
                   color={isDarkMode ? "#fff" : "#000"}
                 />
-                <Text className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}>
+                <Text
+                  className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
+                >
                   Terms
                 </Text>
                 <Ionicons
