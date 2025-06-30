@@ -435,7 +435,7 @@ export const VEHICLE_COLORS = [
   { name: 'Yellow', gradient: ['#FFFF00', '#CCCC00'] },
   { name: 'Orange', gradient: ['#FFA500', '#CC8400'] },
   { name: 'Purple', gradient: ['#800080', '#660066'] },
-  { name: 'Maroon', gradient: ['#800000', '#660000'] },
+  { name: 'Maroon', gradient: ['#800000', '#660000'] }, 
   { name: 'Teal', gradient: ['#008080', '#006666'] },
   { name: 'Pink', gradient: ['#FFC0CB', '#FF99A9'] },
   { name: 'Navy', gradient: ['#000080', '#000066'] },

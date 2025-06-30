@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -88,7 +89,7 @@ interface VideoState {
 }
 
 /**
- * Helper: Given a remote video URL, check if it’s cached locally.
+ * Helper: Given a remote video URL, check if it's cached locally.
  * If not, download it into FileSystem.cacheDirectory.
  */
 async function getCachedVideoUri(videoUrl: string): Promise<string> {
@@ -286,32 +287,69 @@ export default function AutoClips() {
   const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-// Add a separate effect to handle deep link navigation after data loads
-useEffect(() => {
-  if (params.clipId && !isLoading && autoClips.length > 0) {
-    const targetClipIndex = autoClips.findIndex(
-      clip => clip.id.toString() === params.clipId
-    );
-    
-    if (targetClipIndex !== -1) {
-      // Wait for the FlatList to be ready
-      setTimeout(() => {
-        flatListRef.current?.scrollToIndex({
-          index: targetClipIndex,
-          animated: false,
+  // NEW: Add flag to prevent race conditions during deep link navigation
+  const [isNavigatingToDeepLink, setIsNavigatingToDeepLink] = useState(false);
+  
+  // NEW: Track if we've handled the deep link already
+  const deepLinkHandled = useRef(false);
+
+  // UPDATED: Enhanced deep link handling with proper state management
+  useEffect(() => {
+    if (params.clipId && !isLoading && autoClips.length > 0 && !deepLinkHandled.current) {
+      const targetClipIndex = autoClips.findIndex(
+        clip => clip.id.toString() === params.clipId
+      );
+      
+      if (targetClipIndex !== -1) {
+        console.log(`[DeepLink] Navigating to clip ${params.clipId} at index ${targetClipIndex}`);
+        
+        // Mark that we're handling deep link navigation
+        setIsNavigatingToDeepLink(true);
+        deepLinkHandled.current = true;
+        
+        // Stop all currently playing videos first
+        Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+          try {
+            await ref?.current?.pauseAsync();
+            await ref?.current?.setPositionAsync(0);
+          } catch (err) {
+            console.error("Error stopping video during deep link:", err);
+          }
         });
         
-        setCurrentVideoIndex(targetClipIndex);
-        if (params.fromDeepLink === 'true') {
-          setAllowVideoPlayback(true);
-        }
-      }, 500);
-    } else {
-      // Handle case where clip isn't found
-      Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+        // Reset all video playing states
+        setIsPlaying({});
+        
+        // Wait for everything to be ready
+        setTimeout(() => {
+          // Scroll to the target clip
+          flatListRef.current?.scrollToIndex({
+            index: targetClipIndex,
+            animated: false,
+          });
+          
+          // Set the current video index
+          setCurrentVideoIndex(targetClipIndex);
+          
+          // Enable video playback if from deep link
+          if (params.fromDeepLink === 'true') {
+            setAllowVideoPlayback(true);
+          }
+          
+          // Small delay to let the scroll settle, then allow normal navigation
+          setTimeout(() => {
+            setIsNavigatingToDeepLink(false);
+            console.log(`[DeepLink] Navigation complete, normal scrolling enabled`);
+          }, 1000);
+          
+        }, 500);
+      } else {
+        // Handle case where clip isn't found
+        Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+        deepLinkHandled.current = true;
+      }
     }
-  }
-}, [params.clipId, isLoading, autoClips]);
+  }, [params.clipId, isLoading, autoClips]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
@@ -437,6 +475,7 @@ useEffect(() => {
       }
     }
   }, [allowVideoPlayback, currentVideoIndex, autoClips]);
+
   const trackClipView = useCallback(
     async (clipId: number) => {
       if (!user || viewedClips.current.has(clipId)) return;
@@ -514,6 +553,8 @@ useEffect(() => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Reset deep link handling when refreshing
+    deepLinkHandled.current = false;
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
@@ -961,24 +1002,24 @@ useEffect(() => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-  style={{
-    backgroundColor: "rgba(255,255,255,0.1)",
-    padding: 8,
-    borderRadius: 10,
-    marginLeft: 4,
-  }}
-  onPress={() => {
-    if (!item.car) return;
-    shareContent({
-      id: item.id,
-      type: 'autoclip',
-      title: `${item.car.year} ${item.car.make} ${item.car.model} - Video`,
-      message: `Check out this ${item.car.year} ${item.car.make} ${item.car.model} video on Fleet!${item.description ? `\n\n${item.description}` : ''}`
-    });
-  }}
->
-  <Ionicons name="share-outline" size={24} color="white" />
-</TouchableOpacity>
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    padding: 8,
+                    borderRadius: 10,
+                    marginLeft: 4,
+                  }}
+                  onPress={() => {
+                    if (!item.car) return;
+                    shareContent({
+                      id: item.id,
+                      type: 'autoclip',
+                      title: `${item.car.year} ${item.car.make} ${item.car.model} - Video`,
+                      message: `Check out this ${item.car.year} ${item.car.make} ${item.car.model} video on Fleet!${item.description ? `\n\n${item.description}` : ''}`
+                    });
+                  }}
+                >
+                  <Ionicons name="share-outline" size={24} color="white" />
+                </TouchableOpacity>
               </View>
             )}
           </LinearGradient>
@@ -1051,27 +1092,43 @@ useEffect(() => {
     getEstimatedBufferSize,
   ]);
 
+  // UPDATED: Enhanced onViewableItemsChanged with deep link protection
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: any) => {
+      // NEW: Don't process viewability changes during deep link navigation
+      if (isNavigatingToDeepLink) {
+        console.log('[ViewabilityChanged] Skipping due to deep link navigation');
+        return;
+      }
+      
       if (viewableItems.length > 0) {
         const visibleClip = viewableItems[0].item;
         const newIndex = autoClips.findIndex(
           (clip) => clip.id === visibleClip.id
         );
-        if (newIndex !== currentVideoIndex) {
+        
+        if (newIndex !== currentVideoIndex && newIndex !== -1) {
+          console.log(`[ViewabilityChanged] Changing from index ${currentVideoIndex} to ${newIndex}`);
+          
+          // Clear existing view timer
           if (viewTimers.current[currentVideoIndex]) {
             clearTimeout(viewTimers.current[currentVideoIndex]);
           }
+          
+          // Update current video index
           setCurrentVideoIndex(newIndex);
+          
+          // Start new view timer
           viewTimers.current[newIndex] = setTimeout(() => {
             trackClipView(visibleClip.id);
           }, 5000);
+          
+          // Handle video transitions
           Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
             const shouldPlay = clipId === visibleClip.id.toString();
             try {
               if (shouldPlay) {
                 await ref?.current?.setPositionAsync(0);
-
                 if (allowVideoPlayback) {
                   await ref?.current?.playAsync();
                   setIsPlaying((prev) => ({ ...prev, [clipId]: true }));
@@ -1087,7 +1144,7 @@ useEffect(() => {
         }
       }
     },
-    [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback]
+    [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]
   );
 
   const handleSplashFinish = () => {
@@ -1146,7 +1203,6 @@ useEffect(() => {
             handlePlaybackStatusUpdate={handlePlaybackStatusUpdate}
             isDarkMode={isDarkMode}
             videoRefs={videoRefs}
-            // Pass our new flag
             allowPlayback={allowVideoPlayback}
           />
         )}
