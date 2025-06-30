@@ -148,7 +148,18 @@ const SignInWithOAuth = () => {
     }
   }, [googleSignIn]);
 
-
+  /* --------------------------------------------------------------------- */
+  /* 2️⃣  Listen for Supabase’s SIGNED_IN event once per mount             */
+  /* --------------------------------------------------------------------- */
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        console.log("[GOOGLE] Supabase session ready → navigating home");
+        router.replace("/(home)"); // adjust to your real “home” route
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [router]);
 
   // For Apple Sign-In:
   const handleAppleAuth = async () => {
