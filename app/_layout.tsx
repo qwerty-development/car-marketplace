@@ -420,75 +420,138 @@ const processDeepLink = useCallback(
             });
           }
         } 
-        // RULE: Handle clip deep links with Android-specific fixes
-        else if (clipId && !isNaN(Number(clipId))) {
-          console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
+else if (clipId && !isNaN(Number(clipId))) {
+  console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
 
-          if (!isEffectivelySignedIn) {
-            global.pendingDeepLink = { type: "autoclip", id: clipId };
-            router.replace("/(auth)/sign-in");
-            return;
-          }
+  if (!isEffectivelySignedIn) {
+    global.pendingDeepLink = { type: "autoclip", id: clipId };
+    router.replace("/(auth)/sign-in");
+    return;
+  }
 
-          if (isInitialLink) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
+  if (isInitialLink) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
 
-          try {
-            const { data: clipExists, error } = await supabase
-              .from("auto_clips")
-              .select("id, status")
-              .eq("id", clipId)
-              .eq("status", "published")
-              .single();
+  try {
+    // CRITICAL: Verify clip existence first
+    const { data: clipExists, error } = await supabase
+      .from("auto_clips")
+      .select("id, status")
+      .eq("id", clipId)
+      .eq("status", "published")
+      .single();
 
-            if (error || !clipExists) {
-              Alert.alert(
-                "Content Not Available",
-                "This video is no longer available or has been removed.",
-                [
-                  {
-                    text: "OK",
-                    onPress: () => router.replace("/(home)/(user)" as any),
-                  },
-                ]
-              );
-              return;
-            }
+    if (error || !clipExists) {
+      Alert.alert(
+        "Content Not Available",
+        "This video is no longer available or has been removed.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(home)/(user)" as any),
+          },
+        ]
+      );
+      return;
+    }
 
-            // ANDROID SPECIFIC FIX: Use a more explicit navigation approach
-            if (Platform.OS === 'android') {
-              console.log("[DeepLink] Android detected, using enhanced navigation");
-              
-              // First navigate to home to ensure proper route stack
-              router.replace("/(home)/(user)");
-              
-              // Then navigate to autoclips with delay
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/(tabs)/autoclips",
-                  params: {
-                    clipId,
-                    fromDeepLink: "true",
-                  },
-                });
-              }, 500);
-            } else {
-              // iOS can handle direct navigation
-              router.push({
-                pathname: "/(home)/(user)/(tabs)/autoclips",
-                params: {
-                  clipId,
-                  fromDeepLink: "true",
-                },
-              });
-            }
-          } catch (error) {
-            console.error("[DeepLink] Error checking clip existence:", error);
-            Alert.alert("Error", "Unable to load the requested content.");
-            router.replace("/(home)/(user)" as any);
-          }
-        } 
+    // ANDROID SPECIFIC FIX: Complete navigation stack reset
+    if (Platform.OS === 'android') {
+      console.log("[DeepLink] Android detected, using navigation stack reset approach");
+      
+      // STEP 1: Dismiss all existing routes
+      try {
+        router.dismissAll();
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (dismissError) {
+        console.log("[DeepLink] Dismiss all error (non-critical):", dismissError);
+      }
+      
+      // STEP 2: Navigate to root with proper stack
+      router.replace('/(home)/(user)');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // STEP 3: Navigate to tabs root
+      router.push('/(home)/(user)/(tabs)');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // STEP 4: Finally navigate to autoclips with params
+      console.log("[DeepLink] Navigating to autoclips with clipId:", clipId);
+      
+      // Use setParams to ensure the clipId is properly passed
+      router.push({
+        pathname: "/(home)/(user)/(tabs)/autoclips",
+        params: {
+          clipId: clipId,
+          fromDeepLink: "true",
+        },
+      });
+      
+      // STEP 5: Force params update as fallback
+      setTimeout(() => {
+        router.setParams({
+          clipId: clipId,
+          fromDeepLink: "true",
+        });
+      }, 500);
+      
+    } else {
+      // iOS can handle direct navigation but let's make it more robust
+      console.log("[DeepLink] iOS detected, using enhanced direct navigation");
+      
+      // Ensure we're on the correct base route first
+      const currentPath = router.pathname || '';
+      if (!currentPath.includes('/(home)/(user)')) {
+        router.replace('/(home)/(user)');
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // Navigate directly to autoclips
+      router.push({
+        pathname: "/(home)/(user)/(tabs)/autoclips",
+        params: {
+          clipId: clipId,
+          fromDeepLink: "true",
+        },
+      });
+    }
+    
+    // CRITICAL: Verify navigation after 1 second
+    setTimeout(() => {
+      console.log("[DeepLink] Verifying autoclip navigation...");
+      const currentRoute = router.pathname || '';
+      
+      if (!currentRoute.includes('autoclips')) {
+        console.error("[DeepLink] Navigation to autoclips failed, attempting recovery");
+        
+        // Recovery attempt
+        router.push({
+          pathname: "/(home)/(user)/(tabs)/autoclips",
+          params: {
+            clipId: clipId,
+            fromDeepLink: "true",
+          },
+        });
+      } else {
+        console.log("[DeepLink] Autoclip navigation verified successfully");
+      }
+    }, 1000);
+    
+  } catch (error) {
+    console.error("[DeepLink] Error checking clip existence:", error);
+    Alert.alert(
+      "Error", 
+      "Unable to load the requested content.",
+      [
+        {
+          text: "Go to Home",
+          onPress: () => router.replace("/(home)/(user)"),
+        },
+      ]
+    );
+  }
+}
         // RULE: Handle invalid deep links
         else if (
           normalizedPath.includes("car") ||
