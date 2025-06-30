@@ -39,7 +39,6 @@ import { format } from "date-fns";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BrandSelector,
-  ModelDropdown,
   EnhancedColorSelector,
   NeumorphicInput,
   SelectionCard,
@@ -51,6 +50,7 @@ import {
   TRANSMISSIONS,
   VEHICLE_TYPES,
 } from "@/components/ListingModal";
+import { ModelDropdown } from "@/components/ModelDropdown";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 const SOURCE_OPTIONS = [

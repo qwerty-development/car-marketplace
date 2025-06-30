@@ -329,7 +329,7 @@ const VideoPreview = React.memo(
 							shouldPlay={isPlaying}
 							onError={handleVideoError}
 							useNativeControls={false}
-							isMuted={true} // Mute by default to prevent audio issues
+							isMuted={true}
 						/>
 
 						<LinearGradient
@@ -348,17 +348,16 @@ const VideoPreview = React.memo(
 	}
 )
 
-// Enhanced Guidelines Component
+// Enhanced Guidelines Component with Review Information
 const Guidelines = React.memo(({ isDarkMode }) => {
 	const guidelines = [
 		{ icon: 'file-video', text: 'Video must be less than 50MB' },
 		{ icon: 'clock-outline', text: 'Maximum duration: 25 seconds' },
 		{ icon: 'file-document', text: 'Supported formats: MP4, MOV' },
 		{ icon: 'text', text: 'Title must be at least 3 characters' },
-		{
-			icon: 'text-box',
-			text: 'Description must be at least 10 characters'
-		}
+		{ icon: 'text-box', text: 'Description must be at least 10 characters' },
+		{ icon: 'clock-check-outline', text: 'Video will be submitted for admin review' },
+		{ icon: 'shield-check', text: 'Approval required before publication' }
 	]
 
 	return (
@@ -452,14 +451,13 @@ export default function CreateAutoClipModal({
 		setIsVideoPlaying(false)
 	}, [])
 
+	useEffect(() => {
+		if (isVisible) {
+			fetchCars()
+		}
+	}, [isVisible])
 
-useEffect(() => {
-  if (isVisible) {
-    fetchCars()
-  }
-}, [isVisible])
-
-	// Fetch cars data from Supabase
+	// CRITICAL UPDATE: Fetch cars excluding those with non-rejected autoclips
 	const fetchCars = async () => {
 		try {
 			setIsLoading(true)
@@ -467,28 +465,30 @@ useEffect(() => {
 
 			const { data, error } = await supabase
 				.from('cars')
-				.select(
-					`
-                id,
-                make,
-                model,
-                year,
-                price,
-                status,
-                auto_clips(id)
-            `
-				)
+				.select(`
+					id,
+					make,
+					model,
+					year,
+					price,
+					status,
+					auto_clips(id, status)
+				`)
 				.eq('dealership_id', dealership!.id)
 				.eq('status', 'available')
 				.order('listed_at', { ascending: false })
 
 			if (error) throw error
 
-			// Filter out cars that already have autoclips
-			const availableCars =
-				data
-					?.filter(car => !car.auto_clips || car.auto_clips.length === 0)
-					.map(({ auto_clips, ...car }) => car) || []
+			// RULE: Filter out cars that have autoclips with status other than 'rejected'
+			const availableCars = data?.filter(car => {
+				if (!car.auto_clips || car.auto_clips.length === 0) {
+					return true // No autoclips, available
+				}
+				
+				// Only allow if all existing autoclips are rejected
+				return car.auto_clips.every(clip => clip.status === 'rejected')
+			}).map(({ auto_clips, ...car }) => car) || []
 
 			setCars(availableCars)
 		} catch (error) {
@@ -582,7 +582,6 @@ useEffect(() => {
 		}
 	}, [formState])
 	
-
 	const handleVideoSelect = useCallback(async (videoAsset: any) => {
 		try {
 			// Clear any existing video errors
@@ -711,16 +710,17 @@ useEffect(() => {
 		}
 	}, [])
 
-	// Handle form submission
+	// CRITICAL UPDATE: Handle form submission with review process
 	const handleSubmit = async () => {
 		try {
 			if (!validateForm()) return
 
-			// Check if car already has an autoclip
+			// RULE: Check if car already has a non-rejected autoclip
 			const { data: existingClip, error: checkError } = await supabase
 				.from('auto_clips')
-				.select('id')
+				.select('id, status')
 				.eq('car_id', formState.selectedCarId)
+				.neq('status', 'rejected') // Exclude rejected clips
 				.single()
 
 			if (checkError && checkError.code !== 'PGRST116') {
@@ -729,7 +729,13 @@ useEffect(() => {
 
 			if (existingClip) {
 				triggerHaptic('heavy')
-				Alert.alert('Error', 'This car already has an AutoClip')
+				let message = 'This car already has an AutoClip'
+				if (existingClip.status === 'under_review') {
+					message = 'This car has an AutoClip pending review'
+				} else if (existingClip.status === 'published') {
+					message = 'This car already has a published AutoClip'
+				}
+				Alert.alert('Cannot Submit', message)
 				return
 			}
 
@@ -774,7 +780,7 @@ useEffect(() => {
 				data: { publicUrl }
 			} = supabase.storage.from('autoclips').getPublicUrl(filePath)
 
-			// Create database entry
+			// CRITICAL UPDATE: Create database entry with 'under_review' status
 			const { error: dbError } = await supabase.from('auto_clips').insert({
 				dealership_id: dealership!.id,
 				car_id: formState.selectedCarId,
@@ -782,24 +788,29 @@ useEffect(() => {
 				description: formState.description.trim(),
 				video_url: publicUrl,
 				thumbnail_url: publicUrl,
-				status: 'published',
+				status: 'under_review', // CHANGED: Set to under_review instead of published
 				views: 0,
 				likes: 0,
 				viewed_users: [],
 				liked_users: [],
-				published_at: new Date().toISOString()
+				submitted_at: new Date().toISOString(), // NEW: Track submission time
+				published_at: null // Will be set when approved
 			})
 
 			if (dbError) throw dbError
 
 			triggerHaptic('success')
-			Alert.alert('Success', 'AutoClip created successfully')
+			Alert.alert(
+				'Submitted for Review', 
+				'Your AutoClip has been submitted for admin review. You will be notified once it is approved.',
+				[{ text: 'OK', style: 'default' }]
+			)
 			onSuccess()
 			handleClose()
 		} catch (error) {
 			console.error('Error:', error)
 			triggerHaptic('error')
-			Alert.alert('Error', error.message || 'Failed to create AutoClip')
+			Alert.alert('Error', error.message || 'Failed to submit AutoClip')
 		} finally {
 			setIsLoading(false)
 			setUploadProgress(0)
@@ -877,7 +888,7 @@ useEffect(() => {
 										{isLoading ? (
 											<ActivityIndicator color='white' size='small' />
 										) : (
-											<Text className='text-white font-medium'>Create</Text>
+											<Text className='text-white font-medium'>Submit</Text>
 										)}
 									</TouchableOpacity>
 								</View>
@@ -887,19 +898,22 @@ useEffect(() => {
 								className='flex-1 px-6'
 								showsVerticalScrollIndicator={false}
 								keyboardShouldPersistTaps='handled'>
-								{/* Video Section */}
-																<View className='mb-'>
+								
+								{/* Guidelines Section */}
+								<View className='mb-6 pt-4'>
 									<SectionHeader
-										title='Guidelines'
-										subtitle='Important information about creating AutoClips'
+										title='Review Process'
+										subtitle='Important information about AutoClip submission and review'
 										isDarkMode={isDarkMode}
 									/>
 									<Guidelines isDarkMode={isDarkMode} />
 								</View>
+
+								{/* Video Section */}
 								<View className='py-4'>
 									<SectionHeader
 										title='Video Upload'
-										subtitle='Select a video to share with your audience'
+										subtitle='Select a video to submit for review'
 										isDarkMode={isDarkMode}
 									/>
 
@@ -1009,7 +1023,7 @@ useEffect(() => {
 												}`}>
 												No cars available for new AutoClips.
 												{'\n'}
-												All cars already have associated clips.
+												All cars either have existing clips or clips pending review.
 											</Text>
 										</BlurView>
 									)}
@@ -1029,9 +1043,6 @@ useEffect(() => {
 										/>
 									</View>
 								)}
-
-								{/* Guidelines */}
-
 
 								{/* Bottom Spacing */}
 								<View className='h-20' />

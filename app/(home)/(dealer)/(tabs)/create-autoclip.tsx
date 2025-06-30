@@ -9,7 +9,8 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  StyleSheet
+  StyleSheet,
+  ScrollView
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -30,6 +31,7 @@ const VIDEO_WIDTH = (SCREEN_WIDTH - 32) / 2
 const VIDEO_HEIGHT = VIDEO_WIDTH * 1.5
 const ITEMS_PER_PAGE = 4
 
+// ENHANCED: AutoClip interface with new status fields
 interface AutoClip {
   id: number
   dealership_id: number
@@ -40,8 +42,13 @@ interface AutoClip {
   thumbnail_url: string
   views: number
   likes: number
-  status: 'published' | 'draft'
+  status: 'under_review' | 'published' | 'rejected' | 'archived'
   created_at: string
+  submitted_at?: string
+  reviewed_at?: string
+  reviewed_by?: string
+  rejection_reason?: string
+  review_notes?: string
   car: {
     make: string
     model: string
@@ -95,8 +102,6 @@ const CustomHeader = React.memo(({ title, dealership }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-
-
       <View style={styles.titleContainer}>
         <Text style={styles.title}>{title}</Text>
 
@@ -118,6 +123,56 @@ const CustomHeader = React.memo(({ title, dealership }) => {
   );
 });
 
+// ENHANCED: Status Badge Component
+const StatusBadge = React.memo(({ status, isDarkMode }) => {
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'published':
+        return {
+          color: 'bg-emerald-500/80',
+          text: 'Published',
+          icon: 'checkmark-circle'
+        }
+      case 'under_review':
+        return {
+          color: 'bg-yellow-500/80',
+          text: 'Under Review',
+          icon: 'time'
+        }
+      case 'rejected':
+        return {
+          color: 'bg-red-500/80',
+          text: 'Rejected',
+          icon: 'close-circle'
+        }
+      case 'archived':
+        return {
+          color: 'bg-zinc-500/80',
+          text: 'Archived',
+          icon: 'document'
+        }
+      default:
+        return {
+          color: 'bg-zinc-500/80',
+          text: status,
+          icon: 'document'
+        }
+    }
+  }
+
+  const config = getStatusConfig(status)
+
+  return (
+    <View className={`px-2 py-1 rounded-full ${config.color} flex-row items-center`}>
+      <Ionicons name={config.icon} size={10} color="white" style={{ marginRight: 4 }} />
+      <Text className='text-white text-xs font-medium'>
+        {config.text}
+      </Text>
+    </View>
+  )
+})
+
+// ENHANCED: VideoItem component with status-aware actions
 const VideoItem = React.memo(({
   item,
   onPress,
@@ -133,6 +188,50 @@ const VideoItem = React.memo(({
   onToggleStatus: (clip: AutoClip) => void
   onEdit: (clip: AutoClip) => void
 }) => {
+  
+  // RULE: Determine available actions based on status
+  const getAvailableActions = (status: string) => {
+    switch (status) {
+   
+      case 'under_review':
+        return [
+          { text: 'View Details', action: () => onPress() },
+          { text: 'Cancel Review', action: () => onToggleStatus(item) }
+        ]
+      case 'published':
+        return [
+          { text: 'Edit', action: () => onEdit(item) },
+          { text: 'Unpublish', action: () => onToggleStatus(item) },
+          { text: 'Delete', action: () => onDelete(item.id), style: 'destructive' }
+        ]
+      case 'rejected':
+        return [
+          { text: 'View Rejection Details', action: () => onPress() },
+          { text: 'Delete', action: () => onDelete(item.id), style: 'destructive' }
+        ]
+      default:
+        return []
+    }
+  }
+
+  const handleActionsPress = (e) => {
+    e.stopPropagation()
+    const actions = getAvailableActions(item.status)
+    
+    if (actions.length === 0) return
+
+    const alertOptions = [
+      ...actions.map(action => ({
+        text: action.text,
+        style: action.style || 'default',
+        onPress: action.action
+      })),
+      { text: 'Cancel', style: 'cancel' }
+    ]
+
+    Alert.alert('Manage AutoClip', 'Choose an action', alertOptions)
+  }
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -148,6 +247,13 @@ const VideoItem = React.memo(({
           }}
           contentFit="cover"
         />
+
+
+        {item.status !== 'published' && (
+          <View className='absolute top-0 left-0 right-0 p-2'>
+            <StatusBadge status={item.status} isDarkMode={isDarkMode} />
+          </View>
+        )}
 
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.8)']}
@@ -171,69 +277,220 @@ const VideoItem = React.memo(({
               </View>
             </View>
 
-            <View className={`px-2 py-1 rounded-full ${
-              item.status === 'published' ? 'bg-emerald-500/80' : 'bg-zinc-500/80'
-            }`}>
-              <Text className='text-white text-xs font-medium capitalize'>
-                {item.status}
-              </Text>
-            </View>
+            {/* ENHANCED: Status badge in bottom corner */}
+            <StatusBadge status={item.status} isDarkMode={isDarkMode} />
           </View>
         </View>
 
-        <View className='absolute top-3 right-3 rounded-full'>
-          <TouchableOpacity
-            className='p-2'
-            onPress={e => {
-              e.stopPropagation()
-              Alert.alert('Manage AutoClip', 'Choose an action', [
-                {
-                  text: 'Edit',
-                  onPress: () => onEdit(item)
-                },
-                {
-                  text: item.status === 'published' ? 'Unpublish' : 'Publish',
-                  onPress: () => onToggleStatus(item)
-                },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => onDelete(item.id)
-                },
-                {
-                  text: 'Cancel',
-                  style: 'cancel'
-                }
-              ])
-            }}>
-            <Ionicons name='ellipsis-vertical' size={20} color='white' />
-          </TouchableOpacity>
-        </View>
+        {/* Actions button - only show if actions are available */}
+        {getAvailableActions(item.status).length > 0 && (
+          <View className='absolute top-3 right-3 rounded-full'>
+            <TouchableOpacity
+              className='p-2'
+              onPress={handleActionsPress}>
+              <Ionicons name='ellipsis-vertical' size={20} color='white' />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   )
 });
 
-const EmptyState = React.memo(({ isDarkMode }) => (
-  <View className='flex-1 justify-center items-center p-8'>
-    <View className='bg-neutral-100 dark:bg-neutral-800 rounded-full p-6 mb-4'>
-      <Ionicons
-        name='videocam'
-        size={48}
-        color={isDarkMode ? '#D55004' : '#D55004'}
-      />
+// ENHANCED: EmptyState with status-specific messaging
+const EmptyState = React.memo(({ isDarkMode, statusFilter }) => {
+  const getEmptyMessage = (filter: string) => {
+    switch (filter) {
+      case 'under_review':
+        return 'No clips under review'
+      case 'rejected':
+        return 'No rejected clips'
+      case 'published':
+        return 'No published clips'
+      default:
+        return 'No AutoClips Yet'
+    }
+  }
+
+  const getEmptySubtitle = (filter: string) => {
+    switch (filter) {
+      case 'under_review':
+        return 'Clips submitted for review will appear here'
+      case 'rejected':
+        return 'Rejected clips will appear here'
+      case 'published':
+        return 'Your approved and published clips will appear here'
+      default:
+        return 'Create your first AutoClip by tapping the + button below'
+    }
+  }
+
+  return (
+    <View className='flex-1 justify-center items-center p-8'>
+      <View className='bg-neutral-100 dark:bg-neutral-800 rounded-full p-6 mb-4'>
+        <Ionicons
+          name='videocam'
+          size={48}
+          color={isDarkMode ? '#D55004' : '#D55004'}
+        />
+      </View>
+      <Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
+        {getEmptyMessage(statusFilter)}
+      </Text>
+      <Text className={`text-center ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+        {getEmptySubtitle(statusFilter)}
+      </Text>
     </View>
-    <Text className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-      No AutoClips Yet
-    </Text>
-    <Text className={`text-center ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
-      Create your first AutoClip by tapping the + button below
-    </Text>
-  </View>
-));
+  )
+});
+
+// FIXED: Status Filter Component with proper styling
+const StatusFilter = React.memo(({ 
+  activeFilter, 
+  onFilterChange, 
+  isDarkMode, 
+  statusCounts 
+}: {
+  activeFilter: string
+  onFilterChange: (filter: string) => void
+  isDarkMode: boolean
+  statusCounts: any
+}) => {
+  const filters = [
+    { key: 'all', label: 'All', count: statusCounts.all },
+    { key: 'published', label: 'Published', count: statusCounts.published },
+    { key: 'under_review', label: 'Review', count: statusCounts.under_review },
+    { key: 'rejected', label: 'Rejected', count: statusCounts.rejected },
+    { key: 'archived', label: 'Archived', count: statusCounts.archived }
+  ]
+
+  return (
+    <View style={styles.filterContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterScrollContent}
+        style={styles.filterScrollView}>
+        {filters.map((filter, index) => {
+          const isActive = activeFilter === filter.key
+          const hasCount = filter.count > 0
+          
+          return (
+            <TouchableOpacity
+              key={filter.key}
+              onPress={() => onFilterChange(filter.key)}
+              style={[
+                styles.filterButton,
+                {
+                  backgroundColor: isActive 
+                    ? '#D55004' 
+                    : isDarkMode 
+                      ? 'rgba(255, 255, 255, 0.1)' 
+                      : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: isActive 
+                    ? '#D55004' 
+                    : isDarkMode 
+                      ? 'rgba(255, 255, 255, 0.2)' 
+                      : 'rgba(0, 0, 0, 0.1)',
+                  marginRight: index === filters.length - 1 ? 16 : 8,
+                }
+              ]}
+              activeOpacity={0.7}>
+              <View style={styles.filterButtonContent}>
+                <Text
+                  style={[
+                    styles.filterButtonText,
+                    {
+                      color: isActive 
+                        ? '#FFFFFF' 
+                        : isDarkMode 
+                          ? '#E5E5E5' 
+                          : '#374151',
+                    }
+                  ]}>
+                  {filter.label}
+                </Text>
+                {hasCount && (
+                  <View
+                    style={[
+                      styles.countBadge,
+                      {
+                        backgroundColor: isActive 
+                          ? 'rgba(255, 255, 255, 0.25)' 
+                          : '#D55004',
+                      }
+                    ]}>
+                    <Text
+                      style={[
+                        styles.countBadgeText,
+                        {
+                          color: '#FFFFFF'
+                        }
+                      ]}>
+                      {filter.count}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+    </View>
+  )
+})
+
+const styles = StyleSheet.create({
+  // Filter Container Styles
+  filterContainer: {
+    paddingVertical: 25,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  filterScrollView: {
+    paddingHorizontal: 16,
+  },
+  filterScrollContent: {
+    alignItems: 'center',
+    paddingRight: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  countBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+})
 
 const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, isDarkMode, isPageLoading }) => {
-  const styles = StyleSheet.create({
+  const paginationStyles = StyleSheet.create({
     container: {
       position: 'absolute',
       bottom: 70,
@@ -274,66 +531,28 @@ const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, 
   });
 
   return (
-    <View style={styles.container}>
+    <View style={paginationStyles.container}>
       <TouchableOpacity
-        style={[styles.button, (currentPage === 1 || isPageLoading) && styles.disabledButton]}
+        style={[paginationStyles.button, (currentPage === 1 || isPageLoading) && paginationStyles.disabledButton]}
         onPress={() => !isPageLoading && onPageChange(currentPage - 1)}
         disabled={currentPage === 1 || isPageLoading}>
         <Ionicons name="chevron-back" size={20} color="white" />
       </TouchableOpacity>
 
-      <View style={styles.paginationInfo}>
+      <View style={paginationStyles.paginationInfo}>
         {isPageLoading ? (
           <ActivityIndicator size="small" color="white" style={{ marginRight: 8 }} />
         ) : null}
-        <Text style={styles.paginationText}>
+        <Text style={paginationStyles.paginationText}>
           {currentPage} / {totalPages || 1}
         </Text>
       </View>
 
       <TouchableOpacity
-        style={[styles.button, (currentPage === totalPages || isPageLoading) && styles.disabledButton]}
+        style={[paginationStyles.button, (currentPage === totalPages || isPageLoading) && paginationStyles.disabledButton]}
         onPress={() => !isPageLoading && onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages || isPageLoading}>
         <Ionicons name="chevron-forward" size={20} color="white" />
-      </TouchableOpacity>
-    </View>
-  );
-});
-
-const FloatingAddButton = React.memo(() => {
-  const { isDarkMode } = useTheme();
-
-  const buttonStyles = StyleSheet.create({
-    container: {
-      position: 'absolute',
-      top: Platform.OS === 'ios' ? 56 : 48,
-      right: 24,
-      zIndex: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
-    },
-    button: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: isDarkMode ? 'white' : 'black',
-      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }
-  });
-
-  return (
-    <View style={buttonStyles.container}>
-      <TouchableOpacity
-        style={buttonStyles.button}
-        onPress={() => setIsCreateModalVisible(true)}>
-        <FontAwesome name='plus' size={24} color='#D55004' />
       </TouchableOpacity>
     </View>
   );
@@ -357,12 +576,22 @@ export default function AutoClips() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [clipToEdit, setClipToEdit] = useState<AutoClip | null>(null)
 
+  // NEW: Status filtering
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    published: 0,
+    under_review: 0,
+    rejected: 0,
+    archived:0
+  })
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
   // Cache for loaded pages
-  const [cachedPages, setCachedPages] = useState<{[key: number]: AutoClip[]}>({})
+  const [cachedPages, setCachedPages] = useState<{[key: string]: AutoClip[]}>({})
 
   // Track if dealership data has been loaded
   const [dealershipLoaded, setDealershipLoaded] = useState(false)
@@ -392,13 +621,46 @@ export default function AutoClips() {
     }
   }, [user, dealershipLoaded, dealership?.id])
 
-  // Separate fetch for total count
-  const fetchTotalCount = useCallback(async (dealershipId: number) => {
+  // NEW: Fetch status counts
+  const fetchStatusCounts = useCallback(async (dealershipId: number) => {
     try {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
+        .from('auto_clips')
+        .select('status')
+        .eq('dealership_id', dealershipId)
+
+      if (error) throw error
+
+      const counts = {
+        all: data?.length || 0,
+        published: data?.filter(clip => clip.status === 'published').length || 0,
+        under_review: data?.filter(clip => clip.status === 'under_review').length || 0,
+        rejected: data?.filter(clip => clip.status === 'rejected').length || 0,
+        archived: data?.filter(clip => clip.status === 'archived').length || 0
+      }
+
+      setStatusCounts(counts)
+      return { success: true, counts }
+    } catch (error) {
+      console.error('Error fetching status counts:', error)
+      return { success: false, counts: statusCounts }
+    }
+  }, [])
+
+  // ENHANCED: Fetch total count with status filter
+  const fetchTotalCount = useCallback(async (dealershipId: number, filter: string = 'all') => {
+    try {
+      let query = supabase
         .from('auto_clips')
         .select('id', { count: 'exact' })
         .eq('dealership_id', dealershipId)
+
+      // Apply status filter
+      if (filter !== 'all') {
+        query = query.eq('status', filter)
+      }
+
+      const { count, error } = await query
 
       if (error) throw error
 
@@ -411,31 +673,41 @@ export default function AutoClips() {
     }
   }, [])
 
-  // Fetch clips for a specific page
-  const fetchPageClips = useCallback(async (dealershipId: number, page: number) => {
+  // ENHANCED: Fetch clips with status filter
+  const fetchPageClips = useCallback(async (dealershipId: number, page: number, filter: string = 'all') => {
+    // Create cache key with filter
+    const cacheKey = `${filter}_${page}`
+    
     // Check if page is already cached
-    if (cachedPages[page] && !refreshing) {
-      setClips(cachedPages[page])
+    if (cachedPages[cacheKey] && !refreshing) {
+      setClips(cachedPages[cacheKey])
       return { success: true }
     }
 
     setIsPageLoading(true)
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('auto_clips')
         .select(`
           *,
           car:cars(make, model, year)
         `)
         .eq('dealership_id', dealershipId)
+
+      // Apply status filter
+      if (filter !== 'all') {
+        query = query.eq('status', filter)
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
 
       if (error) throw error
 
       // Update cache and current clips
-      setCachedPages(prev => ({ ...prev, [page]: data }))
+      setCachedPages(prev => ({ ...prev, [cacheKey]: data }))
       setClips(data)
 
       return { success: true }
@@ -460,35 +732,45 @@ export default function AutoClips() {
           return
         }
 
-        // Step 2: Get total count
-        const countResult = await fetchTotalCount(dealershipResult.dealershipId)
+        // Step 2: Get status counts
+        await fetchStatusCounts(dealershipResult.dealershipId)
+
+        // Step 3: Get total count
+        const countResult = await fetchTotalCount(dealershipResult.dealershipId, statusFilter)
         if (!countResult.success) {
           setLoading(false)
           return
         }
 
-        // Step 3: Get clips for first page
-        await fetchPageClips(dealershipResult.dealershipId, 1)
+        // Step 4: Get clips for first page
+        await fetchPageClips(dealershipResult.dealershipId, 1, statusFilter)
 
         setLoading(false)
       }
 
       initializeData()
     }
-  }, [user, fetchDealershipData, fetchTotalCount, fetchPageClips])
+  }, [user, fetchDealershipData, fetchStatusCounts, fetchTotalCount, fetchPageClips, statusFilter])
 
-  // Handle page changes
+  // Handle page changes with filter
   useEffect(() => {
     const loadPage = async () => {
       if (dealership?.id) {
-        await fetchPageClips(dealership.id, currentPage)
+        await fetchPageClips(dealership.id, currentPage, statusFilter)
       }
     }
 
     if (!loading && dealership?.id) {
       loadPage()
     }
-  }, [currentPage, dealership?.id, loading, fetchPageClips])
+  }, [currentPage, dealership?.id, loading, fetchPageClips, statusFilter])
+
+  // NEW: Handle status filter change
+  const handleStatusFilterChange = useCallback((newFilter: string) => {
+    setStatusFilter(newFilter)
+    setCurrentPage(1) // Reset to first page
+    setCachedPages({}) // Clear cache when filter changes
+  }, [])
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -498,15 +780,18 @@ export default function AutoClips() {
     setCachedPages({})
 
     if (dealership?.id) {
+      // Refresh status counts
+      await fetchStatusCounts(dealership.id)
+      
       // Refresh count first
-      await fetchTotalCount(dealership.id)
+      await fetchTotalCount(dealership.id, statusFilter)
 
       // Then refresh current page
-      await fetchPageClips(dealership.id, currentPage)
+      await fetchPageClips(dealership.id, currentPage, statusFilter)
     }
 
     setRefreshing(false)
-  }, [dealership?.id, currentPage, fetchTotalCount, fetchPageClips])
+  }, [dealership?.id, currentPage, statusFilter, fetchStatusCounts, fetchTotalCount, fetchPageClips])
 
   // Handle page change with debounce to prevent rapid changes
   const handlePageChange = useCallback((page: number) => {
@@ -516,7 +801,7 @@ export default function AutoClips() {
     scrollRef.current?.scrollToOffset({ offset: 0, animated: true })
   }, [isPageLoading])
 
-  // Handle delete with cache update
+  // ENHANCED: Handle delete with proper validation
   const handleDelete = useCallback(async (clipId: number) => {
     Alert.alert(
       'Delete AutoClip',
@@ -539,8 +824,9 @@ export default function AutoClips() {
               setCachedPages({})
 
               if (dealership?.id) {
-                await fetchTotalCount(dealership.id)
-                await fetchPageClips(dealership.id, currentPage)
+                await fetchStatusCounts(dealership.id)
+                await fetchTotalCount(dealership.id, statusFilter)
+                await fetchPageClips(dealership.id, currentPage, statusFilter)
               }
 
               Alert.alert('Success', 'AutoClip deleted successfully')
@@ -552,35 +838,55 @@ export default function AutoClips() {
         }
       ]
     )
-  }, [dealership?.id, currentPage, fetchTotalCount, fetchPageClips])
+  }, [dealership?.id, currentPage, statusFilter, fetchStatusCounts, fetchTotalCount, fetchPageClips])
 
-  // Toggle status with cache update
+  // ENHANCED: Handle status toggle with proper workflow
   const toggleStatus = useCallback(async (clip: AutoClip) => {
-    const newStatus = clip.status === 'published' ? 'draft' : 'published'
     try {
+      let newStatus: string
+      let updateData: any = {}
+
+      switch (clip.status) {
+       
+        case 'under_review':
+          newStatus = 'published'
+          updateData = {
+            status: newStatus,
+            submitted_at: null
+          }
+          break
+        case 'published':
+          newStatus = 'archived'
+          updateData = {
+            status: newStatus,
+            published_at: null
+          }
+          break
+        default:
+          Alert.alert('Invalid Action', 'This clip cannot be modified')
+          return
+      }
+
       const { error } = await supabase
         .from('auto_clips')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', clip.id)
 
       if (error) throw error
 
-      // Update cache for current page
-      const updatedClips = clips.map(c =>
-        c.id === clip.id ? { ...c, status: newStatus } : c
-      )
-
-      setClips(updatedClips)
-      setCachedPages(prev => ({
-        ...prev,
-        [currentPage]: updatedClips
-      }))
+      // Refresh data
+      setCachedPages({})
+      if (dealership?.id) {
+        await fetchStatusCounts(dealership.id)
+        await fetchTotalCount(dealership.id, statusFilter)
+        await fetchPageClips(dealership.id, currentPage, statusFilter)
+      }
 
     } catch (error) {
       console.error('Error updating status:', error)
       Alert.alert('Error', 'Failed to update status')
     }
-  }, [clips, currentPage])
+  }, [dealership?.id, currentPage, statusFilter, fetchStatusCounts, fetchTotalCount, fetchPageClips])
 
   // Loading indicator with message
   if (loading) {
@@ -605,6 +911,14 @@ export default function AutoClips() {
       <View style={{ zIndex: 10 }}>
         <CustomHeader title='AutoClips' dealership={dealershipData} />
       </View>
+
+      {/* FIXED: Status Filter with proper styling */}
+      <StatusFilter
+        activeFilter={statusFilter}
+        onFilterChange={handleStatusFilterChange}
+        isDarkMode={isDarkMode}
+        statusCounts={statusCounts}
+      />
 
       {/* Add Button with higher z-index */}
       <View style={{
@@ -678,10 +992,10 @@ export default function AutoClips() {
           }}
           onRefresh={handleRefresh}
           refreshing={refreshing}
-          ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} />}
-          maxToRenderPerBatch={8}  // Optimize rendering batches
-          windowSize={5}           // Reduce rendering window
-          removeClippedSubviews={true} // Remove offscreen components
+          ListEmptyComponent={() => <EmptyState isDarkMode={isDarkMode} statusFilter={statusFilter} />}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
 
         <PaginationControls
