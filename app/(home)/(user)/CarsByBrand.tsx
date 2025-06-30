@@ -313,7 +313,7 @@ export default function CarsByBrand() {
 							<Ionicons name='arrow-back' size={30} color='#D55004' />
 						</TouchableOpacity>
 					),
-					title: brand ? `${brand} Cars` : 'Cars by Brand',
+					title: brand ? `${brand}` : 'Cars by Brand',
 					headerStyle: { backgroundColor: isDarkMode ? '#0D0D0D' : '#FFFFFF' },
 					headerTintColor: isDarkMode ? '#FFFFFF' : '#333333'
 				}}
