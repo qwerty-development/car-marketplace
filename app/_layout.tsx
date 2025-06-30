@@ -420,138 +420,75 @@ const processDeepLink = useCallback(
             });
           }
         } 
-else if (clipId && !isNaN(Number(clipId))) {
-  console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
+        // RULE: Handle clip deep links with Android-specific fixes
+        else if (clipId && !isNaN(Number(clipId))) {
+          console.log(`[DeepLink] Navigating to autoclip details for ID: ${clipId}`);
 
-  if (!isEffectivelySignedIn) {
-    global.pendingDeepLink = { type: "autoclip", id: clipId };
-    router.replace("/(auth)/sign-in");
-    return;
-  }
+          if (!isEffectivelySignedIn) {
+            global.pendingDeepLink = { type: "autoclip", id: clipId };
+            router.replace("/(auth)/sign-in");
+            return;
+          }
 
-  if (isInitialLink) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
+          if (isInitialLink) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
 
-  try {
-    // CRITICAL: Verify clip existence first
-    const { data: clipExists, error } = await supabase
-      .from("auto_clips")
-      .select("id, status")
-      .eq("id", clipId)
-      .eq("status", "published")
-      .single();
+          try {
+            const { data: clipExists, error } = await supabase
+              .from("auto_clips")
+              .select("id, status")
+              .eq("id", clipId)
+              .eq("status", "published")
+              .single();
 
-    if (error || !clipExists) {
-      Alert.alert(
-        "Content Not Available",
-        "This video is no longer available or has been removed.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(home)/(user)" as any),
-          },
-        ]
-      );
-      return;
-    }
+            if (error || !clipExists) {
+              Alert.alert(
+                "Content Not Available",
+                "This video is no longer available or has been removed.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => router.replace("/(home)/(user)" as any),
+                  },
+                ]
+              );
+              return;
+            }
 
-    // ANDROID SPECIFIC FIX: Complete navigation stack reset
-    if (Platform.OS === 'android') {
-      console.log("[DeepLink] Android detected, using navigation stack reset approach");
-      
-      // STEP 1: Dismiss all existing routes
-      try {
-        router.dismissAll();
-        await new Promise(resolve => setTimeout(resolve, 200));
-      } catch (dismissError) {
-        console.log("[DeepLink] Dismiss all error (non-critical):", dismissError);
-      }
-      
-      // STEP 2: Navigate to root with proper stack
-      router.replace('/(home)/(user)');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // STEP 3: Navigate to tabs root
-      router.push('/(home)/(user)/(tabs)');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // STEP 4: Finally navigate to autoclips with params
-      console.log("[DeepLink] Navigating to autoclips with clipId:", clipId);
-      
-      // Use setParams to ensure the clipId is properly passed
-      router.push({
-        pathname: "/(home)/(user)/(tabs)/autoclips",
-        params: {
-          clipId: clipId,
-          fromDeepLink: "true",
-        },
-      });
-      
-      // STEP 5: Force params update as fallback
-      setTimeout(() => {
-        router.setParams({
-          clipId: clipId,
-          fromDeepLink: "true",
-        });
-      }, 500);
-      
-    } else {
-      // iOS can handle direct navigation but let's make it more robust
-      console.log("[DeepLink] iOS detected, using enhanced direct navigation");
-      
-      // Ensure we're on the correct base route first
-      const currentPath = router.pathname || '';
-      if (!currentPath.includes('/(home)/(user)')) {
-        router.replace('/(home)/(user)');
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      
-      // Navigate directly to autoclips
-      router.push({
-        pathname: "/(home)/(user)/(tabs)/autoclips",
-        params: {
-          clipId: clipId,
-          fromDeepLink: "true",
-        },
-      });
-    }
-    
-    // CRITICAL: Verify navigation after 1 second
-    setTimeout(() => {
-      console.log("[DeepLink] Verifying autoclip navigation...");
-      const currentRoute = router.pathname || '';
-      
-      if (!currentRoute.includes('autoclips')) {
-        console.error("[DeepLink] Navigation to autoclips failed, attempting recovery");
-        
-        // Recovery attempt
-        router.push({
-          pathname: "/(home)/(user)/(tabs)/autoclips",
-          params: {
-            clipId: clipId,
-            fromDeepLink: "true",
-          },
-        });
-      } else {
-        console.log("[DeepLink] Autoclip navigation verified successfully");
-      }
-    }, 1000);
-    
-  } catch (error) {
-    console.error("[DeepLink] Error checking clip existence:", error);
-    Alert.alert(
-      "Error", 
-      "Unable to load the requested content.",
-      [
-        {
-          text: "Go to Home",
-          onPress: () => router.replace("/(home)/(user)"),
-        },
-      ]
-    );
-  }
-}
+            // ANDROID SPECIFIC FIX: Use a more explicit navigation approach
+            if (Platform.OS === 'android') {
+              console.log("[DeepLink] Android detected, using enhanced navigation");
+              
+              // First navigate to home to ensure proper route stack
+              router.replace("/(home)/(user)");
+              
+              // Then navigate to autoclips with delay
+              setTimeout(() => {
+                router.push({
+                  pathname: "/(home)/(user)/(tabs)/autoclips",
+                  params: {
+                    clipId,
+                    fromDeepLink: "true",
+                  },
+                });
+              }, 500);
+            } else {
+              // iOS can handle direct navigation
+              router.push({
+                pathname: "/(home)/(user)/(tabs)/autoclips",
+                params: {
+                  clipId,
+                  fromDeepLink: "true",
+                },
+              });
+            }
+          } catch (error) {
+            console.error("[DeepLink] Error checking clip existence:", error);
+            Alert.alert("Error", "Unable to load the requested content.");
+            router.replace("/(home)/(user)" as any);
+          }
+        } 
         // RULE: Handle invalid deep links
         else if (
           normalizedPath.includes("car") ||
@@ -892,148 +829,54 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const [forceShowContent, setForceShowContent] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const whiteScreenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
 
-  // CRITICAL FIX 1: Force content visibility after timeout
+  // REMOVED: curtainPosition is no longer needed for a fade animation.
+  // const curtainPosition = useRef(new Animated.Value(0)).current;
+
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
-    // Set a maximum wait time before forcing content to show
-    whiteScreenTimeoutRef.current = setTimeout(() => {
-      console.warn('[RootLayoutNav] CRITICAL: Forcing content visibility after 3 seconds');
-      setForceShowContent(true);
-      
-      // Force opacity to 1
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      
-      setSplashAnimationComplete(true);
-    }, 3000);
+    // RULE: Only route when auth is loaded and no sign-in/out is in progress.
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-    return () => {
-      if (whiteScreenTimeoutRef.current) {
-        clearTimeout(whiteScreenTimeoutRef.current);
-      }
-    };
-  }, [contentOpacity]);
-
-  // CRITICAL FIX 2: Enhanced routing with auth state monitoring
-  useEffect(() => {
-    // Clear any existing navigation timeout
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current);
-    }
-
-    // RULE 1: Skip navigation if auth not loaded or signing in/out
-    if (!isLoaded || isSigningOut || isSigningIn) {
-      console.log('[RootLayoutNav] Skipping navigation - auth state changing');
-      return;
-    }
-
-    // RULE 2: Determine navigation target
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = segments[0] === "(auth)";
 
-    console.log('[RootLayoutNav] Navigation check:', {
-      isEffectivelySignedIn,
-      inAuthGroup,
-      segments,
-      isLoaded
-    });
-
-    // RULE 3: Execute navigation with timeout protection
-    navigationTimeoutRef.current = setTimeout(() => {
-      if (isEffectivelySignedIn && inAuthGroup) {
-        console.log('[RootLayoutNav] Navigating from auth to home');
-        router.replace("/(home)");
-        
-        // Force content visibility on successful auth
-        if (!forceShowContent) {
-          setForceShowContent(true);
-          Animated.timing(contentOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }).start();
-        }
-      } else if (!isEffectivelySignedIn && !inAuthGroup) {
-        console.log('[RootLayoutNav] Navigating to auth');
-        router.replace("/(auth)/sign-in");
-      }
-    }, 100);
-
-    return () => {
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-      }
-    };
-  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn, forceShowContent, contentOpacity]);
-
-  // CRITICAL FIX 3: Monitor auth state changes and force visibility
-  useEffect(() => {
-    if (isSignedIn || isGuest) {
-      console.log('[RootLayoutNav] User authenticated, ensuring content visibility');
-      
-      // Small delay to ensure navigation completes
-      setTimeout(() => {
-        if (!forceShowContent) {
-          setForceShowContent(true);
-          Animated.timing(contentOpacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }).start(() => {
-            setSplashAnimationComplete(true);
-          });
-        }
-      }, 500);
+    if (isEffectivelySignedIn && inAuthGroup) {
+      router.replace("/(home)");
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
+      router.replace("/(auth)/sign-in");
     }
-  }, [isSignedIn, isGuest, forceShowContent, contentOpacity]);
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
-  // CRITICAL FIX 4: Enhanced splash completion handler
+
+  // CHANGED: This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
-    console.log('[RootLayoutNav] Splash animation completed');
-    
-    // Animate content in
+    // This is called after your splash animation/video finishes.
+    // Now, we smoothly fade in the main app content.
     Animated.timing(contentOpacity, {
       toValue: 1,
-      duration: 400,
+      duration: 400, // A gentle fade-in duration
       useNativeDriver: true,
     }).start(() => {
+      // After the content is fully visible, we can remove the splash component from the tree.
       setSplashAnimationComplete(true);
-      setForceShowContent(true);
     });
   }, [contentOpacity]);
 
-  // CRITICAL FIX 5: Determine content visibility
-  const shouldShowContent = isLoaded || forceShowContent;
-  const shouldShowSplash = !splashAnimationComplete && !forceShowContent;
-
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {/* Main app content with controlled opacity */}
+    <View style={{ flex: 1 }}>
+      {/* This View holds your main app content and will fade in */}
       <Animated.View
-        style={[
-          styles.contentContainer,
-          { 
-            opacity: forceShowContent ? 1 : contentOpacity,
-            // Ensure content is above splash
-            zIndex: 2,
-          }
-        ]}
+        style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {shouldShowContent ? <Slot /> : null}
+        {/* Guard the Slot component until auth state is known */}
+        {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      {/* Splash screen with proper dismissal */}
-      {shouldShowSplash ? (
-        <View style={StyleSheet.absoluteFillObject}>
-          <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
-        </View>
+      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
+      {!splashAnimationComplete ? (
+        <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
       ) : null}
     </View>
   );

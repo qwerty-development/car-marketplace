@@ -141,137 +141,48 @@ const handleGoogleAuth = async () => {
     const result = await googleSignIn();
     console.log("[SIGN-IN] Google sign-in result:", JSON.stringify(result));
 
-    // CRITICAL FIX: Verify auth result structure and success
+    // FIXED: Proper type checking for the result
     if (result && typeof result === 'object') {
-      const isSuccessful = result.success === true || 
-                          result.user || 
-                          (result as any).data?.user;
-      
-      if (isSuccessful) {
-        console.log("[SIGN-IN] Google auth successful, starting navigation sequence");
+      if (result.success === true || result.user) {
+        console.log("[SIGN-IN] Google auth successful, preparing navigation");
         
-        // CRITICAL STEP 1: Force auth context refresh
+        // Force a small delay to ensure auth state propagates
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Try multiple navigation approaches
         try {
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData?.session) {
-            console.log("[SIGN-IN] Session confirmed, user ID:", sessionData.session.user.id);
-          }
-        } catch (sessionError) {
-          console.error("[SIGN-IN] Session verification error:", sessionError);
-        }
-        
-        // CRITICAL STEP 2: Wait for auth state propagation with polling
-        let authCheckAttempts = 0;
-        const maxAuthChecks = 10; // 5 seconds max (500ms * 10)
-        
-        const checkAuthState = async (): Promise<boolean> => {
-          authCheckAttempts++;
-          console.log(`[SIGN-IN] Auth state check attempt ${authCheckAttempts}/${maxAuthChecks}`);
+          // Approach 1: Direct navigation to home
+          router.replace('/(home)');
+          console.log("[SIGN-IN] Primary navigation executed");
+        } catch (navError) {
+          console.error("[SIGN-IN] Primary navigation failed:", navError);
           
-          // Re-get current segments to check route state
-          const currentPath = window.location.pathname || '';
-          console.log("[SIGN-IN] Current path:", currentPath);
-          
-          // Check if we're already navigated away from auth
-          if (!currentPath.includes('auth') && !currentPath.includes('sign-in')) {
-            console.log("[SIGN-IN] Already navigated away from auth");
-            return true;
-          }
-          
-          // Check auth context state (this might not be updated yet)
-          const { data: session } = await supabase.auth.getSession();
-          if (session?.session) {
-            console.log("[SIGN-IN] Session active, proceeding with navigation");
-            return true;
-          }
-          
-          if (authCheckAttempts < maxAuthChecks) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return checkAuthState();
-          }
-          
-          return false;
-        };
-        
-        const authReady = await checkAuthState();
-        
-        if (!authReady) {
-          console.warn("[SIGN-IN] Auth state verification timed out, forcing navigation");
-        }
-        
-        // CRITICAL STEP 3: Multi-approach navigation with proper timing
-        const navigationSequence = async () => {
-          // Approach 1: Replace to home with delay
+          // Approach 2: Navigate to specific user route
           try {
-            console.log("[SIGN-IN] Navigation approach 1: Direct replace to home");
-            router.replace('/(home)');
-            
-            // Wait and verify navigation
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Check if still on auth page
-            const currentSegments = segments;
-            if (!currentSegments.includes('(auth)') && !currentSegments.includes('sign-in')) {
-              console.log("[SIGN-IN] Navigation successful");
-              return true;
-            }
-          } catch (navError) {
-            console.error("[SIGN-IN] Navigation approach 1 failed:", navError);
-          }
-          
-          // Approach 2: Push to specific route
-          try {
-            console.log("[SIGN-IN] Navigation approach 2: Push to user home");
-            router.push('/(home)/(user)');
-            await new Promise(resolve => setTimeout(resolve, 300));
-            return true;
-          } catch (navError2) {
-            console.error("[SIGN-IN] Navigation approach 2 failed:", navError2);
-          }
-          
-          // Approach 3: Dismiss all and navigate
-          try {
-            console.log("[SIGN-IN] Navigation approach 3: Dismiss all and replace");
-            router.dismissAll();
-            await new Promise(resolve => setTimeout(resolve, 100));
             router.replace('/(home)/(user)');
-            return true;
-          } catch (navError3) {
-            console.error("[SIGN-IN] Navigation approach 3 failed:", navError3);
-          }
-          
-          // Approach 4: Force reload as last resort
-          console.log("[SIGN-IN] Navigation approach 4: Force reload");
-          window.location.href = '/(home)';
-          return false;
-        };
-        
-        await navigationSequence();
-        
-        // CRITICAL STEP 4: Final verification after 2 seconds
-        setTimeout(async () => {
-          const currentPath = window.location.pathname || '';
-          const stillOnAuth = currentPath.includes('auth') || 
-                             currentPath.includes('sign-in') || 
-                             currentPath.includes('404') ||
-                             currentPath.includes('not-found');
-          
-          if (stillOnAuth) {
-            console.error("[SIGN-IN] CRITICAL: Still on auth/404 page after 2s, forcing final navigation");
+            console.log("[SIGN-IN] Secondary navigation executed");
+          } catch (secondaryError) {
+            console.error("[SIGN-IN] Secondary navigation failed:", secondaryError);
             
-            // Nuclear option: Clear all navigation state and force navigate
-            try {
-              router.dismissAll();
-              setTimeout(() => {
-                router.replace('/(home)/(user)');
-              }, 100);
-            } catch (finalError) {
-              console.error("[SIGN-IN] Final navigation attempt failed:", finalError);
-              // Absolute last resort
-              window.location.replace('/');
-            }
+            // Approach 3: Push navigation as last resort
+            setTimeout(() => {
+              router.push('/(home)');
+              console.log("[SIGN-IN] Fallback push navigation executed");
+            }, 1000);
+          }
+        }
+        
+        // FIXED: Use segments to check current route
+        setTimeout(() => {
+          const currentSegments = segments;
+          const isOnAuthPage = currentSegments.includes('(auth)') || 
+                               currentSegments.includes('sign-in');
+          
+          if (isOnAuthPage) {
+            console.log("[SIGN-IN] Still on auth page, forcing navigation");
+            router.replace('/(home)/(user)');
           } else {
-            console.log("[SIGN-IN] Navigation verification passed");
+            console.log("[SIGN-IN] Successfully navigated away from auth page");
           }
         }, 2000);
         
