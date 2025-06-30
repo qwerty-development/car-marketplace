@@ -56,7 +56,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 const SOURCE_OPTIONS = [
   { value: "Company", label: "Company Source", icon: "office-building" },
   { value: "GCC", label: "GCC", icon: "map-marker" },
-  { value: "USA", label: "US", icon: "flag" },
+  { value: "USA", label: "USA", icon: "flag" },
   { value: "Canada", label: "Canada", icon: "flag" },
   { value: "Europe", label: "Europe", icon: "earth" },
 ];
