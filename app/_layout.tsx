@@ -900,17 +900,18 @@ function RootLayoutNav() {
   // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
-    if (!isLoaded || isSigningOut || isSigningIn) return;
+  if (!isLoaded || isSigningOut || isSigningIn) return;
 
-    const isEffectivelySignedIn = isSignedIn || isGuest;
-    const inAuthGroup = segments[0] === "(auth)";
+  const isEffectivelySignedIn = isSignedIn || isGuest;
+  const inAuthGroup = segments[0] === "(auth)";
 
-    if (isEffectivelySignedIn && inAuthGroup) {
-      router.replace("/(home)");
-    } else if (!isEffectivelySignedIn && !inAuthGroup) {
-      router.replace("/(auth)/sign-in");
-    }
-  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
+  // Basic routing logic - OAuth scenarios are handled by AuthStateMonitor
+  if (isEffectivelySignedIn && inAuthGroup) {
+    router.replace("/(home)");
+  } else if (!isEffectivelySignedIn && !inAuthGroup) {
+    router.replace("/(auth)/sign-in");
+  }
+}, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
 
   // CHANGED: This function now handles a fade-in for the content.
