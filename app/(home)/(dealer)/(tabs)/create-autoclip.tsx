@@ -493,7 +493,7 @@ const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, 
   const paginationStyles = StyleSheet.create({
     container: {
       position: 'absolute',
-      bottom: 70,
+      bottom: 90,
       left: 0,
       right: 0,
       flexDirection: 'row',

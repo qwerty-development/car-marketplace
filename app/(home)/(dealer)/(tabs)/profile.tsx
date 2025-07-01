@@ -220,6 +220,37 @@ export default function DealershipProfilePage() {
     daysUntilExpiration > 0
   const subscriptionExpired = !isSubscriptionValid()
 
+  // Handler for switching to user interface
+  const handleUserInterfaceRedirect = async () => {
+    try {
+      Alert.alert(
+        "Switch to Customer View",
+        "You will be redirected to the customer browsing interface.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Continue",
+            onPress: async () => {
+              try {
+                // Navigate to user interface
+                router.replace('/(home)/(user)/');
+              } catch (error) {
+                console.error('Error navigating to user interface:', error);
+                Alert.alert('Error', 'Failed to navigate. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error switching to user interface:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
   // Image handling
   const pickImage = async () => {
     try {
@@ -385,6 +416,22 @@ export default function DealershipProfilePage() {
                 {dealership?.name}
               </Text>
               <Text className="text-white/80 text-sm">{dealership?.location}</Text>
+              
+              {/* Customer View Button */}
+              <TouchableOpacity
+                onPress={handleUserInterfaceRedirect}
+                className="mt-6 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex-row items-center border border-white/30"
+              >
+                <Ionicons 
+                  name="storefront-outline" 
+                  size={20} 
+                  color="white" 
+                  style={{ marginRight: 8 }}
+                />
+                <Text className="text-white font-semibold">
+                  Browse as Customer
+                </Text>
+              </TouchableOpacity>
             </View>
           </LinearGradient>
         </View>
