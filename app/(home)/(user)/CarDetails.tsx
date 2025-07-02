@@ -7,6 +7,7 @@ import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import ErrorBoundary from 'react-native-error-boundary'
 import { Ionicons } from '@expo/vector-icons'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 // Lazy load the detail screen component to improve initial load time
 const CarDetailScreen = React.lazy(() => import('./CarDetailModal'))
@@ -22,7 +23,7 @@ const ErrorFallback = ({ error, resetError }:any) => (
     </TouchableOpacity>
     <TouchableOpacity
       style={styles.backButton}
-      onPress={() => router.back()}
+      onPress={() => router.replace("/(home)/(user)")}
     >
       <Text style={styles.backButtonText}>Go Back</Text>
     </TouchableOpacity>
@@ -39,6 +40,7 @@ export default function CarDetailsPage() {
   const { isDarkMode } = useTheme()
   const carId = params.carId as string
   const isDealer = params.isDealerView === 'true'
+  const fromDeepLink = params.fromDeepLink === 'true'
   const [appState, setAppState] = useState(AppState.currentState)
 
   // Refs to track mounting state and loading timeout
@@ -52,6 +54,28 @@ export default function CarDetailsPage() {
     dataLoaded?: number;
     renderComplete?: number;
   }>({ start: Date.now() })
+
+  // SOLUTION: Back button handler with deep link support
+  const handleBackPress = useCallback(() => {
+    try {
+      if (fromDeepLink) {
+        // If came from deep link, go to home instead of back
+        router.replace("/(home)/(user)")
+      } else {
+        // Try normal back navigation first
+        if (router.canGoBack()) {
+          router.back()
+        } else {
+          // Fallback to home if can't go back
+          router.replace("/(home)/(user)")
+        }
+      }
+    } catch (error) {
+      // If any error occurs during navigation, safely redirect to home
+      console.error("Navigation error:", error)
+      router.replace("/(home)/(user)")
+    }
+  }, [fromDeepLink, router])
 
   // Handle app state changes to optimize resource usage
   useEffect(() => {
@@ -219,7 +243,6 @@ export default function CarDetailsPage() {
     }
   }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
 
-
   // Optimize memory usage when app goes to background
   useEffect(() => {
     if (appState !== 'active' && car) {
@@ -237,6 +260,7 @@ export default function CarDetailsPage() {
         { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
       ]}
     >
+
       {isLoading ? (
         <View style={[
           styles.loadingContainer,
@@ -280,7 +304,7 @@ export default function CarDetailsPage() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={handleBackPress}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -303,13 +327,13 @@ export default function CarDetailsPage() {
               { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
             ]}>
               <CarDetailScreen
-              car={{
-    ...car,
-    fromDeepLink: params.fromDeepLink
-  }}
-  isDealer={isDealer}
-  onFavoritePress={handleFavoritePress}
-/>
+                car={{
+                  ...car,
+                  fromDeepLink: params.fromDeepLink
+                }}
+                isDealer={isDealer}
+                onFavoritePress={handleFavoritePress}
+              />
             </View>
           </Suspense>
         </ErrorBoundary>
@@ -328,12 +352,27 @@ export default function CarDetailsPage() {
           </Text>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={handleBackPress}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* SOLUTION: Minimal Floating Icon - No Container Design */}
+      <TouchableOpacity
+        onPress={handleBackPress}
+        style={styles.floatingBackButton}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        activeOpacity={0.6}
+      >
+        <Ionicons
+          name={fromDeepLink ? "home" : "arrow-back"}
+          size={28}
+          color="#FFFFFF"
+          style={styles.floatingIcon}
+        />
+      </TouchableOpacity>
     </View>
   )
 }
@@ -346,6 +385,33 @@ const styles = StyleSheet.create({
         elevation: 0,
       },
     }),
+  },
+  // SOLUTION: Minimal Floating Icon - No Container
+  floatingBackButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 16,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    // No background, no borders - pure minimal design
+  },
+  floatingIcon: {
+    // Multi-layer shadow system for maximum visibility
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 12,
+    // Additional text shadow for Android
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   screenContainer: {
     flex: 1,
