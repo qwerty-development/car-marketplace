@@ -1166,7 +1166,7 @@ const ListingCard = useMemo(
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title='Mileage'
+                  title='Km'
                   icon='speedometer-outline'
                   value={`${(item.mileage / 1000).toFixed(1)}k`}
                   isDarkMode={isDarkMode}
