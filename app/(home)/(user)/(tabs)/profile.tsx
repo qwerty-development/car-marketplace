@@ -35,8 +35,8 @@ import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 import { useNavigation } from "@react-navigation/native";
 
-const WHATSAPP_NUMBER = "70993415";
-const SUPPORT_EMAIL = "info@notqwerty.com";
+const WHATSAPP_NUMBER = "70786818";
+const SUPPORT_EMAIL = "support@fleetapp.me";
 const EMAIL_SUBJECT = "Support Request";
 const DEFAULT_PROFILE_IMAGE =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
