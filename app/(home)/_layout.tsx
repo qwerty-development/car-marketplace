@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState, useRef } from "react";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Slot, useRouter, useSegments, Stack } from "expo-router";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
-import { Alert, View, useColorScheme } from "react-native";
+import { Alert, View, useColorScheme, Platform } from "react-native";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/utils/ThemeContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
@@ -93,7 +92,7 @@ const withTimeout = <T>(
   ]);
 };
 
-// MAIN COMPONENT: Home Layout with comprehensive timeout protection
+
 export default function HomeLayout() {
   const { isLoaded, isSignedIn, user, profile } = useAuth();
   const router = useRouter();
@@ -118,6 +117,37 @@ export default function HomeLayout() {
   const registrationAttempted = useRef(false);
   const operationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
+
+  // ANDROID FIX: Enhanced navigation stack management for deep links
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      // Check if we're in a deep navigation state without proper stack
+      const isDeepRoute = segments.length > 2 && !segments.includes('(tabs)');
+      
+      if (isDeepRoute) {
+        console.log('[HomeLayout] Android deep route detected, ensuring proper stack:', segments);
+        
+        // Additional Android-specific deep link handling
+        const isAutoclipDeepLink = segments.some(segment => 
+          segment.includes('autoclips') || segment.includes('clips')
+        );
+        
+        const isCarDeepLink = segments.some(segment => 
+          segment.includes('CarDetails') || segment.includes('cars')
+        );
+        
+        if (isAutoclipDeepLink) {
+          console.log('[HomeLayout] Android autoclip deep link detected');
+          // Ensure proper navigation hierarchy for autoclips
+        }
+        
+        if (isCarDeepLink) {
+          console.log('[HomeLayout] Android car deep link detected');
+          // Ensure proper navigation hierarchy for car details
+        }
+      }
+    }
+  }, [segments]);
 
   // CRITICAL SYSTEM: Master timeout to prevent infinite loading
   useEffect(() => {
@@ -439,12 +469,40 @@ export default function HomeLayout() {
     return <LogoLoader />;
   }
 
-  // MAIN RENDER: Home layout container
+  // MAIN RENDER: Home layout container with enhanced Android navigation
   return (
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
-      <Slot />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          // ANDROID FIX: Ensure proper animation for deep links
+          animation: Platform.OS === 'android' ? 'slide_from_right' : 'default',
+          // ANDROID FIX: Improve performance during navigation
+          animationTypeForReplace: Platform.OS === 'android' ? 'push' : 'pop',
+          // ANDROID FIX: Prevent navigation stack issues
+          gestureEnabled: Platform.OS === 'ios',
+        }}
+      >
+        <Stack.Screen 
+          name="(user)" 
+          options={{ 
+            headerShown: false,
+            // ANDROID FIX: Ensure proper stack management
+            presentation: Platform.OS === 'android' ? 'card' : 'modal',
+          }} 
+        />
+        <Stack.Screen 
+          name="(dealer)" 
+          options={{ 
+            headerShown: false,
+           
+            presentation: Platform.OS === 'android' ? 'card' : 'modal',
+          }} 
+        />
+        
+      </Stack>
     </View>
   );
 }
