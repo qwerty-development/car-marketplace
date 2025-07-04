@@ -268,6 +268,9 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
+// Fixed DeepLinkHandler component that works for both iOS and Android
+// Replace the existing DeepLinkHandler in your app/_layout.tsx
+
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -286,7 +289,8 @@ const DeepLinkHandler = () => {
 
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
-        url
+        url,
+        `Platform: ${Platform.OS}`
       );
       setIsProcessingDeepLink(true);
 
@@ -296,7 +300,7 @@ const DeepLinkHandler = () => {
 
         console.log("[DeepLink] Parsed URL:", { hostname, path, queryParams });
 
-        // CRITICAL FIX: Handle auth callbacks
+        // Handle auth callbacks
         if (url.includes("auth/callback") || url.includes("reset-password")) {
           console.log("[DeepLink] Handling auth callback");
           const accessToken = queryParams?.access_token;
@@ -317,27 +321,32 @@ const DeepLinkHandler = () => {
           return;
         }
 
-        // CRITICAL FIX: Wait for auth to be loaded
+        // Wait for auth to be loaded
         if (!isLoaded) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
           return;
         }
 
-        // CRITICAL FIX FOR ANDROID: Handle different URL formats
-        let pathToProcess = path || hostname || '';
+        // Parse the path based on platform-specific URL formats
+        let pathToProcess = '';
         
-        // If the URL is in format fleet://cars/123, hostname will be 'cars' and path will be '123'
-        // If the URL is in format https://fleetapp.me/cars/123, path will be 'cars/123'
-        if (hostname && !path?.includes(hostname)) {
-          // This handles fleet://cars/123 format
-          pathToProcess = hostname + (path ? '/' + path : '');
+        if (Platform.OS === 'android') {
+          // Android: Handle fleet://cars/123 format where hostname='cars' and path='123'
+          if (hostname && !path?.includes(hostname)) {
+            pathToProcess = hostname + (path ? '/' + path : '');
+          } else {
+            pathToProcess = path || hostname || '';
+          }
+        } else {
+          // iOS: Standard path parsing
+          pathToProcess = path || '';
         }
 
         if (pathToProcess) {
           // Normalize path for better matching
           const normalizedPath = pathToProcess.toLowerCase().replace(/^\/+/, '');
-          console.log("[DeepLink] Processing normalized path:", normalizedPath);
+          console.log(`[DeepLink - ${Platform.OS}] Processing normalized path:`, normalizedPath);
 
           // Extract ID from various path formats
           let carId: string | null = null;
@@ -367,30 +376,41 @@ const DeepLinkHandler = () => {
             }
 
             try {
-              // ANDROID FIX: Add proper navigation sequence
+              // Platform-specific navigation handling
               if (Platform.OS === 'android' && isInitialLink) {
-                // For Android initial links, ensure proper navigation stack
-                await new Promise((resolve) => setTimeout(resolve, 800));
+                // Android needs proper navigation stack
+                console.log("[DeepLink] Android: Setting up navigation stack");
+                await new Promise((resolve) => setTimeout(resolve, 500));
                 
-                // Navigate to home first to establish proper stack
+                // First establish the base route
                 router.replace("/(home)/(user)");
-                await new Promise((resolve) => setTimeout(resolve, 300));
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                
+                // Then navigate to the specific car
+                router.push({
+                  pathname: "/(home)/(user)/CarDetails",
+                  params: {
+                    carId,
+                    isDealerView: "false",
+                    fromDeepLink: "true",
+                  },
+                });
+              } else {
+                // iOS can navigate directly
+                const prefetchedData = await prefetchCarDetails(carId);
+                
+                router.push({
+                  pathname: "/(home)/(user)/CarDetails",
+                  params: {
+                    carId,
+                    isDealerView: "false",
+                    prefetchedData: prefetchedData
+                      ? JSON.stringify(prefetchedData)
+                      : undefined,
+                    fromDeepLink: "true",
+                  },
+                });
               }
-
-              const prefetchedData = await prefetchCarDetails(carId);
-
-              // Navigate to car details
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId,
-                  isDealerView: "false",
-                  prefetchedData: prefetchedData
-                    ? JSON.stringify(prefetchedData)
-                    : undefined,
-                  fromDeepLink: "true",
-                },
-              });
             } catch (error) {
               console.error("[DeepLink] Error navigating to car details:", error);
               
@@ -438,18 +458,16 @@ const DeepLinkHandler = () => {
                 return;
               }
 
-              // ANDROID FIX: Improved navigation for clips
-              if (Platform.OS === 'android') {
-                console.log("[DeepLink] Android clip navigation sequence starting");
+              // Platform-specific navigation for clips
+              if (Platform.OS === 'android' && isInitialLink) {
+                console.log("[DeepLink] Android clip navigation sequence");
                 
-                if (isInitialLink) {
-                  // For initial links, establish proper navigation stack
-                  await new Promise(resolve => setTimeout(resolve, 800));
-                  router.replace('/(home)/(user)');
-                  await new Promise(resolve => setTimeout(resolve, 300));
-                }
+                // Establish navigation stack for Android
+                await new Promise(resolve => setTimeout(resolve, 500));
+                router.replace('/(home)/(user)');
+                await new Promise(resolve => setTimeout(resolve, 200));
                 
-                // Navigate to autoclips tab with params
+                // Navigate to autoclips tab
                 router.push({
                   pathname: "/(home)/(user)/(tabs)/autoclips",
                   params: {
@@ -464,9 +482,9 @@ const DeepLinkHandler = () => {
                     clipId: clipId,
                     fromDeepLink: "true",
                   });
-                }, 500);
+                }, 300);
               } else {
-                // iOS navigation
+                // iOS can navigate directly
                 router.push({
                   pathname: "/(home)/(user)/(tabs)/autoclips",
                   params: {
@@ -493,18 +511,27 @@ const DeepLinkHandler = () => {
           else {
             console.warn("[DeepLink] Unrecognized deep link pattern:", pathToProcess);
             
-            // ANDROID FIX: Navigate to home instead of showing 404
+            // Navigate to appropriate home screen
             if (isEffectivelySignedIn) {
               router.replace("/(home)/(user)");
             } else {
               router.replace("/(auth)/sign-in");
             }
           }
+        } else {
+          // No path to process - go to home
+          console.log("[DeepLink] No specific path found, navigating to home");
+          const isEffectivelySignedIn = isSignedIn || isGuest;
+          if (isEffectivelySignedIn) {
+            router.replace("/(home)/(user)");
+          } else {
+            router.replace("/(auth)/sign-in");
+          }
         }
       } catch (err) {
         console.error("[DeepLink] Processing error:", err);
         
-        // ANDROID FIX: Better error handling
+        // Error recovery
         const isEffectivelySignedIn = isSignedIn || isGuest;
         if (isEffectivelySignedIn) {
           router.replace("/(home)/(user)");
@@ -513,6 +540,10 @@ const DeepLinkHandler = () => {
         }
       } finally {
         setIsProcessingDeepLink(false);
+        // Mark deep links as ready after processing
+        if (isInitialLink) {
+          initManager.setReady('deepLinks');
+        }
       }
     },
     [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
@@ -536,9 +567,10 @@ const DeepLinkHandler = () => {
     Linking.getInitialURL()
       .then((url) => {
         if (url) {
-          console.log("[DeepLink] App opened with initial URL:", url);
+          console.log(`[DeepLink - ${Platform.OS}] App opened with initial URL:`, url);
           setInitialUrl(url);
         } else {
+          console.log("[DeepLink] No initial URL found");
           initManager.setReady('deepLinks');
         }
       })
@@ -552,8 +584,12 @@ const DeepLinkHandler = () => {
   useEffect(() => {
     if (initialUrl && isLoaded && !initialUrlProcessed.current) {
       initialUrlProcessed.current = true;
-      console.log("[DeepLink] Processing initial URL after auth loaded:", initialUrl);
+      console.log(`[DeepLink - ${Platform.OS}] Processing initial URL after auth loaded:`, initialUrl);
       processDeepLink(initialUrl, true);
+    } else if (!initialUrl && isLoaded && !initialUrlProcessed.current) {
+      // No initial URL and auth is loaded - mark as ready
+      initialUrlProcessed.current = true;
+      initManager.setReady('deepLinks');
     }
   }, [initialUrl, isLoaded, processDeepLink]);
 
@@ -581,6 +617,8 @@ const DeepLinkHandler = () => {
   // Listen for runtime deep links
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
+      console.log(`[DeepLink - ${Platform.OS}] Runtime deep link received:`, url);
+      
       if (isInitialized) {
         processDeepLink(url);
       } else {
@@ -598,18 +636,17 @@ const DeepLinkHandler = () => {
   useEffect(() => {
     if (isSignedIn && global.pendingDeepLink) {
       const { type, id } = global.pendingDeepLink;
+      console.log("[DeepLink] Processing pending deep link after sign-in:", type, id);
 
       if (type === "car" && id) {
-        console.log("[DeepLink] Processing pending car deep link after sign-in");
         router.push({
           pathname: "/(home)/(user)/CarDetails",
-          params: { carId: id, isDealerView: "false" },
+          params: { carId: id, isDealerView: "false", fromDeepLink: "true" },
         });
       } else if (type === "autoclip" && id) {
-        console.log("[DeepLink] Processing pending autoclip deep link after sign-in");
         router.push({
           pathname: "/(home)/(user)/(tabs)/autoclips",
-          params: { clipId: id },
+          params: { clipId: id, fromDeepLink: "true" },
         });
       }
 
