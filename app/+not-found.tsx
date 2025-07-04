@@ -1,4 +1,4 @@
-// app/+not-found.tsx - Updated to handle both iOS and Android properly
+// app/+not-found.tsx - Optimized to prevent showing during deep link navigation
 import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -17,11 +17,36 @@ export default function NotFoundScreen() {
   const params = useLocalSearchParams();
   const [redirectAttempts, setRedirectAttempts] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  
+  // Add delay to prevent flash on Android deep links
+  const [showContent, setShowContent] = useState(false);
+
+  // Check if we're handling a deep link
+  useEffect(() => {
+    // On Android, check if this might be a deep link navigation
+    if (Platform.OS === 'android') {
+      // Check global deep link handling state
+      const isHandlingDeepLink = (global as any).isHandlingDeepLink;
+      
+      if (isHandlingDeepLink) {
+        console.log('[NotFound - Android] Deep link in progress, delaying content display');
+        // Don't show content immediately
+        return;
+      }
+    }
+    
+    // Show content after a brief delay to ensure it's not a deep link
+    const timer = setTimeout(() => {
+      setShowContent(true);
+    }, Platform.OS === 'android' ? 100 : 0);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Platform-specific redirect handling
   useEffect(() => {
-    // Wait for auth to be loaded
-    if (!isLoaded) return;
+    // Wait for auth to be loaded and content to be shown
+    if (!isLoaded || !showContent) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
@@ -32,7 +57,7 @@ export default function NotFoundScreen() {
       
       setIsRedirecting(true);
       
-      // Android-specific redirect strategy
+      // Android-specific redirect strategy with minimal delay
       setTimeout(() => {
         try {
           router.replace('/(home)/(user)');
@@ -40,7 +65,7 @@ export default function NotFoundScreen() {
           console.error('[NotFound - Android] Redirect failed:', error);
         }
         setIsRedirecting(false);
-      }, 500);
+      }, 200);
     }
     
     // For iOS, don't auto-redirect - let user choose
@@ -48,7 +73,7 @@ export default function NotFoundScreen() {
       console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
       router.replace('/(auth)/sign-in');
     }
-  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting]);
+  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting, showContent]);
 
   // Manual navigation handler
   const handleGoHome = () => {
@@ -96,19 +121,12 @@ export default function NotFoundScreen() {
     ]);
   };
 
-  // Show loading state while checking auth
-  if (!isLoaded) {
+  // Show minimal loading state while checking
+  if (!isLoaded || !showContent) {
     return (
       <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
         <View style={styles.content}>
           <ActivityIndicator size="large" color="#D55004" />
-          <Text style={{ 
-            color: isDarkMode ? "#FFFFFF" : "#000000", 
-            fontSize: 18,
-            marginTop: 16 
-          }}>
-            Loading...
-          </Text>
         </View>
       </View>
     );

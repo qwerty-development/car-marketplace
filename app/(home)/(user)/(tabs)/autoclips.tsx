@@ -299,76 +299,87 @@ export default function AutoClips() {
   const [hasHandledDeepLink, setHasHandledDeepLink] = useState(false);
   const deepLinkHandled = useRef(false);
 
-  // UPDATED: Enhanced deep link handling with improved parameter detection
-  useEffect(() => {
-    console.log('[AutoClips] Deep link params check:', { 
+ useEffect(() => {
+    // Skip if no clipId or already loading
+    if (!clipId || isLoading) return;
+    
+    console.log('[AutoClips] Deep link params:', { 
       clipId, 
       fromDeepLink, 
-      isLoading, 
-      autoClipsLength: autoClips.length,
-      hasHandledDeepLink,
-      deepLinkHandled: deepLinkHandled.current 
+      isLoading,
+      hasHandledDeepLink: hasHandledDeepLink
     });
 
-    if (clipId && !isLoading && autoClips.length > 0 && !hasHandledDeepLink && !deepLinkHandled.current) {
+    // Handle deep link immediately when clips are available
+    if (autoClips.length > 0 && !hasHandledDeepLink && !deepLinkHandled.current) {
       const targetClipIndex = autoClips.findIndex(
         clip => clip.id.toString() === clipId.toString()
       );
       
       if (targetClipIndex !== -1) {
-        console.log(`[DeepLink] Navigating to clip ${clipId} at index ${targetClipIndex}`);
+        console.log(`[DeepLink] Found clip ${clipId} at index ${targetClipIndex}`);
         
-        // Mark that we're handling deep link navigation
+        // Mark as handling immediately
         setIsNavigatingToDeepLink(true);
         setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
         
-        // Stop all currently playing videos first
-        Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-          try {
-            await ref?.current?.pauseAsync();
-            await ref?.current?.setPositionAsync(0);
-          } catch (err) {
-            console.error("Error stopping video during deep link:", err);
-          }
-        });
-        
-        // Reset all video playing states
+        // Stop all videos immediately
         setIsPlaying({});
         
-        // Wait for everything to be ready
-        setTimeout(() => {
-          // Scroll to the target clip
+        // Use requestAnimationFrame for smoother UI update
+        requestAnimationFrame(() => {
+          // Scroll without animation for instant response
           flatListRef.current?.scrollToIndex({
             index: targetClipIndex,
             animated: false,
           });
           
-          // Set the current video index
           setCurrentVideoIndex(targetClipIndex);
           
-          // Enable video playback if from deep link
+          // Enable playback if from deep link
           if (fromDeepLink === 'true') {
             setAllowVideoPlayback(true);
           }
           
-          // Small delay to let the scroll settle, then allow normal navigation
+          // Allow normal scrolling after a brief moment
           setTimeout(() => {
             setIsNavigatingToDeepLink(false);
-            console.log(`[DeepLink] Navigation complete, normal scrolling enabled`);
-          }, 1000);
-          
-        }, 500);
+            console.log(`[DeepLink] Navigation complete`);
+          }, 500);
+        });
       } else {
-        // Handle case where clip isn't found
-        Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+        // Clip not found - mark as handled to prevent retries
+        console.warn(`[DeepLink] Clip ${clipId} not found in list`);
         setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
+        
+        // Show alert after a brief delay to ensure UI is ready
+        setTimeout(() => {
+          Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+        }, 100);
       }
     }
   }, [clipId, fromDeepLink, isLoading, autoClips, hasHandledDeepLink]);
 
-  // Reset deep link handler when params change or clear
+useEffect(() => {
+    if (clipId && autoClips.length > 0 && !isLoading) {
+      const targetClip = autoClips.find(
+        clip => clip.id.toString() === clipId.toString()
+      );
+      
+      if (targetClip) {
+        // Start caching the video immediately
+        getCachedVideoUri(targetClip.video_url).then(uri => {
+          console.log(`[DeepLink] Pre-cached video for clip ${clipId}`);
+        }).catch(err => {
+          console.error('[DeepLink] Failed to pre-cache video:', err);
+        });
+      }
+    }
+  }, [clipId, autoClips, isLoading]);
+
+  
   useEffect(() => {
     if (!clipId && hasHandledDeepLink) {
       console.log('[AutoClips] Resetting deep link handler - no clipId found');

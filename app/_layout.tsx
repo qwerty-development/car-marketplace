@@ -10,7 +10,7 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "@/utils/AuthContext";
 import * as SplashScreen from "expo-splash-screen";
 import { FavoritesProvider } from "@/utils/useFavorites";
-import { ThemeProvider } from "@/utils/ThemeContext";
+import { ThemeProvider, useTheme } from "@/utils/ThemeContext";
 import { QueryClient, QueryClientProvider } from "react-query";
 import {
   LogBox,
@@ -24,6 +24,7 @@ import {
   Dimensions,
   useColorScheme,
   AppState,
+  ActivityIndicator,
 } from "react-native";
 import "react-native-gesture-handler";
 import "react-native-get-random-values";
@@ -268,8 +269,8 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// Fixed DeepLinkHandler component that works for both iOS and Android
-// Replace the existing DeepLinkHandler in your app/_layout.tsx
+// Optimized DeepLinkHandler component for app/_layout.tsx
+// This version prevents 404 flash and improves Android performance
 
 const DeepLinkHandler = () => {
   const router = useRouter();
@@ -282,6 +283,9 @@ const DeepLinkHandler = () => {
   const initialUrlProcessed = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
+  
+  // Add state to track if we're handling a deep link to prevent 404
+  const [isHandlingDeepLink, setIsHandlingDeepLink] = useState(false);
 
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
@@ -292,6 +296,9 @@ const DeepLinkHandler = () => {
         url,
         `Platform: ${Platform.OS}`
       );
+      
+      // Set handling flag immediately to prevent 404
+      setIsHandlingDeepLink(true);
       setIsProcessingDeepLink(true);
 
       try {
@@ -303,6 +310,7 @@ const DeepLinkHandler = () => {
         // Handle auth callbacks
         if (url.includes("auth/callback") || url.includes("reset-password")) {
           console.log("[DeepLink] Handling auth callback");
+          setIsHandlingDeepLink(false);
           const accessToken = queryParams?.access_token;
           const refreshToken = queryParams?.refresh_token;
 
@@ -325,6 +333,7 @@ const DeepLinkHandler = () => {
         if (!isLoaded) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
+          setIsHandlingDeepLink(false);
           return;
         }
 
@@ -372,31 +381,42 @@ const DeepLinkHandler = () => {
               console.log("[DeepLink] User not signed in, redirecting to sign-in first");
               global.pendingDeepLink = { type: "car", id: carId };
               router.replace("/(auth)/sign-in");
+              setIsHandlingDeepLink(false);
               return;
             }
 
             try {
-              // Platform-specific navigation handling
+              // Optimized navigation for both platforms
               if (Platform.OS === 'android' && isInitialLink) {
-                // Android needs proper navigation stack
-                console.log("[DeepLink] Android: Setting up navigation stack");
-                await new Promise((resolve) => setTimeout(resolve, 500));
+                // Android: Faster navigation with reduced delays
+                console.log("[DeepLink] Android: Optimized navigation sequence");
                 
-                // First establish the base route
+                // First, prefetch the data while setting up navigation
+                const prefetchPromise = prefetchCarDetails(carId);
+                
+                // Navigate to base route quickly
                 router.replace("/(home)/(user)");
-                await new Promise((resolve) => setTimeout(resolve, 200));
                 
-                // Then navigate to the specific car
+                // Small delay for route to establish
+                await new Promise((resolve) => setTimeout(resolve, 150));
+                
+                // Get prefetched data
+                const prefetchedData = await prefetchPromise;
+                
+                // Navigate to specific car
                 router.push({
                   pathname: "/(home)/(user)/CarDetails",
                   params: {
                     carId,
                     isDealerView: "false",
+                    prefetchedData: prefetchedData
+                      ? JSON.stringify(prefetchedData)
+                      : undefined,
                     fromDeepLink: "true",
                   },
                 });
               } else {
-                // iOS can navigate directly
+                // iOS: Direct navigation
                 const prefetchedData = await prefetchCarDetails(carId);
                 
                 router.push({
@@ -432,42 +452,50 @@ const DeepLinkHandler = () => {
             if (!isEffectivelySignedIn) {
               global.pendingDeepLink = { type: "autoclip", id: clipId };
               router.replace("/(auth)/sign-in");
+              setIsHandlingDeepLink(false);
               return;
             }
 
             try {
-              // Verify clip existence first
-              const { data: clipExists, error } = await supabase
+              // Pre-validate clip existence while setting up navigation
+              const clipCheckPromise = supabase
                 .from("auto_clips")
                 .select("id, status")
                 .eq("id", clipId)
                 .eq("status", "published")
                 .single();
 
-              if (error || !clipExists) {
-                Alert.alert(
-                  "Content Not Available",
-                  "This video is no longer available or has been removed.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => router.replace("/(home)/(user)"),
-                    },
-                  ]
-                );
-                return;
-              }
-
-              // Platform-specific navigation for clips
+              // Optimized navigation for clips
               if (Platform.OS === 'android' && isInitialLink) {
-                console.log("[DeepLink] Android clip navigation sequence");
+                console.log("[DeepLink] Android clip: Optimized navigation");
                 
-                // Establish navigation stack for Android
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Navigate to base immediately
                 router.replace('/(home)/(user)');
-                await new Promise(resolve => setTimeout(resolve, 200));
                 
-                // Navigate to autoclips tab
+                // Check clip while route establishes
+                const { data: clipExists, error } = await clipCheckPromise;
+                
+                if (error || !clipExists) {
+                  Alert.alert(
+                    "Content Not Available",
+                    "This video is no longer available or has been removed.",
+                    [
+                      {
+                        text: "OK",
+                        onPress: () => {
+                          setIsHandlingDeepLink(false);
+                          router.replace("/(home)/(user)");
+                        },
+                      },
+                    ]
+                  );
+                  return;
+                }
+                
+                // Minimal delay for route setup
+                await new Promise(resolve => setTimeout(resolve, 150));
+                
+                // Navigate to autoclips with params
                 router.push({
                   pathname: "/(home)/(user)/(tabs)/autoclips",
                   params: {
@@ -475,15 +503,27 @@ const DeepLinkHandler = () => {
                     fromDeepLink: "true",
                   },
                 });
-                
-                // Ensure params are set
-                setTimeout(() => {
-                  router.setParams({
-                    clipId: clipId,
-                    fromDeepLink: "true",
-                  });
-                }, 300);
               } else {
+                // iOS: Check and navigate
+                const { data: clipExists, error } = await clipCheckPromise;
+                
+                if (error || !clipExists) {
+                  Alert.alert(
+                    "Content Not Available",
+                    "This video is no longer available or has been removed.",
+                    [
+                      {
+                        text: "OK",
+                        onPress: () => {
+                          setIsHandlingDeepLink(false);
+                          router.replace("/(home)/(user)");
+                        },
+                      },
+                    ]
+                  );
+                  return;
+                }
+                
                 // iOS can navigate directly
                 router.push({
                   pathname: "/(home)/(user)/(tabs)/autoclips",
@@ -495,6 +535,7 @@ const DeepLinkHandler = () => {
               }
             } catch (error) {
               console.error("[DeepLink] Error checking clip existence:", error);
+              setIsHandlingDeepLink(false);
               Alert.alert(
                 "Error", 
                 "Unable to load the requested content.",
@@ -510,6 +551,7 @@ const DeepLinkHandler = () => {
           // Handle invalid deep links
           else {
             console.warn("[DeepLink] Unrecognized deep link pattern:", pathToProcess);
+            setIsHandlingDeepLink(false);
             
             // Navigate to appropriate home screen
             if (isEffectivelySignedIn) {
@@ -521,6 +563,7 @@ const DeepLinkHandler = () => {
         } else {
           // No path to process - go to home
           console.log("[DeepLink] No specific path found, navigating to home");
+          setIsHandlingDeepLink(false);
           const isEffectivelySignedIn = isSignedIn || isGuest;
           if (isEffectivelySignedIn) {
             router.replace("/(home)/(user)");
@@ -530,6 +573,7 @@ const DeepLinkHandler = () => {
         }
       } catch (err) {
         console.error("[DeepLink] Processing error:", err);
+        setIsHandlingDeepLink(false);
         
         // Error recovery
         const isEffectivelySignedIn = isSignedIn || isGuest;
@@ -539,7 +583,12 @@ const DeepLinkHandler = () => {
           router.replace("/(auth)/sign-in");
         }
       } finally {
-        setIsProcessingDeepLink(false);
+        // Clear processing flag with slight delay to ensure navigation completes
+        setTimeout(() => {
+          setIsProcessingDeepLink(false);
+          setIsHandlingDeepLink(false);
+        }, 300);
+        
         // Mark deep links as ready after processing
         if (isInitialLink) {
           initManager.setReady('deepLinks');
@@ -548,6 +597,12 @@ const DeepLinkHandler = () => {
     },
     [router, isLoaded, isSignedIn, isGuest, prefetchCarDetails]
   );
+
+  // Export the handling state so it can be used by RootLayoutNav
+  useEffect(() => {
+    // Store in a global variable that RootLayoutNav can access
+    (global as any).isHandlingDeepLink = isHandlingDeepLink;
+  }, [isHandlingDeepLink]);
 
   // Hide splash screen
   useEffect(() => {
@@ -604,7 +659,7 @@ const DeepLinkHandler = () => {
       initializationTimeoutRef.current = setTimeout(() => {
         setIsInitialized(true);
         deepLinkQueue.setReady();
-      }, 300);
+      }, 200); // Reduced from 300ms
     }
 
     return () => {
@@ -851,31 +906,44 @@ function RootLayoutNav() {
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
+  const colorScheme = useColorScheme(); // Use this if useTheme is not available
+  const isDarkMode = colorScheme === 'dark';
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  
+  // Add state to track if we're handling a deep link
+  const [isHandlingDeepLink, setIsHandlingDeepLink] = useState(false);
 
-  // REMOVED: curtainPosition is no longer needed for a fade animation.
-  // const curtainPosition = useRef(new Animated.Value(0)).current;
+  // Check for global deep link handling state
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const globalHandling = (global as any).isHandlingDeepLink;
+      if (globalHandling !== undefined && globalHandling !== isHandlingDeepLink) {
+        setIsHandlingDeepLink(globalHandling);
+      }
+    }, 50);
+
+    return () => clearInterval(checkInterval);
+  }, [isHandlingDeepLink]);
 
   // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
-  if (!isLoaded || isSigningOut || isSigningIn) return;
+    if (!isLoaded || isSigningOut || isSigningIn || isHandlingDeepLink) return;
 
-  const isEffectivelySignedIn = isSignedIn || isGuest;
-  const inAuthGroup = segments[0] === "(auth)";
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    const inAuthGroup = segments[0] === "(auth)";
 
-  // Basic routing logic - OAuth scenarios are handled by AuthStateMonitor
-  if (isEffectivelySignedIn && inAuthGroup) {
-    router.replace("/(home)");
-  } else if (!isEffectivelySignedIn && !inAuthGroup) {
-    router.replace("/(auth)/sign-in");
-  }
-}, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
+    // Basic routing logic - OAuth scenarios are handled by AuthStateMonitor
+    if (isEffectivelySignedIn && inAuthGroup) {
+      router.replace("/(home)");
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
+      router.replace("/(auth)/sign-in");
+    }
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn, isHandlingDeepLink]);
 
-
-  // CHANGED: This function now handles a fade-in for the content.
+  // This function now handles a fade-in for the content.
   const handleSplashComplete = useCallback(() => {
     // This is called after your splash animation/video finishes.
     // Now, we smoothly fade in the main app content.
@@ -889,6 +957,20 @@ function RootLayoutNav() {
     });
   }, [contentOpacity]);
 
+  // Show a loading state during deep link handling to prevent white screen/404
+  if (isHandlingDeepLink) {
+    return (
+      <View style={{ 
+        flex: 1, 
+        backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <ActivityIndicator size="large" color="#D55004" />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
       {/* This View holds your main app content and will fade in */}
@@ -899,7 +981,7 @@ function RootLayoutNav() {
         {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
+      {/* The splash screen */}
       {!splashAnimationComplete ? (
         <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
       ) : null}
