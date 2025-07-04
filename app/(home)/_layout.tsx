@@ -43,12 +43,11 @@ export function setIsSigningOut(value: boolean) {
   }
 }
 
-// METHOD: Coordinate sign out process
+// In your coordinateSignOut function, replace the navigation with:
 export async function coordinateSignOut(
   router: any,
   authSignOut: () => Promise<void>
 ) {
-  // RULE: Prevent duplicate sign out attempts
   if (isSigningOut) {
     console.log("[HomeLayout] Sign out already in progress");
     return;
@@ -57,10 +56,28 @@ export async function coordinateSignOut(
   setIsSigningOut(true);
 
   try {
-    console.log("[HomeLayout] Navigating to sign-in screen");
-    router.replace("/(auth)/sign-in");
+    console.log("[HomeLayout] Starting coordinated sign out");
+    
+    // iOS FIX: Clear navigation stack more aggressively
+    if (Platform.OS === 'ios') {
+      // Dismiss any modals first
+      router.dismissAll?.();
+      
+      // Wait a bit for modals to close
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Navigate to auth with stack reset
+      router.navigate("/(auth)/sign-in");
+      
+      // Backup navigation
+      setTimeout(() => {
+        router.replace("/(auth)/sign-in");
+      }, 200);
+    } else {
+      router.replace("/(auth)/sign-in");
+    }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     console.log("[HomeLayout] Executing auth sign out");
     await authSignOut();
@@ -69,7 +86,15 @@ export async function coordinateSignOut(
     return true;
   } catch (error) {
     console.error("[HomeLayout] Error during coordinated sign out:", error);
-    router.replace("/(auth)/sign-in");
+    
+    // iOS FIX: More aggressive recovery
+    if (Platform.OS === 'ios') {
+      router.dismissAll?.();
+      router.navigate("/(auth)/sign-in");
+    } else {
+      router.replace("/(auth)/sign-in");
+    }
+    
     setIsSigningOut(false);
     return false;
   }
