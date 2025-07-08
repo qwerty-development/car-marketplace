@@ -107,10 +107,14 @@ const queryClient = new QueryClient({
 declare global {
   var pendingDeepLink: { type: string; id: string } | null;
   var hasProcessedOAuthCallback: boolean;
+  var lastRoutingTimestamp: number;
+  var isRoutingInProgress: boolean;
 }
 
 // Initialize global flags
 global.hasProcessedOAuthCallback = false;
+global.lastRoutingTimestamp = 0;
+global.isRoutingInProgress = false;
 
 // SIMPLIFIED SYSTEM: Initialization state management
 interface InitializationState {
@@ -122,6 +126,7 @@ interface InitializationState {
 // REDUCED TIMEOUT CONSTANTS: For faster loading
 const INITIALIZATION_TIMEOUT = 8000;
 const SPLASH_MIN_DURATION = 500;
+const ROUTING_DEBOUNCE_MS = 300;
 
 // SIMPLIFIED CLASS: InitializationManager
 class InitializationManager {
@@ -285,6 +290,7 @@ const DeepLinkHandler = () => {
   const initialUrlProcessed = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
+  const oauthProcessed = useRef(false);
 
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
@@ -303,11 +309,17 @@ const DeepLinkHandler = () => {
 
         console.log("[DeepLink] Parsed URL:", { hostname, path, queryParams });
 
-        // CRITICAL FIX: Handle auth callbacks and navigate to home
+        // CRITICAL FIX: Handle auth callbacks with better state management
         if (url.includes("auth/callback") || url.includes("reset-password")) {
           console.log("[DeepLink] Handling auth callback");
           
-          // Mark that we've processed an OAuth callback
+          // CRITICAL: Check if we've already processed this OAuth callback
+          if (oauthProcessed.current) {
+            console.log("[DeepLink] OAuth already processed, ignoring");
+            return;
+          }
+          
+          oauthProcessed.current = true;
           global.hasProcessedOAuthCallback = true;
           
           const accessToken = queryParams?.access_token;
@@ -324,16 +336,27 @@ const DeepLinkHandler = () => {
               router.replace("/(auth)/sign-in");
             } else {
               console.log("[DeepLink] Auth session set successfully");
-              // CRITICAL FIX: Navigate to home after successful OAuth
-              setTimeout(() => {
+              // CRITICAL: Wait for auth state to propagate before navigating
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // Only navigate if we haven't already
+              if (!global.isRoutingInProgress) {
+                global.isRoutingInProgress = true;
                 router.replace("/(home)/(user)");
-              }, 100);
+                setTimeout(() => {
+                  global.isRoutingInProgress = false;
+                }, 1000);
+              }
             }
           } else {
             // No tokens in callback, navigate to home if signed in
-            if (isSignedIn || isGuest) {
+            if ((isSignedIn || isGuest) && !global.isRoutingInProgress) {
+              global.isRoutingInProgress = true;
               router.replace("/(home)/(user)");
-            } else {
+              setTimeout(() => {
+                global.isRoutingInProgress = false;
+              }, 1000);
+            } else if (!isSignedIn && !isGuest) {
               router.replace("/(auth)/sign-in");
             }
           }
@@ -775,29 +798,85 @@ function RootLayoutNav() {
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
+  const lastRoutingAction = useRef<string>("");
+  const routingDebounce = useRef<NodeJS.Timeout | null>(null);
 
-  // CRITICAL FIX: Enhanced routing logic with 404 page handling
+  // CRITICAL FIX: Enhanced routing logic with debouncing and loop prevention
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
 
-    const isEffectivelySignedIn = isSignedIn || isGuest;
-    const inAuthGroup = segments[0] === "(auth)";
-    const is404Page = segments.length === 0 || segments[0] === "+not-found";
-
-    // CRITICAL FIX: Handle 404 page for authenticated users
-    if (isEffectivelySignedIn && is404Page) {
-      console.log("[RootLayoutNav] Authenticated user on 404 page, redirecting to home");
-      router.replace("/(home)/(user)");
+    // CRITICAL: Prevent routing if already in progress
+    if (global.isRoutingInProgress) {
+      console.log("[RootLayoutNav] Routing already in progress, skipping");
       return;
     }
 
-    // Basic routing logic
-    if (isEffectivelySignedIn && inAuthGroup) {
-      router.replace("/(home)");
-    } else if (!isEffectivelySignedIn && !inAuthGroup && !is404Page) {
-      router.replace("/(auth)/sign-in");
+    // CRITICAL: Debounce routing to prevent loops
+    if (routingDebounce.current) {
+      clearTimeout(routingDebounce.current);
     }
+
+    routingDebounce.current = setTimeout(() => {
+      const isEffectivelySignedIn = isSignedIn || isGuest;
+      const inAuthGroup = segments[0] === "(auth)";
+      const is404Page = segments.length === 0 || segments[0] === "+not-found";
+      const currentPath = segments.join("/");
+
+      // CRITICAL: Check if we're already on the target route
+      const targetRoute = isEffectivelySignedIn ? "(home)/(user)" : "(auth)/sign-in";
+      const routingAction = `${currentPath}->${targetRoute}`;
+
+      // Prevent duplicate routing actions
+      if (routingAction === lastRoutingAction.current) {
+        console.log("[RootLayoutNav] Same routing action, skipping:", routingAction);
+        return;
+      }
+
+      // CRITICAL: Check timestamp to prevent rapid routing
+      const now = Date.now();
+      if (now - global.lastRoutingTimestamp < ROUTING_DEBOUNCE_MS) {
+        console.log("[RootLayoutNav] Routing too fast, skipping");
+        return;
+      }
+
+      global.lastRoutingTimestamp = now;
+      lastRoutingAction.current = routingAction;
+
+      // CRITICAL FIX: Handle 404 page for authenticated users
+      if (isEffectivelySignedIn && is404Page) {
+        console.log("[RootLayoutNav] Authenticated user on 404 page, redirecting to home");
+        global.isRoutingInProgress = true;
+        router.replace("/(home)/(user)");
+        setTimeout(() => {
+          global.isRoutingInProgress = false;
+        }, 1000);
+        return;
+      }
+
+      // Basic routing logic
+      if (isEffectivelySignedIn && inAuthGroup) {
+        console.log("[RootLayoutNav] Authenticated user in auth group, redirecting to home");
+        global.isRoutingInProgress = true;
+        router.replace("/(home)");
+        setTimeout(() => {
+          global.isRoutingInProgress = false;
+        }, 1000);
+      } else if (!isEffectivelySignedIn && !inAuthGroup && !is404Page) {
+        console.log("[RootLayoutNav] Unauthenticated user outside auth group, redirecting to sign-in");
+        global.isRoutingInProgress = true;
+        router.replace("/(auth)/sign-in");
+        setTimeout(() => {
+          global.isRoutingInProgress = false;
+        }, 1000);
+      }
+    }, ROUTING_DEBOUNCE_MS);
+
+    return () => {
+      if (routingDebounce.current) {
+        clearTimeout(routingDebounce.current);
+      }
+    };
   }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
   // Mark auth as ready when loaded
