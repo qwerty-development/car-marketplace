@@ -1,4 +1,4 @@
-// app/+not-found.tsx - Enhanced with better OAuth handling
+// app/+not-found.tsx - Fixed infinite loop issue
 import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -15,100 +15,60 @@ export default function NotFoundScreen() {
   const { isGuest, clearGuestMode } = useGuestUser();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [redirectAttempts, setRedirectAttempts] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const hasAttemptedRedirect = useRef(false);
+  const isMounted = useRef(true);
 
-  // CRITICAL FIX: Enhanced redirect handling for OAuth users
+  // CRITICAL FIX: Simplified redirect with proper guards
   useEffect(() => {
-    // Wait for auth to be loaded
+    // Guard: Component unmounted
+    if (!isMounted.current) return;
+    
+    // Guard: Already redirecting or attempted
+    if (isRedirecting || hasAttemptedRedirect.current) return;
+    
+    // Guard: Auth not loaded
     if (!isLoaded) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
-    // CRITICAL FIX: Immediate redirect for authenticated users
-    if (isEffectivelySignedIn && !hasAttemptedRedirect.current && !isRedirecting) {
+    // Only redirect authenticated users once
+    if (isEffectivelySignedIn) {
       hasAttemptedRedirect.current = true;
-      console.log(`[NotFound - ${Platform.OS}] User authenticated - immediate redirect`);
-      console.log('[NotFound] Route params:', params);
-      console.log('[NotFound] User ID:', user?.id);
-      
       setIsRedirecting(true);
       
-      // Use requestAnimationFrame for smoother transition
-      requestAnimationFrame(() => {
-        try {
-          // Clear any potential navigation stack issues
-          router.dismissAll();
-          
-          // Navigate to home with a clean slate
-          setTimeout(() => {
-            router.replace('/(home)/(user)');
-            setIsRedirecting(false);
-          }, 50);
-        } catch (error) {
-          console.error(`[NotFound - ${Platform.OS}] Redirect failed:`, error);
-          
-          // Fallback with more aggressive navigation
-          setTimeout(() => {
-            try {
-              router.replace('/(home)');
-            } catch (fallbackError) {
-              console.error('[NotFound] Fallback redirect also failed:', fallbackError);
-              // Last resort - reload the app
-              if (Platform.OS === 'android') {
-                Alert.alert(
-                  'Navigation Error',
-                  'Please restart the app to continue.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        // On Android, we can try to force a navigation reset
-                        router.replace('/(home)/(user)');
-                      }
-                    }
-                  ]
-                );
-              }
-            }
-            setIsRedirecting(false);
-          }, 100);
+      console.log(`[NotFound] Authenticated user detected, redirecting to home`);
+      
+      // Simple redirect without complex logic
+      const redirectTimer = setTimeout(() => {
+        if (isMounted.current) {
+          router.replace('/(home)/(user)');
         }
-      });
-    }
-    
-    // For unauthenticated users, redirect to sign-in
-    if (!isEffectivelySignedIn && !hasAttemptedRedirect.current) {
-      hasAttemptedRedirect.current = true;
-      console.log(`[NotFound - ${Platform.OS}] User not authenticated - redirecting to sign-in`);
-      router.replace('/(auth)/sign-in');
-    }
-  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting, user]);
+      }, 100);
 
-  // Manual navigation handler with better error handling
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [isLoaded, isSignedIn, isGuest]); // Removed router from dependencies to prevent loops
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Manual navigation handler
   const handleGoHome = () => {
-    console.log(`[NotFound - ${Platform.OS}] Manual navigation to home`);
+    if (isRedirecting) return;
+    
+    console.log(`[NotFound] Manual navigation to home`);
     
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
+    setIsRedirecting(true);
+    
     if (isEffectivelySignedIn) {
-      setIsRedirecting(true);
-      
-      // Dismiss any modal presentations first
-      router.dismissAll();
-      
-      // Then navigate after a brief delay
-      setTimeout(() => {
-        try {
-          router.replace('/(home)/(user)');
-        } catch (error) {
-          console.error('[NotFound] Manual navigation error:', error);
-          // Force navigation as last resort
-          router.replace('/(home)');
-        }
-        setIsRedirecting(false);
-      }, 100);
+      router.replace('/(home)/(user)');
     } else {
       router.replace('/(auth)/sign-in');
     }
@@ -137,18 +97,14 @@ export default function NotFoundScreen() {
           } catch (error) {
             console.error("Error during sign out:", error);
             router.replace("/(auth)/sign-in");
-            Alert.alert(
-              "Sign Out Issue",
-              "There was a problem signing out, but we've redirected you to the sign-in screen."
-            );
           }
         },
       },
     ]);
   };
 
-  // Show loading state while auth is loading or redirecting
-  if (!isLoaded || isRedirecting) {
+  // Show loading state while auth is loading
+  if (!isLoaded) {
     return (
       <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
         <View style={styles.content}>
@@ -158,16 +114,15 @@ export default function NotFoundScreen() {
             fontSize: 18,
             marginTop: 16 
           }}>
-            {isRedirecting ? "Redirecting..." : "Loading..."}
+            Loading...
           </Text>
         </View>
       </View>
     );
   }
 
-  // For authenticated users, show a brief loading state before redirect
-  const isEffectivelySignedIn = isSignedIn || isGuest;
-  if (isEffectivelySignedIn && redirectAttempts < 3) {
+  // Show redirecting state
+  if (isRedirecting) {
     return (
       <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
         <View style={styles.content}>
@@ -233,7 +188,7 @@ export default function NotFoundScreen() {
             styles.subtitle,
             { color: isDarkMode ? "#FFFFFF80" : "#00000080" }
           ]}>
-            Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
+            Sorry, we couldn't find the page you're looking for.
           </Text>
 
           {/* Action Buttons */}
@@ -248,7 +203,7 @@ export default function NotFoundScreen() {
               <Text style={styles.primaryButtonText}>Go to Home</Text>
             </TouchableOpacity>
 
-            {/* Go Back Button - Only show if we have navigation history */}
+            {/* Go Back Button */}
             <TouchableOpacity 
               style={[
                 styles.secondaryButton,
@@ -258,6 +213,8 @@ export default function NotFoundScreen() {
                 }
               ]}
               onPress={() => {
+                if (isRedirecting) return;
+                
                 try {
                   if (router.canGoBack()) {
                     router.back();
@@ -285,54 +242,10 @@ export default function NotFoundScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Debug info for development */}
-          {__DEV__ && Object.keys(params).length > 0 && (
-            <View style={styles.debugContainer}>
-              <Text style={[
-                styles.debugTitle,
-                { color: isDarkMode ? "#FFFFFF60" : "#00000060" }
-              ]}>
-                Debug Info:
-              </Text>
-              <Text style={[
-                styles.debugText,
-                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
-              ]}>
-                Platform: {Platform.OS}
-              </Text>
-              <Text style={[
-                styles.debugText,
-                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
-              ]}>
-                Auth State: {isLoaded ? (isSignedIn ? 'Signed In' : 'Not Signed In') : 'Loading'}
-              </Text>
-              <Text style={[
-                styles.debugText,
-                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
-              ]}>
-                User Type: {isGuest ? 'Guest' : (user ? 'Authenticated' : 'None')}
-              </Text>
-              {user?.id && (
-                <Text style={[
-                  styles.debugText,
-                  { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
-                ]}>
-                  User ID: {user.id.substring(0, 8)}...
-                </Text>
-              )}
-              <Text style={[
-                styles.debugText,
-                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
-              ]}>
-                Params: {JSON.stringify(params, null, 2)}
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Sign Out Button - only show if user is signed in */}
-        {(user || isGuest) && (
+        {(user || isGuest) && !isRedirecting && (
           <View style={styles.signOutContainer}>
             <TouchableOpacity 
               style={[
@@ -343,7 +256,6 @@ export default function NotFoundScreen() {
                 }
               ]}
               onPress={handleSignOut}
-              disabled={isRedirecting}
             >
               <Ionicons name="log-out-outline" size={20} color="#D55004" style={styles.buttonIcon} />
               <Text style={[styles.signOutButtonText, { color: "#D55004" }]}>
@@ -405,12 +317,6 @@ const styles = StyleSheet.create({
     marginBottom: 48,
     paddingHorizontal: 20,
   },
-  redirectMessage: {
-    fontSize: 14,
-    fontStyle: "italic",
-    marginBottom: 20,
-    textAlign: "center",
-  },
   buttonContainer: {
     width: "100%",
     gap: 12,
@@ -469,21 +375,5 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     fontSize: 16,
     fontWeight: "600",
-  },
-  debugContainer: {
-    marginTop: 24,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "rgba(128, 128, 128, 0.1)",
-    width: "100%",
-  },
-  debugTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  debugText: {
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });
