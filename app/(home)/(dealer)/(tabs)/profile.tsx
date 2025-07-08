@@ -556,7 +556,7 @@ export default function DealershipProfilePage() {
           </Text>
 
           <TouchableOpacity
-            onPress={() => Linking.openURL('https://wa.me/70993415')}
+            onPress={() => Linking.openURL('https://wa.me/70786818')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
               p-4 rounded-xl shadow-sm flex-row items-center`}
           >
@@ -579,7 +579,7 @@ export default function DealershipProfilePage() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => Linking.openURL('mailto:info@notqwerty.com?subject=Dealer Support Request')}
+            onPress={() => Linking.openURL('mailto:support@fleetapp.me?subject=Dealer Support Request')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
               p-4 rounded-xl shadow-sm flex-row items-center`}
           >
