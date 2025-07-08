@@ -223,13 +223,7 @@ const fetchCars = useCallback(
       setLoadingMore(true);
     }
     try {
-      // =================================================================
-      // FOR TESTING: 5-second delay to show skeleton loaders.
-      // This will only run on the first page load.
-      // REMOVE THIS LINE FOR PRODUCTION!
-      if (page === 1) await new Promise((resolve) => setTimeout(resolve, 5000));
-      // =================================================================
-
+  
       let queryBuilder = supabase
         .from("cars")
         .select(
