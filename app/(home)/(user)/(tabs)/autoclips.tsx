@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -37,7 +38,7 @@ import SplashScreen from "../SplashScreen";
 import { Ionicons } from "@expo/vector-icons";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { shareContent } from "@/utils/shareUtils";
-import { useLocalSearchParams, useGlobalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
 // --- constants ---
 const { height, width } = Dimensions.get("window");
@@ -282,45 +283,28 @@ export default function AutoClips() {
   const { isDarkMode } = useTheme();
   const isFocused = useIsFocused();
   const { user } = useAuth();
-  
-  // ANDROID FIX: Enhanced parameter handling with fallback
-  const localParams = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
-  const globalParams = useGlobalSearchParams();
-  
-  // Try multiple param sources for better Android compatibility
-  const clipId = localParams.clipId || globalParams.clipId;
-  const fromDeepLink = localParams.fromDeepLink || globalParams.fromDeepLink;
-  
+  const params = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
   const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Enhanced deep link state management
+  // NEW: Add flag to prevent race conditions during deep link navigation
   const [isNavigatingToDeepLink, setIsNavigatingToDeepLink] = useState(false);
-  const [hasHandledDeepLink, setHasHandledDeepLink] = useState(false);
+  
+  // NEW: Track if we've handled the deep link already
   const deepLinkHandled = useRef(false);
 
-  // UPDATED: Enhanced deep link handling with improved parameter detection
+  // UPDATED: Enhanced deep link handling with proper state management
   useEffect(() => {
-    console.log('[AutoClips] Deep link params check:', { 
-      clipId, 
-      fromDeepLink, 
-      isLoading, 
-      autoClipsLength: autoClips.length,
-      hasHandledDeepLink,
-      deepLinkHandled: deepLinkHandled.current 
-    });
-
-    if (clipId && !isLoading && autoClips.length > 0 && !hasHandledDeepLink && !deepLinkHandled.current) {
+    if (params.clipId && !isLoading && autoClips.length > 0 && !deepLinkHandled.current) {
       const targetClipIndex = autoClips.findIndex(
-        clip => clip.id.toString() === clipId.toString()
+        clip => clip.id.toString() === params.clipId
       );
       
       if (targetClipIndex !== -1) {
-        console.log(`[DeepLink] Navigating to clip ${clipId} at index ${targetClipIndex}`);
+        console.log(`[DeepLink] Navigating to clip ${params.clipId} at index ${targetClipIndex}`);
         
         // Mark that we're handling deep link navigation
         setIsNavigatingToDeepLink(true);
-        setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
         
         // Stop all currently playing videos first
@@ -348,7 +332,7 @@ export default function AutoClips() {
           setCurrentVideoIndex(targetClipIndex);
           
           // Enable video playback if from deep link
-          if (fromDeepLink === 'true') {
+          if (params.fromDeepLink === 'true') {
             setAllowVideoPlayback(true);
           }
           
@@ -362,20 +346,10 @@ export default function AutoClips() {
       } else {
         // Handle case where clip isn't found
         Alert.alert('Clip Not Found', 'The requested video is no longer available.');
-        setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
       }
     }
-  }, [clipId, fromDeepLink, isLoading, autoClips, hasHandledDeepLink]);
-
-  // Reset deep link handler when params change or clear
-  useEffect(() => {
-    if (!clipId && hasHandledDeepLink) {
-      console.log('[AutoClips] Resetting deep link handler - no clipId found');
-      setHasHandledDeepLink(false);
-      deepLinkHandled.current = false;
-    }
-  }, [clipId, hasHandledDeepLink]);
+  }, [params.clipId, isLoading, autoClips]);
 
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
 
@@ -580,7 +554,6 @@ export default function AutoClips() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     // Reset deep link handling when refreshing
-    setHasHandledDeepLink(false);
     deepLinkHandled.current = false;
     await fetchData();
     setRefreshing(false);
