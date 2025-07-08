@@ -12,14 +12,14 @@ import LogoLoader from "@/components/LogoLoader";
 let isSigningOut = false;
 export { isSigningOut };
 
-// TIMEOUT CONSTANTS: Prevent infinite operations
+// REDUCED TIMEOUT CONSTANTS: For better performance
 const OPERATION_TIMEOUTS = {
-  USER_CHECK: 8000, // 8 seconds max for user check
-  DATABASE_OPERATION: 5000, // 5 seconds max for individual DB operations
-  PROFILE_FETCH: 3000, // 3 seconds max for profile fetch
-  BACKGROUND_OPERATIONS: 10000, // 10 seconds max for background operations
-  ROUTING_OPERATION: 3000, // 3 seconds max for routing decisions
-  MASTER_TIMEOUT: 15000, // 15 seconds absolute maximum
+  USER_CHECK: 3000, // Reduced from 8 seconds
+  DATABASE_OPERATION: 2000, // Reduced from 5 seconds
+  PROFILE_FETCH: 1500, // Reduced from 3 seconds
+  BACKGROUND_OPERATIONS: 5000, // Reduced from 10 seconds
+  ROUTING_OPERATION: 1000, // Reduced from 3 seconds
+  MASTER_TIMEOUT: 8000, // Reduced from 15 seconds
 } as const;
 
 // CRITICAL INTERFACE: Operation state tracking
@@ -92,7 +92,6 @@ const withTimeout = <T>(
   ]);
 };
 
-
 export default function HomeLayout() {
   const { isLoaded, isSignedIn, user, profile } = useAuth();
   const router = useRouter();
@@ -138,12 +137,10 @@ export default function HomeLayout() {
         
         if (isAutoclipDeepLink) {
           console.log('[HomeLayout] Android autoclip deep link detected');
-          // Ensure proper navigation hierarchy for autoclips
         }
         
         if (isCarDeepLink) {
           console.log('[HomeLayout] Android car deep link detected');
-          // Ensure proper navigation hierarchy for car details
         }
       }
     }
@@ -152,7 +149,7 @@ export default function HomeLayout() {
   // CRITICAL SYSTEM: Master timeout to prevent infinite loading
   useEffect(() => {
     const masterTimeout = setTimeout(() => {
-      console.warn('[HomeLayout] MASTER TIMEOUT: Forcing app to load after 15 seconds');
+      console.warn('[HomeLayout] MASTER TIMEOUT: Forcing app to load after 8 seconds');
       setForceComplete(true);
       setShowLoader(false);
       setOperationState({
@@ -177,7 +174,7 @@ export default function HomeLayout() {
     };
   }, []);
 
-  // CRITICAL EFFECT: Enhanced user check and creation with timeout protection
+  // OPTIMIZED: Concurrent user check and creation
   useEffect(() => {
     const checkAndCreateUser = async () => {
       // RULE: Skip if conditions not met
@@ -189,7 +186,7 @@ export default function HomeLayout() {
         
         // TIMEOUT PROTECTION: User check operation timeout
         const userCheckTimeout = setTimeout(() => {
-          console.warn('[HomeLayout] User check TIMEOUT: Completing anyway after 8 seconds');
+          console.warn('[HomeLayout] User check TIMEOUT: Completing anyway');
           setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
         }, OPERATION_TIMEOUTS.USER_CHECK);
         
@@ -226,7 +223,7 @@ export default function HomeLayout() {
           }
         }
 
-        // STEP 3: Create user if doesn't exist
+        // STEP 3: Create user if doesn't exist (non-blocking)
         if (!existingUser) {
           const email = isGuest
             ? `guest_${guestId}@example.com`
@@ -236,39 +233,34 @@ export default function HomeLayout() {
             ? "Guest User"
             : profile?.name || user?.user_metadata?.name || "";
 
-          try {
-            await withTimeout(
-              supabase.from("users").upsert(
-                [
-                  {
-                    id: userId,
-                    name: name,
-                    email: email,
-                    favorite: [],
-                    is_guest: isGuest,
-                    last_active: new Date().toISOString(),
-                  },
-                ],
+          // Create user in background
+          const createUserPromise = withTimeout(
+            supabase.from("users").upsert(
+              [
                 {
-                  onConflict: "id",
-                  ignoreDuplicates: false,
-                }
-              ),
-              OPERATION_TIMEOUTS.DATABASE_OPERATION,
-              'user creation'
-            );
+                  id: userId,
+                  name: name,
+                  email: email,
+                  favorite: [],
+                  is_guest: isGuest,
+                  last_active: new Date().toISOString(),
+                },
+              ],
+              {
+                onConflict: "id",
+                ignoreDuplicates: false,
+              }
+            ),
+            OPERATION_TIMEOUTS.DATABASE_OPERATION,
+            'user creation'
+          ).catch(error => {
+            console.warn('[HomeLayout] User creation error (non-critical):', error);
+          });
 
-            console.log("[HomeLayout] Created new user in Supabase");
-          } catch (createError: any) {
-            if (createError.message.includes('timed out')) {
-              console.warn('[HomeLayout] User creation TIMEOUT: Continuing anyway');
-            } else {
-              console.error('[HomeLayout] User creation error:', createError);
-            }
-          }
+          backgroundOperationsRef.current.add(createUserPromise);
         }
 
-        // STEP 4: Clear timeout and mark as completed
+        // STEP 4: Clear timeout and mark as completed immediately
         clearTimeout(userCheckTimeout);
         operationTimeouts.current.delete('userCheck');
         setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
@@ -300,15 +292,6 @@ export default function HomeLayout() {
               
               backgroundOperationsRef.current.add(notificationPromise);
             }
-
-            // TIMEOUT PROTECTION: Background operations timeout
-            const backgroundTimeout = setTimeout(() => {
-              console.warn('[HomeLayout] Background operations TIMEOUT after 10 seconds');
-            }, OPERATION_TIMEOUTS.BACKGROUND_OPERATIONS);
-
-            await Promise.allSettled(Array.from(backgroundOperationsRef.current));
-            clearTimeout(backgroundTimeout);
-            
           } catch (error) {
             console.warn('[HomeLayout] Background operations error:', error);
           }
@@ -324,7 +307,7 @@ export default function HomeLayout() {
         // RULE: Don't block app for user sync errors
         setTimeout(() => {
           setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
-        }, 1000);
+        }, 500);
       }
     };
 
@@ -345,16 +328,16 @@ export default function HomeLayout() {
     forceComplete,
   ]);
 
-  // CRITICAL EFFECT: Enhanced routing logic with timeout protection
+  // OPTIMIZED: Fast routing logic
   useEffect(() => {
     // RULE: Skip if conditions not met
     if (isSigningOut || !isLoaded || forceComplete) return;
     if (operationState.routing !== 'idle') return;
 
-    // RULE: Wait for user check to complete, but not indefinitely
+    // RULE: Don't wait too long for user check
     if (operationState.userCheck === 'running') {
       const routingTimeout = setTimeout(() => {
-        console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway after 3 seconds');
+        console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway');
         setOperationState(prev => ({ ...prev, routing: 'running' }));
       }, OPERATION_TIMEOUTS.ROUTING_OPERATION);
       
@@ -384,11 +367,11 @@ export default function HomeLayout() {
       return;
     }
 
-    // STEP 4: Handle authenticated users (ensure profile loaded)
+    // STEP 4: Handle authenticated users - quick profile check
     if (!profile) {
-      // TIMEOUT PROTECTION: Profile loading timeout
+      // TIMEOUT PROTECTION: Don't wait forever for profile
       const profileTimeout = setTimeout(() => {
-        console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role after 3 seconds');
+        console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role');
         const defaultRole = "user";
         const correctRouteSegment = `(${defaultRole})`;
         
@@ -431,7 +414,7 @@ export default function HomeLayout() {
     forceComplete,
   ]);
 
-  // EFFECT: Loader management with multiple completion conditions
+  // OPTIMIZED: Faster loader management
   useEffect(() => {
     const checkIfReady = () => {
       // RULE: Force complete overrides everything
@@ -440,13 +423,13 @@ export default function HomeLayout() {
         return;
       }
 
-      // RULE: Check if all critical operations are done
+      // RULE: Check if critical operations are done
       const isUserCheckDone = operationState.userCheck === 'completed' || operationState.userCheck === 'failed';
       const isRoutingDone = operationState.routing === 'completed';
       const isBasicLoadingDone = isLoaded;
 
-      // RULE: All conditions must be met to hide loader
-      if (isUserCheckDone && isRoutingDone && isBasicLoadingDone) {
+      // RULE: Show app as soon as routing is done
+      if (isRoutingDone && isBasicLoadingDone) {
         setShowLoader(false);
       }
     };
@@ -457,16 +440,20 @@ export default function HomeLayout() {
   // SAFETY SYSTEM: Emergency loader timeout
   useEffect(() => {
     const loaderTimeout = setTimeout(() => {
-      console.warn('[HomeLayout] EMERGENCY TIMEOUT: Showing app after 12 seconds');
+      console.warn('[HomeLayout] EMERGENCY TIMEOUT: Showing app after 6 seconds');
       setShowLoader(false);
-    }, 12000); // 12 second emergency timeout
+    }, 6000); // Reduced from 12 seconds
 
     return () => clearTimeout(loaderTimeout);
   }, []);
 
   // CONDITIONAL RENDERING: Show loader only when necessary
   if (showLoader && !forceComplete) {
-    return <LogoLoader />;
+    return (
+      <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
+        <LogoLoader />
+      </View>
+    );
   }
 
   // MAIN RENDER: Home layout container with enhanced Android navigation
@@ -497,11 +484,9 @@ export default function HomeLayout() {
           name="(dealer)" 
           options={{ 
             headerShown: false,
-           
             presentation: Platform.OS === 'android' ? 'card' : 'modal',
           }} 
         />
-        
       </Stack>
     </View>
   );
