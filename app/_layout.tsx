@@ -94,9 +94,9 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 2 * 60 * 1000,
-      cacheTime: 5 * 60 * 1000,
+      retry: 1, // Reduced from 2
+      staleTime: 2 * 60 * 1000, // Reduced from 5 minutes
+      cacheTime: 5 * 60 * 1000, // Reduced from 10 minutes
       refetchOnWindowFocus: false,
       refetchOnMount: false,
     },
@@ -106,11 +106,7 @@ const queryClient = new QueryClient({
 // GLOBAL SYSTEM: Deep link state management
 declare global {
   var pendingDeepLink: { type: string; id: string } | null;
-  var hasProcessedOAuthCallback: boolean;
 }
-
-// Initialize global flags
-global.hasProcessedOAuthCallback = false;
 
 // SIMPLIFIED SYSTEM: Initialization state management
 interface InitializationState {
@@ -120,8 +116,8 @@ interface InitializationState {
 }
 
 // REDUCED TIMEOUT CONSTANTS: For faster loading
-const INITIALIZATION_TIMEOUT = 8000;
-const SPLASH_MIN_DURATION = 500;
+const INITIALIZATION_TIMEOUT = 8000; // Reduced from 15 seconds
+const SPLASH_MIN_DURATION = 500; // Reduced from 1 second
 
 // SIMPLIFIED CLASS: InitializationManager
 class InitializationManager {
@@ -209,12 +205,6 @@ class DeepLinkQueue {
 
   // METHOD: Add URL to queue
   enqueue(url: string) {
-    // CRITICAL FIX: Don't queue OAuth callbacks that have already been processed
-    if (url.includes("auth/callback") && global.hasProcessedOAuthCallback) {
-      console.log('[DeepLinkQueue] Ignoring duplicate OAuth callback');
-      return;
-    }
-    
     this.queue.push(url);
     this.processNextIfReady();
   }
@@ -273,7 +263,7 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// OPTIMIZED DeepLinkHandler component with OAuth fix
+// OPTIMIZED DeepLinkHandler component
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -303,13 +293,9 @@ const DeepLinkHandler = () => {
 
         console.log("[DeepLink] Parsed URL:", { hostname, path, queryParams });
 
-        // CRITICAL FIX: Handle auth callbacks and navigate to home
+        // Handle auth callbacks
         if (url.includes("auth/callback") || url.includes("reset-password")) {
           console.log("[DeepLink] Handling auth callback");
-          
-          // Mark that we've processed an OAuth callback
-          global.hasProcessedOAuthCallback = true;
-          
           const accessToken = queryParams?.access_token;
           const refreshToken = queryParams?.refresh_token;
 
@@ -321,20 +307,8 @@ const DeepLinkHandler = () => {
 
             if (error) {
               console.error("[DeepLink] Error setting session:", error);
-              router.replace("/(auth)/sign-in");
             } else {
               console.log("[DeepLink] Auth session set successfully");
-              // CRITICAL FIX: Navigate to home after successful OAuth
-              setTimeout(() => {
-                router.replace("/(home)/(user)");
-              }, 100);
-            }
-          } else {
-            // No tokens in callback, navigate to home if signed in
-            if (isSignedIn || isGuest) {
-              router.replace("/(home)/(user)");
-            } else {
-              router.replace("/(auth)/sign-in");
             }
           }
           return;
@@ -415,7 +389,7 @@ const DeepLinkHandler = () => {
                   },
                 });
               } else {
-                // iOS can navigate directly
+                // iOS can navigate directly - no prefetch to speed up
                 router.push({
                   pathname: "/(home)/(user)/CarDetails",
                   params: {
@@ -450,6 +424,8 @@ const DeepLinkHandler = () => {
             }
 
             try {
+              // Skip clip existence check to speed up navigation
+              
               // Platform-specific navigation for clips
               if (Platform.OS === 'android' && isInitialLink) {
                 console.log("[DeepLink] Android clip navigation sequence");
@@ -587,7 +563,7 @@ const DeepLinkHandler = () => {
       initializationTimeoutRef.current = setTimeout(() => {
         setIsInitialized(true);
         deepLinkQueue.setReady();
-      }, 100);
+      }, 100); // Reduced from 300ms
     }
 
     return () => {
@@ -774,28 +750,20 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0.01)).current;
+  const contentOpacity = useRef(new Animated.Value(0.01)).current; // Start at 0.01 to prevent flash
 
-  // CRITICAL FIX: Enhanced routing logic with 404 page handling
+  // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = segments[0] === "(auth)";
-    const is404Page = segments.length === 0 || segments[0] === "+not-found";
-
-    // CRITICAL FIX: Handle 404 page for authenticated users
-    if (isEffectivelySignedIn && is404Page) {
-      console.log("[RootLayoutNav] Authenticated user on 404 page, redirecting to home");
-      router.replace("/(home)/(user)");
-      return;
-    }
 
     // Basic routing logic
     if (isEffectivelySignedIn && inAuthGroup) {
       router.replace("/(home)");
-    } else if (!isEffectivelySignedIn && !inAuthGroup && !is404Page) {
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
       router.replace("/(auth)/sign-in");
     }
   }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
@@ -924,7 +892,7 @@ export default function RootLayout() {
         if (Platform.OS === "android") {
           setTimeout(() => {
             SplashScreen.hideAsync().catch(() => {});
-          }, 2000);
+          }, 2000); // Reduced from 3000
         }
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
