@@ -35,7 +35,7 @@ import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import SplashScreen from "../SplashScreen";
 import { Ionicons } from "@expo/vector-icons";
-import openWhatsApp from "@/utils/openWhatsApp";
+import openWhatsApp from "@/utils/openWhatsapp";
 import { shareContent } from "@/utils/shareUtils";
 import { useLocalSearchParams, useGlobalSearchParams } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -47,20 +47,7 @@ const TAB_BAR_HEIGHT = 80;
 
 // Performance constants
 const CACHE_SIZE_LIMIT = 100 * 1024 * 1024; // 100MB cache limit
-const VIDEO_QUALITY_MAP = {
-  HIGH: { width: 1080, bitrate: 2000000 },
-  MEDIUM: { width: 720, bitrate: 1000000 },
-  LOW: { width: 480, bitrate: 500000 },
-  VERY_LOW: { width: 360, bitrate: 300000 },
-};
-
-// Network speed thresholds (in Mbps)
-const NETWORK_SPEED_THRESHOLDS = {
-  FAST: 10,
-  MEDIUM: 5,
-  SLOW: 2,
-  VERY_SLOW: 1,
-};
+const VIDEO_PRELOAD_BUFFER = 2; // Number of videos to preload
 
 // --- Interfaces ---
 interface Car {
@@ -100,11 +87,14 @@ interface VideoState {
   [key: number]: boolean;
 }
 
+interface VideoPositions {
+  [key: number]: number;
+}
+
 interface NetworkInfo {
   type: Network.NetworkStateType | null;
   isConnected: boolean;
   isInternetReachable: boolean;
-  downloadBandwidth?: number;
 }
 
 // --- Video Cache Manager ---
@@ -122,8 +112,7 @@ class VideoCacheManager {
 
   async getCachedVideoUri(
     videoUrl: string,
-    quality: 'high' | 'medium' | 'low' = 'high',
-    onProgress?: (progress: number) => void
+    quality: 'high' | 'medium' | 'low' = 'high'
   ): Promise<string> {
     if (!videoUrl) return '';
     
@@ -145,23 +134,9 @@ class VideoCacheManager {
       // Clean cache if needed before downloading
       await this.cleanCacheIfNeeded();
       
-      // Download with progress callback
-      const downloadResumable = FileSystem.createDownloadResumable(
-        videoUrl,
-        localUri,
-        {},
-        (downloadProgress) => {
-          if (onProgress) {
-            const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-            onProgress(progress);
-          }
-        }
-      );
+      // Download the video
+      const { uri } = await FileSystem.downloadAsync(videoUrl, localUri);
       
-      const result = await downloadResumable.downloadAsync();
-      if (!result) throw new Error('Download failed');
-      
-      const { uri } = result;
       const newFileInfo = await FileSystem.getInfoAsync(uri);
       
       if ('size' in newFileInfo) {
@@ -206,18 +181,6 @@ class VideoCacheManager {
       }
     }
   }
-
-  async clearCache(): Promise<void> {
-    for (const filename of this.cacheMap.keys()) {
-      try {
-        await FileSystem.deleteAsync(FileSystem.cacheDirectory + filename, { idempotent: true });
-      } catch (err) {
-        console.error("Error clearing cache:", err);
-      }
-    }
-    this.cacheMap.clear();
-    this.cacheSize = 0;
-  }
 }
 
 // --- Network Monitor Hook ---
@@ -242,7 +205,6 @@ function useNetworkMonitor() {
       if (state.type === 'wifi') {
         setConnectionSpeed('fast');
       } else if (state.type === 'cellular') {
-        // Check specific cellular generation if available
         const details = state.details as any;
         if (details?.cellularGeneration === '4g') {
           setConnectionSpeed('medium');
@@ -263,6 +225,26 @@ function useNetworkMonitor() {
 }
 
 // --- Optimized Clip Item Component ---
+interface ClipItemProps {
+  item: AutoClip;
+  index: number;
+  handleVideoPress: (clipId: number) => void;
+  handleDoubleTap: (clipId: number) => void;
+  isPlaying: VideoState;
+  currentVideoIndex: number;
+  globalMute: boolean;
+  videoLoading: { [key: number]: boolean };
+  setVideoLoading: React.Dispatch<React.SetStateAction<{ [key: number]: boolean }>>;
+  renderVideoControls: (clipId: number) => JSX.Element;
+  renderClipInfo: (item: AutoClip) => JSX.Element;
+  handlePlaybackStatusUpdate: (status: any, clipId: number) => void;
+  allowPlayback: boolean;
+  isDarkMode: boolean;
+  videoRefs: React.MutableRefObject<{ [key: number]: React.RefObject<Video> }>;
+  videoQuality: 'high' | 'medium' | 'low';
+  savedPosition?: number;
+}
+
 const ClipItem = React.memo<ClipItemProps>(({
   item,
   index,
@@ -280,13 +262,15 @@ const ClipItem = React.memo<ClipItemProps>(({
   videoRefs,
   allowPlayback,
   videoQuality,
-  onDownloadProgress,
+  savedPosition = 0,
 }) => {
   const [iconVisible, setIconVisible] = useState(false);
   const [iconType, setIconType] = useState<"play" | "pause">("play");
   const [videoUri, setVideoUri] = useState<string>('');
   const [isBuffering, setIsBuffering] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const cacheManager = VideoCacheManager.getInstance();
+  const initialPositionSet = useRef(false);
   
   // Get the appropriate video URL based on quality
   const getVideoUrl = useCallback(() => {
@@ -309,15 +293,7 @@ const ClipItem = React.memo<ClipItemProps>(({
       if (!url) return;
       
       try {
-        const cachedUri = await cacheManager.getCachedVideoUri(
-          url,
-          videoQuality,
-          (progress) => {
-            if (isMounted && index === currentVideoIndex) {
-              onDownloadProgress?.(item.id, progress);
-            }
-          }
-        );
+        const cachedUri = await cacheManager.getCachedVideoUri(url, videoQuality);
         
         if (isMounted) {
           setVideoUri(cachedUri);
@@ -331,7 +307,7 @@ const ClipItem = React.memo<ClipItemProps>(({
     };
     
     // Only load if close to current index
-    if (Math.abs(index - currentVideoIndex) <= 2) {
+    if (Math.abs(index - currentVideoIndex) <= VIDEO_PRELOAD_BUFFER) {
       loadVideo();
     }
     
@@ -355,9 +331,39 @@ const ClipItem = React.memo<ClipItemProps>(({
   const handleStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsBuffering(status.isBuffering);
+      
+      // Set initial position when video first loads
+      if (!initialPositionSet.current && savedPosition > 0 && status.durationMillis) {
+        const videoRef = videoRefs.current[item.id]?.current;
+        if (videoRef) {
+          videoRef.setPositionAsync(savedPosition * 1000).catch(console.error);
+          initialPositionSet.current = true;
+        }
+      }
     }
     handlePlaybackStatusUpdate(status, item.id);
-  }, [handlePlaybackStatusUpdate, item.id]);
+  }, [handlePlaybackStatusUpdate, item.id, savedPosition]);
+
+  const handleLoad = useCallback(async () => {
+    setVideoLoading(prev => ({ ...prev, [item.id]: false }));
+    setHasLoaded(true);
+    
+    // If this is the current video and should be playing, start playback
+    if (index === currentVideoIndex && allowPlayback && isPlaying[item.id]) {
+      const ref = videoRefs.current[item.id]?.current;
+      if (ref) {
+        try {
+          // If we have a saved position, set it
+          if (savedPosition > 0) {
+            await ref.setPositionAsync(savedPosition * 1000);
+          }
+          await ref.playAsync();
+        } catch (err) {
+          console.error("Error starting video playback:", err);
+        }
+      }
+    }
+  }, [index, currentVideoIndex, allowPlayback, isPlaying, item.id, savedPosition]);
 
   return (
     <View style={{ height, width }}>
@@ -377,14 +383,20 @@ const ClipItem = React.memo<ClipItemProps>(({
             isLooping
             isMuted={globalMute}
             onPlaybackStatusUpdate={handleStatusUpdate}
-            progressUpdateIntervalMillis={500}
-            onLoadStart={() => setVideoLoading(prev => ({ ...prev, [item.id]: true }))}
-            onLoad={() => setVideoLoading(prev => ({ ...prev, [item.id]: false }))}
+            progressUpdateIntervalMillis={250}
+            onLoadStart={() => {
+              if (!hasLoaded) {
+                setVideoLoading(prev => ({ ...prev, [item.id]: true }));
+              }
+            }}
+            onLoad={handleLoad}
+            onError={(error) => {
+              console.error("Video error:", error);
+              setVideoLoading(prev => ({ ...prev, [item.id]: false }));
+            }}
             rate={1.0}
             volume={1.0}
             shouldCorrectPitch={true}
-            // Optimize playback
-            positionMillis={0}
             useNativeControls={false}
           />
         ) : (
@@ -399,21 +411,8 @@ const ClipItem = React.memo<ClipItemProps>(({
           </View>
         )}
 
-        {/* Loading/Buffering indicator */}
-        {(videoLoading[item.id] || isBuffering) && (
-          <BlurView
-            style={StyleSheet.absoluteFill}
-            intensity={60}
-            tint={isDarkMode ? "dark" : "light"}
-          >
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#D55004" />
-              {isBuffering && (
-                <Text style={styles.bufferingText}>Buffering...</Text>
-              )}
-            </View>
-          </BlurView>
-        )}
+        {/* Only show loading indicator on first load or when buffering */}
+      
 
         {/* Play/Pause Icon Overlay */}
         {iconVisible && (
@@ -430,16 +429,6 @@ const ClipItem = React.memo<ClipItemProps>(({
         {renderClipInfo(item)}
       </TouchableOpacity>
     </View>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison for memo optimization
-  return (
-    prevProps.item.id === nextProps.item.id &&
-    prevProps.isPlaying[prevProps.item.id] === nextProps.isPlaying[nextProps.item.id] &&
-    prevProps.currentVideoIndex === nextProps.currentVideoIndex &&
-    prevProps.globalMute === nextProps.globalMute &&
-    prevProps.videoLoading[prevProps.item.id] === nextProps.videoLoading[nextProps.item.id] &&
-    prevProps.videoQuality === nextProps.videoQuality
   );
 });
 
@@ -475,9 +464,13 @@ export default function AutoClips() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [expandedDescriptions, setExpandedDescriptions] = useState<{ [key: number]: boolean }>({});
   
+  // Video position tracking
+  const [videoPositions, setVideoPositions] = useState<VideoPositions>({});
+  const [videoDurations, setVideoDurations] = useState<{ [key: number]: number }>({});
+  
   // Performance optimizations
   const [videoQuality, setVideoQuality] = useState<'high' | 'medium' | 'low'>('medium');
-  const [downloadProgress, setDownloadProgress] = useState<{ [key: number]: number }>({});
+  const hasInitialLoad = useRef(false);
   
   // Refs
   const flatListRef = useRef<FlatList>(null);
@@ -486,10 +479,6 @@ export default function AutoClips() {
   const lastTap = useRef<{ [key: number]: number }>({});
   const viewedClips = useRef<Set<number>>(new Set());
   const appStateRef = useRef(AppState.currentState);
-  
-  // Progress tracking
-  const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>({});
-  const [videoDuration, setVideoDuration] = useState<{ [key: number]: number }>({});
 
   // Adjust video quality based on connection speed
   useEffect(() => {
@@ -511,8 +500,8 @@ export default function AutoClips() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
-        // App going to background - pause all videos
-        Object.values(videoRefs.current).forEach(ref => {
+        // App going to background - pause all videos but maintain positions
+        Object.entries(videoRefs.current).forEach(([clipId, ref]) => {
           ref?.current?.pauseAsync().catch(() => {});
         });
         setIsPlaying({});
@@ -534,6 +523,12 @@ export default function AutoClips() {
         setIsNavigatingToDeepLink(true);
         setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
+        
+        // Stop all currently playing videos
+        Object.values(videoRefs.current).forEach(ref => {
+          ref?.current?.pauseAsync().catch(() => {});
+        });
+        setIsPlaying({});
         
         // Navigate to clip
         setTimeout(() => {
@@ -564,12 +559,10 @@ export default function AutoClips() {
     setAllowVideoPlayback(isFocused);
     
     if (!isFocused) {
-      // Cleanup when not focused
+      // Pause videos when not focused but maintain positions
       Object.values(videoRefs.current).forEach(ref => {
         ref?.current?.pauseAsync().catch(() => {});
       });
-      setVideoProgress({});
-      setVideoDuration({});
     }
   }, [isFocused]);
 
@@ -641,12 +634,17 @@ export default function AutoClips() {
       }));
 
       setAutoClips(mergedClips);
-      setIsPlaying(
-        mergedClips.reduce(
-          (acc, clip, index) => ({ ...acc, [clip.id]: index === 0 }),
-          {}
-        )
-      );
+      
+      // Only set initial playing state on first load
+      if (!hasInitialLoad.current) {
+        setIsPlaying(
+          mergedClips.reduce(
+            (acc, clip, index) => ({ ...acc, [clip.id]: index === 0 }),
+            {}
+          )
+        );
+        hasInitialLoad.current = true;
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to load content");
     } finally {
@@ -671,14 +669,19 @@ export default function AutoClips() {
   // Video playback handlers
   const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus, clipId: number) => {
     if (status.isLoaded) {
-      setVideoProgress(prev => ({
+      // Update position
+      setVideoPositions(prev => ({
         ...prev,
         [clipId]: status.positionMillis / 1000,
       }));
-      setVideoDuration(prev => ({
-        ...prev,
-        [clipId]: status.durationMillis / 1000,
-      }));
+      
+      // Update duration
+      if (status.durationMillis) {
+        setVideoDurations(prev => ({
+          ...prev,
+          [clipId]: status.durationMillis / 1000,
+        }));
+      }
     }
   }, []);
 
@@ -773,6 +776,8 @@ export default function AutoClips() {
     if (videoRef) {
       try {
         await videoRef.setPositionAsync(time * 1000);
+        // Update position state immediately for smooth UI
+        setVideoPositions(prev => ({ ...prev, [clipId]: time }));
       } catch (err) {
         console.error("Error scrubbing video:", err);
       }
@@ -787,8 +792,8 @@ export default function AutoClips() {
     return (
       <VideoControls
         clipId={clipId}
-        duration={videoDuration[clipId] || 0}
-        currentTime={videoProgress[clipId] || 0}
+        duration={videoDurations[clipId] || 0}
+        currentTime={videoPositions[clipId] || 0}
         isPlaying={isPlaying[clipId]}
         globalMute={globalMute}
         onMutePress={handleMutePress}
@@ -801,8 +806,8 @@ export default function AutoClips() {
     );
   }, [
     autoClips,
-    videoDuration,
-    videoProgress,
+    videoDurations,
+    videoPositions,
     isPlaying,
     globalMute,
     user?.id,
@@ -965,7 +970,13 @@ export default function AutoClips() {
           const shouldPlay = clipId === visibleClip.id.toString();
           try {
             if (shouldPlay && allowVideoPlayback) {
-              await ref?.current?.setPositionAsync(0);
+              // Reset position to saved position or 0
+              const savedPosition = videoPositions[Number(clipId)] || 0;
+              if (savedPosition > 0) {
+                await ref?.current?.setPositionAsync(savedPosition * 1000);
+              } else {
+                await ref?.current?.setPositionAsync(0);
+              }
               await ref?.current?.playAsync();
               setIsPlaying(prev => ({ ...prev, [clipId]: true }));
             } else {
@@ -978,7 +989,7 @@ export default function AutoClips() {
         });
       }
     }
-  }, [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]);
+  }, [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink, videoPositions]);
 
   const viewabilityConfig = useMemo(() => ({
     itemVisiblePercentThreshold: 50,
@@ -1053,9 +1064,7 @@ export default function AutoClips() {
             videoRefs={videoRefs}
             allowPlayback={allowVideoPlayback}
             videoQuality={videoQuality}
-            onDownloadProgress={(clipId, progress) => {
-              setDownloadProgress(prev => ({ ...prev, [clipId]: progress }));
-            }}
+            savedPosition={videoPositions[item.id] || 0}
           />
         )}
         keyExtractor={item => item.id.toString()}
@@ -1072,9 +1081,9 @@ export default function AutoClips() {
         }
         contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT }}
         removeClippedSubviews
-        maxToRenderPerBatch={3}
+        maxToRenderPerBatch={2}
         windowSize={5}
-        initialNumToRender={2}
+        initialNumToRender={1}
         updateCellsBatchingPeriod={100}
         getItemLayout={(data, index) => ({
           length: height,
