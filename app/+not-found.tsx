@@ -9,14 +9,6 @@ import { coordinateSignOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState, useRef } from "react";
 
-// Declare global routing flag
-declare global {
-  var isRoutingFromNotFound: boolean;
-}
-
-// Initialize global flag
-global.isRoutingFromNotFound = false;
-
 export default function NotFoundScreen() {
   const { isDarkMode } = useTheme();
   const { user, signOut, isLoaded, isSignedIn } = useAuth();
@@ -26,9 +18,8 @@ export default function NotFoundScreen() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const hasAttemptedRedirect = useRef(false);
   const isMounted = useRef(true);
-  const routingTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // CRITICAL FIX: Simplified redirect with proper guards and timeout
+  // CRITICAL FIX: Simplified redirect with proper guards
   useEffect(() => {
     // Guard: Component unmounted
     if (!isMounted.current) return;
@@ -39,62 +30,23 @@ export default function NotFoundScreen() {
     // Guard: Auth not loaded
     if (!isLoaded) return;
 
-    // Guard: Check global routing flag to prevent loops
-    if (global.isRoutingFromNotFound) {
-      console.log('[NotFound] Routing already in progress, skipping');
-      return;
-    }
-
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
-    // Only redirect authenticated users once with timeout
+    // Only redirect authenticated users once
     if (isEffectivelySignedIn) {
       hasAttemptedRedirect.current = true;
       setIsRedirecting(true);
-      global.isRoutingFromNotFound = true;
       
       console.log(`[NotFound] Authenticated user detected, redirecting to home`);
       
-      // Add timeout to prevent hanging
-      routingTimeout.current = setTimeout(() => {
-        console.warn('[NotFound] Routing timeout, forcing navigation');
+      // Simple redirect without complex logic
+      const redirectTimer = setTimeout(() => {
         if (isMounted.current) {
           router.replace('/(home)/(user)');
         }
-        global.isRoutingFromNotFound = false;
-      }, 2000);
-      
-      // Simple redirect without complex logic
-      const redirectTimer = setTimeout(() => {
-        if (isMounted.current && !router.canGoBack()) {
-          router.replace('/(home)/(user)');
-        } else if (isMounted.current) {
-          // If we can go back, try that first
-          router.back();
-          // But ensure we end up somewhere valid
-          setTimeout(() => {
-            if (isMounted.current) {
-              router.replace('/(home)/(user)');
-            }
-          }, 500);
-        }
-        
-        // Clear timeout and flag
-        if (routingTimeout.current) {
-          clearTimeout(routingTimeout.current);
-          routingTimeout.current = null;
-        }
-        global.isRoutingFromNotFound = false;
       }, 100);
 
-      return () => {
-        clearTimeout(redirectTimer);
-        if (routingTimeout.current) {
-          clearTimeout(routingTimeout.current);
-          routingTimeout.current = null;
-        }
-        global.isRoutingFromNotFound = false;
-      };
+      return () => clearTimeout(redirectTimer);
     }
   }, [isLoaded, isSignedIn, isGuest]); // Removed router from dependencies to prevent loops
 
@@ -102,40 +54,24 @@ export default function NotFoundScreen() {
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      if (routingTimeout.current) {
-        clearTimeout(routingTimeout.current);
-        routingTimeout.current = null;
-      }
-      global.isRoutingFromNotFound = false;
     };
   }, []);
 
-  // Manual navigation handler with loop prevention
+  // Manual navigation handler
   const handleGoHome = () => {
-    if (isRedirecting || global.isRoutingFromNotFound) return;
+    if (isRedirecting) return;
     
     console.log(`[NotFound] Manual navigation to home`);
     
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
     setIsRedirecting(true);
-    global.isRoutingFromNotFound = true;
-    
-    // Add timeout for manual navigation too
-    const navTimeout = setTimeout(() => {
-      global.isRoutingFromNotFound = false;
-    }, 2000);
     
     if (isEffectivelySignedIn) {
       router.replace('/(home)/(user)');
     } else {
       router.replace('/(auth)/sign-in');
     }
-    
-    setTimeout(() => {
-      clearTimeout(navTimeout);
-      global.isRoutingFromNotFound = false;
-    }, 1000);
   };
 
   const handleSignOut = async () => {
@@ -149,9 +85,6 @@ export default function NotFoundScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            // Set flag to prevent routing during sign out
-            global.isRoutingFromNotFound = true;
-            
             if (isGuest) {
               await coordinateSignOut(router, async () => {
                 await clearGuestMode();
@@ -164,11 +97,6 @@ export default function NotFoundScreen() {
           } catch (error) {
             console.error("Error during sign out:", error);
             router.replace("/(auth)/sign-in");
-          } finally {
-            // Clear flag after sign out
-            setTimeout(() => {
-              global.isRoutingFromNotFound = false;
-            }, 2000);
           }
         },
       },
@@ -269,7 +197,7 @@ export default function NotFoundScreen() {
             <TouchableOpacity 
               style={[styles.primaryButton, { backgroundColor: "#D55004" }]}
               onPress={handleGoHome}
-              disabled={isRedirecting || global.isRoutingFromNotFound}
+              disabled={isRedirecting}
             >
               <Ionicons name="home-outline" size={20} color="white" style={styles.buttonIcon} />
               <Text style={styles.primaryButtonText}>Go to Home</Text>
@@ -285,7 +213,7 @@ export default function NotFoundScreen() {
                 }
               ]}
               onPress={() => {
-                if (isRedirecting || global.isRoutingFromNotFound) return;
+                if (isRedirecting) return;
                 
                 try {
                   if (router.canGoBack()) {
@@ -298,7 +226,7 @@ export default function NotFoundScreen() {
                   handleGoHome();
                 }
               }}
-              disabled={isRedirecting || global.isRoutingFromNotFound}
+              disabled={isRedirecting}
             >
               <Ionicons 
                 name="arrow-back-outline" 
@@ -317,7 +245,7 @@ export default function NotFoundScreen() {
         </View>
 
         {/* Sign Out Button - only show if user is signed in */}
-        {(user || isGuest) && !isRedirecting && !global.isRoutingFromNotFound && (
+        {(user || isGuest) && !isRedirecting && (
           <View style={styles.signOutContainer}>
             <TouchableOpacity 
               style={[

@@ -29,16 +29,6 @@ interface OperationState {
   routing: 'idle' | 'running' | 'completed';
 }
 
-// Declare global routing flag for HomeLayout
-declare global {
-  var isHomeLayoutRouting: boolean;
-  var lastHomeLayoutRoute: string;
-}
-
-// Initialize global flags
-global.isHomeLayoutRouting = false;
-global.lastHomeLayoutRoute = "";
-
 // METHOD: Set global sign-out state
 export function setIsSigningOut(value: boolean) {
   const previous = isSigningOut;
@@ -65,7 +55,6 @@ export async function coordinateSignOut(
   }
 
   setIsSigningOut(true);
-  global.isHomeLayoutRouting = true;
 
   try {
     console.log("[HomeLayout] Navigating to sign-in screen");
@@ -83,10 +72,6 @@ export async function coordinateSignOut(
     router.replace("/(auth)/sign-in");
     setIsSigningOut(false);
     return false;
-  } finally {
-    setTimeout(() => {
-      global.isHomeLayoutRouting = false;
-    }, 2000);
   }
 }
 
@@ -131,8 +116,6 @@ export default function HomeLayout() {
   const registrationAttempted = useRef(false);
   const operationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
-  const routingDebounce = useRef<NodeJS.Timeout | null>(null);
-  const lastRoutingAttempt = useRef<number>(0);
 
   // ANDROID FIX: Enhanced navigation stack management for deep links
   useEffect(() => {
@@ -188,12 +171,6 @@ export default function HomeLayout() {
       
       // RULE: Cancel background operations
       backgroundOperationsRef.current.clear();
-      
-      // Clear routing debounce
-      if (routingDebounce.current) {
-        clearTimeout(routingDebounce.current);
-        routingDebounce.current = null;
-      }
     };
   }, []);
 
@@ -351,139 +328,79 @@ export default function HomeLayout() {
     forceComplete,
   ]);
 
-  // OPTIMIZED: Fast routing logic with loop prevention
+  // OPTIMIZED: Fast routing logic
   useEffect(() => {
     // RULE: Skip if conditions not met
     if (isSigningOut || !isLoaded || forceComplete) return;
     if (operationState.routing !== 'idle') return;
-    
-    // CRITICAL: Check global routing flags to prevent loops
-    if (global.isHomeLayoutRouting || global.isRoutingInProgress || global.isRoutingFromNotFound) {
-      console.log('[HomeLayout] Another component is routing, skipping');
+
+    // RULE: Don't wait too long for user check
+    if (operationState.userCheck === 'running') {
+      const routingTimeout = setTimeout(() => {
+        console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway');
+        setOperationState(prev => ({ ...prev, routing: 'running' }));
+      }, OPERATION_TIMEOUTS.ROUTING_OPERATION);
+      
+      operationTimeouts.current.set('routing', routingTimeout);
       return;
     }
 
-    // CRITICAL: Debounce routing
-    const now = Date.now();
-    if (now - lastRoutingAttempt.current < 500) {
-      console.log('[HomeLayout] Routing too fast, debouncing');
+    setOperationState(prev => ({ ...prev, routing: 'running' }));
+
+    // STEP 1: Determine effective sign-in state
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+
+    // STEP 2: Handle unauthenticated users
+    if (!isEffectivelySignedIn) {
+      router.replace("/(auth)/sign-in");
+      setOperationState(prev => ({ ...prev, routing: 'completed' }));
       return;
     }
-    lastRoutingAttempt.current = now;
 
-    // Clear existing debounce
-    if (routingDebounce.current) {
-      clearTimeout(routingDebounce.current);
-      routingDebounce.current = null;
+    // STEP 3: Handle guests (skip profile check)
+    if (isGuest) {
+      const correctRouteSegment = "(user)";
+      if (segments[1] !== correctRouteSegment) {
+        router.replace(`/(home)/${correctRouteSegment}`);
+      }
+      setOperationState(prev => ({ ...prev, routing: 'completed' }));
+      return;
     }
 
-    routingDebounce.current = setTimeout(() => {
-      // RULE: Don't wait too long for user check
-      if (operationState.userCheck === 'running') {
-        const routingTimeout = setTimeout(() => {
-          console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway');
-          setOperationState(prev => ({ ...prev, routing: 'running' }));
-        }, OPERATION_TIMEOUTS.ROUTING_OPERATION);
+    // STEP 4: Handle authenticated users - quick profile check
+    if (!profile) {
+      // TIMEOUT PROTECTION: Don't wait forever for profile
+      const profileTimeout = setTimeout(() => {
+        console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role');
+        const defaultRole = "user";
+        const correctRouteSegment = `(${defaultRole})`;
         
-        operationTimeouts.current.set('routing', routingTimeout);
-        return;
-      }
-
-      setOperationState(prev => ({ ...prev, routing: 'running' }));
-
-      // STEP 1: Determine effective sign-in state
-      const isEffectivelySignedIn = isSignedIn || isGuest;
-
-      // STEP 2: Check current route to prevent redundant navigation
-      const currentRoute = segments.join('/');
-      const targetRoute = isEffectivelySignedIn ? 
-        (isGuest ? "(home)/(user)" : `(home)/(${profile?.role || 'user'})`) : 
-        "(auth)/sign-in";
-
-      // CRITICAL: Prevent same route navigation
-      if (currentRoute === global.lastHomeLayoutRoute) {
-        console.log('[HomeLayout] Same route as last time, skipping:', currentRoute);
-        setOperationState(prev => ({ ...prev, routing: 'completed' }));
-        return;
-      }
-
-      global.lastHomeLayoutRoute = currentRoute;
-
-      // STEP 3: Handle unauthenticated users
-      if (!isEffectivelySignedIn) {
-        global.isHomeLayoutRouting = true;
-        router.replace("/(auth)/sign-in");
-        setOperationState(prev => ({ ...prev, routing: 'completed' }));
-        setTimeout(() => {
-          global.isHomeLayoutRouting = false;
-        }, 1000);
-        return;
-      }
-
-      // STEP 4: Handle guests (skip profile check)
-      if (isGuest) {
-        const correctRouteSegment = "(user)";
         if (segments[1] !== correctRouteSegment) {
-          global.isHomeLayoutRouting = true;
           router.replace(`/(home)/${correctRouteSegment}`);
-          setTimeout(() => {
-            global.isHomeLayoutRouting = false;
-          }, 1000);
         }
         setOperationState(prev => ({ ...prev, routing: 'completed' }));
-        return;
-      }
-
-      // STEP 5: Handle authenticated users - quick profile check
-      if (!profile) {
-        // TIMEOUT PROTECTION: Don't wait forever for profile
-        const profileTimeout = setTimeout(() => {
-          console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role');
-          const defaultRole = "user";
-          const correctRouteSegment = `(${defaultRole})`;
-          
-          if (segments[1] !== correctRouteSegment) {
-            global.isHomeLayoutRouting = true;
-            router.replace(`/(home)/${correctRouteSegment}`);
-            setTimeout(() => {
-              global.isHomeLayoutRouting = false;
-            }, 1000);
-          }
-          setOperationState(prev => ({ ...prev, routing: 'completed' }));
-        }, OPERATION_TIMEOUTS.PROFILE_FETCH);
-        
-        operationTimeouts.current.set('profile', profileTimeout);
-        return;
-      }
-
-      // STEP 6: Clear profile timeout if set
-      const profileTimeout = operationTimeouts.current.get('profile');
-      if (profileTimeout) {
-        clearTimeout(profileTimeout);
-        operationTimeouts.current.delete('profile');
-      }
-
-      // STEP 7: Route based on user role
-      const role = profile?.role || "user";
-      const correctRouteSegment = `(${role})`;
-
-      if (segments[1] !== correctRouteSegment) {
-        global.isHomeLayoutRouting = true;
-        router.replace(`/(home)/${correctRouteSegment}`);
-        setTimeout(() => {
-          global.isHomeLayoutRouting = false;
-        }, 1000);
-      }
+      }, OPERATION_TIMEOUTS.PROFILE_FETCH);
       
-      setOperationState(prev => ({ ...prev, routing: 'completed' }));
-    }, 300); // 300ms debounce
+      operationTimeouts.current.set('profile', profileTimeout);
+      return;
+    }
 
-    return () => {
-      if (routingDebounce.current) {
-        clearTimeout(routingDebounce.current);
-        routingDebounce.current = null;
-      }
-    };
+    // STEP 5: Clear profile timeout if set
+    const profileTimeout = operationTimeouts.current.get('profile');
+    if (profileTimeout) {
+      clearTimeout(profileTimeout);
+      operationTimeouts.current.delete('profile');
+    }
+
+    // STEP 6: Route based on user role
+    const role = profile?.role || "user";
+    const correctRouteSegment = `(${role})`;
+
+    if (segments[1] !== correctRouteSegment) {
+      router.replace(`/(home)/${correctRouteSegment}`);
+    }
+    
+    setOperationState(prev => ({ ...prev, routing: 'completed' }));
   }, [
     isLoaded,
     isSignedIn,
