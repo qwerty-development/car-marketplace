@@ -1,4 +1,3 @@
-
 import React, {
   useState,
   useEffect,
@@ -91,13 +90,13 @@ LogBox.ignoreAllLogs();
 // CRITICAL SYSTEM: Prevent auto-hiding splash screen
 SplashScreen.preventAutoHideAsync();
 
-// PERSISTENT CONFIGURATION: QueryClient setup
+// PERSISTENT CONFIGURATION: QueryClient setup - OPTIMIZED
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1, // Reduced from 2
+      staleTime: 2 * 60 * 1000, // Reduced from 5 minutes
+      cacheTime: 5 * 60 * 1000, // Reduced from 10 minutes
       refetchOnWindowFocus: false,
       refetchOnMount: false,
     },
@@ -109,27 +108,23 @@ declare global {
   var pendingDeepLink: { type: string; id: string } | null;
 }
 
-// CRITICAL SYSTEM: Initialization state management
+// SIMPLIFIED SYSTEM: Initialization state management
 interface InitializationState {
   auth: boolean;
-  notifications: boolean;
   splash: boolean;
   deepLinks: boolean;
-  permissions: boolean;
 }
 
-// TIMEOUT CONSTANTS: Prevent infinite loading
-const INITIALIZATION_TIMEOUT = 15000; // 15 seconds maximum wait
-const SPLASH_MIN_DURATION = 1000; // Minimum 1 second splash
+// REDUCED TIMEOUT CONSTANTS: For faster loading
+const INITIALIZATION_TIMEOUT = 8000; // Reduced from 15 seconds
+const SPLASH_MIN_DURATION = 500; // Reduced from 1 second
 
-// CRITICAL CLASS: InitializationManager
+// SIMPLIFIED CLASS: InitializationManager
 class InitializationManager {
   private state: InitializationState = {
     auth: false,
-    notifications: false,
     splash: false,
     deepLinks: false,
-    permissions: false,
   };
   
   private callbacks: Set<() => void> = new Set();
@@ -139,7 +134,7 @@ class InitializationManager {
   constructor() {
     // MANDATORY TIMEOUT: Prevent infinite loading
     this.timeoutId = setTimeout(() => {
-      console.warn('[InitManager] TIMEOUT: Forcing completion after 15 seconds');
+      console.warn('[InitManager] TIMEOUT: Forcing completion after 8 seconds');
       this.forceComplete();
     }, INITIALIZATION_TIMEOUT);
   }
@@ -232,12 +227,12 @@ class DeepLinkQueue {
 
     if (url && this.processUrlCallback) {
       try {
-        // TIMEOUT PROTECTION: 5 second limit for deep link processing
+        // TIMEOUT PROTECTION: 3 second limit for deep link processing
         this.processTimeout = setTimeout(() => {
           console.warn('[DeepLinkQueue] TIMEOUT: Processing timeout, skipping URL:', url);
           this.processing = false;
           this.processNextIfReady();
-        }, 5000);
+        }, 3000);
 
         await this.processUrlCallback(url);
         
@@ -268,9 +263,7 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// Fixed DeepLinkHandler component that works for both iOS and Android
-// Replace the existing DeepLinkHandler in your app/_layout.tsx
-
+// OPTIMIZED DeepLinkHandler component
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -380,11 +373,11 @@ const DeepLinkHandler = () => {
               if (Platform.OS === 'android' && isInitialLink) {
                 // Android needs proper navigation stack
                 console.log("[DeepLink] Android: Setting up navigation stack");
-                await new Promise((resolve) => setTimeout(resolve, 500));
+                await new Promise((resolve) => setTimeout(resolve, 200));
                 
                 // First establish the base route
                 router.replace("/(home)/(user)");
-                await new Promise((resolve) => setTimeout(resolve, 200));
+                await new Promise((resolve) => setTimeout(resolve, 100));
                 
                 // Then navigate to the specific car
                 router.push({
@@ -396,17 +389,12 @@ const DeepLinkHandler = () => {
                   },
                 });
               } else {
-                // iOS can navigate directly
-                const prefetchedData = await prefetchCarDetails(carId);
-                
+                // iOS can navigate directly - no prefetch to speed up
                 router.push({
                   pathname: "/(home)/(user)/CarDetails",
                   params: {
                     carId,
                     isDealerView: "false",
-                    prefetchedData: prefetchedData
-                      ? JSON.stringify(prefetchedData)
-                      : undefined,
                     fromDeepLink: "true",
                   },
                 });
@@ -436,36 +424,16 @@ const DeepLinkHandler = () => {
             }
 
             try {
-              // Verify clip existence first
-              const { data: clipExists, error } = await supabase
-                .from("auto_clips")
-                .select("id, status")
-                .eq("id", clipId)
-                .eq("status", "published")
-                .single();
-
-              if (error || !clipExists) {
-                Alert.alert(
-                  "Content Not Available",
-                  "This video is no longer available or has been removed.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => router.replace("/(home)/(user)"),
-                    },
-                  ]
-                );
-                return;
-              }
-
+              // Skip clip existence check to speed up navigation
+              
               // Platform-specific navigation for clips
               if (Platform.OS === 'android' && isInitialLink) {
                 console.log("[DeepLink] Android clip navigation sequence");
                 
                 // Establish navigation stack for Android
-                await new Promise(resolve => setTimeout(resolve, 500));
-                router.replace('/(home)/(user)');
                 await new Promise(resolve => setTimeout(resolve, 200));
+                router.replace('/(home)/(user)');
+                await new Promise(resolve => setTimeout(resolve, 100));
                 
                 // Navigate to autoclips tab
                 router.push({
@@ -482,7 +450,7 @@ const DeepLinkHandler = () => {
                     clipId: clipId,
                     fromDeepLink: "true",
                   });
-                }, 300);
+                }, 100);
               } else {
                 // iOS can navigate directly
                 router.push({
@@ -494,17 +462,8 @@ const DeepLinkHandler = () => {
                 });
               }
             } catch (error) {
-              console.error("[DeepLink] Error checking clip existence:", error);
-              Alert.alert(
-                "Error", 
-                "Unable to load the requested content.",
-                [
-                  {
-                    text: "Go to Home",
-                    onPress: () => router.replace("/(home)/(user)"),
-                  },
-                ]
-              );
+              console.error("[DeepLink] Error navigating to clip:", error);
+              router.replace("/(home)/(user)");
             }
           }
           // Handle invalid deep links
@@ -604,7 +563,7 @@ const DeepLinkHandler = () => {
       initializationTimeoutRef.current = setTimeout(() => {
         setIsInitialized(true);
         deepLinkQueue.setReady();
-      }, 300);
+      }, 100); // Reduced from 300ms
     }
 
     return () => {
@@ -657,16 +616,7 @@ const DeepLinkHandler = () => {
   return null;
 };
 
-// COMPONENT: Environment variables check
-function EnvironmentVariablesCheck() {
-  useEffect(() => {
-    initManager.setReady('permissions');
-  }, []);
-  
-  return null;
-}
-
-// COMPONENT: Timeout-protected NotificationsProvider
+// SIMPLIFIED: NotificationsProvider
 function NotificationsProvider() {
   const {
     unreadCount,
@@ -676,152 +626,102 @@ function NotificationsProvider() {
   } = useNotifications();
   const { user, isSignedIn } = useAuth();
   const { isGuest } = useGuestUser();
-  const [initializationState, setInitializationState] = useState<
-    "idle" | "running" | "completed" | "failed"
-  >("idle");
-  const initRetryCount = useRef(0);
-  const MAX_INIT_RETRIES = 2;
   const initTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // COMPUTED: Operation key for coordination
-  const operationKey = useMemo(
-    () => (user?.id ? `notification_init_${user.id}` : null),
-    [user?.id]
-  );
-
-  // EFFECT: Initialize notifications with timeout protection
+  // EFFECT: Initialize notifications with faster timeout
   useEffect(() => {
     const initializeNotifications = async () => {
       // RULE: Skip if no user or guest
-      if (!user?.id || isGuest || !isSignedIn || !operationKey) {
-        setInitializationState("completed");
-        initManager.setReady('notifications');
-        return;
-      }
-
-      // RULE: Skip if already completed or running
-      if (
-        initializationState === "completed" ||
-        initializationState === "running"
-      ) {
-        console.log(
-          "[NotificationsProvider] Initialization already completed or in progress"
-        );
+      if (!user?.id || isGuest || !isSignedIn) {
         return;
       }
 
       try {
-        // TIMEOUT PROTECTION: 8 second initialization timeout
+        // TIMEOUT PROTECTION: 3 second initialization timeout
         initTimeoutRef.current = setTimeout(() => {
-          console.warn('[NotificationsProvider] TIMEOUT: Marking as completed after 8 seconds');
-          setInitializationState("completed");
-          initManager.setReady('notifications');
-        }, 8000);
+          console.warn('[NotificationsProvider] TIMEOUT: Skipping notifications after 3 seconds');
+        }, 3000);
 
-        await notificationCoordinator.executeExclusive(
-          operationKey,
-          async (signal) => {
-            console.log(
-              "[NotificationsProvider] Starting coordinated initialization"
-            );
-            setInitializationState("running");
-
-            notificationCoordinator.checkAborted(signal);
-
-            // RULE: Set up Android channel
-            if (Platform.OS === "android") {
-              try {
-                await Notifications.setNotificationChannelAsync("default", {
-                  name: "Default",
-                  importance: Notifications.AndroidImportance.MAX,
-                  vibrationPattern: [0, 250, 250, 250],
-                  lightColor: "#D55004",
-                  sound: "notification.wav",
-                  enableVibrate: true,
-                  enableLights: true,
-                  showBadge: true,
-                  lockscreenVisibility:
-                    Notifications.AndroidNotificationVisibility.PUBLIC,
-                });
-                console.log(
-                  "[NotificationsProvider] Android channel configured"
-                );
-              } catch (channelError) {
-                console.warn(
-                  "[NotificationsProvider] Channel setup error (non-critical):",
-                  channelError
-                );
-              }
-            }
-
-            // RULE: Check cached permissions
-            let cachedPermissions =
-              notificationCache.get<Notifications.NotificationPermissionsStatus>(
-                NotificationCacheManager.keys.permissions()
-              );
-
-            if (!cachedPermissions) {
-              cachedPermissions = await Notifications.getPermissionsAsync();
-              if (cachedPermissions) {
-                notificationCache.set(
-                  NotificationCacheManager.keys.permissions(),
-                  cachedPermissions,
-                  10 * 60 * 1000
-                );
-              }
-            }
-
-            // RULE: Request permissions if needed
-            if (cachedPermissions?.status !== "granted") {
-              console.log("[NotificationsProvider] Requesting permissions");
-              const newPermissions =
-                await Notifications.requestPermissionsAsync();
-
-              if (newPermissions?.status !== "granted") {
-                console.log("[NotificationsProvider] Permission denied");
-                setInitializationState("completed");
-                initManager.setReady('notifications');
-                return;
-              }
-
-              notificationCache.set(
-                NotificationCacheManager.keys.permissions(),
-                newPermissions,
-                10 * 60 * 1000
-              );
-            }
-
-            console.log(
-              "[NotificationsProvider] Registering for push notifications"
-            );
-            
-            // RULE: Background registration - don't await
-            registerForPushNotifications(true).catch(error => {
-              console.warn('[NotificationsProvider] Background registration failed:', error);
+        // RULE: Set up Android channel
+        if (Platform.OS === "android") {
+          try {
+            await Notifications.setNotificationChannelAsync("default", {
+              name: "Default",
+              importance: Notifications.AndroidImportance.MAX,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: "#D55004",
+              sound: "notification.wav",
+              enableVibrate: true,
+              enableLights: true,
+              showBadge: true,
+              lockscreenVisibility:
+                Notifications.AndroidNotificationVisibility.PUBLIC,
             });
+            console.log(
+              "[NotificationsProvider] Android channel configured"
+            );
+          } catch (channelError) {
+            console.warn(
+              "[NotificationsProvider] Channel setup error (non-critical):",
+              channelError
+            );
+          }
+        }
 
-            setInitializationState("completed");
-            initRetryCount.current = 0;
-            
-            if (initTimeoutRef.current) {
-              clearTimeout(initTimeoutRef.current);
-              initTimeoutRef.current = undefined;
-            }
-            
-            initManager.setReady('notifications');
+        // RULE: Check cached permissions
+        let cachedPermissions =
+          notificationCache.get<Notifications.NotificationPermissionsStatus>(
+            NotificationCacheManager.keys.permissions()
+          );
+
+        if (!cachedPermissions) {
+          cachedPermissions = await Notifications.getPermissionsAsync();
+          if (cachedPermissions) {
+            notificationCache.set(
+              NotificationCacheManager.keys.permissions(),
+              cachedPermissions,
+              10 * 60 * 1000
+            );
           }
+        }
+
+        // RULE: Request permissions if needed
+        if (cachedPermissions?.status !== "granted") {
+          console.log("[NotificationsProvider] Requesting permissions");
+          const newPermissions =
+            await Notifications.requestPermissionsAsync();
+
+          if (newPermissions?.status !== "granted") {
+            console.log("[NotificationsProvider] Permission denied");
+            return;
+          }
+
+          notificationCache.set(
+            NotificationCacheManager.keys.permissions(),
+            newPermissions,
+            10 * 60 * 1000
+          );
+        }
+
+        console.log(
+          "[NotificationsProvider] Registering for push notifications"
         );
+        
+        // RULE: Background registration - don't await
+        registerForPushNotifications(true).catch(error => {
+          console.warn('[NotificationsProvider] Background registration failed:', error);
+        });
+
+        if (initTimeoutRef.current) {
+          clearTimeout(initTimeoutRef.current);
+          initTimeoutRef.current = undefined;
+        }
       } catch (error: any) {
-        if (error.message !== "Operation cancelled") {
-          console.error("[NotificationsProvider] Initialization error:", error);
-          setInitializationState("completed");
-          
-          if (initTimeoutRef.current) {
-            clearTimeout(initTimeoutRef.current);
-            initTimeoutRef.current = undefined;
-          }
-          
-          initManager.setReady('notifications');
+        console.error("[NotificationsProvider] Initialization error:", error);
+        
+        if (initTimeoutRef.current) {
+          clearTimeout(initTimeoutRef.current);
+          initTimeoutRef.current = undefined;
         }
       }
     };
@@ -838,13 +738,10 @@ function NotificationsProvider() {
     isSignedIn,
     isGuest,
     registerForPushNotifications,
-    operationKey,
-    initializationState,
   ]);
 
-  return <EnvironmentVariablesCheck />;
+  return null;
 }
-
 
 function RootLayoutNav() {
   const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
@@ -853,55 +750,65 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current; // Content starts transparent
-
-  // REMOVED: curtainPosition is no longer needed for a fade animation.
-  // const curtainPosition = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0.01)).current; // Start at 0.01 to prevent flash
 
   // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
-  if (!isLoaded || isSigningOut || isSigningIn) return;
+    if (!isLoaded || isSigningOut || isSigningIn) return;
 
-  const isEffectivelySignedIn = isSignedIn || isGuest;
-  const inAuthGroup = segments[0] === "(auth)";
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    const inAuthGroup = segments[0] === "(auth)";
 
-  // Basic routing logic - OAuth scenarios are handled by AuthStateMonitor
-  if (isEffectivelySignedIn && inAuthGroup) {
-    router.replace("/(home)");
-  } else if (!isEffectivelySignedIn && !inAuthGroup) {
-    router.replace("/(auth)/sign-in");
-  }
-}, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
+    // Basic routing logic
+    if (isEffectivelySignedIn && inAuthGroup) {
+      router.replace("/(home)");
+    } else if (!isEffectivelySignedIn && !inAuthGroup) {
+      router.replace("/(auth)/sign-in");
+    }
+  }, [isLoaded, isSignedIn, isGuest, segments, router, isSigningOut, isSigningIn]);
 
+  // Mark auth as ready when loaded
+  useEffect(() => {
+    if (isLoaded) {
+      initManager.setReady('auth');
+    }
+  }, [isLoaded]);
 
-  // CHANGED: This function now handles a fade-in for the content.
+  // OPTIMIZED: Smoother splash to content transition
   const handleSplashComplete = useCallback(() => {
-    // This is called after your splash animation/video finishes.
-    // Now, we smoothly fade in the main app content.
+    // Mark splash as ready
+    initManager.setReady('splash');
+    
+    // Start fading in content BEFORE removing splash
     Animated.timing(contentOpacity, {
       toValue: 1,
-      duration: 400, // A gentle fade-in duration
+      duration: 300,
       useNativeDriver: true,
-    }).start(() => {
-      // After the content is fully visible, we can remove the splash component from the tree.
+    }).start();
+    
+    // Delay splash removal to ensure content is visible
+    setTimeout(() => {
       setSplashAnimationComplete(true);
-    });
+    }, 150);
   }, [contentOpacity]);
 
+  // Get theme for background color
+  const colorScheme = useColorScheme();
+  const backgroundColor = colorScheme === 'dark' ? '#000000' : '#FFFFFF';
+
   return (
-    <View style={{ flex: 1 }}>
-      {/* This View holds your main app content and will fade in */}
+    <View style={{ flex: 1, backgroundColor }}>
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {/* Guard the Slot component until auth state is known */}
         {isLoaded ? <Slot /> : null}
       </Animated.View>
 
-      {/* CHANGED: The curtain View is gone. We now render the splash screen or nothing. */}
       {!splashAnimationComplete ? (
-        <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+        <View style={StyleSheet.absoluteFillObject}>
+          <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+        </View>
       ) : null}
     </View>
   );
@@ -913,9 +820,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
-  curtain: {
+  splashContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "white",
     zIndex: 2,
   },
 });
@@ -938,7 +844,7 @@ export default function RootLayout() {
   const badgeClearingRef = useRef(false);
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
 
-  // EFFECT: Initialize app systems
+  // EFFECT: Initialize app systems - OPTIMIZED
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -947,23 +853,19 @@ export default function RootLayout() {
         // RULE: Mark splash as ready immediately
         initManager.setReady('splash');
 
-        // RULE: Clear badge once
+        // RULE: Clear badge once - non-blocking
         if (!badgeClearingRef.current) {
           badgeClearingRef.current = true;
-          try {
-            await Notifications.setBadgeCountAsync(0);
-            console.log("[RootLayout] Badge cleared on app launch");
-          } catch (badgeError) {
+          Notifications.setBadgeCountAsync(0).catch(badgeError => {
             console.warn(
               "[RootLayout] Non-critical: Badge clear failed:",
               badgeError
             );
-          }
+          });
         }
 
-        // RULE: Cache initial permissions
-        try {
-          const permissionStatus = await Notifications.getPermissionsAsync();
+        // RULE: Cache initial permissions - non-blocking
+        Notifications.getPermissionsAsync().then(permissionStatus => {
           console.log(
             "[RootLayout] Initial permission status:",
             permissionStatus.status
@@ -974,32 +876,30 @@ export default function RootLayout() {
             permissionStatus,
             10 * 60 * 1000
           );
-        } catch (notifError) {
+        }).catch(notifError => {
           console.warn(
             "[RootLayout] Non-critical: Permission check failed:",
             notifError
           );
-        }
+        });
 
         // RULE: Mark auth as ready (will be overridden by AuthProvider)
         setTimeout(() => {
           initManager.setReady('auth');
-        }, 100);
+        }, 50);
 
         // RULE: Android splash failsafe
         if (Platform.OS === "android") {
           setTimeout(() => {
             SplashScreen.hideAsync().catch(() => {});
-          }, 3000);
+          }, 2000); // Reduced from 3000
         }
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
         // RULE: Force completion on error
         initManager.setReady('splash');
         initManager.setReady('auth');
-        initManager.setReady('notifications');
         initManager.setReady('deepLinks');
-        initManager.setReady('permissions');
       }
     };
 
@@ -1015,7 +915,7 @@ export default function RootLayout() {
     TextInput.defaultProps.allowFontScaling = false;
   }, []);
 
-  // EFFECT: Check for OTA updates
+  // EFFECT: Check for OTA updates - non-blocking
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
@@ -1035,7 +935,8 @@ export default function RootLayout() {
       }
     };
 
-    checkForUpdates();
+    // Check for updates after a delay to not block initial load
+    setTimeout(checkForUpdates, 5000);
   }, []);
 
   // EFFECT: Cleanup on unmount
@@ -1047,28 +948,27 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <GuestUserProvider>
-            <AuthProvider>
-              <DeepLinkHandler />
-              <QueryClientProvider client={queryClient}>
-                <ThemeProvider>
-                  <StatusBarManager />
-                  <FavoritesProvider>
-                    <NotificationsProvider />
-                    <RootLayoutNav />
-                    <ModernUpdateAlert 
-                      isVisible={showUpdateAlert} 
-                      onUpdate={async () => { await Updates.reloadAsync(); }} 
-                      onClose={() => setShowUpdateAlert(false)} 
-                    />
-                  </FavoritesProvider>
-                </ThemeProvider>
-              </QueryClientProvider>
-            </AuthProvider>
-          </GuestUserProvider>
-        </GestureHandlerRootView>
-
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <GuestUserProvider>
+          <AuthProvider>
+            <DeepLinkHandler />
+            <QueryClientProvider client={queryClient}>
+              <ThemeProvider>
+                <StatusBarManager />
+                <FavoritesProvider>
+                  <NotificationsProvider />
+                  <RootLayoutNav />
+                  <ModernUpdateAlert 
+                    isVisible={showUpdateAlert} 
+                    onUpdate={async () => { await Updates.reloadAsync(); }} 
+                    onClose={() => setShowUpdateAlert(false)} 
+                  />
+                </FavoritesProvider>
+              </ThemeProvider>
+            </QueryClientProvider>
+          </AuthProvider>
+        </GuestUserProvider>
+      </GestureHandlerRootView>
     </ErrorBoundary>
   );
 }
