@@ -1,4 +1,3 @@
-
 import React, {
   useState,
   useEffect,
@@ -16,11 +15,12 @@ import {
   RefreshControl,
   Animated,
   Alert,
-  Share,
   Linking,
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import { useTheme } from "@/utils/ThemeContext";
 import VideoControls from "@/components/VideoControls";
@@ -29,7 +29,6 @@ import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "@/utils/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import { LinearGradient } from "expo-linear-gradient";
-import { Heart, Pause, Play } from "lucide-react-native";
 import { router } from "expo-router";
 import * as Network from "expo-network";
 import { Image } from "expo-image";
@@ -38,20 +37,17 @@ import SplashScreen from "../SplashScreen";
 import { Ionicons } from "@expo/vector-icons";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { shareContent } from "@/utils/shareUtils";
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useGlobalSearchParams } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 
-// --- constants ---
+// --- Constants ---
 const { height, width } = Dimensions.get("window");
 const DOUBLE_TAP_DELAY = 300;
 const TAB_BAR_HEIGHT = 80;
-const MAX_VIDEO_BUFFER = 2; // we now preload only a couple of clips
-const AVG_VIDEO_CHUNK_SIZE_BYTES = 9 * 1024 * 1024; // e.g., 5MB
 
-// Adjust these to taste for your "splashes"
-const SPLASH_CIRCLE_SIZE = width * 2;
-const SPLASH_ANIM_DURATION = 500;
-const TEXT_FADE_IN_DURATION = 500;
-const EXIT_FADE_OUT_DURATION = 600;
+// Performance constants
+const CACHE_SIZE_LIMIT = 100 * 1024 * 1024; // 100MB cache limit
+const VIDEO_PRELOAD_BUFFER = 2; // Number of videos to preload
 
 // --- Interfaces ---
 interface Car {
@@ -73,6 +69,9 @@ export interface AutoClip {
   title: string;
   description: string;
   video_url: string;
+  video_url_low?: string;
+  video_url_medium?: string;
+  thumbnail_url?: string;
   status: "published" | "draft";
   car_id: number;
   dealership_id: number;
@@ -88,48 +87,144 @@ interface VideoState {
   [key: number]: boolean;
 }
 
-/**
- * Helper: Given a remote video URL, check if it's cached locally.
- * If not, download it into FileSystem.cacheDirectory.
- */
-async function getCachedVideoUri(videoUrl: string): Promise<string> {
-  const filename = encodeURIComponent(videoUrl.split("/").pop() || videoUrl);
-  const localUri = FileSystem.cacheDirectory + filename;
-  const fileInfo = await FileSystem.getInfoAsync(localUri);
-  if (fileInfo.exists) {
-    return localUri;
+interface VideoPositions {
+  [key: number]: number;
+}
+
+interface NetworkInfo {
+  type: Network.NetworkStateType | null;
+  isConnected: boolean;
+  isInternetReachable: boolean;
+}
+
+// --- Video Cache Manager ---
+class VideoCacheManager {
+  private static instance: VideoCacheManager;
+  private cacheSize: number = 0;
+  private cacheMap: Map<string, { size: number; lastAccessed: number }> = new Map();
+
+  static getInstance(): VideoCacheManager {
+    if (!VideoCacheManager.instance) {
+      VideoCacheManager.instance = new VideoCacheManager();
+    }
+    return VideoCacheManager.instance;
   }
-  try {
-    const { uri } = await FileSystem.downloadAsync(videoUrl, localUri);
-    return uri;
-  } catch (err) {
-    console.error("Error caching video:", err);
-    return videoUrl; // fallback to remote URL
+
+  async getCachedVideoUri(
+    videoUrl: string,
+    quality: 'high' | 'medium' | 'low' = 'high'
+  ): Promise<string> {
+    if (!videoUrl) return '';
+    
+    const filename = this.generateCacheKey(videoUrl, quality);
+    const localUri = FileSystem.cacheDirectory + filename;
+    
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      
+      if (fileInfo.exists && 'size' in fileInfo) {
+        // Update last accessed time
+        this.cacheMap.set(filename, {
+          size: fileInfo.size,
+          lastAccessed: Date.now(),
+        });
+        return localUri;
+      }
+      
+      // Clean cache if needed before downloading
+      await this.cleanCacheIfNeeded();
+      
+      // Download the video
+      const { uri } = await FileSystem.downloadAsync(videoUrl, localUri);
+      
+      const newFileInfo = await FileSystem.getInfoAsync(uri);
+      
+      if ('size' in newFileInfo) {
+        this.cacheSize += newFileInfo.size;
+        this.cacheMap.set(filename, {
+          size: newFileInfo.size,
+          lastAccessed: Date.now(),
+        });
+      }
+      
+      return uri;
+    } catch (err) {
+      console.error("Error caching video:", err);
+      return videoUrl; // Fallback to streaming
+    }
+  }
+
+  private generateCacheKey(url: string, quality: string): string {
+    const urlParts = url.split('/');
+    const filename = urlParts[urlParts.length - 1];
+    return `${quality}_${filename}`;
+  }
+
+  private async cleanCacheIfNeeded(): Promise<void> {
+    if (this.cacheSize < CACHE_SIZE_LIMIT) return;
+    
+    // Sort by last accessed time (oldest first)
+    const sortedEntries = Array.from(this.cacheMap.entries()).sort(
+      (a, b) => a[1].lastAccessed - b[1].lastAccessed
+    );
+    
+    // Remove oldest files until we're under the limit
+    for (const [filename, info] of sortedEntries) {
+      if (this.cacheSize < CACHE_SIZE_LIMIT * 0.8) break; // Keep 20% buffer
+      
+      try {
+        await FileSystem.deleteAsync(FileSystem.cacheDirectory + filename, { idempotent: true });
+        this.cacheSize -= info.size;
+        this.cacheMap.delete(filename);
+      } catch (err) {
+        console.error("Error deleting cache file:", err);
+      }
+    }
   }
 }
 
-/**
- * Custom hook that returns a cached URI.
- */
-function useCachedVideoUri(videoUrl: string): string {
-  const [uri, setUri] = useState(videoUrl);
+// --- Network Monitor Hook ---
+function useNetworkMonitor() {
+  const [networkInfo, setNetworkInfo] = useState<NetworkInfo>({
+    type: null,
+    isConnected: false,
+    isInternetReachable: false,
+  });
+  
+  const [connectionSpeed, setConnectionSpeed] = useState<'fast' | 'medium' | 'slow' | 'very_slow'>('medium');
+
   useEffect(() => {
-    let isMounted = true;
-    getCachedVideoUri(videoUrl)
-      .then((cachedUri) => {
-        if (isMounted) setUri(cachedUri);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (isMounted) setUri(videoUrl);
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setNetworkInfo({
+        type: state.type as Network.NetworkStateType,
+        isConnected: state.isConnected ?? false,
+        isInternetReachable: state.isInternetReachable ?? false,
       });
-    return () => {
-      isMounted = false;
-    };
-  }, [videoUrl]);
-  return uri;
+      
+      // Estimate connection speed based on network type
+      if (state.type === 'wifi') {
+        setConnectionSpeed('fast');
+      } else if (state.type === 'cellular') {
+        const details = state.details as any;
+        if (details?.cellularGeneration === '4g') {
+          setConnectionSpeed('medium');
+        } else if (details?.cellularGeneration === '3g') {
+          setConnectionSpeed('slow');
+        } else {
+          setConnectionSpeed('very_slow');
+        }
+      } else {
+        setConnectionSpeed('slow');
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return { networkInfo, connectionSpeed };
 }
 
+// --- Optimized Clip Item Component ---
 interface ClipItemProps {
   item: AutoClip;
   index: number;
@@ -138,47 +233,90 @@ interface ClipItemProps {
   isPlaying: VideoState;
   currentVideoIndex: number;
   globalMute: boolean;
-  networkType: Network.NetworkStateType | null;
   videoLoading: { [key: number]: boolean };
-  setVideoLoading: React.Dispatch<
-    React.SetStateAction<{ [key: number]: boolean }>
-  >;
+  setVideoLoading: React.Dispatch<React.SetStateAction<{ [key: number]: boolean }>>;
   renderVideoControls: (clipId: number) => JSX.Element;
   renderClipInfo: (item: AutoClip) => JSX.Element;
   handlePlaybackStatusUpdate: (status: any, clipId: number) => void;
   allowPlayback: boolean;
   isDarkMode: boolean;
   videoRefs: React.MutableRefObject<{ [key: number]: React.RefObject<Video> }>;
+  videoQuality: 'high' | 'medium' | 'low';
+  savedPosition?: number;
 }
 
-const ClipItem: React.FC<ClipItemProps> = (props) => {
-  const {
-    item,
-    index,
-    handleVideoPress,
-    handleDoubleTap,
-    isPlaying,
-    currentVideoIndex,
-    globalMute,
-    networkType,
-    videoLoading,
-    setVideoLoading,
-    renderVideoControls,
-    renderClipInfo,
-    handlePlaybackStatusUpdate,
-    isDarkMode,
-    videoRefs,
-    allowPlayback,
-  } = props;
+const ClipItem = React.memo<ClipItemProps>(({
+  item,
+  index,
+  handleVideoPress,
+  handleDoubleTap,
+  isPlaying,
+  currentVideoIndex,
+  globalMute,
+  videoLoading,
+  setVideoLoading,
+  renderVideoControls,
+  renderClipInfo,
+  handlePlaybackStatusUpdate,
+  isDarkMode,
+  videoRefs,
+  allowPlayback,
+  videoQuality,
+  savedPosition = 0,
+}) => {
+  const [iconVisible, setIconVisible] = useState(false);
+  const [iconType, setIconType] = useState<"play" | "pause">("play");
+  const [videoUri, setVideoUri] = useState<string>('');
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const cacheManager = VideoCacheManager.getInstance();
+  const initialPositionSet = useRef(false);
+  
+  // Get the appropriate video URL based on quality
+  const getVideoUrl = useCallback(() => {
+    switch (videoQuality) {
+      case 'low':
+        return item.video_url_low || item.video_url;
+      case 'medium':
+        return item.video_url_medium || item.video_url;
+      default:
+        return item.video_url;
+    }
+  }, [item, videoQuality]);
 
-  // State to manage icon visibility
-  const [iconVisible, setIconVisible] = React.useState(false);
-  const [iconType, setIconType] = React.useState<"play" | "pause">("play"); // Default to play icon
+  // Load video with caching
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadVideo = async () => {
+      const url = getVideoUrl();
+      if (!url) return;
+      
+      try {
+        const cachedUri = await cacheManager.getCachedVideoUri(url, videoQuality);
+        
+        if (isMounted) {
+          setVideoUri(cachedUri);
+        }
+      } catch (err) {
+        console.error('Error loading video:', err);
+        if (isMounted) {
+          setVideoUri(url); // Fallback to streaming
+        }
+      }
+    };
+    
+    // Only load if close to current index
+    if (Math.abs(index - currentVideoIndex) <= VIDEO_PRELOAD_BUFFER) {
+      loadVideo();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [item, videoQuality, index, currentVideoIndex]);
 
-  // Use the custom hook at the top level of this component.
-  const cachedUri = useCachedVideoUri(item.video_url);
-
-  // Ensure a ref exists for this clip.
+  // Ensure ref exists
   if (!videoRefs.current[item.id]) {
     videoRefs.current[item.id] = React.createRef();
   }
@@ -186,63 +324,100 @@ const ClipItem: React.FC<ClipItemProps> = (props) => {
   const handlePress = () => {
     handleVideoPress(item.id);
     setIconVisible(true);
-    if (isPlaying[item.id]) {
-      setIconType("play");
-    } else {
-      setIconType("pause");
-    }
-    setTimeout(() => {
-      setIconVisible(false);
-    }, 500); // Icon disappears after 500ms
+    setIconType(isPlaying[item.id] ? "play" : "pause");
+    setTimeout(() => setIconVisible(false), 500);
   };
 
+  const handleStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setIsBuffering(status.isBuffering);
+      
+      // Set initial position when video first loads
+      if (!initialPositionSet.current && savedPosition > 0 && status.durationMillis) {
+        const videoRef = videoRefs.current[item.id]?.current;
+        if (videoRef) {
+          videoRef.setPositionAsync(savedPosition * 1000).catch(console.error);
+          initialPositionSet.current = true;
+        }
+      }
+    }
+    handlePlaybackStatusUpdate(status, item.id);
+  }, [handlePlaybackStatusUpdate, item.id, savedPosition]);
+
+  const handleLoad = useCallback(async () => {
+    setVideoLoading(prev => ({ ...prev, [item.id]: false }));
+    setHasLoaded(true);
+    
+    // If this is the current video and should be playing, start playback
+    if (index === currentVideoIndex && allowPlayback && isPlaying[item.id]) {
+      const ref = videoRefs.current[item.id]?.current;
+      if (ref) {
+        try {
+          // If we have a saved position, set it
+          if (savedPosition > 0) {
+            await ref.setPositionAsync(savedPosition * 1000);
+          }
+          await ref.playAsync();
+        } catch (err) {
+          console.error("Error starting video playback:", err);
+        }
+      }
+    }
+  }, [index, currentVideoIndex, allowPlayback, isPlaying, item.id, savedPosition]);
+
   return (
-    <View style={{ height, width }} key={`clip-${item.id}`}>
+    <View style={{ height, width }}>
       <TouchableOpacity
         activeOpacity={1}
         onPress={handlePress}
         onLongPress={() => handleDoubleTap(item.id)}
         style={{ flex: 1 }}
       >
-        <Video
-          ref={videoRefs.current[item.id]}
-          source={{ uri: cachedUri }}
-          style={{ flex: 1 }}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={isPlaying[item.id] && index === currentVideoIndex}
-          isLooping
-          isMuted={globalMute}
-          onPlaybackStatusUpdate={(status) =>
-            handlePlaybackStatusUpdate(status, item.id)
-          }
-          progressUpdateIntervalMillis={
-            networkType === Network.NetworkStateType.CELLULAR ? 1000 : 250
-          }
-          onLoadStart={() => {
-            setVideoLoading((prev) => ({ ...prev, [item.id]: true }));
-          }}
-          onLoad={async () => {
-            setVideoLoading((prev) => ({ ...prev, [item.id]: false }));
-            if (index === currentVideoIndex) {
-              try {
-                const ref = videoRefs.current[item.id]?.current;
-
-                if (ref && isPlaying[item.id] && allowPlayback) {
-                  await ref.playAsync();
-                }
-              } catch (err) {
-                console.error("Error playing video on load:", err);
+        {videoUri ? (
+          <Video
+            ref={videoRefs.current[item.id]}
+            source={{ uri: videoUri }}
+            style={{ flex: 1 }}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay={isPlaying[item.id] && index === currentVideoIndex && allowPlayback}
+            isLooping
+            isMuted={globalMute}
+            onPlaybackStatusUpdate={handleStatusUpdate}
+            progressUpdateIntervalMillis={250}
+            onLoadStart={() => {
+              if (!hasLoaded) {
+                setVideoLoading(prev => ({ ...prev, [item.id]: true }));
               }
-            }
-          }}
-          rate={1.0}
-          volume={1.0}
-        />
+            }}
+            onLoad={handleLoad}
+            onError={(error) => {
+              console.error("Video error:", error);
+              setVideoLoading(prev => ({ ...prev, [item.id]: false }));
+            }}
+            rate={1.0}
+            volume={1.0}
+            shouldCorrectPitch={true}
+            useNativeControls={false}
+          />
+        ) : (
+          <View style={{ flex: 1, backgroundColor: '#000' }}>
+            {item.thumbnail_url && (
+              <Image
+                source={{ uri: item.thumbnail_url }}
+                style={{ flex: 1 }}
+                contentFit="cover"
+              />
+            )}
+          </View>
+        )}
+
+        {/* Only show loading indicator on first load or when buffering */}
+      
 
         {/* Play/Pause Icon Overlay */}
         {iconVisible && (
           <View style={styles.iconContainer}>
-            <Ionicons // Using Ionicons from expo-vector-icons
+            <Ionicons
               name={iconType === "play" ? "play-circle" : "pause-circle"}
               size={60}
               color="white"
@@ -250,257 +425,180 @@ const ClipItem: React.FC<ClipItemProps> = (props) => {
           </View>
         )}
 
-        {/* Blur loader while the video is loading */}
-        {videoLoading[item.id] && (
-          <BlurView
-            style={StyleSheet.absoluteFill}
-            intensity={60}
-            tint={isDarkMode ? "dark" : "light"}
-          >
-            <View
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ActivityIndicator size="small" color="#D55004" />
-            </View>
-          </BlurView>
-        )}
-
-        {/* Video controls (e.g., play/pause overlay) */}
         {renderVideoControls(item.id)}
-
-        {/* Info overlay with clip details */}
         {renderClipInfo(item)}
       </TouchableOpacity>
     </View>
   );
-};
+});
 
+// --- Main AutoClips Component ---
 export default function AutoClips() {
   const { isDarkMode } = useTheme();
   const isFocused = useIsFocused();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
+  const { networkInfo, connectionSpeed } = useNetworkMonitor();
+  
+  // Parameters handling
+  const localParams = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
+  const globalParams = useGlobalSearchParams();
+  const clipId = localParams.clipId || globalParams.clipId;
+  const fromDeepLink = localParams.fromDeepLink || globalParams.fromDeepLink;
+  
+  // State management
   const [autoClips, setAutoClips] = useState<AutoClip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
   
-  // NEW: Add flag to prevent race conditions during deep link navigation
+  // Deep link state
   const [isNavigatingToDeepLink, setIsNavigatingToDeepLink] = useState(false);
-  
-  // NEW: Track if we've handled the deep link already
+  const [hasHandledDeepLink, setHasHandledDeepLink] = useState(false);
   const deepLinkHandled = useRef(false);
+  
+  // Video state
+  const [isPlaying, setIsPlaying] = useState<VideoState>({});
+  const [globalMute, setGlobalMute] = useState(false);
+  const [videoLoading, setVideoLoading] = useState<{ [key: number]: boolean }>({});
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<{ [key: number]: boolean }>({});
+  
+  // Video position tracking
+  const [videoPositions, setVideoPositions] = useState<VideoPositions>({});
+  const [videoDurations, setVideoDurations] = useState<{ [key: number]: number }>({});
+  
+  // Performance optimizations
+  const [videoQuality, setVideoQuality] = useState<'high' | 'medium' | 'low'>('medium');
+  const hasInitialLoad = useRef(false);
+  
+  // Refs
+  const flatListRef = useRef<FlatList>(null);
+  const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({});
+  const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
+  const lastTap = useRef<{ [key: number]: number }>({});
+  const viewedClips = useRef<Set<number>>(new Set());
+  const appStateRef = useRef(AppState.currentState);
 
-  // UPDATED: Enhanced deep link handling with proper state management
+  // Adjust video quality based on connection speed
   useEffect(() => {
-    if (params.clipId && !isLoading && autoClips.length > 0 && !deepLinkHandled.current) {
+    switch (connectionSpeed) {
+      case 'fast':
+        setVideoQuality('high');
+        break;
+      case 'medium':
+        setVideoQuality('medium');
+        break;
+      case 'slow':
+      case 'very_slow':
+        setVideoQuality('low');
+        break;
+    }
+  }, [connectionSpeed]);
+
+  // Handle app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
+        // App going to background - pause all videos but maintain positions
+        Object.entries(videoRefs.current).forEach(([clipId, ref]) => {
+          ref?.current?.pauseAsync().catch(() => {});
+        });
+        setIsPlaying({});
+      }
+      appStateRef.current = nextAppState;
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  // Deep link handling
+  useEffect(() => {
+    if (clipId && !isLoading && autoClips.length > 0 && !hasHandledDeepLink && !deepLinkHandled.current) {
       const targetClipIndex = autoClips.findIndex(
-        clip => clip.id.toString() === params.clipId
+        clip => clip.id.toString() === clipId.toString()
       );
       
       if (targetClipIndex !== -1) {
-        console.log(`[DeepLink] Navigating to clip ${params.clipId} at index ${targetClipIndex}`);
-        
-        // Mark that we're handling deep link navigation
         setIsNavigatingToDeepLink(true);
+        setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
         
-        // Stop all currently playing videos first
-        Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-          try {
-            await ref?.current?.pauseAsync();
-            await ref?.current?.setPositionAsync(0);
-          } catch (err) {
-            console.error("Error stopping video during deep link:", err);
-          }
+        // Stop all currently playing videos
+        Object.values(videoRefs.current).forEach(ref => {
+          ref?.current?.pauseAsync().catch(() => {});
         });
-        
-        // Reset all video playing states
         setIsPlaying({});
         
-        // Wait for everything to be ready
+        // Navigate to clip
         setTimeout(() => {
-          // Scroll to the target clip
           flatListRef.current?.scrollToIndex({
             index: targetClipIndex,
             animated: false,
           });
-          
-          // Set the current video index
           setCurrentVideoIndex(targetClipIndex);
           
-          // Enable video playback if from deep link
-          if (params.fromDeepLink === 'true') {
+          if (fromDeepLink === 'true') {
             setAllowVideoPlayback(true);
           }
           
-          // Small delay to let the scroll settle, then allow normal navigation
           setTimeout(() => {
             setIsNavigatingToDeepLink(false);
-            console.log(`[DeepLink] Navigation complete, normal scrolling enabled`);
           }, 1000);
-          
         }, 500);
       } else {
-        // Handle case where clip isn't found
         Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+        setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
       }
     }
-  }, [params.clipId, isLoading, autoClips]);
+  }, [clipId, fromDeepLink, isLoading, autoClips, hasHandledDeepLink]);
 
-  const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
-
-  // SPLASH SCREEN & LOADING STATES
-  const [showSplash, setShowSplash] = useState(true);
-  const [splashPhase, setSplashPhase] = useState<
-    "entrance" | "holding" | "exit"
-  >("entrance");
- 
-  const [error, setError] = useState<string | null>(null);
-  const circleScales = [
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-  ];
-  const circleOpacities = [
-    useRef(new Animated.Value(1)).current,
-    useRef(new Animated.Value(1)).current,
-    useRef(new Animated.Value(1)).current,
-  ];
-  const splashTextOpacity = useRef(new Animated.Value(0)).current;
-  const splashContainerOpacity = useRef(new Animated.Value(1)).current;
-
+  // Focus handling
   useEffect(() => {
     setAllowVideoPlayback(isFocused);
+    
+    if (!isFocused) {
+      // Pause videos when not focused but maintain positions
+      Object.values(videoRefs.current).forEach(ref => {
+        ref?.current?.pauseAsync().catch(() => {});
+      });
+    }
   }, [isFocused]);
 
-  useEffect(() => {
-    if (splashPhase === "entrance") {
-      Animated.sequence([
-        Animated.timing(circleScales[0], {
-          toValue: 1,
-          duration: SPLASH_ANIM_DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(circleScales[1], {
-          toValue: 1,
-          duration: SPLASH_ANIM_DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(circleScales[2], {
-          toValue: 1,
-          duration: SPLASH_ANIM_DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(splashTextOpacity, {
-          toValue: 1,
-          duration: TEXT_FADE_IN_DURATION,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setSplashPhase("holding");
+  // Track clip view
+  const trackClipView = useCallback(async (clipId: number) => {
+    if (!user || viewedClips.current.has(clipId)) return;
+    
+    try {
+      await supabase.rpc("track_autoclip_view", {
+        clip_id: clipId,
+        user_id: user.id,
       });
+      viewedClips.current.add(clipId);
+      setAutoClips(prev =>
+        prev.map(clip =>
+          clip.id === clipId
+            ? { ...clip, views: (clip.views || 0) + 1 }
+            : clip
+        )
+      );
+    } catch (err) {
+      console.error("Error tracking view:", err);
     }
-  }, [splashPhase]);
+  }, [user]);
 
-  useEffect(() => {
-    if (splashPhase === "holding" && !isLoading) {
-      setSplashPhase("exit");
-      Animated.timing(splashContainerOpacity, {
-        toValue: 0,
-        duration: EXIT_FADE_OUT_DURATION,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowSplash(false);
-      });
-    }
-  }, [splashPhase, isLoading]);
-
-  // NETWORK, DATA, VIDEO STATES
-  const [refreshing, setRefreshing] = useState(false);
-  const [networkType, setNetworkType] =
-    useState<Network.NetworkStateType | null>(null);
-
-  const viewedClips = useRef<Set<number>>(new Set());
-  const [expandedDescriptions, setExpandedDescriptions] = useState<{
-    [key: number]: boolean;
-  }>({});
-  const [isPlaying, setIsPlaying] = useState<VideoState>({});
-  const [globalMute, setGlobalMute] = useState(false);
-  const [showPlayPauseIcon, setShowPlayPauseIcon] = useState<VideoState>({});
-  const [videoLoading, setVideoLoading] = useState<{ [key: number]: boolean }>(
-    {}
-  );
-
-  // Timers/refs
-  const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
-  const lastTap = useRef<{ [key: number]: number }>({});
-  const flatListRef = useRef<FlatList>(null);
-  const heartAnimations = useRef<{ [key: number]: Animated.Value }>({});
-  const playPauseAnimations = useRef<{ [key: number]: Animated.Value }>({});
-  const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({});
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-    waitForInteraction: true,
-    minimumViewTime: 500,
-  }).current;
-
-  const [videoProgress, setVideoProgress] = useState<{ [key: number]: number }>(
-    {}
-  );
-  const [videoDuration, setVideoDuration] = useState<{ [key: number]: number }>(
-    {}
-  );
-
-  // FETCH / DATA LOGIC
-  const initializeClipAnimations = useCallback((clipId: number) => {
-    heartAnimations.current[clipId] = new Animated.Value(0);
-    playPauseAnimations.current[clipId] = new Animated.Value(0);
-  }, []);
-
-  useEffect(() => {
-    if (allowVideoPlayback && autoClips.length > 0) {
-      const currentClip = autoClips[currentVideoIndex];
-      if (currentClip) {
-        const ref = videoRefs.current[currentClip.id];
-        if (ref && ref.current) {
-          ref.current.playAsync();
-          setIsPlaying((prev) => ({ ...prev, [currentClip.id]: true }));
-        }
-      }
-    }
-  }, [allowVideoPlayback, currentVideoIndex, autoClips]);
-
-  const trackClipView = useCallback(
-    async (clipId: number) => {
-      if (!user || viewedClips.current.has(clipId)) return;
-      try {
-        await supabase.rpc("track_autoclip_view", {
-          clip_id: clipId,
-          user_id: user.id,
-        });
-        viewedClips.current.add(clipId);
-        setAutoClips((prev) =>
-          prev.map((clip) =>
-            clip.id === clipId
-              ? { ...clip, views: (clip.views || 0) + 1 }
-              : clip
-          )
-        );
-      } catch (err) {
-        console.error("Error tracking view:", err);
-      }
-    },
-    [user]
-  );
-
+  // Fetch data
   const fetchData = useCallback(async () => {
+    if (!networkInfo.isConnected) {
+      setError('No internet connection');
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
+    setError(null);
+    
     try {
       const { data: clipsData, error: clipsError } = await supabase
         .from("auto_clips")
@@ -510,8 +608,8 @@ export default function AutoClips() {
 
       if (clipsError) throw clipsError;
 
-      const carIds = clipsData?.map((clip) => clip.car_id) || [];
-      const dealershipIds = clipsData?.map((clip) => clip.dealership_id) || [];
+      const carIds = clipsData?.map(clip => clip.car_id) || [];
+      const dealershipIds = clipsData?.map(clip => clip.dealership_id) || [];
 
       const [carsResponse, dealershipsResponse] = await Promise.all([
         supabase.from("cars").select("*").in("id", carIds),
@@ -522,666 +620,428 @@ export default function AutoClips() {
         (acc, car) => ({ ...acc, [car.id]: car }),
         {}
       );
+      
       const dealershipsById = (dealershipsResponse.data || []).reduce(
         (acc, dealer) => ({ ...acc, [dealer.id]: dealer }),
         {}
       );
 
-      const mergedClips = (clipsData || []).map((clip) => {
-        initializeClipAnimations(clip.id);
-        return {
-          ...clip,
-          car: carsById[clip.car_id],
-          dealership: dealershipsById[clip.dealership_id],
-          liked_users: clip.liked_users || [],
-        };
-      });
+      const mergedClips = (clipsData || []).map(clip => ({
+        ...clip,
+        car: carsById[clip.car_id],
+        dealership: dealershipsById[clip.dealership_id],
+        liked_users: clip.liked_users || [],
+      }));
 
       setAutoClips(mergedClips);
-      setIsPlaying(
-        mergedClips.reduce(
-          (acc, clip, index) => ({ ...acc, [clip.id]: index === 0 }),
-          {}
-        )
-      );
+      
+      // Only set initial playing state on first load
+      if (!hasInitialLoad.current) {
+        setIsPlaying(
+          mergedClips.reduce(
+            (acc, clip, index) => ({ ...acc, [clip.id]: index === 0 }),
+            {}
+          )
+        );
+        hasInitialLoad.current = true;
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to load content");
     } finally {
       setIsLoading(false);
     }
-  }, [initializeClipAnimations]);
+  }, [networkInfo.isConnected]);
 
+  // Initial data fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Reset deep link handling when refreshing
+    setHasHandledDeepLink(false);
     deepLinkHandled.current = false;
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
 
-  const handlePlaybackStatusUpdate = useCallback(
-    (status: any, clipId: number) => {
-      if (status.isLoaded) {
-        setVideoProgress((prev) => ({
-          ...prev,
-          [clipId]: status.positionMillis / 1000,
-        }));
-        setVideoDuration((prev) => ({
+  // Video playback handlers
+  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus, clipId: number) => {
+    if (status.isLoaded) {
+      // Update position
+      setVideoPositions(prev => ({
+        ...prev,
+        [clipId]: status.positionMillis / 1000,
+      }));
+      
+      // Update duration
+      if (status.durationMillis) {
+        setVideoDurations(prev => ({
           ...prev,
           [clipId]: status.durationMillis / 1000,
         }));
-        if (
-          status.didJustFinish &&
-          !status.isLooping &&
-          currentVideoIndex < autoClips.length - 1
-        ) {
-          flatListRef.current?.scrollToIndex({
-            index: currentVideoIndex + 1,
-            animated: true,
-          });
+      }
+    }
+  }, []);
+
+  const handleVideoPress = useCallback(async (clipId: number) => {
+    const videoRef = videoRefs.current[clipId]?.current;
+    if (!videoRef) return;
+    
+    const newPlayingState = !isPlaying[clipId];
+    setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }));
+    
+    try {
+      if (newPlayingState) {
+        await videoRef.playAsync();
+        viewTimers.current[currentVideoIndex] = setTimeout(() => {
+          trackClipView(clipId);
+        }, 5000);
+      } else {
+        await videoRef.pauseAsync();
+        if (viewTimers.current[currentVideoIndex]) {
+          clearTimeout(viewTimers.current[currentVideoIndex]);
         }
       }
-    },
-    [currentVideoIndex, autoClips.length]
-  );
+    } catch (err) {
+      console.error("Error handling video playback:", err);
+    }
+  }, [isPlaying, currentVideoIndex, trackClipView]);
+
+  const handleLikePress = useCallback(async (clipId: number) => {
+    if (!user) return;
+    
+    try {
+      const { data: newLikesCount, error } = await supabase.rpc(
+        "toggle_autoclip_like",
+        {
+          clip_id: clipId,
+          user_id: user.id,
+        }
+      );
+      
+      if (error) throw error;
+      
+      setAutoClips(prev =>
+        prev.map(clip => {
+          if (clip.id === clipId) {
+            const isCurrentlyLiked = clip.liked_users?.includes(user.id);
+            const updatedLikedUsers = isCurrentlyLiked
+              ? clip.liked_users.filter(id => id !== user.id)
+              : [...(clip.liked_users || []), user.id];
+            return {
+              ...clip,
+              likes: newLikesCount,
+              liked_users: updatedLikedUsers,
+            };
+          }
+          return clip;
+        })
+      );
+    } catch (err) {
+      console.error("Error toggling like:", err);
+    }
+  }, [user]);
+
+  const handleMutePress = useCallback(async (clipId: number, event: any) => {
+    event.stopPropagation();
+    const newMuteState = !globalMute;
+    setGlobalMute(newMuteState);
+    
+    // Apply to all videos
+    await Promise.all(
+      Object.values(videoRefs.current).map(ref =>
+        ref?.current?.setIsMutedAsync(newMuteState).catch(() => {})
+      )
+    );
+  }, [globalMute]);
+
+  const handleDoubleTap = useCallback(async (clipId: number) => {
+    const now = Date.now();
+    const lastTapTime = lastTap.current[clipId] || 0;
+    
+    if (now - lastTapTime < DOUBLE_TAP_DELAY) {
+      const clip = autoClips.find(c => c.id === clipId);
+      if (clip && !clip.liked_users?.includes(user?.id || "")) {
+        await handleLikePress(clipId);
+      }
+    }
+    
+    lastTap.current[clipId] = now;
+  }, [autoClips, handleLikePress, user?.id]);
 
   const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
     const videoRef = videoRefs.current[clipId]?.current;
     if (videoRef) {
       try {
         await videoRef.setPositionAsync(time * 1000);
+        // Update position state immediately for smooth UI
+        setVideoPositions(prev => ({ ...prev, [clipId]: time }));
       } catch (err) {
         console.error("Error scrubbing video:", err);
       }
     }
   }, []);
 
-  // Check network type
-  useEffect(() => {
-    const getType = async () => {
-      const type: any = await Network.getNetworkStateAsync();
-      setNetworkType(type.type);
-    };
-    getType();
-  }, []);
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(viewTimers.current).forEach((timer) => clearTimeout(timer));
-    };
-  }, []);
-
-  // Fetch data on mount
-  useEffect(() => {
-    fetchData();
-  }, [fetchData, user]);
-
-  // Pause videos when not focused
-  useEffect(() => {
-    // When focus changes but component remains mounted
-    if (!isFocused) {
-      // Handle with Promise.all for proper async operation
-      Promise.all(
-        Object.values(videoRefs.current).map(async (ref) => {
-          if (!ref?.current) return;
-          try {
-            await ref.current.pauseAsync();
-            await ref.current.setPositionAsync(0);
-          } catch (err) {
-            console.log("Video reset operation:", err);
-          }
-        })
-      ).catch((err) => console.error("Error during video reset:", err));
-
-      setVideoProgress({});
-      setVideoDuration({});
-    }
-
-    // When unmounting - only pause videos, don't attempt to seek
-    return () => {
-      // We can't use await in cleanup, so handle each individually
-      Object.values(videoRefs.current).forEach((ref) => {
-        if (ref?.current) {
-          // Only pause, don't seek position during unmount
-          ref.current.pauseAsync().catch(() => {});
-        }
-      });
-
-      setVideoProgress({});
-      setVideoDuration({});
-    };
-  }, [isFocused]);
-
-  // VIDEO TAP / LIKE / MUTE LOGIC
-  const handleVideoPress = useCallback(
-    async (clipId: number) => {
-      const videoRef = videoRefs.current[clipId]?.current;
-      if (!videoRef) return;
-      const newPlayingState = !isPlaying[clipId];
-      setIsPlaying((prev) => ({ ...prev, [clipId]: newPlayingState }));
-      try {
-        if (newPlayingState) {
-          await videoRef.playAsync();
-          viewTimers.current[currentVideoIndex] = setTimeout(() => {
-            trackClipView(clipId);
-          }, 5000);
-        } else {
-          await videoRef.pauseAsync();
-          if (viewTimers.current[currentVideoIndex]) {
-            clearTimeout(viewTimers.current[currentVideoIndex]);
-          }
-        }
-        const animation = playPauseAnimations.current[clipId];
-        setShowPlayPauseIcon((prev) => ({ ...prev, [clipId]: true }));
-        Animated.sequence([
-          Animated.timing(animation, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animation, {
-            toValue: 0,
-            duration: 200,
-            delay: 500,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setShowPlayPauseIcon((prev) => ({ ...prev, [clipId]: false }));
-        });
-      } catch (err) {
-        console.error("Error handling video playback:", err);
-      }
-    },
-    [currentVideoIndex, isPlaying, trackClipView]
-  );
-
-  const handleLikePress = useCallback(
-    async (clipId: number) => {
-      if (!user) return;
-      try {
-        const { data: newLikesCount, error } = await supabase.rpc(
-          "toggle_autoclip_like",
-          {
-            clip_id: clipId,
-            user_id: user.id,
-          }
-        );
-        if (error) throw error;
-        setAutoClips((prev) =>
-          prev.map((clip) => {
-            if (clip.id === clipId) {
-              const isCurrentlyLiked = clip.liked_users?.includes(user.id);
-              const updatedLikedUsers = isCurrentlyLiked
-                ? clip.liked_users.filter((id) => id !== user.id)
-                : [...(clip.liked_users || []), user.id];
-              return {
-                ...clip,
-                likes: newLikesCount,
-                liked_users: updatedLikedUsers,
-              };
-            }
-            return clip;
-          })
-        );
-        const animation = heartAnimations.current[clipId];
-        if (animation) {
-          animation.setValue(0);
-          Animated.sequence([
-            Animated.spring(animation, {
-              toValue: 1,
-              useNativeDriver: true,
-              damping: 15,
-            }),
-            Animated.timing(animation, {
-              toValue: 0,
-              duration: 100,
-              delay: 500,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }
-      } catch (err) {
-        console.error("Error toggling like:", err);
-      }
-    },
-    [user]
-  );
-
-  const handleMutePress = useCallback(
-    async (clipId: number, event: any) => {
-      event.stopPropagation();
-      const newMuteState = !globalMute;
-      setGlobalMute(newMuteState);
-      Object.values(videoRefs.current).forEach((ref) => {
-        ref?.current?.setIsMutedAsync(newMuteState);
-      });
-    },
-    [globalMute]
-  );
-
-  const handleDoubleTap = useCallback(
-    async (clipId: number) => {
-      const now = Date.now();
-      const lastTapTime = lastTap.current[clipId] || 0;
-      if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-        const clip = autoClips.find((c) => c.id === clipId);
-        if (clip && !clip.liked_users?.includes(user?.id || "")) {
-          await handleLikePress(clipId);
-        }
-      }
-      lastTap.current[clipId] = now;
-    },
-    [autoClips, handleLikePress, user?.id]
-  );
-
-  // RENDER HELPERS
-  const renderVideoControls = useCallback(
-    (clipId: number) => {
-      const clip = autoClips.find((c) => c.id === clipId);
-      const isLiked = clip?.liked_users?.includes(user?.id || "") || false;
-      return (
-        <VideoControls
-          clipId={clipId}
-          duration={videoDuration[clipId] || 0}
-          currentTime={videoProgress[clipId] || 0}
-          isPlaying={isPlaying[clipId]}
-          globalMute={globalMute}
-          onMutePress={handleMutePress}
-          onScrub={handleVideoScrub}
-          videoRef={videoRefs}
-          likes={clip?.likes || 0}
-          isLiked={isLiked}
-          onLikePress={handleLikePress}
-        />
-      );
-    },
-    [
-      autoClips,
-      videoDuration,
-      videoProgress,
-      isPlaying,
-      globalMute,
-      user?.id,
-      handleMutePress,
-      handleVideoScrub,
-      handleLikePress,
-    ]
-  );
-
-  const getFormattedPostDate = useCallback((createdAt: any) => {
-    return formatDistanceToNow(new Date(createdAt), { addSuffix: true });
-  }, []);
-
-  const renderClipInfo = useMemo(
-    () => (item: AutoClip) => {
-      const formattedPostDate = getFormattedPostDate(item.created_at);
-      const isDescriptionExpanded = expandedDescriptions[item.id] || false;
-      const shouldShowExpandOption =
-        item.description && item.description.length > 80;
-
-      return (
-        <View
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            paddingBottom: 0,
-            height: "auto", // ADD this to allow content to determine height
-          }}
-        >
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.8)", "rgba(0,0,0,0.9)"]}
-            style={{
-              padding: 20,
-              borderTopLeftRadius: 30,
-              borderTopRightRadius: 30,
-              paddingBottom: 60, // INCREASE from 60 to 80
-              marginBottom: 0, // CHANGE from 10 to 0
-              zIndex: 50, // RESTORE from 10 to 50
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 5,
-              }}
-            >
-              <View
-                style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
-              >
-                {item.dealership?.logo && (
-                  <Image
-                    source={{ uri: item.dealership.logo }}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 10,
-                      marginRight: 12,
-                      backgroundColor: "rgba(255,255,255,0.5)",
-                    }}
-                  />
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: "white",
-                      fontSize: 18,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {item.dealership?.name}
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={{ color: "#A8A8A8", fontSize: 12 }}>
-                      {formattedPostDate}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {item.car && (
-              <View style={{ marginBottom: 4 }}>
-                <Text
-                  style={{ color: "#D55004", fontSize: 20, fontWeight: "bold" }}
-                >
-                  {item.car.year} {item.car.make} {item.car.model}
-                </Text>
-              </View>
-            )}
-
-            {item.description && (
-              <View style={{ marginBottom: 4 }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setExpandedDescriptions((prev) => ({
-                      ...prev,
-                      [item.id]: !prev[item.id],
-                    }));
-                  }}
-                  activeOpacity={0.9}
-                >
-                  <Text
-                    style={{
-                      color: "rgba(255,255,255,0.9)",
-                      fontSize: 16,
-                      lineHeight: 24,
-                    }}
-                    numberOfLines={isDescriptionExpanded ? undefined : 2}
-                  >
-                    {item.description}
-                    {shouldShowExpandOption && (
-                      <Text style={{ color: "#D55004" }}>
-                        {" "}
-                        {isDescriptionExpanded ? "Read less" : "... Read more"}
-                      </Text>
-                    )}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {item.car && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#D55004",
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 10,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  onPress={() => {
-                    router.push({
-                      pathname: "/(home)/(user)/CarDetails",
-                      params: { carId: item.car.id },
-                    });
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "white",
-                      fontWeight: "600",
-                      marginRight: 8,
-                    }}
-                  >
-                    View Details
-                  </Text>
-                  <Ionicons name="arrow-forward" size={18} color="white" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                    padding: 8,
-                    borderRadius: 10,
-                    marginLeft: 20,
-                    marginRight: 4,
-                  }}
-                  onPress={() => {
-                    if (item.dealership?.phone) {
-                      Linking.openURL(`tel:${item.dealership.phone}`);
-                    } else {
-                      Alert.alert("Contact", "Phone number not available");
-                    }
-                  }}
-                >
-                  <Ionicons name="call-outline" size={24} color="white" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                    padding: 8,
-                    borderRadius: 10,
-                    marginHorizontal: 4,
-                  }}
-                  onPress={() => {
-                    if (item.dealership?.phone) {
-                      const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
-                      openWhatsApp(item.dealership.phone, message);
-                    } else {
-                      Alert.alert("Contact", "Phone number not available");
-                    }
-                  }}
-                >
-                  <Ionicons name="logo-whatsapp" size={24} color="white" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                    padding: 8,
-                    borderRadius: 10,
-                    marginLeft: 4,
-                  }}
-                  onPress={() => {
-                    if (!item.car) return;
-                    shareContent({
-                      id: item.id,
-                      type: 'autoclip',
-                      title: `${item.car.year} ${item.car.make} ${item.car.model} - Video`,
-                      message: `Check out this ${item.car.year} ${item.car.make} ${item.car.model} video on Fleet!${item.description ? `\n\n${item.description}` : ''}`
-                    });
-                  }}
-                >
-                  <Ionicons name="share-outline" size={24} color="white" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </LinearGradient>
-        </View>
-      );
-    },
-    [getFormattedPostDate, expandedDescriptions]
-  );
-
-  const getEstimatedBufferSize = useCallback(
-    (networkType: Network.NetworkStateType | null) => {
-      switch (networkType) {
-        case Network.NetworkStateType.WIFI:
-        case Network.NetworkStateType.ETHERNET:
-          return 3 * AVG_VIDEO_CHUNK_SIZE_BYTES;
-        case Network.NetworkStateType.CELLULAR:
-          return 1.5 * AVG_VIDEO_CHUNK_SIZE_BYTES;
-        default:
-          return 2 * AVG_VIDEO_CHUNK_SIZE_BYTES;
-      }
-    },
-    []
-  );
-
-  // Preload adjacent videos (only current and next)
-  useEffect(() => {
-    const preloadAdjacentVideos = async () => {
-      if (autoClips.length > 0) {
-        const visibleIndexes = [
-          currentVideoIndex,
-          Math.min(autoClips.length - 1, currentVideoIndex + 1),
-        ];
-        const estimatedBufferSize = getEstimatedBufferSize(networkType);
-        for (const index of visibleIndexes) {
-          const clip = autoClips[index];
-          if (clip) {
-            const ref = videoRefs.current[clip.id];
-            if (ref && ref.current) {
-              try {
-                const localUri = await getCachedVideoUri(clip.video_url);
-                const status = await ref.current.getStatusAsync();
-                if (!status.isLoaded) {
-                  await ref.current.loadAsync(
-                    { uri: localUri },
-                    {
-                      shouldPlay: false,
-                      isMuted: globalMute,
-                      progressUpdateIntervalMillis:
-                        networkType === Network.NetworkStateType.CELLULAR
-                          ? 1000
-                          : 250,
-                    },
-                    false
-                  );
-                }
-              } catch (err) {
-                console.error("Error preloading video:", err);
-              }
-            }
-          }
-        }
-      }
-    };
-    preloadAdjacentVideos();
+  // Render helpers
+  const renderVideoControls = useCallback((clipId: number) => {
+    const clip = autoClips.find(c => c.id === clipId);
+    const isLiked = clip?.liked_users?.includes(user?.id || "") || false;
+    
+    return (
+      <VideoControls
+        clipId={clipId}
+        duration={videoDurations[clipId] || 0}
+        currentTime={videoPositions[clipId] || 0}
+        isPlaying={isPlaying[clipId]}
+        globalMute={globalMute}
+        onMutePress={handleMutePress}
+        onScrub={handleVideoScrub}
+        videoRef={videoRefs}
+        likes={clip?.likes || 0}
+        isLiked={isLiked}
+        onLikePress={handleLikePress}
+      />
+    );
   }, [
-    currentVideoIndex,
     autoClips,
+    videoDurations,
+    videoPositions,
+    isPlaying,
     globalMute,
-    networkType,
-    getEstimatedBufferSize,
+    user?.id,
+    handleMutePress,
+    handleVideoScrub,
+    handleLikePress,
   ]);
 
-  // UPDATED: Enhanced onViewableItemsChanged with deep link protection
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: any) => {
-      // NEW: Don't process viewability changes during deep link navigation
-      if (isNavigatingToDeepLink) {
-        console.log('[ViewabilityChanged] Skipping due to deep link navigation');
-        return;
-      }
+  const renderClipInfo = useMemo(() => (item: AutoClip) => {
+    const formattedPostDate = formatDistanceToNow(new Date(item.created_at), { addSuffix: true });
+    const isDescriptionExpanded = expandedDescriptions[item.id] || false;
+    const shouldShowExpandOption = item.description && item.description.length > 80;
+
+    return (
+      <View style={styles.clipInfoContainer}>
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.8)", "rgba(0,0,0,0.9)"]}
+          style={styles.clipInfoGradient}
+        >
+          <View style={styles.dealershipRow}>
+            <View style={styles.dealershipInfo}>
+              {item.dealership?.logo && (
+                <Image
+                  source={{ uri: item.dealership.logo }}
+                  style={styles.dealershipLogo}
+                />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dealershipName}>
+                  {item.dealership?.name}
+                </Text>
+                <Text style={styles.postDate}>
+                  {formattedPostDate}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {item.car && (
+            <View style={{ marginBottom: 4 }}>
+              <Text style={styles.carTitle}>
+                {item.car.year} {item.car.make} {item.car.model}
+              </Text>
+            </View>
+          )}
+
+          {item.description && (
+            <View style={{ marginBottom: 4 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setExpandedDescriptions(prev => ({
+                    ...prev,
+                    [item.id]: !prev[item.id],
+                  }));
+                }}
+                activeOpacity={0.9}
+              >
+                <Text
+                  style={styles.description}
+                  numberOfLines={isDescriptionExpanded ? undefined : 2}
+                >
+                  {item.description}
+                  {shouldShowExpandOption && (
+                    <Text style={styles.readMore}>
+                      {" "}
+                      {isDescriptionExpanded ? "Read less" : "... Read more"}
+                    </Text>
+                  )}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {item.car && (
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity
+                style={styles.viewDetailsButton}
+                onPress={() => {
+                  router.push({
+                    pathname: "/(home)/(user)/CarDetails",
+                    params: { carId: item.car.id },
+                  });
+                }}
+              >
+                <Text style={styles.viewDetailsText}>View Details</Text>
+                <Ionicons name="arrow-forward" size={18} color="white" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => {
+                  if (item.dealership?.phone) {
+                    Linking.openURL(`tel:${item.dealership.phone}`);
+                  } else {
+                    Alert.alert("Contact", "Phone number not available");
+                  }
+                }}
+              >
+                <Ionicons name="call-outline" size={24} color="white" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => {
+                  if (item.dealership?.phone) {
+                    const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
+                    openWhatsApp(item.dealership.phone, message);
+                  } else {
+                    Alert.alert("Contact", "Phone number not available");
+                  }
+                }}
+              >
+                <Ionicons name="logo-whatsapp" size={24} color="white" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => {
+                  if (!item.car) return;
+                  shareContent({
+                    id: item.id,
+                    type: 'autoclip',
+                    title: `${item.car.year} ${item.car.make} ${item.car.model} - Video`,
+                    message: `Check out this ${item.car.year} ${item.car.make} ${item.car.model} video on Fleet!${item.description ? `\n\n${item.description}` : ''}`
+                  });
+                }}
+              >
+                <Ionicons name="share-outline" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </LinearGradient>
+      </View>
+    );
+  }, [expandedDescriptions]);
+
+  // Viewability handler
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+    if (isNavigatingToDeepLink) return;
+    
+    if (viewableItems.length > 0) {
+      const visibleClip = viewableItems[0].item;
+      const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id);
       
-      if (viewableItems.length > 0) {
-        const visibleClip = viewableItems[0].item;
-        const newIndex = autoClips.findIndex(
-          (clip) => clip.id === visibleClip.id
-        );
-        
-        if (newIndex !== currentVideoIndex && newIndex !== -1) {
-          console.log(`[ViewabilityChanged] Changing from index ${currentVideoIndex} to ${newIndex}`);
-          
-          // Clear existing view timer
-          if (viewTimers.current[currentVideoIndex]) {
-            clearTimeout(viewTimers.current[currentVideoIndex]);
-          }
-          
-          // Update current video index
-          setCurrentVideoIndex(newIndex);
-          
-          // Start new view timer
-          viewTimers.current[newIndex] = setTimeout(() => {
-            trackClipView(visibleClip.id);
-          }, 5000);
-          
-          // Handle video transitions
-          Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-            const shouldPlay = clipId === visibleClip.id.toString();
-            try {
-              if (shouldPlay) {
-                await ref?.current?.setPositionAsync(0);
-                if (allowVideoPlayback) {
-                  await ref?.current?.playAsync();
-                  setIsPlaying((prev) => ({ ...prev, [clipId]: true }));
-                }
-              } else {
-                await ref?.current?.pauseAsync();
-                setIsPlaying((prev) => ({ ...prev, [clipId]: false }));
-              }
-            } catch (err) {
-              console.error("Error transitioning video:", err);
-            }
-          });
+      if (newIndex !== currentVideoIndex && newIndex !== -1) {
+        // Clear existing view timer
+        if (viewTimers.current[currentVideoIndex]) {
+          clearTimeout(viewTimers.current[currentVideoIndex]);
         }
+        
+        setCurrentVideoIndex(newIndex);
+        
+        // Start new view timer
+        viewTimers.current[newIndex] = setTimeout(() => {
+          trackClipView(visibleClip.id);
+        }, 5000);
+        
+        // Handle video transitions
+        Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
+          const shouldPlay = clipId === visibleClip.id.toString();
+          try {
+            if (shouldPlay && allowVideoPlayback) {
+              // Reset position to saved position or 0
+              const savedPosition = videoPositions[Number(clipId)] || 0;
+              if (savedPosition > 0) {
+                await ref?.current?.setPositionAsync(savedPosition * 1000);
+              } else {
+                await ref?.current?.setPositionAsync(0);
+              }
+              await ref?.current?.playAsync();
+              setIsPlaying(prev => ({ ...prev, [clipId]: true }));
+            } else {
+              await ref?.current?.pauseAsync();
+              setIsPlaying(prev => ({ ...prev, [clipId]: false }));
+            }
+          } catch (err) {
+            console.error("Error transitioning video:", err);
+          }
+        });
       }
-    },
-    [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]
-  );
+    }
+  }, [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink, videoPositions]);
 
-  const handleSplashFinish = () => {
-    console.log("Splash finished, enabling video playback");
-    setAllowVideoPlayback(true);
-  };
+  const viewabilityConfig = useMemo(() => ({
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
+    minimumViewTime: 300,
+  }), []);
 
-  return (
-    <View
-      style={[
-        { flex: 1 },
-        isDarkMode
-          ? { backgroundColor: "black" }
-          : { backgroundColor: "white" },
-      ]}
-    >
+  // Error state
+  if (error && !networkInfo.isConnected) {
+    return (
+      <View style={styles.centerContainer}>
+        <Ionicons name="wifi-outline" size={64} color={isDarkMode ? "#fff" : "#000"} />
+        <Text style={[styles.errorText, { color: isDarkMode ? "#fff" : "#000" }]}>
+          No Internet Connection
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchData}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Loading state
+  if (isLoading && autoClips.length === 0) {
+    return (
       <SplashScreen
         isDarkMode={isDarkMode}
         isLoading={isLoading}
-        onSplashFinish={handleSplashFinish}
+        onSplashFinish={() => setAllowVideoPlayback(true)}
       />
+    );
+  }
 
-      <TouchableOpacity
-        style={{
-          position: "absolute",
-          top: 48,
-          left: 16,
-          zIndex: 50,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          padding: 8,
-          borderRadius: 9999,
-          elevation: 5,
-        }}
-        onPress={() => router.back()}
-      >
+  return (
+    <View style={[styles.container, { backgroundColor: isDarkMode ? "black" : "white" }]}>
+      <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
         <Ionicons name="home" size={24} color="white" />
       </TouchableOpacity>
+
+      {/* Network quality indicator */}
+      {networkInfo.isConnected && connectionSpeed !== 'fast' && (
+        <View style={styles.networkIndicator}>
+          <Ionicons 
+            name="wifi-outline" 
+            size={16} 
+            color={connectionSpeed === 'very_slow' ? '#ff4444' : '#ffaa00'} 
+          />
+          <Text style={styles.networkText}>
+            {connectionSpeed === 'very_slow' ? 'Slow Connection' : 'Limited Connection'}
+          </Text>
+        </View>
+      )}
 
       <FlatList
         ref={flatListRef}
@@ -1195,7 +1055,6 @@ export default function AutoClips() {
             isPlaying={isPlaying}
             currentVideoIndex={currentVideoIndex}
             globalMute={globalMute}
-            networkType={networkType}
             videoLoading={videoLoading}
             setVideoLoading={setVideoLoading}
             renderVideoControls={renderVideoControls}
@@ -1204,9 +1063,11 @@ export default function AutoClips() {
             isDarkMode={isDarkMode}
             videoRefs={videoRefs}
             allowPlayback={allowVideoPlayback}
+            videoQuality={videoQuality}
+            savedPosition={videoPositions[item.id] || 0}
           />
         )}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id.toString()}
         pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -1220,8 +1081,10 @@ export default function AutoClips() {
         }
         contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT }}
         removeClippedSubviews
-        maxToRenderPerBatch={MAX_VIDEO_BUFFER}
-        windowSize={MAX_VIDEO_BUFFER * 2 + 1}
+        maxToRenderPerBatch={2}
+        windowSize={5}
+        initialNumToRender={1}
+        updateCellsBatchingPeriod={100}
         getItemLayout={(data, index) => ({
           length: height,
           offset: height * index,
@@ -1232,51 +1095,70 @@ export default function AutoClips() {
   );
 }
 
+// --- Styles ---
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   errorText: {
-    color: "red",
-    fontSize: 16,
+    fontSize: 18,
     textAlign: "center",
-    padding: 16,
+    marginTop: 16,
+    marginBottom: 24,
   },
-  playPauseIcon: {
+  retryButton: {
+    backgroundColor: "#D55004",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  homeButton: {
     position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -25 }, { translateY: -25 }],
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 30,
-    padding: 10,
-    zIndex: 10,
+    top: 48,
+    left: 16,
+    zIndex: 50,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 8,
+    borderRadius: 9999,
+    elevation: 5,
   },
-  heartAnimation: {
+  networkIndicator: {
     position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -40 }, { translateY: -40 }],
-    zIndex: 11,
-  },
-  splashContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
+    top: 48,
+    right: 16,
+    zIndex: 50,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: "row",
     alignItems: "center",
-    zIndex: 9999,
-    backgroundColor: "#fff",
   },
-  splashCircle: {
-    position: "absolute",
-    width: SPLASH_CIRCLE_SIZE,
-    height: SPLASH_CIRCLE_SIZE,
-    borderRadius: SPLASH_CIRCLE_SIZE / 2,
+  networkText: {
+    color: "white",
+    fontSize: 12,
+    marginLeft: 4,
   },
-  splashText: {
-    fontSize: 28,
-    fontWeight: "bold",
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bufferingText: {
+    color: "white",
+    marginTop: 8,
+    fontSize: 14,
   },
   iconContainer: {
     position: "absolute",
@@ -1286,6 +1168,88 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.2)", // Optional: Add a slight background dim
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  clipInfoContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 0,
+    height: "auto",
+  },
+  clipInfoGradient: {
+    padding: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 60,
+    marginBottom: 0,
+    zIndex: 50,
+  },
+  dealershipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  dealershipInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  dealershipLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    marginRight: 12,
+    backgroundColor: "rgba(255,255,255,0.5)",
+  },
+  dealershipName: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  postDate: {
+    color: "#A8A8A8",
+    fontSize: 12,
+  },
+  carTitle: {
+    color: "#D55004",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  description: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  readMore: {
+    color: "#D55004",
+  },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  viewDetailsButton: {
+    flex: 1,
+    backgroundColor: "#D55004",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewDetailsText: {
+    color: "white",
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  actionButton: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 8,
+    borderRadius: 10,
+    marginLeft: 8,
   },
 });
