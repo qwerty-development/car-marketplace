@@ -384,7 +384,7 @@ export default function CarsByBrand() {
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader
-				title={brand ? `${brand} Cars` : 'Cars by Brand'}
+				title={brand ? `${brand}` : 'Cars by Brand'}
 				onBack={() => router.back()}
 				brandName={brand}
 			/>
