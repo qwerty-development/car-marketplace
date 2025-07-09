@@ -729,6 +729,57 @@ const fetchCars = useCallback(
   const listData =
     isInitialLoading && cars.length === 0 ? Array(3).fill(null) : cars;
 
+  // Styles for the suggestions
+  const suggestionStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        suggestionsContainer: {
+          position: "absolute",
+          top: 60,
+          left: 10,
+          right: 10,
+          borderRadius: 16,
+          backgroundColor: isDarkMode
+            ? "rgba(30,30,30,0.9)"
+            : "rgba(255,255,255,0.95)",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 6,
+          borderWidth: 1,
+          borderColor: isDarkMode ? "rgba(255,255,255)" : "rgba(0, 0, 0, 0)",
+        },
+        suggestionsInnerContainer: {
+          padding: 4,
+        },
+
+        suggestionsHeader: {
+          fontWeight: "bold",
+          fontSize: 16,
+          paddingBottom: 8,
+          marginTop: 8,
+          color: isDarkMode ? "#fff" : "#000",
+        },
+        suggestionItem: {
+          paddingVertical: 8,
+          fontSize: 12,
+          paddingHorizontal: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: isDarkMode
+            ? "rgba(255,255,255,0.1)"
+            : "rgba(0, 0, 0, 0.06)",
+        },
+        suggestionItemLast: {
+          borderBottomWidth: 0,
+        },
+        suggestionText: {
+          fontSize: 18,
+          color: isDarkMode ? "#fff" : "#000",
+        },
+      }),
+    [isDarkMode]
+  );
 
   return (
     <LinearGradient
