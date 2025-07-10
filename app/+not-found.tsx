@@ -1,5 +1,6 @@
-import { Link, Stack, useRouter } from "expo-router";
-import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator } from "react-native";
+// app/+not-found.tsx - Updated to handle both iOS and Android properly
+import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from "@/utils/ThemeContext";
 import { useAuth } from "@/utils/AuthContext";
@@ -13,68 +14,53 @@ export default function NotFoundScreen() {
   const { user, signOut, isLoaded, isSignedIn } = useAuth();
   const { isGuest, clearGuestMode } = useGuestUser();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [redirectAttempts, setRedirectAttempts] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // CRITICAL FIX: Auto-redirect authenticated users
+  // Platform-specific redirect handling
   useEffect(() => {
     // Wait for auth to be loaded
     if (!isLoaded) return;
 
-    const effectivelySignedIn = isSignedIn || isGuest;
-
-    // If user is signed in and we haven't redirected yet
-    if (effectivelySignedIn && !isRedirecting && redirectAttempts < 3) {
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    
+    // Only redirect automatically on Android
+    if (Platform.OS === 'android' && isEffectivelySignedIn && !isRedirecting) {
+      console.log('[NotFound - Android] User authenticated - attempting redirect');
+      console.log('[NotFound - Android] Route params:', params);
+      
       setIsRedirecting(true);
       
-      // Log for debugging
-      console.log('[404 Page] User is authenticated, attempting redirect. Attempt:', redirectAttempts + 1);
-      
-      // Try immediate redirect first
-      try {
-        router.replace('/(home)');
-        console.log('[404 Page] Immediate redirect attempted');
-      } catch (error) {
-        console.error('[404 Page] Immediate redirect failed:', error);
-      }
-
-      // Fallback: Try again with delay
-      const timeouts = [100, 500, 1000]; // Increasing delays for each attempt
-      const delay = timeouts[redirectAttempts] || 1000;
-      
+      // Android-specific redirect strategy
       setTimeout(() => {
         try {
-          // Force navigation to home
           router.replace('/(home)/(user)');
-          console.log('[404 Page] Delayed redirect attempted after', delay, 'ms');
         } catch (error) {
-          console.error('[404 Page] Delayed redirect failed:', error);
-          
-          // Last resort: force refresh
-          if (redirectAttempts === 2) {
-            console.log('[404 Page] Final attempt - forcing navigation');
-            // Use push instead of replace as last resort
-            router.push('/(home)');
-          }
+          console.error('[NotFound - Android] Redirect failed:', error);
         }
-        
         setIsRedirecting(false);
-        setRedirectAttempts(prev => prev + 1);
-      }, delay);
+      }, 500);
     }
-  }, [isLoaded, isSignedIn, isGuest, router, redirectAttempts, isRedirecting]);
+    
+    // For iOS, don't auto-redirect - let user choose
+    if (Platform.OS === 'ios' && !isEffectivelySignedIn) {
+      console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
+      router.replace('/(auth)/sign-in');
+    }
+  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting]);
 
-  // ADDITIONAL FIX: Refresh button for manual recovery
-  const handleRefresh = () => {
-    console.log('[404 Page] Manual refresh triggered');
+  // Manual navigation handler
+  const handleGoHome = () => {
+    console.log(`[NotFound - ${Platform.OS}] Manual navigation to home`);
     
-    // Clear any navigation state
-    router.replace('/(home)');
+    const isEffectivelySignedIn = isSignedIn || isGuest;
     
-    // If that doesn't work, try with a delay
-    setTimeout(() => {
-      router.push('/(home)/(user)');
-    }, 100);
+    if (isEffectivelySignedIn) {
+      router.replace('/(home)/(user)');
+    } else {
+      router.replace('/(auth)/sign-in');
+    }
   };
 
   const handleSignOut = async () => {
@@ -115,7 +101,12 @@ export default function NotFoundScreen() {
     return (
       <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
         <View style={styles.content}>
-          <Text style={{ color: isDarkMode ? "#FFFFFF" : "#000000", fontSize: 18 }}>
+          <ActivityIndicator size="large" color="#D55004" />
+          <Text style={{ 
+            color: isDarkMode ? "#FFFFFF" : "#000000", 
+            fontSize: 18,
+            marginTop: 16 
+          }}>
             Loading...
           </Text>
         </View>
@@ -175,13 +166,13 @@ export default function NotFoundScreen() {
             Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
           </Text>
 
-          {/* Show redirect message if user is authenticated */}
-          {(isSignedIn || isGuest) && redirectAttempts > 0 && (
+          {/* Platform-specific messaging */}
+          {Platform.OS === 'android' && (isSignedIn || isGuest) && isRedirecting && (
             <Text style={[
               styles.redirectMessage,
               { color: "#D55004" }
             ]}>
-              Redirecting you to the home page...
+              Redirecting to home...
             </Text>
           )}
 
@@ -190,30 +181,11 @@ export default function NotFoundScreen() {
             {/* Go Home Button */}
             <TouchableOpacity 
               style={[styles.primaryButton, { backgroundColor: "#D55004" }]}
-              onPress={handleRefresh}
+              onPress={handleGoHome}
             >
               <Ionicons name="home-outline" size={20} color="white" style={styles.buttonIcon} />
               <Text style={styles.primaryButtonText}>Go to Home</Text>
             </TouchableOpacity>
-
-            {/* Refresh Button for authenticated users */}
-            {(isSignedIn || isGuest) && (
-              <TouchableOpacity 
-                style={[
-                  styles.secondaryButton,
-                  { 
-                    borderColor: "#D55004",
-                    backgroundColor: isDarkMode ? "#D5500410" : "#D5500405" 
-                  }
-                ]}
-                onPress={handleRefresh}
-              >
-                <Ionicons name="refresh-outline" size={20} color="#D55004" style={styles.buttonIcon} />
-                <Text style={[styles.secondaryButtonText, { color: "#D55004" }]}>
-                  Refresh Navigation
-                </Text>
-              </TouchableOpacity>
-            )}
 
             {/* Go Back Button */}
             <TouchableOpacity 
@@ -224,7 +196,14 @@ export default function NotFoundScreen() {
                   backgroundColor: isDarkMode ? "#FFFFFF10" : "#00000010" 
                 }
               ]}
-              onPress={() => router.back()}
+              onPress={() => {
+                try {
+                  router.back();
+                } catch (error) {
+                  console.error('[NotFound] Back navigation failed:', error);
+                  handleGoHome();
+                }
+              }}
             >
               <Ionicons 
                 name="arrow-back-outline" 
@@ -240,6 +219,30 @@ export default function NotFoundScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Debug info for development */}
+          {__DEV__ && Object.keys(params).length > 0 && (
+            <View style={styles.debugContainer}>
+              <Text style={[
+                styles.debugTitle,
+                { color: isDarkMode ? "#FFFFFF60" : "#00000060" }
+              ]}>
+                Debug Info:
+              </Text>
+              <Text style={[
+                styles.debugText,
+                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
+              ]}>
+                Platform: {Platform.OS}
+              </Text>
+              <Text style={[
+                styles.debugText,
+                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
+              ]}>
+                Params: {JSON.stringify(params, null, 2)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Sign Out Button - only show if user is signed in */}
@@ -379,5 +382,21 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  debugContainer: {
+    marginTop: 24,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "rgba(128, 128, 128, 0.1)",
+    width: "100%",
+  },
+  debugTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  debugText: {
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });
