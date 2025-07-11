@@ -94,9 +94,9 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // Reduced from 2
-      staleTime: 2 * 60 * 1000, // Reduced from 5 minutes
-      cacheTime: 5 * 60 * 1000, // Reduced from 10 minutes
+      retry: 1,
+      staleTime: 2 * 60 * 1000,
+      cacheTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
     },
@@ -115,9 +115,9 @@ interface InitializationState {
   deepLinks: boolean;
 }
 
-// REDUCED TIMEOUT CONSTANTS: For faster loading
-const INITIALIZATION_TIMEOUT = 8000; // Reduced from 15 seconds
-const SPLASH_MIN_DURATION = 500; // Reduced from 1 second
+// BALANCED TIMEOUT CONSTANTS: Fast but reliable
+const INITIALIZATION_TIMEOUT = 50000; // 10 seconds for safety
+const SPLASH_MIN_DURATION = 500;
 
 // SIMPLIFIED CLASS: InitializationManager
 class InitializationManager {
@@ -134,7 +134,7 @@ class InitializationManager {
   constructor() {
     // MANDATORY TIMEOUT: Prevent infinite loading
     this.timeoutId = setTimeout(() => {
-      console.warn('[InitManager] TIMEOUT: Forcing completion after 8 seconds');
+      console.warn('[InitManager] TIMEOUT: Forcing completion after 10 seconds');
       this.forceComplete();
     }, INITIALIZATION_TIMEOUT);
   }
@@ -227,12 +227,11 @@ class DeepLinkQueue {
 
     if (url && this.processUrlCallback) {
       try {
-        // TIMEOUT PROTECTION: 3 second limit for deep link processing
         this.processTimeout = setTimeout(() => {
           console.warn('[DeepLinkQueue] TIMEOUT: Processing timeout, skipping URL:', url);
           this.processing = false;
           this.processNextIfReady();
-        }, 3000);
+        }, 5000);
 
         await this.processUrlCallback(url);
         
@@ -263,7 +262,6 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
-// OPTIMIZED DeepLinkHandler component
 const DeepLinkHandler = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -369,15 +367,15 @@ const DeepLinkHandler = () => {
             }
 
             try {
-              // Platform-specific navigation handling
+              // Platform-specific navigation handling with PROPER TIMING
               if (Platform.OS === 'android' && isInitialLink) {
-                // Android needs proper navigation stack
+                // Android needs proper navigation stack - DON'T RUSH THIS
                 console.log("[DeepLink] Android: Setting up navigation stack");
-                await new Promise((resolve) => setTimeout(resolve, 200));
+                await new Promise((resolve) => setTimeout(resolve, 500)); // Keep this at 500ms
                 
                 // First establish the base route
                 router.replace("/(home)/(user)");
-                await new Promise((resolve) => setTimeout(resolve, 100));
+                await new Promise((resolve) => setTimeout(resolve, 200)); // Keep this at 200ms
                 
                 // Then navigate to the specific car
                 router.push({
@@ -389,7 +387,7 @@ const DeepLinkHandler = () => {
                   },
                 });
               } else {
-                // iOS can navigate directly - no prefetch to speed up
+                // iOS can navigate directly
                 router.push({
                   pathname: "/(home)/(user)/CarDetails",
                   params: {
@@ -424,16 +422,14 @@ const DeepLinkHandler = () => {
             }
 
             try {
-              // Skip clip existence check to speed up navigation
-              
-              // Platform-specific navigation for clips
+              // Platform-specific navigation for clips with PROPER TIMING
               if (Platform.OS === 'android' && isInitialLink) {
                 console.log("[DeepLink] Android clip navigation sequence");
                 
-                // Establish navigation stack for Android
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Establish navigation stack for Android - DON'T RUSH THIS
+                await new Promise(resolve => setTimeout(resolve, 500)); // Keep this at 500ms
                 router.replace('/(home)/(user)');
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => setTimeout(resolve, 200)); // Keep this at 200ms
                 
                 // Navigate to autoclips tab
                 router.push({
@@ -450,7 +446,7 @@ const DeepLinkHandler = () => {
                     clipId: clipId,
                     fromDeepLink: "true",
                   });
-                }, 100);
+                }, 300); // Keep this at 300ms
               } else {
                 // iOS can navigate directly
                 router.push({
@@ -563,7 +559,7 @@ const DeepLinkHandler = () => {
       initializationTimeoutRef.current = setTimeout(() => {
         setIsInitialized(true);
         deepLinkQueue.setReady();
-      }, 100); // Reduced from 300ms
+      }, 300); // Keep this at 300ms for reliability
     }
 
     return () => {
@@ -750,7 +746,7 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-  const contentOpacity = useRef(new Animated.Value(0.01)).current; // Start at 0.01 to prevent flash
+  const contentOpacity = useRef(new Animated.Value(0.01)).current;
 
   // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
@@ -892,7 +888,7 @@ export default function RootLayout() {
         if (Platform.OS === "android") {
           setTimeout(() => {
             SplashScreen.hideAsync().catch(() => {});
-          }, 2000); // Reduced from 3000
+          }, 2000);
         }
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
