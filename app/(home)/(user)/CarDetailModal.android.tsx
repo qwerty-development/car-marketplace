@@ -1492,16 +1492,19 @@ ${shareUrl}`
                     color: isDarkMode ? "#fff" : "#000"
                   }}
                 >
-                  {car.make} {car.model}
+                 {car.year}  {car.make} {car.model}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: isDarkMode ? "#fff" : "#000"
-                  }}
-                >
-                  {car.year}
-                </Text>
+                  {car.trim !== null && car.trim !== "" && (
+                    <Text
+                      className="mt-1"
+                      style={{
+                        fontSize: 14,
+                        color: isDarkMode ? "#fff" : "#000",
+                      }}
+                    >
+                      {car.trim}
+                    </Text>
+                  )}
                 {/* Dynamic relative time display using listed_at */}
                 {car.listed_at && (
                   <Text

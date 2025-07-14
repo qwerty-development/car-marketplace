@@ -620,23 +620,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }
   }, [car?.dealership_phone, car?.id, trackCallClick]);
 
-  const handleShare = useCallback(async () => {
-    if (!car) return;
-
-    try {
-      await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${
-          car.model
-        } for $${car.price ? car.price.toLocaleString() : 'N/A'}!
-        at ${car.dealership_name || 'Dealership'} in ${car.dealership_location || 'Location'}
-        `,
-      });
-    } catch (error: any) {
-      console.error('Share error:', error);
-      Alert.alert('Error', error.message || 'Could not share this car');
-    }
-  }, [car]);
-
+const handleShare = useCallback(async () => {
+  try {
+    const vehicleName = `${car.year} ${car.make} ${car.model}`;
+    await Share.share({
+      message: `Check out this ${vehicleName} for $${car.price.toLocaleString()}!
+      at ${car.dealership_name} in ${car.dealership_location}
+      `,
+    });
+  } catch (error: any) {
+    Alert.alert(error.message);
+  }
+}, [car]);
   // Improved maps handling for Android
   const handleOpenInMaps = useCallback(() => {
     try {
@@ -737,34 +732,29 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     [isDarkMode, router]
   );
 
-  // Enhanced WhatsApp handling for Android
-  const handleWhatsAppPress = useCallback(() => {
-    if (!car?.dealership_phone) {
-      Alert.alert('Phone number not available');
-      return;
-    }
+const handleWhatsAppPress = useCallback(() => {
+  if (car?.dealership_phone) {
+    trackWhatsAppClick(car.id);
 
-    try {
-      // Track the WhatsApp click first
-      if (car.id) {
-        trackWhatsAppClick(car.id);
-      }
+    const cleanedPhoneNumber = car.dealership_phone
+      .toString()
+      .replace(/\D/g, "");
+    const vehicleName = `${car.year} ${car.make} ${car.model}`;
+    const message = `Hi, I'm interested in the ${vehicleName} listed for $${car.price.toLocaleString()} on Fleet`;
+    const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
+      message
+    )}`;
 
-      const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet`;
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
-
-      Linking.openURL(webURL).catch(() => {
-        Alert.alert(
-          'Error',
-          'Unable to open WhatsApp. Please make sure it is installed on your device.'
-        );
-      });
-    } catch (error) {
-      console.error('Error opening WhatsApp:', error);
-      Alert.alert('Error', 'Could not open WhatsApp');
-    }
-  }, [car, trackWhatsAppClick]);
+    Linking.openURL(webURL).catch(() => {
+      Alert.alert(
+        "Error",
+        "Unable to open WhatsApp. Please make sure it is installed on your device."
+      );
+    });
+  } else {
+    Alert.alert("Phone number not available");
+  }
+}, [car, trackWhatsAppClick]);
 
   // Safer image modal for Android
   const renderImageModal = () => {
@@ -1075,16 +1065,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               )}
               <View style={{ marginLeft: 12 }}>
 
-                <Text
-                  style={{
-                    fontSize: 20,
-                    marginTop: 24,
-                    fontWeight: 'bold',
-                    color: isDarkMode ? "#fff" : "#000"
-                  }}
-                >
-                  {car.make} {car.model}
-                </Text>
+               <Text
+  className={`text-xl mt-6 mr-12 font-bold ${
+    isDarkMode ? "text-white" : "text-black"
+  }`}
+  numberOfLines={2}
+>
+  {car.make} {car.model}{car.trim ? ` ${car.trim}` : ''}
+</Text>
                 <Text
                   style={{
                     fontSize: 14,
