@@ -1,4 +1,4 @@
-// app/+not-found.tsx - Updated to handle both iOS and Android properly
+
 import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import { coordinateSignOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function NotFoundScreen() {
   const { isDarkMode } = useTheme();
@@ -15,39 +15,86 @@ export default function NotFoundScreen() {
   const { isGuest, clearGuestMode } = useGuestUser();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [redirectAttempts, setRedirectAttempts] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const redirectTimeoutRef = useRef<NodeJS.Timeout>();
+  const hasAttemptedRedirect = useRef(false);
 
-  // Platform-specific redirect handling
+  // FIXED: Enhanced redirect handling for deep links
   useEffect(() => {
     // Wait for auth to be loaded
     if (!isLoaded) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
-    // Only redirect automatically on Android
-    if (Platform.OS === 'android' && isEffectivelySignedIn && !isRedirecting) {
-      console.log('[NotFound - Android] User authenticated - attempting redirect');
-      console.log('[NotFound - Android] Route params:', params);
-      
-      setIsRedirecting(true);
-      
-      // Android-specific redirect strategy
-      setTimeout(() => {
-        try {
-          router.replace('/(home)/(user)');
-        } catch (error) {
-          console.error('[NotFound - Android] Redirect failed:', error);
-        }
-        setIsRedirecting(false);
-      }, 500);
+    // FIXED: Check if this might be a deep link navigation issue
+    const mightBeDeepLink = params.unmatched && (
+      params.unmatched.includes('CarDetails') ||
+      params.unmatched.includes('autoclips') ||
+      params.unmatched.includes('cars') ||
+      params.unmatched.includes('clips')
+    );
+    
+    // Clear any existing timeout
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
+      redirectTimeoutRef.current = undefined;
     }
     
-    // For iOS, don't auto-redirect - let user choose
-    if (Platform.OS === 'ios' && !isEffectivelySignedIn) {
-      console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
-      router.replace('/(auth)/sign-in');
+    // FIXED: Handle iOS deep link navigation timing issue
+    if (Platform.OS === 'ios' && mightBeDeepLink && !hasAttemptedRedirect.current) {
+      console.log('[NotFound - iOS] Possible deep link navigation issue detected');
+      hasAttemptedRedirect.current = true;
+      
+      // Give the deep link handler more time to process
+      redirectTimeoutRef.current = setTimeout(() => {
+        if (isEffectivelySignedIn) {
+          console.log('[NotFound - iOS] Redirecting to home after deep link timeout');
+          router.replace('/(home)/(user)');
+        } else {
+          console.log('[NotFound - iOS] Redirecting to sign-in after deep link timeout');
+          router.replace('/(auth)/sign-in');
+        }
+      }, 1500); // Give deep link handler time to process
+      
+      return;
     }
+    
+    // Regular redirect logic for non-deep link scenarios
+    if (!mightBeDeepLink && !isRedirecting && !hasAttemptedRedirect.current) {
+      hasAttemptedRedirect.current = true;
+      
+      // Android auto-redirect
+      if (Platform.OS === 'android' && isEffectivelySignedIn) {
+        console.log('[NotFound - Android] User authenticated - attempting redirect');
+        console.log('[NotFound - Android] Route params:', params);
+        
+        setIsRedirecting(true);
+        
+        // Android-specific redirect strategy
+        redirectTimeoutRef.current = setTimeout(() => {
+          try {
+            router.replace('/(home)/(user)');
+          } catch (error) {
+            console.error('[NotFound - Android] Redirect failed:', error);
+          }
+          setIsRedirecting(false);
+        }, 500);
+      }
+      
+      // iOS sign-in redirect
+      if (Platform.OS === 'ios' && !isEffectivelySignedIn) {
+        console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
+        router.replace('/(auth)/sign-in');
+      }
+    }
+    
+    // Cleanup
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = undefined;
+      }
+    };
   }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting]);
 
   // Manual navigation handler
@@ -108,6 +155,31 @@ export default function NotFoundScreen() {
             marginTop: 16 
           }}>
             Loading...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // FIXED: Show loading for potential deep link redirects
+  const mightBeDeepLink = params.unmatched && (
+    params.unmatched.includes('CarDetails') ||
+    params.unmatched.includes('autoclips') ||
+    params.unmatched.includes('cars') ||
+    params.unmatched.includes('clips')
+  );
+  
+  if (mightBeDeepLink && Platform.OS === 'ios' && hasAttemptedRedirect.current) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
+        <View style={styles.content}>
+          <ActivityIndicator size="large" color="#D55004" />
+          <Text style={{ 
+            color: isDarkMode ? "#FFFFFF" : "#000000", 
+            fontSize: 18,
+            marginTop: 16 
+          }}>
+            Loading content...
           </Text>
         </View>
       </View>

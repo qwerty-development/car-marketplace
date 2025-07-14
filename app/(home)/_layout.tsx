@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Slot, useRouter, useSegments, Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
 import { Alert, View, useColorScheme, Platform } from "react-native";
@@ -137,10 +137,12 @@ export default function HomeLayout() {
         
         if (isAutoclipDeepLink) {
           console.log('[HomeLayout] Android autoclip deep link detected');
+          // Ensure proper navigation stack for autoclips
         }
         
         if (isCarDeepLink) {
           console.log('[HomeLayout] Android car deep link detected');
+          // Ensure proper navigation stack for car details
         }
       }
     }
@@ -470,14 +472,18 @@ export default function HomeLayout() {
           animationTypeForReplace: Platform.OS === 'android' ? 'push' : 'pop',
           // ANDROID FIX: Prevent navigation stack issues
           gestureEnabled: Platform.OS === 'ios',
+          // ANDROID FIX: Ensure proper content rendering
+          contentStyle: { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
         }}
       >
+        {/* User Role Routes */}
         <Stack.Screen 
           name="(user)" 
           options={{ 
             headerShown: false,
-            // ANDROID FIX: Ensure proper stack management
+            // ANDROID FIX: Ensure proper stack management for deep links
             presentation: Platform.OS === 'android' ? 'card' : 'modal',
+            freezeOnBlur: Platform.OS === 'android' ? false : true,
           }} 
         />
         <Stack.Screen 
@@ -485,6 +491,7 @@ export default function HomeLayout() {
           options={{ 
             headerShown: false,
             presentation: Platform.OS === 'android' ? 'card' : 'modal',
+            freezeOnBlur: Platform.OS === 'android' ? false : true,
           }} 
         />
       </Stack>
