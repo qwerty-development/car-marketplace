@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, Alert, Modal } from 'react-native'
+import { View, Text, TouchableOpacity, Alert, Modal, StyleSheet, Dimensions, StatusBar } from 'react-native'
 import {
 	GestureHandlerRootView,
-	PanGestureHandler
+	PanGestureHandler,
+	PanGestureHandlerGestureEvent
 } from 'react-native-gesture-handler'
 import Animated, {
 	useAnimatedGestureHandler,
@@ -13,17 +14,19 @@ import Animated, {
 } from 'react-native-reanimated'
 import { LinearGradient } from 'expo-linear-gradient'
 import { FontAwesome } from '@expo/vector-icons'
-import { Video, ResizeMode } from 'expo-av'
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av'
 import { useTheme } from '@/utils/ThemeContext'
 import { supabase } from '@/utils/supabase'
-import EditAutoClipModal from './EditAutoClipModal' // Adjust path as needed
+import EditAutoClipModal from './EditAutoClipModal'
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 
 interface AutoClip {
 	id: number
 	title: string
 	description: string
 	video_url: string
-	status: 'published' | 'draft'
+	status: 'published' | 'draft' | 'under_review' | 'rejected' | 'archived'
 	likes: number
 	views: number
 	car?: {
@@ -57,11 +60,14 @@ export default function PreviewAutoClipModal({
 	const [isStatusLoading, setIsStatusLoading] = useState(false)
 	const [currentClip, setCurrentClip] = useState<AutoClip | null>(null)
 	const [showEditModal, setShowEditModal] = useState(false)
-	const translateX = useSharedValue(0)
+	const translateY = useSharedValue(0)
+
+	const styles = getStyles(isDarkMode)
 
 	useEffect(() => {
 		if (clip) {
 			setCurrentClip(clip)
+			setIsDescriptionExpanded(false)
 		}
 	}, [clip])
 
@@ -69,137 +75,115 @@ export default function PreviewAutoClipModal({
 		if (!isVisible && videoRef) {
 			videoRef.stopAsync()
 		}
-	}, [isVisible])
+	}, [isVisible, videoRef])
 
-	const handleToggleStatus = async () => {
-		if (!currentClip || isStatusLoading) return
-		setIsStatusLoading(true)
 
-		try {
-			const newStatus =
-				currentClip.status === 'published' ? 'draft' : 'published'
-			const { error } = await supabase
-				.from('auto_clips')
-				.update({ status: newStatus })
-				.eq('id', currentClip.id)
-
-			if (error) throw error
-
-			const updatedClip = { ...currentClip, status: newStatus }
-			setCurrentClip(updatedClip)
-			onToggleStatus(updatedClip)
-		} catch (error) {
-			console.error('Error:', error)
-			Alert.alert('Error', 'Failed to update status')
-		} finally {
-			setIsStatusLoading(false)
-		}
-	}
-
-	const panGestureEvent = useAnimatedGestureHandler({
-		onActive: event => {
+	
+	const panGestureEvent = useAnimatedGestureHandler<PanGestureHandlerGestureEvent>({
+		onActive: (event) => {
 			if (event.translationY > 0) {
-				translateX.value = event.translationY
+				translateY.value = event.translationY
 			}
 		},
-		onEnd: event => {
+		onEnd: (event) => {
 			if (event.translationY > 100) {
 				runOnJS(onClose)()
 			}
-			translateX.value = withSpring(0)
+			translateY.value = withSpring(0)
 		}
 	})
 
 	const animatedStyle = useAnimatedStyle(() => ({
-		transform: [{ translateY: translateX.value }]
+		transform: [{ translateY: translateY.value }]
 	}))
 
+	const handleVideoRef = (ref: Video | null) => {
+		setVideoRef(ref)
+	}
+
+
 	if (!currentClip) return null
+
+	const getStatusConfig = () => {
+		switch (currentClip.status) {
+			case 'published':
+				return { icon: 'eye' as const, text: 'Published' }
+			case 'draft':
+				return { icon: 'eye-slash' as const, text: 'Draft' }
+			case 'under_review':
+				return { icon: 'clock-o' as const, text: 'Under Review' }
+			case 'rejected':
+				return { icon: 'times' as const, text: 'Rejected' }
+			case 'archived':
+				return { icon: 'archive' as const, text: 'Archived' }
+			default:
+				return { icon: 'eye-slash' as const, text: 'Draft' }
+		}
+	}
+
+	const statusConfig = getStatusConfig()
 
 	const renderPreviewMode = () => (
 		<>
 			<Video
-				ref={ref => setVideoRef(ref)}
+				ref={handleVideoRef}
 				source={{ uri: currentClip.video_url }}
-				className='absolute inset-0 w-full h-full'
+				style={styles.video}
 				resizeMode={ResizeMode.COVER}
 				useNativeControls
 				isLooping
-				shouldPlay
+				shouldPlay={isVisible}
+
 			/>
 
 			<TouchableOpacity
 				onPress={onClose}
-				className='absolute top-12 left-4 bg-black/50 p-2 rounded-full'>
-				<FontAwesome name='chevron-down' size={20} color='white' />
+				style={styles.closeButton}
+				activeOpacity={0.7}>
+				<FontAwesome name="chevron-down" size={20} color="white" />
 			</TouchableOpacity>
 
-			<View className='absolute right-4 bottom-32'>
-				<TouchableOpacity className='bg-black/50 p-3 rounded-full mb-4 items-center'>
-					<FontAwesome name='heart' size={25} color='white' />
-					<Text className='text-white text-center mt-1 text-sm'>
-						{currentClip.likes}
-					</Text>
+			<View style={styles.rightActions}>
+				<TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+					<FontAwesome name="heart" size={25} color="white" />
+					<Text style={styles.actionText}>{currentClip.likes}</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity className='bg-black/50 p-3 rounded-full items-center'>
-					<FontAwesome name='eye' size={25} color='white' />
-					<Text className='text-white text-center mt-1 text-sm'>
-						{currentClip.views}
-					</Text>
+				<TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+					<FontAwesome name="eye" size={25} color="white" />
+					<Text style={styles.actionText}>{currentClip.views}</Text>
 				</TouchableOpacity>
 			</View>
 
 			<LinearGradient
 				colors={['transparent', 'rgba(0,0,0,0.9)']}
-				className='absolute bottom-0 left-0 right-0 pb-8 pt-16'>
-				<View className='px-4'>
-					<Text className='text-white text-base mb-2'>
-						{currentClip.car?.year} {currentClip.car?.make}{' '}
-						{currentClip.car?.model}
+				style={styles.bottomGradient}>
+				<View style={styles.bottomContent}>
+					<Text style={styles.carInfo}>
+						{currentClip.car?.year} {currentClip.car?.make} {currentClip.car?.model}
 					</Text>
 
 					<TouchableOpacity
 						onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
 						activeOpacity={0.9}>
-						<Text className='text-white text-lg font-bold mb-1'>
-							{currentClip.title}
-						</Text>
+						<Text style={styles.title}>{currentClip.title}</Text>
 						{currentClip.description && (
 							<Text
-								className='text-neutral-300'
+								style={styles.description}
 								numberOfLines={isDescriptionExpanded ? undefined : 2}>
 								{currentClip.description}
 							</Text>
 						)}
 					</TouchableOpacity>
 
-					<View className='flex-row mt-4'>
-						<TouchableOpacity
-							onPress={handleToggleStatus}
-							disabled={isStatusLoading}
-							className={`bg-black/50 p-2 px-4 rounded-full mr-3 flex-row items-center ${
-								isStatusLoading ? 'opacity-50' : ''
-							}`}>
-							<FontAwesome
-								name={currentClip.status === 'published' ? 'eye' : 'eye-slash'}
-								size={16}
-								color='white'
-							/>
-							<Text className='text-white ml-2'>
-								{isStatusLoading
-									? 'Updating...'
-									: currentClip.status === 'published'
-									? 'Published'
-									: 'Draft'}
-							</Text>
-						</TouchableOpacity>
+					<View style={styles.actionRow}>
 
 						<TouchableOpacity
 							onPress={() => setShowEditModal(true)}
-							className='bg-black/50 p-2 px-4 rounded-full mr-3 flex-row items-center'>
-							<FontAwesome name='edit' size={16} color='white' />
-							<Text className='text-white ml-2'>Edit</Text>
+							style={styles.actionRowButton}
+							activeOpacity={0.7}>
+							<FontAwesome name="edit" size={16} color="white" />
+							<Text style={styles.actionRowText}>Edit</Text>
 						</TouchableOpacity>
 
 						<TouchableOpacity
@@ -220,9 +204,10 @@ export default function PreviewAutoClipModal({
 									]
 								)
 							}}
-							className='bg-red/50 p-2 px-4 rounded-full flex-row items-center'>
-							<FontAwesome name='trash' size={16} color='white' />
-							<Text className='text-white ml-2'>Delete</Text>
+							style={styles.deleteButton}
+							activeOpacity={0.7}>
+							<FontAwesome name="trash" size={16} color="white" />
+							<Text style={styles.actionRowText}>Delete</Text>
 						</TouchableOpacity>
 					</View>
 				</View>
@@ -234,17 +219,17 @@ export default function PreviewAutoClipModal({
 		<Modal
 			visible={isVisible}
 			onRequestClose={onClose}
-			animationType='slide'
-			presentationStyle='fullScreen'
+			animationType="slide"
+			presentationStyle="fullScreen"
 			statusBarTranslucent>
-			<GestureHandlerRootView style={{ flex: 1 }}>
+			<StatusBar hidden />
+			<GestureHandlerRootView style={styles.container}>
 				<LinearGradient
 					colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
-					className='flex-1'>
+					style={styles.container}>
 					<PanGestureHandler onGestureEvent={panGestureEvent}>
 						<Animated.View
-							style={[{ flex: 1 }, animatedStyle]}
-							className={isDarkMode ? 'bg-black' : 'bg-white'}>
+							style={[styles.container, animatedStyle, isDarkMode ? styles.darkBackground : styles.lightBackground]}>
 							{renderPreviewMode()}
 						</Animated.View>
 					</PanGestureHandler>
@@ -265,3 +250,116 @@ export default function PreviewAutoClipModal({
 		</Modal>
 	)
 }
+
+const getStyles = (isDarkMode: boolean) => StyleSheet.create({
+	container: {
+		flex: 1,
+	},
+	darkBackground: {
+		backgroundColor: '#000000',
+	},
+	lightBackground: {
+		backgroundColor: '#FFFFFF',
+	},
+	video: {
+		position: 'absolute',
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		width: SCREEN_WIDTH,
+		height: SCREEN_HEIGHT,
+	},
+	closeButton: {
+		position: 'absolute',
+		top: 48,
+		left: 16,
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		padding: 8,
+		borderRadius: 20,
+		zIndex: 10,
+	},
+	rightActions: {
+		position: 'absolute',
+		right: 16,
+		bottom: 200,
+		zIndex: 10,
+	},
+	actionButton: {
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		padding: 12,
+		borderRadius: 25,
+		marginBottom: 16,
+		alignItems: 'center',
+		minWidth: 50,
+	},
+	actionText: {
+		color: 'white',
+		textAlign: 'center',
+		marginTop: 4,
+		fontSize: 12,
+		fontWeight: '500',
+	},
+	bottomGradient: {
+		position: 'absolute',
+		bottom: 0,
+		left: 0,
+		right: 0,
+		paddingBottom: 32,
+		paddingTop: 64,
+	},
+	bottomContent: {
+		paddingHorizontal: 16,
+	},
+	carInfo: {
+		color: 'white',
+		fontSize: 16,
+		marginBottom: 8,
+		fontWeight: '500',
+	},
+	title: {
+		color: 'white',
+		fontSize: 18,
+		fontWeight: 'bold',
+		marginBottom: 4,
+	},
+	description: {
+		color: '#D1D5DB',
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	actionRow: {
+		flexDirection: 'row',
+		marginTop: 16,
+		flexWrap: 'wrap',
+	},
+	actionRowButton: {
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		borderRadius: 20,
+		marginRight: 12,
+		marginBottom: 8,
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	actionRowButtonDisabled: {
+		opacity: 0.5,
+	},
+	deleteButton: {
+		backgroundColor: 'rgba(239, 68, 68, 0.7)',
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		borderRadius: 20,
+		marginRight: 12,
+		marginBottom: 8,
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	actionRowText: {
+		color: 'white',
+		marginLeft: 8,
+		fontSize: 14,
+		fontWeight: '500',
+	},
+});

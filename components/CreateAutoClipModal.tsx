@@ -458,47 +458,51 @@ export default function CreateAutoClipModal({
 	}, [isVisible])
 
 	// CRITICAL UPDATE: Fetch cars excluding those with non-rejected autoclips
-	const fetchCars = async () => {
-		try {
-			setIsLoading(true)
-			triggerHaptic('light')
+// Fixed fetchCars function - replace the existing one
+const fetchCars = async () => {
+	try {
+		setIsLoading(true)
+		triggerHaptic('light')
 
-			const { data, error } = await supabase
-				.from('cars')
-				.select(`
-					id,
-					make,
-					model,
-					year,
-					price,
-					status,
-					auto_clips(id, status)
-				`)
-				.eq('dealership_id', dealership!.id)
-				.eq('status', 'available')
-				.order('listed_at', { ascending: false })
+		const { data, error } = await supabase
+			.from('cars')
+			.select(`
+				id,
+				make,
+				model,
+				year,
+				price,
+				status,
+				auto_clips(id, status)
+			`)
+			.eq('dealership_id', dealership!.id)
+			.eq('status', 'available')
+			.order('listed_at', { ascending: false })
 
-			if (error) throw error
+		if (error) throw error
 
-			// RULE: Filter out cars that have autoclips with status other than 'rejected'
-			const availableCars = data?.filter(car => {
-				if (!car.auto_clips || car.auto_clips.length === 0) {
-					return true // No autoclips, available
-				}
-				
-				// Only allow if all existing autoclips are rejected
-				return car.auto_clips.every(clip => clip.status === 'rejected')
-			}).map(({ auto_clips, ...car }) => car) || []
+		// FIXED: More robust handling of auto_clips array
+		const availableCars = data?.filter(car => {
+			// Ensure auto_clips is always treated as an array
+			const autoClips = Array.isArray(car.auto_clips) ? car.auto_clips : []
+			
+			if (autoClips.length === 0) {
+				return true // No autoclips, available
+			}
+			
+			// Only allow if all existing autoclips are rejected
+			return autoClips.every(clip => clip && clip.status === 'rejected')
+		}).map(({ auto_clips, ...car }) => car) || []
 
-			setCars(availableCars)
-		} catch (error) {
-			console.error('Error fetching cars:', error)
-			Alert.alert('Error', 'Failed to load cars')
-			triggerHaptic('heavy')
-		} finally {
-			setIsLoading(false)
-		}
+		setCars(availableCars)
+	} catch (error) {
+		console.error('Error fetching cars:', error)
+		Alert.alert('Error', 'Failed to load cars')
+		triggerHaptic('heavy')
+	} finally {
+		setIsLoading(false)
 	}
+}
 
 	// Form validation
 	const validateForm = useCallback(() => {
