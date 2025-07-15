@@ -38,6 +38,7 @@ import ErrorBoundary from "react-native-error-boundary";
 import { format } from "date-fns";
 import { SafeAreaView } from "react-native-safe-area-context";
 import KilometrageWithConverter from "@/components/convertMilesToKm";
+import { TrimDropdown } from "@/components/TrimDropdown";
 import {
   BrandSelector,
   EnhancedColorSelector,
@@ -55,14 +56,13 @@ import { ModelDropdown } from "@/components/ModelDropdown";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 export const SOURCE_OPTIONS = [
-  { value: "Company", label: "Company Source", icon: "🏢" },      // office
-  { value: "GCC",     label: "GCC",           icon: "🌴" },      // Saudi as GCC proxy
-  { value: "USA",     label: "USA",           icon: "🇺🇸" },
-  { value: "Canada",  label: "Canada",        icon: "🇨🇦" },
-  { value: "China",   label: "China",         icon: "🇨🇳" },
-  { value: "Europe",  label: "Europe",        icon: "🇪🇺" },      // EU flag
+  { value: "Company", label: "Company Source", icon: "🏢" }, // office
+  { value: "GCC", label: "GCC", icon: "🌴" }, // Saudi as GCC proxy
+  { value: "USA", label: "USA", icon: "🇺🇸" },
+  { value: "Canada", label: "Canada", icon: "🇨🇦" },
+  { value: "China", label: "China", icon: "🇨🇳" },
+  { value: "Europe", label: "Europe", icon: "🇪🇺" }, // EU flag
 ];
-
 
 const VEHICLE_FEATURES = [
   { id: "heated_seats", label: "Heated Seats", icon: "car-seat-heater" },
@@ -399,6 +399,9 @@ export default function AddEditListing() {
     date_bought: new Date(),
     seller_name: null,
     features: [],
+    trim: null,
+    make: null,
+    model: null,
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -455,6 +458,61 @@ export default function AddEditListing() {
 
     return true;
   };
+  const extractTrimValue = (trimData: any): string | null => {
+    console.log(
+      "🔍 Extracting trim value from:",
+      trimData,
+      "Type:",
+      typeof trimData
+    );
+
+    if (!trimData) {
+      console.log("✅ Trim is null/undefined, returning null");
+      return null;
+    }
+
+    // If it's already a string, return it (handle JSON strings)
+    if (typeof trimData === "string") {
+      // Check if it's a JSON string
+      if (trimData.startsWith("[") || trimData.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(trimData);
+          console.log("🔧 Parsed JSON trim:", parsed);
+          // If it's an array, take the first element
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(
+              "✅ Returning first element from JSON array:",
+              parsed[0]
+            );
+            return typeof parsed[0] === "string" ? parsed[0] : null;
+          }
+          console.log("⚠️ JSON parsed but not a valid array, returning null");
+          return null;
+        } catch (error) {
+          console.log(
+            "⚠️ JSON parsing failed, treating as regular string:",
+            trimData
+          );
+          // If parsing fails, treat as regular string
+          return trimData.trim().length > 0 ? trimData.trim() : null;
+        }
+      }
+      console.log("✅ Regular string trim:", trimData);
+      return trimData.trim().length > 0 ? trimData.trim() : null;
+    }
+
+    // If it's an array, take the first element
+    if (Array.isArray(trimData) && trimData.length > 0) {
+      const firstTrim = trimData[0];
+      if (typeof firstTrim === "string" && firstTrim.trim().length > 0) {
+        console.log("✅ Returning first element from array:", firstTrim);
+        return firstTrim.trim();
+      }
+    }
+
+    console.log("⚠️ Unknown trim format, returning null");
+    return null;
+  };
 
   const handleSubmit = useCallback(() => {
     if (!validateFormData(formData)) return;
@@ -495,6 +553,7 @@ export default function AddEditListing() {
           const dataToUpdate = {
             make: allowedData.make,
             model: allowedData.model,
+            trim: allowedData.trim,
             price: allowedData.price,
             year: allowedData.year,
             description: allowedData.description,
@@ -527,37 +586,38 @@ export default function AddEditListing() {
             .eq("dealership_id", dealership.id)
             .select(
               `
-            id,
-            listed_at,
-            make,
-            model,
-            price,
-            year,
-            description,
-            images,
-            sold_price,
-            date_sold,
-            status,
-            dealership_id,
-            date_modified,
-            views,
-            likes,
-            condition,
-            transmission,
-            color,
-            mileage,
-            drivetrain,
-            viewed_users,
-            liked_users,
-            type,
-            category,
-            bought_price,
-            date_bought,
-            seller_name,
-            buyer_name,
-            source,
-            features
-          `
+id,
+listed_at,
+make,
+model,
+trim,
+price,
+year,
+description,
+images,
+sold_price,
+date_sold,
+status,
+dealership_id,
+date_modified,
+views,
+likes,
+condition,
+transmission,
+color,
+mileage,
+drivetrain,
+viewed_users,
+liked_users,
+type,
+category,
+bought_price,
+date_bought,
+seller_name,
+buyer_name,
+source,
+features
+`
             )
             .single();
 
@@ -580,6 +640,7 @@ export default function AddEditListing() {
           const newListingData = {
             make: allowedData.make,
             model: allowedData.model,
+            trim: allowedData.trim,
             price: allowedData.price,
             year: allowedData.year,
             description: allowedData.description,
@@ -682,9 +743,6 @@ export default function AddEditListing() {
     }
   }, [hasChanges, router, handleSubmit, initialData]);
 
-  // Use this instead of direct setModalImages calls
-
-  // Fetch dealership and car data if editing
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -709,13 +767,21 @@ export default function AddEditListing() {
             .single();
 
           if (carError) throw carError;
+
+          console.log("📊 Raw car data from database:", carData);
+
           setInitialData(carData);
+
+          const extractedTrim = extractTrimValue(carData.trim);
+          console.log("🎯 Final extracted trim value:", extractedTrim);
+
           setFormData({
             ...carData,
             date_bought: carData.date_bought
               ? new Date(carData.date_bought)
               : new Date(),
             features: carData.features || [],
+            trim: extractedTrim, // Use the safely extracted trim value
           });
 
           setModalImages(carData.images || []);
@@ -735,17 +801,41 @@ export default function AddEditListing() {
     (key: string, value: any, customValue?: any) => {
       setFormData((prev: any) => {
         const newData = { ...prev, [key]: value };
+
+        // Reset dependent fields when parent fields change
         if (key === "make" && !value) {
           newData.model = null;
+          newData.trim = null;
         }
+        if (key === "make" && value !== prev.make) {
+          newData.trim = null;
+        }
+        if (key === "model" && value !== prev.model) {
+          newData.trim = null; // Reset trim when model changes
+        }
+
+        // Handle custom color input
         if (key === "color" && value === "Other" && customValue) {
           newData.color = customValue;
         }
 
+        // Handle mileage parsing
         if (key === "mileage") {
           const parsedMileage = parseInt(value);
           newData[key] = isNaN(parsedMileage) ? 0 : parsedMileage;
         }
+
+        // Ensure trim is always a string or null (never an array)
+        if (key === "trim") {
+          if (typeof value === "string") {
+            newData[key] = value;
+          } else if (Array.isArray(value) && value.length > 0) {
+            newData[key] = value[0]; // Take first element if array
+          } else {
+            newData[key] = null;
+          }
+        }
+
         return newData;
       });
       setHasChanges(true);
@@ -1905,6 +1995,20 @@ export default function AddEditListing() {
               isDarkMode={isDarkMode}
             />
           )}
+          {formData.make &&
+            formData.model &&
+            typeof formData.make === "string" &&
+            typeof formData.model === "string" &&
+            formData.make.length > 0 &&
+            formData.model.length > 0 && (
+              <TrimDropdown
+                make={formData.make}
+                model={formData.model}
+                value={formData.trim}
+                onChange={(trim: any) => handleInputChange("trim", trim)}
+                isDarkMode={isDarkMode}
+              />
+            )}
           <View className="n">
             <NeumorphicInput
               label="Year"
@@ -1967,7 +2071,6 @@ export default function AddEditListing() {
                 key={cat.value}
                 label={cat.label}
                 icon={cat.icon}
-                
                 isSelected={formData.category === cat.value}
                 onSelect={() => handleInputChange("category", cat.value)}
                 isDarkMode={isDarkMode}

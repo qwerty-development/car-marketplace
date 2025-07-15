@@ -215,7 +215,6 @@ const CarItemSkeleton = memo(({ isDarkMode }: any) => {
   );
 });
 
-
 // Memoized simple components
 const ActionButton = memo(({ icon, onPress, text, isDarkMode }: any) => (
   <TouchableOpacity
@@ -1807,7 +1806,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
       ]}
     >
-
       {/* Main content */}
       <FlatList
         ref={scrollViewRef}
@@ -1853,17 +1851,20 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                       color: isDarkMode ? "#fff" : "#000",
                     }}
                   >
-                    {car.make} {car.model}
+                    {car.year} {car.make} {car.model}
                   </Text>
 
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: isDarkMode ? "#fff" : "#000",
-                    }}
-                  >
-                    {car.year}
-                  </Text>
+                  {car.trim !== null && car.trim !== "" && (
+                    <Text
+                      className="mt-1"
+                      style={{
+                        fontSize: 14,
+                        color: isDarkMode ? "#fff" : "#000",
+                      }}
+                    >
+                      {car.trim}
+                    </Text>
+                  )}
 
                   {car.listed_at && (
                     <Text

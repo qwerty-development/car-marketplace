@@ -235,7 +235,7 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
                     isDarkMode ? 'text-white/80' : 'text-gray-700'
                   }`}
                 >
-                  Fixed the google sign in flow
+                 Dealerships can now add and view trims 
                 </Text>
               </View>
               

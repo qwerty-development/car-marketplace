@@ -469,19 +469,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 
 
-  const handleShare = useCallback(async () => {
-    try {
-      await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${
-          car.model
-        } for $${car.price.toLocaleString()}!
-        at ${car.dealership_name} in ${car.dealership_location}
-        `,
-      });
-    } catch (error: any) {
-      Alert.alert(error.message);
-    }
-  }, [car]);
+const handleShare = useCallback(async () => {
+  try {
+    const vehicleName = `${car.year} ${car.make} ${car.model}}`;
+    await Share.share({
+      message: `Check out this ${vehicleName} for $${car.price.toLocaleString()}!
+      at ${car.dealership_name} in ${car.dealership_location}
+      `,
+    });
+  } catch (error: any) {
+    Alert.alert(error.message);
+  }
+}, [car]);
 
   const handleOpenInMaps = useCallback(() => {
     const { dealership_latitude, dealership_longitude } = car;
@@ -572,31 +571,29 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     longitudeDelta: 0.01,
   };
 
-  const handleWhatsAppPress = useCallback(() => {
-    if (car?.dealership_phone) {
-      // Track the WhatsApp click first
-      trackWhatsAppClick(car.id);
+const handleWhatsAppPress = useCallback(() => {
+  if (car?.dealership_phone) {
+    trackWhatsAppClick(car.id);
 
-      const cleanedPhoneNumber = car.dealership_phone
-        .toString()
-        .replace(/\D/g, "");
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
-        car.model
-      } listed for $${car.price.toLocaleString()} on Fleet`;
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
-        message
-      )}`;
+    const cleanedPhoneNumber = car.dealership_phone
+      .toString()
+      .replace(/\D/g, "");
+    const vehicleName = `${car.year} ${car.make} ${car.model}}`;
+    const message = `Hi, I'm interested in the ${vehicleName} listed for $${car.price.toLocaleString()} on Fleet`;
+    const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
+      message
+    )}`;
 
-      Linking.openURL(webURL).catch(() => {
-        Alert.alert(
-          "Error",
-          "Unable to open WhatsApp. Please make sure it is installed on your device."
-        );
-      });
-    } else {
-      Alert.alert("Phone number not available");
-    }
-  }, [car, trackWhatsAppClick]);
+    Linking.openURL(webURL).catch(() => {
+      Alert.alert(
+        "Error",
+        "Unable to open WhatsApp. Please make sure it is installed on your device."
+      );
+    });
+  } else {
+    Alert.alert("Phone number not available");
+  }
+}, [car, trackWhatsAppClick]);
 
   const FeatureCategory = ({ title, features, isDarkMode }: any) => {
     if (features.length === 0) return null;
@@ -747,20 +744,20 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               />
             </View>
             <View className="ml-3">
-              <Text
-                className={`text-xl mt-6 mr-12 font-bold ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-                numberOfLines={2}
-              >
-                {car.make} {car.model}
-              </Text>
+             <Text
+  className={`text-xl mt-6 mr-12 font-bold ${
+    isDarkMode ? "text-white" : "text-black"
+  }`}
+  numberOfLines={2}
+>
+  {car.year}{car.make} {car.model}
+</Text>
               <Text
                 className={`text-sm ${
                   isDarkMode ? "text-white" : "text-black"
                 }`}
               >
-                {car.year}
+                {car.trim}
               </Text>
               {/* Dynamic relative time display using listed_at */}
               <Text

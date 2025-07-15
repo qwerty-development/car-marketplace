@@ -16,6 +16,7 @@ export function useCarDetails() {
         .select('*, dealerships (name,logo,phone,location,latitude,longitude)')
         .eq('id', carId)
         .single()
+        console.log(data.trim)
 
       if (error) throw error
 
