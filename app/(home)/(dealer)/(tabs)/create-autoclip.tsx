@@ -42,6 +42,7 @@ interface AutoClip {
     make: string
     model: string
     year: number
+    images: string[] // Added images array
   }
 }
 
@@ -210,9 +211,10 @@ const useAutoClips = (dealershipId: number | null) => {
           setCurrentPage(1)
       }
       
+      // Updated query to include car images
       let clipsQuery = supabase
         .from('auto_clips')
-        .select('*, car:cars(make, model, year)')
+        .select('*, car:cars(make, model, year, images)') // Added images to the select
         .eq('dealership_id', dealershipId)
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
@@ -341,7 +343,9 @@ const ClipItem = React.memo<ClipItemProps>(({ item, onPress, onLongPress }) => {
   const styles = getStyles(isDarkMode)
   const [imageError, setImageError] = useState(false)
   const [imageLoading, setImageLoading] = useState(true)
-  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null)
+
+  // Get the first image from the car's images array
+  const carImageUrl = item.car.images && item.car.images.length > 0 ? item.car.images[0] : null
 
   const statusStyles: Record<string, { icon: keyof typeof Ionicons.glyphMap, color: string }> = {
     published: { icon: 'checkmark-circle', color: '#10B981' },
@@ -351,10 +355,6 @@ const ClipItem = React.memo<ClipItemProps>(({ item, onPress, onLongPress }) => {
   }
   const statusConfig = statusStyles[item.status]
 
-  // Function to generate thumbnail from video
-
-  // Try to use provided thumbnail first, then generate from video
-
   const handleImageLoad = () => {
     setImageLoading(false)
     setImageError(false)
@@ -363,19 +363,44 @@ const ClipItem = React.memo<ClipItemProps>(({ item, onPress, onLongPress }) => {
   const handleImageError = () => {
     setImageLoading(false)
     setImageError(true)
-    
   }
+
+  // Reset loading state when car image URL changes
+  useEffect(() => {
+    if (carImageUrl) {
+      setImageLoading(true)
+      setImageError(false)
+    } else {
+      setImageLoading(false)
+      setImageError(false)
+    }
+  }, [carImageUrl])
 
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLongPress} style={styles.clipContainer} activeOpacity={0.8}>
       {/* Background gradient for when image fails or is loading */}
       <View style={styles.clipBackground} />
+      
+      {/* Display car image if available */}
+      {carImageUrl && !imageError ? (
+        <Image
+          source={{ uri: carImageUrl }}
+          style={styles.clipImage}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+          contentFit="cover"
+          transition={200}
+        />
+      ) : (
         <View style={styles.noImageContainer}>
-          <Ionicons name="videocam" size={40} color="#666" />
-        </View>      
+          <Ionicons name="car-sport" size={40} color="#666" />
+          <Text style={styles.noImageText}>No Image</Text>
+        </View>
+      )}
+      
       {/* Loading indicator */}
-      {imageLoading && (
-        <View style={styles.loadingContainer}>
+      {imageLoading && carImageUrl && (
+        <View style={styles.imageLoadingContainer}>
           <ActivityIndicator size="small" color="#D55004" />
         </View>
       )}
@@ -508,7 +533,23 @@ export default function AutoClipsScreen() {
       handleRefresh()
     }
   }
-  
+
+  const handleToggleStatus = async (clip: AutoClip) => {
+    // Toggle between published and archived
+    const newStatus = clip.status === 'published' ? 'archived' : 'published'
+    
+    const { error } = await supabase
+      .from('auto_clips')
+      .update({ status: newStatus })
+      .eq('id', clip.id)
+
+    if (error) {
+      Alert.alert('Error', 'Failed to update clip status.')
+    } else {
+      Alert.alert('Success', `Clip ${newStatus === 'published' ? 'published' : 'archived'}.`)
+      handleRefresh()
+    }
+  }
 
   const handleLongPress = (clip: AutoClip) => {
     const actions = [
@@ -762,7 +803,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     marginTop: 8,
     fontWeight: '500',
   },
-  loadingContainer: {
+  imageLoadingContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -770,7 +811,8 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: isDarkMode ? 'rgba(28, 28, 30, 0.8)' : 'rgba(242, 242, 247, 0.8)',
+    zIndex: 1,
   },
   clipOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -876,37 +918,37 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     marginTop: 8,
   },
   addButton: {
-  position: 'absolute',
-  bottom: Platform.OS === 'ios' ? 100 : 85, // Adjusted for tab bar
-  right: 20,
-  width: 60,
-  height: 60,
-  borderRadius: 30,
-  backgroundColor: '#D55004',
-  justifyContent: 'center',
-  alignItems: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.3,
-  shadowRadius: 4.65,
-  elevation: 8,
-  zIndex: 10,
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 100 : 85, // Adjusted for tab bar
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#D55004',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+    zIndex: 10,
   },
   paginationContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
   },
   paginationButton: {
-      padding: 8,
+    padding: 8,
   },
   paginationButtonDisabled: {
-      opacity: 0.3,
+    opacity: 0.3,
   },
   paginationText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDarkMode ? '#A1A1AA' : '#52525B',
+    fontSize: 14,
+    fontWeight: '600',
+    color: isDarkMode ? '#A1A1AA' : '#52525B',
   },
 });
