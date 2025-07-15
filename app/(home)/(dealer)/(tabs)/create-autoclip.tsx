@@ -352,37 +352,8 @@ const ClipItem = React.memo<ClipItemProps>(({ item, onPress, onLongPress }) => {
   const statusConfig = statusStyles[item.status]
 
   // Function to generate thumbnail from video
-  const generateThumbnailFromVideo = useCallback(async () => {
-    try {
-      // Import expo-video-thumbnails dynamically
-      const { VideoThumbnails } = await import('expo-video-thumbnails')
-      
-      const { uri } = await VideoThumbnails.getThumbnailAsync(item.video_url, {
-        time: 1000, // Get thumbnail at 1 second
-        quality: 0.8,
-      })
-      
-      setGeneratedThumbnail(uri)
-      setImageLoading(false)
-      setImageError(false)
-    } catch (error) {
-      console.error('Error generating thumbnail:', error)
-      setImageError(true)
-      setImageLoading(false)
-    }
-  }, [item.video_url])
 
   // Try to use provided thumbnail first, then generate from video
-  useEffect(() => {
-    if (item.thumbnail_url) {
-      // Use provided thumbnail
-      setImageLoading(true)
-      setImageError(false)
-    } else {
-      // Generate thumbnail from video
-      generateThumbnailFromVideo()
-    }
-  }, [item.thumbnail_url, item.video_url, generateThumbnailFromVideo])
 
   const handleImageLoad = () => {
     setImageLoading(false)
@@ -393,48 +364,15 @@ const ClipItem = React.memo<ClipItemProps>(({ item, onPress, onLongPress }) => {
     setImageLoading(false)
     setImageError(true)
     
-    // If the provided thumbnail fails, try to generate one from video
-    if (item.thumbnail_url && !generatedThumbnail) {
-      generateThumbnailFromVideo()
-    }
   }
-
-  // Determine which thumbnail source to use
-  const getThumbnailSource = () => {
-    if (item.thumbnail_url && !imageError) {
-      return { uri: item.thumbnail_url }
-    } else if (generatedThumbnail) {
-      return { uri: generatedThumbnail }
-    }
-    return null
-  }
-
-  const thumbnailSource = getThumbnailSource()
 
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLongPress} style={styles.clipContainer} activeOpacity={0.8}>
       {/* Background gradient for when image fails or is loading */}
       <View style={styles.clipBackground} />
-      
-      {thumbnailSource && !imageError ? (
-        <Image
-          source={thumbnailSource}
-          style={styles.clipImage}
-          contentFit="cover"
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          transition={300}
-          cachePolicy="memory-disk"
-        />
-      ) : (
         <View style={styles.noImageContainer}>
           <Ionicons name="videocam" size={40} color="#666" />
-          <Text style={styles.noImageText}>
-            {imageLoading ? 'Loading...' : 'Video Preview'}
-          </Text>
-        </View>
-      )}
-      
+        </View>      
       {/* Loading indicator */}
       {imageLoading && (
         <View style={styles.loadingContainer}>
