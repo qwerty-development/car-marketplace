@@ -39,7 +39,7 @@ export default function TabLayout() {
         headerTintColor: '#D55004',
         headerShown: route.name !== 'index',
         tabBarIcon: ({ color, size, focused }) => {
-          let iconName = 'home';
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
 
           if (route.name === 'index')
             iconName = focused ? 'home' : 'home-outline';
@@ -50,6 +50,8 @@ export default function TabLayout() {
             iconName = focused ? 'heart' : 'heart-outline';
           else if (route.name === 'profile')
             iconName = focused ? 'person' : 'person-outline';
+          else if (route.name === 'test-chat')
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
 
           // Special styling for autoclips button
           if (route.name === 'autoclips') {
@@ -129,6 +131,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name='profile'
         options={{ headerTitle: 'Profile', headerShown: false }}
+      />
+      <Tabs.Screen
+        name='test-chat'
+        options={{ headerTitle: 'Test Chatbot', headerShown: true }}
       />
     </Tabs>
   );
