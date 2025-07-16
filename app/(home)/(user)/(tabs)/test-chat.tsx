@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
   useWindowDimensions,
+  SafeAreaView as RNSafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCarDetails } from '@/hooks/useCarDetails';
@@ -280,43 +281,45 @@ Car IDs: ${stats.uniqueCarIds.join(', ') || 'None'}`
         </ScrollView>
 
         {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8' }]}>
-          <TextInput
-            style={[
-              styles.textInput,
-              { 
-                backgroundColor: isDarkMode ? '#2a2a2a' : 'white',
-                color: isDarkMode ? 'white' : 'black',
-                borderColor: isDarkMode ? '#444' : '#ddd'
-              }
-            ]}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Type your message..."
-            placeholderTextColor={isDarkMode ? '#666' : '#999'}
-            multiline
-            maxLength={500}
-            editable={!isLoading}
-            onSubmitEditing={sendMessage}
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              { 
-                backgroundColor: (inputText.trim() && !isLoading) ? '#D55004' : (isDarkMode ? '#444' : '#ccc')
-              }
-            ]}
-            onPress={sendMessage}
-            disabled={!inputText.trim() || isLoading}
-          >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={(inputText.trim() && !isLoading) ? 'white' : (isDarkMode ? '#666' : '#999')} 
+        <RNSafeAreaView edges={['bottom']} style={{ backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8' }}>
+          <View style={[styles.inputContainer, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8', paddingBottom: Platform.OS === 'android' ? 12 + 45 : 12 }]}> 
+            <TextInput
+              style={[
+                styles.textInput,
+                { 
+                  backgroundColor: isDarkMode ? '#2a2a2a' : 'white',
+                  color: isDarkMode ? 'white' : 'black',
+                  borderColor: isDarkMode ? '#444' : '#ddd'
+                }
+              ]}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type your message..."
+              placeholderTextColor={isDarkMode ? '#666' : '#999'}
+              multiline
+              maxLength={500}
+              editable={!isLoading}
+              onSubmitEditing={sendMessage}
+              blurOnSubmit={false}
             />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                { 
+                  backgroundColor: (inputText.trim() && !isLoading) ? '#D55004' : (isDarkMode ? '#444' : '#ccc')
+                }
+              ]}
+              onPress={sendMessage}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <Ionicons 
+                name="send" 
+                size={20} 
+                color={(inputText.trim() && !isLoading) ? 'white' : (isDarkMode ? '#666' : '#999')} 
+              />
+            </TouchableOpacity>
+          </View>
+        </RNSafeAreaView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
