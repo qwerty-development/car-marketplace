@@ -11,17 +11,27 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useCarDetails } from '@/hooks/useCarDetails';
+import CarCard from '@/components/CarCard';
 import { useTheme } from '@/utils/ThemeContext';
 import { ChatbotService, ChatMessage } from '@/services/ChatbotService';
+import ChatCarCard from '@/components/ChatCarCard';
+import { useRouter } from 'expo-router';
 
 export default function TestChatScreen() {
   const { isDarkMode } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Map to store fetched car data keyed by car ID
+  const [carDataMap, setCarDataMap] = useState<{ [id: number]: any }>({});
+  const { prefetchCarDetails } = useCarDetails();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const router = useRouter();
 
   // Load conversation history on component mount
   useEffect(() => {
@@ -34,12 +44,52 @@ export default function TestChatScreen() {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
+  // Fetch car details whenever new car IDs appear in the messages
+  useEffect(() => {
+    const fetchCarDetails = async () => {
+      const ids = messages.flatMap((msg) => msg.car_ids ?? []);
+      const uniqueIds = Array.from(new Set(ids));
+      const missingIds = uniqueIds.filter((id) => !carDataMap[id]);
+
+      if (missingIds.length === 0) return;
+
+      const fetched: { [id: number]: any } = {};
+      for (const id of missingIds) {
+        try {
+          const data = await prefetchCarDetails(id.toString());
+          if (data) {
+            fetched[id] = data;
+          }
+        } catch (err) {
+          console.error('Failed to fetch car details for id', id, err);
+        }
+      }
+
+      if (Object.keys(fetched).length > 0) {
+        setCarDataMap((prev) => ({ ...prev, ...fetched }));
+      }
+    };
+
+    fetchCarDetails();
+    // We intentionally omit carDataMap from dependencies to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
     const messageText = inputText.trim();
     setInputText('');
     setIsLoading(true);
+
+    // Show the user's message immediately for better UX (temporary placeholder)
+    const tempMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      message: messageText,
+      isUser: true,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, tempMessage]);
 
     try {
       const result = await ChatbotService.sendMessageWithContext(messageText);
@@ -101,7 +151,7 @@ Car IDs: ${stats.uniqueCarIds.join(', ') || 'None'}`
     );
   };
 
-  const renderMessage = (message: ChatMessage, index: number) => {
+  const renderMessage = (message: ChatMessage) => {
     const isUser = message.isUser;
     const messageStyle = isUser ? styles.userMessage : styles.botMessage;
     const bubbleStyle = isUser 
@@ -109,32 +159,58 @@ Car IDs: ${stats.uniqueCarIds.join(', ') || 'None'}`
       : [styles.botBubble, { backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }];
 
     return (
-      <View key={message.id} style={[styles.messageContainer, messageStyle]}>
-        <View style={bubbleStyle}>
-          <Text style={[
-            styles.messageText,
-            { color: isUser ? 'white' : (isDarkMode ? 'white' : 'black') }
-          ]}>
-            {message.message}
-          </Text>
-          {message.car_ids && message.car_ids.length > 0 && (
-            <View style={styles.carIdsContainer}>
-              <Text style={[
-                styles.carIdsText,
-                { color: isUser ? 'rgba(255,255,255,0.8)' : (isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)') }
-              ]}>
-                🚗 Car IDs: {message.car_ids.join(', ')}
-              </Text>
-            </View>
-          )}
-          <Text style={[
-            styles.timestamp,
-            { color: isUser ? 'rgba(255,255,255,0.7)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)') }
-          ]}>
-            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+      <React.Fragment key={message.id}>
+        <View style={[styles.messageContainer, messageStyle]}>
+          <View style={bubbleStyle}>
+            <Text style={[
+              styles.messageText,
+              { color: isUser ? 'white' : (isDarkMode ? 'white' : 'black') }
+            ]}>
+              {message.message}
+            </Text>
+            <Text style={[
+              styles.timestamp,
+              { color: isUser ? 'rgba(255,255,255,0.7)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)') }
+            ]}>
+              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
         </View>
-      </View>
+
+        {/* Render car cards for bot recommendations, directly below this message only */}
+        {!isUser && message.car_ids && message.car_ids.length > 0 && (
+          <View style={{ marginTop: 8, marginBottom: 8 }} key={message.id + '-carousel'}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 8, paddingRight: 8 }}
+            >
+              {message.car_ids.map((id) => {
+                const car = carDataMap[id];
+                return car ? (
+                  <ChatCarCard
+                    key={id}
+                    car={car}
+                    onPress={() => {
+                      router.push({
+                        pathname: '/(home)/(user)/CarDetails',
+                        params: { carId: car.id, isDealerView: 'false' },
+                      });
+                    }}
+                  />
+                ) : (
+                  <View
+                    key={id}
+                    style={{ width: 320, paddingVertical: 20, alignItems: 'center', marginRight: 0 }}
+                  >
+                    <ActivityIndicator size="small" color="#D55004" />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+      </React.Fragment>
     );
   };
 
@@ -188,7 +264,7 @@ Car IDs: ${stats.uniqueCarIds.join(', ') || 'None'}`
               </Text>
             </View>
           ) : (
-            messages.map((message, index) => renderMessage(message, index))
+            messages.map((message) => renderMessage(message))
           )}
           
           {isLoading && (
