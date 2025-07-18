@@ -28,7 +28,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCarDetails } from "@/hooks/useCarDetails";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
-import * as Haptics from 'expo-haptics'; // Add this import
+import * as Haptics from 'expo-haptics';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -128,7 +128,6 @@ const SpecItem = ({
 const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
   <StyledPressable
     onPress={async () => {
-      // Add haptic feedback for action buttons
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onPress();
     }}
@@ -155,50 +154,51 @@ export default function CarCard({
   index = 0,
 }: any) {
   const { isDarkMode } = useTheme();
+  
+  // Improved animation values with better spring physics
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
+  
   const { user } = useAuth();
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const flatListRef = useRef(null);
   const { prefetchCarDetails } = useCarDetails();
 
-  // Use useWindowDimensions for responsive sizing
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-
-  // Calculate card width and image height based on screen size
   const cardWidth = windowWidth - 32;
 
-  // Calculate image height - maintain aspect ratio and increase for tablets
   const imageHeight = useMemo(() => {
-    // Base height for phones
     const baseHeight = 260;
-
-    // Check if this is a tablet-sized device (based on width)
     const isTablet = windowWidth >= 768;
-
-    // For tablets, use a larger base height or an aspect ratio calculation
     if (isTablet) {
-      // Option 1: Fixed larger height for tablets
       return 600;
     }
-
-    return baseHeight; // Standard phone height
+    return baseHeight;
   }, [windowWidth, cardWidth]);
 
-  // Add animation effect
+  // Much better entrance animation - smooth and responsive
   useEffect(() => {
+    // Use spring animation for more natural feel
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 500,
-        delay: index * 100,
+        duration: 400,
+        delay: Math.min(index * 50, 200), // Reduced delay and capped max delay
         useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        delay: Math.min(index * 50, 200),
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
       }),
       Animated.timing(translateY, {
         toValue: 0,
-        duration: 500,
-        delay: index * 100,
+        duration: 400,
+        delay: Math.min(index * 50, 200),
         useNativeDriver: true,
       }),
     ]).start();
@@ -246,10 +246,22 @@ export default function CarCard({
 
   const handleCardPress = useCallback(async () => {
     try {
-      // Add haptic feedback when card is pressed
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
-      // Start prefetching before navigation
+      // Add subtle press animation
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.98,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
       const prefetchedData = await prefetchCarDetails(car.id);
 
       router.push({
@@ -264,7 +276,6 @@ export default function CarCard({
       });
     } catch (error) {
       console.error("Error navigating to car details:", error);
-      // Navigate anyway as fallback
       router.push({
         pathname: isDealer
           ? "/(home)/(dealer)/CarDetails"
@@ -275,13 +286,11 @@ export default function CarCard({
         },
       });
     }
-  }, [router, car, isDealer, prefetchCarDetails]);
+  }, [router, car, isDealer, prefetchCarDetails, scaleAnim]);
 
   const handleCall = useCallback(() => {
     if (car.dealership_phone) {
-      // Track the call click first
       trackCallClick(car.id);
-      // Then proceed with the call
       Linking.openURL(`tel:${car.dealership_phone}`);
     } else {
       Alert.alert("Phone number not available");
@@ -292,7 +301,6 @@ export default function CarCard({
     if (!car) return;
 
     try {
-      // Use a consistent URL format
       const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
 
       const message =
@@ -315,7 +323,6 @@ export default function CarCard({
   }, [car]);
   
   const handleDealershipPress = useCallback(async () => {
-    // Add haptic feedback for dealership press
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     const route = isDealer
@@ -328,8 +335,23 @@ export default function CarCard({
   }, [isDealer, router, car.dealership_id]);
 
   const handleFavoritePress = useCallback(async () => {
-    // Add haptic feedback for favorite button
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Add favorite button animation
+    const favoriteScale = new Animated.Value(1);
+    Animated.sequence([
+      Animated.timing(favoriteScale, {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(favoriteScale, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
     onFavoritePress(car.id);
   }, [onFavoritePress, car.id]);
 
@@ -481,7 +503,10 @@ export default function CarCard({
     <Animated.View
       style={{
         opacity: fadeAnim,
-        transform: [{ translateY }],
+        transform: [
+          { translateY },
+          { scale: scaleAnim }
+        ],
       }}
     >
       <StyledView
@@ -513,7 +538,7 @@ export default function CarCard({
           onPress={handleCardPress}
           className="active:opacity-90"
         >
-          {/* Specs Grid - Perfectly Aligned */}
+          {/* Specs Grid */}
           <StyledView 
             className="flex-row"
             style={{

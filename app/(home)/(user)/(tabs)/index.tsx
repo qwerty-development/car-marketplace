@@ -34,7 +34,6 @@ import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
 
 const ITEMS_PER_PAGE = 7;
-const PROGRESSIVE_LOAD_DELAY = 100; // Delay between progressive loads
 
 interface Car {
   id: string;
@@ -90,14 +89,11 @@ export default function BrowseCarsPage() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<Car>>(null);
   useScrollToTop(flatListRef);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   
-  // Progressive loading states
-  const [headerLoaded, setHeaderLoaded] = useState(false);
-  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
-  const [carsDataReady, setCarsDataReady] = useState(false);
+  // Simplified loading states - removed progressive loading that was causing issues
+  const [componentsLoaded, setComponentsLoaded] = useState(false);
 
   const [suggestions, setSuggestions] = useState<any>({
     makes: [],
@@ -113,19 +109,10 @@ export default function BrowseCarsPage() {
     timestamp?: string;
   }>();
 
-  // Progressive loading effect
+  // Simplified component loading
   useEffect(() => {
-    const loadProgressively = async () => {
-      // Load header components first
-      setTimeout(() => setHeaderLoaded(true), PROGRESSIVE_LOAD_DELAY);
-      
-      // Then load categories
-      setTimeout(() => setCategoriesLoaded(true), PROGRESSIVE_LOAD_DELAY * 2);
-      
-      // Cars data will be ready when fetchCars completes
-    };
-
-    loadProgressively();
+    // Allow components to load immediately instead of progressive loading
+    setComponentsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -179,14 +166,6 @@ export default function BrowseCarsPage() {
     initializePage();
   }, [params.searchQuery, params.filters, params.timestamp]);
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300, // Reduced from 500ms
-      useNativeDriver: true,
-    }).start();
-  }, [cars]);
-
   const fetchCars = useCallback(
     async (
       page: number = 1,
@@ -205,8 +184,6 @@ export default function BrowseCarsPage() {
       }
       
       try {
-        // REMOVED THE 5-SECOND DELAY - This was the main performance bottleneck!
-        
         let queryBuilder = supabase
           .from("cars")
           .select(
@@ -458,7 +435,6 @@ export default function BrowseCarsPage() {
           setCars([]);
           setTotalPages(0);
           setCurrentPage(1);
-          setCarsDataReady(true);
           return;
         }
         
@@ -484,8 +460,8 @@ export default function BrowseCarsPage() {
           }
         }
 
-        // Map dealership info
-        const newCars =
+        // Map dealership info - simplified approach
+        const newCars: Car[] =
           data?.map((item: any) => ({
             ...item,
             dealership_name: item.dealerships.name,
@@ -496,23 +472,35 @@ export default function BrowseCarsPage() {
             dealership_longitude: item.dealerships.longitude,
           })) || [];
 
-        // Deduplicate
-        const uniqueCars = Array.from(
-          new Set(newCars.map((car: any) => car.id))
-        ).map((id) => newCars.find((car: any) => car.id === id)) as Car[];
+        // Simplified deduplication - use Map for better performance
+        const carMap = new Map();
+        newCars.forEach(car => {
+          if (!carMap.has(car.id)) {
+            carMap.set(car.id, car);
+          }
+        });
+        const uniqueCars = Array.from(carMap.values());
 
-        setCars((prevCars) =>
-          safePageNumber === 1 ? uniqueCars : [...prevCars, ...uniqueCars]
-        );
+        // Update cars state more efficiently
+        setCars((prevCars) => {
+          if (safePageNumber === 1) {
+            return uniqueCars;
+          } else {
+            // Create a new map to ensure no duplicates when appending
+            const allCarsMap = new Map();
+            prevCars.forEach(car => allCarsMap.set(car.id, car));
+            uniqueCars.forEach(car => allCarsMap.set(car.id, car));
+            return Array.from(allCarsMap.values());
+          }
+        });
+        
         setTotalPages(totalPages);
         setCurrentPage(safePageNumber);
-        setCarsDataReady(true);
       } catch (error) {
         console.error("Error fetching cars:", error);
         setCars([]);
         setTotalPages(0);
         setCurrentPage(1);
-        setCarsDataReady(true);
       } finally {
         if (page === 1) {
           if (!hasFetched) {
@@ -565,8 +553,9 @@ export default function BrowseCarsPage() {
     });
   }, [router, filters]);
 
+  // Simplified and stable key extractor - use only ID for uniqueness
   const keyExtractor = useCallback(
-    (item: Car) => `${item.id}-${item.make}-${item.model}`,
+    (item: Car, index: number) => `car-${item.id}`,
     []
   );
 
@@ -608,35 +597,34 @@ export default function BrowseCarsPage() {
   const renderListHeader = useMemo(
     () => (
       <>
-        {!headerLoaded || (isInitialLoading && cars.length === 0) ? (
+        {!componentsLoaded || isInitialLoading ? (
           <SkeletonByBrands />
         ) : (
-          <Animated.View style={{ opacity: fadeAnim }}>
+          <View>
             <ByBrands />
-          </Animated.View>
+          </View>
         )}
         <View style={{ marginBottom: 12, marginTop: 12 }}>
-          {!categoriesLoaded || (isInitialLoading && cars.length === 0) ? (
+          {!componentsLoaded || isInitialLoading ? (
             <SkeletonCategorySelector />
           ) : (
-            <Animated.View style={{ opacity: fadeAnim }}>
+            <View>
               <CategorySelector
                 selectedCategories={filters.categories || []}
                 onCategoryPress={handleCategoryPress}
               />
-            </Animated.View>
+            </View>
           )}
         </View>
       </>
     ),
-    [cars, isInitialLoading, fadeAnim, filters.categories, handleCategoryPress, headerLoaded, categoriesLoaded]
+    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress]
   );
 
   const renderListEmpty = useCallback(
     () =>
       !isInitialLoading &&
-      cars.length === 0 &&
-      carsDataReady && (
+      cars.length === 0 && (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
             {filters.categories && filters.categories.length > 0
@@ -662,15 +650,11 @@ export default function BrowseCarsPage() {
       isInitialLoading,
       handleResetFilters,
       cars,
-      carsDataReady,
     ]
   );
 
-  // Show skeletons only when actually loading initial data
-  const listData =
-    isInitialLoading && cars.length === 0 && !carsDataReady ? Array(3).fill(null) : cars;
-
-
+  // Simplified skeleton rendering - only show when actually loading
+  const renderSkeletonItem = useCallback(() => <SkeletonCarCard />, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
@@ -780,19 +764,19 @@ export default function BrowseCarsPage() {
             )}
             scrollEventThrottle={16}
             ListHeaderComponent={renderListHeader}
-            data={listData}
+            data={isInitialLoading && cars.length === 0 ? Array(3).fill({}) : cars}
             renderItem={
-              isInitialLoading && cars.length === 0 && !carsDataReady
-                ? () => <SkeletonCarCard />
+              isInitialLoading && cars.length === 0
+                ? renderSkeletonItem
                 : renderCarItem
             }
             keyExtractor={
-              isInitialLoading && cars.length === 0 && !carsDataReady
-                ? (_item, index) => `skeleton-${index}`
+              isInitialLoading && cars.length === 0
+                ? (_, index) => `skeleton-${index}`
                 : keyExtractor
             }
             onEndReached={() => {
-              if (currentPage < totalPages && !loadingMore) {
+              if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 fetchCars(currentPage + 1, filters, sortOption, searchQuery);
               }
             }}
@@ -808,11 +792,13 @@ export default function BrowseCarsPage() {
                 <View style={{ paddingBottom: 50 }} />
               )
             }
+            // Enhanced FlatList performance optimization
             removeClippedSubviews={true}
             maxToRenderPerBatch={5}
-            windowSize={10}
+            updateCellsBatchingPeriod={50}
             initialNumToRender={5}
-            updateCellsBatchingPeriod={100}
+            windowSize={10}
+            getItemLayout={undefined} // Let FlatList handle this automatically
           />
         </SafeAreaView>
       </LinearGradient>
