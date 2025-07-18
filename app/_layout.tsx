@@ -286,6 +286,9 @@ class DeepLinkQueue {
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
 
+// Enhanced DeepLinkHandler component for app/_layout.tsx
+// This replaces the existing DeepLinkHandler component
+
 const DeepLinkHandler = () => {
   const router = useRouter();
   const segments = useSegments();
@@ -299,15 +302,68 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  
+  // NEW: Track navigation attempts and implement retry logic
+  const navigationAttempts = useRef(0);
+  const maxNavigationAttempts = 3;
+  const pendingNavigation = useRef<{ type: string; id: string; isInitial: boolean } | null>(null);
 
-  // FIXED: Enhanced navigation with better stack management
+  // NEW: More robust navigation readiness check
+  const checkNavigationReady = useCallback(() => {
+    // Check multiple conditions to ensure navigation is truly ready
+    const hasSegments = segments.length > 0;
+    const isInHomeRoute = segments.includes('(home)');
+    const isInAuthRoute = segments.includes('(auth)');
+    const hasValidRoute = isInHomeRoute || isInAuthRoute;
+    
+    // For authenticated users, we should be in home route
+    const isEffectivelySignedIn = isSignedIn || isGuest;
+    const correctRouteForAuthState = isEffectivelySignedIn ? isInHomeRoute : true;
+    
+    return hasSegments && hasValidRoute && correctRouteForAuthState;
+  }, [segments, isSignedIn, isGuest]);
+
+  // NEW: Retry navigation with exponential backoff
+  const retryNavigation = useCallback((navigation: typeof pendingNavigation.current) => {
+    if (!navigation || navigationAttempts.current >= maxNavigationAttempts) {
+      console.warn('[DeepLink] Max navigation attempts reached, giving up');
+      navigationAttempts.current = 0;
+      pendingNavigation.current = null;
+      return;
+    }
+    
+    navigationAttempts.current++;
+    const delay = Math.min(1000 * Math.pow(2, navigationAttempts.current - 1), 5000);
+    
+    console.log(`[DeepLink] Retrying navigation attempt ${navigationAttempts.current}/${maxNavigationAttempts} after ${delay}ms`);
+    
+    setTimeout(() => {
+      if (checkNavigationReady()) {
+        navigateToDeepLink(navigation.type as any, navigation.id, navigation.isInitial);
+      } else {
+        retryNavigation(navigation);
+      }
+    }, delay);
+  }, [checkNavigationReady]); // navigateToDeepLink will be defined below
+
+  // ENHANCED: Navigation with retry logic
   const navigateToDeepLink = useCallback(
     async (type: "car" | "clip", id: string, isInitialLink: boolean) => {
       console.log(
-        `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}`
+        `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}, attempt: ${navigationAttempts.current + 1}`
       );
 
       const isEffectivelySignedIn = isSignedIn || isGuest;
+
+      // Store navigation for potential retry
+      pendingNavigation.current = { type, id, isInitial: isInitialLink };
+
+      // Verify navigation is ready
+      if (!checkNavigationReady()) {
+        console.log('[DeepLink] Navigation not ready, scheduling retry');
+        retryNavigation(pendingNavigation.current);
+        return;
+      }
 
       // Check if we're already on the target page
       const currentPath = segments.join("/");
@@ -318,6 +374,8 @@ const DeepLinkHandler = () => {
 
       if (isAlreadyOnCarDetails || isAlreadyOnAutoclips) {
         console.log("[DeepLink] Already on target page, updating params only");
+        navigationAttempts.current = 0;
+        pendingNavigation.current = null;
 
         if (type === "car") {
           router.setParams({
@@ -334,116 +392,88 @@ const DeepLinkHandler = () => {
         return;
       }
 
-      // FIXED: Unified navigation approach for both platforms and states
       try {
         if (type === "car") {
           // For car deep links
-          if (Platform.OS === "android") {
-            // Android: Always establish proper stack
-            if (isInitialLink || !segments.includes("(home)")) {
-              // Need to establish full stack
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
-            }
-
-            // Navigate to car details
-            router.push({
-              pathname: "/(home)/(user)/CarDetails",
-              params: {
-                carId: id,
-                isDealerView: "false",
-                fromDeepLink: "true",
-              },
-            });
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/CarDetails",
-                  params: {
-                    carId: id,
-                    isDealerView: "false",
-                    fromDeepLink: "true",
-                  },
-                });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId: id,
-                  isDealerView: "false",
-                  fromDeepLink: "true",
-                },
-              });
+          if (Platform.OS === "android" || (isInitialLink && !segments.includes("(home)"))) {
+            // Need to establish full stack
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            
+            // Use push instead of replace to maintain navigation stack
+            router.push("/(home)/(user)");
+            
+            // Wait for navigation to complete
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            
+            // Verify we're in the right place
+            if (!checkNavigationReady()) {
+              throw new Error('Navigation stack not ready after initial navigation');
             }
           }
+
+          // Navigate to car details
+          router.push({
+            pathname: "/(home)/(user)/CarDetails",
+            params: {
+              carId: id,
+              isDealerView: "false",
+              fromDeepLink: "true",
+            },
+          });
+          
+          // Success - reset attempts
+          navigationAttempts.current = 0;
+          pendingNavigation.current = null;
+          
         } else if (type === "clip") {
           // For clip deep links
-          if (Platform.OS === "android") {
-            // Android: Always establish proper stack
-            if (isInitialLink || !segments.includes("(home)")) {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
-            }
-
-            // Navigate to autoclips
-            router.push({
-              pathname: "/(home)/(user)/(tabs)/autoclips",
-              params: {
-                clipId: id,
-                fromDeepLink: "true",
-              },
-            });
-
-            // Ensure params are set
-            setTimeout(() => {
-              router.setParams({
-                clipId: id,
-                fromDeepLink: "true",
-              });
-            }, 200);
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/(tabs)/autoclips",
-                  params: {
-                    clipId: id,
-                    fromDeepLink: "true",
-                  },
-                });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/(tabs)/autoclips",
-                params: {
-                  clipId: id,
-                  fromDeepLink: "true",
-                },
-              });
+          if (Platform.OS === "android" || (isInitialLink && !segments.includes("(home)"))) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            router.push("/(home)/(user)");
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            
+            if (!checkNavigationReady()) {
+              throw new Error('Navigation stack not ready after initial navigation');
             }
           }
+
+          // Navigate to autoclips
+          router.push({
+            pathname: "/(home)/(user)/(tabs)/autoclips",
+            params: {
+              clipId: id,
+              fromDeepLink: "true",
+            },
+          });
+
+          // Ensure params are set
+          setTimeout(() => {
+            router.setParams({
+              clipId: id,
+              fromDeepLink: "true",
+            });
+          }, 200);
+          
+          // Success - reset attempts
+          navigationAttempts.current = 0;
+          pendingNavigation.current = null;
         }
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
-        // Fallback to home
-        router.replace("/(home)/(user)");
+        
+        // Retry if we haven't exceeded attempts
+        if (navigationAttempts.current < maxNavigationAttempts) {
+          retryNavigation(pendingNavigation.current);
+        } else {
+          // Final fallback
+          console.error('[DeepLink] All navigation attempts failed, falling back to home');
+          router.replace("/(home)/(user)");
+          navigationAttempts.current = 0;
+          pendingNavigation.current = null;
+        }
       }
     },
-    [router, segments, isSignedIn, isGuest]
+    [router, segments, isSignedIn, isGuest, checkNavigationReady, retryNavigation]
   );
 
   const processDeepLink = useCallback(
@@ -491,8 +521,8 @@ const DeepLinkHandler = () => {
           return;
         }
 
-        // FIXED: Wait for navigation to be ready for initial links
-        if (isInitialLink && !isNavigationReady) {
+        // ENHANCED: Wait for proper navigation readiness
+        if (isInitialLink && !checkNavigationReady()) {
           console.log(
             "[DeepLink] Navigation not ready for initial link, waiting..."
           );
@@ -617,7 +647,7 @@ const DeepLinkHandler = () => {
       isSignedIn,
       isGuest,
       navigateToDeepLink,
-      isNavigationReady,
+      checkNavigationReady,
     ]
   );
 
@@ -633,7 +663,6 @@ const DeepLinkHandler = () => {
 
     hideStaticSplash();
   }, []);
-
 
   // Get initial URL
   useEffect(() => {
@@ -656,17 +685,28 @@ const DeepLinkHandler = () => {
       });
   }, []);
 
-  // FIXED: Mark navigation as ready when we have proper routing
+  // ENHANCED: Track navigation readiness with better accuracy
   useEffect(() => {
-    if (isLoaded && segments.length > 0) {
-      // Give navigation a moment to stabilize
+    if (isLoaded) {
+      const checkInterval = setInterval(() => {
+        if (checkNavigationReady()) {
+          setIsNavigationReady(true);
+          clearInterval(checkInterval);
+        }
+      }, 100);
+      
+      // Timeout after 5 seconds
       const timeout = setTimeout(() => {
-        setIsNavigationReady(true);
-      }, 500);
-
-      return () => clearTimeout(timeout);
+        clearInterval(checkInterval);
+        setIsNavigationReady(true); // Force ready state
+      }, 5000);
+      
+      return () => {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+      };
     }
-  }, [isLoaded, segments]);
+  }, [isLoaded, checkNavigationReady]);
 
   // Process initial URL when auth and navigation are ready
   useEffect(() => {
@@ -735,7 +775,7 @@ const DeepLinkHandler = () => {
 
   // Handle pending deep links after sign-in
   useEffect(() => {
-    if (isSignedIn && global.pendingDeepLink) {
+    if (isSignedIn && global.pendingDeepLink && checkNavigationReady()) {
       const { type, id } = global.pendingDeepLink;
       console.log(
         "[DeepLink] Processing pending deep link after sign-in:",
@@ -754,7 +794,7 @@ const DeepLinkHandler = () => {
         global.pendingDeepLink = null;
       }, 500);
     }
-  }, [isSignedIn, navigateToDeepLink]);
+  }, [isSignedIn, navigateToDeepLink, checkNavigationReady]);
 
   return null;
 };

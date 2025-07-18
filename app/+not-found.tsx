@@ -1,4 +1,4 @@
-
+// app/+not-found.tsx - Enhanced version with better deep link handling
 import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import { coordinateSignOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 export default function NotFoundScreen() {
   const { isDarkMode } = useTheme();
@@ -18,21 +18,46 @@ export default function NotFoundScreen() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const redirectTimeoutRef = useRef<NodeJS.Timeout>();
   const hasAttemptedRedirect = useRef(false);
+  const [deepLinkRetryCount, setDeepLinkRetryCount] = useState(0);
+  const maxDeepLinkRetries = 3;
 
-  // FIXED: Enhanced redirect handling for deep links
+  // Detect if this is likely a deep link navigation failure
+  const detectDeepLinkFailure = useCallback(() => {
+    const unmatched = params.unmatched as string | string[] | undefined;
+    
+    if (!unmatched) return null;
+    
+    // Convert to string if it's an array
+    const unmatchedStr = Array.isArray(unmatched) ? unmatched.join('/') : unmatched;
+    
+    // Check for car deep link patterns
+    const carIdMatch = unmatchedStr.match(/(?:CarDetails|cars?)(?:\/|-)(\d+)/i);
+    if (carIdMatch) {
+      return { type: 'car', id: carIdMatch[1] };
+    }
+    
+    // Check for clip deep link patterns
+    const clipIdMatch = unmatchedStr.match(/(?:autoclips?|clips?)(?:\/|-)(\d+)/i);
+    if (clipIdMatch) {
+      return { type: 'clip', id: clipIdMatch[1] };
+    }
+    
+    // Check if it contains deep link keywords without proper ID
+    if (unmatchedStr.toLowerCase().includes('cardetails') || 
+        unmatchedStr.toLowerCase().includes('autoclips')) {
+      return { type: 'unknown', id: null };
+    }
+    
+    return null;
+  }, [params.unmatched]);
+
+  // Enhanced redirect logic with deep link retry
   useEffect(() => {
     // Wait for auth to be loaded
     if (!isLoaded) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
-    
-    // FIXED: Check if this might be a deep link navigation issue
-    const mightBeDeepLink = params.unmatched && (
-      params.unmatched.includes('CarDetails') ||
-      params.unmatched.includes('autoclips') ||
-      params.unmatched.includes('cars') ||
-      params.unmatched.includes('clips')
-    );
+    const deepLinkInfo = detectDeepLinkFailure();
     
     // Clear any existing timeout
     if (redirectTimeoutRef.current) {
@@ -40,37 +65,69 @@ export default function NotFoundScreen() {
       redirectTimeoutRef.current = undefined;
     }
     
-    // FIXED: Handle iOS deep link navigation timing issue
-    if (Platform.OS === 'ios' && mightBeDeepLink && !hasAttemptedRedirect.current) {
-      console.log('[NotFound - iOS] Possible deep link navigation issue detected');
-      hasAttemptedRedirect.current = true;
+    // Handle deep link failures with retry logic
+    if (deepLinkInfo && deepLinkRetryCount < maxDeepLinkRetries) {
+      console.log(`[NotFound] Detected deep link failure, attempt ${deepLinkRetryCount + 1}/${maxDeepLinkRetries}:`, deepLinkInfo);
       
-      // Give the deep link handler more time to process
-      redirectTimeoutRef.current = setTimeout(() => {
-        if (isEffectivelySignedIn) {
-          console.log('[NotFound - iOS] Redirecting to home after deep link timeout');
-          router.replace('/(home)/(user)');
-        } else {
-          console.log('[NotFound - iOS] Redirecting to sign-in after deep link timeout');
-          router.replace('/(auth)/sign-in');
-        }
-      }, 1500); // Give deep link handler time to process
-      
-      return;
-    }
-    
-    // Regular redirect logic for non-deep link scenarios
-    if (!mightBeDeepLink && !isRedirecting && !hasAttemptedRedirect.current) {
-      hasAttemptedRedirect.current = true;
-      
-      // Android auto-redirect
-      if (Platform.OS === 'android' && isEffectivelySignedIn) {
-        console.log('[NotFound - Android] User authenticated - attempting redirect');
-        console.log('[NotFound - Android] Route params:', params);
-        
+      if (deepLinkInfo.type !== 'unknown' && deepLinkInfo.id) {
+        // We have a valid deep link that failed to navigate
+        hasAttemptedRedirect.current = true;
         setIsRedirecting(true);
         
-        // Android-specific redirect strategy
+        // Exponential backoff for retries
+        const retryDelay = Math.min(1000 * Math.pow(2, deepLinkRetryCount), 5000);
+        
+        redirectTimeoutRef.current = setTimeout(() => {
+          if (isEffectivelySignedIn) {
+            // Try to navigate to the deep link destination
+            try {
+              if (deepLinkInfo.type === 'car') {
+                router.push({
+                  pathname: "/(home)/(user)/CarDetails",
+                  params: { 
+                    carId: deepLinkInfo.id, 
+                    isDealerView: "false",
+                    fromDeepLink: "true" 
+                  },
+                });
+              } else if (deepLinkInfo.type === 'clip') {
+                router.push({
+                  pathname: "/(home)/(user)/(tabs)/autoclips",
+                  params: { 
+                    clipId: deepLinkInfo.id,
+                    fromDeepLink: "true" 
+                  },
+                });
+              }
+            } catch (error) {
+              console.error('[NotFound] Deep link retry navigation failed:', error);
+              setDeepLinkRetryCount(prev => prev + 1);
+            }
+          } else {
+            // Store the deep link for after sign-in
+            global.pendingDeepLink = { 
+              type: deepLinkInfo.type as 'car' | 'autoclip', 
+              id: deepLinkInfo.id 
+            };
+            router.replace('/(auth)/sign-in');
+          }
+          
+          setIsRedirecting(false);
+        }, retryDelay);
+        
+        return;
+      }
+    }
+    
+    // Regular redirect logic for non-deep link 404s
+    if (!deepLinkInfo && !hasAttemptedRedirect.current) {
+      hasAttemptedRedirect.current = true;
+      
+      // Platform-specific redirect behavior
+      if (Platform.OS === 'android' && isEffectivelySignedIn) {
+        console.log('[NotFound - Android] User authenticated - redirecting to home');
+        setIsRedirecting(true);
+        
         redirectTimeoutRef.current = setTimeout(() => {
           try {
             router.replace('/(home)/(user)');
@@ -79,11 +136,8 @@ export default function NotFoundScreen() {
           }
           setIsRedirecting(false);
         }, 500);
-      }
-      
-      // iOS sign-in redirect
-      if (Platform.OS === 'ios' && !isEffectivelySignedIn) {
-        console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
+      } else if (!isEffectivelySignedIn) {
+        console.log('[NotFound] User not authenticated - redirecting to sign-in');
         router.replace('/(auth)/sign-in');
       }
     }
@@ -95,7 +149,7 @@ export default function NotFoundScreen() {
         redirectTimeoutRef.current = undefined;
       }
     };
-  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting]);
+  }, [isLoaded, isSignedIn, isGuest, router, detectDeepLinkFailure, deepLinkRetryCount]);
 
   // Manual navigation handler
   const handleGoHome = () => {
@@ -161,15 +215,9 @@ export default function NotFoundScreen() {
     );
   }
 
-  // FIXED: Show loading for potential deep link redirects
-  const mightBeDeepLink = params.unmatched && (
-    params.unmatched.includes('CarDetails') ||
-    params.unmatched.includes('autoclips') ||
-    params.unmatched.includes('cars') ||
-    params.unmatched.includes('clips')
-  );
-  
-  if (mightBeDeepLink && Platform.OS === 'ios' && hasAttemptedRedirect.current) {
+  // Show loading for deep link retries
+  const deepLinkInfo = detectDeepLinkFailure();
+  if (deepLinkInfo && isRedirecting && deepLinkRetryCount < maxDeepLinkRetries) {
     return (
       <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
         <View style={styles.content}>
@@ -181,6 +229,15 @@ export default function NotFoundScreen() {
           }}>
             Loading content...
           </Text>
+          {deepLinkRetryCount > 0 && (
+            <Text style={{ 
+              color: isDarkMode ? "#FFFFFF80" : "#00000080", 
+              fontSize: 14,
+              marginTop: 8 
+            }}>
+              Retrying... ({deepLinkRetryCount}/{maxDeepLinkRetries})
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -228,18 +285,22 @@ export default function NotFoundScreen() {
             styles.title,
             { color: isDarkMode ? "#FFFFFF" : "#000000" }
           ]}>
-            Page Not Found
+            {deepLinkInfo && deepLinkRetryCount >= maxDeepLinkRetries 
+              ? "Content Not Available" 
+              : "Page Not Found"}
           </Text>
           
           <Text style={[
             styles.subtitle,
             { color: isDarkMode ? "#FFFFFF80" : "#00000080" }
           ]}>
-            Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
+            {deepLinkInfo && deepLinkRetryCount >= maxDeepLinkRetries
+              ? "The content you're looking for might have been removed or is temporarily unavailable."
+              : "Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist."}
           </Text>
 
           {/* Platform-specific messaging */}
-          {Platform.OS === 'android' && (isSignedIn || isGuest) && isRedirecting && (
+          {Platform.OS === 'android' && (isSignedIn || isGuest) && isRedirecting && !deepLinkInfo && (
             <Text style={[
               styles.redirectMessage,
               { color: "#D55004" }
@@ -270,7 +331,11 @@ export default function NotFoundScreen() {
               ]}
               onPress={() => {
                 try {
-                  router.back();
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    handleGoHome();
+                  }
                 } catch (error) {
                   console.error('[NotFound] Back navigation failed:', error);
                   handleGoHome();
@@ -306,6 +371,18 @@ export default function NotFoundScreen() {
                 { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
               ]}>
                 Platform: {Platform.OS}
+              </Text>
+              <Text style={[
+                styles.debugText,
+                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
+              ]}>
+                Deep Link Detected: {deepLinkInfo ? `${deepLinkInfo.type} - ${deepLinkInfo.id}` : 'No'}
+              </Text>
+              <Text style={[
+                styles.debugText,
+                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
+              ]}>
+                Retry Count: {deepLinkRetryCount}
               </Text>
               <Text style={[
                 styles.debugText,
