@@ -21,21 +21,24 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
+        "SENTRY_AUTH_TOKEN":"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"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
+         "SENTRY_AUTH_TOKEN":"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"
       }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
+        "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
+         "SENTRY_AUTH_TOKEN":"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"
       }
     }
   },

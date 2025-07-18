@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Animated,
   RefreshControl,
+  Button
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
@@ -32,7 +33,7 @@ import { useScrollToTop } from "@react-navigation/native";
 import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
-
+import * as Sentry from '@sentry/react-native';
 const ITEMS_PER_PAGE = 7;
 
 interface Car {

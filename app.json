@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
-     "assetBundlePatterns": [
+    "assetBundlePatterns": [
       "**/*"
     ],
     "userInterfaceStyle": "automatic",
@@ -32,7 +32,7 @@
         "applinks:fleetapp.me",
         "applinks:www.fleetapp.me"
       ],
-            "splash": {
+      "splash": {
         "image": "./assets/background-white.png",
         "resizeMode": "cover",
         "backgroundColor": "#ffffff",
@@ -67,11 +67,11 @@
       }
     },
     "android": {
-        "splash": {
-    "image": "./assets/background-white.png",
-    "resizeMode": "cover",
-    "backgroundColor": "#ffffff"
-  },
+      "splash": {
+        "image": "./assets/background-white.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#ffffff"
+      },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCDuRjdx7YfYc0Y46fcEisE6YbY0zVY7jk"
@@ -138,14 +138,17 @@
             "DEFAULT"
           ]
         },
-         {
+        {
           "action": "VIEW",
           "data": [
             {
               "scheme": "fleet"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -184,6 +187,14 @@
             "./assets/sounds/notification.wav"
           ],
           "mode": "production"
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "fleet",
+          "organization": "qwerty-5v"
         }
       ]
     ],

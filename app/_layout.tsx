@@ -51,6 +51,23 @@ import {
 import { notificationCoordinator } from "@/utils/NotificationOperationCoordinator";
 import ModernUpdateAlert from "./update-alert";
 import { useSlowConnectionToast } from "@/utils/useSlowConnectionToast";
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://785ae89de27dd58c218eb6dd0544d7a7@o4509672135065600.ingest.de.sentry.io/4509689676693584',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 const { width, height } = Dimensions.get("window");
 
@@ -971,7 +988,7 @@ function ErrorFallback({ error, resetError }: any) {
 }
 
 // MAIN COMPONENT: Root Layout with initialization coordination
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const badgeClearingRef = useRef(false);
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
 
@@ -1119,4 +1136,4 @@ useSlowConnectionToast();
       </GestureHandlerRootView>
     </ErrorBoundary>
   );
-}
+});
