@@ -49,6 +49,10 @@ const TAB_BAR_HEIGHT = 80;
 const CACHE_SIZE_LIMIT = 100 * 1024 * 1024; // 100MB cache limit
 const VIDEO_PRELOAD_BUFFER = 2; // Number of videos to preload
 
+// FIXED: Add debounce constants
+const VIDEO_STATE_DEBOUNCE = 100; // ms
+const POSITION_SET_DELAY = 300; // ms
+
 // --- Interfaces ---
 interface Car {
   id: string;
@@ -224,6 +228,23 @@ function useNetworkMonitor() {
   return { networkInfo, connectionSpeed };
 }
 
+// FIXED: Debounce utility function
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 // --- Optimized Clip Item Component ---
 interface ClipItemProps {
   item: AutoClip;
@@ -270,7 +291,20 @@ const ClipItem = React.memo<ClipItemProps>(({
   const [isBuffering, setIsBuffering] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const cacheManager = VideoCacheManager.getInstance();
+  
+  // FIXED: Better refs management
   const initialPositionSet = useRef(false);
+  const videoLoadedRef = useRef(false);
+  const positionSetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // FIXED: Memoized shouldPlay calculation to prevent unnecessary changes
+  const isCurrentlyVisible = index === currentVideoIndex;
+  const shouldPlay = useMemo(() => {
+    return isPlaying[item.id] === true && isCurrentlyVisible && allowPlayback;
+  }, [isPlaying, item.id, isCurrentlyVisible, allowPlayback]);
+  
+  // FIXED: Debounce shouldPlay to prevent rapid changes
+  const debouncedShouldPlay = useDebounce(shouldPlay, VIDEO_STATE_DEBOUNCE);
   
   // Get the appropriate video URL based on quality
   const getVideoUrl = useCallback(() => {
@@ -316,6 +350,18 @@ const ClipItem = React.memo<ClipItemProps>(({
     };
   }, [item, videoQuality, index, currentVideoIndex]);
 
+  // FIXED: Reset refs when video changes or becomes invisible
+  useEffect(() => {
+    initialPositionSet.current = false;
+    videoLoadedRef.current = false;
+    
+    // Clear position timeout if video changes
+    if (positionSetTimeoutRef.current) {
+      clearTimeout(positionSetTimeoutRef.current);
+      positionSetTimeoutRef.current = null;
+    }
+  }, [item.id, isCurrentlyVisible]);
+
   // Ensure ref exists
   if (!videoRefs.current[item.id]) {
     videoRefs.current[item.id] = React.createRef();
@@ -328,42 +374,58 @@ const ClipItem = React.memo<ClipItemProps>(({
     setTimeout(() => setIconVisible(false), 500);
   };
 
+  // FIXED: Improved status update handler
   const handleStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsBuffering(status.isBuffering);
       
-      // Set initial position when video first loads
-      if (!initialPositionSet.current && savedPosition > 0 && status.durationMillis) {
-        const videoRef = videoRefs.current[item.id]?.current;
-        if (videoRef) {
-          videoRef.setPositionAsync(savedPosition * 1000).catch(console.error);
-          initialPositionSet.current = true;
+      // FIXED: Only set position when video is loaded, should be playing, and position hasn't been set yet
+      if (!initialPositionSet.current && 
+          savedPosition > 0 && 
+          status.durationMillis && 
+          debouncedShouldPlay && 
+          videoLoadedRef.current) {
+        
+        // Clear any existing timeout
+        if (positionSetTimeoutRef.current) {
+          clearTimeout(positionSetTimeoutRef.current);
         }
+        
+        // Set position with delay to ensure video is ready
+        positionSetTimeoutRef.current = setTimeout(() => {
+          const videoRef = videoRefs.current[item.id]?.current;
+          if (videoRef && !initialPositionSet.current) {
+            videoRef.setPositionAsync(savedPosition * 1000)
+              .then(() => {
+                initialPositionSet.current = true;
+              })
+              .catch(console.error);
+          }
+        }, POSITION_SET_DELAY);
       }
     }
+    
+    // Always call the parent handler
     handlePlaybackStatusUpdate(status, item.id);
-  }, [handlePlaybackStatusUpdate, item.id, savedPosition]);
+  }, [handlePlaybackStatusUpdate, item.id, savedPosition, debouncedShouldPlay]);
 
-  const handleLoad = useCallback(async () => {
+  // FIXED: Simplified load handler
+  const handleLoad = useCallback(() => {
     setVideoLoading(prev => ({ ...prev, [item.id]: false }));
     setHasLoaded(true);
+    videoLoadedRef.current = true;
     
-    // If this is the current video and should be playing, start playback
-    if (index === currentVideoIndex && allowPlayback && isPlaying[item.id]) {
-      const ref = videoRefs.current[item.id]?.current;
-      if (ref) {
-        try {
-          // If we have a saved position, set it
-          if (savedPosition > 0) {
-            await ref.setPositionAsync(savedPosition * 1000);
-          }
-          await ref.playAsync();
-        } catch (err) {
-          console.error("Error starting video playback:", err);
-        }
+    // No manual playback control - let shouldPlay handle everything
+  }, [item.id]);
+
+  // FIXED: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (positionSetTimeoutRef.current) {
+        clearTimeout(positionSetTimeoutRef.current);
       }
-    }
-  }, [index, currentVideoIndex, allowPlayback, isPlaying, item.id, savedPosition]);
+    };
+  }, []);
 
   return (
     <View style={{ height, width }}>
@@ -379,7 +441,7 @@ const ClipItem = React.memo<ClipItemProps>(({
             source={{ uri: videoUri }}
             style={{ flex: 1 }}
             resizeMode={ResizeMode.COVER}
-            shouldPlay={isPlaying[item.id] && index === currentVideoIndex && allowPlayback}
+            shouldPlay={debouncedShouldPlay}
             isLooping
             isMuted={globalMute}
             onPlaybackStatusUpdate={handleStatusUpdate}
@@ -410,9 +472,6 @@ const ClipItem = React.memo<ClipItemProps>(({
             )}
           </View>
         )}
-
-        {/* Only show loading indicator on first load or when buffering */}
-      
 
         {/* Play/Pause Icon Overlay */}
         {iconVisible && (
@@ -472,6 +531,10 @@ export default function AutoClips() {
   const [videoQuality, setVideoQuality] = useState<'high' | 'medium' | 'low'>('medium');
   const hasInitialLoad = useRef(false);
   
+  // FIXED: Add debounce refs
+  const videoStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const viewabilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Refs
   const flatListRef = useRef<FlatList>(null);
   const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({});
@@ -501,9 +564,6 @@ export default function AutoClips() {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
         // App going to background - pause all videos but maintain positions
-        Object.entries(videoRefs.current).forEach(([clipId, ref]) => {
-          ref?.current?.pauseAsync().catch(() => {});
-        });
         setIsPlaying({});
       }
       appStateRef.current = nextAppState;
@@ -525,9 +585,6 @@ export default function AutoClips() {
         deepLinkHandled.current = true;
         
         // Stop all currently playing videos
-        Object.values(videoRefs.current).forEach(ref => {
-          ref?.current?.pauseAsync().catch(() => {});
-        });
         setIsPlaying({});
         
         // Navigate to clip
@@ -560,9 +617,7 @@ export default function AutoClips() {
     
     if (!isFocused) {
       // Pause videos when not focused but maintain positions
-      Object.values(videoRefs.current).forEach(ref => {
-        ref?.current?.pauseAsync().catch(() => {});
-      });
+      setIsPlaying({});
     }
   }, [isFocused]);
 
@@ -685,28 +740,28 @@ export default function AutoClips() {
     }
   }, []);
 
-  const handleVideoPress = useCallback(async (clipId: number) => {
-    const videoRef = videoRefs.current[clipId]?.current;
-    if (!videoRef) return;
+  // FIXED: Debounced video press handler
+  const handleVideoPress = useCallback((clipId: number) => {
+    // Clear any existing timeout
+    if (videoStateTimeoutRef.current) {
+      clearTimeout(videoStateTimeoutRef.current);
+    }
     
-    const newPlayingState = !isPlaying[clipId];
-    setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }));
-    
-    try {
+    // Debounce the state change
+    videoStateTimeoutRef.current = setTimeout(() => {
+      const newPlayingState = !isPlaying[clipId];
+      setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }));
+      
       if (newPlayingState) {
-        await videoRef.playAsync();
         viewTimers.current[currentVideoIndex] = setTimeout(() => {
           trackClipView(clipId);
         }, 5000);
       } else {
-        await videoRef.pauseAsync();
         if (viewTimers.current[currentVideoIndex]) {
           clearTimeout(viewTimers.current[currentVideoIndex]);
         }
       }
-    } catch (err) {
-      console.error("Error handling video playback:", err);
-    }
+    }, VIDEO_STATE_DEBOUNCE);
   }, [isPlaying, currentVideoIndex, trackClipView]);
 
   const handleLikePress = useCallback(async (clipId: number) => {
@@ -944,11 +999,17 @@ export default function AutoClips() {
     );
   }, [expandedDescriptions]);
 
-  // Viewability handler
+  // FIXED: Heavily optimized viewability handler with debouncing
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    if (isNavigatingToDeepLink) return;
+    if (isNavigatingToDeepLink || viewableItems.length === 0) return;
     
-    if (viewableItems.length > 0) {
+    // Clear existing timeout
+    if (viewabilityTimeoutRef.current) {
+      clearTimeout(viewabilityTimeoutRef.current);
+    }
+    
+    // Debounce viewability changes
+    viewabilityTimeoutRef.current = setTimeout(() => {
       const visibleClip = viewableItems[0].item;
       const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id);
       
@@ -965,37 +1026,34 @@ export default function AutoClips() {
           trackClipView(visibleClip.id);
         }, 5000);
         
-        // Handle video transitions
-        Object.entries(videoRefs.current).forEach(async ([clipId, ref]) => {
-          const shouldPlay = clipId === visibleClip.id.toString();
-          try {
-            if (shouldPlay && allowVideoPlayback) {
-              // Reset position to saved position or 0
-              const savedPosition = videoPositions[Number(clipId)] || 0;
-              if (savedPosition > 0) {
-                await ref?.current?.setPositionAsync(savedPosition * 1000);
-              } else {
-                await ref?.current?.setPositionAsync(0);
-              }
-              await ref?.current?.playAsync();
-              setIsPlaying(prev => ({ ...prev, [clipId]: true }));
-            } else {
-              await ref?.current?.pauseAsync();
-              setIsPlaying(prev => ({ ...prev, [clipId]: false }));
-            }
-          } catch (err) {
-            console.error("Error transitioning video:", err);
-          }
+        // FIXED: Simplified state update - only change playing state
+        setIsPlaying(prev => {
+          const newState: VideoState = {};
+          // Only the visible video should be playing
+          newState[visibleClip.id] = allowVideoPlayback;
+          return newState;
         });
       }
-    }
-  }, [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink, videoPositions]);
+    }, 150); // Debounce viewability changes
+  }, [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]);
 
   const viewabilityConfig = useMemo(() => ({
     itemVisiblePercentThreshold: 50,
     waitForInteraction: false,
     minimumViewTime: 300,
   }), []);
+
+  // FIXED: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (videoStateTimeoutRef.current) {
+        clearTimeout(videoStateTimeoutRef.current);
+      }
+      if (viewabilityTimeoutRef.current) {
+        clearTimeout(viewabilityTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Error state
   if (error && !networkInfo.isConnected) {

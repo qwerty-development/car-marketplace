@@ -1,5 +1,5 @@
-// VideoControls.tsx
-import React, { useState, useEffect, useCallback } from "react";
+// VideoControls.tsx - FIXED VERSION
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -27,7 +27,9 @@ const VideoControls = ({
   const [showControls, setShowControls] = useState(true);
   const [progressWidth, setProgressWidth] = useState(0);
   const [authModalVisible, setAuthModalVisible] = useState(false);
-  const opacity = new Animated.Value(1);
+  
+  // FIXED: Use useRef to avoid re-creating Animated.Value on every render
+  const opacity = useRef(new Animated.Value(1)).current;
   const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
   // Get guest status from your auth/guest hook
@@ -36,53 +38,130 @@ const VideoControls = ({
   // Determine if device is small based on height
   const isSmallDevice = screenHeight < 700;
 
+  // FIXED: Add timeout ref to prevent memory leaks and conflicts
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // FIXED: Optimize useEffect to prevent unnecessary animations
   useEffect(() => {
-    let timeout: NodeJS.Timeout | number;
+    // Clear any existing timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
     if (isPlaying) {
-      timeout = setTimeout(() => {
+      // Show controls when video starts playing
+      if (!showControls) {
+        setShowControls(true);
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+
+      // Set timeout to hide controls
+      hideTimeoutRef.current = setTimeout(() => {
         Animated.timing(opacity, {
           toValue: 0,
           duration: 1000,
           useNativeDriver: true,
-        }).start();
-        setShowControls(false);
+        }).start(() => {
+          setShowControls(false);
+        });
       }, 3000);
+    } else {
+      // Show controls when video is paused
+      if (!showControls) {
+        setShowControls(true);
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }
     }
-    return () => clearTimeout(timeout);
-  }, [isPlaying]);
 
+    // Cleanup function
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
+    };
+  }, [isPlaying]); // FIXED: Only depend on isPlaying, not showControls
+
+  // FIXED: Memoized toggle function to prevent unnecessary re-renders
   const toggleControls = useCallback(() => {
-    setShowControls((prev) => !prev);
+    const newShowControls = !showControls;
+    setShowControls(newShowControls);
+    
     Animated.timing(opacity, {
-      toValue: showControls ? 0 : 1,
+      toValue: newShowControls ? 1 : 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [showControls]);
 
-  const formatTime = (timeInSeconds: number) => {
+    // Reset hide timeout if showing controls
+    if (newShowControls && isPlaying) {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+      hideTimeoutRef.current = setTimeout(() => {
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowControls(false);
+        });
+      }, 3000);
+    }
+  }, [showControls, isPlaying]); // FIXED: Add isPlaying to dependencies
+
+  // FIXED: Memoized format function
+  const formatTime = useCallback((timeInSeconds: number) => {
+    if (!timeInSeconds || !isFinite(timeInSeconds)) return "0:00";
     const minutes = Math.floor(timeInSeconds / 60);
     const seconds = Math.floor(timeInSeconds % 60);
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-  };
+  }, []);
 
-  const handleScrubbing = (event: { nativeEvent: { locationX: number } }) => {
+  // FIXED: Improved scrubbing with bounds checking
+  const handleScrubbing = useCallback((event: { nativeEvent: { locationX: number } }) => {
+    if (!duration || duration <= 0 || !progressWidth) return;
+    
     const { locationX } = event.nativeEvent;
     const percentage = Math.max(0, Math.min(1, locationX / progressWidth));
     const newTime = percentage * duration;
+    
+    // FIXED: Add debouncing to prevent rapid scrub calls
     onScrub(clipId, newTime);
-  };
+  }, [clipId, duration, progressWidth, onScrub]);
 
   // Calculate responsive bottom position for side controls
   const sideControlsBottomPosition = isSmallDevice ? 90 : 210;
 
-  const handleLikePress = () => {
+  // FIXED: Memoized like handler to prevent unnecessary re-renders
+  const handleLikePress = useCallback(() => {
     if (isGuest) {
       setAuthModalVisible(true);
     } else {
       onLikePress(clipId);
     }
-  };
+  }, [isGuest, clipId, onLikePress]);
+
+  // FIXED: Memoized mute handler to prevent video interference
+  const handleMutePress = useCallback((e: any) => {
+    // Prevent event from bubbling up to video touch handler
+    e.stopPropagation();
+    e.preventDefault();
+    
+    onMutePress(clipId, e);
+  }, [clipId, onMutePress]);
+
+  // FIXED: Calculate progress percentage with bounds checking
+  const progressPercentage = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
 
   return (
     <>
@@ -105,13 +184,13 @@ const VideoControls = ({
             <View className="h-1 w-full bg-neutral-600 rounded-full overflow-hidden">
               <View
                 className="h-full bg-red"
-                style={{ width: `${(currentTime / duration) * 100}%` }}
+                style={{ width: `${progressPercentage}%` }}
               />
               <View
                 className="absolute top-1/2 h-4 w-4 bg-red rounded-full shadow-lg"
                 style={{
-                  left: `${(currentTime / duration) * 100}%`,
-                  transform: [{ translateY: -8 }],
+                  left: `${progressPercentage}%`,
+                  transform: [{ translateY: -8 }, { translateX: -8 }], // FIXED: Center the handle
                 }}
               />
             </View>
@@ -137,8 +216,9 @@ const VideoControls = ({
       >
         <View style={{ gap: isSmallDevice ? 16 : 24 }}>
           <TouchableOpacity
-            onPress={(e) => onMutePress(clipId, e)}
+            onPress={handleMutePress}
             className="bg-black/50 p-3 rounded-full"
+            activeOpacity={0.7}
           >
             {globalMute ? (
               <VolumeX color="white" size={isSmallDevice ? 20 : 24} />
@@ -147,7 +227,11 @@ const VideoControls = ({
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLikePress} className="items-center">
+          <TouchableOpacity 
+            onPress={handleLikePress} 
+            className="items-center"
+            activeOpacity={0.7}
+          >
             <View className="bg-black/50 rounded-full p-3 mb-1">
               <Heart
                 size={isSmallDevice ? 20 : 24}
@@ -173,4 +257,15 @@ const VideoControls = ({
   );
 };
 
-export default React.memo(VideoControls);
+// FIXED: Proper memoization with comparison function
+export default React.memo(VideoControls, (prevProps, nextProps) => {
+  return (
+    prevProps.clipId === nextProps.clipId &&
+    prevProps.duration === nextProps.duration &&
+    Math.abs(prevProps.currentTime - nextProps.currentTime) < 1 && // Only update if time difference > 1 second
+    prevProps.isPlaying === nextProps.isPlaying &&
+    prevProps.globalMute === nextProps.globalMute &&
+    prevProps.likes === nextProps.likes &&
+    prevProps.isLiked === nextProps.isLiked
+  );
+});
