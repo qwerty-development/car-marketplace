@@ -611,6 +611,14 @@ export default function AutoClips() {
     }
   }, [clipId, fromDeepLink, isLoading, autoClips, hasHandledDeepLink]);
 
+  useEffect(() => {
+    if (clipId && deepLinkHandled.current) {
+      // Reset the deep link handling state when navigating to a different clip
+      setHasHandledDeepLink(false);
+      deepLinkHandled.current = false;
+    }
+  }, [clipId]);
+
   // Focus handling
   useEffect(() => {
     setAllowVideoPlayback(isFocused);

@@ -241,7 +241,7 @@ export default function CarDetailsPage() {
         loadingTimeoutRef.current = null
       }
     }
-  }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [carId, params.prefetchedData, loadCarDetails]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Optimize memory usage when app goes to background
   useEffect(() => {

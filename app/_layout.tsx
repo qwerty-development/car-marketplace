@@ -309,30 +309,38 @@ const DeepLinkHandler = () => {
 
       const isEffectivelySignedIn = isSignedIn || isGuest;
 
-      // Check if we're already on the target page
-      const currentPath = segments.join("/");
-      const isAlreadyOnCarDetails =
-        currentPath.includes("CarDetails") && type === "car";
-      const isAlreadyOnAutoclips =
-        currentPath.includes("autoclips") && type === "clip";
+    const currentPath = segments.join("/");
+    const isAlreadyOnCarDetails =
+      currentPath.includes("CarDetails") && type === "car";
+    const isAlreadyOnAutoclips =
+      currentPath.includes("autoclips") && type === "clip";
 
-      if (isAlreadyOnCarDetails || isAlreadyOnAutoclips) {
-        console.log("[DeepLink] Already on target page, updating params only");
+    if (isAlreadyOnCarDetails || isAlreadyOnAutoclips) {
+      console.log("[DeepLink] Already on target page, navigating to new instance");
 
-        if (type === "car") {
-          router.setParams({
+      // FIXED: Use replace navigation to force a reload with new params
+      if (type === "car") {
+        // Force navigation to the same route with new params
+        router.replace({
+          pathname: "/(home)/(user)/CarDetails",
+          params: {
             carId: id,
             isDealerView: "false",
             fromDeepLink: "true",
-          });
-        } else {
-          router.setParams({
+          },
+        });
+      } else {
+        // Force navigation to the same route with new params
+        router.replace({
+          pathname: "/(home)/(user)/(tabs)/autoclips",
+          params: {
             clipId: id,
             fromDeepLink: "true",
-          });
-        }
-        return;
+          },
+        });
       }
+      return;
+    }
 
       // FIXED: Unified navigation approach for both platforms and states
       try {
