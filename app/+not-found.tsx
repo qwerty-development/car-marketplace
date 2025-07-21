@@ -1,4 +1,3 @@
-
 import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -15,18 +14,19 @@ export default function NotFoundScreen() {
   const { isGuest, clearGuestMode } = useGuestUser();
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const redirectTimeoutRef = useRef<NodeJS.Timeout>();
-  const hasAttemptedRedirect = useRef(false);
+  const [isCheckingDeepLink, setIsCheckingDeepLink] = useState(true);
+  const [isActual404, setIsActual404] = useState(false);
+  const deepLinkCheckTimeoutRef = useRef<NodeJS.Timeout>();
+  const hasCheckedRef = useRef(false);
 
-  // FIXED: Enhanced redirect handling for deep links
+  // ENHANCED: Better deep link detection and coordination
   useEffect(() => {
     // Wait for auth to be loaded
     if (!isLoaded) return;
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
-    // FIXED: Check if this might be a deep link navigation issue
+    // ENHANCED: Check if this might be a deep link navigation issue
     const mightBeDeepLink = params.unmatched && (
       params.unmatched.includes('CarDetails') ||
       params.unmatched.includes('autoclips') ||
@@ -35,79 +35,130 @@ export default function NotFoundScreen() {
     );
     
     // Clear any existing timeout
-    if (redirectTimeoutRef.current) {
-      clearTimeout(redirectTimeoutRef.current);
-      redirectTimeoutRef.current = undefined;
+    if (deepLinkCheckTimeoutRef.current) {
+      clearTimeout(deepLinkCheckTimeoutRef.current);
+      deepLinkCheckTimeoutRef.current = undefined;
     }
     
-    // FIXED: Handle iOS deep link navigation timing issue
-    if (Platform.OS === 'ios' && mightBeDeepLink && !hasAttemptedRedirect.current) {
-      console.log('[NotFound - iOS] Possible deep link navigation issue detected');
-      hasAttemptedRedirect.current = true;
+    if (!hasCheckedRef.current) {
+      hasCheckedRef.current = true;
       
-      // Give the deep link handler more time to process
-      redirectTimeoutRef.current = setTimeout(() => {
-        if (isEffectivelySignedIn) {
-          console.log('[NotFound - iOS] Redirecting to home after deep link timeout');
-          router.replace('/(home)/(user)');
-        } else {
-          console.log('[NotFound - iOS] Redirecting to sign-in after deep link timeout');
-          router.replace('/(auth)/sign-in');
-        }
-      }, 1500); // Give deep link handler time to process
-      
-      return;
-    }
-    
-    // Regular redirect logic for non-deep link scenarios
-    if (!mightBeDeepLink && !isRedirecting && !hasAttemptedRedirect.current) {
-      hasAttemptedRedirect.current = true;
-      
-      // Android auto-redirect
-      if (Platform.OS === 'android' && isEffectivelySignedIn) {
-        console.log('[NotFound - Android] User authenticated - attempting redirect');
-        console.log('[NotFound - Android] Route params:', params);
+      if (mightBeDeepLink) {
+        console.log('[NotFound] Possible deep link navigation issue detected, waiting for processing...');
         
-        setIsRedirecting(true);
-        
-        // Android-specific redirect strategy
-        redirectTimeoutRef.current = setTimeout(() => {
-          try {
-            router.replace('/(home)/(user)');
-          } catch (error) {
-            console.error('[NotFound - Android] Redirect failed:', error);
+        // ENHANCED: Wait longer for deep link processing to complete
+        deepLinkCheckTimeoutRef.current = setTimeout(() => {
+          console.log('[NotFound] Deep link processing timeout, checking global state');
+          
+          // Check if deep link is currently being processed
+          if (global.deepLinkProcessing) {
+            console.log('[NotFound] Deep link still processing, waiting more...');
+            
+            // Wait additional time if still processing
+            setTimeout(() => {
+              if (!global.deepLinkProcessing) {
+                setIsCheckingDeepLink(false);
+                setIsActual404(true);
+              } else {
+                // If still processing after extended wait, try manual recovery
+                console.log('[NotFound] Deep link processing seems stuck, offering manual recovery');
+                setIsCheckingDeepLink(false);
+                setIsActual404(false); // Allow manual navigation
+              }
+            }, 2000);
+          } else {
+            // Deep link processing completed but we're still here - actual 404
+            console.log('[NotFound] Deep link processing completed, this is a real 404');
+            setIsCheckingDeepLink(false);
+            setIsActual404(true);
           }
-          setIsRedirecting(false);
-        }, 500);
-      }
-      
-      // iOS sign-in redirect
-      if (Platform.OS === 'ios' && !isEffectivelySignedIn) {
-        console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
-        router.replace('/(auth)/sign-in');
+        }, Platform.OS === 'ios' ? 2500 : 2000); // Longer timeout for iOS
+      } else {
+        // Not a deep link pattern - this is likely a real 404
+        console.log('[NotFound] Not a deep link pattern, treating as actual 404');
+        setIsCheckingDeepLink(false);
+        setIsActual404(true);
       }
     }
     
     // Cleanup
     return () => {
-      if (redirectTimeoutRef.current) {
-        clearTimeout(redirectTimeoutRef.current);
-        redirectTimeoutRef.current = undefined;
+      if (deepLinkCheckTimeoutRef.current) {
+        clearTimeout(deepLinkCheckTimeoutRef.current);
+        deepLinkCheckTimeoutRef.current = undefined;
       }
     };
-  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting]);
+  }, [isLoaded, isSignedIn, isGuest, params]);
 
-  // Manual navigation handler
+  // ENHANCED: Manual navigation handler with deep link retry
   const handleGoHome = () => {
     console.log(`[NotFound - ${Platform.OS}] Manual navigation to home`);
     
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
-    if (isEffectivelySignedIn) {
-      router.replace('/(home)/(user)');
-    } else {
-      router.replace('/(auth)/sign-in');
+    try {
+      if (isEffectivelySignedIn) {
+        router.replace('/(home)/(user)');
+      } else {
+        router.replace('/(auth)/sign-in');
+      }
+    } catch (error) {
+      console.error('[NotFound] Manual navigation failed:', error);
+      // Force reload if navigation fails
+      setTimeout(() => {
+        router.replace('/(auth)/sign-in');
+      }, 500);
     }
+  };
+
+  // ENHANCED: Retry deep link processing
+  const handleRetryDeepLink = () => {
+    console.log('[NotFound] Manually retrying deep link processing');
+    
+    const mightBeDeepLink = params.unmatched && (
+      params.unmatched.includes('CarDetails') ||
+      params.unmatched.includes('autoclips') ||
+      params.unmatched.includes('cars') ||
+      params.unmatched.includes('clips')
+    );
+    
+    if (mightBeDeepLink) {
+      // Extract potential ID from the unmatched path
+      const pathSegments = params.unmatched.split('/');
+      const lastSegment = pathSegments[pathSegments.length - 1];
+      
+      if (lastSegment && !isNaN(Number(lastSegment))) {
+        // Reconstruct the deep link URL
+        let reconstructedUrl = '';
+        
+        if (params.unmatched.includes('CarDetails') || params.unmatched.includes('cars')) {
+          reconstructedUrl = `fleet://cars/${lastSegment}`;
+        } else if (params.unmatched.includes('autoclips') || params.unmatched.includes('clips')) {
+          reconstructedUrl = `fleet://clips/${lastSegment}`;
+        }
+        
+        if (reconstructedUrl) {
+          console.log('[NotFound] Reconstructed deep link:', reconstructedUrl);
+          
+          // Reset global state
+          global.deepLinkProcessing = false;
+          global.lastProcessedDeepLink = null;
+          
+          // Trigger a new deep link processing
+          import('expo-linking').then(Linking => {
+            // Simulate a new deep link event
+            setTimeout(() => {
+              handleGoHome(); // Fallback navigation
+            }, 3000);
+          });
+          
+          return;
+        }
+      }
+    }
+    
+    // If we can't retry the deep link, just go home
+    handleGoHome();
   };
 
   const handleSignOut = async () => {
@@ -161,15 +212,15 @@ export default function NotFoundScreen() {
     );
   }
 
-  // FIXED: Show loading for potential deep link redirects
-  const mightBeDeepLink = params.unmatched && (
-    params.unmatched.includes('CarDetails') ||
-    params.unmatched.includes('autoclips') ||
-    params.unmatched.includes('cars') ||
-    params.unmatched.includes('clips')
-  );
-  
-  if (mightBeDeepLink && Platform.OS === 'ios' && hasAttemptedRedirect.current) {
+  // ENHANCED: Show checking state for potential deep links
+  if (isCheckingDeepLink) {
+    const mightBeDeepLink = params.unmatched && (
+      params.unmatched.includes('CarDetails') ||
+      params.unmatched.includes('autoclips') ||
+      params.unmatched.includes('cars') ||
+      params.unmatched.includes('clips')
+    );
+    
     return (
       <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }]}>
         <View style={styles.content}>
@@ -177,9 +228,18 @@ export default function NotFoundScreen() {
           <Text style={{ 
             color: isDarkMode ? "#FFFFFF" : "#000000", 
             fontSize: 18,
-            marginTop: 16 
+            marginTop: 16,
+            textAlign: 'center'
           }}>
-            Loading content...
+            {mightBeDeepLink ? 'Loading content...' : 'Checking navigation...'}
+          </Text>
+          <Text style={{ 
+            color: isDarkMode ? "#FFFFFF60" : "#00000060", 
+            fontSize: 14,
+            marginTop: 8,
+            textAlign: 'center'
+          }}>
+            Please wait a moment
           </Text>
         </View>
       </View>
@@ -189,7 +249,7 @@ export default function NotFoundScreen() {
   return (
     <>
       <Stack.Screen options={{ 
-        title: "Oops!",
+        title: isActual404 ? "Page Not Found" : "Navigation Issue",
         headerStyle: {
           backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
         },
@@ -202,14 +262,14 @@ export default function NotFoundScreen() {
       ]}>
         {/* Main Content */}
         <View style={styles.content}>
-          {/* 404 Icon with gradient background */}
+          {/* Icon with gradient background */}
           <View style={styles.iconContainer}>
             <LinearGradient
               colors={isDarkMode ? ["#D55004", "#FF6B35"] : ["#D55004", "#FF8A65"]}
               style={styles.iconGradient}
             >
               <Ionicons 
-                name="help-outline" 
+                name={isActual404 ? "help-outline" : "refresh-outline"} 
                 size={80} 
                 color="white"
               />
@@ -217,47 +277,91 @@ export default function NotFoundScreen() {
           </View>
 
           {/* Error Message */}
-          <Text style={[
-            styles.errorCode,
-            { color: isDarkMode ? "#FFFFFF" : "#000000" }
-          ]}>
-            404
-          </Text>
-          
-          <Text style={[
-            styles.title,
-            { color: isDarkMode ? "#FFFFFF" : "#000000" }
-          ]}>
-            Page Not Found
-          </Text>
-          
-          <Text style={[
-            styles.subtitle,
-            { color: isDarkMode ? "#FFFFFF80" : "#00000080" }
-          ]}>
-            Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
-          </Text>
-
-          {/* Platform-specific messaging */}
-          {Platform.OS === 'android' && (isSignedIn || isGuest) && isRedirecting && (
-            <Text style={[
-              styles.redirectMessage,
-              { color: "#D55004" }
-            ]}>
-              Redirecting to home...
-            </Text>
+          {isActual404 ? (
+            <>
+              <Text style={[
+                styles.errorCode,
+                { color: isDarkMode ? "#FFFFFF" : "#000000" }
+              ]}>
+                404
+              </Text>
+              
+              <Text style={[
+                styles.title,
+                { color: isDarkMode ? "#FFFFFF" : "#000000" }
+              ]}>
+                Page Not Found
+              </Text>
+              
+              <Text style={[
+                styles.subtitle,
+                { color: isDarkMode ? "#FFFFFF80" : "#00000080" }
+              ]}>
+                Sorry, we couldn't find the page you're looking for. It might have been moved or doesn't exist.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={[
+                styles.title,
+                { color: isDarkMode ? "#FFFFFF" : "#000000" }
+              ]}>
+                Navigation Issue
+              </Text>
+              
+              <Text style={[
+                styles.subtitle,
+                { color: isDarkMode ? "#FFFFFF80" : "#00000080" }
+              ]}>
+                There seems to be a temporary navigation issue. This sometimes happens with deep links.
+              </Text>
+            </>
           )}
 
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
-            {/* Go Home Button */}
+            {/* Primary Action Button */}
             <TouchableOpacity 
               style={[styles.primaryButton, { backgroundColor: "#D55004" }]}
-              onPress={handleGoHome}
+              onPress={isActual404 ? handleGoHome : handleRetryDeepLink}
             >
-              <Ionicons name="home-outline" size={20} color="white" style={styles.buttonIcon} />
-              <Text style={styles.primaryButtonText}>Go to Home</Text>
+              <Ionicons 
+                name={isActual404 ? "home-outline" : "refresh-outline"} 
+                size={20} 
+                color="white" 
+                style={styles.buttonIcon} 
+              />
+              <Text style={styles.primaryButtonText}>
+                {isActual404 ? "Go to Home" : "Try Again"}
+              </Text>
             </TouchableOpacity>
+
+            {/* Go Home Button (for navigation issues) */}
+            {!isActual404 && (
+              <TouchableOpacity 
+                style={[
+                  styles.secondaryButton,
+                  { 
+                    borderColor: isDarkMode ? "#FFFFFF40" : "#00000040",
+                    backgroundColor: isDarkMode ? "#FFFFFF10" : "#00000010" 
+                  }
+                ]}
+                onPress={handleGoHome}
+              >
+                <Ionicons 
+                  name="home-outline" 
+                  size={20} 
+                  color={isDarkMode ? "#FFFFFF" : "#000000"} 
+                  style={styles.buttonIcon} 
+                />
+                <Text style={[
+                  styles.secondaryButtonText,
+                  { color: isDarkMode ? "#FFFFFF" : "#000000" }
+                ]}>
+                  Go to Home
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Go Back Button */}
             <TouchableOpacity 
@@ -270,7 +374,11 @@ export default function NotFoundScreen() {
               ]}
               onPress={() => {
                 try {
-                  router.back();
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    handleGoHome();
+                  }
                 } catch (error) {
                   console.error('[NotFound] Back navigation failed:', error);
                   handleGoHome();
@@ -306,6 +414,18 @@ export default function NotFoundScreen() {
                 { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
               ]}>
                 Platform: {Platform.OS}
+              </Text>
+              <Text style={[
+                styles.debugText,
+                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
+              ]}>
+                Deep Link Processing: {global.deepLinkProcessing ? 'Yes' : 'No'}
+              </Text>
+              <Text style={[
+                styles.debugText,
+                { color: isDarkMode ? "#FFFFFF40" : "#00000040" }
+              ]}>
+                Last Processed: {global.lastProcessedDeepLink || 'None'}
               </Text>
               <Text style={[
                 styles.debugText,
@@ -389,12 +509,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 48,
     paddingHorizontal: 20,
-  },
-  redirectMessage: {
-    fontSize: 14,
-    fontStyle: "italic",
-    marginBottom: 20,
-    textAlign: "center",
   },
   buttonContainer: {
     width: "100%",

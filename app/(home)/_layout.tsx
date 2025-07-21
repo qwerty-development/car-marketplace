@@ -117,32 +117,39 @@ export default function HomeLayout() {
   const operationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
 
-  // ANDROID FIX: Enhanced navigation stack management for deep links
+  // ENHANCED: Android deep link handling with global state coordination
   useEffect(() => {
     if (Platform.OS === 'android') {
       // Check if we're in a deep navigation state without proper stack
       const isDeepRoute = segments.length > 2 && !segments.includes('(tabs)');
       
       if (isDeepRoute) {
-        console.log('[HomeLayout] Android deep route detected, ensuring proper stack:', segments);
+        console.log('[HomeLayout] Android deep route detected:', segments);
         
-        // Additional Android-specific deep link handling
-        const isAutoclipDeepLink = segments.some(segment => 
-          segment.includes('autoclips') || segment.includes('clips')
-        );
+        // ENHANCEMENT: Coordinate with global deep link state
+        const isDeepLinkProcessing = global.deepLinkProcessing;
         
-        const isCarDeepLink = segments.some(segment => 
-          segment.includes('CarDetails') || segment.includes('cars')
-        );
-        
-        if (isAutoclipDeepLink) {
-          console.log('[HomeLayout] Android autoclip deep link detected');
-          // Ensure proper navigation stack for autoclips
-        }
-        
-        if (isCarDeepLink) {
-          console.log('[HomeLayout] Android car deep link detected');
-          // Ensure proper navigation stack for car details
+        if (!isDeepLinkProcessing) {
+          // Only handle stack management if deep link isn't currently processing
+          const isAutoclipDeepLink = segments.some(segment => 
+            segment.includes('autoclips') || segment.includes('clips')
+          );
+          
+          const isCarDeepLink = segments.some(segment => 
+            segment.includes('CarDetails') || segment.includes('cars')
+          );
+          
+          if (isAutoclipDeepLink) {
+            console.log('[HomeLayout] Android autoclip deep link - ensuring proper stack');
+            // Additional stack management if needed
+          }
+          
+          if (isCarDeepLink) {
+            console.log('[HomeLayout] Android car deep link - ensuring proper stack');
+            // Additional stack management if needed
+          }
+        } else {
+          console.log('[HomeLayout] Deep link processing active, skipping Android stack management');
         }
       }
     }
@@ -179,8 +186,8 @@ export default function HomeLayout() {
   // OPTIMIZED: Concurrent user check and creation
   useEffect(() => {
     const checkAndCreateUser = async () => {
-      // RULE: Skip if conditions not met
-      if ((!user && !isGuest) || isSigningOut || forceComplete) return;
+      // RULE: Skip if conditions not met or if deep link is processing
+      if ((!user && !isGuest) || isSigningOut || forceComplete || global.deepLinkProcessing) return;
       if (operationState.userCheck !== 'idle') return;
 
       try {
@@ -270,7 +277,7 @@ export default function HomeLayout() {
         // STEP 5: Background operations (non-blocking)
         const backgroundOperations = async () => {
           try {
-            if (isSigningOut || forceComplete) return;
+            if (isSigningOut || forceComplete || global.deepLinkProcessing) return;
             
             // BACKGROUND TASK: Update last_active (non-blocking)
             const lastActivePromise = withTimeout(
@@ -287,7 +294,7 @@ export default function HomeLayout() {
             backgroundOperationsRef.current.add(lastActivePromise);
             
             // BACKGROUND TASK: Register for notifications (non-blocking)
-            if (!isGuest && !isSigningOut) {
+            if (!isGuest && !isSigningOut && !global.deepLinkProcessing) {
               const notificationPromise = registerForPushNotifications(false).catch((notificationError) => {
                 console.warn("[HomeLayout] Background push notification registration failed:", notificationError);
               });
@@ -330,10 +337,10 @@ export default function HomeLayout() {
     forceComplete,
   ]);
 
-  // OPTIMIZED: Fast routing logic
+  // ENHANCED: Fast routing logic with deep link coordination
   useEffect(() => {
-    // RULE: Skip if conditions not met
-    if (isSigningOut || !isLoaded || forceComplete) return;
+    // RULE: Skip if conditions not met or deep link is processing
+    if (isSigningOut || !isLoaded || forceComplete || global.deepLinkProcessing) return;
     if (operationState.routing !== 'idle') return;
 
     // RULE: Don't wait too long for user check
@@ -416,7 +423,7 @@ export default function HomeLayout() {
     forceComplete,
   ]);
 
-  // OPTIMIZED: Faster loader management
+  // ENHANCED: Faster loader management with deep link coordination
   useEffect(() => {
     const checkIfReady = () => {
       // RULE: Force complete overrides everything
@@ -425,18 +432,52 @@ export default function HomeLayout() {
         return;
       }
 
+      // RULE: Don't hide loader if deep link is processing
+      if (global.deepLinkProcessing) {
+        console.log('[HomeLayout] Deep link processing active, keeping loader visible');
+        return;
+      }
+
       // RULE: Check if critical operations are done
       const isUserCheckDone = operationState.userCheck === 'completed' || operationState.userCheck === 'failed';
       const isRoutingDone = operationState.routing === 'completed';
       const isBasicLoadingDone = isLoaded;
 
-      // RULE: Show app as soon as routing is done
+      // RULE: Show app as soon as routing is done and no deep link processing
       if (isRoutingDone && isBasicLoadingDone) {
         setShowLoader(false);
       }
     };
 
     checkIfReady();
+  }, [operationState, isLoaded, forceComplete]);
+
+  // ENHANCED: Monitor deep link processing state
+  useEffect(() => {
+    let checkInterval: NodeJS.Timeout;
+    
+    if (global.deepLinkProcessing) {
+      // Poll for deep link processing completion
+      checkInterval = setInterval(() => {
+        if (!global.deepLinkProcessing) {
+          console.log('[HomeLayout] Deep link processing completed, checking if loader should be hidden');
+          // Re-run the loader check
+          const isUserCheckDone = operationState.userCheck === 'completed' || operationState.userCheck === 'failed';
+          const isRoutingDone = operationState.routing === 'completed';
+          const isBasicLoadingDone = isLoaded;
+
+          if (isRoutingDone && isBasicLoadingDone && !forceComplete) {
+            setShowLoader(false);
+          }
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+      }
+    };
   }, [operationState, isLoaded, forceComplete]);
 
   // SAFETY SYSTEM: Emergency loader timeout

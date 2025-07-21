@@ -55,18 +55,10 @@ import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
   dsn: 'https://785ae89de27dd58c218eb6dd0544d7a7@o4509672135065600.ingest.de.sentry.io/4509689676693584',
-
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
-
-  // Configure Session Replay
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
 });
 
 const { width, height } = Dimensions.get("window");
@@ -122,10 +114,19 @@ const queryClient = new QueryClient({
   },
 });
 
-// GLOBAL SYSTEM: Deep link state management
+// GLOBAL SYSTEM: Deep link state management - ENHANCED
 declare global {
   var pendingDeepLink: { type: string; id: string } | null;
+  var deepLinkProcessing: boolean;
+  var lastProcessedDeepLink: string | null;
+  var navigationReadyResolvers: Array<() => void>;
 }
+
+// Initialize global state
+global.pendingDeepLink = null;
+global.deepLinkProcessing = false;
+global.lastProcessedDeepLink = null;
+global.navigationReadyResolvers = [];
 
 // SIMPLIFIED SYSTEM: Initialization state management
 interface InitializationState {
@@ -217,16 +218,31 @@ class InitializationManager {
 // GLOBAL INSTANCE: Initialization manager
 const initManager = new InitializationManager();
 
-// CRITICAL CLASS: DeepLinkQueue with timeout protection
+// ENHANCED CLASS: DeepLinkQueue with better state management
 class DeepLinkQueue {
-  private queue: string[] = [];
+  private queue: Array<{ url: string; timestamp: number; retryCount: number }> = [];
   private processing = false;
   private readyToProcess = false;
   private processTimeout: NodeJS.Timeout | null = null;
+  private maxRetries = 2;
+  private processTimeoutMs = 8000; // Increased timeout
 
-  // METHOD: Add URL to queue
+  // METHOD: Add URL to queue with deduplication
   enqueue(url: string) {
-    this.queue.push(url);
+    // ENHANCEMENT: Prevent duplicate URLs
+    const existing = this.queue.find(item => item.url === url);
+    if (existing) {
+      console.log('[DeepLinkQueue] URL already queued, skipping:', url);
+      return;
+    }
+
+    this.queue.push({
+      url,
+      timestamp: Date.now(),
+      retryCount: 0
+    });
+    
+    console.log('[DeepLinkQueue] Enqueued URL:', url, 'Queue length:', this.queue.length);
     this.processNextIfReady();
   }
 
@@ -237,34 +253,50 @@ class DeepLinkQueue {
     this.processNextIfReady();
   }
 
-  // PRIVATE METHOD: Process next URL if ready
+  // PRIVATE METHOD: Process next URL if ready with enhanced error handling
   private async processNextIfReady() {
     if (!this.readyToProcess || this.processing || this.queue.length === 0) {
       return;
     }
 
     this.processing = true;
-    const url = this.queue.shift();
+    const item = this.queue.shift();
 
-    if (url && this.processUrlCallback) {
+    if (item && this.processUrlCallback) {
       try {
+        console.log('[DeepLinkQueue] Processing URL:', item.url, 'Attempt:', item.retryCount + 1);
+        
         this.processTimeout = setTimeout(() => {
-          console.warn(
-            "[DeepLinkQueue] TIMEOUT: Processing timeout, skipping URL:",
-            url
-          );
+          console.warn("[DeepLinkQueue] TIMEOUT: Processing timeout for URL:", item.url);
           this.processing = false;
+          
+          // ENHANCEMENT: Retry logic
+          if (item.retryCount < this.maxRetries) {
+            item.retryCount++;
+            this.queue.unshift(item); // Put back at front for retry
+            console.log('[DeepLinkQueue] Retrying URL:', item.url, 'Retry count:', item.retryCount);
+          }
+          
           this.processNextIfReady();
-        }, 5000);
+        }, this.processTimeoutMs);
 
-        await this.processUrlCallback(url);
+        await this.processUrlCallback(item.url);
 
         if (this.processTimeout) {
           clearTimeout(this.processTimeout);
           this.processTimeout = null;
         }
+        
+        console.log('[DeepLinkQueue] Successfully processed URL:', item.url);
       } catch (error) {
         console.error("Error processing queued deep link:", error);
+        
+        // ENHANCEMENT: Retry on error
+        if (item.retryCount < this.maxRetries) {
+          item.retryCount++;
+          this.queue.unshift(item); // Put back at front for retry
+          console.log('[DeepLinkQueue] Retrying URL after error:', item.url, 'Retry count:', item.retryCount);
+        }
       }
     }
 
@@ -281,10 +313,42 @@ class DeepLinkQueue {
   setProcessUrlCallback(callback: (url: string) => Promise<void>) {
     this.processUrlCallback = callback;
   }
+
+  // METHOD: Clear queue
+  clear() {
+    this.queue = [];
+    this.processing = false;
+    if (this.processTimeout) {
+      clearTimeout(this.processTimeout);
+      this.processTimeout = null;
+    }
+  }
+
+  // METHOD: Get queue status
+  getStatus() {
+    return {
+      queueLength: this.queue.length,
+      processing: this.processing,
+      ready: this.readyToProcess
+    };
+  }
 }
 
 // GLOBAL INSTANCE: Deep link queue
 const deepLinkQueue = new DeepLinkQueue();
+
+// ENHANCED: Navigation readiness utility
+const waitForNavigationReady = (): Promise<void> => {
+  return new Promise((resolve) => {
+    global.navigationReadyResolvers.push(resolve);
+  });
+};
+
+const notifyNavigationReady = () => {
+  console.log('[DeepLink] Navigation ready, resolving pending promises');
+  global.navigationReadyResolvers.forEach(resolve => resolve());
+  global.navigationReadyResolvers = [];
+};
 
 const DeepLinkHandler = () => {
   const router = useRouter();
@@ -299,22 +363,70 @@ const DeepLinkHandler = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializationTimeoutRef = useRef<NodeJS.Timeout>();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  
+  // ENHANCEMENT: Better navigation ready tracking
+  const navigationCheckTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastSegmentsRef = useRef<string>('');
+  const navigationStableRef = useRef(false);
 
-  // FIXED: Enhanced navigation with better stack management
+  // ENHANCEMENT: Better navigation readiness detection
+  useEffect(() => {
+    const currentSegments = segments.join('/');
+    
+    // Clear existing timeout
+    if (navigationCheckTimeoutRef.current) {
+      clearTimeout(navigationCheckTimeoutRef.current);
+    }
+
+    // Check if navigation has stabilized
+    if (isLoaded && segments.length > 0) {
+      // If segments haven't changed recently, consider navigation stable
+      if (lastSegmentsRef.current === currentSegments && !navigationStableRef.current) {
+        navigationStableRef.current = true;
+        setIsNavigationReady(true);
+        notifyNavigationReady();
+        console.log('[DeepLink] Navigation stabilized at:', currentSegments);
+      } else {
+        lastSegmentsRef.current = currentSegments;
+        navigationStableRef.current = false;
+        
+        // Wait for navigation to stabilize
+        navigationCheckTimeoutRef.current = setTimeout(() => {
+          if (!navigationStableRef.current) {
+            navigationStableRef.current = true;
+            setIsNavigationReady(true);
+            notifyNavigationReady();
+            console.log('[DeepLink] Navigation considered ready after timeout:', currentSegments);
+          }
+        }, 800); // Increased from 500ms for better stability
+      }
+    }
+
+    return () => {
+      if (navigationCheckTimeoutRef.current) {
+        clearTimeout(navigationCheckTimeoutRef.current);
+      }
+    };
+  }, [isLoaded, segments]);
+
+  // ENHANCED: Navigation with better error handling and state management
   const navigateToDeepLink = useCallback(
     async (type: "car" | "clip", id: string, isInitialLink: boolean) => {
-      console.log(
-        `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}`
-      );
+      console.log(`[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}`);
 
       const isEffectivelySignedIn = isSignedIn || isGuest;
 
+      // ENHANCEMENT: Better duplicate detection
+      const targetUrl = `${type}/${id}`;
+      if (global.lastProcessedDeepLink === targetUrl && !isInitialLink) {
+        console.log('[DeepLink] Skipping duplicate navigation to:', targetUrl);
+        return;
+      }
+
       // Check if we're already on the target page
       const currentPath = segments.join("/");
-      const isAlreadyOnCarDetails =
-        currentPath.includes("CarDetails") && type === "car";
-      const isAlreadyOnAutoclips =
-        currentPath.includes("autoclips") && type === "clip";
+      const isAlreadyOnCarDetails = currentPath.includes("CarDetails") && type === "car";
+      const isAlreadyOnAutoclips = currentPath.includes("autoclips") && type === "clip";
 
       if (isAlreadyOnCarDetails || isAlreadyOnAutoclips) {
         console.log("[DeepLink] Already on target page, updating params only");
@@ -331,11 +443,21 @@ const DeepLinkHandler = () => {
             fromDeepLink: "true",
           });
         }
+        
+        global.lastProcessedDeepLink = targetUrl;
         return;
       }
 
-      // FIXED: Unified navigation approach for both platforms and states
+      // ENHANCEMENT: Wait for navigation to be truly ready
+      if (!isNavigationReady) {
+        console.log('[DeepLink] Waiting for navigation to be ready...');
+        await waitForNavigationReady();
+      }
+
+      // ENHANCEMENT: Unified navigation approach with better error handling
       try {
+        let navigationPromise: Promise<void>;
+
         if (type === "car") {
           // For car deep links
           if (Platform.OS === "android") {
@@ -344,25 +466,12 @@ const DeepLinkHandler = () => {
               // Need to establish full stack
               await new Promise((resolve) => setTimeout(resolve, 300));
               router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              await new Promise((resolve) => setTimeout(resolve, 300)); // Increased delay
             }
 
             // Navigate to car details
-            router.push({
-              pathname: "/(home)/(user)/CarDetails",
-              params: {
-                carId: id,
-                isDealerView: "false",
-                fromDeepLink: "true",
-              },
-            });
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
+            navigationPromise = new Promise((resolve, reject) => {
+              try {
                 router.push({
                   pathname: "/(home)/(user)/CarDetails",
                   params: {
@@ -371,18 +480,35 @@ const DeepLinkHandler = () => {
                     fromDeepLink: "true",
                   },
                 });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId: id,
-                  isDealerView: "false",
-                  fromDeepLink: "true",
-                },
-              });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            });
+          } else {
+            // iOS: Direct navigation if stack exists, otherwise build it
+            if (!segments.includes("(home)") && isInitialLink) {
+              // Build stack for iOS initial link
+              router.replace("/(home)/(user)");
+              // Wait for navigation to settle
+              await new Promise(resolve => setTimeout(resolve, 400)); // Increased delay
             }
+            
+            navigationPromise = new Promise((resolve, reject) => {
+              try {
+                router.push({
+                  pathname: "/(home)/(user)/CarDetails",
+                  params: {
+                    carId: id,
+                    isDealerView: "false",
+                    fromDeepLink: "true",
+                  },
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            });
           }
         } else if (type === "clip") {
           // For clip deep links
@@ -391,32 +517,12 @@ const DeepLinkHandler = () => {
             if (isInitialLink || !segments.includes("(home)")) {
               await new Promise((resolve) => setTimeout(resolve, 300));
               router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              await new Promise((resolve) => setTimeout(resolve, 300)); // Increased delay
             }
 
             // Navigate to autoclips
-            router.push({
-              pathname: "/(home)/(user)/(tabs)/autoclips",
-              params: {
-                clipId: id,
-                fromDeepLink: "true",
-              },
-            });
-
-            // Ensure params are set
-            setTimeout(() => {
-              router.setParams({
-                clipId: id,
-                fromDeepLink: "true",
-              });
-            }, 200);
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
+            navigationPromise = new Promise((resolve, reject) => {
+              try {
                 router.push({
                   pathname: "/(home)/(user)/(tabs)/autoclips",
                   params: {
@@ -424,38 +530,93 @@ const DeepLinkHandler = () => {
                     fromDeepLink: "true",
                   },
                 });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/(tabs)/autoclips",
-                params: {
-                  clipId: id,
-                  fromDeepLink: "true",
-                },
-              });
+
+                // Ensure params are set
+                setTimeout(() => {
+                  router.setParams({
+                    clipId: id,
+                    fromDeepLink: "true",
+                  });
+                }, 200);
+                
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            });
+          } else {
+            // iOS: Direct navigation if stack exists, otherwise build it
+            if (!segments.includes("(home)") && isInitialLink) {
+              // Build stack for iOS initial link
+              router.replace("/(home)/(user)");
+              // Wait for navigation to settle
+              await new Promise(resolve => setTimeout(resolve, 400)); // Increased delay
             }
+            
+            navigationPromise = new Promise((resolve, reject) => {
+              try {
+                router.push({
+                  pathname: "/(home)/(user)/(tabs)/autoclips",
+                  params: {
+                    clipId: id,
+                    fromDeepLink: "true",
+                  },
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            });
           }
         }
+
+        // ENHANCEMENT: Wait for navigation with timeout
+        await Promise.race([
+          navigationPromise!,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Navigation timeout')), 5000)
+          )
+        ]);
+
+        global.lastProcessedDeepLink = targetUrl;
+        console.log('[DeepLink] Navigation completed successfully for:', targetUrl);
+
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
-        // Fallback to home
-        router.replace("/(home)/(user)");
+        
+        // ENHANCEMENT: Better error recovery
+        try {
+          console.log('[DeepLink] Attempting error recovery navigation');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          router.replace("/(home)/(user)");
+        } catch (recoveryError) {
+          console.error('[DeepLink] Error recovery failed:', recoveryError);
+        }
       }
     },
-    [router, segments, isSignedIn, isGuest]
+    [router, segments, isSignedIn, isGuest, isNavigationReady]
   );
 
+  // ENHANCED: Process deep link with better state management
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
-      if (!url || isProcessingDeepLink) return;
+      if (!url) return;
+      
+      // ENHANCEMENT: Prevent concurrent processing
+      if (global.deepLinkProcessing && !isInitialLink) {
+        console.log('[DeepLink] Deep link processing in progress, queueing:', url);
+        deepLinkQueue.enqueue(url);
+        return;
+      }
+
+      global.deepLinkProcessing = true;
+      setIsProcessingDeepLink(true);
 
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
         url,
         `Platform: ${Platform.OS}`
       );
-      setIsProcessingDeepLink(true);
 
       try {
         const parsedUrl = Linking.parse(url);
@@ -491,16 +652,10 @@ const DeepLinkHandler = () => {
           return;
         }
 
-        // FIXED: Wait for navigation to be ready for initial links
-        if (isInitialLink && !isNavigationReady) {
-          console.log(
-            "[DeepLink] Navigation not ready for initial link, waiting..."
-          );
-          // Queue it to be processed when navigation is ready
-          setTimeout(() => {
-            processDeepLink(url, isInitialLink);
-          }, 500);
-          return;
+        // ENHANCEMENT: Better navigation readiness check
+        if (!isNavigationReady) {
+          console.log("[DeepLink] Navigation not ready, waiting...");
+          await waitForNavigationReady();
         }
 
         // Parse the path based on platform-specific URL formats
@@ -596,29 +751,28 @@ const DeepLinkHandler = () => {
       } catch (err) {
         console.error("[DeepLink] Processing error:", err);
 
-        // Error recovery
-        const isEffectivelySignedIn = isSignedIn || isGuest;
-        if (isEffectivelySignedIn) {
-          router.replace("/(home)/(user)");
-        } else {
-          router.replace("/(auth)/sign-in");
+        // ENHANCEMENT: Better error recovery
+        try {
+          const isEffectivelySignedIn = isSignedIn || isGuest;
+          if (isEffectivelySignedIn) {
+            router.replace("/(home)/(user)");
+          } else {
+            router.replace("/(auth)/sign-in");
+          }
+        } catch (recoveryError) {
+          console.error("[DeepLink] Error recovery failed:", recoveryError);
         }
       } finally {
+        global.deepLinkProcessing = false;
         setIsProcessingDeepLink(false);
+        
         // Mark deep links as ready after processing
         if (isInitialLink) {
           initManager.setReady("deepLinks");
         }
       }
     },
-    [
-      router,
-      isLoaded,
-      isSignedIn,
-      isGuest,
-      navigateToDeepLink,
-      isNavigationReady,
-    ]
+    [router, isLoaded, isSignedIn, isGuest, navigateToDeepLink, isNavigationReady]
   );
 
   // Hide splash screen
@@ -633,7 +787,6 @@ const DeepLinkHandler = () => {
 
     hideStaticSplash();
   }, []);
-
 
   // Get initial URL
   useEffect(() => {
@@ -655,18 +808,6 @@ const DeepLinkHandler = () => {
         initManager.setReady("deepLinks");
       });
   }, []);
-
-  // FIXED: Mark navigation as ready when we have proper routing
-  useEffect(() => {
-    if (isLoaded && segments.length > 0) {
-      // Give navigation a moment to stabilize
-      const timeout = setTimeout(() => {
-        setIsNavigationReady(true);
-      }, 500);
-
-      return () => clearTimeout(timeout);
-    }
-  }, [isLoaded, segments]);
 
   // Process initial URL when auth and navigation are ready
   useEffect(() => {
@@ -710,13 +851,18 @@ const DeepLinkHandler = () => {
     };
   }, [isLoaded]);
 
-  // Listen for runtime deep links
+  // ENHANCED: Listen for runtime deep links with better state management
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
       console.log(
         `[DeepLink - ${Platform.OS}] Runtime deep link received:`,
         url
       );
+
+      // ENHANCEMENT: Reset processing state for new URLs
+      if (global.lastProcessedDeepLink !== url.split('/').slice(-2).join('/')) {
+        global.lastProcessedDeepLink = null;
+      }
 
       if (isInitialized && isNavigationReady) {
         processDeepLink(url);
@@ -752,9 +898,22 @@ const DeepLinkHandler = () => {
         }
 
         global.pendingDeepLink = null;
-      }, 500);
+      }, 800); // Increased delay
     }
   }, [isSignedIn, navigateToDeepLink]);
+
+  // ENHANCEMENT: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (navigationCheckTimeoutRef.current) {
+        clearTimeout(navigationCheckTimeoutRef.current);
+      }
+      deepLinkQueue.clear();
+      global.deepLinkProcessing = false;
+      global.lastProcessedDeepLink = null;
+      global.navigationReadyResolvers = [];
+    };
+  }, []);
 
   return null;
 };
@@ -1093,6 +1252,7 @@ export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     return () => {
       notificationCoordinator.cleanup();
+      deepLinkQueue.clear();
     };
   }, []);
 
@@ -1105,8 +1265,7 @@ export default Sentry.wrap(function RootLayout() {
     ),
   };
 
-useSlowConnectionToast();     
-
+  useSlowConnectionToast();     
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>

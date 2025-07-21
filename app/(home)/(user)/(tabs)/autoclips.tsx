@@ -2,8 +2,8 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
   useMemo,
+  useRef,
 } from "react";
 import {
   View,
@@ -498,7 +498,7 @@ export default function AutoClips() {
   const { user } = useAuth();
   const { networkInfo, connectionSpeed } = useNetworkMonitor();
   
-  // Parameters handling
+  // ENHANCED: Parameters handling with deep link coordination
   const localParams = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
   const globalParams = useGlobalSearchParams();
   const clipId = localParams.clipId || globalParams.clipId;
@@ -511,10 +511,11 @@ export default function AutoClips() {
   const [refreshing, setRefreshing] = useState(false);
   const [allowVideoPlayback, setAllowVideoPlayback] = useState(false);
   
-  // Deep link state
+  // ENHANCED: Deep link state with global coordination
   const [isNavigatingToDeepLink, setIsNavigatingToDeepLink] = useState(false);
   const [hasHandledDeepLink, setHasHandledDeepLink] = useState(false);
   const deepLinkHandled = useRef(false);
+  const deepLinkProcessingRef = useRef(false);
   
   // Video state
   const [isPlaying, setIsPlaying] = useState<VideoState>({});
@@ -572,14 +573,48 @@ export default function AutoClips() {
     return () => subscription.remove();
   }, []);
 
-  // Deep link handling
+  // ENHANCED: Deep link handling with global state coordination
   useEffect(() => {
     if (clipId && !isLoading && autoClips.length > 0 && !hasHandledDeepLink && !deepLinkHandled.current) {
+      console.log('[AutoClips] Processing deep link for clipId:', clipId);
+      
+      // ENHANCEMENT: Coordinate with global deep link state
+      if (global.deepLinkProcessing && !deepLinkProcessingRef.current) {
+        console.log('[AutoClips] Deep link processing already active, waiting...');
+        
+        // Wait for global processing to complete
+        const checkInterval = setInterval(() => {
+          if (!global.deepLinkProcessing) {
+            clearInterval(checkInterval);
+            console.log('[AutoClips] Global deep link processing completed, proceeding...');
+            processDeepLinkNavigation();
+          }
+        }, 100);
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          if (!hasHandledDeepLink) {
+            console.log('[AutoClips] Deep link processing timeout, proceeding anyway');
+            processDeepLinkNavigation();
+          }
+        }, 5000);
+        
+        return;
+      }
+      
+      processDeepLinkNavigation();
+    }
+    
+    function processDeepLinkNavigation() {
       const targetClipIndex = autoClips.findIndex(
         clip => clip.id.toString() === clipId.toString()
       );
       
       if (targetClipIndex !== -1) {
+        console.log('[AutoClips] Found target clip at index:', targetClipIndex);
+        
+        deepLinkProcessingRef.current = true;
         setIsNavigatingToDeepLink(true);
         setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
@@ -601,12 +636,27 @@ export default function AutoClips() {
           
           setTimeout(() => {
             setIsNavigatingToDeepLink(false);
+            deepLinkProcessingRef.current = false;
+            
+            // ENHANCEMENT: Clear global deep link processing state
+            if (global.deepLinkProcessing) {
+              setTimeout(() => {
+                global.deepLinkProcessing = false;
+                console.log('[AutoClips] Cleared global deep link processing state');
+              }, 500);
+            }
           }, 1000);
         }, 500);
       } else {
+        console.log('[AutoClips] Clip not found for ID:', clipId);
         Alert.alert('Clip Not Found', 'The requested video is no longer available.');
         setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
+        
+        // ENHANCEMENT: Clear global deep link processing state on error
+        if (global.deepLinkProcessing) {
+          global.deepLinkProcessing = false;
+        }
       }
     }
   }, [clipId, fromDeepLink, isLoading, autoClips, hasHandledDeepLink]);
@@ -620,6 +670,33 @@ export default function AutoClips() {
       setIsPlaying({});
     }
   }, [isFocused]);
+
+  // ENHANCEMENT: Handle back button with deep link coordination
+  const handleBackPress = useCallback(() => {
+    try {
+      console.log('[AutoClips] Handling back press, fromDeepLink:', fromDeepLink);
+      
+      // ENHANCEMENT: Clear deep link processing state
+      if (global.deepLinkProcessing) {
+        global.deepLinkProcessing = false;
+      }
+      
+      if (fromDeepLink === 'true') {
+        // Navigate to home for deep links
+        router.replace("/(home)/(user)");
+      } else {
+        // Normal back navigation
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/(home)/(user)");
+        }
+      }
+    } catch (error) {
+      console.error('[AutoClips] Back navigation error:', error);
+      router.replace("/(home)/(user)");
+    }
+  }, [fromDeepLink]);
 
   // Track clip view
   const trackClipView = useCallback(async (clipId: number) => {
@@ -712,11 +789,18 @@ export default function AutoClips() {
     fetchData();
   }, [fetchData]);
 
-  // Refresh handler
+  // ENHANCED: Refresh handler with deep link state reset
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setHasHandledDeepLink(false);
     deepLinkHandled.current = false;
+    deepLinkProcessingRef.current = false;
+    
+    // ENHANCEMENT: Clear global deep link state on refresh
+    if (global.deepLinkProcessing) {
+      global.deepLinkProcessing = false;
+    }
+    
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
@@ -1043,7 +1127,7 @@ export default function AutoClips() {
     minimumViewTime: 300,
   }), []);
 
-  // FIXED: Cleanup on unmount
+  // ENHANCED: Cleanup on unmount with deep link coordination
   useEffect(() => {
     return () => {
       if (videoStateTimeoutRef.current) {
@@ -1052,8 +1136,13 @@ export default function AutoClips() {
       if (viewabilityTimeoutRef.current) {
         clearTimeout(viewabilityTimeoutRef.current);
       }
+      
+      // ENHANCEMENT: Clear deep link state on unmount
+      if (global.deepLinkProcessing && fromDeepLink) {
+        global.deepLinkProcessing = false;
+      }
     };
-  }, []);
+  }, [fromDeepLink]);
 
   // Error state
   if (error && !networkInfo.isConnected) {
@@ -1083,8 +1172,8 @@ export default function AutoClips() {
 
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? "black" : "white" }]}>
-      <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
-        <Ionicons name="home" size={24} color="white" />
+      <TouchableOpacity style={styles.homeButton} onPress={handleBackPress}>
+        <Ionicons name={fromDeepLink === 'true' ? "home" : "arrow-back"} size={24} color="white" />
       </TouchableOpacity>
 
       {/* Network quality indicator */}

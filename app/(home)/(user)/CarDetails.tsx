@@ -47,6 +47,7 @@ export default function CarDetailsPage() {
   const isMountedRef = useRef(true)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const dataLoadedRef = useRef(false)
+  const backNavigationAttemptedRef = useRef(false)
 
   // Performance monitoring
   const [loadTimes, setLoadTimes] = useState<{
@@ -55,27 +56,78 @@ export default function CarDetailsPage() {
     renderComplete?: number;
   }>({ start: Date.now() })
 
-  // SOLUTION: Back button handler with deep link support
+  // ENHANCED: Back button handler with deep link support and global state coordination
   const handleBackPress = useCallback(() => {
+    // Prevent multiple navigation attempts
+    if (backNavigationAttemptedRef.current) {
+      console.log('[CarDetails] Back navigation already attempted, ignoring');
+      return;
+    }
+    
+    backNavigationAttemptedRef.current = true;
+
     try {
-      if (fromDeepLink) {
+      console.log('[CarDetails] Handling back press, fromDeepLink:', fromDeepLink);
+      
+      // ENHANCEMENT: Clear any deep link processing state
+      if (global.deepLinkProcessing) {
+        console.log('[CarDetails] Clearing global deep link processing state');
+        global.deepLinkProcessing = false;
+      }
+
+      if (fromDeepLink === 'true') {
+        console.log('[CarDetails] From deep link, navigating to home');
         // If came from deep link, go to home instead of back
-        router.replace("/(home)/(user)")
+        router.replace("/(home)/(user)");
       } else {
         // Try normal back navigation first
-        if (router.canGoBack()) {
-          router.back()
-        } else {
-          // Fallback to home if can't go back
-          router.replace("/(home)/(user)")
+        console.log('[CarDetails] Attempting normal back navigation');
+        
+        try {
+          if (router.canGoBack()) {
+            router.back();
+            
+            // Safety timeout - if we're still here after navigation, force redirect
+            setTimeout(() => {
+              if (isMountedRef.current) {
+                console.log('[CarDetails] Back navigation timeout, forcing home redirect');
+                router.replace("/(home)/(user)");
+              }
+            }, 1000);
+          } else {
+            // Fallback to home if can't go back
+            console.log('[CarDetails] Cannot go back, navigating to home');
+            router.replace("/(home)/(user)");
+          }
+        } catch (navigationError) {
+          console.error('[CarDetails] Normal navigation failed:', navigationError);
+          // Immediate fallback to home
+          router.replace("/(home)/(user)");
         }
       }
     } catch (error) {
       // If any error occurs during navigation, safely redirect to home
-      console.error("Navigation error:", error)
-      router.replace("/(home)/(user)")
+      console.error("[CarDetails] Navigation error:", error);
+      
+      // Emergency fallback with delay
+      setTimeout(() => {
+        try {
+          router.replace("/(home)/(user)");
+        } catch (emergencyError) {
+          console.error('[CarDetails] Emergency navigation failed:', emergencyError);
+          // Last resort - reload the app
+          if (Platform.OS === 'web') {
+            window.location.reload();
+          }
+        }
+      }, 100);
     }
-  }, [fromDeepLink, router])
+    
+    // Reset the flag after a delay to allow retry if needed
+    setTimeout(() => {
+      backNavigationAttemptedRef.current = false;
+    }, 2000);
+  }, [fromDeepLink, router]);
 
   // Handle app state changes to optimize resource usage
   useEffect(() => {
@@ -92,13 +144,21 @@ export default function CarDetailsPage() {
   useEffect(() => {
     return () => {
       isMountedRef.current = false
+      backNavigationAttemptedRef.current = false
+      
       // Clear the timeout if component unmounts
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current)
         loadingTimeoutRef.current = null
       }
+      
+      // ENHANCEMENT: Clear deep link processing state on unmount
+      if (global.deepLinkProcessing && fromDeepLink) {
+        console.log('[CarDetails] Clearing deep link processing state on unmount');
+        global.deepLinkProcessing = false;
+      }
     }
-  }, [])
+  }, [fromDeepLink])
 
   const handleFavoritePress = useCallback(
     async (carId: any) => {
@@ -168,6 +228,14 @@ export default function CarDetailsPage() {
               }
 
               setIsLoading(false)
+              
+              // ENHANCEMENT: Clear deep link processing state after successful load
+              if (global.deepLinkProcessing && fromDeepLink) {
+                setTimeout(() => {
+                  global.deepLinkProcessing = false;
+                }, 500);
+              }
+              
               return
             }
           }
@@ -200,17 +268,29 @@ export default function CarDetailsPage() {
         loadingTimeoutRef.current = null
       }
 
+      // ENHANCEMENT: Clear deep link processing state after successful load
+      if (global.deepLinkProcessing && fromDeepLink) {
+        setTimeout(() => {
+          global.deepLinkProcessing = false;
+        }, 500);
+      }
+
     } catch (error) {
       if (!isMountedRef.current) return; // Ensure component is still mounted
 
       console.error('Error loading car details:', error)
       setLoadError(error instanceof Error ? error : new Error('Failed to load car details'))
+      
+      // ENHANCEMENT: Clear deep link processing state on error
+      if (global.deepLinkProcessing && fromDeepLink) {
+        global.deepLinkProcessing = false;
+      }
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false)
       }
     }
-  }, [carId, params.prefetchedData, prefetchCarDetails])
+  }, [carId, params.prefetchedData, prefetchCarDetails, fromDeepLink])
 
   // Load car details on mount with proper cleanup and timeout handling
   useEffect(() => {
@@ -229,6 +309,11 @@ export default function CarDetailsPage() {
         console.log('Loading timeout occurred')
         setLoadError(new Error('Loading timeout - please try again'))
         setIsLoading(false)
+        
+        // ENHANCEMENT: Clear deep link processing state on timeout
+        if (global.deepLinkProcessing && fromDeepLink) {
+          global.deepLinkProcessing = false;
+        }
       }
     }, 15000) // 15 second timeout
 
@@ -252,6 +337,22 @@ export default function CarDetailsPage() {
     }
   }, [appState, car]);
 
+  // ENHANCEMENT: Handle browser back button (for web)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handlePopState = (event: PopStateEvent) => {
+        event.preventDefault();
+        handleBackPress();
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
+    }
+  }, [handleBackPress]);
+
   // Render with proper loading states and error handling
   return (
     <View
@@ -273,6 +374,16 @@ export default function CarDetailsPage() {
           }}>
             Loading car details...
           </Text>
+          {fromDeepLink && (
+            <Text style={{
+              marginTop: 8,
+              fontSize: 12,
+              color: isDarkMode ? '#999999' : '#888888',
+              textAlign: 'center'
+            }}>
+              Opening from link...
+            </Text>
+          )}
         </View>
       ) : loadError ? (
         <View style={[
@@ -359,7 +470,7 @@ export default function CarDetailsPage() {
         </View>
       )}
 
-      {/* SOLUTION: Minimal Floating Icon - No Container Design */}
+      {/* ENHANCED: Floating back button with better deep link handling */}
       <TouchableOpacity
         onPress={handleBackPress}
         style={styles.floatingBackButton}
