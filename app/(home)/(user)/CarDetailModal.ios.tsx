@@ -121,6 +121,9 @@ const OptimizedImage = memo(
           cachePolicy="memory-disk"
           recyclingKey={`${source.uri}`}
           fadeDuration={300}
+          priority={"high"}
+          allowDownscaling={false}
+          
         />
         {error && (
           <View
