@@ -50,8 +50,7 @@ export default function TabLayout() {
             iconName = focused ? 'heart' : 'heart-outline';
           else if (route.name === 'profile')
             iconName = focused ? 'person' : 'person-outline';
-          else if (route.name === 'test-chat')
-            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          // Removed chat tab mapping
 
           // Special styling for autoclips button
           if (route.name === 'autoclips') {
@@ -132,10 +131,7 @@ export default function TabLayout() {
         name='profile'
         options={{ headerTitle: 'Profile', headerShown: false }}
       />
-      <Tabs.Screen
-        name='test-chat'
-        options={{ headerTitle: 'Test Chatbot', headerShown: true }}
-      />
+      {/* Chat tab removed. Global FAB now opens chat assistant. */}
     </Tabs>
   );
 }
