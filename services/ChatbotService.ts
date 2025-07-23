@@ -139,14 +139,16 @@ export class ChatbotService {
       // Add user message to history first
       const userChatMessage = this.addMessage(userMessage, true);
       
-      // Prepare conversation context
-      const conversationContext = this.conversationHistory
+      // Prepare conversation history for the new API format
+      const conversationHistory = (this.conversationHistory || [])
         .slice(-10) // Only send last 10 messages to avoid token limits
-        .map(msg => `${msg.isUser ? 'User' : 'Assistant'}: ${msg.message}`)
-        .join('\n');
+        .map(msg => ({
+          role: msg.isUser ? 'user' : 'assistant',
+          content: msg.message
+        }));
       
-      const contextualMessage = conversationContext 
-        ? `Conversation context:\n${conversationContext}\n\nCurrent message: ${userMessage}`
+      const contextualMessage = conversationHistory.length > 0 
+        ? `Conversation context:\n${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}\n\nCurrent message: ${userMessage}`
         : userMessage;
       
       // Call chatbot API with context

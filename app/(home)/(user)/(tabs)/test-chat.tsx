@@ -12,15 +12,15 @@ import {
   Platform,
   ActivityIndicator,
   useWindowDimensions,
-  SafeAreaView as RNSafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCarDetails } from '@/hooks/useCarDetails';
-import CarCard from '@/components/CarCard';
 import { useTheme } from '@/utils/ThemeContext';
 import { ChatbotService, ChatMessage } from '@/services/ChatbotService';
-import ChatCarCard from '@/components/ChatCarCard';
+import ChatResponse from '@/components/ChatResponse';
 import { useRouter } from 'expo-router';
+
+import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 
 export default function TestChatScreen() {
   const { isDarkMode } = useTheme();
@@ -154,64 +154,44 @@ Car IDs: ${stats.uniqueCarIds.join(', ') || 'None'}`
 
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.isUser;
-    const messageStyle = isUser ? styles.userMessage : styles.botMessage;
-    const bubbleStyle = isUser 
-      ? [styles.userBubble, { backgroundColor: '#D55004' }]
-      : [styles.botBubble, { backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }];
 
-    return (
-      <React.Fragment key={message.id}>
-        <View style={[styles.messageContainer, messageStyle]}>
+    if (isUser) {
+      const messageStyle = styles.userMessage;
+      const bubbleStyle = [styles.userBubble, { backgroundColor: '#D55004' }];
+
+      return (
+        <View key={message.id} style={[styles.messageContainer, messageStyle]}>
           <View style={bubbleStyle}>
-            <Text style={[
-              styles.messageText,
-              { color: isUser ? 'white' : (isDarkMode ? 'white' : 'black') }
-            ]}>
+            <Text
+              style={[styles.messageText, { color: 'white' }]}
+            >
               {message.message}
             </Text>
-            <Text style={[
-              styles.timestamp,
-              { color: isUser ? 'rgba(255,255,255,0.7)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)') }
-            ]}>
+            <Text style={[styles.timestamp, { color: 'rgba(255,255,255,0.7)' }]}> 
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
         </View>
+      );
+    }
 
-        {/* Render car cards for bot recommendations, directly below this message only */}
-        {!isUser && message.car_ids && message.car_ids.length > 0 && (
-          <View style={{ marginTop: 8, marginBottom: 8 }} key={message.id + '-carousel'}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 8, paddingRight: 8 }}
-            >
-              {message.car_ids.map((id) => {
-                const car = carDataMap[id];
-                return car ? (
-                  <ChatCarCard
-                    key={id}
-                    car={car}
-                    onPress={() => {
-                      router.push({
-                        pathname: '/(home)/(user)/CarDetails',
-                        params: { carId: car.id, isDealerView: 'false' },
-                      });
-                    }}
-                  />
-                ) : (
-                  <View
-                    key={id}
-                    style={{ width: 320, paddingVertical: 20, alignItems: 'center', marginRight: 0 }}
-                  >
-                    <ActivityIndicator size="small" color="#D55004" />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-      </React.Fragment>
+    // Bot message – use new ChatResponse component
+    const carsForMessage = (message.car_ids ?? []).map((id) => carDataMap[id]).filter(Boolean);
+
+    return (
+      <View key={message.id} style={{ marginVertical: 8 }}>
+        <ChatResponse
+          aiResponse={{ message: message.message, car_ids: message.car_ids ?? [] }}
+          cars={carsForMessage}
+          isLoading={false}
+          onCarPress={(car) => {
+            router.push({
+              pathname: '/(home)/(user)/CarDetails',
+              params: { carId: car.id, isDealerView: 'false' },
+            });
+          }}
+        />
+      </View>
     );
   };
 
