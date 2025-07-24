@@ -7,13 +7,13 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '@/utils/ThemeContext';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 interface ModernUpdateAlertProps {
   isVisible: boolean;
@@ -21,62 +21,69 @@ interface ModernUpdateAlertProps {
   onClose?: () => void;
 }
 
-const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({ 
-  isVisible, 
-  onUpdate, 
-  onClose 
+// Use your accent color throughout
+const accentColor = '#D55004';
+const accentDark = '#B8420C';
+const accentRGBA = 'rgba(213,80,4,'; // append alpha
+
+const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
+  isVisible,
+  onUpdate,
+  onClose,
 }) => {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const { isDarkMode } = useTheme();
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Initialize animations when modal becomes visible
+  // Entrance & confetti
   useEffect(() => {
     if (isVisible) {
-      // Reset animations
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.8);
       progressAnim.setValue(0);
-      
-      // Entrance animation
+
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 300,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          tension: 100,
-          friction: 8,
+          tension: 90,
+          friction: 7,
           useNativeDriver: true,
         }),
       ]).start();
-      
-      // Start pulse animation for icon
+
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.1,
-            duration: 1000,
+            duration: 800,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 800,
             useNativeDriver: true,
           }),
         ])
       ).start();
+
+      // Show confetti
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
     }
   }, [isVisible]);
 
-  // Progress animation when updating
+  // Progress animation
   useEffect(() => {
     if (isUpdating) {
       Animated.timing(progressAnim, {
@@ -112,25 +119,20 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        onClose();
-      });
+      ]).start(() => onClose());
     }
   };
 
   return (
     <Modal
       visible={isVisible}
-      transparent={true}
+      transparent
       animationType="none"
-      statusBarTranslucent={true}
+      statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <Animated.View 
-        style={{ 
-          flex: 1,
-          opacity: fadeAnim,
-        }}
+      <Animated.View
+        style={{ flex: 1, opacity: fadeAnim }}
         className="justify-center items-center px-4"
       >
         {/* Backdrop */}
@@ -141,165 +143,149 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
         >
           <LinearGradient
             colors={
-              isDarkMode 
-                ? ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']
-                : ['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']
+              isDarkMode
+                ? [`${accentRGBA}0.7)`, `${accentRGBA}0.9)`]
+                : [`${accentRGBA}0.4)`, `${accentRGBA}0.6)`]
             }
             style={{ flex: 1 }}
           />
         </TouchableOpacity>
-        
+
+        {/* Confetti */}
+        {showConfetti && (
+          <ConfettiCannon
+            count={150}
+            origin={{ x: screenWidth / 2, y: 0 }}
+            fadeOut
+          />
+        )}
+
         {/* Main Card */}
-        <Animated.View 
+        <Animated.View
           style={{
             transform: [{ scale: scaleAnim }],
-            maxWidth: Math.min(screenWidth - 32, 400),
+            maxWidth: Math.min(screenWidth - 32, 420),
             width: '100%',
           }}
           className={`mx-4 rounded-3xl shadow-2xl overflow-hidden ${
-            isDarkMode ? 'bg-[#242424]' : 'bg-white'
+            isDarkMode ? 'bg-[#1e1e1e]' : 'bg-white'
           }`}
         >
-          {/* Header Section with Gradient */}
+          {/* Header Section */}
           <View className="relative overflow-hidden">
             <LinearGradient
               colors={
-                isDarkMode 
-                  ? ['rgba(213, 80, 4, 0.1)', 'rgba(36, 36, 36, 0.95)']
-                  : ['rgba(213, 80, 4, 0.05)', 'rgba(255, 255, 255, 0.95)']
+                isDarkMode
+                  ? [`${accentRGBA}0.1)`, 'rgba(30,30,30,0.95)']
+                  : [`${accentRGBA}0.2)`, 'rgba(255,255,255,0.95)']
               }
-              className="px-8 pt-10 pb-6"
+              className="px-8 pt-12 pb-8"
             >
-              {/* Floating Icon with Animation */}
-              <Animated.View 
-                style={{
-                  transform: [{ scale: pulseAnim }],
-                }}
+              <Animated.View
+                style={{ transform: [{ scale: pulseAnim }] }}
                 className="items-center mb-6"
               >
-                <View 
-                  className={`w-20 h-20 rounded-3xl items-center justify-center ${
+                <View
+                  className={`w-24 h-24 rounded-3xl items-center justify-center ${
                     isDarkMode ? 'bg-[#D55004]/20' : 'bg-[#D55004]/10'
                   }`}
                   style={{
-                    shadowColor: '#D55004',
-                    shadowOffset: {
-                      width: 0,
-                      height: 8,
-                    },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 16,
-                    elevation: 12,
+                    shadowColor: accentColor,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 20,
+                    elevation: 14,
                   }}
                 >
-                  <Ionicons 
-                    name="download-outline" 
-                    size={36} 
-                    color="#D55004" 
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={40}
+                    color={accentColor}
                   />
                 </View>
               </Animated.View>
-              
-              {/* Title */}
-              <Text 
-                className={`text-2xl font-bold text-center mb-2 ${
-                  isDarkMode ? 'text-white' : 'text-black'
-                }`}
+
+              <Text
+                className="text-3xl font-extrabold text-center mb-2"
+                style={{ color: accentColor }}
               >
-                Fleet Update Ready
+                Update Complete! 🎉
               </Text>
-              
-              {/* Subtitle */}
-              <Text 
-                className={`text-base text-center ${
+
+              <Text
+                className={`text-lg text-center ${
                   isDarkMode ? 'text-white/70' : 'text-gray-600'
                 }`}
               >
-                Enhanced features await
+                We've added an AI assistant to help you choose your perfect car
               </Text>
             </LinearGradient>
           </View>
 
-          {/* Content Section */}
-          <View className="px-8 py-6">
-            {/* Feature Highlights */}
-            <View className="mb-8">
-              <View className="flex-row items-center mb-3">
-                <View 
-                  className={`w-2 h-2 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-[#D55004]' : 'bg-[#D55004]'
-                  }`} 
-                />
-                <Text 
-                  className={`text-sm ${
-                    isDarkMode ? 'text-white/80' : 'text-gray-700'
-                  }`}
-                >
-                 Dealerships can now add and view trims 
-                </Text>
-              </View>
-              
-            
-            </View>
-
-            {/* Action Buttons */}
-            <View className="space-y-3">
-              {/* Primary Update Button */}
-              <TouchableOpacity
-                className={`relative overflow-hidden rounded-2xl shadow-lg ${
-                  isUpdating ? 'opacity-80' : 'active:opacity-70'
-                }`}
-                onPress={handleUpdate}
-                disabled={isUpdating}
-                activeOpacity={0.7}
-                style={{
-                  shadowColor: '#D55004',
-                  shadowOffset: {
-                    width: 0,
-                    height: 4,
-                  },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 8,
-                }}
+          {/* Action Buttons */}
+          <View className="px-8 py-6 space-y-4">
+            <TouchableOpacity
+              onPress={handleUpdate}
+              disabled={isUpdating}
+              activeOpacity={0.8}
+              className={`rounded-2xl shadow-lg ${
+                isUpdating ? 'opacity-80' : 'active:opacity-70'
+              }`}
+              style={{
+                shadowColor: accentColor,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.3,
+                shadowRadius: 10,
+                elevation: 10,
+              }}
+            >
+              <LinearGradient
+                colors={[accentColor, accentDark]}
+                className="py-4 px-6 rounded-2xl"
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
               >
-                <LinearGradient
-                  colors={['#D55004', '#B8420C']}
-                  className="py-4 px-6"
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {isUpdating ? (
-                    <View className="flex-row items-center justify-center">
-                      <ActivityIndicator size="small" color="white" />
-                      <Text className="text-white text-base font-bold ml-3">
-                        Installing Update...
-                      </Text>
-                    </View>
-                  ) : (
-                    <View className="flex-row items-center justify-center">
-                      <Ionicons name="rocket-outline" size={20} color="white" />
-                      <Text className="text-white text-base font-bold ml-2">
-                        Install Now
-                      </Text>
-                    </View>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                {isUpdating ? (
+                  <View className="flex-row items-center justify-center">
+                    <ActivityIndicator size="small" color="white" />
+                    <Text className="text-white text-base font-bold ml-3">
+                      Applying Changes...
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center justify-center">
+                    <Ionicons
+                      name="rocket-outline"
+                      size={22}
+                      color="white"
+                    />
+                    <Text className="text-white text-base font-bold ml-2">
+                      Experience Now
+                    </Text>
+                  </View>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
-             
-            </View>
+            <TouchableOpacity
+              onPress={handleClose}
+              disabled={isUpdating}
+              className="py-3"
+            >
+              <Text
+                className={`text-center text-sm ${
+                  isDarkMode ? 'text-white/60' : 'text-gray-500'
+                }`}
+              >
+                Maybe Later
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Progress Indicator */}
           {isUpdating && (
             <View className="px-8 pb-8">
-              {/* Progress Bar */}
-              <View 
-                className={`h-2 rounded-full overflow-hidden mb-4 ${
-                  isDarkMode ? 'bg-[#2b2b2b]' : 'bg-gray-200'
-                }`}
-              >
+              <View className="h-2 rounded-full overflow-hidden mb-4 bg-gray-200">
                 <Animated.View
                   style={{
                     width: progressAnim.interpolate({
@@ -310,38 +296,20 @@ const ModernUpdateAlert: React.FC<ModernUpdateAlertProps> = ({
                   className="h-full rounded-full"
                 >
                   <LinearGradient
-                    colors={['#D55004', '#B8420C']}
+                    colors={[accentColor, accentDark]}
                     className="h-full rounded-full"
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   />
                 </Animated.View>
               </View>
-              
-              {/* Progress Text */}
-              <Text 
-                className={`text-sm text-center ${
-                  isDarkMode ? 'text-white/60' : 'text-gray-500'
+              <Text
+                className={`text-center text-xs ${
+                  isDarkMode ? 'text-white/40' : 'text-gray-500'
                 }`}
               >
-                Please keep the app open during installation
+                Hang tight, your new AI helper is installing
               </Text>
-              
-              {/* Warning */}
-              <View className="flex-row items-center justify-center mt-3">
-                <Ionicons 
-                  name="information-circle-outline" 
-                  size={16} 
-                  color={isDarkMode ? '#FFFFFF60' : '#6B7280'} 
-                />
-                <Text 
-                  className={`text-xs ml-2 ${
-                    isDarkMode ? 'text-white/40' : 'text-gray-400'
-                  }`}
-                >
-                  App will restart automatically
-                </Text>
-              </View>
             </View>
           )}
         </Animated.View>
