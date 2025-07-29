@@ -49,7 +49,7 @@ import {
   NotificationCacheManager,
 } from "@/utils/NotificationCacheManager";
 import { notificationCoordinator } from "@/utils/NotificationOperationCoordinator";
-import ModernUpdateAlert from "./update-alert";
+
 import { useSlowConnectionToast } from "@/utils/useSlowConnectionToast";
 
 const { width, height } = Dimensions.get("window");
@@ -973,7 +973,6 @@ function ErrorFallback({ error, resetError }: any) {
 // MAIN COMPONENT: Root Layout with initialization coordination
 export default function RootLayout() {
   const badgeClearingRef = useRef(false);
-  const [showUpdateAlert, setShowUpdateAlert] = useState(false);
 
   // EFFECT: Initialize app systems - OPTIMIZED
   useEffect(() => {
@@ -1048,29 +1047,7 @@ export default function RootLayout() {
     TextInput.defaultProps.allowFontScaling = false;
   }, []);
 
-  // EFFECT: Check for OTA updates - non-blocking
-  useEffect(() => {
-    const checkForUpdates = async () => {
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          console.log("[RootLayout] Update available, downloading...");
-          const result = await Updates.fetchUpdateAsync();
 
-          if (result.isNew) {
-            setShowUpdateAlert(true);
-          }
-        } else {
-          console.log("[RootLayout] No updates available");
-        }
-      } catch (error) {
-        console.error("[RootLayout] Update check error:", error);
-      }
-    };
-
-    // Check for updates after a delay to not block initial load
-    setTimeout(checkForUpdates, 5000);
-  }, []);
 
   // EFFECT: Cleanup on unmount
   useEffect(() => {
@@ -1103,13 +1080,6 @@ useSlowConnectionToast();
                 <FavoritesProvider>
                   <NotificationsProvider />
                   <RootLayoutNav />
-                  <ModernUpdateAlert
-                    isVisible={showUpdateAlert}
-                    onUpdate={async () => {
-                      await Updates.reloadAsync();
-                    }}
-                    onClose={() => setShowUpdateAlert(false)}
-                  />
                   <Toast config={toastConfig} />
                 </FavoritesProvider>
               </ThemeProvider>
