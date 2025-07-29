@@ -339,70 +339,152 @@ export default function BrowseCarsPage() {
             .lte("mileage", currentFilters.mileageRange[1]);
         }
 
-        // Enhanced search query implementation
+        // Enhanced search query implementation with smart brand detection
         if (query) {
           const cleanQuery = query.trim().toLowerCase();
           const queryTerms = cleanQuery
             .split(/\s+/)
             .filter((term) => term.length > 0);
 
-          if (queryTerms.length === 1) {
+          // First, check if the query is an exact brand/make match
+          const { data: brandCheck } = await supabase
+            .from("cars")
+            .select("make")
+            .ilike("make", cleanQuery)
+            .eq("status", "available")
+            .limit(1);
+
+          const isExactBrandMatch = brandCheck && brandCheck.length > 0;
+
+          if (isExactBrandMatch) {
+            // If it's an exact brand match, filter by that brand only
+            queryBuilder = queryBuilder.eq("make", brandCheck[0].make);
+          } else if (queryTerms.length === 1) {
             const singleTerm = queryTerms[0];
-            let searchConditions = [
-              `make.ilike.%${singleTerm}%`,
-              `model.ilike.%${singleTerm}%`,
-              `description.ilike.%${singleTerm}%`,
-              `color.ilike.%${singleTerm}%`,
-              `category.ilike.%${singleTerm}%`,
-              `transmission.ilike.%${singleTerm}%`,
-              `drivetrain.ilike.%${singleTerm}%`,
-              `type.ilike.%${singleTerm}%`,
-              `condition.ilike.%${singleTerm}%`,
-              `source.ilike.%${singleTerm}%`,
-            ];
+            
+            // Check if single term is a partial brand match
+            const { data: partialBrandCheck } = await supabase
+              .from("cars")
+              .select("make")
+              .ilike("make", `%${singleTerm}%`)
+              .eq("status", "available")
+              .limit(3);
 
-            if (!isNaN(Number(singleTerm))) {
-              searchConditions = searchConditions.concat([
-                `year::text.ilike.%${singleTerm}%`,
-                `price::text.ilike.%${singleTerm}%`,
-                `mileage::text.ilike.%${singleTerm}%`,
-              ]);
+            const isPartialBrandMatch = partialBrandCheck && partialBrandCheck.length > 0;
+            
+            if (isPartialBrandMatch && partialBrandCheck.length === 1) {
+              // If there's only one partial brand match, filter by that brand
+              queryBuilder = queryBuilder.eq("make", partialBrandCheck[0].make);
+            } else {
+              // General search across multiple fields with prioritization
+              let searchConditions = [
+                `make.ilike.%${singleTerm}%`,
+                `model.ilike.%${singleTerm}%`,
+                `description.ilike.%${singleTerm}%`,
+                `color.ilike.%${singleTerm}%`,
+                `category.ilike.%${singleTerm}%`,
+                `transmission.ilike.%${singleTerm}%`,
+                `drivetrain.ilike.%${singleTerm}%`,
+                `type.ilike.%${singleTerm}%`,
+                `condition.ilike.%${singleTerm}%`,
+                `source.ilike.%${singleTerm}%`,
+              ];
+
+              if (!isNaN(Number(singleTerm))) {
+                searchConditions = searchConditions.concat([
+                  `year::text.ilike.%${singleTerm}%`,
+                  `price::text.ilike.%${singleTerm}%`,
+                  `mileage::text.ilike.%${singleTerm}%`,
+                ]);
+              }
+
+              queryBuilder = queryBuilder.or(searchConditions.join(","));
             }
-
-            queryBuilder = queryBuilder.or(searchConditions.join(","));
           } else if (queryTerms.length === 2) {
             const [term1, term2] = queryTerms;
-            const makeModelCondition = `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`;
-            const modelMakeCondition = `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`;
-            const combinedSearchConditions = [
-              `make.ilike.%${cleanQuery}%`,
-              `model.ilike.%${cleanQuery}%`,
-              `description.ilike.%${cleanQuery}%`,
-              `color.ilike.%${cleanQuery}%`,
-              `category.ilike.%${cleanQuery}%`,
-              `transmission.ilike.%${cleanQuery}%`,
-              `drivetrain.ilike.%${cleanQuery}%`,
-              `type.ilike.%${cleanQuery}%`,
-              `condition.ilike.%${cleanQuery}%`,
-              `source.ilike.%${cleanQuery}%`,
-            ];
-            const individualTermConditions: any = [];
-            queryTerms.forEach((term) => {
-              individualTermConditions.push(
-                `make.ilike.%${term}%`,
-                `model.ilike.%${term}%`,
-                `description.ilike.%${term}%`,
-                `category.ilike.%${term}%`
-              );
-            });
-            const allConditions = [
-              makeModelCondition,
-              modelMakeCondition,
-              ...combinedSearchConditions,
-              ...individualTermConditions,
-            ];
-            queryBuilder = queryBuilder.or(allConditions.join(","));
+            
+            // Check for brand + model combination
+            const { data: brandModelCheck } = await supabase
+              .from("cars")
+              .select("make, model")
+              .or(`and(make.ilike.%${term1}%,model.ilike.%${term2}%),and(make.ilike.%${term2}%,model.ilike.%${term1}%)`)
+              .eq("status", "available")
+              .limit(5);
+
+                         if (brandModelCheck && brandModelCheck.length > 0) {
+               // Found specific brand+model combinations
+               const brandModelConditions: string[] = [];
+               const processedCombos = new Set<string>();
+               
+                                brandModelCheck.forEach((row: any) => {
+                   const combo = `${row.make.toLowerCase()}-${row.model.toLowerCase()}`;
+                   if (!processedCombos.has(combo)) {
+                     brandModelConditions.push(`and(make.eq.${row.make},model.eq.${row.model})`);
+                     processedCombos.add(combo);
+                   }
+                 });
+               
+               if (brandModelConditions.length > 0) {
+                 queryBuilder = queryBuilder.or(brandModelConditions.join(","));
+               } else {
+                // Fall back to general search
+                const makeModelCondition = `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`;
+                const modelMakeCondition = `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`;
+                const combinedSearchConditions = [
+                  `make.ilike.%${cleanQuery}%`,
+                  `model.ilike.%${cleanQuery}%`,
+                  `description.ilike.%${cleanQuery}%`,
+                  `color.ilike.%${cleanQuery}%`,
+                  `category.ilike.%${cleanQuery}%`,
+                  `transmission.ilike.%${cleanQuery}%`,
+                  `drivetrain.ilike.%${cleanQuery}%`,
+                  `type.ilike.%${cleanQuery}%`,
+                  `condition.ilike.%${cleanQuery}%`,
+                  `source.ilike.%${cleanQuery}%`,
+                ];
+                
+                const allConditions = [
+                  makeModelCondition,
+                  modelMakeCondition,
+                  ...combinedSearchConditions,
+                ];
+                queryBuilder = queryBuilder.or(allConditions.join(","));
+              }
+            } else {
+              // No specific brand+model found, use general search
+              const makeModelCondition = `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`;
+              const modelMakeCondition = `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`;
+              const combinedSearchConditions = [
+                `make.ilike.%${cleanQuery}%`,
+                `model.ilike.%${cleanQuery}%`,
+                `description.ilike.%${cleanQuery}%`,
+                `color.ilike.%${cleanQuery}%`,
+                `category.ilike.%${cleanQuery}%`,
+                `transmission.ilike.%${cleanQuery}%`,
+                `drivetrain.ilike.%${cleanQuery}%`,
+                `type.ilike.%${cleanQuery}%`,
+                `condition.ilike.%${cleanQuery}%`,
+                `source.ilike.%${cleanQuery}%`,
+              ];
+              const individualTermConditions: any = [];
+              queryTerms.forEach((term) => {
+                individualTermConditions.push(
+                  `make.ilike.%${term}%`,
+                  `model.ilike.%${term}%`,
+                  `description.ilike.%${term}%`,
+                  `category.ilike.%${term}%`
+                );
+              });
+              const allConditions = [
+                makeModelCondition,
+                modelMakeCondition,
+                ...combinedSearchConditions,
+                ...individualTermConditions,
+              ];
+              queryBuilder = queryBuilder.or(allConditions.join(","));
+            }
           } else {
+            // Multi-term search
             const multiTermConditions = [];
             multiTermConditions.push(
               `make.ilike.%${cleanQuery}%`,
@@ -535,7 +617,7 @@ export default function BrowseCarsPage() {
 
   const handleFavoritePress = useCallback(
     async (carId: string) => {
-      await toggleFavorite(carId);
+      await toggleFavorite(parseInt(carId));
       setCars((prevCars) =>
         prevCars.map(
           (car) => (car.id === carId ? { ...car } : car)

@@ -163,48 +163,123 @@ export default function SearchModal({
     }
 
     try {
+      // Get all makes and models that match the query
       const { data, error } = await supabase
         .from("cars")
         .select("make, model")
         .or(`make.ilike.%${trimmedQuery}%,model.ilike.%${trimmedQuery}%`)
-        .limit(20);
+        .eq("status", "available")
+        .limit(50); // Increased limit for better scoring
 
       if (error) throw error;
 
-      const makesSet = new Set<string>();
-      const modelsSet = new Set<string>();
+      const makesMap = new Map<string, number>();
+      const modelsMap = new Map<string, number>();
+      const queryLower = trimmedQuery.toLowerCase();
 
+      // Score and collect unique makes and models
       data.forEach((row: any) => {
-        if (row.make?.toLowerCase().includes(trimmedQuery.toLowerCase())) {
-          makesSet.add(row.make);
+        if (row.make?.trim()) {
+          const makeLower = row.make.toLowerCase();
+          let score = 0;
+          
+          // Exact match gets highest score
+          if (makeLower === queryLower) {
+            score = 1000;
+          }
+          // Starts with query gets high score
+          else if (makeLower.startsWith(queryLower)) {
+            score = 500;
+          }
+          // Contains query gets lower score
+          else if (makeLower.includes(queryLower)) {
+            score = 100;
+          }
+          
+          if (score > 0) {
+            makesMap.set(row.make, Math.max(makesMap.get(row.make) || 0, score));
+          }
         }
-        if (row.model?.toLowerCase().includes(trimmedQuery.toLowerCase())) {
-          modelsSet.add(row.model);
+        
+        if (row.model?.trim()) {
+          const modelLower = row.model.toLowerCase();
+          let score = 0;
+          
+          // Exact match gets highest score
+          if (modelLower === queryLower) {
+            score = 800;
+          }
+          // Starts with query gets high score
+          else if (modelLower.startsWith(queryLower)) {
+            score = 400;
+          }
+          // Contains query gets lower score
+          else if (modelLower.includes(queryLower)) {
+            score = 80;
+          }
+          
+          if (score > 0) {
+            modelsMap.set(row.model, Math.max(modelsMap.get(row.model) || 0, score));
+          }
         }
       });
 
-      let makes = Array.from(makesSet);
-      let models = Array.from(modelsSet);
+      // Sort by score (highest first) and then alphabetically
+      const sortedMakes = Array.from(makesMap.entries())
+        .sort((a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1]; // Sort by score descending
+          return a[0].localeCompare(b[0]); // Then alphabetically
+        })
+        .map(([make]) => make)
+        .slice(0, 8); // Limit to top 8 results
 
-      // If exact make match, fetch all models for that make
-      if (makes.length === 1 && makes[0].toLowerCase() === trimmedQuery.toLowerCase()) {
+      const sortedModels = Array.from(modelsMap.entries())
+        .sort((a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1]; // Sort by score descending
+          return a[0].localeCompare(b[0]); // Then alphabetically
+        })
+        .map(([model]) => model)
+        .slice(0, 8); // Limit to top 8 results
+
+      // If there's an exact make match, also fetch popular models for that make
+      const exactMakeMatch = sortedMakes.find(make => 
+        make.toLowerCase() === queryLower
+      );
+      
+      if (exactMakeMatch && sortedMakes.length === 1) {
         const { data: modelsData } = await supabase
           .from("cars")
           .select("model")
-          .eq("make", makes[0])
-          .limit(20);
+          .eq("make", exactMakeMatch)
+          .eq("status", "available")
+          .limit(15);
 
         if (modelsData) {
-          const extraModels = new Set<string>();
+          const modelCounts = new Map<string, number>();
           modelsData.forEach((row: any) => {
-            if (row.model) extraModels.add(row.model);
+            if (row.model?.trim()) {
+              modelCounts.set(row.model, (modelCounts.get(row.model) || 0) + 1);
+            }
           });
-          models = Array.from(extraModels);
+          
+          // Sort by popularity (count) and then alphabetically
+          const popularModels = Array.from(modelCounts.entries())
+            .sort((a, b) => {
+              if (b[1] !== a[1]) return b[1] - a[1];
+              return a[0].localeCompare(b[0]);
+            })
+            .map(([model]) => model)
+            .slice(0, 10);
+          
+          setSuggestions({ makes: sortedMakes, models: popularModels });
+        } else {
+          setSuggestions({ makes: sortedMakes, models: sortedModels });
         }
+      } else {
+        setSuggestions({ makes: sortedMakes, models: sortedModels });
       }
-
-      setSuggestions({ makes, models });
-      setShowSuggestions(makes.length > 0 || models.length > 0);
+      
+      setShowSuggestions(sortedMakes.length > 0 || sortedModels.length > 0);
     } catch (err) {
       console.error("Error in suggestions:", err);
       setSuggestions({ makes: [], models: [] });
@@ -346,9 +421,20 @@ export default function SearchModal({
                           style={styles.brandLogo}
                           resizeMode="contain"
                         />
-                        <Text style={[styles.suggestionText, isDarkMode && styles.darkText]}>
-                          {make}
-                        </Text>
+                        <View style={styles.suggestionContent}>
+                          <Text style={[styles.suggestionText, isDarkMode && styles.darkText]}>
+                            {make}
+                          </Text>
+                          <Text style={[styles.suggestionSubtext, isDarkMode && styles.darkSubtext]}>
+                            Filter by {make} vehicles
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name="filter-outline"
+                          size={16}
+                          color={isDarkMode ? "#666" : "#999"}
+                          style={styles.filterIcon}
+                        />
                       </TouchableOpacity>
                     ))}
                   </>
@@ -506,5 +592,18 @@ const styles = StyleSheet.create({
   darkText: {
     color: '#fff',
   },
-  
+  suggestionContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  suggestionSubtext: {
+    fontSize: 12,
+    color: '#666',
+  },
+  filterIcon: {
+    marginLeft: 12,
+  },
+  darkSubtext: {
+    color: '#999',
+  },
 });

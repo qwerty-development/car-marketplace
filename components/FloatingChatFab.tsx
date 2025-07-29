@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Modal, Platform, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
+import { usePathname, useSegments } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import EnhancedChatScreen from './ChatAssistantScreen';
 
 /**
@@ -10,10 +12,35 @@ import EnhancedChatScreen from './ChatAssistantScreen';
  * Global floating action button that opens the AI chat assistant in a modal.
  * This component is intended to be rendered once at the root of the `(home)` layout
  * so it appears on both user and dealer home stacks.
+ * Hidden on autoclips page to avoid interfering with video playback.
  */
 export default function FloatingChatFab() {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
+  const [shouldHide, setShouldHide] = useState(false);
+  const pathname = usePathname();
+  const segments = useSegments();
+
+  // Check multiple ways to detect autoclips page
+  useFocusEffect(
+    React.useCallback(() => {
+      const isAutoclipsPage = pathname.includes('autoclips') || 
+                             segments.some(segment => segment === 'autoclips') ||
+                             segments[segments.length - 1] === 'autoclips';
+      
+      console.log('FloatingChatFab - pathname:', pathname);
+      console.log('FloatingChatFab - segments:', segments);
+      console.log('FloatingChatFab - isAutoclipsPage:', isAutoclipsPage);
+      
+      setShouldHide(isAutoclipsPage);
+    }, [pathname, segments])
+  );
+
+  // Hide the chat button on autoclips page
+  if (shouldHide) {
+    console.log('Hiding chat button for autoclips page');
+    return null;
+  }
 
   // Dimensions: adjust vertical offset so the FAB floats above the tab bar
   const bottomOffset = Platform.OS === 'ios' ? 100 : 70;
