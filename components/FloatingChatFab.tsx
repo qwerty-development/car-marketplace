@@ -12,7 +12,7 @@ import EnhancedChatScreen from './ChatAssistantScreen';
  * Global floating action button that opens the AI chat assistant in a modal.
  * This component is intended to be rendered once at the root of the `(home)` layout
  * so it appears on both user and dealer home stacks.
- * Hidden on autoclips page to avoid interfering with video playback.
+ * Hidden on autoclips page and car detail modals to avoid interfering with video playback and overlapping.
  */
 export default function FloatingChatFab() {
   const { isDarkMode } = useTheme();
@@ -21,24 +21,32 @@ export default function FloatingChatFab() {
   const pathname = usePathname();
   const segments = useSegments();
 
-  // Check multiple ways to detect autoclips page
+  // Check multiple ways to detect autoclips page and car detail modals
   useFocusEffect(
     React.useCallback(() => {
       const isAutoclipsPage = pathname.includes('autoclips') || 
+                             pathname.includes('autoclip') || // for individual autoclip pages
                              segments.some(segment => segment === 'autoclips') ||
+                             segments.some(segment => segment === 'autoclip') ||
                              segments[segments.length - 1] === 'autoclips';
+      
+      const isCarDetailModal = pathname.includes('CarDetails') || 
+                              pathname.includes('CarDetailModal') ||
+                              segments.some(segment => segment === 'CarDetails') ||
+                              segments.some(segment => segment === 'CarDetailModal');
       
       console.log('FloatingChatFab - pathname:', pathname);
       console.log('FloatingChatFab - segments:', segments);
       console.log('FloatingChatFab - isAutoclipsPage:', isAutoclipsPage);
+      console.log('FloatingChatFab - isCarDetailModal:', isCarDetailModal);
       
-      setShouldHide(isAutoclipsPage);
+      setShouldHide(isAutoclipsPage || isCarDetailModal);
     }, [pathname, segments])
   );
 
-  // Hide the chat button on autoclips page
+  // Hide the chat button on autoclips page and car detail modals
   if (shouldHide) {
-    console.log('Hiding chat button for autoclips page');
+    console.log('Hiding chat button for autoclips page or car detail modal');
     return null;
   }
 
