@@ -7,6 +7,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/utils/ThemeContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import LogoLoader from "@/components/LogoLoader";
+import FloatingChatFab from "@/components/FloatingChatFab";
 
 // CRITICAL SYSTEM: Global sign-out flag management
 let isSigningOut = false;
@@ -495,6 +496,9 @@ export default function HomeLayout() {
           }} 
         />
       </Stack>
+
+      {/* Global AI assistant button */}
+      <FloatingChatFab />
     </View>
   );
 }

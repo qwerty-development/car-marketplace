@@ -58,6 +58,7 @@ import {
   calculateTotalCostOfOwnership,
   calculateFutureValue,
 } from "@/components/comparison/calculate";
+import { CarCostService, ProcessedCostData } from "@/services/CarCostService";
 import styles from "@/components/comparison/styles";
 import { CarPickerModal } from "@/components/comparison/modals";
 import {
@@ -353,6 +354,7 @@ export default function CarComparison() {
 
   // Refs for animations
   const animationRef = useRef<any>(null);
+  const aiCallRef = useRef<string | null>(null);
 
   // State for selected cars
   const [selectedCars, setSelectedCars] = useState<[Car | null, Car | null]>([
@@ -371,6 +373,21 @@ export default function CarComparison() {
     "basics" | "features" | "cost" | "summary"
   >("basics");
   const [visibleTab, setVisibleTab] = useState<"basics" | "features" | "cost" | "summary">("basics");
+
+  // State for AI cost analysis
+  const [aiCostData, setAiCostData] = useState<{
+    car1Data: ProcessedCostData | null;
+    car2Data: ProcessedCostData | null;
+    aiMessage: string;
+    isLoading: boolean;
+    success: boolean;
+  }>({
+    car1Data: null,
+    car2Data: null,
+    aiMessage: "",
+    isLoading: false,
+    success: false,
+  });
 
   // Animation values
   const fadeAnim = useSharedValue(1);
@@ -553,13 +570,73 @@ export default function CarComparison() {
 
   // Navigate to browse cars - optimized with useCallback
   const handleBrowseCars = useCallback(() => {
-    router.push("/(home)/(user)");
+    router.push("/(home)/(user)/(tabs)");
   }, [router]);
 
   // Handle back button press - optimized with useCallback
   const handleBack = useCallback(() => {
     router.back();
   }, [router]);
+
+  // Fetch AI cost analysis when both cars are selected
+  const fetchAICostAnalysis = useCallback(async (car1: Car, car2: Car) => {
+    setAiCostData(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const result = await CarCostService.compareCarCosts(car1, car2);
+      
+      setAiCostData({
+        car1Data: result.car1Data,
+        car2Data: result.car2Data,
+        aiMessage: result.aiMessage,
+        isLoading: false,
+        success: result.success,
+      });
+    } catch (error) {
+      console.error('Failed to fetch AI cost analysis:', error);
+      setAiCostData(prev => ({
+        ...prev,
+        isLoading: false,
+        aiMessage: '⚠️ Unable to load AI cost analysis. Please try again later.',
+        success: false,
+      }));
+    }
+  }, []);
+
+  // Trigger AI analysis when both cars are selected (with loop prevention)
+  useEffect(() => {
+    if (selectedCars[0] && selectedCars[1]) {
+      const carComboKey = `${selectedCars[0].id}-${selectedCars[1].id}`;
+      
+      // Only call AI if we haven't called it for this car combination yet
+      if (aiCallRef.current !== carComboKey && !aiCostData.isLoading) {
+        aiCallRef.current = carComboKey;
+        
+        // Reset AI data for new comparison
+        setAiCostData(prev => ({
+          ...prev,
+          car1Data: null,
+          car2Data: null,
+          aiMessage: "",
+          isLoading: false,
+          success: false,
+        }));
+        
+        // Call AI analysis
+        fetchAICostAnalysis(selectedCars[0], selectedCars[1]);
+      }
+    } else {
+      // Reset when cars are deselected
+      aiCallRef.current = null;
+      setAiCostData({
+        car1Data: null,
+        car2Data: null,
+        aiMessage: "",
+        isLoading: false,
+        success: false,
+      });
+    }
+  }, [selectedCars[0]?.id, selectedCars[1]?.id, fetchAICostAnalysis, aiCostData.isLoading]);
 
   // Change tab with smooth transition - optimized for performance
   const handleTabChange = useCallback(
@@ -913,12 +990,50 @@ export default function CarComparison() {
       case "cost":
         return (
           <>
-            <TotalCostOfOwnership
-              car1={car1}
-              car2={car2}
-              isDarkMode={isDarkMode}
-            />
+            {/* AI Analysis Message */}
+            {(aiCostData.aiMessage || aiCostData.isLoading) && (
+              <View
+                style={[
+                  styles.comparisonSection,
+                  { backgroundColor: isDarkMode ? "#1A1A1A" : "#F5F5F5", marginBottom: 16 },
+                ]}
+              >
+                {aiCostData.isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#D55004" />
+                    <Text
+                      style={[
+                        styles.loadingText,
+                        { color: isDarkMode ? "#FFFFFF" : "#000000", marginLeft: 8 },
+                      ]}
+                    >
+                      AI analyzing cost data...
+                    </Text>
+                  </View>
+                ) : (
+                  <View>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        { color: isDarkMode ? "#FFFFFF" : "#000000", marginBottom: 12 },
+                      ]}
+                    >
+                      AI Cost Analysis
+                    </Text>
+                    <Text
+                      style={[
+                        styles.insightText,
+                        { color: isDarkMode ? "#bbbbbb" : "#666666", lineHeight: 20 },
+                      ]}
+                    >
+                      {aiCostData.aiMessage}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
+            {/* Depreciation Estimate */}
             <View
               style={[
                 styles.comparisonSection,
@@ -943,8 +1058,7 @@ export default function CarComparison() {
                   },
                 ]}
               >
-                Estimated value after 5 years of ownership based on average
-                depreciation rates.
+                Estimated value after 5 years of ownership based on AI market analysis.
               </Text>
 
               <View style={styles.comparisonGrid}>
@@ -972,78 +1086,51 @@ export default function CarComparison() {
 
                 <ComparisonAttribute
                   label="Value Now"
-                  value1={car1.price}
-                  value2={car2.price}
+                  value1={aiCostData.car1Data?.currentValue || car1.price}
+                  value2={aiCostData.car2Data?.currentValue || car2.price}
                   better={0}
                   isDarkMode={isDarkMode}
                   icon="cash"
                   prefix="$"
                 />
 
-                {(() => {
-                  const car1Age = new Date().getFullYear() - car1.year;
-                  const car2Age = new Date().getFullYear() - car2.year;
-                  const car1Category = car1.category || "Mass-Market";
-                  const car2Category = car2.category || "Mass-Market";
+                <ComparisonAttribute
+                  label="Value in 5 Years"
+                  value1={aiCostData.car1Data?.futureValue || car1.price * 0.6}
+                  value2={aiCostData.car2Data?.futureValue || car2.price * 0.6}
+                  better={0}
+                  isDarkMode={isDarkMode}
+                  icon="calendar-clock"
+                  prefix="$"
+                />
 
-                  const car1FutureValue = calculateFutureValue(
-                    car1.price,
-                    car1Age,
-                    5,
-                    car1Category
-                  );
-                  const car2FutureValue = calculateFutureValue(
-                    car2.price,
-                    car2Age,
-                    5,
-                    car2Category
-                  );
-                  const car1LossAmount = car1.price - car1FutureValue;
-                  const car2LossAmount = car2.price - car2FutureValue;
-                  const car1LossPercent = (car1LossAmount / car1.price) * 100;
-                  const car2LossPercent = (car2LossAmount / car2.price) * 100;
+                <ComparisonAttribute
+                  label="Total price drop"
+                  value1={aiCostData.car1Data?.depreciationAmount || car1.price * 0.4}
+                  value2={aiCostData.car2Data?.depreciationAmount || car2.price * 0.4}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.depreciationAmount || car1.price * 0.4,
+                    aiCostData.car2Data?.depreciationAmount || car2.price * 0.4
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="chart-line-variant"
+                  prefix="$"
+                />
 
-                  const betterDepreciation =
-                    car1LossPercent < car2LossPercent
-                      ? 1
-                      : car2LossPercent < car1LossPercent
-                      ? 2
-                      : 0;
-
-                  return (
-                    <>
-                      <ComparisonAttribute
-                        label="Value in 5 Years"
-                        value1={car1FutureValue}
-                        value2={car2FutureValue}
-                        better={0}
-                        isDarkMode={isDarkMode}
-                        icon="calendar-clock"
-                        prefix="$"
-                      />
-
-                      <ComparisonAttribute
-                        label="Total price drop"
-                        value1={car1LossAmount}
-                        value2={car2LossAmount}
-                        better={betterDepreciation}
-                        isDarkMode={isDarkMode}
-                        icon="chart-line-variant"
-                        prefix="$"
-                      />
-
-                      <ComparisonAttribute
-                        label="Price drop Rate"
-                        value1={car1LossPercent.toFixed(1)}
-                        value2={car2LossPercent.toFixed(1)}
-                        better={betterDepreciation}
-                        isDarkMode={isDarkMode}
-                        icon="percent"
-                        suffix="%"
-                      />
-                    </>
-                  );
-                })()}
+                <ComparisonAttribute
+                  label="Price drop Rate"
+                  value1={((aiCostData.car1Data?.depreciationRate || 0.4) * 100).toFixed(1)}
+                  value2={((aiCostData.car2Data?.depreciationRate || 0.4) * 100).toFixed(1)}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.depreciationRate || 0.4,
+                    aiCostData.car2Data?.depreciationRate || 0.4
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="percent"
+                  suffix="%"
+                />
               </View>
 
               <Text
@@ -1052,11 +1139,12 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#999999" : "#888888", marginTop: 12 },
                 ]}
               >
-                * Depreciation estimates are based on industry averages and may
+                * Depreciation estimates powered by AI analysis of market data and may
                 vary based on market conditions.
               </Text>
             </View>
 
+            {/* Annual Cost Estimates */}
             <View
               style={[
                 styles.comparisonSection,
@@ -1095,116 +1183,117 @@ export default function CarComparison() {
                   </Text>
                 </View>
 
-                {(() => {
-                  const car1CostData = calculateTotalCostOfOwnership(car1);
-                  const car2CostData = calculateTotalCostOfOwnership(car2);
+                <ComparisonAttribute
+                  label="Est. Annual Mileage"
+                  value1={aiCostData.car1Data?.annualMileage || 15000}
+                  value2={aiCostData.car2Data?.annualMileage || 15000}
+                  better={0}
+                  isDarkMode={isDarkMode}
+                  icon="road"
+                  suffix=" km"
+                />
 
-                  const car1Maintenance = car1CostData.breakdown.maintenance / 5;
-                  const car2Maintenance = car2CostData.breakdown.maintenance / 5;
-                  const car1Insurance = car1CostData.breakdown.insurance / 5;
-                  const car2Insurance = car2CostData.breakdown.insurance / 5;
-                  const car1Fuel = car1CostData.breakdown.fuel / 5;
-                  const car2Fuel = car2CostData.breakdown.fuel / 5;
-                  const car1Registration = car1CostData.breakdown.registration / 5;
-                  const car2Registration = car2CostData.breakdown.registration / 5;
+                <ComparisonAttribute
+                  label="Maintenance"
+                  value1={aiCostData.car1Data?.maintenance || 1200}
+                  value2={aiCostData.car2Data?.maintenance || 1200}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.maintenance || 1200,
+                    aiCostData.car2Data?.maintenance || 1200
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="wrench"
+                  prefix="$"
+                  suffix="/yr"
+                />
 
-                  const car1Total = car1Maintenance + car1Insurance + car1Fuel + car1Registration;
-                  const car2Total = car2Maintenance + car2Insurance + car2Fuel + car2Registration;
+                <ComparisonAttribute
+                  label="Insurance"
+                  value1={aiCostData.car1Data?.insurance || 2000}
+                  value2={aiCostData.car2Data?.insurance || 2000}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.insurance || 2000,
+                    aiCostData.car2Data?.insurance || 2000
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="shield"
+                  prefix="$"
+                  suffix="/yr"
+                />
 
-                  return (
-                    <>
-                      <ComparisonAttribute
-                        label="Est. Annual Mileage"
-                        value1={car1CostData.breakdown.annualMileage}
-                        value2={car2CostData.breakdown.annualMileage}
-                        better={0}
-                        isDarkMode={isDarkMode}
-                        icon="road"
-                        suffix=" km"
-                      />
+                <ComparisonAttribute
+                  label="Fuel"
+                  value1={aiCostData.car1Data?.fuel || 1500}
+                  value2={aiCostData.car2Data?.fuel || 1500}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.fuel || 1500,
+                    aiCostData.car2Data?.fuel || 1500
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="gas-station"
+                  prefix="$"
+                  suffix="/yr"
+                />
 
-                      <ComparisonAttribute
-                        label="Maintenance"
-                        value1={car1Maintenance}
-                        value2={car2Maintenance}
-                        better={getBetterValue(
-                          "price",
-                          car1Maintenance,
-                          car2Maintenance
-                        )}
-                        isDarkMode={isDarkMode}
-                        icon="wrench"
-                        prefix="$"
-                        suffix="/yr"
-                      />
+                <ComparisonAttribute
+                  label="Registration"
+                  value1={aiCostData.car1Data?.registration || 500}
+                  value2={aiCostData.car2Data?.registration || 500}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.registration || 500,
+                    aiCostData.car2Data?.registration || 500
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="file-document"
+                  prefix="$"
+                  suffix="/yr"
+                />
 
-                      <ComparisonAttribute
-                        label="Insurance"
-                        value1={car1Insurance}
-                        value2={car2Insurance}
-                        better={getBetterValue(
-                          "price",
-                          car1Insurance,
-                          car2Insurance
-                        )}
-                        isDarkMode={isDarkMode}
-                        icon="shield"
-                        prefix="$"
-                        suffix="/yr"
-                      />
+                <ComparisonAttribute
+                  label="Total Annual"
+                  value1={aiCostData.car1Data?.totalAnnual || 5200}
+                  value2={aiCostData.car2Data?.totalAnnual || 5200}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.totalAnnual || 5200,
+                    aiCostData.car2Data?.totalAnnual || 5200
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="cash-multiple"
+                  prefix="$"
+                  suffix="/yr"
+                  showBar={true}
+                  maxValue={Math.max(
+                    aiCostData.car1Data?.totalAnnual || 5200,
+                    aiCostData.car2Data?.totalAnnual || 5200
+                  ) * 1.1}
+                  isHigherBetter={false}
+                />
 
-                      <ComparisonAttribute
-                        label="Fuel"
-                        value1={car1Fuel}
-                        value2={car2Fuel}
-                        better={getBetterValue("price", car1Fuel, car2Fuel)}
-                        isDarkMode={isDarkMode}
-                        icon="gas-station"
-                        prefix="$"
-                        suffix="/yr"
-                      />
-
-                      <ComparisonAttribute
-                        label="Registration"
-                        value1={car1Registration}
-                        value2={car2Registration}
-                        better={getBetterValue("price", car1Registration, car2Registration)}
-                        isDarkMode={isDarkMode}
-                        icon="file-document"
-                        prefix="$"
-                        suffix="/yr"
-                      />
-
-                      <ComparisonAttribute
-                        label="Total Annual"
-                        value1={car1Total}
-                        value2={car2Total}
-                        better={getBetterValue("price", car1Total, car2Total)}
-                        isDarkMode={isDarkMode}
-                        icon="cash-multiple"
-                        prefix="$"
-                        suffix="/yr"
-                        showBar={true}
-                        maxValue={Math.max(car1Total, car2Total) * 1.1}
-                        isHigherBetter={false}
-                      />
-
-                      <ComparisonAttribute
-                        label="5 Year Total"
-                        value1={car1CostData.total}
-                        value2={car2CostData.total}
-                        better={getBetterValue("price", car1CostData.total, car2CostData.total)}
-                        isDarkMode={isDarkMode}
-                        icon="calendar-range"
-                        prefix="$"
-                        suffix=""
-                        showBar={true}
-                        maxValue={Math.max(car1CostData.total, car2CostData.total) * 1.1}
-                        isHigherBetter={false}
-                      />
-                    </>
-                  );
-                })()}
+                <ComparisonAttribute
+                  label="5 Year Total"
+                  value1={aiCostData.car1Data?.totalFiveYear || 26000}
+                  value2={aiCostData.car2Data?.totalFiveYear || 26000}
+                  better={getBetterValue(
+                    "price",
+                    aiCostData.car1Data?.totalFiveYear || 26000,
+                    aiCostData.car2Data?.totalFiveYear || 26000
+                  )}
+                  isDarkMode={isDarkMode}
+                  icon="calendar-range"
+                  prefix="$"
+                  suffix=""
+                  showBar={true}
+                  maxValue={Math.max(
+                    aiCostData.car1Data?.totalFiveYear || 26000,
+                    aiCostData.car2Data?.totalFiveYear || 26000
+                  ) * 1.1}
+                  isHigherBetter={false}
+                />
               </View>
 
               <Text
@@ -1213,8 +1302,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#999999" : "#888888", marginTop: 12 },
                 ]}
               >
-                * Cost estimates based on typical ownership patterns and may
-                vary by location and driving habits.
+                * Cost estimates powered by AI analysis and may vary by location and driving habits.
               </Text>
             </View>
           </>
@@ -1239,7 +1327,7 @@ export default function CarComparison() {
       default:
         return null;
     }
-  }, [selectedCars, visibleTab, isDarkMode]);
+  }, [selectedCars, visibleTab, isDarkMode, aiCostData]);
 
   return (
     <View
