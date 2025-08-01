@@ -6,14 +6,6 @@ import { usePathname, useSegments } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import EnhancedChatScreen from './ChatAssistantScreen';
 
-/**
- * FloatingChatFab
- * ----------------
- * Global floating action button that opens the AI chat assistant in a modal.
- * This component is intended to be rendered once at the root of the `(home)` layout
- * so it appears on both user and dealer home stacks.
- * Hidden on autoclips page and car detail modals to avoid interfering with video playback and overlapping.
- */
 export default function FloatingChatFab() {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -21,32 +13,26 @@ export default function FloatingChatFab() {
   const pathname = usePathname();
   const segments = useSegments();
 
-  // Check multiple ways to detect autoclips page and car detail modals
+  // Since we're now only in user tabs, we only need to check for autoclips
   useFocusEffect(
     React.useCallback(() => {
       const isAutoclipsPage = pathname.includes('autoclips') || 
-                             pathname.includes('autoclip') || // for individual autoclip pages
+                             pathname.includes('autoclip') || 
                              segments.some(segment => segment === 'autoclips') ||
                              segments.some(segment => segment === 'autoclip') ||
                              segments[segments.length - 1] === 'autoclips';
       
-      const isCarDetailModal = pathname.includes('CarDetails') || 
-                              pathname.includes('CarDetailModal') ||
-                              segments.some(segment => segment === 'CarDetails') ||
-                              segments.some(segment => segment === 'CarDetailModal');
-      
       console.log('FloatingChatFab - pathname:', pathname);
       console.log('FloatingChatFab - segments:', segments);
       console.log('FloatingChatFab - isAutoclipsPage:', isAutoclipsPage);
-      console.log('FloatingChatFab - isCarDetailModal:', isCarDetailModal);
       
-      setShouldHide(isAutoclipsPage || isCarDetailModal);
+      setShouldHide(isAutoclipsPage);
     }, [pathname, segments])
   );
 
-  // Hide the chat button on autoclips page and car detail modals
+  // Hide the chat button on autoclips page
   if (shouldHide) {
-    console.log('Hiding chat button for autoclips page or car detail modal');
+    console.log('Hiding chat button for autoclips page');
     return null;
   }
 
@@ -74,6 +60,7 @@ export default function FloatingChatFab() {
           shadowOpacity: 0.3,
           shadowRadius: 6,
           elevation: 8,
+          zIndex: 1000, // Ensure it appears above other content
         }}
       >
         <Ionicons name="chatbubbles-outline" size={30} color="#fff" />
@@ -111,4 +98,4 @@ export default function FloatingChatFab() {
       </Modal>
     </>
   );
-} 
+}
