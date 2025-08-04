@@ -1823,19 +1823,21 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             <View
               style={{
                 flexDirection: "row",
-                alignItems: "center",
+                alignItems: "flex-start",
                 justifyContent: "space-between",
                 paddingHorizontal: 16,
-                marginTop: 16,
+                marginTop: 8,
+                marginBottom: 8,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", flex: 1 }}>
                 <View
                   style={{
                     justifyContent: "center",
                     alignItems: "center",
-                    marginTop: 8,
+                    marginTop: 16,
                     width: 50,
+                    flexShrink: 0,
                   }}
                 >
                   <OptimizedImage
@@ -1845,14 +1847,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   />
                 </View>
 
-                <View style={{ marginLeft: 12 }}>
+                <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text
                     style={{
                       fontSize: 20,
-                      marginTop: 24,
+                      marginTop: 16,
                       fontWeight: "bold",
                       color: isDarkMode ? "#fff" : "#000",
+                      flexWrap: "wrap",
                     }}
+                    numberOfLines={3}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.8}
                   >
                     {car.year} {car.make} {car.model}
                   </Text>
@@ -1864,6 +1870,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                         fontSize: 14,
                         color: isDarkMode ? "#fff" : "#000",
                       }}
+                      numberOfLines={2}
                     >
                       {car.trim}
                     </Text>
@@ -1963,7 +1970,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleDealershipPress}>
-              <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={{ flex: 1, marginLeft: 12, marginRight: 8 }}>
                 <Text
                   style={{
                     fontSize: 16,
@@ -1971,6 +1978,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                     color: isDarkMode ? "#fff" : "#000",
                   }}
                   numberOfLines={2}
+                  adjustsFontSizeToFit={true}
+                  minimumFontScale={0.8}
                 >
                   {car.dealership_name || "Dealership"}
                 </Text>
@@ -1979,9 +1988,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   style={{
                     fontSize: 14,
                     color: isDarkMode ? "#fff" : "#000",
-                    maxWidth: 160,
                   }}
                   numberOfLines={2}
+                  adjustsFontSizeToFit={true}
+                  minimumFontScale={0.7}
                 >
                   <Ionicons name="location" size={12} />
                   {car.dealership_location || "Location not available"}
