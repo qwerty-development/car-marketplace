@@ -48,7 +48,9 @@ const CompareButton: React.FC<CompareButtonProps> = ({
       inHeader ? styles.headerContainer : styles.container,
       {
         transform: [{ scale: inHeader ? 1 : scaleAnim }],
-        opacity: enabled ? 1 : 0.6
+        opacity: enabled ? 1 : 0.6,
+        backgroundColor: 'transparent', // Ensure container is transparent
+        overflow: 'hidden' // Ensure rounded corners are respected
       }
     ]}>
       <TouchableOpacity
@@ -59,6 +61,7 @@ const CompareButton: React.FC<CompareButtonProps> = ({
         ]}
         onPress={onPress}
         disabled={!enabled}
+        activeOpacity={0.8}
       >
         <Text className='text-white font-extrabold'>
           Compare 
@@ -92,6 +95,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
     elevation: 2,
+    borderRadius: 20, // Match the button's border radius
+    backgroundColor: 'transparent', // Ensure no background color conflict
   },
   button: {
     flexDirection: 'row',

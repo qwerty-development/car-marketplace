@@ -12,6 +12,8 @@ import {
   Platform,
   Animated,
   FlatList,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
@@ -53,10 +55,67 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
   const scrollViewRef = useRef<ScrollView>(null);
   const isMountedRef = useRef(true);
   const inputAnimation = useRef(new Animated.Value(0)).current;
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+    };
+  }, []);
+
+  // --------------------------------------------------
+  // Clear chat on app termination/restart
+  // --------------------------------------------------
+  useEffect(() => {
+    const checkAppTermination = async () => {
+      try {
+        // Use a timestamp to detect if the app was actually terminated
+        const lastActiveTime = await AsyncStorage.getItem('last_active_time');
+        const currentTime = Date.now();
+        
+        if (lastActiveTime) {
+          const timeDiff = currentTime - parseInt(lastActiveTime);
+          // If more than 30 minutes passed, consider it a fresh app start
+          const thirtyMinutes = 30 * 60 * 1000;
+          
+          if (timeDiff > thirtyMinutes) {
+            // App was likely terminated, clear chat
+            await AsyncStorage.removeItem('ai_chat_messages');
+          }
+        } else {
+          // First time launch, clear any existing chat
+          await AsyncStorage.removeItem('ai_chat_messages');
+        }
+        
+        // Update last active time
+        await AsyncStorage.setItem('last_active_time', currentTime.toString());
+      } catch (e) {
+        console.log('Error checking app termination:', e);
+      }
+    };
+
+    checkAppTermination();
+  }, []);
+
+  // --------------------------------------------------
+  // Update last active time when app becomes active
+  // --------------------------------------------------
+  useEffect(() => {
+    const updateActiveTime = () => {
+      AsyncStorage.setItem('last_active_time', Date.now().toString()).catch(() => {});
+    };
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        updateActiveTime();
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription?.remove();
     };
   }, []);
 
@@ -419,6 +478,23 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
 
   return (
     <SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-neutral-50'}`}>
+      {/* Header */}
+      <View className={`px-4 py-4 border-b ${isDarkMode ? 'border-neutral-800 bg-black' : 'border-neutral-200 bg-neutral-50'}`}>
+        <View className="flex-row items-center">
+          <View className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-full items-center justify-center mr-3 shadow-lg">
+            <MaterialCommunityIcons name="robot-outline" size={20} color="white" />
+          </View>
+          <View className="flex-1">
+            <Text className={`text-lg font-bold ${isDarkMode ? 'text-orange-400' : 'text-red-600'}`}>
+              Car Finder AI
+            </Text>
+            <Text className={`text-sm ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
+              Your intelligent car assistant
+            </Text>
+          </View>
+        </View>
+      </View>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

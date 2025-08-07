@@ -52,14 +52,14 @@ const CustomHeader = React.memo(({
 }) => {
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
-
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
           paddingHorizontal: 24,
-          marginBottom: Platform.OS === 'ios' ? -20 : 8
+          marginBottom: Platform.OS === 'ios' ? -20 : 8,
+          backgroundColor: 'transparent' // Ensure no background color conflicts
         }}
       >
         <Text

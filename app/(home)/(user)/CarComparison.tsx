@@ -327,12 +327,13 @@ const TabNavigation = React.memo(
         onPress={() => handleTabChange("features")}
         isDarkMode={isDarkMode}
       />
+{/*       
       <TabButton
         tabName="cost"
         activeTab={activeTab}
         onPress={() => handleTabChange("cost")}
         isDarkMode={isDarkMode}
-      />
+      /> */}
       <TabButton
         tabName="summary"
         activeTab={activeTab}
