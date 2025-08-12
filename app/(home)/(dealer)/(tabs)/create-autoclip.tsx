@@ -26,7 +26,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const ITEMS_PER_PAGE = 8
 
 // --- TYPE DEFINITIONS ---
-interface AutoClip {
+interface AutoClipItem {
   id: number
   dealership_id: number
   car_id: number
@@ -39,6 +39,7 @@ interface AutoClip {
   status: 'under_review' | 'published' | 'rejected' | 'archived'
   created_at: string
   car: {
+    id: number
     make: string
     model: string
     year: number
@@ -82,7 +83,7 @@ interface StatusFilterProps {
 }
 
 interface ClipItemProps {
-  item: AutoClip
+  item: AutoClipItem
   onPress: () => void
   onLongPress: () => void
 }
@@ -137,7 +138,7 @@ const useDealership = (user: User | null) => {
  * @description Hook to manage fetching, filtering, and paginating AutoClips.
  */
 const useAutoClips = (dealershipId: number | null) => {
-  const [clips, setClips] = useState<AutoClip[]>([])
+  const [clips, setClips] = useState<AutoClipItem[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ 
     all: 0, 
@@ -214,7 +215,7 @@ const useAutoClips = (dealershipId: number | null) => {
       // Updated query to include car images
       let clipsQuery = supabase
         .from('auto_clips')
-        .select('*, car:cars(make, model, year, images)') // Added images to the select
+        .select('*, car:cars(id, make, model, year, images)') // Added id and images to the select
         .eq('dealership_id', dealershipId)
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
@@ -517,7 +518,7 @@ export default function AutoClipsScreen() {
     totalPages
   } = useAutoClips(dealership?.id || null)
 
-  const [selectedClip, setSelectedClip] = useState<AutoClip | null>(null)
+  const [selectedClip, setSelectedClip] = useState<AutoClipItem | null>(null)
   const [createModalVisible, setCreateModalVisible] = useState(false)
   const [previewModalVisible, setPreviewModalVisible] = useState(false)
   const [editModalVisible, setEditModalVisible] = useState(false)
@@ -534,7 +535,7 @@ export default function AutoClipsScreen() {
     }
   }
 
-  const handleToggleStatus = async (clip: AutoClip) => {
+  const handleToggleStatus = async (clip: AutoClipItem) => {
     // Toggle between published and archived
     const newStatus = clip.status === 'published' ? 'archived' : 'published'
     
@@ -551,7 +552,7 @@ export default function AutoClipsScreen() {
     }
   }
 
-  const handleLongPress = (clip: AutoClip) => {
+  const handleLongPress = (clip: AutoClipItem) => {
     const actions = [
         { text: 'Edit', onPress: () => { setSelectedClip(clip); setEditModalVisible(true); } },
       
@@ -636,7 +637,7 @@ export default function AutoClipsScreen() {
       />}
       
       <PreviewAutoClipModal
-          clip={selectedClip}
+          clip={selectedClip as any}
           isVisible={previewModalVisible}
           onClose={() => setPreviewModalVisible(false)}
           onDelete={() => selectedClip && handleDelete(selectedClip.id)}
@@ -648,7 +649,7 @@ export default function AutoClipsScreen() {
       />
 
       <EditAutoClipModal
-          clip={selectedClip}
+          clip={(selectedClip as any) || ({} as any)}
           isVisible={editModalVisible}
           onClose={() => setEditModalVisible(false)}
           onSuccess={() => {

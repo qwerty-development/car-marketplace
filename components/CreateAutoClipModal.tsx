@@ -412,6 +412,7 @@ export default function CreateAutoClipModal({
 		carError: '',
 		videoError: null
 	})
+	const [compressionProgress, setCompressionProgress] = useState(0)
 
 	const [isLoading, setIsLoading] = useState(false)
 	const [uploadProgress, setUploadProgress] = useState(0)
@@ -445,6 +446,7 @@ export default function CreateAutoClipModal({
 			videoError: null
 		})
 		setUploadProgress(0)
+		setCompressionProgress(0)
 		if (videoRef.current) {
 			videoRef.current.unloadAsync()
 		}
@@ -537,13 +539,14 @@ const fetchCars = async () => {
 				newState.descriptionError = ''
 			}
 	
-			// Car selection validation
-			if (!formState.selectedCarId || formState.selectedCarId <= 0) {
-				newState.carError = 'Please select a car'
-				isValid = false
-			} else {
-				newState.carError = ''
-			}
+					// Car selection validation (TEMPORARILY DISABLED FOR TESTING)
+		// if (!formState.selectedCarId || formState.selectedCarId <= 0) {
+		// 	newState.carError = 'Please select a car'
+		// 	isValid = false
+		// } else {
+		// 	newState.carError = ''
+		// }
+		newState.carError = '' // Always valid for testing
 	
 			// Enhanced video validation
 			if (!formState.video) {
@@ -667,6 +670,8 @@ const fetchCars = async () => {
 					video: enhancedVideoAsset,
 					videoError: null 
 				}))
+
+
 	
 				// Success haptic feedback
 				try {
@@ -697,6 +702,7 @@ const fetchCars = async () => {
 				video: null,
 				videoError: errorMessage
 			}))
+
 	
 			// Error haptic feedback
 			try {
@@ -719,28 +725,30 @@ const fetchCars = async () => {
 		try {
 			if (!validateForm()) return
 
-			// RULE: Check if car already has a non-rejected autoclip
-			const { data: existingClip, error: checkError } = await supabase
-				.from('auto_clips')
-				.select('id, status')
-				.eq('car_id', formState.selectedCarId)
-				.neq('status', 'rejected') // Exclude rejected clips
-				.single()
+			// RULE: Check if car already has a non-rejected autoclip (TEMPORARILY DISABLED FOR TESTING)
+			if (formState.selectedCarId) {
+				const { data: existingClip, error: checkError } = await supabase
+					.from('auto_clips')
+					.select('id, status')
+					.eq('car_id', formState.selectedCarId)
+					.neq('status', 'rejected') // Exclude rejected clips
+					.single()
 
-			if (checkError && checkError.code !== 'PGRST116') {
-				throw checkError
-			}
-
-			if (existingClip) {
-				triggerHaptic('heavy')
-				let message = 'This car already has an AutoClip'
-				if (existingClip.status === 'under_review') {
-					message = 'This car has an AutoClip pending review'
-				} else if (existingClip.status === 'published') {
-					message = 'This car already has a published AutoClip'
+				if (checkError && checkError.code !== 'PGRST116') {
+					throw checkError
 				}
-				Alert.alert('Cannot Submit', message)
-				return
+
+				if (existingClip) {
+					triggerHaptic('heavy')
+					let message = 'This car already has an AutoClip'
+					if (existingClip.status === 'under_review') {
+						message = 'This car has an AutoClip pending review'
+					} else if (existingClip.status === 'published') {
+						message = 'This car already has a published AutoClip'
+					}
+					Alert.alert('Cannot Submit', message)
+					return
+				}
 			}
 
 			setIsLoading(true)
@@ -785,9 +793,8 @@ const fetchCars = async () => {
 			} = supabase.storage.from('autoclips').getPublicUrl(filePath)
 
 			// CRITICAL UPDATE: Create database entry with 'under_review' status
-			const { error: dbError } = await supabase.from('auto_clips').insert({
+			const insertData: any = {
 				dealership_id: dealership!.id,
-				car_id: formState.selectedCarId,
 				title: formState.title.trim(),
 				description: formState.description.trim(),
 				video_url: publicUrl,
@@ -799,7 +806,14 @@ const fetchCars = async () => {
 				liked_users: [],
 				submitted_at: new Date().toISOString(), // NEW: Track submission time
 				published_at: null // Will be set when approved
-			})
+			}
+
+			// Only add car_id if a car is selected (for testing purposes)
+			if (formState.selectedCarId) {
+				insertData.car_id = formState.selectedCarId
+			}
+
+			const { error: dbError } = await supabase.from('auto_clips').insert(insertData)
 
 			if (dbError) throw dbError
 
@@ -937,6 +951,7 @@ const fetchCars = async () => {
 										<VideoPickerButton
 											onVideoSelect={handleVideoSelect}
 											isDarkMode={isDarkMode}
+											onCompressionProgress={setCompressionProgress}
 										/>
 									)}
 
@@ -947,6 +962,8 @@ const fetchCars = async () => {
 											{formState.videoError}
 										</Animated.Text>
 									)}
+
+
 								</View>
 
 								{/* Clip Details */}
@@ -995,10 +1012,11 @@ const fetchCars = async () => {
 								</View>
 
 								{/* Car Selection */}
+								{/* Car Selection - TEMPORARILY OPTIONAL FOR TESTING */}
 								<View className='mb-8'>
 									<SectionHeader
-										title='Featured Vehicle'
-										subtitle='Select the car featured in this clip'
+										title='Featured Vehicle (Optional - Testing Mode)'
+										subtitle='Optionally select the car featured in this clip'
 										isDarkMode={isDarkMode}
 									/>
 
@@ -1025,9 +1043,7 @@ const fetchCars = async () => {
 												className={`text-center ${
 													isDarkMode ? 'text-white' : 'text-black'
 												}`}>
-												No cars available for new AutoClips.
-												{'\n'}
-												All cars either have existing clips or clips pending review.
+												No cars available for selection.{'\n'}You can still create AutoClips without selecting a car (testing mode).
 											</Text>
 										</BlurView>
 									)}
