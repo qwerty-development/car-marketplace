@@ -37,6 +37,8 @@ const whish_api_url = 'https://lb.sandbox.whish.money/itel-service/api'
 const WHISH_CHANNEL = '10196115'
 const WHISH_SECRET = '80af9650b74c4c209e0e0daa5d7d331e'
 const WHISH_WEBSITEURL = 'fleetapp.me'
+// Feature flag to show/hide renew subscription UI
+const ENABLE_RENEW_SUBSCRIPTION = false
 const WHISH_SUCCESS_WEBHOOK = 'https://auth.fleetapp.me/functions/v1/Renew_subscription'
 const WHISH_FAILURE_WEBHOOK = 'https://webhook.site/074b1018-cb5c-42da-833e-716d53a3061e'
 
@@ -216,12 +218,14 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
               </Text>
             </View>
           </View>
-          <TouchableOpacity 
-            className="bg-red-500 px-3 py-2 rounded-lg" 
-            onPress={onRenewPress}
-          >
-            <Text className="text-white font-medium text-sm">Renew</Text>
-          </TouchableOpacity>
+          {onRenewPress && (
+            <TouchableOpacity 
+              className="bg-red-500 px-3 py-2 rounded-lg" 
+              onPress={onRenewPress}
+            >
+              <Text className="text-white font-medium text-sm">Renew</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </LinearGradient>
     );
@@ -247,12 +251,14 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
               </Text>
             </View>
           </View>
-          <TouchableOpacity 
-            className="bg-yellow-500 px-3 py-2 rounded-lg" 
-            onPress={onRenewPress}
-          >
-            <Text className="text-white font-medium text-sm">Extend</Text>
-          </TouchableOpacity>
+          {onRenewPress && (
+            <TouchableOpacity 
+              className="bg-yellow-500 px-3 py-2 rounded-lg" 
+              onPress={onRenewPress}
+            >
+              <Text className="text-white font-medium text-sm">Extend</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </LinearGradient>
     );
@@ -277,12 +283,14 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
             </Text>
           </View>
         </View>
-        <TouchableOpacity 
-          className="bg-green-600 px-3 py-2 rounded-lg" 
-          onPress={onRenewPress}
-        >
-          <Text className="text-white font-medium text-sm">Renew</Text>
-        </TouchableOpacity>
+        {onRenewPress && (
+          <TouchableOpacity 
+            className="bg-green-600 px-3 py-2 rounded-lg" 
+            onPress={onRenewPress}
+          >
+            <Text className="text-white font-medium text-sm">Renew</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </LinearGradient>
   );
@@ -615,7 +623,7 @@ export default function DealershipProfilePage() {
             showWarning={showWarning}
             daysUntilExpiration={daysUntilExpiration}
             router={router}
-            onRenewPress={() => setIsRenewModalVisible(true)}
+            onRenewPress={ENABLE_RENEW_SUBSCRIPTION ? () => setIsRenewModalVisible(true) : undefined}
           />
         </View>
 
@@ -807,13 +815,15 @@ export default function DealershipProfilePage() {
       />
 
       {/* Renew Subscription Modal */}
-      <RenewSubscriptionModal
-        visible={isRenewModalVisible}
-        onClose={() => setIsRenewModalVisible(false)}
-        isDarkMode={isDarkMode}
-        onSelectPlan={handleSelectPlan}
-        isSubmitting={isCreatingPayment}
-      />
+      {ENABLE_RENEW_SUBSCRIPTION && (
+        <RenewSubscriptionModal
+          visible={isRenewModalVisible}
+          onClose={() => setIsRenewModalVisible(false)}
+          isDarkMode={isDarkMode}
+          onSelectPlan={handleSelectPlan}
+          isSubmitting={isCreatingPayment}
+        />
+      )}
 
       {/* Sign Out Overlay */}
       <SignOutOverlay visible={showSignOutOverlay} />
