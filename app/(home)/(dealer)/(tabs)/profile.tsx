@@ -32,8 +32,25 @@ import Constants from 'expo-constants'
 const SUBSCRIPTION_WARNING_DAYS = 7
 const MODAL_HEIGHT_PERCENTAGE = 0.7;
 
+// Whish sandbox configuration (testing only)
+const whish_api_url = 'https://lb.sandbox.whish.money/itel-service/api'
+const WHISH_CHANNEL = '10196115'
+const WHISH_SECRET = '80af9650b74c4c209e0e0daa5d7d331e'
+const WHISH_WEBSITEURL = 'fleetapp.me'
+const WHISH_SUCCESS_WEBHOOK = 'https://auth.fleetapp.me/functions/v1/Renew_subscription'
+const WHISH_FAILURE_WEBHOOK = 'https://webhook.site/074b1018-cb5c-42da-833e-716d53a3061e'
+
+type RouterType = ReturnType<typeof useRouter>
+
+type LegalsModalProps = {
+  visible: boolean
+  onClose: () => void
+  isDarkMode: boolean
+  router: RouterType
+}
+
 // New component for Legal Options Modal
-const LegalsModal = ({ visible, onClose, isDarkMode, router }) => {
+const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps) => {
   return (
     <Modal
       visible={visible}
@@ -94,8 +111,91 @@ const LegalsModal = ({ visible, onClose, isDarkMode, router }) => {
   );
 };
 
+type SubscriptionBannerProps = {
+  isDarkMode: boolean
+  subscriptionExpired: boolean
+  showWarning: boolean
+  daysUntilExpiration: number | null
+  router: RouterType
+  onRenewPress?: () => void
+}
+
+type RenewSubscriptionModalProps = {
+	visible: boolean
+	onClose: () => void
+	isDarkMode: boolean
+	onSelectPlan: (amountUsd: number) => void
+	isSubmitting: boolean
+}
+
+const RenewSubscriptionModal = ({ visible, onClose, isDarkMode, onSelectPlan, isSubmitting }: RenewSubscriptionModalProps) => {
+	return (
+		<Modal
+			visible={visible}
+			transparent={true}
+			animationType="fade"
+			onRequestClose={onClose}
+		>
+			<View style={styles.modalOverlay}>
+				<TouchableWithoutFeedback onPress={onClose}>
+					<View style={styles.modalBackground} />
+				</TouchableWithoutFeedback>
+				<View
+					style={[
+						styles.modalContent,
+						{ backgroundColor: isDarkMode ? '#1A1A1A' : 'white' }
+					]}
+				>
+					<View className="flex-row justify-between items-center mb-6">
+						<Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+							Renew Subscription
+						</Text>
+						<TouchableOpacity onPress={onClose}>
+							<Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
+						</TouchableOpacity>
+					</View>
+
+					<Text className={`${isDarkMode ? 'text-white/80' : 'text-gray-600'} mb-4`}>
+						Choose a plan to proceed with payment via Whish (sandbox)
+					</Text>
+
+					<TouchableOpacity
+						className={`p-4 rounded-xl mb-3 flex-row items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+						disabled={isSubmitting}
+						onPress={() => onSelectPlan(10)}
+					>
+						<View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center mr-3">
+							<Ionicons name="calendar-outline" size={22} color="#3b82f6" />
+						</View>
+						<View style={{ flex: 1 }}>
+							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Monthly Plan</Text>
+							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>$10 / month</Text>
+						</View>
+						{isSubmitting && <ActivityIndicator size="small" color="#3b82f6" />}
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						className={`p-4 rounded-xl flex-row items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+						disabled={isSubmitting}
+						onPress={() => onSelectPlan(100)}
+					>
+						<View className="w-10 h-10 rounded-full bg-emerald-500/10 items-center justify-center mr-3">
+							<Ionicons name="ribbon-outline" size={22} color="#10b981" />
+						</View>
+						<View style={{ flex: 1 }}>
+							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Yearly Plan</Text>
+							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>$100 / year</Text>
+						</View>
+						{isSubmitting && <ActivityIndicator size="small" color="#10b981" />}
+					</TouchableOpacity>
+				</View>
+			</View>
+		</Modal>
+	)
+}
+
 // Subscription Banner Component
-const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, daysUntilExpiration, router }) => {
+const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, daysUntilExpiration, onRenewPress }: SubscriptionBannerProps) => {
   if (subscriptionExpired) {
     return (
       <LinearGradient
@@ -118,7 +218,7 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
           </View>
           <TouchableOpacity 
             className="bg-red-500 px-3 py-2 rounded-lg" 
-            onPress={() => router.push('/(home)/(dealer)/subscription')}
+            onPress={onRenewPress}
           >
             <Text className="text-white font-medium text-sm">Renew</Text>
           </TouchableOpacity>
@@ -149,7 +249,7 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
           </View>
           <TouchableOpacity 
             className="bg-yellow-500 px-3 py-2 rounded-lg" 
-            onPress={() => router.push('/(home)/(dealer)/subscription')}
+            onPress={onRenewPress}
           >
             <Text className="text-white font-medium text-sm">Extend</Text>
           </TouchableOpacity>
@@ -177,7 +277,12 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
             </Text>
           </View>
         </View>
-    
+        <TouchableOpacity 
+          className="bg-green-600 px-3 py-2 rounded-lg" 
+          onPress={onRenewPress}
+        >
+          <Text className="text-white font-medium text-sm">Renew</Text>
+        </TouchableOpacity>
       </View>
     </LinearGradient>
   );
@@ -197,6 +302,8 @@ export default function DealershipProfilePage() {
   // State Management
   const [isUploading, setIsUploading] = useState(false)
   const [isLegalsModalVisible, setIsLegalsModalVisible] = useState(false)
+  const [isRenewModalVisible, setIsRenewModalVisible] = useState(false)
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false)
 
@@ -236,7 +343,7 @@ export default function DealershipProfilePage() {
             onPress: async () => {
               try {
                 // Navigate to user interface
-                router.replace('/(home)/(user)/');
+                router.replace('/(home)/(user)' as any);
               } catch (error) {
                 console.error('Error navigating to user interface:', error);
                 Alert.alert('Error', 'Failed to navigate. Please try again.');
@@ -362,6 +469,70 @@ export default function DealershipProfilePage() {
     fetchDealershipProfile().finally(() => setRefreshing(false))
   }, [fetchDealershipProfile])
 
+  const handleSelectPlan = useCallback(async (amountUsd: number) => {
+    try {
+      setIsCreatingPayment(true)
+      const externalId = Date.now()
+      const plan = amountUsd === 10 ? 'monthly' : 'yearly'
+      const dealerIdParam = dealership?.id ? String(dealership.id) : 'unknown'
+      const qs = new URLSearchParams({
+        eid: String(externalId),//external id
+        dealerId: dealerIdParam,//dealer_id
+        plan //plan either 1 month or 1 year 
+      }).toString()
+
+      const successCallbackUrl = `${WHISH_SUCCESS_WEBHOOK}?${qs}`
+      const failureCallbackUrl = `${WHISH_FAILURE_WEBHOOK}?${qs}`
+      const body = {
+        amount: amountUsd,
+        currency: 'USD',
+        invoice: amountUsd === 10 ? 'Monthly subscription' : 'Yearly subscription',
+        externalId,
+        successCallbackUrl,
+        failureCallbackUrl,
+        successRedirectUrl: 'https://fleetapp.me/success',
+        failureRedirectUrl: 'https://fleetapp.me/failure'
+      }
+
+      const res = await fetch(`${whish_api_url}/payment/whish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          channel: WHISH_CHANNEL,
+          secret: WHISH_SECRET,
+          websiteurl: WHISH_WEBSITEURL
+        } as any,
+        body: JSON.stringify(body)
+      })
+
+      const json = await res.json()
+      if (json?.status && json?.data?.collectUrl) {
+        setIsRenewModalVisible(false)
+        Alert.alert(
+          'Proceed to Payment',
+          'You will be redirected to Whish sandbox to complete the payment.',
+          [
+            {
+              text: 'Open Payment Page',
+              onPress: () => {
+                Linking.openURL(json.data.collectUrl)
+              }
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        )
+      } else {
+        const code = json?.code || 'unknown_error'
+        const message = json?.dialog?.message || 'Unable to create payment'
+        Alert.alert('Whish Error', `${code}: ${message}`)
+      }
+    } catch (e) {
+      Alert.alert('Network Error', 'Failed to reach Whish sandbox')
+    } finally {
+      setIsCreatingPayment(false)
+    }
+  }, [])
+
   if (isProfileLoading) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -444,6 +615,7 @@ export default function DealershipProfilePage() {
             showWarning={showWarning}
             daysUntilExpiration={daysUntilExpiration}
             router={router}
+            onRenewPress={() => setIsRenewModalVisible(true)}
           />
         </View>
 
@@ -632,6 +804,15 @@ export default function DealershipProfilePage() {
         onClose={() => setIsLegalsModalVisible(false)}
         isDarkMode={isDarkMode}
         router={router}
+      />
+
+      {/* Renew Subscription Modal */}
+      <RenewSubscriptionModal
+        visible={isRenewModalVisible}
+        onClose={() => setIsRenewModalVisible(false)}
+        isDarkMode={isDarkMode}
+        onSelectPlan={handleSelectPlan}
+        isSubmitting={isCreatingPayment}
       />
 
       {/* Sign Out Overlay */}

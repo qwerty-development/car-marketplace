@@ -152,6 +152,8 @@ export default function CarCard({
   isFavorite,
   isDealer = false,
   index = 0,
+  showSoldBanner = false,
+  disableActions = false,
 }: any) {
   const { isDarkMode } = useTheme();
   
@@ -404,6 +406,20 @@ export default function CarCard({
             </StyledView>
           </View>
 
+          {/* Sold Banner */}
+          {showSoldBanner && (
+            <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
+              <View className="bg-gray-900/90 px-6 py-3 rounded-xl border-2 border-gray-400">
+                <StyledText className="text-white text-lg font-bold text-center">
+                  SOLD
+                </StyledText>
+                <StyledText className="text-gray-300 text-sm text-center mt-1">
+                  No longer available
+                </StyledText>
+              </View>
+            </View>
+          )}
+
           {/* Image Counter */}
           {displayedImages.length > 1 && (
             <View className="absolute bottom-4 right-4 z-10 bg-night/60 px-3 py-1 rounded-full">
@@ -502,7 +518,7 @@ export default function CarCard({
   return (
     <Animated.View
       style={{
-        opacity: fadeAnim,
+        opacity: showSoldBanner ? fadeAnim * 0.7 : fadeAnim, // Reduce opacity for sold cars
         transform: [
           { translateY },
           { scale: scaleAnim }
@@ -624,21 +640,31 @@ export default function CarCard({
                 className="flex-row items-center"
                 style={{ gap: 8 }}
               >
-                <ActionButton
-                  icon="call-outline"
-                  onPress={handleCall}
-                  isDarkMode={isDarkMode}
-                />
-                <ActionButton
-                  icon="logo-whatsapp"
-                  onPress={handleWhatsAppPress}
-                  isDarkMode={isDarkMode}
-                />
-                <ActionButton
-                  icon="share-outline"
-                  onPress={handleShare}
-                  isDarkMode={isDarkMode}
-                />
+                {!disableActions ? (
+                  <>
+                    <ActionButton
+                      icon="call-outline"
+                      onPress={handleCall}
+                      isDarkMode={isDarkMode}
+                    />
+                    <ActionButton
+                      icon="logo-whatsapp"
+                      onPress={handleWhatsAppPress}
+                      isDarkMode={isDarkMode}
+                    />
+                    <ActionButton
+                      icon="share-outline"
+                      onPress={handleShare}
+                      isDarkMode={isDarkMode}
+                    />
+                  </>
+                ) : (
+                  <StyledView className="flex-row items-center justify-center px-4 py-2 bg-gray-500/50 rounded-xl">
+                    <StyledText className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+                      Contact unavailable
+                    </StyledText>
+                  </StyledView>
+                )}
               </StyledView>
             </StyledView>
           </StyledView>

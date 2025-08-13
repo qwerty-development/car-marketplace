@@ -52,14 +52,14 @@ const CustomHeader = React.memo(({
 }) => {
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
-
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
           paddingHorizontal: 24,
-          marginBottom: Platform.OS === 'ios' ? -20 : 8
+          marginBottom: Platform.OS === 'ios' ? -20 : 8,
+          backgroundColor: 'transparent' // Ensure no background color conflicts
         }}
       >
         <Text
@@ -92,6 +92,8 @@ interface Car {
   likes: number
   views: number
   listed_at: string
+  status: string
+  sold_at?: string
   dealerships: {
     name: string
     logo: string
@@ -145,12 +147,12 @@ export default function Favorite() {
       return
     }
     try {
+      // Fetch ALL favorited cars regardless of status to show sold ones with banner
       const { data, error } = await supabase
         .from('cars')
         .select(
           `*, dealerships (name, logo, phone, location, latitude, longitude)`
         )
-        .eq('status', 'available')
         .in('id', favorites)
       if (error) throw error
 
@@ -165,11 +167,57 @@ export default function Favorite() {
           dealership_longitude: item.dealerships.longitude
         })) || []
 
-      setFavoriteCars(carsData)
-      setFilteredCars(carsData)
+      // Filter out cars that have been sold for more than 15 days
+      const fifteenDaysAgo = new Date()
+      fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15)
+      
+      const validCars = carsData.filter(car => {
+        if (car.status === 'available') return true
+        
+        // For sold cars, check if sold_at is within 15 days
+        if (car.sold_at) {
+          const soldDate = new Date(car.sold_at)
+          return soldDate > fifteenDaysAgo
+        }
+        
+        // If no sold_at but status is not available, assume recently sold
+        return true
+      })
 
-      // Update canCompare state - need at least 2 available cars to compare
-      setCanCompare(carsData.length >= 2)
+      // Sort: available cars first, then sold cars
+      const sortedValidCars = validCars.sort((a, b) => {
+        if (a.status === 'available' && b.status !== 'available') return -1
+        if (a.status !== 'available' && b.status === 'available') return 1
+        return 0
+      })
+
+      setFavoriteCars(sortedValidCars)
+      setFilteredCars(sortedValidCars)
+
+      // Update canCompare state - need at least 2 AVAILABLE cars to compare
+      const availableCars = sortedValidCars.filter(car => car.status === 'available')
+      setCanCompare(availableCars.length >= 2)
+
+      // Auto-remove favorites that are sold for more than 15 days
+      const expiredFavorites = favorites.filter(favId => {
+        const car = carsData.find(c => c.id === favId)
+        if (!car) return true // Remove if car no longer exists
+        
+        if (car.status !== 'available' && car.sold_at) {
+          const soldDate = new Date(car.sold_at)
+          return soldDate <= fifteenDaysAgo
+        }
+        return false
+      })
+
+      // Remove expired favorites from user's favorites list
+      if (expiredFavorites.length > 0) {
+        console.log('Auto-removing expired sold favorites:', expiredFavorites)
+        // This will trigger a re-fetch, so we don't need to update local state
+        expiredFavorites.forEach(async (carId) => {
+          await toggleFavorite(carId)
+        })
+      }
 
     } catch (error) {
       console.error('Error fetching favorite cars:', error)
@@ -179,7 +227,7 @@ export default function Favorite() {
       if (firstLoad) setIsLoading(false)
       setHasFetched(true)
     }
-  }, [favorites, hasFetched])
+  }, [favorites, hasFetched, toggleFavorite])
 
   useEffect(() => {
     fetchFavoriteCars()
@@ -335,6 +383,8 @@ export default function Favorite() {
         onPress={() => handleCarPress(item)}
         onFavoritePress={() => handleFavoritePress(item.id)}
         isFavorite={true}
+        showSoldBanner={item.status !== 'available'}
+        disableActions={item.status !== 'available'}
       />
     ),
     [handleCarPress, handleFavoritePress]
@@ -351,16 +401,20 @@ export default function Favorite() {
         <Text style={styles.emptyText}>
           {searchQuery
             ? 'No cars match your search.'
+            : favorites.length > 0
+            ? 'All your favorite cars have been sold'
             : 'No cars added as favorite'}
         </Text>
         {!searchQuery && (
           <Text style={styles.emptySubText}>
-            Your favorite cars will appear here
+            {favorites.length > 0
+              ? 'Sold favorites are automatically removed after 15 days'
+              : 'Your favorite cars will appear here'}
           </Text>
         )}
       </View>
     ),
-    [searchQuery]
+    [searchQuery, favorites.length]
   )
 
   const ErrorMessage = useMemo(
@@ -432,7 +486,7 @@ export default function Favorite() {
       <CustomHeader
         title="Favorites"
         onComparePress={handleComparePress}
-        canCompare={canCompare && !isGuest}
+        canCompare={canCompare}
         isDarkMode={isDarkMode}
       />
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>

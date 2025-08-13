@@ -883,9 +883,9 @@ features
 
       console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
 
-      // Step 4: Calculate target dimensions while preserving aspect ratio
-      const MAX_WIDTH = 1280;
-      const MAX_HEIGHT = 1280;
+      // Step 4: Calculate target dimensions while preserving aspect ratio (tighter cap for better compression)
+      const MAX_WIDTH = 1080;
+      const MAX_HEIGHT = 1080;
       const aspectRatio = originalWidth / originalHeight;
 
       let targetWidth = originalWidth;
@@ -905,23 +905,25 @@ features
 
       console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
 
-      // Step 5: Determine optimal compression level based on file size
-      let compressionLevel = 0.7; // Default compression
+      // Step 5: Determine optimal compression level based on file size (more aggressive)
+      let compressionLevel = 0.6; // Default compression
 
       if (fileInfo.size > 10 * 1024 * 1024) {
-        compressionLevel = 0.5; // Aggressive compression for very large images
+        compressionLevel = 0.4; // Aggressive compression for very large images
       } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
-        compressionLevel = 0.6; // Stronger compression for large images and iOS photos
+        compressionLevel = 0.5; // Stronger compression for large images and iOS photos
       }
 
       // Step 6: First-pass optimization with exact dimension control
+      const targetFormat = Platform.OS === "android"
+        ? ImageManipulator.SaveFormat.WEBP
+        : ImageManipulator.SaveFormat.JPEG;
       const firstPass = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: targetWidth, height: targetHeight } }],
         {
           compress: compressionLevel,
-          format: ImageManipulator.SaveFormat.JPEG,
-          exif: false, // Remove EXIF data to normalize orientation and reduce size
+          format: targetFormat,
         }
       );
 
@@ -940,7 +942,7 @@ features
             [], // No transformations, just re-encode
             {
               compress: compressionLevel,
-              format: ImageManipulator.SaveFormat.JPEG,
+              format: targetFormat,
               base64: false,
             }
           );
@@ -1143,17 +1145,23 @@ features
                   console.log(
                     `Validating accessibility for image ${imageNumber}`
                   );
-                  const response = await fetch(publicURLData.publicUrl, {
-                    method: "HEAD",
-                    timeout: 5000, // 5 second timeout for validation
-                  });
-
-                  if (!response.ok) {
-                    console.warn(
-                      `Validation warning for image ${imageNumber}: HTTP ${response.status} (upload still successful)`
-                    );
-                  } else {
-                    console.log(`Image ${imageNumber} validation successful`);
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 5000);
+                  try {
+                    const response = await fetch(publicURLData.publicUrl, (
+                      {
+                        method: "HEAD",
+                      } as any
+                    ));
+                    if (!response.ok) {
+                      console.warn(
+                        `Validation warning for image ${imageNumber}: HTTP ${response.status} (upload still successful)`
+                      );
+                    } else {
+                      console.log(`Image ${imageNumber} validation successful`);
+                    }
+                  } finally {
+                    clearTimeout(timeoutId);
                   }
                 } catch (validationError) {
                   // CRITICAL: Don't fail the upload because validation failed
@@ -1603,7 +1611,7 @@ features
 
     const handleDateChange = (
       event: any,
-      selectedDate: { toISOString: () => string }
+      selectedDate?: Date
     ) => {
       // Hide the picker first to prevent UI issues
       setShowInlinePicker(false);
@@ -1611,7 +1619,7 @@ features
       // Handle both Android and iOS patterns safely
       // On Android, cancelled = undefined selectedDate
       // On iOS, we get an event.type
-      if (selectedDate) {
+      if (selectedDate instanceof Date) {
         try {
           // Add safety checks before using date methods
           setLocalDate(selectedDate.toISOString().split("T")[0]);
