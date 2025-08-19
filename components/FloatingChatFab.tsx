@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect as useDomEffect } from 'react';
 import { Modal, Platform, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { usePathname, useSegments } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import EnhancedChatScreen from './ChatAssistantScreen';
+import { registerAnchorWithMeasure, unregisterAnchor } from '@/utils/OnboardingRegistry';
 
 /**
  * FloatingChatFab
@@ -74,6 +75,24 @@ export default function FloatingChatFab() {
           shadowOpacity: 0.3,
           shadowRadius: 6,
           elevation: 8,
+        }}
+        ref={(node: any) => {
+          // Register measure for onboarding highlight
+          if (node) {
+            registerAnchorWithMeasure('global.chatFab', async () => {
+              return new Promise(resolve => {
+                try {
+                  node.measureInWindow((x: number, y: number, width: number, height: number) => {
+                    resolve({ x, y, width, height });
+                  });
+                } catch {
+                  resolve(null);
+                }
+              });
+            });
+          } else {
+            unregisterAnchor('global.chatFab');
+          }
         }}
       >
         <Ionicons name="chatbubbles-outline" size={30} color="#fff" />

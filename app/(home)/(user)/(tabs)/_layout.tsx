@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { View, Animated, Platform } from 'react-native';
+import { registerAnchorWithMeasure, unregisterAnchor } from '@/utils/OnboardingRegistry';
 
 export default function TabLayout() {
   const { isDarkMode } = useTheme();
@@ -72,7 +73,19 @@ export default function TabLayout() {
                   borderWidth: isDarkMode ? 0 : 1,
                   borderColor: 'rgba(213, 80, 4, 0.1)',
                   transform: [{ translateY: -15 }],
-                }}>
+                }}
+                ref={(node: any) => {
+                  if (node) {
+                    registerAnchorWithMeasure('tab.autoclips', async () => new Promise(resolve => {
+                      try {
+                        node.measureInWindow((x: number, y: number, width: number, height: number) => resolve({ x, y, width, height }));
+                      } catch { resolve(null); }
+                    }));
+                  } else {
+                    unregisterAnchor('tab.autoclips');
+                  }
+                }}
+              >
                 <Ionicons name={iconName} size={32} color='white' />
               </View>
             );
@@ -84,7 +97,19 @@ export default function TabLayout() {
                 height: 55,
                 justifyContent: 'center',
                 alignItems: 'center',
-              }}>
+              }}
+              ref={(node: any) => {
+                const id = route.name === 'dealerships' ? 'tab.dealerships' : route.name === 'Favorite' ? 'tab.favorite' : route.name === 'index' ? 'tab.home' : route.name === 'profile' ? 'tab.profile' : undefined;
+                if (!id) return;
+                if (node) {
+                  registerAnchorWithMeasure(id, async () => new Promise(resolve => {
+                    try { node.measureInWindow((x: number, y: number, width: number, height: number) => resolve({ x, y, width, height })); } catch { resolve(null); }
+                  }));
+                } else {
+                  unregisterAnchor(id);
+                }
+              }}
+            >
               <Ionicons
                 name={iconName}
                 size={28}

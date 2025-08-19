@@ -58,6 +58,7 @@ interface UserProfile {
   timezone: string;
   is_guest?: boolean;
   role?: string;
+  onboarded?: boolean;
 }
 
 interface SignInCredentials {
@@ -474,6 +475,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           last_active: new Date().toISOString(),
           timezone: 'UTC',
           role: 'user',
+          onboarded: false,
         };
 
         const upsertResult = await withTimeout(
@@ -1065,6 +1067,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             last_active: new Date().toISOString(),
             timezone: 'UTC',
             role: role,
+            onboarded: false,
           }], {
             onConflict: 'id',
             ignoreDuplicates: false

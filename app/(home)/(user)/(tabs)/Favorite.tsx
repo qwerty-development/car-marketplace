@@ -35,6 +35,8 @@ import SkeletonCarCard from '@/components/SkeletonCarCard'
 import { BlurView } from 'expo-blur'
 import { useGuestUser } from '@/utils/GuestUserContext'
 import CompareButton from '@/components/CompareButton'
+import { registerAnchorWithMeasure, unregisterAnchor } from '@/utils/OnboardingRegistry'
+import { useRef as useDomRef, useEffect as useDomEffect } from 'react'
 
 // -----------------------
 // Custom Header Component
@@ -50,6 +52,15 @@ const CustomHeader = React.memo(({
   canCompare: boolean;
   isDarkMode: boolean;
 }) => {
+  const compareRef = useDomRef<any>(null)
+  useDomEffect(() => {
+    if (compareRef.current) {
+      registerAnchorWithMeasure('favorite.compare', async () => new Promise(resolve => {
+        try { compareRef.current.measureInWindow((x: number, y: number, width: number, height: number) => resolve({ x, y, width, height })); } catch { resolve(null) }
+      }))
+      return () => unregisterAnchor('favorite.compare')
+    }
+  }, [compareRef.current])
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
       <View
@@ -71,12 +82,14 @@ const CustomHeader = React.memo(({
           {title}
         </Text>
 
-        <CompareButton
-          onPress={onComparePress}
-          enabled={canCompare}
-          isDarkMode={isDarkMode}
-          inHeader={true}
-        />
+        <View ref={compareRef}>
+          <CompareButton
+            onPress={onComparePress}
+            enabled={canCompare}
+            isDarkMode={isDarkMode}
+            inHeader={true}
+          />
+        </View>
       </View>
     </SafeAreaView>
   )

@@ -34,6 +34,7 @@ import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
 import * as Sentry from '@sentry/react-native';
+import { registerAnchorRef, registerAnchorWithMeasure, unregisterAnchor } from '@/utils/OnboardingRegistry';
 const ITEMS_PER_PAGE = 7;
 
 interface Car {
@@ -103,6 +104,8 @@ export default function BrowseCarsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const router = useRouter();
+  const searchBarRef = useRef<any>(null);
+  const filterIconRef = useRef<any>(null);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const params = useLocalSearchParams<{
     filters?: string;
@@ -114,6 +117,33 @@ export default function BrowseCarsPage() {
   useEffect(() => {
     // Allow components to load immediately instead of progressive loading
     setComponentsLoaded(true);
+  }, []);
+
+  // Register onboarding anchors
+  useEffect(() => {
+    registerAnchorRef('home.searchBar', searchBarRef);
+    registerAnchorRef('home.filterIcon', filterIconRef);
+    // Sports category: compute its rect from scroll list
+    registerAnchorWithMeasure('home.category.sports', async () => {
+      // The category row is just below brands; approximate a stable area near left of the row
+      // Prefer measuring searchBar as reference and offset by a constant to reach categories section
+      return new Promise(resolve => {
+        if (!searchBarRef.current || typeof searchBarRef.current.measureInWindow !== 'function') {
+          resolve(null);
+          return;
+        }
+        searchBarRef.current.measureInWindow((x: number, y: number) => {
+          const approxY = y + 220; // approximate vertical offset to categories list
+          resolve({ x: 24, y: approxY, width: 120, height: 120 });
+        });
+      });
+    });
+
+    return () => {
+      unregisterAnchor('home.searchBar');
+      unregisterAnchor('home.filterIcon');
+      unregisterAnchor('home.category.sports');
+    };
   }, []);
 
   useEffect(() => {
@@ -809,6 +839,7 @@ export default function BrowseCarsPage() {
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
               <TouchableOpacity
+                ref={searchBarRef}
                 style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}
                 onPress={() => {
                   router.push({
@@ -852,6 +883,7 @@ export default function BrowseCarsPage() {
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
+                    ref={filterIconRef}
                     style={[
                       styles.iconButton,
                       isDarkMode && styles.darkIconButton,

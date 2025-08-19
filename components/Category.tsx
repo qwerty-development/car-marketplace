@@ -11,6 +11,7 @@ import {
 import { useTheme } from '@/utils/ThemeContext'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BlurView } from 'expo-blur'
+import { registerAnchorWithMeasure, unregisterAnchor } from '@/utils/OnboardingRegistry'
 
 // Import your PNG assets
 import SedanPng from '@/assets/types/sedan.png'
@@ -71,6 +72,15 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 
 					return (
 						<TouchableOpacity
+							ref={item.name === 'Sports' ? ((node: any) => {
+								if (node) {
+									registerAnchorWithMeasure('home.category.sports', async () => new Promise(resolve => {
+										try { node.measureInWindow((x: number, y: number, width: number, height: number) => resolve({ x, y, width, height })); } catch { resolve(null) }
+									}))
+								} else {
+									unregisterAnchor('home.category.sports')
+								}
+							}) : undefined}
 							key={item.name}
 							onPress={() => onCategoryPress(item.name)}
 							className={`mr-3 bg-black rounded-2xl overflow-hidden`}

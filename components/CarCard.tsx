@@ -21,6 +21,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRef as useDomRef, useEffect as useDomEffect } from 'react';
+import { registerAnchorRef, unregisterAnchor } from '@/utils/OnboardingRegistry';
 import { styled } from "nativewind";
 import { useTheme } from "@/utils/ThemeContext";
 import { useRouter } from "expo-router";
@@ -155,6 +157,14 @@ export default function CarCard({
   showSoldBanner = false,
   disableActions = false,
 }: any) {
+  const favoriteRef = useDomRef<any>(null);
+
+  useDomEffect(() => {
+    if (index === 0 && !isDealer) {
+      registerAnchorRef('carCard.favorite', favoriteRef);
+      return () => unregisterAnchor('carCard.favorite');
+    }
+  }, [index, isDealer]);
   const { isDarkMode } = useTheme();
   
   // Improved animation values with better spring physics
@@ -458,6 +468,7 @@ export default function CarCard({
           {/* Favorite Button */}
           {!isDealer && (
             <StyledPressable
+              ref={favoriteRef}
               onPress={handleFavoritePress}
               className={`absolute top-4 left-4 active:opacity-70`}
             >
@@ -518,7 +529,7 @@ export default function CarCard({
   return (
     <Animated.View
       style={{
-        opacity: showSoldBanner ? fadeAnim * 0.7 : fadeAnim, // Reduce opacity for sold cars
+        opacity: showSoldBanner ? Animated.multiply(fadeAnim, 0.7) : fadeAnim,
         transform: [
           { translateY },
           { scale: scaleAnim }

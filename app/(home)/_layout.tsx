@@ -8,6 +8,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import LogoLoader from "@/components/LogoLoader";
 import FloatingChatFab from "@/components/FloatingChatFab";
+import OnboardingManager from "@/utils/OnboardingManager";
 
 // CRITICAL SYSTEM: Global sign-out flag management
 let isSigningOut = false;
@@ -499,6 +500,9 @@ export default function HomeLayout() {
 
       {/* Global AI assistant button */}
       <FloatingChatFab />
+
+      {/* Global onboarding controller */}
+      <OnboardingManager />
     </View>
   );
 }
