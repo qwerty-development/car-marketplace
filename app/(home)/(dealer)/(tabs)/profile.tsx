@@ -40,10 +40,6 @@ const WHISH_WEBSITEURL = 'fleetapp.me'
 const WHISH_SUCCESS_WEBHOOK = 'https://auth.fleetapp.me/functions/v1/Renew_subscription'
 const WHISH_FAILURE_WEBHOOK = 'https://webhook.site/074b1018-cb5c-42da-833e-716d53a3061e'
 
-// Subscription pricing (customizable)
-const SUBSCRIPTION_PRICE_MONTHLY_USD = 250
-const SUBSCRIPTION_PRICE_YEARLY_USD = 2500
-
 type RouterType = ReturnType<typeof useRouter>
 
 type LegalsModalProps = {
@@ -166,14 +162,14 @@ const RenewSubscriptionModal = ({ visible, onClose, isDarkMode, onSelectPlan, is
 					<TouchableOpacity
 						className={`p-4 rounded-xl mb-3 flex-row items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
 						disabled={isSubmitting}
-						onPress={() => onSelectPlan(SUBSCRIPTION_PRICE_MONTHLY_USD)}
+						onPress={() => onSelectPlan(10)}
 					>
 						<View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center mr-3">
 							<Ionicons name="calendar-outline" size={22} color="#3b82f6" />
 						</View>
 						<View style={{ flex: 1 }}>
 							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Monthly Plan</Text>
-							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>${SUBSCRIPTION_PRICE_MONTHLY_USD} / month</Text>
+							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>$10 / month</Text>
 						</View>
 						{isSubmitting && <ActivityIndicator size="small" color="#3b82f6" />}
 					</TouchableOpacity>
@@ -181,14 +177,14 @@ const RenewSubscriptionModal = ({ visible, onClose, isDarkMode, onSelectPlan, is
 					<TouchableOpacity
 						className={`p-4 rounded-xl flex-row items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
 						disabled={isSubmitting}
-						onPress={() => onSelectPlan(SUBSCRIPTION_PRICE_YEARLY_USD)}
+						onPress={() => onSelectPlan(100)}
 					>
 						<View className="w-10 h-10 rounded-full bg-emerald-500/10 items-center justify-center mr-3">
 							<Ionicons name="ribbon-outline" size={22} color="#10b981" />
 						</View>
 						<View style={{ flex: 1 }}>
 							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Yearly Plan</Text>
-							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>${SUBSCRIPTION_PRICE_YEARLY_USD} / year</Text>
+							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>$100 / year</Text>
 						</View>
 						{isSubmitting && <ActivityIndicator size="small" color="#10b981" />}
 					</TouchableOpacity>
@@ -476,27 +472,41 @@ export default function DealershipProfilePage() {
   const handleSelectPlan = useCallback(async (amountUsd: number) => {
     try {
       setIsCreatingPayment(true)
-      const plan = amountUsd === SUBSCRIPTION_PRICE_MONTHLY_USD ? 'monthly' : 'yearly'
-      const dealerIdNum = dealership?.id ? Number(dealership.id) : NaN
-      if (!Number.isFinite(dealerIdNum)) {
-        Alert.alert('Error', 'Invalid dealer id')
-        return
+      const externalId = Date.now()
+      const plan = amountUsd === 10 ? 'monthly' : 'yearly'
+      const dealerIdParam = dealership?.id ? String(dealership.id) : 'unknown'
+      const qs = new URLSearchParams({
+        eid: String(externalId),//external id
+        dealerId: dealerIdParam,//dealer_id
+        plan //plan either 1 month or 1 year 
+      }).toString()
+
+      const successCallbackUrl = `${WHISH_SUCCESS_WEBHOOK}?${qs}`
+      const failureCallbackUrl = `${WHISH_FAILURE_WEBHOOK}?${qs}`
+      const body = {
+        amount: amountUsd,
+        currency: 'USD',
+        invoice: amountUsd === 10 ? 'Monthly subscription' : 'Yearly subscription',
+        externalId,
+        successCallbackUrl,
+        failureCallbackUrl,
+        successRedirectUrl: 'https://fleetapp.me/success',
+        failureRedirectUrl: 'https://fleetapp.me/failure'
       }
 
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string
-
-      const res = await fetch(`https://auth.fleetapp.me/functions/v1/whish-create-payment`, {
+      const res = await fetch(`${whish_api_url}/payment/whish`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`
-        },
-        body: JSON.stringify({ dealerId: dealerIdNum, plan })
+          channel: WHISH_CHANNEL,
+          secret: WHISH_SECRET,
+          websiteurl: WHISH_WEBSITEURL
+        } as any,
+        body: JSON.stringify(body)
       })
 
       const json = await res.json()
-      if (res.ok && json?.collectUrl) {
+      if (json?.status && json?.data?.collectUrl) {
         setIsRenewModalVisible(false)
         Alert.alert(
           'Proceed to Payment',
@@ -505,15 +515,15 @@ export default function DealershipProfilePage() {
             {
               text: 'Open Payment Page',
               onPress: () => {
-                Linking.openURL(json.collectUrl)
+                Linking.openURL(json.data.collectUrl)
               }
             },
             { text: 'Cancel', style: 'cancel' }
           ]
         )
       } else {
-        const code = json?.code || res.status
-        const message = json?.detail || json?.error || 'Unable to create payment'
+        const code = json?.code || 'unknown_error'
+        const message = json?.dialog?.message || 'Unable to create payment'
         Alert.alert('Whish Error', `${code}: ${message}`)
       }
     } catch (e) {
