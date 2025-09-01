@@ -26,6 +26,7 @@ import { Image } from "react-native";
 import AutoclipModal from "@/components/AutoclipModal";
 import { useAuth } from "@/utils/AuthContext";
 import ErrorBoundary from "react-native-error-boundary";
+import ImageViewing from "react-native-image-viewing";
 
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -799,14 +800,17 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           <Ionicons name="close" size={30} color="white" />
         </TouchableOpacity>
 
-        <Image
-          source={{ uri: car.images[selectedImageIndex] }}
-          style={{
-            width: Dimensions.get('window').width,
-            height: Dimensions.get('window').height * 0.7,
-            resizeMode: 'contain'
-          }}
-          defaultSource={require('@/assets/placeholder.jpg')}
+        {/* Image Viewer */}
+        <ImageViewing
+          images={car.images.map((uri: string) => ({ uri }))}
+          imageIndex={selectedImageIndex || 0}
+          visible={selectedImageIndex !== null}
+          onRequestClose={() => setSelectedImageIndex(null)}
+          presentationStyle="overFullScreen"
+          animationType="fade"
+          swipeToCloseEnabled={true}
+          doubleTapToZoomEnabled={true}
+          enableSwipeDown={false}
         />
 
         <View

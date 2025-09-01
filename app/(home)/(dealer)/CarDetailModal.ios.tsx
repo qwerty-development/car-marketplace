@@ -27,6 +27,7 @@ import AutoclipModal from "@/components/AutoclipModal";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import ImageViewing from "react-native-image-viewing";
 
 const { width } = Dimensions.get("window");
 
@@ -1139,41 +1140,18 @@ const handleWhatsAppPress = useCallback(() => {
         onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
         isLiked={selectedClip?.liked_users?.includes(user?.id)}
       />
-      {selectedImageIndex !== null && (
-        <Modal
-          visible={true}
-          transparent={true}
-          onRequestClose={() => setSelectedImageIndex(null)}
-        >
-          <View style={styles.modalBackground}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setSelectedImageIndex(null)}
-            >
-              <Ionicons name="close" size={40} color="white" />
-            </TouchableOpacity>
-            <FlatList
-              data={car.images}
-              horizontal
-              pagingEnabled
-              initialScrollIndex={selectedImageIndex}
-              keyExtractor={(item, index) => index.toString()}
-              getItemLayout={(data, index) => ({
-                length: Dimensions.get("window").width,
-                offset: Dimensions.get("window").width * index,
-                index,
-              })}
-              renderItem={({ item }) => (
-                <Image
-                  source={{ uri: item }}
-                  style={styles.fullscreenImage}
-                  contentFit="contain"
-                />
-              )}
-            />
-          </View>
-        </Modal>
-      )}
+      {/* Image Viewer */}
+      <ImageViewing
+        images={car.images.map((uri: string) => ({ uri }))}
+        imageIndex={selectedImageIndex || 0}
+        visible={selectedImageIndex !== null}
+        onRequestClose={() => setSelectedImageIndex(null)}
+        presentationStyle="overFullScreen"
+        animationType="fade"
+        swipeToCloseEnabled={true}
+        doubleTapToZoomEnabled={true}
+        enableSwipeDown={false}
+      />
     </View>
   );
 };

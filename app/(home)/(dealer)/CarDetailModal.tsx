@@ -26,6 +26,7 @@ import { Image } from "react-native";
 import AutoclipModal from "@/components/AutoclipModal";
 import { useAuth } from "@/utils/AuthContext";
 import ErrorBoundary from "react-native-error-boundary";
+import ImageViewing from "react-native-image-viewing";
 
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -766,114 +767,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     }
   }, [car, trackWhatsAppClick]);
 
-  // Safer image modal for Android
-  const renderImageModal = () => {
-    if (selectedImageIndex === null || !car?.images?.[selectedImageIndex]) return null;
 
-    return (
-      <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'black',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}
-      >
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: 40,
-            right: 20,
-            zIndex: 1001,
-            padding: 12,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            borderRadius: 25
-          }}
-          onPress={() => setSelectedImageIndex(null)}
-        >
-          <Ionicons name="close" size={30} color="white" />
-        </TouchableOpacity>
-
-        <Image
-          source={{ uri: car.images[selectedImageIndex] }}
-          style={{
-            width: Dimensions.get('window').width,
-            height: Dimensions.get('window').height * 0.7,
-            resizeMode: 'contain'
-          }}
-          defaultSource={require('@/assets/placeholder.jpg')}
-        />
-
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 40,
-            flexDirection: 'row',
-            justifyContent: 'center',
-            width: '100%'
-          }}
-        >
-          {car.images.map((_: any, index: number) => (
-            <View
-              key={index}
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: index === selectedImageIndex ? '#D55004' : 'rgba(255,255,255,0.5)',
-                marginHorizontal: 4
-              }}
-            />
-          ))}
-        </View>
-
-        {selectedImageIndex > 0 && (
-          <TouchableOpacity
-            style={{
-              position: 'absolute',
-              left: 20,
-              top: '50%',
-              marginTop: -25,
-              width: 50,
-              height: 50,
-              borderRadius: 25,
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              justifyContent: 'center',
-              alignItems: 'center'
-            }}
-            onPress={() => setSelectedImageIndex(selectedImageIndex - 1)}
-          >
-            <Ionicons name="chevron-back" size={30} color="white" />
-          </TouchableOpacity>
-        )}
-
-        {selectedImageIndex < car.images.length - 1 && (
-          <TouchableOpacity
-            style={{
-              position: 'absolute',
-              right: 20,
-              top: '50%',
-              marginTop: -25,
-              width: 50,
-              height: 50,
-              borderRadius: 25,
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              justifyContent: 'center',
-              alignItems: 'center'
-            }}
-            onPress={() => setSelectedImageIndex(selectedImageIndex + 1)}
-          >
-            <Ionicons name="chevron-forward" size={30} color="white" />
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
 
   // Render features section safely
   const renderFeatures = () => {
@@ -1442,8 +1336,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           isLiked={selectedClip?.liked_users?.includes(user?.id)}
         />
 
-        {/* Image Modal - Simplified for Android */}
-        {renderImageModal()}
+        {/* Image Viewer */}
+        <ImageViewing
+          images={car.images.map((uri: string) => ({ uri }))}
+          imageIndex={selectedImageIndex || 0}
+          visible={selectedImageIndex !== null}
+          onRequestClose={() => setSelectedImageIndex(null)}
+          presentationStyle="overFullScreen"
+          animationType="fade"
+          swipeToCloseEnabled={true}
+          doubleTapToZoomEnabled={true}
+          enableSwipeDown={false}
+        />
       </View>
     </ErrorBoundary>
   );

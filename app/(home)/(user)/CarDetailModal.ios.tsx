@@ -34,6 +34,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import ImageViewing from "react-native-image-viewing";
 let MapView: any;
 let MapViewMarker: any;
 
@@ -2116,13 +2117,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 offset: width * index,
                 index,
               })}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <View style={styles.imageContainer}>
                   <Image
                     source={{ uri: item }}
                     style={styles.fullscreenImage}
                     contentFit="contain"
-                    transition={200}
                   />
                 </View>
               )}
@@ -2141,6 +2141,19 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           </View>
         </Modal>
       )}
+
+      {/* Image Viewer */}
+      <ImageViewing
+        images={car.images.map((uri: string) => ({ uri }))}
+        imageIndex={selectedImageIndex || 0}
+        visible={selectedImageIndex !== null}
+        onRequestClose={() => setSelectedImageIndex(null)}
+        presentationStyle="overFullScreen"
+        animationType="fade"
+        swipeToCloseEnabled={true}
+        doubleTapToZoomEnabled={true}
+        enableSwipeDown={false}
+      />
     </View>
   );
 };
