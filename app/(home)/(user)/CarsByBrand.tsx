@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getLogoUrl } from '@/hooks/getLogoUrl'
+import SortPicker from '@/components/SortPicker'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 
@@ -146,7 +147,13 @@ const CarListSkeleton = React.memo(({ isDarkMode }: { isDarkMode: boolean }) => 
 });
 
 const CustomHeader = React.memo(
-	({ title, onBack, brandName }: { title: string; onBack: () => void; brandName?: string }) => {
+	({ title, onBack, brandName, onSortChange, sortOption }: { 
+		title: string; 
+		onBack: () => void; 
+		brandName?: string;
+		onSortChange?: (value: string) => void;
+		sortOption?: string;
+	}) => {
 		const { isDarkMode } = useTheme()
 		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
 		const logoUrl = brandName ? getLogoUrl(brandName, !isDarkMode) : null;
@@ -156,23 +163,33 @@ const CustomHeader = React.memo(
 				edges={['top']}
 				className={`bg-${isDarkMode ? 'black' : 'white'}`}>
 	
-				<View className='flex-row items-center pb-4 px-4'>
-					<TouchableOpacity onPress={onBack}>
-						<Ionicons name='arrow-back' size={24} color={iconColor} />
-					</TouchableOpacity>
-					{logoUrl && (
-						<Image
-							source={{ uri: logoUrl }}
-							style={{ width: 40, height: 40, marginLeft: 12 }}
-							resizeMode="contain"
-						/>
+				<View className='flex-row items-center justify-between pb-4 px-4'>
+					<View className='flex-row items-center flex-1'>
+						<TouchableOpacity onPress={onBack}>
+							<Ionicons name='arrow-back' size={24} color={iconColor} />
+						</TouchableOpacity>
+						{logoUrl && (
+							<Image
+								source={{ uri: logoUrl }}
+								style={{ width: 40, height: 40, marginLeft: 12 }}
+								resizeMode="contain"
+							/>
+						)}
+						<Text
+							className={`ml-4 text-lg font-bold ${
+								isDarkMode ? 'text-white' : 'text-black'
+							}`}>
+							{title}
+						</Text>
+					</View>
+					{onSortChange && (
+						<View className='ml-4'>
+							<SortPicker 
+								onValueChange={onSortChange}
+								initialValue={sortOption}
+							/>
+						</View>
 					)}
-					<Text
-						className={`ml-4 text-lg font-bold ${
-							isDarkMode ? 'text-white' : 'text-black'
-						}`}>
-						{title}
-					</Text>
 				</View>
 			</SafeAreaView>
 		)
@@ -189,16 +206,45 @@ export default function CarsByBrand() {
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
+	const [sortOption, setSortOption] = useState('date_listed_desc')
 
-	const fetchCarsByBrand = useCallback(async (brandName: string) => {
+	const fetchCarsByBrand = useCallback(async (brandName: string, sortBy: string = 'date_listed_desc') => {
 		if (!refreshing) setIsLoading(true)
 		try {
-			const { data, error } = await supabase
+			let query = supabase
 				.from('cars')
 				.select(`*, dealerships (name,logo,phone,location,latitude,longitude)`)
 				.eq('status', 'available')
 				.eq('make', brandName)
-				.order('listed_at', { ascending: false }) // Add default sorting
+
+			// Apply sorting based on the selected option
+			switch (sortBy) {
+				case 'date_listed_desc':
+					query = query.order('listed_at', { ascending: false })
+					break
+				case 'price_asc':
+					query = query.order('price', { ascending: true })
+					break
+				case 'price_desc':
+					query = query.order('price', { ascending: false })
+					break
+				case 'year_desc':
+					query = query.order('year', { ascending: false })
+					break
+				case 'year_asc':
+					query = query.order('year', { ascending: true })
+					break
+				case 'mileage_asc':
+					query = query.order('mileage', { ascending: true })
+					break
+				case 'mileage_desc':
+					query = query.order('mileage', { ascending: false })
+					break
+				default:
+					query = query.order('listed_at', { ascending: false })
+			}
+
+			const { data, error } = await query
 
 			if (error) throw error
 
@@ -223,15 +269,23 @@ export default function CarsByBrand() {
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
 		if (brand) {
-			fetchCarsByBrand(brand).then(() => setRefreshing(false))
+			fetchCarsByBrand(brand, sortOption).then(() => setRefreshing(false))
 		} else {
 			setRefreshing(false)
 		}
-	}, [brand, fetchCarsByBrand])
+	}, [brand, fetchCarsByBrand, sortOption])
 
 	useEffect(() => {
 		if (brand) {
-			fetchCarsByBrand(brand)
+			fetchCarsByBrand(brand, sortOption)
+		}
+	}, [brand, fetchCarsByBrand, sortOption])
+
+	// Handle sort option change
+	const handleSortChange = useCallback((newSortOption: string) => {
+		setSortOption(newSortOption)
+		if (brand) {
+			fetchCarsByBrand(brand, newSortOption)
 		}
 	}, [brand, fetchCarsByBrand])
 
@@ -387,6 +441,8 @@ export default function CarsByBrand() {
 				title={brand ? `${brand}` : 'Cars by Brand'}
 				onBack={() => router.back()}
 				brandName={brand}
+				onSortChange={handleSortChange}
+				sortOption={sortOption}
 			/>
 			{memoizedHeader}
 			{renderContent()}

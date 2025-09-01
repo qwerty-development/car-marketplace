@@ -28,7 +28,6 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
-import { Buffer } from "buffer";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useTheme } from "@/utils/ThemeContext";
 import { BlurView } from "expo-blur";
@@ -999,7 +998,8 @@ features
 
       try {
         // STEP 1: Configure batch processing parameters with platform optimization
-        const batchSize = Platform.OS === "android" ? 2 : 3;
+        // Use sequential uploads on Android to minimize memory pressure
+        const batchSize = Platform.OS === "android" ? 1 : 3;
         console.log(
           `Processing ${assets.length} images in batches of ${batchSize}`
         );
@@ -1068,40 +1068,35 @@ features
                 // STEP 3.3: Generate unique filename with high entropy
                 const timestamp = Date.now();
                 const randomId = Math.floor(Math.random() * 1000000);
-                const fileName = `${timestamp}_${randomId}_${index}.jpg`;
+                // Choose extension based on output format
+                const isAndroid = Platform.OS === "android";
+                const extension = isAndroid ? "webp" : "jpg";
+                const fileName = `${timestamp}_${randomId}_${index}.${extension}`;
                 const filePath = `${dealership.id}/${fileName}`;
 
                 // STEP 3.4: UPLOAD LOGIC - The critical part
                 console.log(`Uploading image ${imageNumber}/${totalImages}`);
 
-                // Read file content as base64 for reliable uploads
-                const base64Content = await FileSystem.readAsStringAsync(
-                  processedUri,
-                  {
-                    encoding: FileSystem.EncodingType.Base64,
-                  }
-                );
-
-                if (!base64Content || base64Content.length === 0) {
-                  throw new Error(
-                    `Empty file content for image ${imageNumber}`
-                  );
-                }
-
-                // Convert base64 to Buffer for Supabase upload
-                const fileBuffer = Buffer.from(base64Content, "base64");
-
                 // Upload configuration
+                const contentType = isAndroid ? "image/webp" : "image/jpeg";
                 const uploadOptions = {
-                  contentType: "image/jpeg",
+                  contentType,
                   cacheControl: "3600", // 1 hour cache
                   upsert: false, // Prevent accidental overwrites
-                };
+                } as any;
 
-                // Execute upload with timeout protection
+                // Use file URI streaming upload supported by Supabase RN client
                 const uploadPromise = supabase.storage
                   .from("cars")
-                  .upload(filePath, fileBuffer, uploadOptions);
+                  .upload(
+                    filePath,
+                    {
+                      uri: processedUri,
+                      name: fileName,
+                      type: contentType,
+                    } as any,
+                    uploadOptions
+                  );
 
                 // Add timeout protection for upload operation
                 const timeoutPromise = new Promise((_, reject) =>
@@ -1140,36 +1135,8 @@ features
                 uploadSuccessful = true;
                 publicUrl = publicURLData.publicUrl;
 
-                // STEP 3.6: OPTIONAL validation - DON'T FAIL UPLOAD IF THIS FAILS
-                try {
-                  console.log(
-                    `Validating accessibility for image ${imageNumber}`
-                  );
-                  const controller = new AbortController();
-                  const timeoutId = setTimeout(() => controller.abort(), 5000);
-                  try {
-                    const response = await fetch(publicURLData.publicUrl, (
-                      {
-                        method: "HEAD",
-                      } as any
-                    ));
-                    if (!response.ok) {
-                      console.warn(
-                        `Validation warning for image ${imageNumber}: HTTP ${response.status} (upload still successful)`
-                      );
-                    } else {
-                      console.log(`Image ${imageNumber} validation successful`);
-                    }
-                  } finally {
-                    clearTimeout(timeoutId);
-                  }
-                } catch (validationError) {
-                  // CRITICAL: Don't fail the upload because validation failed
-                  console.warn(
-                    `Validation failed for image ${imageNumber} (upload still successful):`,
-                    validationError
-                  );
-                }
+                // STEP 3.6: OPTIONAL validation - SKIPPED on Android due to HEAD issues with some CDNs
+                // We intentionally skip remote validation to reduce network overhead and avoid HEAD incompatibilities
 
                 // STEP 3.7: Update progress counter
                 progressCounter++;
@@ -1355,7 +1322,8 @@ features
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: maxSelection > 1,
-        selectionLimit: maxSelection,
+        // Some Android gallery providers ignore selectionLimit; keep it small
+        selectionLimit: Platform.OS === "android" ? Math.min(maxSelection, 3) : maxSelection,
         quality: Platform.OS === "android" ? 0.7 : 0.8, // Lower initial quality on Android
         exif: false, // Skip EXIF data to reduce memory usage
         base64: false, // Skip base64 encoding in picker
