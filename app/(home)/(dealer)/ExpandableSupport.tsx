@@ -6,8 +6,8 @@ interface ExpandableSupportProps {
   isDarkMode: boolean
 }
 
-const WHATSAPP_NUMBER = '+1234567890'
-const SUPPORT_EMAIL = 'support@example.com'
+const WHATSAPP_NUMBER = '+96176875775'
+const SUPPORT_EMAIL = 'info@fleetapp.com'
 
 export const ExpandableSupport: React.FC<ExpandableSupportProps> = ({ isDarkMode }) => {
   const [isExpanded, setIsExpanded] = useState(false)
