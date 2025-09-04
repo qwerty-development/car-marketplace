@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Modal, Platform, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
@@ -10,6 +10,7 @@ export default function FloatingChatFab() {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [shouldHide, setShouldHide] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const pathname = usePathname();
   const segments = useSegments();
 
@@ -39,12 +40,18 @@ export default function FloatingChatFab() {
   // Dimensions: adjust vertical offset so the FAB floats above the tab bar
   const bottomOffset = Platform.OS === 'ios' ? 100 : 70;
 
+  const handleOpenModal = () => {
+    setIsOpen(true);
+    // Trigger a refresh of the conversation when opening
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <>
       {/* Floating Action Button */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => setIsOpen(true)}
+        onPress={handleOpenModal}
         style={{
           position: 'absolute',
           bottom: bottomOffset,
@@ -94,7 +101,10 @@ export default function FloatingChatFab() {
           </TouchableOpacity>
 
           {/* Chat Screen */}
-          <EnhancedChatScreen onClose={() => setIsOpen(false)} />
+          <EnhancedChatScreen 
+            onClose={() => setIsOpen(false)} 
+            refreshTrigger={refreshTrigger}
+          />
         </SafeAreaView>
       </Modal>
     </>
