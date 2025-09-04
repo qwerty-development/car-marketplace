@@ -14,6 +14,7 @@ import {
   FlatList,
   AppState,
   AppStateStatus,
+  LayoutAnimation,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
@@ -35,9 +36,13 @@ interface ChatAssistantScreenProps {
    * Called when the chat should be closed (e.g. when navigating away)
    */
   onClose?: () => void;
+  /**
+   * Trigger to refresh conversation from service
+   */
+  refreshTrigger?: number;
 }
 
-export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps) {
+export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssistantScreenProps) {
   const { isDarkMode } = useTheme();
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -52,6 +57,7 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const isMountedRef = useRef(true);
   const inputAnimation = useRef(new Animated.Value(0)).current;
@@ -62,6 +68,40 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
       isMountedRef.current = false;
     };
   }, []);
+
+  // Hydrate service history once (background continuity)
+  useEffect(() => {
+    ChatbotService.hydrateFromStorage?.();
+  }, []);
+
+  // Sync with ChatbotService conversation when modal opens or refreshTrigger changes
+  useEffect(() => {
+    const syncConversation = async () => {
+      try {
+        // Get the service's conversation history
+        const serviceHistory = ChatbotService.getConversationHistory();
+        
+        if (serviceHistory.length > 0) {
+          // Convert service format to UI format
+          const uiMessages: Message[] = serviceHistory.map(msg => ({
+            from: msg.isUser ? 'user' : 'bot',
+            text: msg.message,
+            timestamp: msg.timestamp,
+            cars: msg.car_ids ? [] : undefined // Car details will be fetched if needed
+          }));
+          
+          // Only update if there are more messages in service than in UI
+          if (uiMessages.length > messages.length) {
+            setMessages(uiMessages);
+          }
+        }
+      } catch (e) {
+        console.log('Failed to sync conversation', e);
+      }
+    };
+
+    syncConversation();
+  }, [refreshTrigger]); // Run when refreshTrigger changes
 
   // --------------------------------------------------
   // Clear chat on app termination/restart
@@ -80,11 +120,11 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
           
           if (timeDiff > thirtyMinutes) {
             // App was likely terminated, clear chat
-            await AsyncStorage.removeItem('ai_chat_messages');
+            ChatbotService.clearConversationHistory();
           }
         } else {
           // First time launch, clear any existing chat
-          await AsyncStorage.removeItem('ai_chat_messages');
+          ChatbotService.clearConversationHistory();
         }
         
         // Update last active time
@@ -142,6 +182,7 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
 
   useEffect(() => {
     AsyncStorage.setItem('ai_chat_messages', JSON.stringify(messages)).catch(() => {});
+    try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
   }, [messages]);
 
   const animateInput = (focused: boolean) => {
@@ -170,7 +211,8 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
 
   const sendMessage = async () => {
     const trimmed = inputText.trim();
-    if (!trimmed || isLoading || !isMountedRef.current) return;
+    // Allow processing even if component might unmount immediately after (background)
+    if (!trimmed || isLoading) return;
 
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -193,19 +235,24 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
         ? await ChatbotService.sendMessageWithContext(trimmed)
         : await ChatbotService.sendMessageWithContext(trimmed);
 
-      if (!isMountedRef.current) return;
+      // Allow background completion even if unmounted; only set state if still mounted
+      if (!isMountedRef.current) {
+        // Still send request, but skip UI updates
+      }
 
       const botText = result.botMessage?.message || 'Error: Unable to get response.';
       
       const cars = result.botMessage?.car_ids ? 
         await fetchCarDetails(result.botMessage.car_ids) : [];
 
-      setMessages(prev => [...prev, { 
-        from: 'bot', 
-        text: botText,
-        timestamp: new Date(),
-        cars: cars.length > 0 ? cars : undefined
-      }]);
+      if (isMountedRef.current) {
+        setMessages(prev => [...prev, { 
+          from: 'bot', 
+          text: botText,
+          timestamp: new Date(),
+          cars: cars.length > 0 ? cars : undefined
+        }]);
+      }
       
     } catch (err) {
       console.error('Chat error:', err);
@@ -381,6 +428,9 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
 
   const renderMessage = (message: Message, index: number) => {
     const isUser = message.from === 'user';
+    const bubbleBase = isUser
+      ? 'bg-neutral-200 dark:bg-neutral-700/70 rounded-2xl px-4 py-3 shadow-sm'
+      : 'bg-white dark:bg-neutral-900/60 border border-neutral-200/40 dark:border-neutral-700/40 rounded-2xl px-4 py-3 shadow-sm';
 
     return (
       <Animated.View
@@ -397,12 +447,12 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
         
         <View className={`max-w-[78%] ${isUser ? 'ml-12' : 'mr-12'}`}>
           <View
-            className={`${
-              isUser
-                ? 'bg-neutral-200 dark:bg-neutral-700/70 rounded-2xl px-4 py-3'
-                : ''  // AI messages have no bubble
-            }`}
+            accessibilityLabel={isUser ? 'User message' : 'Assistant message'}
+            className={`${bubbleBase} relative`}
           >
+            {!isUser && (
+              <View className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl bg-gradient-to-b from-red-500 to-orange-500" />
+            )}
             <View>
               {formatCarText(message.text)}
             </View>
@@ -425,7 +475,6 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
                       car={item} 
                       isDarkMode={isDarkMode}
                       onPress={() => {
-                        // Close the chat modal before navigating so the new screen appears on top
                         if (onClose) {
                           onClose();
                         }
@@ -446,7 +495,7 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
               </View>
             )}
             
-            <Text className={`text-xs mt-3 ${
+            <Text className={`text-[10px] mt-3 tracking-wide ${
               isUser
                 ? isDarkMode
                   ? 'text-neutral-300'
@@ -476,15 +525,28 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
     setTimeout(() => sendMessage(), 100);
   };
 
+  const clearChat = () => {
+    // Reset to the original greeting message only
+    const greetingMessage: Message = {
+      from: 'bot',
+      text: "Hi there! 👋 I'm your AI car assistant. I'll help you find the perfect vehicle based on your needs, budget, and preferences. What can I help you with today?",
+      timestamp: new Date(),
+    };
+    setMessages([greetingMessage]);
+    setCarDataMap({});
+    // Clear the ChatbotService conversation history (which also clears AsyncStorage)
+    ChatbotService.clearConversationHistory();
+  };
+
   return (
     <SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-neutral-50'}`}>
       {/* Header */}
       <View className={`px-4 py-4 border-b ${isDarkMode ? 'border-neutral-800 bg-black' : 'border-neutral-200 bg-neutral-50'}`}>
-        <View className="flex-row items-center">
+        <View className="flex-row items-center pr-14">{/* pr-14 reserves space for external close X */}
           <View className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-full items-center justify-center mr-3 shadow-lg">
             <MaterialCommunityIcons name="robot-outline" size={20} color="white" />
           </View>
-          <View className="flex-1">
+          <View className="flex-1 mr-3">
             <Text className={`text-lg font-bold ${isDarkMode ? 'text-orange-400' : 'text-red-600'}`}>
               Car Finder AI
             </Text>
@@ -492,6 +554,15 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
               Your intelligent car assistant
             </Text>
           </View>
+          <TouchableOpacity
+            accessibilityLabel="Clear chat"
+            onPress={clearChat}
+            className="w-9 h-9 rounded-full items-center justify-center bg-neutral-200/60 dark:bg-neutral-800"
+            activeOpacity={0.7}
+            style={{ marginRight: 4 }}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={18} color={isDarkMode ? '#f87171' : '#b91c1c'} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -507,6 +578,11 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToBottom}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            setShowScrollToBottom(y > 120);
+          }}
+          scrollEventThrottle={16}
         >
           {messages.map(renderMessage)}
           
@@ -597,7 +673,13 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
               blurOnSubmit={false}
               multiline
               maxLength={500}
+              accessibilityLabel="Message input"
             />
+            {inputText.length > 0 && (
+              <Text className={`absolute right-14 -top-4 text-[10px] ${isDarkMode ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                {inputText.length}/500
+              </Text>
+            )}
             
             <TouchableOpacity
               className={`w-9 h-9 rounded-2xl items-center justify-center ${
@@ -613,6 +695,7 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
                   scale: (inputText.trim() && !isLoading) ? 1 : 0.95 
                 }]
               }}
+              accessibilityLabel="Send message"
             >
               {isLoading ? (
                 <ActivityIndicator color="white" size="small" />
@@ -627,6 +710,16 @@ export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps
           </Animated.View>
         </Animated.View>
       </KeyboardAvoidingView>
+      {showScrollToBottom && (
+        <TouchableOpacity
+          onPress={scrollToBottom}
+            accessibilityLabel="Scroll to latest messages"
+          activeOpacity={0.85}
+          className="absolute bottom-28 right-5 w-11 h-11 rounded-full bg-red items-center justify-center shadow-lg"
+        >
+          <Ionicons name="arrow-down" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }

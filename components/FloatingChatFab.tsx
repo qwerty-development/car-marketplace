@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Modal, Platform, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
@@ -10,6 +10,7 @@ export default function FloatingChatFab() {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [shouldHide, setShouldHide] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const pathname = usePathname();
   const segments = useSegments();
 
@@ -39,12 +40,18 @@ export default function FloatingChatFab() {
   // Dimensions: adjust vertical offset so the FAB floats above the tab bar
   const bottomOffset = Platform.OS === 'ios' ? 100 : 70;
 
+  const handleOpenModal = () => {
+    setIsOpen(true);
+    // Trigger a refresh of the conversation when opening
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <>
       {/* Floating Action Button */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => setIsOpen(true)}
+        onPress={handleOpenModal}
         style={{
           position: 'absolute',
           bottom: bottomOffset,
@@ -81,19 +88,23 @@ export default function FloatingChatFab() {
             onPress={() => setIsOpen(false)}
             style={{
               position: 'absolute',
-              top: 16,
+              top: 22, // lowered for vertical alignment with header icons
               right: 20,
               zIndex: 10,
-              backgroundColor: isDarkMode ? '#1F1F1F' : 'rgba(0,0,0,0.03)',
-              borderRadius: 20,
-              padding: 4,
+              backgroundColor: isDarkMode ? '#1F1F1F' : 'rgba(0,0,0,0.05)',
+              borderRadius: 18,
+              paddingHorizontal: 6,
+              paddingVertical: 6,
             }}
           >
-            <Ionicons name="close" size={28} color={isDarkMode ? '#fff' : '#000'} />
+            <Ionicons name="close" size={22} color={isDarkMode ? '#fff' : '#000'} />
           </TouchableOpacity>
 
           {/* Chat Screen */}
-          <EnhancedChatScreen onClose={() => setIsOpen(false)} />
+          <EnhancedChatScreen 
+            onClose={() => setIsOpen(false)} 
+            refreshTrigger={refreshTrigger}
+          />
         </SafeAreaView>
       </Modal>
     </>
