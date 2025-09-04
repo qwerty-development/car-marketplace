@@ -36,13 +36,9 @@ interface ChatAssistantScreenProps {
    * Called when the chat should be closed (e.g. when navigating away)
    */
   onClose?: () => void;
-  /**
-   * Trigger to refresh conversation from service
-   */
-  refreshTrigger?: number;
 }
 
-export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssistantScreenProps) {
+export default function EnhancedChatScreen({ onClose }: ChatAssistantScreenProps) {
   const { isDarkMode } = useTheme();
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -73,35 +69,6 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
   useEffect(() => {
     ChatbotService.hydrateFromStorage?.();
   }, []);
-
-  // Sync with ChatbotService conversation when modal opens or refreshTrigger changes
-  useEffect(() => {
-    const syncConversation = async () => {
-      try {
-        // Get the service's conversation history
-        const serviceHistory = ChatbotService.getConversationHistory();
-        
-        if (serviceHistory.length > 0) {
-          // Convert service format to UI format
-          const uiMessages: Message[] = serviceHistory.map(msg => ({
-            from: msg.isUser ? 'user' : 'bot',
-            text: msg.message,
-            timestamp: msg.timestamp,
-            cars: msg.car_ids ? [] : undefined // Car details will be fetched if needed
-          }));
-          
-          // Only update if there are more messages in service than in UI
-          if (uiMessages.length > messages.length) {
-            setMessages(uiMessages);
-          }
-        }
-      } catch (e) {
-        console.log('Failed to sync conversation', e);
-      }
-    };
-
-    syncConversation();
-  }, [refreshTrigger]); // Run when refreshTrigger changes
 
   // --------------------------------------------------
   // Clear chat on app termination/restart
