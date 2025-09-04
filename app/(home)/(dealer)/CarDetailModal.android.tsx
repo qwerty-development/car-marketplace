@@ -31,6 +31,7 @@ import ImageViewing from "react-native-image-viewing";
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { shareCar } from "@/utils/centralizedSharing";
 
 const { width } = Dimensions.get("window");
 
@@ -623,12 +624,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 const handleShare = useCallback(async () => {
   try {
-    const vehicleName = `${car.year} ${car.make} ${car.model}`;
-    await Share.share({
-      message: `Check out this ${vehicleName} for $${car.price.toLocaleString()}!
-      at ${car.dealership_name} in ${car.dealership_location}
-      `,
-    });
+    await shareCar(car);
   } catch (error: any) {
     Alert.alert(error.message);
   }
@@ -741,7 +737,7 @@ const handleWhatsAppPress = useCallback(() => {
       .toString()
       .replace(/\D/g, "");
     const vehicleName = `${car.year} ${car.make} ${car.model}`;
-    const message = `Hi, I'm interested in the ${vehicleName} listed for $${car.price.toLocaleString()} on Fleet`;
+    const message = `Hi, I'm interested in the ${vehicleName} listed for $${car.price.toLocaleString()} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
     const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
       message
     )}`;

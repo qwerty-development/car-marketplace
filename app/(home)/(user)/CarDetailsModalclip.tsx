@@ -23,6 +23,7 @@ import Modal from 'react-native-modal'
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import { useAuth } from '@/utils/AuthContext'
+import { shareCar } from '@/utils/centralizedSharing'
 
 const { width, height } = Dimensions.get('window')
 
@@ -201,21 +202,7 @@ const CarDetailModal = memo(
 
 		const handleShare = useCallback(async () => {
 			try {
-				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${
-						car.model
-					} for $${car.price.toLocaleString()}!`,
-					url: car.images[0]
-				})
-				if (result.action === Share.sharedAction) {
-					if (result.activityType) {
-						// shared with activity type of result.activityType
-					} else {
-						// shared
-					}
-				} else if (result.action === Share.dismissedAction) {
-					// dismissed
-				}
+				await shareCar(car);
 			} catch (error: any) {
 				Alert.alert(error.message)
 			}

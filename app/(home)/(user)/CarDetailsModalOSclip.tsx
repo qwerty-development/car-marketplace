@@ -20,6 +20,7 @@ import MapView, { Marker } from 'react-native-maps'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
+import { shareCar } from '@/utils/centralizedSharing'
 
 import Animated, {
 	useSharedValue,
@@ -220,21 +221,7 @@ const CarDetailModalIOS = memo(
 
 		const handleShare = useCallback(async () => {
 			try {
-				const result = await Share.share({
-					message: `Check out this ${car.year} ${car.make} ${
-						car.model
-					} for $${car.price.toLocaleString()}!`,
-					url: car.images[0]
-				})
-				if (result.action === Share.sharedAction) {
-					if (result.activityType) {
-						// shared with activity type of result.activityType
-					} else {
-						// shared
-					}
-				} else if (result.action === Share.dismissedAction) {
-					// dismissed
-				}
+				await shareCar(car);
 			} catch (error: any) {
 				Alert.alert(error.message)
 			}

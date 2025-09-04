@@ -36,7 +36,7 @@ import { BlurView } from "expo-blur";
 import SplashScreen from "../SplashScreen";
 import { Ionicons } from "@expo/vector-icons";
 import openWhatsApp from "@/utils/openWhatsapp";
-import { shareContent } from "@/utils/shareUtils";
+import { shareAutoclip } from "@/utils/centralizedSharing";
 import { useLocalSearchParams, useGlobalSearchParams } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -990,12 +990,7 @@ export default function AutoClips() {
                 style={styles.actionButton}
                 onPress={() => {
                   if (!item.car) return;
-                  shareContent({
-                    id: item.id,
-                    type: 'autoclip',
-                    title: `${item.car.year} ${item.car.make} ${item.car.model} - Video`,
-                    message: `Check out this ${item.car.year} ${item.car.make} ${item.car.model} video on Fleet!${item.description ? `\n\n${item.description}` : ''}`
-                  });
+                  shareAutoclip(item);
                 }}
               >
                 <Ionicons name="share-outline" size={24} color="white" />

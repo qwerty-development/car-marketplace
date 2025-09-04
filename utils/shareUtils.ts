@@ -23,11 +23,22 @@ export const shareContent = async ({
     // Create consistent URL format
     const shareUrl = `https://www.fleetapp.me/${pathSegment}/${id}`;
     
-    // Share options with platform-specific optimizations
-    await Share.share({
-      message: `${message}\n\n${shareUrl}`, // URL parameter works better on iOS
-      title: title
-    });
+    // Platform-specific sharing to ensure Android reads URLs properly
+    if (Platform.OS === 'android') {
+      // Android: Use both message and url parameters for better compatibility
+      await Share.share({
+        message: `${message}\n\n${shareUrl}`,
+        url: shareUrl,
+        title: title
+      });
+    } else {
+      // iOS: Can handle URL in message or as separate parameter
+      await Share.share({
+        message: `${message}\n\n${shareUrl}`,
+        url: shareUrl,
+        title: title
+      });
+    }
   } catch (error) {
     console.error('Share error:', error);
     Alert.alert('Error', 'Failed to share content');

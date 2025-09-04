@@ -34,6 +34,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
 let MapView: any;
 let MapViewMarker: any;
@@ -957,22 +958,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!car) return;
 
     try {
-      // Use a consistent URL format
-      const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
-
-      const message =
-        `Check out this ${car.year} ${car.make} ${car.model} for $${
-          car.price ? car.price.toLocaleString() : "N/A"
-        }!\n` +
-        `at ${car.dealership_name || "Dealership"} in ${
-          car.dealership_location || "Location"
-        }\n`;
-
-      await Share.share({
-        message,
-        url: shareUrl,
-        title: `${car.year} ${car.make} ${car.model}`,
-      });
+      await shareCar(car);
     } catch (error) {
       console.error("Share error:", error);
       Alert.alert("Error", "Failed to share car details");
@@ -1067,7 +1053,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       .replace(/\D/g, "");
     const message = `Hi, I'm interested in the ${car.year} ${car.make} ${
       car.model
-    } listed for $${car.price ? car.price.toLocaleString() : "N/A"} on Fleet`;
+    } listed for $${car.price ? car.price.toLocaleString() : "N/A"} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
     const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
       message
     )}`;
