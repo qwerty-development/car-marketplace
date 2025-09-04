@@ -81,15 +81,16 @@ export default function FloatingChatFab() {
             onPress={() => setIsOpen(false)}
             style={{
               position: 'absolute',
-              top: 16,
+              top: 22, // lowered for vertical alignment with header icons
               right: 20,
               zIndex: 10,
-              backgroundColor: isDarkMode ? '#1F1F1F' : 'rgba(0,0,0,0.03)',
-              borderRadius: 20,
-              padding: 4,
+              backgroundColor: isDarkMode ? '#1F1F1F' : 'rgba(0,0,0,0.05)',
+              borderRadius: 18,
+              paddingHorizontal: 6,
+              paddingVertical: 6,
             }}
           >
-            <Ionicons name="close" size={28} color={isDarkMode ? '#fff' : '#000'} />
+            <Ionicons name="close" size={22} color={isDarkMode ? '#fff' : '#000'} />
           </TouchableOpacity>
 
           {/* Chat Screen */}

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface ChatMessage {
   id: string;
@@ -50,6 +51,8 @@ export class ChatbotService {
    */
   static clearConversationHistory(): void {
     this.conversationHistory = [];
+    // Also clear persisted data to prevent desync
+    AsyncStorage.removeItem('ai_chat_messages').catch(() => {});
   }
   
   /**
@@ -65,6 +68,8 @@ export class ChatbotService {
     };
     
     this.conversationHistory.push(chatMessage);
+  // Persist to storage in UI-friendly shape (background capability)
+  this.persistConversation().catch(() => {});
     return chatMessage;
   }
   
@@ -91,12 +96,13 @@ export class ChatbotService {
 
     console.log('🔍 iOS Debug - Message validation passed:', userMessage.trim());
     
+    let userChatMessage: ChatMessage | undefined;
     try {
       console.log('🤖 Sending message to chatbot API...');
       console.log('🔍 iOS Debug - API URL:', this.API_BASE_URL);
       
       // Add user message to history first
-      const userChatMessage = this.addMessage(userMessage.trim(), true);
+      userChatMessage = this.addMessage(userMessage.trim(), true);
       console.log('🔍 iOS Debug - User message added to history');
       
       // Prepare request body
@@ -122,29 +128,26 @@ export class ChatbotService {
       
       let response: Response;
       
+      const controller = this.createTimeoutController();
       try {
-        // Try with minimal configuration first
-        console.log('🔍 iOS Debug - Making fetch call...');
-        response = await fetch(`${this.API_BASE_URL}/chat`, fetchOptions);
+        console.log('🔍 iOS Debug - Making fetch call with timeout...');
+        response = await fetch(`${this.API_BASE_URL}/chat`, { ...fetchOptions, signal: controller.signal });
         console.log('🔍 iOS Debug - Fetch call completed successfully');
       } catch (fetchError) {
         console.error('❌ iOS Debug - Fetch call failed:', fetchError);
-        
-        // Try alternative approach for iOS
-        console.log('🔍 iOS Debug - Trying alternative fetch approach...');
-        try {
-          response = await fetch(`${this.API_BASE_URL}/chat`, {
-            method: 'POST',
-            body: requestBody,
-            headers: new Headers({
-              'Content-Type': 'application/json',
-            }),
-          });
-          console.log('🔍 iOS Debug - Alternative fetch succeeded');
-        } catch (altError) {
-          console.error('❌ iOS Debug - Alternative fetch also failed:', altError);
-          throw new Error(`Fetch failed: ${altError instanceof Error ? altError.message : 'Unknown fetch error'}`);
+        if ((fetchError as any)?.name === 'AbortError') {
+          throw new Error('Request timeout');
         }
+        // Fallback attempt
+        const fallbackController = this.createTimeoutController();
+        console.log('🔍 iOS Debug - Trying alternative fetch fallback...');
+        response = await fetch(`${this.API_BASE_URL}/chat`, {
+          method: 'POST',
+          body: requestBody,
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+          signal: fallbackController.signal,
+        });
+        console.log('🔍 iOS Debug - Alternative fetch succeeded');
       }
 
       console.log('🔍 iOS Debug - Fetch completed, response status:', response.status);
@@ -249,7 +252,7 @@ export class ChatbotService {
       
       return {
         success: false,
-        userMessage: this.addMessage(userMessage.trim(), true),
+        userMessage: userChatMessage || this.addMessage(userMessage.trim(), true),
         botMessage,
         error: error instanceof Error ? error.message : 'Unknown error'
       };
@@ -276,8 +279,9 @@ export class ChatbotService {
       };
     }
 
+    let userChatMessage: ChatMessage | undefined;
     try {
-      const userChatMessage = this.addMessage(userMessage.trim(), true);
+      userChatMessage = this.addMessage(userMessage.trim(), true);
       console.log('🍎 iOS - User message added to history');
       
       // Use XMLHttpRequest for iOS compatibility
@@ -346,7 +350,7 @@ export class ChatbotService {
       
       return {
         success: false,
-        userMessage: this.addMessage(userMessage.trim(), true),
+        userMessage: userChatMessage || this.addMessage(userMessage.trim(), true),
         botMessage,
         error: error instanceof Error ? error.message : 'Unknown error'
       };
@@ -371,47 +375,18 @@ export class ChatbotService {
       };
     }
 
+    let userChatMessage: ChatMessage | undefined;
     try {
       console.log('🤖 Sending message with dealership conversation context...');
       
       // Add user message to history first
-      const userChatMessage = this.addMessage(userMessage.trim(), true);
+      userChatMessage = this.addMessage(userMessage.trim(), true);
       
-      // Get last 5 messages for conversation memory (like a dealership conversation)
-      const recentMessages = this.conversationHistory
-        .slice(-5) // Only last 5 messages for focused context
-        .map(msg => ({
-          role: msg.isUser ? 'user' : 'assistant',
-          content: msg.message
-        }));
-      
-      // Create a dealership-focused prompt with conversation context
-      let contextualPrompt = `You are a professional car dealership assistant helping customers find their perfect car. You have access to a comprehensive car database and should provide personalized recommendations.
-
-IMPORTANT INSTRUCTIONS:
-- Maintain conversation context and remember what the customer mentioned previously
-- Ask follow-up questions to understand their specific needs (budget, car type, features, etc.)
-- When recommending cars, provide EXACTLY 5-8 car recommendations maximum
-- Focus on matching customer preferences from the conversation
-- Be friendly, professional, and helpful like a real dealership salesperson
-- If asked about specific features, explain how they benefit the customer
-
-`;
+      // Build context with lightweight summarization & recent turns
+      const { contextualPrompt } = this.buildContextPrompt(userMessage.trim());
 
       // Add conversation history if available
-      if (recentMessages.length > 0) {
-        contextualPrompt += `RECENT CONVERSATION CONTEXT:\n`;
-        recentMessages.forEach(msg => {
-          contextualPrompt += `${msg.role.toUpperCase()}: ${msg.content}\n`;
-        });
-        contextualPrompt += `\nCURRENT CUSTOMER MESSAGE: ${userMessage.trim()}\n\n`;
-      } else {
-        contextualPrompt += `CUSTOMER MESSAGE: ${userMessage.trim()}\n\n`;
-      }
-
-      contextualPrompt += `Based on the conversation context above, respond as a helpful car dealership assistant. If recommending cars, provide car_ids in your response data.
-
-Your response should be conversational, reference previous messages when relevant, and help guide the customer toward finding their ideal car.`;
+  // contextualPrompt now contains all instructions + summary + recent context
 
       // Use iOS-specific method based on platform
       let response: Response;
@@ -466,15 +441,15 @@ Your response should be conversational, reference previous messages when relevan
 
       } else {
         // Use fetch for Android
+        const controller = this.createTimeoutController();
         response = await fetch(`${this.API_BASE_URL}/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: JSON.stringify({
-            message: contextualPrompt
-          })
+          body: JSON.stringify({ message: contextualPrompt }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -539,11 +514,59 @@ Your response should be conversational, reference previous messages when relevan
       
       return {
         success: false,
-        userMessage: this.addMessage(userMessage.trim(), true),
+        userMessage: userChatMessage || this.addMessage(userMessage.trim(), true),
         botMessage,
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
+  }
+
+  /**
+   * Build contextual prompt with lightweight summarization of older conversation
+   * (Quick win: no external summarization call, heuristic extraction only)
+   */
+  private static buildContextPrompt(currentUserMessage: string): { contextualPrompt: string } {
+    const BASE_INSTRUCTIONS = `You are a professional car dealership assistant helping customers find their perfect car. You have access to a comprehensive car database and should provide personalized recommendations.
+
+IMPORTANT INSTRUCTIONS:
+- Maintain conversation context and remember what the customer mentioned previously
+- Ask follow-up questions to understand their specific needs (budget, car type, features, etc.)
+- When recommending cars, provide EXACTLY 5-8 car recommendations maximum
+- Focus on matching customer preferences from the conversation
+- Be friendly, professional, and helpful like a real dealership salesperson
+- If asked about specific features, explain how they benefit the customer
+`;
+
+    const history = this.conversationHistory;
+    const RECENT_COUNT = 5;
+    let summarySection = '';
+
+    // Heuristic summarization if we have more than RECENT_COUNT * 2 messages
+    if (history.length > RECENT_COUNT * 2) {
+      const toSummarize = history.slice(0, history.length - RECENT_COUNT);
+      const userPrefs: string[] = [];
+      const preferenceHints = /(budget|\$\d|under \$|mileage|electric|hybrid|SUV|sedan|coupe|manual|automatic|fuel|range|year|price)/i;
+      for (const msg of toSummarize) {
+        if (msg.isUser && preferenceHints.test(msg.message)) {
+          userPrefs.push(msg.message.trim());
+        }
+      }
+      const deduped = Array.from(new Set(userPrefs)).slice(0, 6);
+      if (deduped.length) {
+        summarySection = 'SUMMARY OF EARLIER CUSTOMER PREFERENCES:\n' + deduped.map(l => '- ' + l).join('\n') + '\n\n';
+      }
+    }
+
+    const recent = history.slice(-RECENT_COUNT).map(m => `${m.isUser ? 'USER' : 'ASSISTANT'}: ${m.message}`).join('\n');
+
+    let contextualPrompt = BASE_INSTRUCTIONS + '\n';
+    if (summarySection) contextualPrompt += summarySection;
+    if (recent) {
+      contextualPrompt += 'RECENT CONVERSATION:\n' + recent + '\n\n';
+    }
+    contextualPrompt += `CURRENT CUSTOMER MESSAGE: ${currentUserMessage}\n\n`;
+    contextualPrompt += 'Respond as a helpful car dealership assistant. If recommending cars, include car_ids in your structured response data if your system supports it. Keep the tone professional yet friendly.';
+    return { contextualPrompt };
   }
   
   /**
@@ -560,6 +583,39 @@ Your response should be conversational, reference previous messages when relevan
       .join('\n\n');
     
     return conversation;
+  }
+
+  /** Persist current conversation in a shape compatible with ChatAssistantScreen */
+  private static async persistConversation() {
+    try {
+      // Map to UI message shape: from, text, timestamp ISO, cars? (not available), car_ids if any
+      const uiMessages = this.conversationHistory.map(m => ({
+        from: m.isUser ? 'user' : 'bot',
+        text: m.message,
+        timestamp: m.timestamp.toISOString(),
+        ...(m.car_ids && m.car_ids.length ? { car_ids: m.car_ids } : {})
+      }));
+      await AsyncStorage.setItem('ai_chat_messages', JSON.stringify(uiMessages));
+    } catch (e) {
+      // Silent fail; UI layer will still have last persisted snapshot
+    }
+  }
+
+  /** Hydrate internal history from storage (can be called on app start) */
+  static async hydrateFromStorage(): Promise<void> {
+    try {
+      const saved = await AsyncStorage.getItem('ai_chat_messages');
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return;
+      this.conversationHistory = parsed.map((m: any) => ({
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        message: m.text,
+        isUser: m.from === 'user',
+        timestamp: new Date(m.timestamp),
+        car_ids: m.car_ids || []
+      }));
+    } catch {}
   }
   
   /**
