@@ -31,6 +31,7 @@ import ImageViewing from "react-native-image-viewing";
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { shareCar } from "@/utils/centralizedSharing";
 
 const { width } = Dimensions.get("window");
 
@@ -625,13 +626,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!car) return;
 
     try {
-      await Share.share({
-        message: `Check out this ${car.year} ${car.make} ${
-          car.model
-        } for $${car.price ? car.price.toLocaleString() : 'N/A'}!
-        at ${car.dealership_name || 'Dealership'} in ${car.dealership_location || 'Location'}
-        `,
-      });
+      await shareCar(car);
     } catch (error: any) {
       console.error('Share error:', error);
       Alert.alert('Error', error.message || 'Could not share this car');
@@ -752,7 +747,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       }
 
       const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet`;
+      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
 
       Linking.openURL(webURL).catch(() => {

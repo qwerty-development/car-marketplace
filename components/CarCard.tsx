@@ -28,6 +28,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCarDetails } from "@/hooks/useCarDetails";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
+import { shareCar } from "@/utils/centralizedSharing";
+import { getLogoUrl } from "@/hooks/getLogoUrl";
 import * as Haptics from 'expo-haptics';
 
 const StyledView = styled(View);
@@ -37,7 +39,7 @@ const StyledPressable = styled(Pressable);
 
 const MAX_IMAGES = 3;
 
-const OptimizedImage = ({ source, style, onLoad }: any) => {
+const OptimizedImage = ({ source, style, onLoad, fallbackColor = 'transparent' }: any) => {
   const [loaded, setLoaded] = useState(false);
   const { isDarkMode } = useTheme();
 
@@ -47,11 +49,11 @@ const OptimizedImage = ({ source, style, onLoad }: any) => {
   }, [onLoad]);
 
   return (
-    <View style={[style, { overflow: "hidden" }]} className="bg-neutral-800">
+    <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
       <StyledImage
         source={source}
-        className="w-full h-full bg-neutral-800"
-        style={{ opacity: loaded ? 1 : 0 }}
+        className="w-full h-full"
+        style={{ opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
         onLoad={handleLoad}
         resizeMode="cover"
       />
@@ -303,21 +305,7 @@ export default function CarCard({
     if (!car) return;
 
     try {
-      const shareUrl = `https://www.fleetapp.me/cars/${car.id}`;
-
-      const message =
-        `Check out this ${car.year} ${car.make} ${car.model} for $${
-          car.price ? car.price.toLocaleString() : "N/A"
-        }!\n` +
-        `at ${car.dealership_name || "Dealership"} in ${
-          car.dealership_location || "Location"
-        }\n`;
-
-      await Share.share({
-        message,
-        url: shareUrl,
-        title: `${car.year} ${car.make} ${car.model}`,
-      });
+      await shareCar(car);
     } catch (error) {
       console.error("Share error:", error);
       Alert.alert("Error", "Failed to share car details");
@@ -392,19 +380,6 @@ export default function CarCard({
             style={{ width: cardWidth, height: imageHeight }}
           />
 
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.8)"]}
-            className="absolute bottom-0 left-0 right-0 h-40"
-          />
-
-          {/* Price Badge */}
-          <View className="absolute top-4 right-4 z-10">
-            <StyledView className="bg-red/90 px-4 py-2.5 rounded-2xl shadow-lg">
-              <StyledText className="text-white text-lg font-extrabold">
-                ${car.price.toLocaleString()}
-              </StyledText>
-            </StyledView>
-          </View>
 
           {/* Sold Banner */}
           {showSoldBanner && (
@@ -420,46 +395,32 @@ export default function CarCard({
             </View>
           )}
 
-          {/* Image Counter */}
+
+          {/* Image Counter Dots - Bottom Center */}
           {displayedImages.length > 1 && (
-            <View className="absolute bottom-4 right-4 z-10 bg-night/60 px-3 py-1 rounded-full">
-              <StyledText className="text-white text-sm font-medium">
-                {currentImageIndex + 1}/{displayedImages.length}
-              </StyledText>
+            <View className="absolute bottom-4 left-0 right-0 flex-row justify-center items-center z-10">
+              {displayedImages.map((_: any, index: number) => (
+                <View
+                  key={index}
+                  className={`mx-1 rounded-full ${
+                    index === currentImageIndex
+                      ? "bg-white"
+                      : "bg-white/50"
+                  }`}
+                  style={{
+                    width: index === currentImageIndex ? 8 : 6,
+                    height: index === currentImageIndex ? 8 : 6,
+                  }}
+                />
+              ))}
             </View>
           )}
 
-          {/* Car Info */}
-          <View className="absolute bottom-0 w-full p-5">
-            <View className="pr-28">
-              <StyledText
-                className="text-white text-2xl font-bold mb-1.5"
-                numberOfLines={1}
-              >
-                {car.make} {car.model}
-              </StyledText>
-              <View className="flex-row items-center space-x-4">
-                <View className="flex-row items-center">
-                  <Ionicons name="eye-outline" size={18} color="#FFFFFF" />
-                  <StyledText className="text-neutral-200 text-sm ml-1.5">
-                    {car.views || 0}
-                  </StyledText>
-                </View>
-                <View className="flex-row items-center">
-                  <Ionicons name="heart-outline" size={18} color="#FFFFFF" />
-                  <StyledText className="text-neutral-200 text-sm ml-1.5">
-                    {car.likes || 0}
-                  </StyledText>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Favorite Button */}
+          {/* Favorite Button - Top Right */}
           {!isDealer && (
             <StyledPressable
               onPress={handleFavoritePress}
-              className={`absolute top-4 left-4 active:opacity-70`}
+              className={`absolute top-4 right-4 active:opacity-70`}
             >
               <Ionicons
                 name={isFavorite ? "heart-sharp" : "heart-outline"}
@@ -499,7 +460,7 @@ export default function CarCard({
 
       const fullMessage = `Hi, I'm interested in the ${car.year} ${car.make} ${
         car.model
-      } listed for $${car.price.toLocaleString()} on Fleet`;
+      } listed for $${car.price.toLocaleString()} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
       const encodedMessage = encodeURIComponent(fullMessage);
 
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodedMessage}`;
@@ -518,7 +479,7 @@ export default function CarCard({
   return (
     <Animated.View
       style={{
-        opacity: showSoldBanner ? fadeAnim * 0.7 : fadeAnim, // Reduce opacity for sold cars
+        opacity: showSoldBanner ? Animated.multiply(fadeAnim, 0.7) : fadeAnim, // Reduce opacity for sold cars
         transform: [
           { translateY },
           { scale: scaleAnim }
@@ -554,12 +515,67 @@ export default function CarCard({
           onPress={handleCardPress}
           className="active:opacity-90"
         >
+          {/* Car Info Section - Price, Name, and Logo */}
+          <View className="px-4 py-3">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                {/* Price */}
+                <StyledText
+                  className="text-lg font-bold text-red"
+                  numberOfLines={1}
+                  style={{ 
+                    textAlign: 'left', 
+                    marginBottom: 4
+                  }}
+                >
+                  ${car.price.toLocaleString()}
+                </StyledText>
+                
+                {/* Car Name */}
+                <StyledText
+                  className={`text-xl font-bold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                  numberOfLines={1}
+                  style={{ 
+                    textAlign: 'left',
+                    textShadowColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                    textShadowOffset: { width: 1, height: 1 },
+                    textShadowRadius: 2
+                  }}
+                >
+                  {car.year} {car.make} {car.model}
+                </StyledText>
+              </View>
+              
+              {/* Car Logo */}
+              {car.make && (
+                <View 
+                  className="ml-4"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 2, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
+                    elevation: 5
+                  }}
+                >
+                  <OptimizedImage
+                    source={{ uri: getLogoUrl(car.make, isDarkMode) }}
+                    style={{ width: 60, height: 40 }}
+                    fallbackColor="transparent"
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+
           {/* Specs Grid */}
           <StyledView 
             className="flex-row"
             style={{
-              marginTop: 16,
-              marginBottom: 8,
+              marginTop: 0,
+              marginBottom: 4,
               paddingHorizontal: 12,
             }}
           >
@@ -601,9 +617,10 @@ export default function CarCard({
 
           {/* Dealership Info */}
           <StyledView
-            className={`p-3 pt-2 ${
+            className={`p-3 ${
               isDarkMode ? "bg-[#2b2b2b]" : "bg-[#d1d1d1]"
             } rounded-t-3xl`}
+            style={{ marginTop: 4 }}
           >
             <StyledView className="flex-row items-center justify-between">
               {car.dealership_logo && (
@@ -652,11 +669,32 @@ export default function CarCard({
                       onPress={handleWhatsAppPress}
                       isDarkMode={isDarkMode}
                     />
-                    <ActionButton
-                      icon="share-outline"
-                      onPress={handleShare}
-                      isDarkMode={isDarkMode}
-                    />
+                    {Platform.OS === 'android' ? (
+                      <StyledPressable
+                        onPress={async () => {
+                          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          handleShare();
+                        }}
+                        className="items-center justify-center active:opacity-70"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                        }}
+                      >
+                        <Ionicons
+                          name="share-social-outline"
+                          size={24}
+                          color={isDarkMode ? "#FFFFFF" : "#000000"}
+                        />
+                      </StyledPressable>
+                    ) : (
+                      <ActionButton
+                        icon="share-outline"
+                        onPress={handleShare}
+                        isDarkMode={isDarkMode}
+                      />
+                    )}
                   </>
                 ) : (
                   <StyledView className="flex-row items-center justify-center px-4 py-2 bg-gray-500/50 rounded-xl">

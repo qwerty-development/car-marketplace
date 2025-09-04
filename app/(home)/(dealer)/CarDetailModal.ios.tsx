@@ -27,6 +27,7 @@ import AutoclipModal from "@/components/AutoclipModal";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
 
 const { width } = Dimensions.get("window");
@@ -472,12 +473,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 const handleShare = useCallback(async () => {
   try {
-    const vehicleName = `${car.year} ${car.make} ${car.model}}`;
-    await Share.share({
-      message: `Check out this ${vehicleName} for $${car.price.toLocaleString()}!
-      at ${car.dealership_name} in ${car.dealership_location}
-      `,
-    });
+    await shareCar(car);
   } catch (error: any) {
     Alert.alert(error.message);
   }
@@ -580,7 +576,7 @@ const handleWhatsAppPress = useCallback(() => {
       .toString()
       .replace(/\D/g, "");
     const vehicleName = `${car.year} ${car.make} ${car.model}}`;
-    const message = `Hi, I'm interested in the ${vehicleName} listed for $${car.price.toLocaleString()} on Fleet`;
+    const message = `Hi, I'm interested in the ${vehicleName} listed for $${car.price.toLocaleString()} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
     const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(
       message
     )}`;

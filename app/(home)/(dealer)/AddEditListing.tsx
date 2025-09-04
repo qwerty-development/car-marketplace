@@ -406,6 +406,17 @@ export default function AddEditListing() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [modalImages, setModalImages] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+    currentImageName: string;
+    completedImages: string[];
+  }>({
+    current: 0,
+    total: 0,
+    currentImageName: '',
+    completedImages: []
+  });
   const [showSoldModal, setShowSoldModal] = useState(false);
   const [soldInfo, setSoldInfo] = useState({
     price: "",
@@ -994,269 +1005,182 @@ features
         return;
       }
 
-      setIsUploading(true);
+      // Note: isUploading is already set to true in handleImagePick
+      
+      // Update progress tracking with actual upload start
+      setUploadProgress(prev => ({
+        ...prev,
+        currentImageName: 'Starting upload...'
+      }));
 
       try {
-        // STEP 1: Configure batch processing parameters with platform optimization
-        // Use sequential uploads on Android to minimize memory pressure
-        const batchSize = Platform.OS === "android" ? 1 : 3;
-        console.log(
-          `Processing ${assets.length} images in batches of ${batchSize}`
-        );
-
-        const results: {
-          url: string | null;
-          uploaded: boolean;
-          error?: string;
-        }[] = [];
-        let progressCounter = 0;
         const totalImages = assets.length;
+        const successfulUploads: string[] = [];
+        const failedUploads: { index: number; error: string }[] = [];
 
-        // STEP 2: Process images in batches to prevent memory issues
-        for (let i = 0; i < assets.length; i += batchSize) {
-          const batchNumber = Math.floor(i / batchSize) + 1;
-          const totalBatches = Math.ceil(assets.length / batchSize);
-          console.log(`Processing batch ${batchNumber} of ${totalBatches}`);
+        console.log(`Processing ${totalImages} images one by one for better progress tracking`);
 
-          const batch = assets.slice(i, i + batchSize);
+        // Process images one by one
+        for (let i = 0; i < assets.length; i++) {
+          const asset = assets[i];
+          const imageNumber = i + 1;
+          const imageName = `Image ${imageNumber}`;
+          
+          // Update progress for current image
+          setUploadProgress(prev => ({
+            ...prev,
+            current: i,
+            currentImageName: `Processing ${imageName}...`
+          }));
 
-          // STEP 3: Process all images in current batch concurrently
-          const batchPromises = batch.map(
-            async (asset: { uri: string }, batchIndex: number) => {
-              const index = i + batchIndex;
-              const imageNumber = index + 1;
-              let uploadSuccessful = false;
-              let publicUrl: string | null = null;
-              let errorMessage = "";
+          console.log(`Processing ${imageName} (${imageNumber}/${totalImages})`);
 
-              try {
-                // STEP 3.1: Process and optimize image
-                console.log(`Processing image ${imageNumber}/${totalImages}`);
-                const processedUri = await processImage(asset.uri);
+          try {
+            // Process and optimize image
+            const processedUri = await processImage(asset.uri);
 
-                if (!processedUri) {
-                  console.error(`Failed to process image ${imageNumber}`);
-                  return {
-                    url: null,
-                    uploaded: false,
-                    error: "Image processing failed",
-                  };
-                }
-
-                // STEP 3.2: Validate processed file exists
-                const processedFileInfo = await FileSystem.getInfoAsync(
-                  processedUri
-                );
-                if (!processedFileInfo.exists || !processedFileInfo.size) {
-                  console.error(
-                    `Processed file invalid for image ${imageNumber}`
-                  );
-                  return {
-                    url: null,
-                    uploaded: false,
-                    error: "Processed file is invalid",
-                  };
-                }
-
-                console.log(
-                  `Processed file size: ${(
-                    processedFileInfo.size /
-                    (1024 * 1024)
-                  ).toFixed(2)}MB`
-                );
-
-                // STEP 3.3: Generate unique filename with high entropy
-                const timestamp = Date.now();
-                const randomId = Math.floor(Math.random() * 1000000);
-                // Choose extension based on output format
-                const isAndroid = Platform.OS === "android";
-                const extension = isAndroid ? "webp" : "jpg";
-                const fileName = `${timestamp}_${randomId}_${index}.${extension}`;
-                const filePath = `${dealership.id}/${fileName}`;
-
-                // STEP 3.4: UPLOAD LOGIC - The critical part
-                console.log(`Uploading image ${imageNumber}/${totalImages}`);
-
-                // Upload configuration
-                const contentType = isAndroid ? "image/webp" : "image/jpeg";
-                const uploadOptions = {
-                  contentType,
-                  cacheControl: "3600", // 1 hour cache
-                  upsert: false, // Prevent accidental overwrites
-                } as any;
-
-                // Use file URI streaming upload supported by Supabase RN client
-                const uploadPromise = supabase.storage
-                  .from("cars")
-                  .upload(
-                    filePath,
-                    {
-                      uri: processedUri,
-                      name: fileName,
-                      type: contentType,
-                    } as any,
-                    uploadOptions
-                  );
-
-                // Add timeout protection for upload operation
-                const timeoutPromise = new Promise((_, reject) =>
-                  setTimeout(
-                    () =>
-                      reject(
-                        new Error(`Upload timeout for image ${imageNumber}`)
-                      ),
-                    30000
-                  )
-                );
-
-                const { error: uploadError } = (await Promise.race([
-                  uploadPromise,
-                  timeoutPromise,
-                ])) as any;
-
-                if (uploadError) {
-                  throw new Error(
-                    `Upload failed for image ${imageNumber}: ${uploadError.message}`
-                  );
-                }
-
-                // STEP 3.5: Retrieve public URL - THIS IS WHERE SUCCESS IS DETERMINED
-                const { data: publicURLData } = supabase.storage
-                  .from("cars")
-                  .getPublicUrl(filePath);
-
-                if (!publicURLData?.publicUrl) {
-                  throw new Error(
-                    `Failed to retrieve public URL for image ${imageNumber}`
-                  );
-                }
-
-                // AT THIS POINT, UPLOAD IS SUCCESSFUL
-                uploadSuccessful = true;
-                publicUrl = publicURLData.publicUrl;
-
-                // STEP 3.6: OPTIONAL validation - SKIPPED on Android due to HEAD issues with some CDNs
-                // We intentionally skip remote validation to reduce network overhead and avoid HEAD incompatibilities
-
-                // STEP 3.7: Update progress counter
-                progressCounter++;
-                console.log(
-                  `Upload progress: ${progressCounter}/${totalImages} - URL: ${publicUrl}`
-                );
-
-                return {
-                  url: publicUrl,
-                  uploaded: true,
-                };
-              } catch (error) {
-                console.error(
-                  `Error uploading image ${imageNumber}/${totalImages}:`,
-                  error
-                );
-
-                // Enhanced error logging for debugging
-                if (error instanceof Error) {
-                  console.error(`Error details: ${error.message}`);
-                  errorMessage = error.message;
-                }
-
-                // IMPORTANT: If upload was successful but validation failed, still count as success
-                if (uploadSuccessful && publicUrl) {
-                  console.log(
-                    `Image ${imageNumber} upload succeeded despite validation error`
-                  );
-                  return {
-                    url: publicUrl,
-                    uploaded: true,
-                    error: `Validation warning: ${errorMessage}`,
-                  };
-                }
-
-                return {
-                  url: null,
-                  uploaded: false,
-                  error: errorMessage || "Unknown error",
-                };
-              }
+            if (!processedUri) {
+              console.error(`Failed to process ${imageName}`);
+              failedUploads.push({ index: i, error: "Image processing failed" });
+              continue;
             }
-          );
 
-          // STEP 4: Wait for all images in current batch to complete
-          const batchResults = await Promise.all(batchPromises);
-          results.push(...batchResults);
+            // Validate processed file exists
+            const processedFileInfo = await FileSystem.getInfoAsync(processedUri);
+            if (!processedFileInfo.exists || !processedFileInfo.size) {
+              console.error(`Processed file invalid for ${imageName}`);
+              failedUploads.push({ index: i, error: "Processed file is invalid" });
+              continue;
+            }
 
-          // STEP 5: Memory management - pause between batches
-          if (i + batchSize < assets.length) {
-            const pauseDuration = Platform.OS === "android" ? 500 : 200;
             console.log(
-              `Pausing ${pauseDuration}ms between batches for memory management`
+              `Processed file size: ${(processedFileInfo.size / (1024 * 1024)).toFixed(2)}MB`
             );
-            await new Promise((resolve) => setTimeout(resolve, pauseDuration));
+
+            // Generate unique filename
+            const timestamp = Date.now();
+            const randomId = Math.floor(Math.random() * 1000000);
+            const isAndroid = Platform.OS === "android";
+            const extension = isAndroid ? "webp" : "jpg";
+            const fileName = `${timestamp}_${randomId}_${i}.${extension}`;
+            const filePath = `${dealership.id}/${fileName}`;
+
+            // Upload image
+            console.log(`Uploading ${imageName} (${imageNumber}/${totalImages})`);
+            
+            // Update progress to show uploading
+            setUploadProgress(prev => ({
+              ...prev,
+              currentImageName: `Uploading ${imageName}...`
+            }));
+
+            const contentType = isAndroid ? "image/webp" : "image/jpeg";
+            const uploadOptions = {
+              contentType,
+              cacheControl: "3600",
+              upsert: false,
+            } as any;
+
+            const uploadPromise = supabase.storage
+              .from("cars")
+              .upload(
+                filePath,
+                {
+                  uri: processedUri,
+                  name: fileName,
+                  type: contentType,
+                } as any,
+                uploadOptions
+              );
+
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error(`Upload timeout for ${imageName}`)),
+                30000
+              )
+            );
+
+            const { error: uploadError } = (await Promise.race([
+              uploadPromise,
+              timeoutPromise,
+            ])) as any;
+
+            if (uploadError) {
+              throw new Error(`Upload failed: ${uploadError.message}`);
+            }
+
+            // Get public URL
+            const { data: publicURLData } = supabase.storage
+              .from("cars")
+              .getPublicUrl(filePath);
+
+            if (!publicURLData?.publicUrl) {
+              throw new Error(`Failed to retrieve public URL for ${imageName}`);
+            }
+
+            const publicUrl = publicURLData.publicUrl;
+            successfulUploads.push(publicUrl);
+
+            // Add image to gallery immediately
+            setModalImages(prevImages => [...prevImages, publicUrl]);
+            setFormData(prev => ({
+              ...prev,
+              images: [...(prev.images || []), publicUrl]
+            }));
+
+            // Update progress with completed image
+            setUploadProgress(prev => ({
+              ...prev,
+              current: imageNumber,
+              completedImages: [...prev.completedImages, publicUrl]
+            }));
+
+            console.log(`✅ ${imageName} uploaded successfully`);
+
+          } catch (error: any) {
+            console.error(`❌ Error uploading ${imageName}:`, error.message);
+            failedUploads.push({ index: i, error: error.message });
+          } finally {
+            // Cleanup processed file to free memory
+            try {
+              if (processedUri && processedUri !== asset.uri) {
+                await FileSystem.deleteAsync(processedUri, { idempotent: true });
+              }
+            } catch (cleanupError) {
+              console.warn(`Failed to cleanup processed file for ${imageName}:`, cleanupError);
+            }
+          }
+
+          // Small delay between uploads to prevent overwhelming the system
+          if (i < assets.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
 
-        // STEP 6: Process and validate results - IMPROVED LOGIC
-        const successfulUploads = results
-          .filter((result) => result.uploaded && result.url)
-          .map((result) => result.url!);
-
-        const actualFailures = results.filter((result) => !result.uploaded);
-        const validationWarnings = results.filter(
-          (result) => result.uploaded && result.error
-        );
-
-        console.log(`Upload summary:
-        - Total images: ${totalImages}
-        - Successful uploads: ${successfulUploads.length}
-        - Actual failures: ${actualFailures.length}
-        - Validation warnings: ${validationWarnings.length}
-      `);
-
-        // STEP 7: Handle different scenarios
+        // Handle results
         if (successfulUploads.length === 0) {
           throw new Error("No images were successfully uploaded");
         }
 
-        // Show appropriate user feedback
-        if (actualFailures.length > 0) {
+        if (failedUploads.length > 0) {
           console.warn(
-            `Upload completed with ${actualFailures.length} actual failures out of ${totalImages} total images`
+            `Upload completed with ${failedUploads.length} failures out of ${totalImages} total images`
           );
 
           Alert.alert(
             "Partial Upload Success",
-            `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${actualFailures.length} images failed to upload.`,
+            `${successfulUploads.length} of ${totalImages} images uploaded successfully. ${failedUploads.length} images failed to upload.`,
             [{ text: "Continue", style: "default" }]
           );
-        } else if (validationWarnings.length > 0) {
-          console.log(
-            `All uploads successful with ${validationWarnings.length} validation warnings`
-          );
-          // Don't show alert for validation warnings - uploads were successful
         } else {
           console.log("All uploads completed successfully");
-          // Optionally show success message
-          // Alert.alert("Success", "All images uploaded successfully");
         }
 
-        console.log(
-          `Upload batch complete: ${successfulUploads.length}/${totalImages} images successful`
-        );
-
-        // STEP 8: Update state with successful uploads only
-        setModalImages((prevImages: any) => [
-          ...successfulUploads,
-          ...prevImages,
-        ]);
-        setFormData((prevData: { images: any }) => ({
-          ...prevData,
-          images: [...successfulUploads, ...(prevData.images || [])],
-        }));
         setHasChanges(true);
-
         return successfulUploads;
+
       } catch (error) {
-        console.error("Critical error in batch upload process:", error);
+        console.error("Critical error in upload process:", error);
 
         Alert.alert(
           "Upload Failed",
@@ -1267,6 +1191,13 @@ features
         return [];
       } finally {
         setIsUploading(false);
+        // Reset progress
+        setUploadProgress({
+          current: 0,
+          total: 0,
+          currentImageName: '',
+          completedImages: []
+        });
       }
     },
     [
@@ -1308,11 +1239,8 @@ features
       // Step 3: Calculate available slots and platform-specific limits
       const remainingSlots = MAX_IMAGES - modalImages.length;
 
-      // Set stricter limits for Android due to memory constraints
-      const maxSelection =
-        Platform.OS === "android"
-          ? Math.min(remainingSlots, 10) // Max 3 at once for Android
-          : Math.min(remainingSlots, 10); // Max 5 at once for iOS
+      // Set limits for image selection - Android can now handle up to 10 images
+      const maxSelection = Math.min(remainingSlots, 10); // Max 10 at once for both platforms
 
       console.log(
         `Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`
@@ -1322,8 +1250,8 @@ features
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: maxSelection > 1,
-        // Some Android gallery providers ignore selectionLimit; keep it small
-        selectionLimit: Platform.OS === "android" ? Math.min(maxSelection, 3) : maxSelection,
+        // Android can now handle up to 10 images with proper memory management
+        selectionLimit: maxSelection,
         quality: Platform.OS === "android" ? 0.7 : 0.8, // Lower initial quality on Android
         exif: false, // Skip EXIF data to reduce memory usage
         base64: false, // Skip base64 encoding in picker
@@ -1336,7 +1264,18 @@ features
         return;
       }
 
-      // Step 6: Pre-analyze selected images for potential issues
+      // Step 6: Show loader immediately when images are selected
+      setIsUploading(true);
+      
+      // Initialize progress tracking immediately
+      setUploadProgress({
+        current: 0,
+        total: result.assets.length,
+        currentImageName: 'Preparing images...',
+        completedImages: []
+      });
+
+      // Step 7: Pre-analyze selected images for potential issues (in background)
       let totalSize = 0;
       let largeImageCount = 0;
       const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
@@ -1358,20 +1297,25 @@ features
         ).toFixed(2)}MB`
       );
 
-      // Step 7: Warn about potential issues with very large images
+      // Step 8: Warn about potential issues with very large images
       if (totalSize > 25 * 1024 * 1024 || largeImageCount > 2) {
         Alert.alert(
           "Large Images Detected",
           "Some selected images are very large, which may cause slower uploads. Images will be optimized automatically.",
           [
-            { text: "Cancel", style: "cancel" },
+            { text: "Cancel", style: "cancel", onPress: () => {
+              setIsUploading(false);
+              setUploadProgress({
+                current: 0,
+                total: 0,
+                currentImageName: '',
+                completedImages: []
+              });
+            }},
             {
               text: "Proceed Anyway",
               onPress: () => {
-                setIsUploading(true);
-                handleMultipleImageUpload(result.assets).finally(() =>
-                  setIsUploading(false)
-                );
+                handleMultipleImageUpload(result.assets);
               },
             },
           ],
@@ -1380,8 +1324,7 @@ features
         return;
       }
 
-      // Step 8: Standard upload flow for normal-sized images
-      setIsUploading(true);
+      // Step 9: Start upload process
       try {
         await handleMultipleImageUpload(result.assets);
       } catch (error) {
@@ -1894,6 +1837,45 @@ features
             subtitle="Add up to 10 high-quality photos of your vehicle"
             isDarkMode={isDarkMode}
           />
+          
+          {/* Upload Progress Indicator */}
+          {isUploading && uploadProgress.total > 0 && (
+            <View className="mb-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-xl">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Uploading Images
+                </Text>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">
+                  {uploadProgress.current} of {uploadProgress.total}
+                </Text>
+              </View>
+              
+              {/* Progress Bar */}
+              <View className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                <View 
+                  className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `${(uploadProgress.current / uploadProgress.total) * 100}%` 
+                  }}
+                />
+              </View>
+              
+              {/* Current Image Name */}
+              {uploadProgress.currentImageName && (
+                <Text className="text-xs text-gray-600 dark:text-gray-400">
+                  Currently uploading: {uploadProgress.currentImageName}
+                </Text>
+              )}
+              
+              {/* Completed Images Count */}
+              {uploadProgress.completedImages.length > 0 && (
+                <Text className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  ✅ {uploadProgress.completedImages.length} images uploaded successfully
+                </Text>
+              )}
+            </View>
+          )}
+          
           <FuturisticGallery
             images={modalImages}
             onAdd={handleImagePick}

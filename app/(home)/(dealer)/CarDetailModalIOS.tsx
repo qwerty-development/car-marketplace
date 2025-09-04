@@ -25,6 +25,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { Image } from 'expo-image'
 import { Radius } from 'lucide-react-native'
 import { useAuth } from '@/utils/AuthContext'
+import { shareCar } from '@/utils/centralizedSharing'
 import { getLogoUrl } from '@/hooks/getLogoUrl'
 
 const { width, height } = Dimensions.get('window')
@@ -221,10 +222,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
 	const handleShare = useCallback(async () => {
 		try {
-			await Share.share({
-				message: `Check out this ${car.year} ${car.make} ${car.model} for $${car.price.toLocaleString()}!`,
-				url: car.images[0]
-			})
+			await shareCar(car);
 		} catch (error) {
 			Alert.alert(error.message)
 		}

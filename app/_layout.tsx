@@ -933,6 +933,7 @@ function RootLayoutNav() {
 
   // OPTIMIZED: Smoother splash to content transition
   const handleSplashComplete = useCallback(() => {
+    console.log('[RootLayout] Custom splash screen completed');
     // Mark splash as ready
     initManager.setReady("splash");
 
@@ -945,6 +946,7 @@ function RootLayoutNav() {
 
     // Delay splash removal to ensure content is visible
     setTimeout(() => {
+      console.log('[RootLayout] Setting splash animation complete');
       setSplashAnimationComplete(true);
     }, 150);
   }, [contentOpacity]);
@@ -963,6 +965,7 @@ function RootLayoutNav() {
 
       {!splashAnimationComplete ? (
         <View style={StyleSheet.absoluteFillObject}>
+          {console.log('[RootLayout] Rendering CustomSplashScreen')}
           <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
         </View>
       ) : null}
@@ -1004,6 +1007,9 @@ export default Sentry.wrap(function RootLayout() {
     const initializeApp = async () => {
       try {
         await SplashScreen.preventAutoHideAsync();
+
+        // RULE: Hide the native splash screen immediately to show custom splash
+        await SplashScreen.hideAsync();
 
         // RULE: Mark splash as ready immediately
         initManager.setReady("splash");

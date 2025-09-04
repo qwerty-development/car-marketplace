@@ -883,6 +883,9 @@ export const FuturisticGallery = memo(
                       borderRadius: 16,
                     }}
                     contentFit="cover"
+                    resizeMode="cover"
+                    onError={() => console.log('Image failed to load:', item)}
+                    defaultSource={require('@/assets/placeholder.jpg')}
                   />
 
                   {/* Gradient overlay */}
