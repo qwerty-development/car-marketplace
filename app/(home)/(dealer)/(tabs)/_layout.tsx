@@ -79,17 +79,6 @@ const DealershipLogo = ({ color, focused }: { color: string; focused: boolean })
         )}
       </View>
       
-      {/* Active indicator dot */}
-      {focused && (
-        <View style={{
-          position: 'absolute',
-          bottom: -8,
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: '#D55004',
-        }} />
-      )}
     </View>
   )
 }
@@ -132,17 +121,6 @@ const TabIcon = ({
         color={color}
       />
       
-      {/* Active indicator dot */}
-      {focused && (
-        <View style={{
-          position: 'absolute',
-          bottom: -12,
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: '#D55004',
-        }} />
-      )}
     </View>
   )
 }
@@ -239,8 +217,8 @@ export default function TabsLayout() {
 
   // Calculate tab bar height based on platform and safe area
   const tabBarHeight = Platform.OS === 'ios' 
-    ? 85 + (insets.bottom > 0 ? 0 : 15) // Account for home indicator
-    : 75
+    ? 100 + (insets.bottom > 0 ? 0 : 15) // Increased height to accommodate labels
+    : 85
 
   const paddingBottom = Platform.OS === 'ios'
     ? Math.max(insets.bottom, 25)
@@ -274,7 +252,7 @@ export default function TabsLayout() {
           }),
         },
         tabBarBackground: () => <TabBarBackground isDarkMode={isDarkMode} />,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: '#D55004',
         tabBarInactiveTintColor: isDarkMode ? '#9ca3af' : '#6b7280',
         tabBarItemStyle: {
@@ -294,7 +272,8 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: 'My Inventory'
+          headerTitle: 'My Inventory',
+          tabBarLabel: 'Inventory'
         }}
       />
       
@@ -308,7 +287,8 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: 'Create Content'
+          headerTitle: 'Create Content',
+          tabBarLabel: 'Create'
         }}
       />
       
@@ -322,7 +302,8 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: 'Sales Analytics'
+          headerTitle: 'Sales Analytics',
+          tabBarLabel: 'Analytics'
         }}
       />
 
@@ -332,7 +313,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <DealershipLogo color={color} focused={focused} />
           ),
-          headerTitle: 'Dealership Profile'
+          headerTitle: 'Dealership Profile',
+          tabBarLabel: 'Profile'
         }}
       />
     </Tabs>
