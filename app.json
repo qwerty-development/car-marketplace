@@ -145,6 +145,23 @@
           "action": "VIEW",
           "data": [
             {
+              "scheme": "fleet",
+              "pathPrefix": "/auth"
+            },
+            {
+              "scheme": "fleet",
+              "pathPrefix": "/(auth)"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
               "scheme": "fleet"
             }
           ],
