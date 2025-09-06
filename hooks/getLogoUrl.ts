@@ -16,7 +16,7 @@ export const getLogoUrl = (make: string, isLightMode: boolean) => {
         case "nissan":
           return "https://cdn.freebiesupply.com/logos/large/2x/nissan-6-logo-png-transparent.png";
         case "deepal":
-          return "https://auth.fleetapp.me/storage/v1/object/public/car-logos/deepal.png";
+          return "https://www.chinacarstrading.com/wp-content/uploads/2023/04/deepal-logo2.png";
         case "denza":
           return "https://upload.wikimedia.org/wikipedia/en/5/5e/Denza_logo.png";
         case "voyah":
