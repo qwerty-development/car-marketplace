@@ -114,10 +114,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
 
-  // For OAuth redirects - FIXED: Use correct scheme and path
+  // For OAuth redirects
   const redirectUri = makeRedirectUri({
-    scheme: 'fleet', // Match app.json scheme
-    path: '(auth)/callback' // Match actual route structure
+    scheme: 'com.qwertyapp.clerkexpoquickstart',
+    path: 'auth/callback'
   });
 
   // CRITICAL FIX 4: Enhanced cleanup function

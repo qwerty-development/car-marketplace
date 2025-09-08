@@ -15,7 +15,7 @@ export default function TabLayout() {
           tabBarStyle: {
             position: 'absolute',
             backgroundColor: isDarkMode ? '#000' : 'rgba(255, 255, 255, 0.98)',
-            height: Platform.OS === 'ios' ? 75 : 45, // Lower height on Android
+            height: Platform.OS === 'ios' ? 90 : 65, // Increased height to accommodate labels
             paddingBottom: Platform.OS === 'ios' ? 15 : 5, // Lower bottom padding on Android
             paddingTop: 5,
             borderTopWidth: 0,
@@ -25,7 +25,7 @@ export default function TabLayout() {
             shadowOpacity: 0.1,
             shadowRadius: 12,
           },
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
           tabBarActiveTintColor: '#D55004',
           tabBarInactiveTintColor: isDarkMode
             ? 'rgba(255, 255, 255, 0.6)'
@@ -96,25 +96,24 @@ export default function TabLayout() {
                     transform: [{ scale: focused ? 1.1 : 1 }],
                   }}
                 />
-                {focused && (
-                  <View
-                    style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: '#D55004',
-                      marginTop: 4,
-                    }}
-                  />
-                )}
               </View>
             );
           },
         })}>
-        <Tabs.Screen name='index' options={{ headerTitle: 'Home' }} />
+        <Tabs.Screen 
+          name='index' 
+          options={{ 
+            headerTitle: 'Home',
+            tabBarLabel: 'Home'
+          }} 
+        />
         <Tabs.Screen
           name='dealerships'
-          options={{ headerTitle: 'Dealerships', headerShown: false }}
+          options={{ 
+            headerTitle: 'Dealerships', 
+            headerShown: false,
+            tabBarLabel: 'Dealerships'
+          }}
         />
         <Tabs.Screen
           name='autoclips'
@@ -123,15 +122,24 @@ export default function TabLayout() {
             headerTitle: 'Autoclips',
             headerShown: false,
             tabBarStyle: { display: 'none' },
+            tabBarLabel: 'AutoClips'
           }}
         />
         <Tabs.Screen
           name='Favorite'
-          options={{ headerTitle: 'Favorite', headerShown: false }}
+          options={{ 
+            headerTitle: 'Favorite', 
+            headerShown: false,
+            tabBarLabel: 'Favorites'
+          }}
         />
         <Tabs.Screen
           name='profile'
-          options={{ headerTitle: 'Profile', headerShown: false }}
+          options={{ 
+            headerTitle: 'Profile', 
+            headerShown: false,
+            tabBarLabel: 'Profile'
+          }}
         />
         {/* Chat tab removed. Global FAB now opens chat assistant. */}
       </Tabs>
