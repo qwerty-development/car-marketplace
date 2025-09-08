@@ -33,11 +33,11 @@ const SUBSCRIPTION_WARNING_DAYS = 7
 const MODAL_HEIGHT_PERCENTAGE = 0.7;
 
 // Subscription pricing configuration
-const SUBSCRIPTION_PRICE_MONTHLY_USD = 1
+const SUBSCRIPTION_PRICE_MONTHLY_USD = 250
 const SUBSCRIPTION_PRICE_YEARLY_USD = 2500
 
 // Enable/disable subscription renewal feature
-const ENABLE_RENEW_SUBSCRIPTION = false
+const ENABLE_RENEW_SUBSCRIPTION = true
 
 type RouterType = ReturnType<typeof useRouter>
 
