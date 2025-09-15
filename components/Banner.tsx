@@ -31,6 +31,10 @@ const Banner: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
   const { width: screenWidth } = Dimensions.get('window');
+  // Account for horizontal margins (mx-3 => 12px left + 12px right)
+  const contentWidth = screenWidth - 24;
+  // Maintain 3780x1890 aspect ratio (2:1)
+  const bannerHeight = contentWidth / 2;
 
   const fetchBanners = useCallback(async () => {
     try {
@@ -176,7 +180,7 @@ const Banner: React.FC = () => {
   }
 
   return (
-    <View className={`mx-3 mb-4 ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'} rounded-2xl overflow-hidden`}>
+    <View className={`mx-3 my-4 ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'} rounded-2xl overflow-hidden`} style={{ position: 'relative' }}>
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -184,28 +188,28 @@ const Banner: React.FC = () => {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
         decelerationRate="fast"
-        style={{ height: 200 }}
+        style={{ height: bannerHeight }}
       >
         {banners.map((banner, index) => (
           <TouchableOpacity
             key={banner.id}
             onPress={() => handleBannerPress(banner.redirect_to)}
-            style={{ width: screenWidth - 24 }} // Account for margin
+            style={{ width: contentWidth }}
             activeOpacity={banner.redirect_to ? 0.8 : 1}
             disabled={!banner.redirect_to}
           >
             <Image
               source={{ uri: banner.image_url }}
-              style={styles.bannerImage}
-              resizeMode="cover"
+              style={{ width: contentWidth, height: bannerHeight }}
+              resizeMode="contain"
             />
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Pagination dots */}
+      {/* Pagination dots overlaid at the bottom of the banner */}
       {banners.length > 1 && (
-        <View className="flex-row justify-center items-center py-3">
+        <View style={{ position: 'absolute', bottom: 8, left: 0, right: 0 }} className="flex-row justify-center items-center">
           {banners.map((_, index) => (
             <TouchableOpacity
               key={index}
