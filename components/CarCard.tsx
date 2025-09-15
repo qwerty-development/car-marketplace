@@ -372,13 +372,31 @@ export default function CarCard({
   );
 
   const renderImage = useCallback(
-    ({ item }: any) => (
+    ({ item, index }: any) => (
       <Pressable onPress={handleCardPress} className="bg-neutral-800">
         <View className="relative bg-neutral-800">
           <OptimizedImage
             source={{ uri: item }}
             style={{ width: cardWidth, height: imageHeight }}
           />
+
+          {/* Last image overlay: black opacity with centered See more */}
+          {index === displayedImages.length - 1 && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.55)',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}
+            >
+              <StyledText className="text-red text-xl font-bold">See more</StyledText>
+            </View>
+          )}
 
 
           {/* Sold Banner */}
