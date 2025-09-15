@@ -24,6 +24,7 @@ import { useFavorites } from "@/utils/useFavorites";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import ByBrands from "@/components/ByBrands";
+import Banner from "@/components/Banner";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/utils/ThemeContext";
@@ -739,6 +740,7 @@ export default function BrowseCarsPage() {
             <ByBrands />
           </View>
         )}
+        <Banner />
         <View style={{ marginBottom: 12, marginTop: 12 }}>
           {!componentsLoaded || isInitialLoading ? (
             <SkeletonCategorySelector />
