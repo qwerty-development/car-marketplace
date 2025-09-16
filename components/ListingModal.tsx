@@ -84,6 +84,7 @@ export const CONDITIONS = [
 
 export const BrandSelector = memo(
   ({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
+    const { t, ready } = useTranslation();
     // State Management
     const [brands, setBrands] = useState<any[]>([]);
     const [showAllBrands, setShowAllBrands] = useState(false);
@@ -261,7 +262,7 @@ export const BrandSelector = memo(
             onPress={() => window.location.reload()}
             className="mt-2 bg-red-500 p-2 rounded"
           >
-            <Text className="text-white text-center">{t('common.retry')}</Text>
+            <Text className="text-white text-center">{ready ? t('common.retry') : 'Retry'}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -286,7 +287,7 @@ export const BrandSelector = memo(
             }}
             className="ml-auto bg-red px-3 py-1 rounded-full"
           >
-            <Text className="text-white">{t('common.view_all')}</Text>
+            <Text className="text-white">{ready ? t('common.view_all') : 'View All'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -464,7 +465,7 @@ export const VEHICLE_COLORS = [
 // Model Dropdown Component
 export const ModelDropdown = memo(
   ({ make, value, onChange, error, isDarkMode }: any) => {
-    const { t } = useTranslation();
+    const { t, ready } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [models, setModels] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -533,7 +534,7 @@ export const ModelDropdown = memo(
                 ${isDarkMode ? "text-white" : "text-black"}
               `}
                 >
-                  {value || t('common.select_model')}
+                  {value || (ready ? t('common.select_model') : 'Select Model')}
                 </Text>
               </View>
               {isLoading ? (
@@ -1104,7 +1105,7 @@ const ListingModal = ({
   dealership,
 }: any) => {
   const { isDarkMode } = useTheme();
-  const { t } = useTranslation();
+  const { t, ready } = useTranslation();
   const [formData, setFormData] = useState<any>(
     initialData || {
       bought_price: null,
@@ -1279,7 +1280,7 @@ const ListingModal = ({
       }));
     } catch (error) {
       console.error("Error removing image:", error);
-      Alert.alert(t('common.error'), t('common.failed_remove_image'));
+      Alert.alert(ready ? t('common.error') : 'Error', ready ? t('common.failed_remove_image') : 'Failed to remove image');
     }
   }, []);
 
@@ -1385,7 +1386,7 @@ const ListingModal = ({
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  {initialData ? t('common.edit_vehicle') : t('common.add_new_vehicle')}
+                  {initialData ? (ready ? t('common.edit_vehicle') : 'Edit Vehicle') : (ready ? t('common.add_new_vehicle') : 'Add New Vehicle')}
                 </Text>
                 <TouchableOpacity
                   onPress={handleSubmit}
@@ -1404,7 +1405,7 @@ const ListingModal = ({
                 <View className="py-4">
                   <SectionHeader
                     title="Vehicle Images"
-                    subtitle={t('common.add_vehicle_photos_subtitle')}
+                    subtitle={ready ? t('common.add_vehicle_photos_subtitle') : 'Add up to 10 high-quality photos of your vehicle'}
                     isDarkMode={isDarkMode}
                   />
                   <FuturisticGallery
@@ -1420,8 +1421,8 @@ const ListingModal = ({
                 {/* Basic Information */}
                 <View className="mb-8">
                   <SectionHeader
-                    title={t('common.vehicle_brand_model')}
-                    subtitle={t('common.select_vehicle_make_model')}
+                    title={ready ? t('common.vehicle_brand_model') : 'Vehicle Brand & Model'}
+                    subtitle={ready ? t('common.select_vehicle_make_model') : "Select your vehicle's make and model"}
                     isDarkMode={isDarkMode}
                   />
 
@@ -1485,8 +1486,8 @@ const ListingModal = ({
 
                 <View className="mb-8">
                   <SectionHeader
-                    title={t('common.vehicle_color')}
-                    subtitle={t('common.select_exterior_color')}
+                    title={ready ? t('common.vehicle_color') : 'Vehicle Color'}
+                    subtitle={ready ? t('common.select_exterior_color') : 'Select the exterior color'}
                     isDarkMode={isDarkMode}
                   />
                   <EnhancedColorSelector
@@ -1499,8 +1500,8 @@ const ListingModal = ({
                 {/* Vehicle Category & Type */}
                 <View className="mb-8">
                   <SectionHeader
-                    title={t('common.vehicle_classification')}
-                    subtitle={t('common.select_vehicle_category_type')}
+                    title={ready ? t('common.vehicle_classification') : 'Vehicle Classification'}
+                    subtitle={ready ? t('common.select_vehicle_category_type') : "Select your vehicle's category and type"}
                     isDarkMode={isDarkMode}
                   />
 
@@ -1704,7 +1705,7 @@ const ListingModal = ({
                         >
                           {formData.date_bought
                             ? format(new Date(formData.date_bought), "PPP")
-                            : t('common.select_purchase_date')}
+                            : (ready ? t('common.select_purchase_date') : 'Select purchase date')}
                         </Text>
                       </BlurView>
                     </View>

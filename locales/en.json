@@ -47,7 +47,10 @@
     "select_purchase_date": "Select purchase date",
     "no_trim_levels_available": "No trim levels available for this vehicle",
     "edit_vehicle": "Edit Vehicle",
+    "add_vehicle": "Add Vehicle",
     "add_new_vehicle": "Add New Vehicle",
+    "update": "Update",
+    "publish": "Publish",
     "add_vehicle_photos_subtitle": "Add up to 10 high-quality photos of your vehicle",
     "filter_by_make": "Filter by make...",
     "failed_remove_image": "Failed to remove image. Please try again.",
@@ -159,7 +162,9 @@
     "minutes_ago": "{{count}} minute ago",
     "minutes_ago_other": "{{count}} minutes ago",
     "seconds_ago": "{{count}} second ago",
-    "seconds_ago_other": "{{count}} seconds ago"
+    "seconds_ago_other": "{{count}} seconds ago",
+    "listing_updated_successfully": "Listing updated successfully",
+    "listing_created_successfully": "New listing created successfully"
   },
   "features": {
     "heated_seats": "Heated Seats",

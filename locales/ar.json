@@ -47,7 +47,10 @@
     "select_purchase_date": "اختر تاريخ الشراء",
     "no_trim_levels_available": "لا توجد مستويات طراز متاحة لهذه المركبة",
     "edit_vehicle": "تحرير المركبة",
+    "add_vehicle": "إضافة مركبة",
     "add_new_vehicle": "إضافة مركبة جديدة",
+    "update": "تحديث",
+    "publish": "نشر",
     "add_vehicle_photos_subtitle": "أضف حتى 10 صور عالية الجودة لمركبتك",
     "filter_by_make": "تصفية حسب الصانع...",
     "failed_remove_image": "فشل في إزالة الصورة. يرجى المحاولة مرة أخرى.",
@@ -159,7 +162,9 @@
     "minutes_ago": "منذ {{count}} دقيقة",
     "minutes_ago_other": "منذ {{count}} دقائق",
     "seconds_ago": "منذ {{count}} ثانية",
-    "seconds_ago_other": "منذ {{count}} ثوان"
+    "seconds_ago_other": "منذ {{count}} ثوان",
+    "listing_updated_successfully": "تم تحديث الإعلان بنجاح",
+    "listing_created_successfully": "تم إنشاء إعلان جديد بنجاح"
   },
   "features": {
     "heated_seats": "مقاعد مدفأة",

@@ -53,6 +53,7 @@ import {
 } from "@/components/ListingModal";
 import { ModelDropdown } from "@/components/ModelDropdown";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 export const SOURCE_OPTIONS = [
   { value: "Company", label: "Company Source", icon: "🏢" }, // office
@@ -383,6 +384,7 @@ const FeatureSelector = memo(
 );
 
 export default function AddEditListing() {
+  const { t, ready } = useTranslation();
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -633,8 +635,8 @@ features
 
           if (error) throw error;
 
-          Alert.alert("Success", "Listing updated successfully", [
-            { text: "OK", onPress: () => router.back() },
+          Alert.alert(ready ? t('common.success') : 'Success', ready ? t('car.listing_updated_successfully') : 'Listing updated successfully', [
+            { text: ready ? t('common.ok') : 'OK', onPress: () => router.back() },
           ]);
         } else {
           const {
@@ -685,8 +687,8 @@ features
 
           if (error) throw error;
 
-          Alert.alert("Success", "New listing created successfully", [
-            { text: "OK", onPress: () => router.back() },
+          Alert.alert(ready ? t('common.success') : 'Success', ready ? t('car.listing_created_successfully') : 'New listing created successfully', [
+            { text: ready ? t('common.ok') : 'OK', onPress: () => router.back() },
           ]);
         }
       } catch (error: any) {
@@ -1793,7 +1795,7 @@ features
     );
   };
 
-  if (isLoading) {
+  if (isLoading || !ready) {
     return (
       <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color="#D55004" />
@@ -1816,7 +1818,7 @@ features
             isDarkMode ? "text-white" : "text-black"
           }`}
         >
-          {initialData ? "Edit Vehicle" : "Add Vehicle"}
+{initialData ? (ready ? t('common.edit_vehicle') : 'Edit Vehicle') : (ready ? t('common.add_vehicle') : 'Add Vehicle')}
         </Text>
         {initialData && (
           <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
@@ -2418,7 +2420,7 @@ features
                     : "text-neutral-100" // Change color based on hasChanges
                 } font-medium`}
               >
-                Update
+{ready ? t('common.update') : 'Update'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -2428,7 +2430,7 @@ features
             onPress={handleSubmit}
             className="w-full py-4 rounded-full bg-red items-center justify-center"
           >
-            <Text className="text-white font-medium">Publish</Text>
+            <Text className="text-white font-medium">{ready ? t('common.publish') : 'Publish'}</Text>
           </TouchableOpacity>
         )}
       </View>
