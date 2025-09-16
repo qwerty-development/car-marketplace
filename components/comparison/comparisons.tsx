@@ -55,6 +55,7 @@ export const ComparisonAttribute = ({
   showBar = false,
   maxValue = 0,
   isHigherBetter = false,
+  t,
 }: {
   label: string;
   value1: any;
@@ -67,6 +68,7 @@ export const ComparisonAttribute = ({
   showBar?: boolean;
   maxValue?: number;
   isHigherBetter?: boolean;
+  t?: (key: string) => string;
 }) => {
   // Animation references
   const progressAnim1 = useRef(new RNAnimated.Value(0)).current;
@@ -154,7 +156,7 @@ export const ComparisonAttribute = ({
 
   // Format the value based on type
   const formatValue = (value: any) => {
-    if (value === null || value === undefined) return "N/A";
+    if (value === null || value === undefined) return t ? t('common.not_available') : "N/A";
     if (typeof value === "number") {
       if (
         label.toLowerCase().includes("price") ||

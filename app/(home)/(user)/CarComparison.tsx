@@ -45,6 +45,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from "lucide-react-native";
 import { Car } from "@/components/comparison/types";
 import {
@@ -115,11 +116,13 @@ const TabButton = React.memo(
     activeTab,
     onPress,
     isDarkMode,
+    t,
   }: {
     tabName: "basics" | "features" | "cost" | "summary";
     activeTab: string;
     onPress: () => void;
     isDarkMode: boolean;
+    t: (key: string) => string;
   }) => (
     <TouchableOpacity
       style={[
@@ -145,7 +148,7 @@ const TabButton = React.memo(
           },
         ]}
       >
-        {tabName.charAt(0).toUpperCase() + tabName.slice(1)}
+{t(`comparison.tabs.${tabName}`)}
       </Text>
     </TouchableOpacity>
   )
@@ -159,12 +162,14 @@ const CarSelectionCard = React.memo(
     isDarkMode,
     onOpenPicker,
     onClearCar,
+    t,
   }: {
     car: Car | null;
     position: "left" | "right";
     isDarkMode: boolean;
     onOpenPicker: (position: "left" | "right") => void;
     onClearCar: (position: "left" | "right") => void;
+    t: (key: string) => string;
   }) => (
     <TouchableOpacity
       style={[
@@ -239,7 +244,7 @@ const CarSelectionCard = React.memo(
               { color: isDarkMode ? "#FFFFFF" : "#000000" },
             ]}
           >
-            Select Car
+{t('comparison.select_car')}
           </Text>
         </View>
       )}
@@ -253,10 +258,12 @@ const EmptyState = React.memo(
     favoriteCars,
     isDarkMode,
     onBrowseCars,
+    t,
   }: {
     favoriteCars: Car[];
     isDarkMode: boolean;
     onBrowseCars: () => void;
+    t: (key: string) => string;
   }) => (
     <View style={styles.placeholderContainer}>
       <View
@@ -276,7 +283,7 @@ const EmptyState = React.memo(
             { color: isDarkMode ? "#FFFFFF" : "#000000" },
           ]}
         >
-          Select Two Cars to Compare
+{t('comparison.select_two_cars')}
         </Text>
         <Text
           style={[
@@ -284,8 +291,7 @@ const EmptyState = React.memo(
             { color: isDarkMode ? "#BBBBBB" : "#666666" },
           ]}
         >
-          Choose from your favorite cars to see a detailed comparison of
-          specifications, features, and insights.
+{t('comparison.select_two_cars_description')}
         </Text>
 
         {favoriteCars.length === 0 && (
@@ -294,7 +300,7 @@ const EmptyState = React.memo(
             onPress={onBrowseCars}
           >
             <Text style={styles.addFavoritesButtonText}>
-              Browse Cars to Add Favorites
+              {t('comparison.browse_cars_add_favorites')}
             </Text>
           </TouchableOpacity>
         )}
@@ -309,10 +315,12 @@ const TabNavigation = React.memo(
     activeTab,
     handleTabChange,
     isDarkMode,
+    t,
   }: {
     activeTab: "basics" | "features" | "cost" | "summary";
     handleTabChange: (tab: "basics" | "features" | "cost" | "summary") => void;
     isDarkMode: boolean;
+    t: (key: string) => string;
   }) => (
     <View style={styles.tabContainer}>
       <TabButton
@@ -320,25 +328,29 @@ const TabNavigation = React.memo(
         activeTab={activeTab}
         onPress={() => handleTabChange("basics")}
         isDarkMode={isDarkMode}
+        t={t}
       />
       <TabButton
         tabName="features"
         activeTab={activeTab}
         onPress={() => handleTabChange("features")}
         isDarkMode={isDarkMode}
+        t={t}
       />
-{/*       
+{/*
       <TabButton
         tabName="cost"
         activeTab={activeTab}
         onPress={() => handleTabChange("cost")}
         isDarkMode={isDarkMode}
+        t={t}
       /> */}
       <TabButton
         tabName="summary"
         activeTab={activeTab}
         onPress={() => handleTabChange("summary")}
         isDarkMode={isDarkMode}
+        t={t}
       />
     </View>
   )
@@ -350,6 +362,7 @@ export default function CarComparison() {
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isGuest } = useGuestUser();
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ car1Id?: string; car2Id?: string }>();
 
@@ -685,7 +698,7 @@ export default function CarComparison() {
 
     return [
       {
-        label: "Price",
+        label: t('car.price'),
         value1: car1.price,
         value2: car2.price,
         better: getBetterValue("price", car1.price, car2.price),
@@ -696,7 +709,7 @@ export default function CarComparison() {
         isHigherBetter: false,
       },
       {
-        label: "Year",
+        label: t('car.year'),
         value1: car1.year,
         value2: car2.year,
         better: getBetterValue("year", car1.year, car2.year),
@@ -706,7 +719,7 @@ export default function CarComparison() {
         isHigherBetter: true,
       },
       {
-        label: "Mileage",
+        label: t('car.mileage'),
         value1: car1.mileage,
         value2: car2.mileage,
         better: getBetterValue("mileage", car1.mileage, car2.mileage),
@@ -717,49 +730,49 @@ export default function CarComparison() {
         isHigherBetter: false,
       },
       {
-        label: "Condition",
+        label: t('car.condition'),
         value1: car1.condition,
         value2: car2.condition,
         better: 0, // Subjective, no better value
         icon: "car-info",
       },
       {
-        label: "Trans",
+        label: t('car.transmission'),
         value1: car1.transmission,
         value2: car2.transmission,
         better: 0, // Preference-based
         icon: "car-shift-pattern",
       },
       {
-        label: "Color",
+        label: t('car.color'),
         value1: car1.color,
         value2: car2.color,
         better: 0, // Subjective
         icon: "palette",
       },
       {
-        label: "Drivetrain",
+        label: t('car.drivetrain'),
         value1: car1.drivetrain,
         value2: car2.drivetrain,
         better: 0, // Depends on needs
         icon: "car-traction-control",
       },
       {
-        label: "Fuel Type",
+        label: t('car.fuel_type'),
         value1: car1.type,
         value2: car2.type,
         better: 0, // Depends on preference
         icon: "gas-station",
       },
       {
-        label: "Category",
+        label: t('car.category'),
         value1: car1.category,
         value2: car2.category,
         better: 0, // Depends on needs
         icon: "car-estate",
       },
       {
-        label: "Score",
+        label: t('comparison.value_score'),
         value1: Math.round(calculateValueScore(car1)),
         value2: Math.round(calculateValueScore(car2)),
         better: getBetterValue(
@@ -805,7 +818,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                Basic Specifications
+{t('comparison.sections.basic_specifications')}
               </Text>
 
               <View style={styles.comparisonGrid}>
@@ -845,6 +858,7 @@ export default function CarComparison() {
                     showBar={item.showBar}
                     maxValue={item.maxValue}
                     isHigherBetter={item.isHigherBetter}
+                    t={t}
                   />
                 ))}
               </View>
@@ -873,7 +887,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                All Features
+{t('comparison.sections.all_features')}
               </Text>
 
               <View style={styles.featureHeader}>
@@ -884,7 +898,7 @@ export default function CarComparison() {
                       { color: isDarkMode ? "#FFFFFF" : "#000000" },
                     ]}
                   >
-                    Feature
+{t('car.features')}
                   </Text>
                 </View>
 
@@ -929,7 +943,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                Safety Features
+{t('comparison.sections.safety_features')}
               </Text>
 
               <FeatureComparison
@@ -952,7 +966,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                Comfort Features
+{t('comparison.sections.comfort_features')}
               </Text>
 
               <FeatureComparison
@@ -975,7 +989,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                Technology Features
+{t('comparison.sections.technology_features')}
               </Text>
 
               <FeatureComparison
@@ -1008,7 +1022,7 @@ export default function CarComparison() {
                         { color: isDarkMode ? "#FFFFFF" : "#000000", marginLeft: 8 },
                       ]}
                     >
-                      AI analyzing cost data...
+                      {t('comparison.ai_analyzing_cost')}
                     </Text>
                   </View>
                 ) : (
@@ -1019,7 +1033,7 @@ export default function CarComparison() {
                         { color: isDarkMode ? "#FFFFFF" : "#000000", marginBottom: 12 },
                       ]}
                     >
-                      AI Cost Analysis
+                      {t('comparison.ai_cost_analysis')}
                     </Text>
                     <Text
                       style={[
@@ -1047,7 +1061,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                Depreciation Estimate
+                {t('comparison.depreciation_estimate')}
               </Text>
 
               <Text
@@ -1059,7 +1073,7 @@ export default function CarComparison() {
                   },
                 ]}
               >
-                Estimated value after 5 years of ownership based on AI market analysis.
+                {t('comparison.depreciation_description')}
               </Text>
 
               <View style={styles.comparisonGrid}>
@@ -1086,27 +1100,29 @@ export default function CarComparison() {
                 </View>
 
                 <ComparisonAttribute
-                  label="Value Now"
+                  label={t('comparison.value_now')}
                   value1={aiCostData.car1Data?.currentValue || car1.price}
                   value2={aiCostData.car2Data?.currentValue || car2.price}
                   better={0}
                   isDarkMode={isDarkMode}
                   icon="cash"
                   prefix="$"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Value in 5 Years"
+                  label={t('comparison.value_5_years')}
                   value1={aiCostData.car1Data?.futureValue || car1.price * 0.6}
                   value2={aiCostData.car2Data?.futureValue || car2.price * 0.6}
                   better={0}
                   isDarkMode={isDarkMode}
                   icon="calendar-clock"
                   prefix="$"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Total price drop"
+                  label={t('comparison.total_price_drop')}
                   value1={aiCostData.car1Data?.depreciationAmount || car1.price * 0.4}
                   value2={aiCostData.car2Data?.depreciationAmount || car2.price * 0.4}
                   better={getBetterValue(
@@ -1117,10 +1133,11 @@ export default function CarComparison() {
                   isDarkMode={isDarkMode}
                   icon="chart-line-variant"
                   prefix="$"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Price drop Rate"
+                  label={t('comparison.price_drop_rate')}
                   value1={((aiCostData.car1Data?.depreciationRate || 0.4) * 100).toFixed(1)}
                   value2={((aiCostData.car2Data?.depreciationRate || 0.4) * 100).toFixed(1)}
                   better={getBetterValue(
@@ -1131,6 +1148,7 @@ export default function CarComparison() {
                   isDarkMode={isDarkMode}
                   icon="percent"
                   suffix="%"
+                  t={t}
                 />
               </View>
 
@@ -1140,8 +1158,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#999999" : "#888888", marginTop: 12 },
                 ]}
               >
-                * Depreciation estimates powered by AI analysis of market data and may
-                vary based on market conditions.
+                {t('comparison.depreciation_disclaimer')}
               </Text>
             </View>
 
@@ -1158,7 +1175,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#FFFFFF" : "#000000" },
                 ]}
               >
-                Annual Cost Estimates
+                {t('comparison.annual_cost_estimates')}
               </Text>
 
               <View style={styles.comparisonGrid}>
@@ -1185,17 +1202,18 @@ export default function CarComparison() {
                 </View>
 
                 <ComparisonAttribute
-                  label="Est. Annual Mileage"
+                  label={t('comparison.est_annual_mileage')}
                   value1={aiCostData.car1Data?.annualMileage || 15000}
                   value2={aiCostData.car2Data?.annualMileage || 15000}
                   better={0}
                   isDarkMode={isDarkMode}
                   icon="road"
                   suffix=" km"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Maintenance"
+                  label={t('comparison.maintenance')}
                   value1={aiCostData.car1Data?.maintenance || 1200}
                   value2={aiCostData.car2Data?.maintenance || 1200}
                   better={getBetterValue(
@@ -1207,10 +1225,11 @@ export default function CarComparison() {
                   icon="wrench"
                   prefix="$"
                   suffix="/yr"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Insurance"
+                  label={t('comparison.insurance')}
                   value1={aiCostData.car1Data?.insurance || 2000}
                   value2={aiCostData.car2Data?.insurance || 2000}
                   better={getBetterValue(
@@ -1222,10 +1241,11 @@ export default function CarComparison() {
                   icon="shield"
                   prefix="$"
                   suffix="/yr"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Fuel"
+                  label={t('comparison.fuel')}
                   value1={aiCostData.car1Data?.fuel || 1500}
                   value2={aiCostData.car2Data?.fuel || 1500}
                   better={getBetterValue(
@@ -1237,10 +1257,11 @@ export default function CarComparison() {
                   icon="gas-station"
                   prefix="$"
                   suffix="/yr"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Registration"
+                  label={t('comparison.registration')}
                   value1={aiCostData.car1Data?.registration || 500}
                   value2={aiCostData.car2Data?.registration || 500}
                   better={getBetterValue(
@@ -1252,10 +1273,11 @@ export default function CarComparison() {
                   icon="file-document"
                   prefix="$"
                   suffix="/yr"
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="Total Annual"
+                  label={t('comparison.total_annual')}
                   value1={aiCostData.car1Data?.totalAnnual || 5200}
                   value2={aiCostData.car2Data?.totalAnnual || 5200}
                   better={getBetterValue(
@@ -1273,10 +1295,11 @@ export default function CarComparison() {
                     aiCostData.car2Data?.totalAnnual || 5200
                   ) * 1.1}
                   isHigherBetter={false}
+                  t={t}
                 />
 
                 <ComparisonAttribute
-                  label="5 Year Total"
+                  label={t('comparison.five_year_total')}
                   value1={aiCostData.car1Data?.totalFiveYear || 26000}
                   value2={aiCostData.car2Data?.totalFiveYear || 26000}
                   better={getBetterValue(
@@ -1294,6 +1317,7 @@ export default function CarComparison() {
                     aiCostData.car2Data?.totalFiveYear || 26000
                   ) * 1.1}
                   isHigherBetter={false}
+                  t={t}
                 />
               </View>
 
@@ -1303,7 +1327,7 @@ export default function CarComparison() {
                   { color: isDarkMode ? "#999999" : "#888888", marginTop: 12 },
                 ]}
               >
-                * Cost estimates powered by AI analysis and may vary by location and driving habits.
+                {t('comparison.cost_disclaimer')}
               </Text>
             </View>
           </>
@@ -1328,7 +1352,7 @@ export default function CarComparison() {
       default:
         return null;
     }
-  }, [selectedCars, visibleTab, isDarkMode, aiCostData]);
+  }, [selectedCars, visibleTab, isDarkMode, aiCostData, t]);
 
   return (
     <View
@@ -1337,7 +1361,7 @@ export default function CarComparison() {
         { backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" },
       ]}
     >
-      <CustomHeader title={"Car Comparison"} onBack={handleBack} />
+      <CustomHeader title={t('comparison.title')} onBack={handleBack} />
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -1348,7 +1372,7 @@ export default function CarComparison() {
               { color: isDarkMode ? "#FFFFFF" : "#000000" },
             ]}
           >
-            Loading your favorite cars...
+{t('autoclips.loading')} your favorite cars...
           </Text>
         </View>
       ) : (
@@ -1370,6 +1394,7 @@ export default function CarComparison() {
               isDarkMode={isDarkMode}
               onOpenPicker={openCarPicker}
               onClearCar={handleClearCar}
+              t={t}
             />
 
             <CarSelectionCard
@@ -1378,6 +1403,7 @@ export default function CarComparison() {
               isDarkMode={isDarkMode}
               onOpenPicker={openCarPicker}
               onClearCar={handleClearCar}
+              t={t}
             />
           </View>
 
@@ -1388,6 +1414,7 @@ export default function CarComparison() {
                 activeTab={activeTab}
                 handleTabChange={handleTabChange}
                 isDarkMode={isDarkMode}
+                t={t}
               />
 
               <Animated.View style={fadeStyle}>
@@ -1399,6 +1426,7 @@ export default function CarComparison() {
               favoriteCars={favoriteCars}
               isDarkMode={isDarkMode}
               onBrowseCars={handleBrowseCars}
+              t={t}
             />
           )}
         </Animated.ScrollView>

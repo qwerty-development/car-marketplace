@@ -22,6 +22,7 @@ import { PieChart, LineChart, BarChart } from 'react-native-chart-kit'
 import { BlurView } from 'expo-blur'
 import { Alert } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 import EnhancedSalesChart from '@/components/FuturisticSalesChart'
 import { useScrollToTop } from '@react-navigation/native'
 import ExportSalesModal from '@/components/ExportSalesModal'
@@ -232,9 +233,9 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
               {/* Key Stats Grid */}
               <View className='p-4'>
                 <View className='flex-row mb-4'>
-                  <StatCard title='Listed Price' value={sale.price} />
+                  <StatCard title={t('sales.listed_price')} value={sale.price} />
                   <StatCard
-                    title='Sold Price'
+                    title={t('sales.sold_price')}
                     value={sale.sold_price}
                     trend={parseFloat(priceDifferencePercentage)}
                   />
@@ -242,25 +243,25 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 
                 <View className='flex-row mb-4'>
                   <StatCard
-                    title='Actual Profit'
+                    title={t('sales.actual_profit')}
                     value={actualProfit}
                     trend={((actualProfit / sale.bought_price) * 100).toFixed(
                       1
                     )}
                   />
-                  <StatCard title='Expected Profit' value={expectedProfit} />
+                  <StatCard title={t('sales.expected_profit')} value={expectedProfit} />
                 </View>
 
                 <View className='flex-row mb-4'>
                   <StatCard2
-                    title='Days Listed'
+                    title={t('sales.days_listed')}
                     value={daysListed}
-                    subValue='Until Sale'
+                    subValue={t('sales.until_sale')}
                   />
                   <StatCard2
-                    title='Days in Stock'
+                    title={t('sales.days_in_stock')}
                     value={daysInStock}
-                    subValue='Total Duration'
+                    subValue={t('sales.total_duration')}
                   />
                 </View>
               </View>
@@ -354,7 +355,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                 </Text>
                 <BarChart
                   data={{
-                    labels: ['Bought', 'Listed', 'Sold'],
+                    labels: [t('sales.bought'), t('sales.listed'), t('sales.sold')],
                     datasets: [
                       {
                         data: [sale.bought_price, sale.price, sale.sold_price]
@@ -675,6 +676,7 @@ const calculateKPIs = salesHistory => {
 export default function SalesHistoryPage() {
   const { isDarkMode } = useTheme()
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [isLoading, setIsLoading] = useState(true)
@@ -819,7 +821,7 @@ export default function SalesHistoryPage() {
       colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
       className='flex-1 mb-12'>
       {/* Header */}
-      <CustomHeader title='Sales History' dealership={dealership} />
+      <CustomHeader title={t('sales.sales_history')} dealership={dealership} />
 
       {/* KPI Section */}
       <ScrollView
@@ -834,13 +836,13 @@ export default function SalesHistoryPage() {
         <View className='px-4'>
           <View className='flex-row mb-4'>
             <KPICard
-              title='Total Sold'
+              title={t('sales.total_sold')}
               value={kpis.totalSold}
               icon='car-sport'
               isDarkMode={isDarkMode}
             />
             <KPICard
-              title='Total Views'
+              title={t('sales.total_views')}
               value={kpis.totalViews}
               icon='eye'
               isDarkMode={isDarkMode}
@@ -848,13 +850,13 @@ export default function SalesHistoryPage() {
           </View>
           <View className='flex-row mb-6'>
             <KPICard
-              title='Total Revenue'
+              title={t('sales.total_revenue')}
               value={`$${kpis.totalRevenue?.toLocaleString()}`}
               icon='cash'
               isDarkMode={isDarkMode}
             />
             <KPICard
-              title='Total Profit'
+              title={t('sales.total_profit')}
               value={`$${kpis.totalProfit?.toLocaleString()}`}
               icon='trending-up'
               isDarkMode={isDarkMode}
@@ -866,7 +868,7 @@ export default function SalesHistoryPage() {
             onPress={() => setIsExportModalVisible(true)}
             className='bg-red mb-6 py-3 rounded-xl flex-row items-center justify-center'>
             <FontAwesome5 name="file-export" size={16} color="white" style={{ marginRight: 8 }} />
-            <Text className='text-white font-medium'>Export Sales Data</Text>
+            <Text className='text-white font-medium'>{t('sales.export_sales_data')}</Text>
           </TouchableOpacity>
 
           {/* Chart Section */}
@@ -885,7 +887,7 @@ export default function SalesHistoryPage() {
                 onPress={toggleSortOrder}
                 className='flex-row items-center'>
                 <Text className={`mr-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                  {sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+                  {sortOrder === 'desc' ? t('common.newest_first') : t('common.oldest_first')}
                 </Text>
                 <Ionicons
                   name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'}

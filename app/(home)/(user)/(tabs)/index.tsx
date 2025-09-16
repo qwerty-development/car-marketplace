@@ -812,9 +812,16 @@ export default function BrowseCarsPage() {
           ]}
         >
           <View style={styles.searchContainer}>
-            <View style={styles.searchInputContainer}>
+            <View style={[
+              styles.searchInputContainer,
+              language === 'ar' && styles.rtlContainer
+            ]}>
               <TouchableOpacity
-                style={[styles.searchBar, isDarkMode && styles.darkSearchBar]}
+                style={[
+                  styles.searchBar,
+                  isDarkMode && styles.darkSearchBar,
+                  language === 'ar' && styles.rtlSearchBar
+                ]}
                 onPress={() => {
                   router.push({
                     pathname: "/(home)/(user)/search",
@@ -829,12 +836,13 @@ export default function BrowseCarsPage() {
                   name="search"
                   size={20}
                   color={isDarkMode ? "#FFFFFF" : "#000000"}
-                  style={{ marginLeft: 12 }}
+                  style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
                 />
                 <Text
                   style={[
                     styles.searchPlaceholder,
                     isDarkMode && { color: "#666" },
+                    language === 'ar' && styles.rtlText
                   ]}
                   numberOfLines={1}
                 >
@@ -847,7 +855,10 @@ export default function BrowseCarsPage() {
                       setSearchQuery("");
                       fetchCars(1, filters, sortOption, "");
                     }}
-                    style={styles.clearSearchButton}
+                    style={[
+                      styles.clearSearchButton,
+                      language === 'ar' && styles.rtlClearButton
+                    ]}
                   >
                     <Ionicons
                       name="close-circle"
@@ -860,6 +871,7 @@ export default function BrowseCarsPage() {
                     style={[
                       styles.iconButton,
                       isDarkMode && styles.darkIconButton,
+                      language === 'ar' && styles.rtlIconButton
                     ]}
                     onPress={(e) => {
                       e.stopPropagation();
@@ -1031,5 +1043,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     paddingLeft: 12,
     paddingRight: 8,
+  },
+  // RTL Support Styles
+  rtlContainer: {
+    flexDirection: "row-reverse",
+  },
+  rtlSearchBar: {
+    flexDirection: "row-reverse",
+    paddingLeft: 8,
+    paddingRight: 12,
+  },
+  rtlText: {
+    textAlign: "right",
+    marginLeft: 0,
+    marginRight: 12,
+  },
+  rtlClearButton: {
+    marginRight: 0,
+    marginLeft: 4,
+  },
+  rtlIconButton: {
+    marginRight: 0,
+    marginLeft: 8,
   },
 });

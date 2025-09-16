@@ -22,6 +22,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/utils/supabase';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -59,9 +60,14 @@ export const ModelDropdown: React.FC<ModelDropdownProps> = React.memo(({
   onChange,
   error,
   isDarkMode,
-  placeholder = "Select Model",
+  placeholder,
   disabled = false,
 }) => {
+  const { t } = useTranslation();
+  
+  // Set default placeholder if not provided
+  const defaultPlaceholder = placeholder || t('common.select_model');
+  
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
@@ -94,8 +100,8 @@ export const ModelDropdown: React.FC<ModelDropdownProps> = React.memo(({
   // ============================================================================
   
   const displayValue = useMemo(() => {
-    return value || placeholder;
-  }, [value, placeholder]);
+    return value || defaultPlaceholder;
+  }, [value, defaultPlaceholder]);
 
   const isValueSelected = useMemo(() => {
     return Boolean(value);
@@ -387,7 +393,7 @@ export const ModelDropdown: React.FC<ModelDropdownProps> = React.memo(({
           onPress={clearSearch}
           className="mt-4 px-4 py-2 bg-red rounded-full"
         >
-          <Text className="text-white font-medium">Clear Search</Text>
+          <Text className="text-white font-medium">{t('common.clear_search')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -562,7 +568,7 @@ export const ModelDropdown: React.FC<ModelDropdownProps> = React.memo(({
                           ref={searchInputRef}
                           value={searchQuery}
                           onChangeText={handleSearchChange}
-                          placeholder="Search models..."
+                          placeholder={t('common.search_models')}
                           placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                           className={`
                             flex-1 ml-3 text-base

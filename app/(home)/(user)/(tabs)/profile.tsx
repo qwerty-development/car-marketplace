@@ -293,7 +293,7 @@ export default function UserProfileAndSupportPage() {
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
-        "Please sign in to edit your profile information.",
+        t('auth.please_sign_in_edit_profile'),
         [
           { text: "Cancel", style: "cancel" },
           { text: "Sign In", onPress: handleSignIn },
@@ -332,7 +332,7 @@ export default function UserProfileAndSupportPage() {
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
-        "Please sign in to update your profile picture.",
+        t('auth.please_sign_in_update_picture'),
         [
           { text: "Cancel", style: "cancel" },
           { text: "Sign In", onPress: handleSignIn },
@@ -388,7 +388,7 @@ export default function UserProfileAndSupportPage() {
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
-        "Please sign in to change your password.",
+        t('common.please_sign_in_change_password'),
         [
           { text: "Cancel", style: "cancel" },
           { text: "Sign In", onPress: handleSignIn },
@@ -672,7 +672,7 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  "Please sign in to edit your profile information.",
+                  t('common.please_sign_in_edit_profile'),
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },
@@ -717,7 +717,7 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  "Please sign in to access security settings.",
+                  t('common.please_sign_in_security'),
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },
@@ -764,7 +764,7 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  "Please sign in to access security settings.",
+                  t('common.please_sign_in_security'),
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },

@@ -302,7 +302,7 @@ export default function CarCard({
       trackCallClick(car.id);
       Linking.openURL(`tel:${car.dealership_phone}`);
     } else {
-      Alert.alert("Phone number not available");
+      Alert.alert(t('common.phone_not_available'));
     }
   }, [car.dealership_phone, car.id, trackCallClick]);
 
@@ -313,7 +313,7 @@ export default function CarCard({
       await shareCar(car);
     } catch (error) {
       console.error("Share error:", error);
-      Alert.alert("Error", "Failed to share car details");
+      Alert.alert(t('common.error'), t('common.failed_share_car'));
     }
   }, [car]);
   
@@ -492,12 +492,12 @@ export default function CarCard({
 
       Linking.openURL(webURL).catch(() => {
         Alert.alert(
-          "Error",
-          "Unable to open WhatsApp. Please make sure it is installed on your device."
+          t('common.error'),
+          t('common.whatsapp_install_required')
         );
       });
     } else {
-      Alert.alert("Error", "Phone number not available for this car.");
+      Alert.alert(t('common.error'), t('common.phone_not_available'));
     }
   }, [car, trackWhatsAppClick]);
 

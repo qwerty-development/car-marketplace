@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -39,6 +40,7 @@ interface CompactCarCardProps {
 }
 
 export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarCardProps) {
+  const { t } = useTranslation();
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleCall = useCallback(async () => {
@@ -47,7 +49,7 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
     if (car.dealership_phone) {
       Linking.openURL(`tel:${car.dealership_phone}`);
     } else {
-      Alert.alert("Phone number not available");
+      Alert.alert(t('common.phone_not_available'));
     }
   }, [car.dealership_phone]);
 
@@ -64,10 +66,10 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodedMessage}`;
 
       Linking.openURL(webURL).catch(() => {
-        Alert.alert("Error", "Unable to open WhatsApp");
+        Alert.alert(t('common.error'), t('common.whatsapp_open_failed'));
       });
     } else {
-      Alert.alert("Phone number not available");
+      Alert.alert(t('common.phone_not_available'));
     }
   }, [car]);
 

@@ -23,21 +23,27 @@ import { LinearGradient } from 'expo-linear-gradient'
 import TimeRangeSelector from '@/components/TimeRangeSelector'
 import CarAnalyticsCard from '@/components/CarAnalyticsCard'
 import { useAuth } from '@/utils/AuthContext'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '@/utils/LanguageContext'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const SUBSCRIPTION_WARNING_DAYS = 7
 
-const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack }: any) => (
+const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack, t, language }: any) => (
 	<LinearGradient
 	  colors={isDarkMode ? ['#1A1A1A', '#0D0D0D'] : ['#FFFFFF', '#F8F8F8']}
 	  className='px-4 py-6 rounded-b-3xl shadow-lg'
 	>
 	  <SafeAreaView edges={['top']}>
-		<View className='flex-row justify-between items-center'>
-		  <View className='flex-row items-center'>
+		<View className={`flex-row justify-between items-center ${
+		  language === 'ar' ? 'flex-row-reverse' : ''
+		}`}>
+		  <View className={`flex-row items-center ${
+			language === 'ar' ? 'flex-row-reverse' : ''
+		  }`}>
 			<TouchableOpacity
 			  onPress={router.back}
-			  className='mr-3'
+			  className={language === 'ar' ? 'ml-3' : 'mr-3'}
 			>
 			  <Ionicons
 				name='chevron-back'
@@ -51,7 +57,7 @@ const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack }: any) 
 				  isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
 				}`}
 			  >
-				Dashboard
+				{t('analytics.dashboard')}
 			  </Text>
 			  <Text
 				className={`text-2xl font-bold mt-1 ${
@@ -168,7 +174,7 @@ const ChartContainer = ({ title, subtitle, children, isDarkMode }: any) => (
 	</View>
 )
 
-const MetricSection = ({ title, metrics, isDarkMode }: any) => (
+const MetricSection = ({ title, metrics, isDarkMode, language }: any) => (
 	<View className='mb-6 mx-4'>
 		<LinearGradient
 			colors={
@@ -222,13 +228,19 @@ const MetricSection = ({ title, metrics, isDarkMode }: any) => (
 					<View
 						key={metric.label}
 						className={`flex-row justify-between items-center ${
+							language === 'ar' ? 'flex-row-reverse' : ''
+						} ${
 							index !== metrics.length - 1
 								? 'mb-4 pb-4 border-b border-neutral-200'
 								: ''
 						}`}>
-						<View className='flex-row items-center'>
+						<View className={`flex-row items-center ${
+							language === 'ar' ? 'flex-row-reverse' : ''
+						}`}>
 							<View
-								className={`w-2 h-2 rounded-full bg-${metric.color} mr-2`}
+								className={`w-2 h-2 rounded-full bg-${metric.color} ${
+									language === 'ar' ? 'ml-2' : 'mr-2'
+								}`}
 							/>
 							<Text
 								className={
@@ -250,7 +262,7 @@ const MetricSection = ({ title, metrics, isDarkMode }: any) => (
 	</View>
 )
 
-const SubscriptionWarning = ({ daysLeft, isDarkMode }: any) => (
+const SubscriptionWarning = ({ daysLeft, isDarkMode, t }: any) => (
 	<LinearGradient
 		colors={['#FEF3C7', '#FDE68A']}
 		className='mx-4 mt-4 rounded-2xl p-4'>
@@ -260,10 +272,10 @@ const SubscriptionWarning = ({ daysLeft, isDarkMode }: any) => (
 			</View>
 			<View className='flex-1'>
 				<Text className='text-amber-800 font-semibold'>
-					Subscription expires soon
+					{t('analytics.subscription_expires_soon')}
 				</Text>
 				<Text className='text-amber-700 text-sm mt-1'>
-					{daysLeft} days remaining. Renew now to avoid service interruption.
+					{t('analytics.days_remaining', { days: daysLeft })}
 				</Text>
 			</View>
 		</View>
@@ -273,6 +285,8 @@ const SubscriptionWarning = ({ daysLeft, isDarkMode }: any) => (
 export default function DealerAnalyticsPage() {
 	const { isDarkMode } = useTheme()
 	const { user } = useAuth()
+	const { t } = useTranslation()
+	const { language } = useLanguage()
 	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
 	const [analytics, setAnalytics] = useState(null)
@@ -397,7 +411,7 @@ export default function DealerAnalyticsPage() {
 					strokeWidth: 2
 				}
 			],
-			legend: ['Views', 'Likes']
+			legend: [t('analytics.views'), t('analytics.likes')]
 		}
 	}, [analytics])
 
@@ -416,7 +430,7 @@ export default function DealerAnalyticsPage() {
 				<TouchableOpacity
 					className='bg-red px-6 py-3 rounded-full'
 					onPress={fetchData}>
-					<Text className='text-white font-semibold'>Retry</Text>
+					<Text className='text-white font-semibold'>{t('common.retry')}</Text>
 				</TouchableOpacity>
 			</View>
 		)
@@ -425,10 +439,12 @@ export default function DealerAnalyticsPage() {
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<ModernHeader
-				title='Analytics'
+				title={t('analytics.title')}
 				isDarkMode={isDarkMode}
 				onRefresh={onRefresh}
 				isLoading={isLoading}
+				t={t}
+				language={language}
 			/>
 
 			<ScrollView
@@ -447,20 +463,21 @@ export default function DealerAnalyticsPage() {
 						<SubscriptionWarning
 							daysLeft={getDaysUntilExpiration(dealership)}
 							isDarkMode={isDarkMode}
+							t={t}
 						/>
 					)}
 
 				{/* Overview Cards */}
 				<View className='flex-row mx-4 my-6'>
 					<MetricCard
-						title='Total Listings'
+						title={t('analytics.total_listings')}
 						value={analytics?.total_listings || 0}
 						icon='list'
 						color='#10B981'
 						isDarkMode={isDarkMode}
 					/>
 					<MetricCard
-						title='Total Views'
+						title={t('analytics.total_views')}
 						value={analytics?.total_views || 0}
 						icon='eye'
 						trend={10.5}
@@ -468,7 +485,7 @@ export default function DealerAnalyticsPage() {
 						isDarkMode={isDarkMode}
 					/>
 					<MetricCard
-						title='Total Likes'
+						title={t('analytics.total_likes')}
 						value={analytics?.total_likes || 0}
 						icon='heart'
 						trend={-5.2}
@@ -480,8 +497,8 @@ export default function DealerAnalyticsPage() {
 				{/* Performance Trends Chart */}
 				{formatChartData && (
 					<ChartContainer
-						title='Performance Trends'
-						subtitle={`Trends for the last ${timeRange}`}
+						title={t('analytics.performance_trends')}
+						subtitle={t('analytics.trends_for_period', { period: timeRange })}
 						isDarkMode={isDarkMode}>
 						<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 							<LineChart
@@ -502,8 +519,8 @@ export default function DealerAnalyticsPage() {
 				{/* Top Viewed Cars Chart */}
 				{analytics?.top_viewed_cars && (
 					<ChartContainer
-						title='Most Viewed Cars'
-						subtitle='Top 5 listings by views'
+						title={t('analytics.most_viewed_cars')}
+						subtitle={t('analytics.top_5_listings')}
 						isDarkMode={isDarkMode}>
 						<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 							<BarChart
@@ -538,13 +555,13 @@ export default function DealerAnalyticsPage() {
 				{/* Category Distribution Chart */}
 				{analytics?.category_distribution && (
 					<ChartContainer
-						title='Category Distribution'
-						subtitle='Vehicle categories breakdown'
+						title={t('analytics.category_distribution')}
+						subtitle={t('analytics.vehicle_categories_breakdown')}
 						isDarkMode={isDarkMode}>
 						<PieChart
 							data={Object.entries(analytics.category_distribution).map(
 								([category, count]) => ({
-									name: category,
+									name: translateCategory(category, language, t),
 									population: count,
 									color: getCategoryColor(category),
 									legendFontColor: isDarkMode ? '#E0E0E0' : '#7F7F7F',
@@ -564,92 +581,95 @@ export default function DealerAnalyticsPage() {
 
 				{/* Inventory Metrics */}
 				<MetricSection
-					title='Inventory Overview'
+					title={t('analytics.inventory_overview')}
 					metrics={[
 						{
-							label: 'Total Cars',
+							label: t('analytics.total_cars'),
 							value: analytics?.inventory_summary?.total_cars || 0,
 							color: 'blue-500'
 						},
 						{
-							label: 'New Cars',
+							label: t('analytics.new_cars'),
 							value: analytics?.inventory_summary?.new_cars || 0,
 							color: 'green-500'
 						},
 						{
-							label: 'Used Cars',
+							label: t('analytics.used_cars'),
 							value: analytics?.inventory_summary?.used_cars || 0,
 							color: 'yellow-500'
 						},
 						{
-							label: 'Average Price',
-							value: `$${formatPrice(analytics?.inventory_summary?.avg_price)}`,
+							label: t('analytics.average_price'),
+							value: `${language === 'ar' ? '' : '$'}${formatPrice(analytics?.inventory_summary?.avg_price)}${language === 'ar' ? ' د.ل' : ''}`,
 							color: 'purple-500'
 						},
 						{
-							label: 'Total Value',
-							value: `$${formatPrice(
+							label: t('analytics.total_value'),
+							value: `${language === 'ar' ? '' : '$'}${formatPrice(
 								analytics?.inventory_summary?.total_value
-							)}`,
+							)}${language === 'ar' ? ' د.ل' : ''}`,
 							color: 'red-500'
 						}
 					]}
 					isDarkMode={isDarkMode}
+					language={language}
 				/>
 
 				{/* Performance Metrics */}
 				<MetricSection
-					title='Performance Metrics'
+					title={t('analytics.performance_metrics')}
 					metrics={[
 						{
-							label: 'Average Time to Sell',
+							label: t('analytics.avg_time_to_sell'),
 							value: `${
 								analytics?.performance_metrics?.avg_time_to_sell?.toFixed(1) ||
 								0
-							} days`,
+							} ${t('analytics.days')}`,
 							color: 'blue-500'
 						},
 						{
-							label: 'Conversion Rate',
+							label: t('analytics.conversion_rate'),
 							value: `${(
 								(analytics?.performance_metrics?.conversion_rate || 0) * 100
 							).toFixed(1)}%`,
 							color: 'green-500'
 						},
 						{
-							label: 'Average Sale Price',
-							value: `$${formatPrice(
+							label: t('analytics.avg_sale_price'),
+							value: `${language === 'ar' ? '' : '$'}${formatPrice(
 								analytics?.performance_metrics?.avg_sale_price
-							)}`,
+							)}${language === 'ar' ? ' د.ل' : ''}`,
 							color: 'yellow-500'
 						},
 						{
-							label: 'Price Difference',
-							value: `$${formatPrice(
+							label: t('analytics.price_difference'),
+							value: `${language === 'ar' ? '' : '$'}${formatPrice(
 								analytics?.performance_metrics?.price_difference
-							)}`,
+							)}${language === 'ar' ? ' د.ل' : ''}`,
 							color: 'purple-500'
 						}
 					]}
 					isDarkMode={isDarkMode}
+					language={language}
 				/>
 
 				{/* Sales Summary */}
 				<MetricSection
-					title='Sales Summary'
+					title={t('analytics.sales_summary')}
 					metrics={[
 						{
-							label: 'Total Sales',
+							label: t('analytics.total_sales'),
 							value: analytics?.sales_summary?.total_sales || 0,
 							color: 'blue-500'
 						},
 						{
-							label: 'Total Revenue',
-							value: `$${formatPrice(analytics?.sales_summary?.total_revenue)}`,
+							label: t('analytics.total_revenue'),
+							value: `${language === 'ar' ? '' : '$'}${formatPrice(analytics?.sales_summary?.total_revenue)}${language === 'ar' ? ' د.ل' : ''}`,
 							color: 'green-500'
 						}
 					]}
 					isDarkMode={isDarkMode}
+					language={language}
 				/>
 
 				{/* Cars Analytics Section */}
@@ -658,7 +678,7 @@ export default function DealerAnalyticsPage() {
 						className={`text-lg font-semibold mx-4 mb-4 ${
 							isDarkMode ? 'text-white' : 'text-night'
 						}`}>
-						Listings Analytics
+						{t('analytics.listings_analytics')}
 					</Text>
 					{cars.map(car => (
 						<CarAnalyticsCard
@@ -690,15 +710,39 @@ const formatPrice = (price: {
 	})
 }
 
+const translateCategory = (category: string, language: string, t: any) => {
+	if (language === 'ar') {
+		const translations = {
+			'Sedan': 'سيدان',
+			'SUV': 'اس يو في',
+			'Hatchback': 'هاتشباك',
+			'Convertible': 'قابل للتحويل',
+			'Coupe': 'كوبيه',
+			'Sports': 'رياضي',
+			'Other': 'أخرى'
+		}
+		return translations[category] || category
+	}
+	return category
+}
+
 const getCategoryColor = (category: string) => {
 	const colors = {
-		Sedan: '#4285F4',
-		SUV: '#34A853',
-		Hatchback: '#FBBC05',
-		Convertible: '#EA4335',
-		Coupe: '#9C27B0',
-		Sports: '#FF9800',
-		Other: '#795548'
+		'Sedan': '#4285F4',
+		'SUV': '#34A853',
+		'Hatchback': '#FBBC05',
+		'Convertible': '#EA4335',
+		'Coupe': '#9C27B0',
+		'Sports': '#FF9800',
+		'Other': '#795548',
+		// Arabic translations
+		'سيدان': '#4285F4',
+		'اس يو في': '#34A853',
+		'هاتشباك': '#FBBC05',
+		'قابل للتحويل': '#EA4335',
+		'كوبيه': '#9C27B0',
+		'رياضي': '#FF9800',
+		'أخرى': '#795548'
 	}
 	return colors[category] || '#CCCCCC'
 }

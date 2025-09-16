@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 import Papa from 'papaparse'
 import * as FileSystem from 'expo-file-system'
 import * as Sharing from 'expo-sharing'
@@ -82,6 +83,8 @@ const ExportSalesModal = ({
   salesData,
   isDarkMode
 }) => {
+  const { t } = useTranslation()
+  
   // State for export options
   const [isExporting, setIsExporting] = useState(false)
   const [selectedRange, setSelectedRange] = useState('all')
@@ -672,7 +675,7 @@ const ExportSalesModal = ({
                         ]}
                         value={filterMake}
                         onChangeText={setFilterMake}
-                        placeholder="Filter by make..."
+                        placeholder={t('common.filter_by_make')}
                         placeholderTextColor={isDarkMode ? '#999' : '#666'}
                       />
                     </View>

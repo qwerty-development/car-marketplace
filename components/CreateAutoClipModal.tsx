@@ -18,6 +18,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import VideoPickerButton from './VideoPickerComponent'
 import CarSelector from './CarSelector'
+import { useTranslation } from 'react-i18next'
 import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
@@ -402,6 +403,7 @@ export default function CreateAutoClipModal({
 	onSuccess
 }) {
 	const { isDarkMode } = useTheme()
+	const { t } = useTranslation()
 	const [formState, setFormState] = useState({
 		title: '',
 		description: '',
@@ -906,7 +908,7 @@ const fetchCars = async () => {
 										{isLoading ? (
 											<ActivityIndicator color='white' size='small' />
 										) : (
-											<Text className='text-white font-medium'>Submit</Text>
+											<Text className='text-white font-medium'>{t('common.submit')}</Text>
 										)}
 									</TouchableOpacity>
 								</View>

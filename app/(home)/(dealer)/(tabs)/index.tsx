@@ -20,6 +20,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
+import { useTranslation } from 'react-i18next'
 
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useScrollToTop } from '@react-navigation/native'
@@ -92,6 +93,7 @@ interface SearchBarProps {
 	onAddPress: () => void
 	isDarkMode: boolean
 	subscriptionExpired: boolean
+	t: (key: string) => string
 }
 
 const ModernSearchBar: React.FC<SearchBarProps> = ({
@@ -100,7 +102,8 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
   onFilterPress,
   onAddPress,
   isDarkMode,
-  subscriptionExpired
+  subscriptionExpired,
+  t
 }) => {
   // Local state for controlled input
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
@@ -166,7 +169,7 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
 
         {/* Search Input */}
         <TextInput
-          placeholder='Search inventory...'
+          placeholder={t('inventory.search_inventory')}
           value={localSearchQuery}
           onChangeText={handleTextChange}
           placeholderTextColor={isDarkMode ? '#a3a3a3' : '#666666'}
@@ -239,13 +242,15 @@ interface SoldModalProps {
 	onClose: () => void
 	onConfirm: (data: any) => void
 	isDarkMode: boolean
+	t: (key: string) => string
 }
 
 const ModernSoldModal: React.FC<SoldModalProps> = ({
 	visible,
 	onClose,
 	onConfirm,
-	isDarkMode
+	isDarkMode,
+	t
 }) => {
 	const [soldInfo, setSoldInfo] = useState({
 		price: '',
@@ -290,7 +295,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-xl font-semibold ${
 								isDarkMode ? 'text-white' : 'text-black'
 							}`}>
-							Mark as Sold
+							{t('inventory.mark_as_sold')}
 						</Text>
 						<TouchableOpacity onPress={onClose} className='p-2'>
 							<Ionicons
@@ -307,11 +312,11 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-sm font-medium mb-2 ${
 								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 							}`}>
-							Sold Price
+							{t('inventory.sold_price')}
 						</Text>
 						<TextInput
              textAlignVertical="center"
-							placeholder='Enter sold price'
+							placeholder={t('inventory.enter_sold_price')}
 							value={soldInfo.price}
 							onChangeText={text =>
 								setSoldInfo(prev => ({ ...prev, price: text }))
@@ -325,7 +330,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-sm font-medium mb-2 ${
 								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 							}`}>
-							Date Sold
+							{t('inventory.date_sold')}
 						</Text>
 						<TextInput
              textAlignVertical="center"
@@ -342,11 +347,11 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-sm font-medium mb-2 ${
 								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 							}`}>
-							Buyer Name
+							{t('inventory.buyer_name')}
 						</Text>
 						<TextInput
              textAlignVertical="center"
-							placeholder='Enter buyer name'
+							placeholder={t('inventory.enter_buyer_name')}
 							value={soldInfo.buyer_name}
 							onChangeText={text =>
 								setSoldInfo(prev => ({ ...prev, buyer_name: text }))
@@ -388,6 +393,7 @@ interface FilterModalProps {
 	onApply: (filters: FilterState) => void
 	currentFilters: FilterState
 	isDarkMode: boolean
+	t: (key: string) => string
 }
 
 interface FilterState {
@@ -405,7 +411,8 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 	onClose,
 	onApply,
 	currentFilters,
-	isDarkMode
+	isDarkMode,
+	t
 }) => {
 	const [localFilters, setLocalFilters] = useState<FilterState>(currentFilters)
 
@@ -502,13 +509,13 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 						<View className='space-y-6'>
 							{/* Status Filter */}
 							<ModernPicker
-								label='Status'
+								label={t('inventory.status')}
 								value={localFilters.status}
 								options={[
-									{ label: 'All', value: '' },
-									{ label: 'Available', value: 'available' },
-									{ label: 'Pending', value: 'pending' },
-									{ label: 'Sold', value: 'sold' }
+									{ label: t('inventory.all'), value: '' },
+									{ label: t('inventory.available'), value: 'available' },
+									{ label: t('inventory.pending'), value: 'pending' },
+									{ label: t('inventory.sold'), value: 'sold' }
 								]}
 								onChange={value => handleChange('status', value)}
 								isDarkMode={isDarkMode}
@@ -516,12 +523,12 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 
 							{/* Condition Filter */}
 							<ModernPicker
-								label='Condition'
+								label={t('inventory.condition')}
 								value={localFilters.condition}
 								options={[
-									{ label: 'All', value: '' },
-									{ label: 'New', value: 'New' },
-									{ label: 'Used', value: 'Used' }
+									{ label: t('inventory.all'), value: '' },
+									{ label: t('inventory.new'), value: 'New' },
+									{ label: t('inventory.used'), value: 'Used' }
 								]}
 								onChange={value => handleChange('condition', value)}
 								isDarkMode={isDarkMode}
@@ -538,7 +545,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 								<View className='flex-row space-x-4'>
 									<TextInput
                    textAlignVertical="center"
-										placeholder='Min Price'
+										placeholder={t('inventory.min_price')}
 										value={localFilters.minPrice}
 										onChangeText={value => handleChange('minPrice', value)}
 										keyboardType='numeric'
@@ -551,7 +558,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 									/>
 									<TextInput
                    textAlignVertical="center"
-										placeholder='Max Price'
+										placeholder={t('inventory.max_price')}
 										value={localFilters.maxPrice}
 										onChangeText={value => handleChange('maxPrice', value)}
 										keyboardType='numeric'
@@ -576,7 +583,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 								<View className='flex-row space-x-4'>
 									<TextInput
                    textAlignVertical="center"
-										placeholder='Min Year'
+										placeholder={t('inventory.min_year')}
 										value={localFilters.minYear}
 										onChangeText={value => handleChange('minYear', value)}
 										keyboardType='numeric'
@@ -589,7 +596,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 									/>
 									<TextInput
                    textAlignVertical="center"
-										placeholder='Max Year'
+										placeholder={t('inventory.max_year')}
 										value={localFilters.maxYear}
 										onChangeText={value => handleChange('maxYear', value)}
 										keyboardType='numeric'
@@ -605,12 +612,12 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 
 							{/* Transmission Filter */}
 							<ModernPicker
-								label='Transmission'
+								label={t('inventory.transmission')}
 								value={localFilters.transmission}
 								options={[
-									{ label: 'All', value: '' },
-									{ label: 'Automatic', value: 'Automatic' },
-									{ label: 'Manual', value: 'Manual' }
+									{ label: t('inventory.all'), value: '' },
+									{ label: t('inventory.automatic'), value: 'Automatic' },
+									{ label: t('inventory.manual'), value: 'Manual' }
 								]}
 								onChange={value => handleChange('transmission', value)}
 								isDarkMode={isDarkMode}
@@ -659,6 +666,7 @@ interface Dealership {
 export default function DealerListings() {
 	const { isDarkMode } = useTheme()
 	const { user,profile } = useAuth()
+	const { t } = useTranslation()
 	const [initialLoading, setInitialLoading] = useState(true)
 	const [dealership, setDealership] = useState<Dealership | null>(null)
 	const [listings, setListings] = useState<CarListing[]>([])
@@ -1160,19 +1168,19 @@ const ListingCard = useMemo(
             <View className='px-5 py-4'>
               <View className='flex-row justify-between'>
                 <SpecItem
-                  title='Year'
+                  title={t('inventory.year')}
                   icon='calendar-outline'
                   value={item.year}
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title='Km'
+                  title={t('inventory.km')}
                   icon='speedometer-outline'
                   value={`${(item.mileage / 1000).toFixed(1)}k`}
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title='Transm.'
+                  title={t('inventory.transmission')}
                   icon='cog-outline'
                   value={
                     item.transmission === 'Automatic'
@@ -1184,7 +1192,7 @@ const ListingCard = useMemo(
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title='Condition'
+                  title={t('inventory.condition')}
                   icon='car-sport-outline'
                   value={item.condition}
                   isDarkMode={isDarkMode}
@@ -1277,6 +1285,7 @@ const ListingCard = useMemo(
   }}
       isDarkMode={isDarkMode}
       subscriptionExpired={subscriptionExpired}
+      t={t}
     />
 			{/* Listings */}
 			{initialLoading && (
@@ -1348,6 +1357,7 @@ const ListingCard = useMemo(
 						onApply={handleFilterChange}
 						currentFilters={filters}
 						isDarkMode={isDarkMode}
+						t={t}
 					/>
 
 					<ModernSoldModal
@@ -1355,6 +1365,7 @@ const ListingCard = useMemo(
 						onClose={() => setIsSoldModalVisible(false)}
 						onConfirm={handleMarkAsSold}
 						isDarkMode={isDarkMode}
+						t={t}
 					/>
 				</>
 			)}

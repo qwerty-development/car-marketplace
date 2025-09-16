@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "@/utils/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from 'react-i18next';
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/utils/supabase";
@@ -34,10 +35,11 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export default function EditProfileScreen() {
   const { isDarkMode } = useTheme();
-  const { 
-    user, 
-    profile, 
-    updateUserProfile, 
+  const { t } = useTranslation();
+  const {
+    user,
+    profile,
+    updateUserProfile,
     signOut,
     forceProfileRefresh // CRITICAL: Add this if implemented in AuthContext
   } = useAuth();
@@ -127,24 +129,24 @@ export default function EditProfileScreen() {
     let isValid = true;
 
     if (!firstName.trim()) {
-      errors.firstName = "First name is required";
+      errors.firstName = t('errors.required_field');
       isValid = false;
     } else if (firstName.trim().length < 2) {
-      errors.firstName = "First name must be at least 2 characters";
+      errors.firstName = t('profile.first_name') + ' must be at least 2 characters';
       isValid = false;
     }
 
     if (!lastName.trim()) {
-      errors.lastName = "Last name is required";
+      errors.lastName = t('errors.required_field');
       isValid = false;
     } else if (lastName.trim().length < 2) {
-      errors.lastName = "Last name must be at least 2 characters";
+      errors.lastName = t('profile.last_name') + ' must be at least 2 characters';
       isValid = false;
     }
 
     setValidationErrors(errors);
     return isValid;
-  }, [firstName, lastName]);
+  }, [firstName, lastName, t]);
 
   // CRITICAL SYSTEM: Enhanced database verification function
   const verifyDatabaseUpdate = useCallback(async (expectedName: string): Promise<boolean> => {
@@ -194,7 +196,7 @@ export default function EditProfileScreen() {
       // STEP 1: Validate form data
       if (!validateForm()) {
         console.log('[EditProfile] Form validation failed');
-        Alert.alert("Validation Error", "Please correct the errors and try again.");
+        Alert.alert(t('errors.validation_error'), "Please correct the errors and try again.");
         return;
       }
 
@@ -263,11 +265,11 @@ export default function EditProfileScreen() {
 
         // Success feedback and navigation
         Alert.alert(
-          "Success", 
-          "Profile updated successfully!",
+          t('common.success'),
+          t('success.profile_updated'),
           [
             {
-              text: "OK",
+              text: t('common.ok'),
               onPress: () => {
                 console.log('[EditProfile] Navigating back with delay');
                 // Small delay to ensure all state updates are processed
@@ -300,7 +302,7 @@ export default function EditProfileScreen() {
         errorMessage = "This name is already in use. Please choose a different name.";
       }
       
-      Alert.alert("Update Failed", errorMessage);
+      Alert.alert(t('errors.profile_update_failed'), errorMessage);
       
       // Revert to last known good state if needed
       syncProfileData();
@@ -497,7 +499,7 @@ export default function EditProfileScreen() {
               isDarkMode ? "text-white" : "text-black"
             }`}
           >
-            Edit Profile
+{t('profile.edit_profile')}
           </Text>
           {hasUnsavedChanges && (
             <View className="ml-2 w-2 h-2 bg-red rounded-full" />
@@ -507,7 +509,7 @@ export default function EditProfileScreen() {
         {/* CRITICAL SYSTEM: Enhanced form with validation feedback */}
         <View className="space-y-4 mt-4">
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-            First Name *
+            {t('profile.first_name')} *
           </Text>
           <TextInput
             className={`${
@@ -524,7 +526,7 @@ export default function EditProfileScreen() {
                 setValidationErrors(prev => ({ ...prev, firstName: "" }));
               }
             }}
-            placeholder="First Name"
+            placeholder={t('profile.first_name')}
             placeholderTextColor={isDarkMode ? "#999" : "#666"}
             cursorColor="#D55004"
             editable={!loading}
@@ -535,7 +537,7 @@ export default function EditProfileScreen() {
           ) : null}
           
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-            Last Name *
+            {t('profile.last_name')} *
           </Text>
           <TextInput
             className={`${
@@ -552,7 +554,7 @@ export default function EditProfileScreen() {
                 setValidationErrors(prev => ({ ...prev, lastName: "" }));
               }
             }}
-            placeholder="Last Name"
+            placeholder={t('profile.last_name')}
             placeholderTextColor={isDarkMode ? "#999" : "#666"}
             cursorColor="#D55004"
             editable={!loading}
@@ -563,7 +565,7 @@ export default function EditProfileScreen() {
           ) : null}
           
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
-            Email
+            {t('profile.email')}
           </Text>
           <TextInput
             className={`${
@@ -573,7 +575,7 @@ export default function EditProfileScreen() {
             } p-4 rounded-xl`}
             value={email}
             editable={false}
-            placeholder="Email"
+            placeholder={t('profile.email')}
             placeholderTextColor={isDarkMode ? "#999" : "#666"}
           />
           <Text className={`text-xs ${isDarkMode ? "text-white/50" : "text-gray-500"}`}>
@@ -600,7 +602,7 @@ export default function EditProfileScreen() {
             </View>
           ) : (
             <Text className="text-white text-center font-semibold">
-              {hasUnsavedChanges ? "Update Profile" : "No Changes to Save"}
+              {hasUnsavedChanges ? t('profile.update_profile') : "No Changes to Save"}
             </Text>
           )}
         </TouchableOpacity>

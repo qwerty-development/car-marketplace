@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
+import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
@@ -80,6 +81,7 @@ interface StatusFilterProps {
   activeFilter: string
   onFilterChange: (filter: string) => void
   counts: StatusCounts
+  t: (key: string) => string
 }
 
 interface ClipItemProps {
@@ -90,6 +92,7 @@ interface ClipItemProps {
 
 interface EmptyStateProps {
   filter: string
+  t: (key: string) => string
 }
 
 interface PaginationProps {
@@ -295,15 +298,15 @@ const Header = React.memo<HeaderProps>(({ dealership }) => {
   )
 })
 
-const StatusFilter = React.memo<StatusFilterProps>(({ activeFilter, onFilterChange, counts }) => {
+const StatusFilter = React.memo<StatusFilterProps>(({ activeFilter, onFilterChange, counts, t }) => {
   const { isDarkMode } = useTheme()
   const styles = getStyles(isDarkMode)
   const filters: FilterItem[] = [
-    { key: 'all', label: 'All' },
-    { key: 'published', label: 'Published' },
-    { key: 'under_review', label: 'Review' },
-    { key: 'rejected', label: 'Rejected' },
-    { key: 'archived', label: 'Archived' },
+    { key: 'all', label: t('autoclips.all') },
+    { key: 'published', label: t('autoclips.published') },
+    { key: 'under_review', label: t('autoclips.review') },
+    { key: 'rejected', label: t('autoclips.rejected') },
+    { key: 'archived', label: t('autoclips.archived') },
   ]
 
   return (
@@ -436,21 +439,21 @@ const ClipItem = React.memo<ClipItemProps>(({ item, onPress, onLongPress }) => {
   )
 })
 
-const EmptyState = React.memo<EmptyStateProps>(({ filter }) => {
+const EmptyState = React.memo<EmptyStateProps>(({ filter, t }) => {
   const { isDarkMode } = useTheme()
   const styles = getStyles(isDarkMode)
   const messages: Record<string, string> = {
-    all: "You haven't created any AutoClips yet.",
-    published: "No published clips found.",
-    under_review: "No clips are currently under review.",
-    rejected: "You have no rejected clips.",
-    archived: "No archived clips found.",
+    all: t('autoclips.no_clips_yet'),
+    published: t('autoclips.no_published_clips'),
+    under_review: t('autoclips.no_review_clips'),
+    rejected: t('autoclips.no_rejected_clips'),
+    archived: t('autoclips.no_archived_clips'),
   }
   return (
     <View style={styles.emptyContainer}>
       <Ionicons name="videocam-off-outline" size={60} style={styles.emptyIcon} />
       <Text style={styles.emptyText}>{messages[filter] || messages.all}</Text>
-      <Text style={styles.emptySubtext}>Tap the '+' button to create your first one!</Text>
+      <Text style={styles.emptySubtext}>{t('autoclips.create_first_clip')}</Text>
     </View>
   )
 })
@@ -500,6 +503,7 @@ const ContentLoadingOverlay = React.memo<{ isVisible: boolean }>(({ isVisible })
 export default function AutoClipsScreen() {
   const { user } = useAuth()
   const { isDarkMode } = useTheme()
+  const { t } = useTranslation()
   const styles = getStyles(isDarkMode)
   const flatListRef = useRef<FlatList>(null)
   
@@ -591,6 +595,7 @@ export default function AutoClipsScreen() {
         activeFilter={statusFilter}
         onFilterChange={setStatusFilter}
         counts={statusCounts}
+        t={t}
       />
       
       <View style={styles.contentContainer}>
@@ -609,7 +614,7 @@ export default function AutoClipsScreen() {
           contentContainerStyle={styles.gridContentContainer}
           onRefresh={handleRefresh}
           refreshing={refreshing}
-          ListEmptyComponent={<EmptyState filter={statusFilter} />}
+          ListEmptyComponent={<EmptyState filter={statusFilter} t={t} />}
           ListFooterComponent={
               <Pagination
                   currentPage={currentPage}

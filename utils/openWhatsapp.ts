@@ -1,4 +1,5 @@
 import { Alert, Platform, Linking } from "react-native";
+import i18n from "@/utils/i18n";
 
 /**
  * Opens WhatsApp with a given phone number and optional message
@@ -8,7 +9,7 @@ import { Alert, Platform, Linking } from "react-native";
  */
 const openWhatsApp = (phoneNumber:any, message = '', countryCode = '961') => {
   if (!phoneNumber) {
-    Alert.alert('Error', 'Phone number not available');
+    Alert.alert(i18n.t('common.error'), i18n.t('common.phone_not_available'));
     return;
   }
 
@@ -32,12 +33,12 @@ const openWhatsApp = (phoneNumber:any, message = '', countryCode = '961') => {
       })
       .catch(() => {
         Alert.alert(
-          'WhatsApp Not Available',
-          'Please install WhatsApp to contact the dealer through this method.',
+          i18n.t('whatsapp.not_available'),
+          i18n.t('whatsapp.install_message'),
           [
-            { text: 'OK' },
+            { text: i18n.t('common.ok') },
             {
-              text: 'Open App Store',
+              text: i18n.t('whatsapp.open_app_store'),
               onPress: () => Linking.openURL('https://apps.apple.com/app/whatsapp-messenger/id310633997')
             }
           ]
@@ -59,8 +60,8 @@ const openWhatsApp = (phoneNumber:any, message = '', countryCode = '961') => {
       })
       .catch(() => {
         Alert.alert(
-          'Error',
-          'Unable to open WhatsApp. Please make sure it is installed on your device.'
+          i18n.t('common.error'),
+          i18n.t('whatsapp.unable_to_open')
         );
       });
   }

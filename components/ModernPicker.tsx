@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { View, Text, TouchableOpacity, Modal, Platform } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { Ionicons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 
 interface PickerOption {
 	label: string
@@ -23,10 +24,11 @@ const ModernPicker: React.FC<ModernPickerProps> = ({
 	onChange,
 	isDarkMode
 }) => {
+	const { t } = useTranslation()
 	const [isVisible, setIsVisible] = useState(false)
 
 	const selectedLabel =
-		options.find(opt => opt.value === value)?.label || 'Select'
+		options.find(opt => opt.value === value)?.label || t('common.select')
 
 	const handleSelect = (newValue: string) => {
 		onChange(newValue)
@@ -83,13 +85,13 @@ const ModernPicker: React.FC<ModernPickerProps> = ({
 							<TouchableOpacity
 								onPress={() => setIsVisible(false)}
 								className='p-2'>
-								<Text className='text-red'>Cancel</Text>
+								<Text className='text-red'>{t('common.cancel')}</Text>
 							</TouchableOpacity>
 							<Text
 								className={`text-lg font-semibold ${
 									isDarkMode ? 'text-white' : 'text-black'
 								}`}>
-								Select {label}
+								{t('common.select')} {label}
 							</Text>
 							<View style={{ width: 70 }} />
 						</View>

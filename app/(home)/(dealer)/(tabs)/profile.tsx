@@ -28,6 +28,8 @@ import { Buffer } from 'buffer'
 import { coordinateSignOut } from '@/app/(home)/_layout'
 import { SignOutOverlay } from '@/components/SignOutOverlay'
 import Constants from 'expo-constants'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '@/utils/LanguageContext'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 const MODAL_HEIGHT_PERCENTAGE = 0.7;
@@ -50,6 +52,7 @@ type LegalsModalProps = {
 
 // New component for Legal Options Modal
 const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps) => {
+  const { t } = useTranslation();
   return (
     <Modal
       visible={visible}
@@ -72,7 +75,7 @@ const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps)
         >
           <View className="flex-row justify-between items-center mb-6">
             <Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-              Legal Documents
+              {t('profile.legal_documents')}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
@@ -87,7 +90,7 @@ const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps)
             }}
           >
             <Ionicons name="document-text-outline" size={22} color="#D55004" style={{ marginRight: 12 }} />
-            <Text className={isDarkMode ? 'text-white' : 'text-black'}>Terms of Service</Text>
+            <Text className={isDarkMode ? 'text-white' : 'text-black'}>{t('profile.terms_of_service')}</Text>
             <View style={{ flex: 1 }} />
             <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#ddd' : '#999'} />
           </TouchableOpacity>
@@ -100,7 +103,7 @@ const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps)
             }}
           >
             <Ionicons name="shield-checkmark-outline" size={22} color="#D55004" style={{ marginRight: 12 }} />
-            <Text className={isDarkMode ? 'text-white' : 'text-black'}>Privacy Policy</Text>
+            <Text className={isDarkMode ? 'text-white' : 'text-black'}>{t('profile.privacy_policy')}</Text>
             <View style={{ flex: 1 }} />
             <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#ddd' : '#999'} />
           </TouchableOpacity>
@@ -273,10 +276,10 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
           </View>
           <View>
             <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>
-              Active Subscription
+              {t('subscription.active')}
             </Text>
             <Text className={`text-xs ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-              {daysUntilExpiration !== null ? `${daysUntilExpiration} days remaining` : 'Subscription active'}
+              {daysUntilExpiration !== null ? t('subscription.days_remaining', { days: daysUntilExpiration }) : t('subscription.active')}
             </Text>
           </View>
         </View>
@@ -296,6 +299,8 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
 export default function DealershipProfilePage() {
   const { isDarkMode } = useTheme()
   const { user, profile, signOut } = useAuth()
+  const { t } = useTranslation()
+  const { language, setLanguage } = useLanguage()
   const router = useRouter()
   const scrollRef = useRef<ScrollView>(null)
   const mapRef = useRef(null)
@@ -336,22 +341,22 @@ export default function DealershipProfilePage() {
   const handleUserInterfaceRedirect = async () => {
     try {
       Alert.alert(
-        "Switch to Customer View",
-        "You will be redirected to the customer browsing interface.",
+        t('profile.switch_to_customer_view'),
+        t('profile.switch_to_customer_message'),
         [
           {
-            text: "Cancel",
+            text: t('common.cancel'),
             style: "cancel"
           },
           {
-            text: "Continue",
+            text: t('common.continue'),
             onPress: async () => {
               try {
                 // Navigate to user interface
                 router.replace('/(home)/(user)' as any);
               } catch (error) {
                 console.error('Error navigating to user interface:', error);
-                Alert.alert('Error', 'Failed to navigate. Please try again.');
+                Alert.alert(t('common.error'), t('profile.navigation_failed'));
               }
             }
           }
@@ -359,7 +364,7 @@ export default function DealershipProfilePage() {
       );
     } catch (error) {
       console.error('Error switching to user interface:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      Alert.alert(t('common.error'), t('profile.something_went_wrong'));
     }
   };
 
@@ -368,7 +373,7 @@ export default function DealershipProfilePage() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please allow photo access.')
+        Alert.alert(t('permissions.denied'), t('permissions.photo_access_required'))
         return
       }
 
@@ -384,7 +389,7 @@ export default function DealershipProfilePage() {
         await handleImageUpload(result.assets[0].uri)
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image')
+      Alert.alert(t('common.error'), t('profile.failed_to_pick_image'))
     } finally {
       setIsUploading(false)
     }
@@ -420,9 +425,9 @@ export default function DealershipProfilePage() {
         .eq('id', dealership.id)
 
       fetchDealershipProfile()
-      Alert.alert('Success', 'Logo updated successfully')
+      Alert.alert(t('common.success'), t('profile.logo_updated_successfully'))
     } catch (error) {
-      Alert.alert('Error', 'Failed to upload image')
+      Alert.alert(t('common.error'), t('profile.failed_to_upload_image'))
     }
   }
 
@@ -479,7 +484,7 @@ export default function DealershipProfilePage() {
       setIsCreatingPayment(true)
       
       if (!dealership?.id) {
-        Alert.alert('Error', 'Dealership ID not found')
+        Alert.alert(t('common.error'), t('profile.dealership_id_not_found'))
         return
       }
 
@@ -519,11 +524,11 @@ export default function DealershipProfilePage() {
           ]
         )
       } else {
-        Alert.alert('Error', 'No payment URL received')
+        Alert.alert(t('common.error'), t('profile.no_payment_url_received'))
       }
     } catch (error: any) {
       console.error('Payment error:', error)
-      Alert.alert('Error', error.message || 'Failed to create payment. Please try again.')
+      Alert.alert(t('common.error'), error.message || t('profile.failed_to_create_payment'))
     } finally {
       setIsCreatingPayment(false)
     }
@@ -583,20 +588,36 @@ export default function DealershipProfilePage() {
                 {dealership?.name}
               </Text>
               <Text className="text-white/80 text-sm">{dealership?.location}</Text>
-              
+
+              {/* Language Selection Button */}
+              <TouchableOpacity
+                onPress={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+                className="mt-4 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full flex-row items-center border border-white/30"
+              >
+                <Ionicons
+                  name="language-outline"
+                  size={18}
+                  color="white"
+                  style={{ marginRight: 6 }}
+                />
+                <Text className="text-white font-medium text-sm">
+                  {language === 'en' ? t('language.arabic') : t('language.english')}
+                </Text>
+              </TouchableOpacity>
+
               {/* Customer View Button */}
               <TouchableOpacity
                 onPress={handleUserInterfaceRedirect}
-                className="mt-6 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex-row items-center border border-white/30"
+                className="mt-4 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex-row items-center border border-white/30"
               >
-                <Ionicons 
-                  name="storefront-outline" 
-                  size={20} 
-                  color="white" 
+                <Ionicons
+                  name="storefront-outline"
+                  size={20}
+                  color="white"
                   style={{ marginRight: 8 }}
                 />
                 <Text className="text-white font-semibold">
-                  Browse as Customer
+                  {t('dealership.browse_as_customer')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -628,7 +649,7 @@ export default function DealershipProfilePage() {
             </View>
             <View className="ml-3 flex-1">
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                Edit Profile & Location
+                {t('profile.edit_profile')} & Location
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
                 Update dealership information and map location
@@ -652,10 +673,10 @@ export default function DealershipProfilePage() {
             </View>
             <View className="ml-3 flex-1">
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                Security
+                {t('profile.security_settings')}
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-                Change password and security settings
+                {t('profile.update_password_security')}
               </Text>
             </View>
             <Ionicons
@@ -676,7 +697,7 @@ export default function DealershipProfilePage() {
             </View>
             <View className="ml-3 flex-1">
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                Analytics Dashboard
+                {t('navbar.analytics')} Dashboard
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
                 View statistics and reports
@@ -700,10 +721,10 @@ export default function DealershipProfilePage() {
             </View>
             <View className="ml-3 flex-1">
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                Legals
+                {t('profile.legal')}
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-                Terms of Service and Privacy Policy
+                {t('profile.privacy_and_terms')}
               </Text>
             </View>
             <Ionicons
@@ -720,7 +741,7 @@ export default function DealershipProfilePage() {
             className={`${isDarkMode ? "text-white/60" : "text-gray-500"} 
             text-xs uppercase tracking-wider mb-1`}
           >
-            Support & Help
+{t('profile.support_help')}
           </Text>
 
           <TouchableOpacity
@@ -733,10 +754,10 @@ export default function DealershipProfilePage() {
             </View>
             <View className="ml-3 flex-1">
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                WhatsApp Support
+                {t('profile.whatsapp_support')}
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-                Available 24/7
+                {t('profile.available_24_7')}
               </Text>
             </View>
             <Ionicons
@@ -756,10 +777,10 @@ export default function DealershipProfilePage() {
             </View>
             <View className="ml-3 flex-1">
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                Email Support
+                {t('profile.email_support')}
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-                Detailed inquiries
+                {t('profile.detailed_inquiries')}
               </Text>
             </View>
             <Ionicons
@@ -775,7 +796,7 @@ export default function DealershipProfilePage() {
           className="text-center mt-8"
           style={{ fontSize: 12, color: isDarkMode ? "#777" : "#999" }}
         >
-          Version {Constants.expoConfig?.version || "1.0.0"}
+          {t('profile.version')} {Constants.expoConfig?.version || "1.0.0"}
         </Text>
 
         {/* Sign Out Button - Styled like User Profile */}
@@ -789,7 +810,7 @@ export default function DealershipProfilePage() {
               showSignOutOverlay ? "opacity-50" : "opacity-100"
             }`}
           >
-            {showSignOutOverlay ? "Signing Out..." : "Sign Out"}
+{showSignOutOverlay ? t('profile.signing_out') : t('profile.sign_out')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -14,6 +14,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { supabase } from "@/utils/supabase";
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -40,6 +41,7 @@ export const TrimDropdown: React.FC<TrimDropdownProps> = ({
   onChange,
   isDarkMode,
 }) => {
+  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
   const [trims, setTrims] = useState<string[]>([]);
   const [filteredTrims, setFilteredTrims] = useState<string[]>([]);
@@ -325,7 +327,7 @@ export const TrimDropdown: React.FC<TrimDropdownProps> = ({
                   : "text-neutral-500"
               }`}
             >
-              {normalizedValue || "Select trim"}
+              {normalizedValue || t('common.select_trim')}
             </Text>
           </View>
           <MaterialCommunityIcons
@@ -443,7 +445,7 @@ export const TrimDropdown: React.FC<TrimDropdownProps> = ({
                         isDarkMode ? "text-white" : "text-black"
                       }`}
                     >
-                      Select Trim
+                      {t('common.select_trim')}
                     </Text>
                     <Text
                       className={`text-sm mt-1 ${
@@ -611,7 +613,7 @@ export const TrimDropdown: React.FC<TrimDropdownProps> = ({
                       >
                         {searchQuery
                           ? `No trim levels match "${searchQuery}"`
-                          : "No trim levels available for this vehicle"}
+                          : t('common.no_trim_levels_available')}
                       </Text>
                       {searchQuery && (
                         <TouchableOpacity

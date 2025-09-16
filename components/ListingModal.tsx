@@ -26,6 +26,7 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
+import { useTranslation } from 'react-i18next';
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
@@ -260,7 +261,7 @@ export const BrandSelector = memo(
             onPress={() => window.location.reload()}
             className="mt-2 bg-red-500 p-2 rounded"
           >
-            <Text className="text-white text-center">Retry</Text>
+            <Text className="text-white text-center">{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -285,7 +286,7 @@ export const BrandSelector = memo(
             }}
             className="ml-auto bg-red px-3 py-1 rounded-full"
           >
-            <Text className="text-white">View All</Text>
+            <Text className="text-white">{t('common.view_all')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -463,6 +464,7 @@ export const VEHICLE_COLORS = [
 // Model Dropdown Component
 export const ModelDropdown = memo(
   ({ make, value, onChange, error, isDarkMode }: any) => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [models, setModels] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -531,7 +533,7 @@ export const ModelDropdown = memo(
                 ${isDarkMode ? "text-white" : "text-black"}
               `}
                 >
-                  {value || "Select Model"}
+                  {value || t('common.select_model')}
                 </Text>
               </View>
               {isLoading ? (
@@ -1102,6 +1104,7 @@ const ListingModal = ({
   dealership,
 }: any) => {
   const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<any>(
     initialData || {
       bought_price: null,
@@ -1276,7 +1279,7 @@ const ListingModal = ({
       }));
     } catch (error) {
       console.error("Error removing image:", error);
-      Alert.alert("Error", "Failed to remove image. Please try again.");
+      Alert.alert(t('common.error'), t('common.failed_remove_image'));
     }
   }, []);
 
@@ -1382,7 +1385,7 @@ const ListingModal = ({
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  {initialData ? "Edit Vehicle" : "Add New Vehicle"}
+                  {initialData ? t('common.edit_vehicle') : t('common.add_new_vehicle')}
                 </Text>
                 <TouchableOpacity
                   onPress={handleSubmit}
@@ -1401,7 +1404,7 @@ const ListingModal = ({
                 <View className="py-4">
                   <SectionHeader
                     title="Vehicle Images"
-                    subtitle="Add up to 10 high-quality photos of your vehicle"
+                    subtitle={t('common.add_vehicle_photos_subtitle')}
                     isDarkMode={isDarkMode}
                   />
                   <FuturisticGallery
@@ -1417,8 +1420,8 @@ const ListingModal = ({
                 {/* Basic Information */}
                 <View className="mb-8">
                   <SectionHeader
-                    title="Vehicle Brand & Model"
-                    subtitle="Select your vehicle's make and model"
+                    title={t('common.vehicle_brand_model')}
+                    subtitle={t('common.select_vehicle_make_model')}
                     isDarkMode={isDarkMode}
                   />
 
@@ -1482,8 +1485,8 @@ const ListingModal = ({
 
                 <View className="mb-8">
                   <SectionHeader
-                    title="Vehicle Color"
-                    subtitle="Select the exterior color"
+                    title={t('common.vehicle_color')}
+                    subtitle={t('common.select_exterior_color')}
                     isDarkMode={isDarkMode}
                   />
                   <EnhancedColorSelector
@@ -1496,8 +1499,8 @@ const ListingModal = ({
                 {/* Vehicle Category & Type */}
                 <View className="mb-8">
                   <SectionHeader
-                    title="Vehicle Classification"
-                    subtitle="Select your vehicle's category and type"
+                    title={t('common.vehicle_classification')}
+                    subtitle={t('common.select_vehicle_category_type')}
                     isDarkMode={isDarkMode}
                   />
 
@@ -1701,7 +1704,7 @@ const ListingModal = ({
                         >
                           {formData.date_bought
                             ? format(new Date(formData.date_bought), "PPP")
-                            : "Select purchase date"}
+                            : t('common.select_purchase_date')}
                         </Text>
                       </BlurView>
                     </View>

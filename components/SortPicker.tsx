@@ -107,7 +107,8 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 				style={[
 					styles.option,
 					selectedOption?.value === item.value && styles.selectedOption,
-					isDarkMode && styles.optionDark
+					isDarkMode && styles.optionDark,
+					language === 'ar' && styles.rtlOption
 				]}
 				onPress={() => handleSelect(item)}>
 				<Ionicons
@@ -125,7 +126,8 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 					style={[
 						styles.optionText,
 						selectedOption?.value === item.value && styles.selectedOptionText,
-						isDarkMode && styles.optionTextDark
+						isDarkMode && styles.optionTextDark,
+						language === 'ar' && styles.rtlOptionText
 					]}>
 					{item.label}
 				</Text>
@@ -134,7 +136,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 						name='checkmark'
 						size={20}
 						color='#D55004'
-						style={styles.checkmark}
+						style={[styles.checkmark, language === 'ar' && styles.rtlCheckmark]}
 					/>
 				)}
 			</TouchableOpacity>
@@ -282,6 +284,19 @@ const styles = StyleSheet.create({
 	},
 	checkmark: {
 		marginLeft: 8
+	},
+	// RTL Support Styles
+	rtlOption: {
+		flexDirection: 'row-reverse'
+	},
+	rtlOptionText: {
+		marginLeft: 0,
+		marginRight: 12,
+		textAlign: 'right'
+	},
+	rtlCheckmark: {
+		marginLeft: 0,
+		marginRight: 8
 	}
 })
 
