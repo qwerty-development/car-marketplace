@@ -13,6 +13,8 @@ import {
   SafeAreaView
 } from 'react-native'
 import { useTheme } from '@/utils/ThemeContext'
+import { useLanguage } from '@/utils/LanguageContext'
+import { useTranslation } from 'react-i18next'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -26,10 +28,13 @@ const { width } = Dimensions.get('window')
 
 export default function EditProfileScreen() {
   const { isDarkMode } = useTheme()
+  const { language } = useLanguage()
+  const { t } = useTranslation()
   const router = useRouter()
   const { dealershipId } = useLocalSearchParams()
   const { dealership, fetchDealershipProfile } = useDealershipProfile()
   const mapRef = useRef(null)
+  const isRTL = language === 'ar'
   
   const [activeTab, setActiveTab] = useState('info')
   const [isLoading, setIsLoading] = useState(false)
@@ -82,7 +87,7 @@ export default function EditProfileScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please allow location access.')
+        Alert.alert(t('permissionDenied'), t('allowLocationAccess'))
         return
       }
 
@@ -113,7 +118,7 @@ export default function EditProfileScreen() {
       }, 1000)
     } catch (error) {
       console.error('Error getting location:', error)
-      Alert.alert('Error', 'Failed to get location')
+      Alert.alert(t('common.error'), t('failedToGetLocation'))
     }
   }
 
@@ -129,7 +134,7 @@ export default function EditProfileScreen() {
 
   const updateProfile = async () => {
     if (!dealership?.id) {
-      Alert.alert('Error', 'Dealership information not found')
+      Alert.alert(t('common.error'), t('dealershipInfoNotFound'))
       return
     }
 
@@ -157,13 +162,13 @@ export default function EditProfileScreen() {
       
       // Refresh the dealership profile data
       await fetchDealershipProfile()
-      
-      Alert.alert('Success', 'Profile updated successfully', [
-        { text: 'OK', onPress: () => router.back() }
+
+      Alert.alert(t('common.success'), t('profileUpdatedSuccess'), [
+        { text: t('common.ok'), onPress: () => router.back() }
       ])
     } catch (error) {
       console.error('Error updating profile:', error)
-      Alert.alert('Error', 'Failed to update profile')
+      Alert.alert(t('common.error'), t('failedToUpdateProfile'))
     } finally {
       setIsLoading(false)
     }
@@ -224,10 +229,10 @@ export default function EditProfileScreen() {
               backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
               padding: 20
             }}>
-              <View className="flex-row items-center mb-6">
-                <TouchableOpacity onPress={() => router.back()} className="mr-4">
+              <View className={`flex-row items-center mb-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <TouchableOpacity onPress={() => router.back()} className={isRTL ? "ml-4" : "mr-4"}>
                   <Ionicons
-                    name="arrow-back"
+                    name={isRTL ? "arrow-forward" : "arrow-back"}
                     size={24}
                     color={isDarkMode ? "#fff" : "#000"}
                   />
@@ -236,62 +241,63 @@ export default function EditProfileScreen() {
                   className={`text-xl font-semibold ${
                     isDarkMode ? "text-white" : "text-black"
                   }`}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
                 >
-                  Edit Profile
+                  {t('editProfile')}
                 </Text>
               </View>
       {/* Tab Navigation */}
-      <View className="flex-row px-4 pt-2">
+      <View className={`flex-row px-4 pt-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
         <TouchableOpacity
           onPress={() => setActiveTab('info')}
           className={`flex-1 py-3 rounded-t-xl ${
-            activeTab === 'info' 
-              ? isDarkMode ? 'bg-gray-900' : 'bg-gray-100' 
+            activeTab === 'info'
+              ? isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
               : 'bg-transparent'
           }`}
         >
-          <View className="flex-row justify-center items-center">
-            <Ionicons 
-              name="person-outline" 
-              size={20} 
-              color={activeTab === 'info' ? '#D55004' : isDarkMode ? '#999' : '#666'} 
-              style={{ marginRight: 6 }}
+          <View className={`flex-row justify-center items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={activeTab === 'info' ? '#D55004' : isDarkMode ? '#999' : '#666'}
+              style={isRTL ? { marginLeft: 6 } : { marginRight: 6 }}
             />
-            <Text 
+            <Text
               className={`font-medium ${
-                activeTab === 'info' 
-                  ? isDarkMode ? 'text-white' : 'text-gray-800' 
+                activeTab === 'info'
+                  ? isDarkMode ? 'text-white' : 'text-gray-800'
                   : isDarkMode ? 'text-gray-500' : 'text-gray-500'
               }`}
             >
-              Basic Info
+              {t('basicInfo')}
             </Text>
           </View>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           onPress={() => setActiveTab('location')}
           className={`flex-1 py-3 rounded-t-xl ${
-            activeTab === 'location' 
-              ? isDarkMode ? 'bg-gray-900' : 'bg-gray-100' 
+            activeTab === 'location'
+              ? isDarkMode ? 'bg-gray-900' : 'bg-gray-100'
               : 'bg-transparent'
           }`}
         >
-          <View className="flex-row justify-center items-center">
-            <Ionicons 
-              name="location-outline" 
-              size={20} 
-              color={activeTab === 'location' ? '#D55004' : isDarkMode ? '#999' : '#666'} 
-              style={{ marginRight: 6 }}
+          <View className={`flex-row justify-center items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <Ionicons
+              name="location-outline"
+              size={20}
+              color={activeTab === 'location' ? '#D55004' : isDarkMode ? '#999' : '#666'}
+              style={isRTL ? { marginLeft: 6 } : { marginRight: 6 }}
             />
-            <Text 
+            <Text
               className={`font-medium ${
-                activeTab === 'location' 
-                  ? isDarkMode ? 'text-white' : 'text-gray-800' 
+                activeTab === 'location'
+                  ? isDarkMode ? 'text-white' : 'text-gray-800'
                   : isDarkMode ? 'text-gray-500' : 'text-gray-500'
               }`}
             >
-              Location
+              {t('location')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -309,77 +315,89 @@ export default function EditProfileScreen() {
         {activeTab === 'info' && (
           <View className="p-4">
             <View className="mb-6">
-              <Text className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Dealership Name
+              <Text
+                className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {t('dealershipName')}
               </Text>
-              <View 
+              <View
                 className={`flex-row items-center px-4 py-3 rounded-xl ${
                   isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}
+                } ${isRTL ? 'flex-row-reverse' : ''}`}
               >
-                <Ionicons 
-                  name="business-outline" 
-                  size={20} 
-                  color={isDarkMode ? '#D55004' : '#D55004'} 
-                  style={{ marginRight: 10 }}
+                <Ionicons
+                  name="business-outline"
+                  size={20}
+                  color={isDarkMode ? '#D55004' : '#D55004'}
+                  style={isRTL ? { marginLeft: 10 } : { marginRight: 10 }}
                 />
                 <TextInput
                   value={formData.name}
                   onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="Dealership Name"
+                  placeholder={t('dealershipName')}
                   placeholderTextColor={isDarkMode ? '#666' : '#999'}
                   className={isDarkMode ? 'text-white flex-1' : 'text-black flex-1'}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
                 />
               </View>
             </View>
             
             <View className="mb-6">
-              <Text className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Address
+              <Text
+                className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {t('address')}
               </Text>
-              <View 
+              <View
                 className={`flex-row items-center px-4 py-3 rounded-xl ${
                   isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}
+                } ${isRTL ? 'flex-row-reverse' : ''}`}
               >
-                <Ionicons 
-                  name="location-outline" 
-                  size={20} 
-                  color={isDarkMode ? '#D55004' : '#D55004'} 
-                  style={{ marginRight: 10 }}
+                <Ionicons
+                  name="location-outline"
+                  size={20}
+                  color={isDarkMode ? '#D55004' : '#D55004'}
+                  style={isRTL ? { marginLeft: 10 } : { marginRight: 10 }}
                 />
                 <TextInput
                   value={formData.location}
                   onChangeText={(text) => setFormData({ ...formData, location: text })}
-                  placeholder="Address"
+                  placeholder={t('address')}
                   placeholderTextColor={isDarkMode ? '#666' : '#999'}
                   className={isDarkMode ? 'text-white flex-1' : 'text-black flex-1'}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
                 />
               </View>
             </View>
             
             <View className="mb-6">
-              <Text className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Phone Number
+              <Text
+                className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {t('phone')}
               </Text>
-              <View 
+              <View
                 className={`flex-row items-center px-4 py-3 rounded-xl ${
                   isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}
+                } ${isRTL ? 'flex-row-reverse' : ''}`}
               >
-                <Ionicons 
-                  name="call-outline" 
-                  size={20} 
-                  color={isDarkMode ? '#D55004' : '#D55004'} 
-                  style={{ marginRight: 10 }}
+                <Ionicons
+                  name="call-outline"
+                  size={20}
+                  color={isDarkMode ? '#D55004' : '#D55004'}
+                  style={isRTL ? { marginLeft: 10 } : { marginRight: 10 }}
                 />
                 <TextInput
                   value={formData.phone}
                   onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  placeholder="Phone Number"
+                  placeholder={t('phone')}
                   placeholderTextColor={isDarkMode ? '#666' : '#999'}
                   keyboardType="phone-pad"
                   className={isDarkMode ? 'text-white flex-1' : 'text-black flex-1'}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
                 />
               </View>
             </View>
@@ -419,63 +437,81 @@ export default function EditProfileScreen() {
             {/* Location Information */}
             <View className="p-4">
               <View className="mb-5">
-                <Text className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Latitude
+                <Text
+                  className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
+                >
+                  {t('latitude')}
                 </Text>
                 <View className={`flex-row items-center px-4 py-3 rounded-xl ${
                   isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}>
-                  <Ionicons 
-                    name="navigate-outline" 
-                    size={20} 
-                    color="#D55004" 
-                    style={{ marginRight: 10 }}
+                } ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <Ionicons
+                    name="navigate-outline"
+                    size={20}
+                    color="#D55004"
+                    style={isRTL ? { marginLeft: 10 } : { marginRight: 10 }}
                   />
                   <TextInput
                     value={formData.latitude}
                     onChangeText={(text) => setFormData({ ...formData, latitude: text })}
-                    placeholder="Latitude"
+                    placeholder={t('latitude')}
                     placeholderTextColor={isDarkMode ? '#666' : '#999'}
                     keyboardType="numeric"
                     className={isDarkMode ? 'text-white flex-1' : 'text-black flex-1'}
+                    style={{ textAlign: isRTL ? 'right' : 'left' }}
                   />
                 </View>
               </View>
               
               <View className="mb-5">
-                <Text className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Longitude
+                <Text
+                  className={`text-sm mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
+                >
+                  {t('longitude')}
                 </Text>
                 <View className={`flex-row items-center px-4 py-3 rounded-xl ${
                   isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}>
-                  <Ionicons 
-                    name="navigate-outline" 
-                    size={20} 
-                    color="#D55004" 
-                    style={{ marginRight: 10 }}
+                } ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <Ionicons
+                    name="navigate-outline"
+                    size={20}
+                    color="#D55004"
+                    style={isRTL ? { marginLeft: 10 } : { marginRight: 10 }}
                   />
                   <TextInput
                     value={formData.longitude}
                     onChangeText={(text) => setFormData({ ...formData, longitude: text })}
-                    placeholder="Longitude"
+                    placeholder={t('longitude')}
                     placeholderTextColor={isDarkMode ? '#666' : '#999'}
                     keyboardType="numeric"
                     className={isDarkMode ? 'text-white flex-1' : 'text-black flex-1'}
+                    style={{ textAlign: isRTL ? 'right' : 'left' }}
                   />
                 </View>
               </View>
               
               <TouchableOpacity
                 onPress={getLocation}
-                className="flex-row justify-center items-center p-3 mb-2 rounded-xl bg-blue-500/10"
+                className={`flex-row justify-center items-center p-3 mb-2 rounded-xl bg-blue-500/10 ${isRTL ? 'flex-row-reverse' : ''}`}
               >
-                <Ionicons name="locate" size={20} color="#3b82f6" style={{ marginRight: 8 }} />
-                <Text className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>Use Current Location</Text>
+                <Ionicons
+                  name="locate"
+                  size={20}
+                  color="#3b82f6"
+                  style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }}
+                />
+                <Text className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>
+                  {t('useCurrentLocation')}
+                </Text>
               </TouchableOpacity>
-              
-              <Text className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 mb-4 text-center`}>
-                Tap on the map to select a location or enter coordinates manually
+
+              <Text
+                className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 mb-4 text-center`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {t('tapMapOrEnterCoordinates')}
               </Text>
             </View>
           </View>
@@ -488,23 +524,28 @@ export default function EditProfileScreen() {
           disabled={isLoading}
           className={`py-3 rounded-xl flex-row justify-center items-center ${
             isLoading ? 'bg-gray-500' : 'bg-[#D55004]'
-          }`}
+          } ${isRTL ? 'flex-row-reverse' : ''}`}
         >
           {isLoading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
-              <Ionicons name="save-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-              <Text className="text-white font-semibold text-lg">Save Changes</Text>
+              <Ionicons
+                name="save-outline"
+                size={20}
+                color="#fff"
+                style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }}
+              />
+              <Text className="text-white font-semibold text-lg">{t('saveChanges')}</Text>
             </>
           )}
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           onPress={() => router.back()}
           className="mt-3 py-3 rounded-xl flex-row justify-center items-center bg-transparent"
         >
-          <Text className={isDarkMode ? "text-white" : "text-gray-700"}>Cancel</Text>
+          <Text className={isDarkMode ? "text-white" : "text-gray-700"}>{t('cancel')}</Text>
         </TouchableOpacity>
       </View>
       </SafeAreaView>

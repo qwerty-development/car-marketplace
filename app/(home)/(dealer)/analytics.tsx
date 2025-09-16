@@ -89,7 +89,7 @@ const ModernHeader = ({ title, isDarkMode, onRefresh, isLoading, onBack, t, lang
 	</LinearGradient>
   )
 
-const MetricCard = ({ title, value, icon, trend, color, isDarkMode }: any) => (
+const MetricCard = ({ title, value, icon, trend, color, isDarkMode, t }: any) => (
 	<LinearGradient
 		colors={
 			isDarkMode
@@ -137,7 +137,7 @@ const MetricCard = ({ title, value, icon, trend, color, isDarkMode }: any) => (
 	</LinearGradient>
 )
 
-const ChartContainer = ({ title, subtitle, children, isDarkMode }: any) => (
+const ChartContainer = ({ title, subtitle, children, isDarkMode, t }: any) => (
 	<View className='mb-6 p-4'>
 		<LinearGradient
 			colors={
@@ -174,7 +174,7 @@ const ChartContainer = ({ title, subtitle, children, isDarkMode }: any) => (
 	</View>
 )
 
-const MetricSection = ({ title, metrics, isDarkMode, language }: any) => (
+const MetricSection = ({ title, metrics, isDarkMode, language, t }: any) => (
 	<View className='mb-6 mx-4'>
 		<LinearGradient
 			colors={
@@ -196,68 +196,48 @@ const MetricSection = ({ title, metrics, isDarkMode, language }: any) => (
 				}`}>
 				{title}
 			</Text>
-			{metrics.map(
-				(
-					metric: {
-						label:
-							| boolean
-							| React.ReactElement<
-									any,
-									string | React.JSXElementConstructor<any>
-							  >
-							| Iterable<React.ReactNode>
-							| React.Key
-							| null
-							| undefined
-						color: any
-						value:
-							| string
-							| number
-							| boolean
-							| React.ReactElement<
-									any,
-									string | React.JSXElementConstructor<any>
-							  >
-							| Iterable<React.ReactNode>
-							| React.ReactPortal
-							| null
-							| undefined
-					},
-					index: number
-				) => (
-					<View
-						key={metric.label}
-						className={`flex-row justify-between items-center ${
-							language === 'ar' ? 'flex-row-reverse' : ''
-						} ${
-							index !== metrics.length - 1
-								? 'mb-4 pb-4 border-b border-neutral-200'
-								: ''
-						}`}>
-						<View className={`flex-row items-center ${
-							language === 'ar' ? 'flex-row-reverse' : ''
-						}`}>
-							<View
-								className={`w-2 h-2 rounded-full bg-${metric.color} ${
-									language === 'ar' ? 'ml-2' : 'mr-2'
-								}`}
-							/>
+				{metrics.map(
+					(
+						metric: {
+							label: string | number;
+							color: any;
+							value: string | number | null | undefined;
+						},
+						index: number
+					) => (
+						<View
+							key={String(metric.label)}
+							className={`flex-row justify-between items-center ${
+								language === 'ar' ? 'flex-row-reverse' : ''
+							} ${
+								index !== metrics.length - 1
+									? 'mb-4 pb-4 border-b border-neutral-200'
+									: ''
+							}`}>
+							<View className={`flex-row items-center ${
+								language === 'ar' ? 'flex-row-reverse' : ''
+							}`}>
+								<View
+									className={`w-2 h-2 rounded-full bg-${metric.color} ${
+										language === 'ar' ? 'ml-2' : 'mr-2'
+									}`}
+								/>
+								<Text
+									className={
+										isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
+									}>
+									{String(metric.label)}
+								</Text>
+							</View>
 							<Text
-								className={
-									isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
-								}>
-								{metric.label}
+								className={`font-bold ${
+									isDarkMode ? 'text-white' : 'text-night'
+								}`}>
+								{metric.value}
 							</Text>
 						</View>
-						<Text
-							className={`font-bold ${
-								isDarkMode ? 'text-white' : 'text-night'
-							}`}>
-							{metric.value}
-						</Text>
-					</View>
-				)
-			)}
+					)
+				)}
 		</LinearGradient>
 	</View>
 )
@@ -289,12 +269,39 @@ export default function DealerAnalyticsPage() {
 	const { language } = useLanguage()
 	const router = useRouter()
 	const [dealership, setDealership] = useState<any>(null)
-	const [analytics, setAnalytics] = useState(null)
+	type CarType = { id: string | number; [key: string]: any };
+	type AnalyticsType = {
+		total_listings?: number;
+		total_views?: number;
+		total_likes?: number;
+		top_viewed_cars?: Array<{ year: number; make: string; views: number }>;
+		category_distribution?: { [key: string]: number };
+		inventory_summary?: {
+			total_cars?: number;
+			new_cars?: number;
+			used_cars?: number;
+			avg_price?: number;
+			total_value?: number;
+		};
+		performance_metrics?: {
+			avg_time_to_sell?: number;
+			conversion_rate?: number;
+			avg_sale_price?: number;
+			price_difference?: number;
+		};
+		sales_summary?: {
+			total_sales?: number;
+			total_revenue?: number;
+		};
+		time_series_data?: Array<{ date: string; views: number; likes: number }>;
+	};
+
+	const [analytics, setAnalytics] = useState<AnalyticsType | null>(null)
 	const [timeRange, setTimeRange] = useState('month')
 	const [isLoading, setIsLoading] = useState(true)
 	const [refreshing, setRefreshing] = useState(false)
-	const [error, setError] = useState(null)
-	const [cars, setCars] = useState([])
+	const [error, setError] = useState<string | null>(null)
+	const [cars, setCars] = useState<CarType[]>([])
 
 	const fetchData = useCallback(async () => {
 		if (!user) return
@@ -333,7 +340,7 @@ export default function DealerAnalyticsPage() {
 			if (carsError) throw carsError
 
 			// Calculate changes for views and likes (simulated for now)
-			const carsWithAnalytics = carsData.map(car => ({
+			const carsWithAnalytics = carsData.map((car: CarType) => ({
 				...car,
 				views_change: Math.floor(Math.random() * 20) - 10, // Replace with actual calculation
 				likes_change: Math.floor(Math.random() * 20) - 10 // Replace with actual calculation
@@ -341,7 +348,11 @@ export default function DealerAnalyticsPage() {
 
 			setCars(carsWithAnalytics)
 		} catch (err) {
-			setError(err.message)
+			if (err instanceof Error) {
+				setError(err.message)
+			} else {
+				setError('Unknown error')
+			}
 			console.error('Error fetching data:', err)
 		} finally {
 			setIsLoading(false)
@@ -357,12 +368,12 @@ export default function DealerAnalyticsPage() {
 		fetchData().then(() => setRefreshing(false))
 	}, [fetchData])
 
-	const handleTimeRangeChange = useCallback(newRange => {
+	const handleTimeRangeChange = useCallback((newRange: string) => {
 		setTimeRange(newRange)
 	}, [])
 
 	const handleCarPress = useCallback(
-		carId => {
+		(carId: string | number) => {
 			router.push(`/car-analytics/${carId}`)
 		},
 		[router]
@@ -396,24 +407,24 @@ export default function DealerAnalyticsPage() {
 
 		const data = analytics.time_series_data
 		return {
-			labels: data.map((d: { date: string | number | Date }) =>
+			labels: data.map((d) =>
 				format(new Date(d.date), 'MMM dd')
 			),
 			datasets: [
 				{
-					data: data.map((d: { views: any }) => d.views),
+					data: data.map((d) => d.views),
 					color: () => 'rgba(56, 189, 248, 0.5)',
 					strokeWidth: 2
 				},
 				{
-					data: data.map((d: { likes: any }) => d.likes),
+					data: data.map((d) => d.likes),
 					color: () => 'rgba(239, 68, 68, 0.5)',
 					strokeWidth: 2
 				}
 			],
 			legend: [t('analytics.views'), t('analytics.likes')]
 		}
-	}, [analytics])
+	}, [analytics, t])
 
 	if (error) {
 		return (
@@ -469,37 +480,41 @@ export default function DealerAnalyticsPage() {
 
 				{/* Overview Cards */}
 				<View className='flex-row mx-4 my-6'>
-					<MetricCard
-						title={t('analytics.total_listings')}
-						value={analytics?.total_listings || 0}
-						icon='list'
-						color='#10B981'
-						isDarkMode={isDarkMode}
-					/>
-					<MetricCard
-						title={t('analytics.total_views')}
-						value={analytics?.total_views || 0}
-						icon='eye'
-						trend={10.5}
-						color='#3B82F6'
-						isDarkMode={isDarkMode}
-					/>
-					<MetricCard
-						title={t('analytics.total_likes')}
-						value={analytics?.total_likes || 0}
-						icon='heart'
-						trend={-5.2}
-						color='#EF4444'
-						isDarkMode={isDarkMode}
-					/>
+					   <MetricCard
+						   title={t('analytics.total_listings')}
+						   value={analytics?.total_listings || 0}
+						   icon='list'
+						   color='#10B981'
+						   isDarkMode={isDarkMode}
+						   t={t}
+					   />
+					   <MetricCard
+						   title={t('analytics.total_views')}
+						   value={analytics?.total_views || 0}
+						   icon='eye'
+						   trend={10.5}
+						   color='#3B82F6'
+						   isDarkMode={isDarkMode}
+						   t={t}
+					   />
+					   <MetricCard
+						   title={t('analytics.total_likes')}
+						   value={analytics?.total_likes || 0}
+						   icon='heart'
+						   trend={-5.2}
+						   color='#EF4444'
+						   isDarkMode={isDarkMode}
+						   t={t}
+					   />
 				</View>
 
 				{/* Performance Trends Chart */}
-				{formatChartData && (
-					<ChartContainer
-						title={t('analytics.performance_trends')}
-						subtitle={t('analytics.trends_for_period', { period: timeRange })}
-						isDarkMode={isDarkMode}>
+				   {formatChartData && (
+					   <ChartContainer
+						   title={t('analytics.performance_trends')}
+						   subtitle={t('analytics.trends_for_period', { period: timeRange })}
+						   isDarkMode={isDarkMode}
+						   t={t}>
 						<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 							<LineChart
 								data={formatChartData}
@@ -517,47 +532,51 @@ export default function DealerAnalyticsPage() {
 				)}
 
 				{/* Top Viewed Cars Chart */}
-				{analytics?.top_viewed_cars && (
-					<ChartContainer
-						title={t('analytics.most_viewed_cars')}
-						subtitle={t('analytics.top_5_listings')}
-						isDarkMode={isDarkMode}>
-						<ScrollView horizontal showsHorizontalScrollIndicator={false}>
-							<BarChart
-								data={{
-									labels: analytics.top_viewed_cars.map(
-										c => `${c.year} ${c.make}`
-									),
-									datasets: [
-										{
-											data: analytics.top_viewed_cars.map(c => c.views)
-										}
-									]
-								}}
-								width={SCREEN_WIDTH * 1.5}
-								height={220}
-								chartConfig={{
-									...chartConfig,
-									color: (opacity = 1) => `rgba(56, 189, 248, ${opacity})`
-								}}
-								showValuesOnTopOfBars
-								withInnerLines={true}
-								fromZero
-								style={{
-									marginVertical: 8,
-									borderRadius: 16
-								}}
-							/>
-						</ScrollView>
-					</ChartContainer>
-				)}
+				   {analytics?.top_viewed_cars && (
+					   <ChartContainer
+						   title={t('analytics.most_viewed_cars')}
+						   subtitle={t('analytics.top_5_listings')}
+						   isDarkMode={isDarkMode}
+						   t={t}>
+						   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+							   <BarChart
+								   data={{
+									   labels: analytics.top_viewed_cars.map(
+										   (c: { year: number; make: string }) => `${c.year} ${c.make}`
+									   ),
+									   datasets: [
+										   {
+											   data: analytics.top_viewed_cars.map((c: { views: number }) => c.views)
+										   }
+									   ]
+								   }}
+								   width={SCREEN_WIDTH * 1.5}
+								   height={220}
+								   chartConfig={{
+									   ...chartConfig,
+									   color: (opacity = 1) => `rgba(56, 189, 248, ${opacity})`
+								   }}
+								   yAxisLabel={''}
+								   yAxisSuffix={''}
+								   showValuesOnTopOfBars
+								   withInnerLines={true}
+								   fromZero
+								   style={{
+									   marginVertical: 8,
+									   borderRadius: 16
+								   }}
+							   />
+						   </ScrollView>
+					   </ChartContainer>
+				   )}
 
 				{/* Category Distribution Chart */}
-				{analytics?.category_distribution && (
-					<ChartContainer
-						title={t('analytics.category_distribution')}
-						subtitle={t('analytics.vehicle_categories_breakdown')}
-						isDarkMode={isDarkMode}>
+				   {analytics?.category_distribution && (
+					   <ChartContainer
+						   title={t('analytics.category_distribution')}
+						   subtitle={t('analytics.vehicle_categories_breakdown')}
+						   isDarkMode={isDarkMode}
+						   t={t}>
 						<PieChart
 							data={Object.entries(analytics.category_distribution).map(
 								([category, count]) => ({
@@ -580,9 +599,9 @@ export default function DealerAnalyticsPage() {
 				)}
 
 				{/* Inventory Metrics */}
-				<MetricSection
-					title={t('analytics.inventory_overview')}
-					metrics={[
+				   <MetricSection
+					   title={t('analytics.inventory_overview')}
+					   metrics={[
 						{
 							label: t('analytics.total_cars'),
 							value: analytics?.inventory_summary?.total_cars || 0,
@@ -611,14 +630,15 @@ export default function DealerAnalyticsPage() {
 							color: 'red-500'
 						}
 					]}
-					isDarkMode={isDarkMode}
-					language={language}
-				/>
+					   isDarkMode={isDarkMode}
+					   language={language}
+					   t={t}
+				   />
 
 				{/* Performance Metrics */}
-				<MetricSection
-					title={t('analytics.performance_metrics')}
-					metrics={[
+				   <MetricSection
+					   title={t('analytics.performance_metrics')}
+					   metrics={[
 						{
 							label: t('analytics.avg_time_to_sell'),
 							value: `${
@@ -649,14 +669,15 @@ export default function DealerAnalyticsPage() {
 							color: 'purple-500'
 						}
 					]}
-					isDarkMode={isDarkMode}
-					language={language}
-				/>
+					   isDarkMode={isDarkMode}
+					   language={language}
+					   t={t}
+				   />
 
 				{/* Sales Summary */}
-				<MetricSection
-					title={t('analytics.sales_summary')}
-					metrics={[
+				   <MetricSection
+					   title={t('analytics.sales_summary')}
+					   metrics={[
 						{
 							label: t('analytics.total_sales'),
 							value: analytics?.sales_summary?.total_sales || 0,
@@ -668,9 +689,10 @@ export default function DealerAnalyticsPage() {
 							color: 'green-500'
 						}
 					]}
-					isDarkMode={isDarkMode}
-					language={language}
-				/>
+					   isDarkMode={isDarkMode}
+					   language={language}
+					   t={t}
+				   />
 
 				{/* Cars Analytics Section */}
 				<View className='mb-6'>
@@ -702,17 +724,23 @@ const formatPrice = (price: {
 		arg0: undefined,
 		arg1: { minimumFractionDigits: number; maximumFractionDigits: number }
 	) => any
-}) => {
+} | number | undefined) => {
 	if (!price) return '0'
-	return price.toLocaleString(undefined, {
+	if (typeof price === 'number') {
+		return price.toLocaleString(undefined, {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		})
+	}
+	return price?.toLocaleString(undefined, {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2
-	})
+	}) ?? '0'
 }
 
 const translateCategory = (category: string, language: string, t: any) => {
 	if (language === 'ar') {
-		const translations = {
+		const translations: { [key: string]: string } = {
 			'Sedan': 'سيدان',
 			'SUV': 'اس يو في',
 			'Hatchback': 'هاتشباك',
@@ -727,7 +755,7 @@ const translateCategory = (category: string, language: string, t: any) => {
 }
 
 const getCategoryColor = (category: string) => {
-	const colors = {
+	const colors: { [key: string]: string } = {
 		'Sedan': '#4285F4',
 		'SUV': '#34A853',
 		'Hatchback': '#FBBC05',

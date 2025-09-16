@@ -64,7 +64,9 @@
     "dealerships": "وكلاء السيارات",
     "autoclips": "مقاطع السيارات",
     "sales_history": "تاريخ المبيعات",
-    "analytics": "التحليلات"
+    "analytics": "التحليلات",
+    "inventory": "المخزون",
+    "create": "إنشاء"
   },
   "brands": {
     "explore_by_brands": "استكشف حسب العلامات",
@@ -268,7 +270,21 @@
     "new_password": "كلمة المرور الجديدة",
     "confirm_new_password": "تأكيد كلمة المرور الجديدة",
     "update_password": "تحديث كلمة المرور",
-    "support_help": "الدعم والمساعدة"
+    "support_help": "الدعم والمساعدة",
+    "switch_to_customer_view": "التبديل إلى عرض العميل",
+    "switch_to_customer_message": "سيتم إعادة توجيهك إلى واجهة تصفح العملاء.",
+    "navigation_failed": "فشل في الانتقال. يرجى المحاولة مرة أخرى.",
+    "something_went_wrong": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    "failed_to_pick_image": "فشل في اختيار الصورة",
+    "logo_updated_successfully": "تم تحديث الشعار بنجاح",
+    "failed_to_upload_image": "فشل في رفع الصورة",
+    "dealership_id_not_found": "لم يتم العثور على معرف التاجر",
+    "no_payment_url_received": "لم يتم استلام رابط الدفع",
+    "failed_to_create_payment": "فشل في إنشاء الدفع. يرجى المحاولة مرة أخرى.",
+    "edit_profile_and_location": "تعديل الملف الشخصي والموقع",
+    "update_dealership_info": "تحديث معلومات المعرض وموقع الخريطة",
+    "analytics_dashboard": "لوحة التحليلات",
+    "view_statistics_reports": "عرض الإحصائيات والتقارير"
   },
   "language": {
     "english": "الإنجليزية",
@@ -720,20 +736,33 @@
   "subscription": {
     "active": "اشتراك نشط",
     "days_remaining": "{{days}} يوم متبقي",
-    "renew": "تجديد"
+    "renew": "تجديد",
+    "renew_subscription": "تجديد الاشتراك",
+    "choose_plan_message": "اختر خطة للمتابعة بالدفع عبر Whish (وضع الاختبار)",
+    "monthly_plan": "الخطة الشهرية",
+    "yearly_plan": "الخطة السنوية",
+    "per_month": "/ شهر",
+    "per_year": "/ سنة",
+    "proceed_to_payment": "المتابعة إلى الدفع",
+    "payment_redirect_message": "سيتم إعادة توجيهك إلى Whish لإكمال عملية الدفع.",
+    "open_payment_page": "فتح صفحة الدفع"
   },
-  "profile": {
-    "switch_to_customer_view": "التبديل إلى عرض العميل",
-    "switch_to_customer_message": "سيتم إعادة توجيهك إلى واجهة تصفح العملاء.",
-    "navigation_failed": "فشل في الانتقال. يرجى المحاولة مرة أخرى.",
-    "something_went_wrong": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
-    "failed_to_pick_image": "فشل في اختيار الصورة",
-    "logo_updated_successfully": "تم تحديث الشعار بنجاح",
-    "failed_to_upload_image": "فشل في رفع الصورة",
-    "dealership_id_not_found": "لم يتم العثور على معرف التاجر",
-    "no_payment_url_received": "لم يتم استلام رابط الدفع",
-    "failed_to_create_payment": "فشل في إنشاء الدفع. يرجى المحاولة مرة أخرى."
-  },
+  "editProfile": "تعديل الملف الشخصي",
+  "basicInfo": "المعلومات الأساسية",
+  "dealershipName": "اسم المعرض",
+  "address": "العنوان",
+  "latitude": "خط العرض",
+  "longitude": "خط الطول",
+  "useCurrentLocation": "استخدام الموقع الحالي",
+  "tapMapOrEnterCoordinates": "اضغط على الخريطة لتحديد موقع أو أدخل الإحداثيات يدوياً",
+  "saveChanges": "حفظ التغييرات",
+  "permissionDenied": "تم رفض الإذن",
+  "allowLocationAccess": "يرجى السماح بالوصول إلى الموقع",
+  "failedToGetLocation": "فشل في الحصول على الموقع",
+  "dealershipInfoNotFound": "معلومات المعرض غير موجودة",
+  "profileUpdatedSuccess": "تم تحديث الملف الشخصي بنجاح",
+  "failedToUpdateProfile": "فشل في تحديث الملف الشخصي",
+  "recentSearches": "البحث الأخير",
   "permissions": {
     "denied": "تم رفض الإذن",
     "photo_access_required": "يرجى السماح بالوصول إلى الصور."

@@ -13,6 +13,8 @@ import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/utils/supabase";
 import { useTheme } from "@/utils/ThemeContext";
+import { useLanguage } from "@/utils/LanguageContext";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
@@ -26,7 +28,10 @@ interface Suggestions {
 export default function SearchScreen() {
     const router = useRouter();
     const { isDarkMode } = useTheme();
+    const { language } = useLanguage();
+    const { t } = useTranslation();
     const { user } = useAuth();
+    const isRTL = language === 'ar';
     const [searchQuery, setSearchQuery] = useState("");
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [suggestions, setSuggestions] = useState<Suggestions>({
@@ -187,20 +192,28 @@ export default function SearchScreen() {
             />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, isDarkMode && styles.darkText]}>
-            Search
+            {t('common.search')}
           </Text>
         </View>
 
-        <View style={[styles.searchBox, isDarkMode && styles.darkSearchBox]}>
+        <View style={[
+          styles.searchBox,
+          isDarkMode && styles.darkSearchBox,
+          isRTL && styles.rtlSearchBox
+        ]}>
           <FontAwesome
             name="search"
             size={20}
             color={isDarkMode ? "#ccc" : "#666"}
-            style={styles.searchIcon}
+            style={[styles.searchIcon, isRTL && styles.rtlSearchIcon]}
           />
           <TextInput
-            style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
-            placeholder="Search cars..."
+            style={[
+              styles.searchInput,
+              isDarkMode && styles.darkSearchInput,
+              isRTL && styles.rtlTextInput
+            ]}
+            placeholder={t('common.search')}
             placeholderTextColor={isDarkMode ? "#666" : "#999"}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -211,7 +224,7 @@ export default function SearchScreen() {
           {searchQuery.length > 0 && (
             <TouchableOpacity
               onPress={() => setSearchQuery("")}
-              style={styles.clearButton}
+              style={[styles.clearButton, isRTL && styles.rtlClearButton]}
             >
               <Ionicons
                 name="close-circle"
@@ -224,22 +237,34 @@ export default function SearchScreen() {
 
         {!showSuggestions && recentSearches.length > 0 && (
           <View style={styles.recentSearchesContainer}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
-              Recent Searches
+            <Text style={[
+              styles.sectionTitle,
+              isDarkMode && styles.darkText,
+              isRTL && styles.rtlText
+            ]}>
+              {t('recentSearches')}
             </Text>
             {recentSearches.map((search, index) => (
               <TouchableOpacity
                 key={`recent-${index}`}
-                style={[styles.suggestionItem, isDarkMode && styles.darkSuggestionItem]}
+                style={[
+                  styles.suggestionItem,
+                  isDarkMode && styles.darkSuggestionItem,
+                  isRTL && styles.rtlSuggestionItem
+                ]}
                 onPress={() => handleSuggestionPress(search)}
               >
                 <Ionicons
                   name="time-outline"
                   size={24}
                   color={isDarkMode ? "#666" : "#999"}
-                  style={styles.recentSearchIcon}
+                  style={[styles.recentSearchIcon, isRTL && styles.rtlRecentIcon]}
                 />
-                <Text style={[styles.suggestionText, isDarkMode && styles.darkText]}>
+                <Text style={[
+                  styles.suggestionText,
+                  isDarkMode && styles.darkText,
+                  isRTL && styles.rtlText
+                ]}>
                   {search}
                 </Text>
                 <TouchableOpacity
@@ -432,5 +457,30 @@ const styles = StyleSheet.create({
   },
   darkText: {
     color: '#fff',
+  },
+  // RTL Support Styles
+  rtlSearchBox: {
+    flexDirection: 'row-reverse',
+  },
+  rtlSearchIcon: {
+    marginRight: 0,
+    marginLeft: 8,
+  },
+  rtlTextInput: {
+    textAlign: 'right',
+  },
+  rtlClearButton: {
+    marginLeft: 0,
+    marginRight: 8,
+  },
+  rtlText: {
+    textAlign: 'right',
+  },
+  rtlSuggestionItem: {
+    flexDirection: 'row-reverse',
+  },
+  rtlRecentIcon: {
+    marginRight: 0,
+    marginLeft: 12,
   },
 });

@@ -53,6 +53,9 @@ type LegalsModalProps = {
 // New component for Legal Options Modal
 const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps) => {
   const { t } = useTranslation();
+  const { language } = useLanguage();
+  const isRTL = language === 'ar';
+  
   return (
     <Modal
       visible={visible}
@@ -73,8 +76,8 @@ const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps)
             },
           ]}
         >
-          <View className="flex-row justify-between items-center mb-6">
-            <Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
+          <View className={`flex-row ${isRTL ? 'flex-row-reverse' : ''} justify-between items-center mb-6`}>
+            <Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
               {t('profile.legal_documents')}
             </Text>
             <TouchableOpacity onPress={onClose}>
@@ -83,29 +86,49 @@ const LegalsModal = ({ visible, onClose, isDarkMode, router }: LegalsModalProps)
           </View>
           
           <TouchableOpacity 
-            className={`flex-row items-center p-4 mb-3 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+            className={`flex-row ${isRTL ? 'flex-row-reverse' : ''} items-center p-4 mb-3 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
             onPress={() => {
               onClose();
               router.push('/(home)/(dealer)/terms-of-service');
             }}
           >
-            <Ionicons name="document-text-outline" size={22} color="#D55004" style={{ marginRight: 12 }} />
-            <Text className={isDarkMode ? 'text-white' : 'text-black'}>{t('profile.terms_of_service')}</Text>
-            <View style={{ flex: 1 }} />
-            <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#ddd' : '#999'} />
+            <Ionicons 
+              name="document-text-outline" 
+              size={22} 
+              color="#D55004" 
+              style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} 
+            />
+            <Text className={isDarkMode ? 'text-white' : 'text-black'} style={{ textAlign: isRTL ? 'right' : 'left', flex: 1 }}>
+              {t('profile.terms_of_service')}
+            </Text>
+            <Ionicons 
+              name={isRTL ? "chevron-back" : "chevron-forward"} 
+              size={20} 
+              color={isDarkMode ? '#ddd' : '#999'} 
+            />
           </TouchableOpacity>
           
           <TouchableOpacity 
-            className={`flex-row items-center p-4 mb-3 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+            className={`flex-row ${isRTL ? 'flex-row-reverse' : ''} items-center p-4 mb-3 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
             onPress={() => {
               onClose();
               router.push('/(home)/(dealer)/privacy-policy');
             }}
           >
-            <Ionicons name="shield-checkmark-outline" size={22} color="#D55004" style={{ marginRight: 12 }} />
-            <Text className={isDarkMode ? 'text-white' : 'text-black'}>{t('profile.privacy_policy')}</Text>
-            <View style={{ flex: 1 }} />
-            <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#ddd' : '#999'} />
+            <Ionicons 
+              name="shield-checkmark-outline" 
+              size={22} 
+              color="#D55004" 
+              style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} 
+            />
+            <Text className={isDarkMode ? 'text-white' : 'text-black'} style={{ textAlign: isRTL ? 'right' : 'left', flex: 1 }}>
+              {t('profile.privacy_policy')}
+            </Text>
+            <Ionicons 
+              name={isRTL ? "chevron-back" : "chevron-forward"} 
+              size={20} 
+              color={isDarkMode ? '#ddd' : '#999'} 
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -120,6 +143,7 @@ type SubscriptionBannerProps = {
   daysUntilExpiration: number | null
   router: RouterType
   onRenewPress?: () => void
+  t: any
 }
 
 type RenewSubscriptionModalProps = {
@@ -131,6 +155,10 @@ type RenewSubscriptionModalProps = {
 }
 
 const RenewSubscriptionModal = ({ visible, onClose, isDarkMode, onSelectPlan, isSubmitting }: RenewSubscriptionModalProps) => {
+	const { language } = useLanguage();
+	const { t } = useTranslation();
+	const isRTL = language === 'ar';
+	
 	return (
 		<Modal
 			visible={visible}
@@ -148,45 +176,53 @@ const RenewSubscriptionModal = ({ visible, onClose, isDarkMode, onSelectPlan, is
 						{ backgroundColor: isDarkMode ? '#1A1A1A' : 'white' }
 					]}
 				>
-					<View className="flex-row justify-between items-center mb-6">
-						<Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-							Renew Subscription
+					<View className={`flex-row ${isRTL ? 'flex-row-reverse' : ''} justify-between items-center mb-6`}>
+						<Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
+							{t('subscription.renew_subscription', 'Renew Subscription')}
 						</Text>
 						<TouchableOpacity onPress={onClose}>
 							<Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
 						</TouchableOpacity>
 					</View>
 
-					<Text className={`${isDarkMode ? 'text-white/80' : 'text-gray-600'} mb-4`}>
-						Choose a plan to proceed with payment via Whish (sandbox)
+					<Text className={`${isDarkMode ? 'text-white/80' : 'text-gray-600'} mb-4`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
+						{t('subscription.choose_plan_message', 'Choose a plan to proceed with payment via Whish (sandbox)')}
 					</Text>
 
 					<TouchableOpacity
-						className={`p-4 rounded-xl mb-3 flex-row items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+						className={`p-4 rounded-xl mb-3 flex-row ${isRTL ? 'flex-row-reverse' : ''} items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
 						disabled={isSubmitting}
 						onPress={() => onSelectPlan('monthly')}
 					>
-						<View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center mr-3">
+						<View className={`w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center ${isRTL ? 'ml-3' : 'mr-3'}`}>
 							<Ionicons name="calendar-outline" size={22} color="#3b82f6" />
 						</View>
 						<View style={{ flex: 1 }}>
-							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Monthly Plan</Text>
-							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>${SUBSCRIPTION_PRICE_MONTHLY_USD} / month</Text>
+							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
+								{t('subscription.monthly_plan', 'Monthly Plan')}
+							</Text>
+							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
+								${SUBSCRIPTION_PRICE_MONTHLY_USD} {t('subscription.per_month', '/ month')}
+							</Text>
 						</View>
 						{isSubmitting && <ActivityIndicator size="small" color="#3b82f6" />}
 					</TouchableOpacity>
 
 					<TouchableOpacity
-						className={`p-4 rounded-xl flex-row items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
+						className={`p-4 rounded-xl flex-row ${isRTL ? 'flex-row-reverse' : ''} items-center ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
 						disabled={isSubmitting}
 						onPress={() => onSelectPlan('yearly')}
 					>
-						<View className="w-10 h-10 rounded-full bg-emerald-500/10 items-center justify-center mr-3">
+						<View className={`w-10 h-10 rounded-full bg-emerald-500/10 items-center justify-center ${isRTL ? 'ml-3' : 'mr-3'}`}>
 							<Ionicons name="ribbon-outline" size={22} color="#10b981" />
 						</View>
 						<View style={{ flex: 1 }}>
-							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Yearly Plan</Text>
-							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`}>${SUBSCRIPTION_PRICE_YEARLY_USD} / year</Text>
+							<Text className={`font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
+								{t('subscription.yearly_plan', 'Yearly Plan')}
+							</Text>
+							<Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} text-xs`} style={{ textAlign: isRTL ? 'right' : 'left' }}>
+								${SUBSCRIPTION_PRICE_YEARLY_USD} {t('subscription.per_year', '/ year')}
+							</Text>
 						</View>
 						{isSubmitting && <ActivityIndicator size="small" color="#10b981" />}
 					</TouchableOpacity>
@@ -197,7 +233,7 @@ const RenewSubscriptionModal = ({ visible, onClose, isDarkMode, onSelectPlan, is
 }
 
 // Subscription Banner Component
-const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, daysUntilExpiration, onRenewPress }: SubscriptionBannerProps) => {
+const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, daysUntilExpiration, onRenewPress, t }: SubscriptionBannerProps) => {
   if (subscriptionExpired) {
     return (
       <LinearGradient
@@ -264,34 +300,56 @@ const SubscriptionBanner = ({ isDarkMode, subscriptionExpired, showWarning, days
     );
   }
   
+  // Use language context for RTL
+  const language = typeof t === 'function' && t('language.code') ? t('language.code') : (typeof t === 'string' ? t : 'en');
+  const isRTL = language === 'ar';
   return (
     <LinearGradient
       colors={isDarkMode ? ['#1A3A1A', '#0F2A0F'] : ['#EFFFF0', '#E0FFE5']}
       className="p-4 rounded-xl shadow-sm overflow-hidden"
     >
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          <View className="w-10 h-10 rounded-full bg-green-500/20 items-center justify-center mr-3">
-            <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-          </View>
-          <View>
-            <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>
-              {t('subscription.active')}
-            </Text>
-            <Text className={`text-xs ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-              {daysUntilExpiration !== null ? t('subscription.days_remaining', { days: daysUntilExpiration }) : t('subscription.active')}
-            </Text>
-          </View>
-        </View>
-        {ENABLE_RENEW_SUBSCRIPTION && (
+      {isRTL ? (
+        <View className="flex-row items-center justify-between w-full">
+          {/* Renew button right */}
           <TouchableOpacity 
             className="bg-green-600 px-3 py-2 rounded-lg" 
             onPress={onRenewPress}
+            style={{ marginLeft: 0, marginRight: 0 }}
           >
-            <Text className="text-white font-medium text-sm">Renew</Text>
+            <Text className="text-white font-medium text-sm">{t('subscription.renew')}</Text>
           </TouchableOpacity>
-        )}
-      </View>
+          {/* Subscription text left */}
+          <View className="flex-row items-center" style={{ flex: 1, justifyContent: 'flex-start' }}>
+            <View className="w-10 h-10 rounded-full bg-green-500/20 items-center justify-center ml-3">
+              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+            </View>
+            <View>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`} style={{ textAlign: 'left' }}>{t('subscription.active')}</Text>
+              <Text className={`text-xs ${isDarkMode ? "text-green-400" : "text-green-600"}`} style={{ textAlign: 'left' }}>{daysUntilExpiration !== null ? t('subscription.days_remaining', { days: daysUntilExpiration }) : t('subscription.active')}</Text>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-full bg-green-500/20 items-center justify-center mr-3">
+              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+            </View>
+            <View>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>{t('subscription.active')}</Text>
+              <Text className={`text-xs ${isDarkMode ? "text-green-400" : "text-green-600"}`}>{daysUntilExpiration !== null ? t('subscription.days_remaining', { days: daysUntilExpiration }) : t('subscription.active')}</Text>
+            </View>
+          </View>
+          {ENABLE_RENEW_SUBSCRIPTION && (
+            <TouchableOpacity 
+              className="bg-green-600 px-3 py-2 rounded-lg" 
+              onPress={onRenewPress}
+            >
+              <Text className="text-white font-medium text-sm">{t('subscription.renew')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </LinearGradient>
   );
 };
@@ -304,6 +362,7 @@ export default function DealershipProfilePage() {
   const router = useRouter()
   const scrollRef = useRef<ScrollView>(null)
   const mapRef = useRef(null)
+  const isRTL = language === 'ar'
 
   useScrollToTop(scrollRef)
 
@@ -511,16 +570,16 @@ export default function DealershipProfilePage() {
       if (data.collectUrl) {
         setIsRenewModalVisible(false)
         Alert.alert(
-          'Proceed to Payment',
-          'You will be redirected to Whish sandbox to complete the payment.',
+          t('subscription.proceed_to_payment'),
+          t('subscription.payment_redirect_message'),
           [
             {
-              text: 'Open Payment Page',
+              text: t('subscription.open_payment_page'),
               onPress: () => {
                 Linking.openURL(data.collectUrl)
               }
             },
-            { text: 'Cancel', style: 'cancel' }
+            { text: t('common.cancel'), style: 'cancel' }
           ]
         )
       } else {
@@ -584,21 +643,23 @@ export default function DealershipProfilePage() {
                 </TouchableOpacity>
               </View>
 
-              <Text className="text-white text-xl font-semibold mt-4">
+              <Text className="text-white text-xl font-semibold mt-4" style={{ textAlign: 'center' }}>
                 {dealership?.name}
               </Text>
-              <Text className="text-white/80 text-sm">{dealership?.location}</Text>
+              <Text className="text-white/80 text-sm" style={{ textAlign: 'center' }}>
+                {dealership?.location}
+              </Text>
 
               {/* Language Selection Button */}
               <TouchableOpacity
                 onPress={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-                className="mt-4 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full flex-row items-center border border-white/30"
+                className={`mt-4 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full flex-row ${isRTL ? 'flex-row-reverse' : ''} items-center border border-white/30`}
               >
                 <Ionicons
                   name="language-outline"
                   size={18}
                   color="white"
-                  style={{ marginRight: 6 }}
+                  style={isRTL ? { marginLeft: 6 } : { marginRight: 6 }}
                 />
                 <Text className="text-white font-medium text-sm">
                   {language === 'en' ? t('language.arabic') : t('language.english')}
@@ -608,13 +669,13 @@ export default function DealershipProfilePage() {
               {/* Customer View Button */}
               <TouchableOpacity
                 onPress={handleUserInterfaceRedirect}
-                className="mt-4 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex-row items-center border border-white/30"
+                className={`mt-4 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full flex-row ${isRTL ? 'flex-row-reverse' : ''} items-center border border-white/30`}
               >
                 <Ionicons
                   name="storefront-outline"
                   size={20}
                   color="white"
-                  style={{ marginRight: 8 }}
+                  style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }}
                 />
                 <Text className="text-white font-semibold">
                   {t('dealership.browse_as_customer')}
@@ -633,6 +694,7 @@ export default function DealershipProfilePage() {
             daysUntilExpiration={daysUntilExpiration}
             router={router}
             onRenewPress={() => setIsRenewModalVisible(true)}
+            t={t}
           />
         </View>
 
@@ -642,21 +704,27 @@ export default function DealershipProfilePage() {
           <TouchableOpacity
             onPress={() => router.push(`/(home)/(dealer)/EditProfile?dealershipId=${dealership?.id}`)}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-xl shadow-sm flex-row items-center`}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
           >
             <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center">
               <Ionicons name="person-outline" size={24} color="#3b82f6" />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                {t('profile.edit_profile')} & Location
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                {t('profile.edit_profile_and_location')}
               </Text>
-              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-                Update dealership information and map location
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                {t('profile.update_dealership_info')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
@@ -666,21 +734,27 @@ export default function DealershipProfilePage() {
           <TouchableOpacity
             onPress={() => router.push('/(home)/(dealer)/ChangePassword')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-xl shadow-sm flex-row items-center`}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
           >
             <View className="w-10 h-10 rounded-full bg-purple-500/10 items-center justify-center">
               <Ionicons name="lock-closed-outline" size={24} color="#9333ea" />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.security_settings')}
               </Text>
-              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.update_password_security')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
@@ -690,21 +764,27 @@ export default function DealershipProfilePage() {
           <TouchableOpacity
             onPress={() => router.push('/(home)/(dealer)/analytics')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-xl shadow-sm flex-row items-center`}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
           >
             <View className="w-10 h-10 rounded-full bg-green-500/10 items-center justify-center">
               <Ionicons name="bar-chart-outline" size={24} color="#10b981" />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
-                {t('navbar.analytics')} Dashboard
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                {t('profile.analytics_dashboard')}
               </Text>
-              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-                View statistics and reports
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                {t('profile.view_statistics_reports')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
@@ -714,21 +794,27 @@ export default function DealershipProfilePage() {
           <TouchableOpacity
             onPress={() => setIsLegalsModalVisible(true)}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-xl shadow-sm flex-row items-center`}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
           >
             <View className="w-10 h-10 rounded-full bg-amber-500/10 items-center justify-center">
               <Ionicons name="document-text-outline" size={24} color="#f59e0b" />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.legal')}
               </Text>
-              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.privacy_and_terms')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
@@ -738,30 +824,37 @@ export default function DealershipProfilePage() {
         {/* Support Section */}
         <View className="mt-8 px-6 space-y-4">
           <Text
-            className={`${isDarkMode ? "text-white/60" : "text-gray-500"} 
+            className={`${isDarkMode ? "text-white/60" : "text-gray-500"}
             text-xs uppercase tracking-wider mb-1`}
+            style={{ textAlign: isRTL ? 'right' : 'left' }}
           >
-{t('profile.support_help')}
+            {t('profile.support_help')}
           </Text>
 
           <TouchableOpacity
             onPress={() => Linking.openURL('https://wa.me/70993415')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-xl shadow-sm flex-row items-center`}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
           >
             <View className="w-10 h-10 rounded-full bg-green-500/10 items-center justify-center">
               <Feather name="message-circle" size={22} color="#22c55e" />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.whatsapp_support')}
               </Text>
-              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.available_24_7')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
@@ -770,21 +863,27 @@ export default function DealershipProfilePage() {
           <TouchableOpacity
             onPress={() => Linking.openURL('mailto:info@notqwerty.com?subject=Dealer Support Request')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-              p-4 rounded-xl shadow-sm flex-row items-center`}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
           >
             <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center">
               <Feather name="mail" size={22} color="#3b82f6" />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"}`}>
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.email_support')}
               </Text>
-              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
                 {t('profile.detailed_inquiries')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
@@ -794,7 +893,11 @@ export default function DealershipProfilePage() {
         {/* Version Information */}
         <Text
           className="text-center mt-8"
-          style={{ fontSize: 12, color: isDarkMode ? "#777" : "#999" }}
+          style={{ 
+            fontSize: 12, 
+            color: isDarkMode ? "#777" : "#999",
+            textAlign: 'center'
+          }}
         >
           {t('profile.version')} {Constants.expoConfig?.version || "1.0.0"}
         </Text>
@@ -809,8 +912,9 @@ export default function DealershipProfilePage() {
             className={`text-center border text-white font-semibold p-4 rounded-2xl bg-rose-800 ${
               showSignOutOverlay ? "opacity-50" : "opacity-100"
             }`}
+            style={{ textAlign: 'center' }}
           >
-{showSignOutOverlay ? t('profile.signing_out') : t('profile.sign_out')}
+            {showSignOutOverlay ? t('profile.signing_out') : t('profile.sign_out')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { Dropdown } from 'react-native-element-dropdown'
 import { FontAwesome } from '@expo/vector-icons'
+import { useLanguage } from '@/utils/LanguageContext'
+import { useTranslation } from 'react-i18next'
 
 interface Item {
 	id: string | number
@@ -22,15 +24,31 @@ const DropdownComponent: React.FC<DropdownComponentProps> = ({
 	selectedItem
 }: any) => {
 	const [isFocus, setIsFocus] = useState(false)
+	const { language } = useLanguage()
+	const { t } = useTranslation()
+	const isRTL = language === 'ar'
 
 	return (
 		<View style={styles.container}>
 			<Dropdown
-				style={[styles.dropdown, isFocus && styles.focusedDropdown]}
+				style={[
+					styles.dropdown,
+					isFocus && styles.focusedDropdown,
+					isRTL && styles.rtlDropdown
+				]}
 				containerStyle={styles.dropdownContainer}
-				placeholderStyle={styles.placeholderText}
-				selectedTextStyle={styles.selectedText}
-				inputSearchStyle={styles.searchInput}
+				placeholderStyle={[
+					styles.placeholderText,
+					isRTL && styles.rtlText
+				]}
+				selectedTextStyle={[
+					styles.selectedText,
+					isRTL && styles.rtlText
+				]}
+				inputSearchStyle={[
+					styles.searchInput,
+					isRTL && styles.rtlText
+				]}
 				iconStyle={styles.icon}
 				data={items}
 				search
@@ -38,7 +56,7 @@ const DropdownComponent: React.FC<DropdownComponentProps> = ({
 				labelField='name'
 				valueField='id'
 				placeholder={!isFocus && !selectedItem ? placeholder : ''}
-				searchPlaceholder='Search...'
+				searchPlaceholder={t('common.search')}
 				value={selectedItem ? selectedItem.id : null}
 				onFocus={() => setIsFocus(true)}
 				onBlur={() => setIsFocus(false)}
@@ -51,7 +69,7 @@ const DropdownComponent: React.FC<DropdownComponentProps> = ({
 						name='search'
 						size={20}
 						color={isFocus ? '#007AFF' : '#6B7280'}
-						style={styles.leftIcon}
+						style={[styles.leftIcon, isRTL && styles.rtlIcon]}
 					/>
 				)}
 				activeColor='#E5E7EB'
@@ -105,6 +123,17 @@ const styles = StyleSheet.create({
 	},
 	leftIcon: {
 		marginRight: 8
+	},
+	// RTL Support Styles
+	rtlDropdown: {
+		textAlign: 'right'
+	},
+	rtlText: {
+		textAlign: 'right'
+	},
+	rtlIcon: {
+		marginRight: 0,
+		marginLeft: 8
 	}
 })
 

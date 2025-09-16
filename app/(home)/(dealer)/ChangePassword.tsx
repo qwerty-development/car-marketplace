@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "@/utils/ThemeContext";
+import { useLanguage } from "@/utils/LanguageContext";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +19,9 @@ export default function ChangePasswordScreen() {
   const { isDarkMode } = useTheme();
   const { updatePassword } = useAuth();
   const router = useRouter();
+  const { language } = useLanguage();
+  const { t } = useTranslation();
+  const isRTL = language === 'ar';
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -25,12 +30,12 @@ export default function ChangePasswordScreen() {
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "New passwords do not match");
+      Alert.alert(t('common.error'), t('password.passwords_do_not_match'));
       return;
     }
-    
+
     if (newPassword.length < 8) {
-      Alert.alert("Error", "Password must be at least 8 characters long");
+      Alert.alert(t('common.error'), t('password.min_length_error'));
       return;
     }
 
@@ -44,11 +49,11 @@ export default function ChangePasswordScreen() {
 
       if (error) throw error;
 
-      Alert.alert("Success", "Password changed successfully");
+      Alert.alert(t('common.success'), t('password.change_success'));
       router.back();
     } catch (error) {
       console.error("Error changing password:", error);
-      Alert.alert("Error", "Failed to change password. Please check your current password and try again.");
+      Alert.alert(t('common.error'), t('password.change_failed'));
     } finally {
       setLoading(false);
     }
@@ -60,10 +65,10 @@ export default function ChangePasswordScreen() {
       backgroundColor: isDarkMode ? "#000000" : "#FFFFFF",
       padding: 20
     }}>
-      <View className="flex-row items-center mb-6">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
+      <View className={`flex-row items-center mb-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <TouchableOpacity onPress={() => router.back()} className={isRTL ? "ml-4" : "mr-4"}>
           <Ionicons
-            name="arrow-back"
+            name={isRTL ? "arrow-forward" : "arrow-back"}
             size={24}
             color={isDarkMode ? "#fff" : "#000"}
           />
@@ -72,8 +77,9 @@ export default function ChangePasswordScreen() {
           className={`text-xl font-semibold ${
             isDarkMode ? "text-white" : "text-black"
           }`}
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
         >
-          Change Password
+          {t('password.change_password')}
         </Text>
       </View>
 
@@ -86,10 +92,11 @@ export default function ChangePasswordScreen() {
           } p-4 rounded-xl`}
           value={currentPassword}
           onChangeText={setCurrentPassword}
-          placeholder="Current Password"
+          placeholder={t('password.current_password')}
           placeholderTextColor={isDarkMode ? "#999" : "#666"}
           secureTextEntry
           cursorColor="#D55004"
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
         />
         <TextInput
           className={`${
@@ -99,10 +106,11 @@ export default function ChangePasswordScreen() {
           } p-4 rounded-xl`}
           value={newPassword}
           onChangeText={setNewPassword}
-          placeholder="New Password"
+          placeholder={t('password.new_password')}
           placeholderTextColor={isDarkMode ? "#999" : "#666"}
           secureTextEntry
           cursorColor="#D55004"
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
         />
         <TextInput
           className={`${
@@ -112,10 +120,11 @@ export default function ChangePasswordScreen() {
           } p-4 rounded-xl`}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          placeholder="Confirm New Password"
+          placeholder={t('password.confirm_password')}
           placeholderTextColor={isDarkMode ? "#999" : "#666"}
           secureTextEntry
           cursorColor="#D55004"
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
         />
       </View>
 
@@ -125,25 +134,40 @@ export default function ChangePasswordScreen() {
         disabled={loading}
       >
         <Text className="text-white text-center font-semibold">
-          {loading ? "Updating..." : "Update Password"}
+          {loading ? t('password.updating') : t('password.update_password')}
         </Text>
       </TouchableOpacity>
       
       <View className="mt-6">
-        <Text className={`text-base ${isDarkMode ? "text-white/70" : "text-gray-600"}`}>
-          Password Requirements:
+        <Text
+          className={`text-base ${isDarkMode ? "text-white/70" : "text-gray-600"}`}
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
+        >
+          {t('password.requirements_title')}
         </Text>
-        <Text className={`mt-2 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-          • At least 8 characters long
+        <Text
+          className={`mt-2 ${isDarkMode ? "text-white/60" : "text-gray-500"}`}
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
+        >
+          {isRTL ? '•' : '•'} {t('password.min_length')}
         </Text>
-        <Text className={`${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-          • Include at least one uppercase letter
+        <Text
+          className={`${isDarkMode ? "text-white/60" : "text-gray-500"}`}
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
+        >
+          {isRTL ? '•' : '•'} {t('password.uppercase_required')}
         </Text>
-        <Text className={`${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-          • Include at least one number
+        <Text
+          className={`${isDarkMode ? "text-white/60" : "text-gray-500"}`}
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
+        >
+          {isRTL ? '•' : '•'} {t('password.number_required')}
         </Text>
-        <Text className={`${isDarkMode ? "text-white/60" : "text-gray-500"}`}>
-          • Include at least one special character
+        <Text
+          className={`${isDarkMode ? "text-white/60" : "text-gray-500"}`}
+          style={{ textAlign: isRTL ? 'right' : 'left' }}
+        >
+          {isRTL ? '•' : '•'} {t('password.special_char_required')}
         </Text>
       </View>
     </SafeAreaView>

@@ -64,7 +64,9 @@
     "dealerships": "Dealerships",
     "autoclips": "Auto Clips",
     "sales_history": "Sales History",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "inventory": "Inventory",
+    "create": "Create"
   },
   "brands": {
     "explore_by_brands": "Explore by Brands",
@@ -268,7 +270,21 @@
     "new_password": "New Password",
     "confirm_new_password": "Confirm New Password",
     "update_password": "Update Password",
-    "support_help": "Support & Help"
+    "support_help": "Support & Help",
+    "switch_to_customer_view": "Switch to Customer View",
+    "switch_to_customer_message": "You will be redirected to the customer browsing interface.",
+    "navigation_failed": "Failed to navigate. Please try again.",
+    "something_went_wrong": "Something went wrong. Please try again.",
+    "failed_to_pick_image": "Failed to pick image",
+    "logo_updated_successfully": "Logo updated successfully",
+    "failed_to_upload_image": "Failed to upload image",
+    "dealership_id_not_found": "Dealership ID not found",
+    "no_payment_url_received": "No payment URL received",
+    "failed_to_create_payment": "Failed to create payment. Please try again.",
+    "edit_profile_and_location": "Edit Profile & Location",
+    "update_dealership_info": "Update dealership information and map location",
+    "analytics_dashboard": "Analytics Dashboard",
+    "view_statistics_reports": "View statistics and reports"
   },
   "language": {
     "english": "English",
@@ -720,19 +736,16 @@
   "subscription": {
     "active": "Active Subscription",
     "days_remaining": "{{days}} days remaining",
-    "renew": "Renew"
-  },
-  "profile": {
-    "switch_to_customer_view": "Switch to Customer View",
-    "switch_to_customer_message": "You will be redirected to the customer browsing interface.",
-    "navigation_failed": "Failed to navigate. Please try again.",
-    "something_went_wrong": "Something went wrong. Please try again.",
-    "failed_to_pick_image": "Failed to pick image",
-    "logo_updated_successfully": "Logo updated successfully",
-    "failed_to_upload_image": "Failed to upload image",
-    "dealership_id_not_found": "Dealership ID not found",
-    "no_payment_url_received": "No payment URL received",
-    "failed_to_create_payment": "Failed to create payment. Please try again."
+    "renew": "Renew",
+    "renew_subscription": "Renew Subscription",
+    "choose_plan_message": "Choose a plan to proceed with payment via Whish (sandbox)",
+    "monthly_plan": "Monthly Plan",
+    "yearly_plan": "Yearly Plan",
+    "per_month": "/ month",
+    "per_year": "/ year",
+    "proceed_to_payment": "Proceed to Payment",
+    "payment_redirect_message": "You will be redirected to Whish sandbox to complete the payment.",
+    "open_payment_page": "Open Payment Page"
   },
   "permissions": {
     "denied": "Permission Denied",

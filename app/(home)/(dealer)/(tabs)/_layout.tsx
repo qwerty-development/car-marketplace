@@ -6,6 +6,8 @@ import { BlurView } from 'expo-blur'
 import { useDealershipProfile } from '../hooks/useDealershipProfile'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useLanguage } from '@/utils/LanguageContext'
+import { useTranslation } from 'react-i18next'
 
 // Custom Dealership Logo Component
 const DealershipLogo = ({ color, focused }: { color: string; focused: boolean }) => {
@@ -214,9 +216,12 @@ export default function TabsLayout() {
   const colorScheme = useColorScheme()
   const isDarkMode = colorScheme === 'dark'
   const insets = useSafeAreaInsets()
+  const { language } = useLanguage()
+  const { t } = useTranslation()
+  const isRTL = language === 'ar'
 
   // Calculate tab bar height based on platform and safe area
-  const tabBarHeight = Platform.OS === 'ios' 
+  const tabBarHeight = Platform.OS === 'ios'
     ? 100 + (insets.bottom > 0 ? 0 : 15) // Increased height to accommodate labels
     : 85
 
@@ -238,6 +243,7 @@ export default function TabsLayout() {
           paddingHorizontal: 10,
           borderTopWidth: 0,
           backgroundColor: 'transparent',
+          flexDirection: isRTL ? 'row-reverse' : 'row',
           ...Platform.select({
             ios: {
               shadowColor: '#000',
@@ -272,8 +278,8 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: 'My Inventory',
-          tabBarLabel: 'Inventory'
+          headerTitle: t('navbar.inventory'),
+          tabBarLabel: t('navbar.inventory')
         }}
       />
       
@@ -287,8 +293,8 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: 'Create Content',
-          tabBarLabel: 'Create'
+          headerTitle: t('navbar.create'),
+          tabBarLabel: t('navbar.create')
         }}
       />
       
@@ -302,8 +308,8 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: 'Sales Analytics',
-          tabBarLabel: 'Analytics'
+          headerTitle: t('navbar.analytics'),
+          tabBarLabel: t('navbar.analytics')
         }}
       />
 
@@ -313,8 +319,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <DealershipLogo color={color} focused={focused} />
           ),
-          headerTitle: 'Dealership Profile',
-          tabBarLabel: 'Profile'
+          headerTitle: t('navbar.profile'),
+          tabBarLabel: t('navbar.profile')
         }}
       />
     </Tabs>
