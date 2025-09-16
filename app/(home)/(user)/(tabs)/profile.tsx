@@ -51,7 +51,7 @@ export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
-  const isRTL = I18nManager.isRTL;
+  const isRTL = language === 'ar';
   const {
     user,
     profile,
@@ -293,7 +293,7 @@ export default function UserProfileAndSupportPage() {
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
-        t('auth.please_sign_in_edit_profile'),
+        t('profile.please_sign_in_edit_profile'),
         [
           { text: "Cancel", style: "cancel" },
           { text: "Sign In", onPress: handleSignIn },
@@ -332,7 +332,7 @@ export default function UserProfileAndSupportPage() {
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
-        t('auth.please_sign_in_update_picture'),
+        t('profile.please_sign_in_update_picture'),
         [
           { text: "Cancel", style: "cancel" },
           { text: "Sign In", onPress: handleSignIn },
@@ -388,7 +388,7 @@ export default function UserProfileAndSupportPage() {
     if (isGuest) {
       Alert.alert(
         "Feature Not Available",
-        t('common.please_sign_in_change_password'),
+        t('profile.please_sign_in_change_password'),
         [
           { text: "Cancel", style: "cancel" },
           { text: "Sign In", onPress: handleSignIn },
@@ -561,8 +561,8 @@ export default function UserProfileAndSupportPage() {
               color="#ffffff"
               style={guestStyles.icon}
             />
-            <Text style={guestStyles.title}>{t('profile.youre_browsing_as_guest')}</Text>
-            <Text style={guestStyles.subtitle}>
+            <Text style={[guestStyles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t('profile.youre_browsing_as_guest')}</Text>
+            <Text style={[guestStyles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
               {t('profile.please_sign_in_to_access')}
             </Text>
             <TouchableOpacity
@@ -578,27 +578,41 @@ export default function UserProfileAndSupportPage() {
         <View className="mx-4 mb-4">
           <Text
             className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}
+            style={{ textAlign: isRTL ? 'right' : 'left' }}
           >
             {t('profile.language')}
           </Text>
           <View
             className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4 rounded-2xl`}
           >
-            <Text className={`${isDarkMode ? 'text-white/80' : 'text-black/80'} mb-3`}>
+            <Text 
+              className={`${isDarkMode ? 'text-white/80' : 'text-black/80'} mb-3`}
+              style={{ textAlign: isRTL ? 'right' : 'left' }}
+            >
               {t('profile.choose_language')}
             </Text>
-            <View className="flex-row">
+            <View className={`${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
               <TouchableOpacity
                 onPress={() => setLanguage('en')}
-                className={`px-4 py-2 rounded-xl mr-2 ${language === 'en' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
+                className={`px-4 py-2 rounded-xl ${isRTL ? 'ml-2' : 'mr-2'} ${language === 'en' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
               >
-                <Text className={`${language === 'en' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.english')}</Text>
+                <Text 
+                  className={`${language === 'en' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}
+                  style={{ textAlign: 'center' }}
+                >
+                  {t('language.english')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setLanguage('ar')}
                 className={`px-4 py-2 rounded-xl ${language === 'ar' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
               >
-                <Text className={`${language === 'ar' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.arabic')}</Text>
+                <Text 
+                  className={`${language === 'ar' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}
+                  style={{ textAlign: 'center' }}
+                >
+                  {t('language.arabic')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -636,10 +650,16 @@ export default function UserProfileAndSupportPage() {
                   color={isDarkMode ? "#fff" : "#000"}
                 />
               </View>
-              <Text className="text-white text-xl font-semibold mt-4">
+              <Text 
+                className="text-white text-xl font-semibold mt-4"
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
                 {isGuest ? t('profile.guest_user') : `${firstName} ${lastName}`}
               </Text>
-              <Text className="text-white/80 text-sm">
+              <Text 
+                className="text-white/80 text-sm"
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
                 {isGuest ? "" : email}
               </Text>
 
@@ -647,13 +667,13 @@ export default function UserProfileAndSupportPage() {
               {!isGuest && profile?.role === "dealer" && (
                 <TouchableOpacity
                   onPress={handleDealershipRedirect}
-                  className="mt-6 bg-red px-6 py-3 rounded-full flex-row items-center"
+                  className={`mt-6 bg-red px-6 py-3 rounded-full ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
                 >
                   <Ionicons
                     name="business"
                     size={20}
                     color="white"
-                    style={{ marginRight: 8 }}
+                    style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }}
                   />
                   <Text className="text-white font-semibold">
                     {t('profile.dealership_interface')}
@@ -672,7 +692,7 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  t('common.please_sign_in_edit_profile'),
+                  t('profile.please_sign_in_edit_profile'),
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },
@@ -683,16 +703,17 @@ export default function UserProfileAndSupportPage() {
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-          p-4 rounded-xl shadow-sm flex-row items-center`}
+          p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
           >
             <View className="bg-red/10 p-3 rounded-xl">
               <Ionicons name="person-outline" size={24} color="#D55004" />
             </View>
-            <View className="ml-4">
+            <View className={isRTL ? "mr-4" : "ml-4"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
                 } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.edit_profile')}
               </Text>
@@ -700,15 +721,16 @@ export default function UserProfileAndSupportPage() {
                 className={`${
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
 {t(isGuest ? 'profile.sign_in_to_edit' : 'profile.update_your_infos')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -717,7 +739,7 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  t('common.please_sign_in_security'),
+                  t('profile.please_sign_in_security'),
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },
@@ -728,16 +750,17 @@ export default function UserProfileAndSupportPage() {
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-            p-4 rounded-xl shadow-sm flex-row items-center`}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
           >
             <View className="bg-purple-500/10 p-3 rounded-xl">
               <Ionicons name="shield-outline" size={24} color="#D55004" />
             </View>
-            <View className="ml-4">
+            <View className={isRTL ? "mr-4" : "ml-4"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
                 } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.security_settings')}
               </Text>
@@ -745,6 +768,7 @@ export default function UserProfileAndSupportPage() {
                 className={`${
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {isGuest
                   ? t('profile.sign_in_to_access_security')
@@ -752,10 +776,10 @@ export default function UserProfileAndSupportPage() {
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -764,7 +788,7 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  t('common.please_sign_in_security'),
+                  t('profile.please_sign_in_security'),
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },
@@ -775,16 +799,17 @@ export default function UserProfileAndSupportPage() {
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-            p-4 rounded-xl shadow-sm flex-row items-center`}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
           >
             <View className="bg-purple-500/10 p-3 rounded-xl">
               <Ionicons name="reader-outline" size={24} color="#D55004" />
             </View>
-            <View className="ml-4">
+            <View className={isRTL ? "mr-4" : "ml-4"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
                 } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.legal')}
               </Text>
@@ -792,15 +817,16 @@ export default function UserProfileAndSupportPage() {
                 className={`${
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {isGuest ? t('profile.sign_in_to_access_legal') : t('profile.privacy_and_terms')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
         </View>
@@ -809,27 +835,41 @@ export default function UserProfileAndSupportPage() {
         <View className="mx-6 mt-4 mb-6">
           <Text
             className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}
+            style={{ textAlign: isRTL ? 'right' : 'left' }}
           >
             {t('profile.language')}
           </Text>
           <View
             className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4 rounded-2xl`}
           >
-            <Text className={`${isDarkMode ? 'text-white/80' : 'text-black/80'} mb-3`}>
+            <Text 
+              className={`${isDarkMode ? 'text-white/80' : 'text-black/80'} mb-3`}
+              style={{ textAlign: isRTL ? 'right' : 'left' }}
+            >
               {t('profile.choose_language')}
             </Text>
-            <View className="flex-row">
+            <View className={`${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
               <TouchableOpacity
                 onPress={() => setLanguage('en')}
-                className={`px-4 py-2 rounded-xl mr-2 ${language === 'en' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
+                className={`px-4 py-2 rounded-xl ${isRTL ? 'ml-2' : 'mr-2'} ${language === 'en' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
               >
-                <Text className={`${language === 'en' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.english')}</Text>
+                <Text 
+                  className={`${language === 'en' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}
+                  style={{ textAlign: 'center' }}
+                >
+                  {t('language.english')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setLanguage('ar')}
                 className={`px-4 py-2 rounded-xl ${language === 'ar' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
               >
-                <Text className={`${language === 'ar' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.arabic')}</Text>
+                <Text 
+                  className={`${language === 'ar' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}
+                  style={{ textAlign: 'center' }}
+                >
+                  {t('language.arabic')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1137,6 +1177,7 @@ export default function UserProfileAndSupportPage() {
             className={`${
               isDarkMode ? "text-white/60" : "text-textgray"
             } text-xs uppercase tracking-wider`}
+            style={{ textAlign: isRTL ? 'right' : 'left' }}
           >
             {t('profile.support_help')}
           </Text>
@@ -1144,16 +1185,17 @@ export default function UserProfileAndSupportPage() {
           <TouchableOpacity
             onPress={openWhatsApp1}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-                p-4 rounded-2xl flex-row items-center`}
+                p-4 rounded-2xl ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
           >
             <View className="bg-green-500/10 p-3 rounded-xl">
               <Feather name="message-circle" size={22} color="#22c55e" />
             </View>
-            <View className="ml-4">
+            <View className={isRTL ? "mr-4" : "ml-4"}>
               <Text
                 className={`font-semibold ${
                   isDarkMode ? "text-white" : "text-black"
                 }`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.whatsapp_support')}
               </Text>
@@ -1161,31 +1203,33 @@ export default function UserProfileAndSupportPage() {
                 className={`text-xs ${
                   isDarkMode ? "text-white/60" : "text-textgray"
                 }`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.available_24_7')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={20}
               color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={openEmail}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-                p-4 rounded-2xl flex-row items-center mb-4`}
+                p-4 rounded-2xl ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center mb-4`}
           >
             <View className="bg-blue-500/10 p-3 rounded-xl">
               <Feather name="mail" size={22} color="#3b82f6" />
             </View>
-            <View className="ml-4">
+            <View className={isRTL ? "mr-4" : "ml-4"}>
               <Text
                 className={`font-semibold ${
                   isDarkMode ? "text-white" : "text-black"
                 }`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.email_support')}
               </Text>
@@ -1193,15 +1237,16 @@ export default function UserProfileAndSupportPage() {
                 className={`text-xs ${
                   isDarkMode ? "text-white/60" : "text-gray"
                 }`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {t('profile.detailed_inquiries')}
               </Text>
             </View>
             <Ionicons
-              name="chevron-forward"
+              name={isRTL ? "chevron-back" : "chevron-forward"}
               size={20}
               color={isDarkMode ? "#fff" : "#000"}
-              style={{ marginLeft: "auto" }}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
         </View>
