@@ -31,6 +31,8 @@ import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { supabase } from "@/utils/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { useTranslation } from 'react-i18next';
+import { I18nManager } from 'react-native';
 
 const { width } = Dimensions.get("window");
 
@@ -38,48 +40,48 @@ const { width } = Dimensions.get("window");
 const QUICK_FILTERS = [
   {
     id: "most-popular",
-    label: "Most Popular",
+    labelKey: "filters.quick.most_popular",
     icon: "star",
     filter: { specialFilter: "mostPopular", sortBy: "views" },
   },
   {
     id: "budget-friendly",
-    label: "Budget Friendly",
+    labelKey: "filters.quick.budget_friendly",
     filter: { priceRange: [0, 20000] },
   },
   {
     id: "luxury",
-    label: "Luxury",
+    labelKey: "filters.quick.luxury",
     icon: "crown",
     filter: { priceRange: [50000, 1000000] },
   },
   {
     id: "new-arrivals",
-    label: "New Arrivals",
+    labelKey: "filters.quick.new_arrivals",
     icon: "car-clock",
     filter: { specialFilter: "newArrivals" },
   },
 ];
 
 const PRICE_RANGES = [
-  { label: "Under $15k", value: [0, 15000], icon: "cash" },
-  { label: "$15k-30k", value: [15000, 30000], icon: "cash-multiple" },
-  { label: "$30k-50k", value: [30000, 50000], icon: "currency-usd" },
-  { label: "$50k+", value: [50000, 1000000], icon: "cash-100" },
+  { labelKey: "filters.price_under_15k", value: [0, 15000], icon: "cash" },
+  { labelKey: "filters.price_15k_30k", value: [15000, 30000], icon: "cash-multiple" },
+  { labelKey: "filters.price_30k_50k", value: [30000, 50000], icon: "currency-usd" },
+  { labelKey: "filters.price_50k_plus", value: [50000, 1000000], icon: "cash-100" },
 ];
 
 // Vehicle Colors with Gradients
 const VEHICLE_COLORS = [
-  { name: "Black", gradient: ["#000000", "#1a1a1a"] },
-  { name: "White", gradient: ["#ffffff", "#f5f5f5"] },
-  { name: "Silver", gradient: ["#C0C0C0", "#A8A8A8"] },
-  { name: "Gray", gradient: ["#808080", "#666666"] },
-  { name: "Red", gradient: ["#FF0000", "#CC0000"] },
-  { name: "Blue", gradient: ["#0000FF", "#0000CC"] },
-  { name: "Green", gradient: ["#008000", "#006600"] },
-  { name: "Brown", gradient: ["#8B4513", "#723A0F"] },
-  { name: "Beige", gradient: ["#F5F5DC", "#E8E8D0"] },
-  { name: "Gold", gradient: ["#FFD700", "#CCAC00"] },
+  { name: "Black", nameKey: "colors.Black", gradient: ["#000000", "#1a1a1a"] },
+  { name: "White", nameKey: "colors.White", gradient: ["#ffffff", "#f5f5f5"] },
+  { name: "Silver", nameKey: "colors.Silver", gradient: ["#C0C0C0", "#A8A8A8"] },
+  { name: "Gray", nameKey: "colors.Gray", gradient: ["#808080", "#666666"] },
+  { name: "Red", nameKey: "colors.Red", gradient: ["#FF0000", "#CC0000"] },
+  { name: "Blue", nameKey: "colors.Blue", gradient: ["#0000FF", "#0000CC"] },
+  { name: "Green", nameKey: "colors.Green", gradient: ["#008000", "#006600"] },
+  { name: "Brown", nameKey: "colors.Brown", gradient: ["#8B4513", "#723A0F"] },
+  { name: "Beige", nameKey: "colors.Beige", gradient: ["#F5F5DC", "#E8E8D0"] },
+  { name: "Gold", nameKey: "colors.Gold", gradient: ["#FFD700", "#CCAC00"] },
 ];
 
 // Transmission Options
@@ -180,6 +182,8 @@ const CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
 
 const BrandSelector = memo(
   ({ selectedBrands, onSelectBrand, isDarkMode }: BrandSelectorProps) => {
+    const { t } = useTranslation();
+    const isRTL = I18nManager.isRTL;
     const [brands, setBrands] = useState<Brand[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showAllBrands, setShowAllBrands] = useState(false);
@@ -273,13 +277,13 @@ const BrandSelector = memo(
                 color: isDarkMode ? "white" : "black",
               }}
             >
-              Brands and Models
+              {t('filters.brands_and_models')}
             </Text>
             <TouchableOpacity
               onPress={() => setShowAllBrands(true)}
               style={{ flexDirection: "row", alignItems: "center" }}
             >
-              <Text style={{ color: "#D55004" }}>View All</Text>
+              <Text style={{ color: "#D55004" }}>{t('common.view_all')}</Text>
               <FontAwesome
                 name="chevron-right"
                 size={14}
@@ -295,7 +299,7 @@ const BrandSelector = memo(
               color: isDarkMode ? "#aaa" : "#555",
             }}
           >
-            Filter by brands
+            {t('filters.filter_by_brands')}
           </Text>
         </View>
 
@@ -391,7 +395,7 @@ const BrandSelector = memo(
                       color: isDarkMode ? "white" : "black",
                     }}
                   >
-                    All Brands
+                    {t('filters.brands_and_models')}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowAllBrands(false)}
@@ -428,7 +432,7 @@ const BrandSelector = memo(
                       marginLeft: 12,
                       color: isDarkMode ? "white" : "black",
                     }}
-                    placeholder="Search brands..."
+                    placeholder={t('search.search_cars')}
                     placeholderTextColor={isDarkMode ? "gray" : "gray"}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -795,49 +799,52 @@ interface QuickFilterCardProps {
   isDarkMode: boolean;
 }
 
-const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }: QuickFilterCardProps) => (
-  <TouchableOpacity onPress={onSelect} style={{ marginRight: 16, width: 160 }}>
-    <BlurView
-      intensity={isDarkMode ? 20 : 40}
-      tint={isDarkMode ? "dark" : "light"}
-      style={{ borderRadius: 12 }}
-    >
-      <LinearGradient
-      className="rounded-xl"
-        colors={
-          isSelected
-            ? ["#D55004", "#FF6B00"]
-            : isDarkMode
-            ? ["#1c1c1c", "#2d2d2d"]
-            : ["#f5f5f5", "#e5e5e5"]
-        }
-        style={{
-          paddingHorizontal: 24,
-          paddingVertical: 16,
-          alignItems: "center",
-        }}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }: QuickFilterCardProps) => {
+  const { t } = useTranslation();
+  return (
+    <TouchableOpacity onPress={onSelect} style={{ marginRight: 16, width: 160 }}>
+      <BlurView
+        intensity={isDarkMode ? 20 : 40}
+        tint={isDarkMode ? "dark" : "light"}
+        style={{ borderRadius: 12 }}
       >
-        <MaterialCommunityIcons
-          name={filter.icon || "car"}
-          size={24}
-          color={isSelected ? "#fff" : isDarkMode ? "#fff" : "#000"}
-        />
-        <Text
+        <LinearGradient
+        className="rounded-xl"
+          colors={
+            isSelected
+              ? ["#D55004", "#FF6B00"]
+              : isDarkMode
+              ? ["#1c1c1c", "#2d2d2d"]
+              : ["#f5f5f5", "#e5e5e5"]
+          }
           style={{
-            marginTop: 8,
-            fontSize: 14,
-            fontWeight: "500",
-            color: isSelected ? "white" : isDarkMode ? "white" : "black",
+            paddingHorizontal: 24,
+            paddingVertical: 16,
+            alignItems: "center",
           }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          {filter.label}
-        </Text>
-      </LinearGradient>
-    </BlurView>
-  </TouchableOpacity>
-));
+          <MaterialCommunityIcons
+            name={filter.icon || "car"}
+            size={24}
+            color={isSelected ? "#fff" : isDarkMode ? "#fff" : "#000"}
+          />
+          <Text
+            style={{
+              marginTop: 8,
+              fontSize: 14,
+              fontWeight: "500",
+              color: isSelected ? "white" : isDarkMode ? "white" : "black",
+            }}
+          >
+            {t(filter.labelKey)}
+          </Text>
+        </LinearGradient>
+      </BlurView>
+    </TouchableOpacity>
+  );
+});
 
 // --------------------
 // Color Selector Component
@@ -848,61 +855,64 @@ interface ColorSelectorProps {
   isDarkMode: boolean;
 }
 
-const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorSelectorProps) => (
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    style={{ marginBottom: 24 }}
-  >
-    {VEHICLE_COLORS.map((color) => (
-      <TouchableOpacity
-        key={color.name}
-        onPress={() =>
-          onSelectColor(
-            selectedColor.includes(color.name)
-              ? selectedColor.filter((c: string) => c !== color.name)
-              : [...selectedColor, color.name]
-          )
-        }
-        style={{ marginRight: 16 }}
-      >
-        <View style={{ padding: 8 }}>
-          <LinearGradient
-            colors={color.gradient}
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 12,
-              marginBottom: 8,
-              borderWidth: 2,
-              borderColor: selectedColor.includes(color.name)
-                ? "#D55004"
-                : isDarkMode
-                ? "white"
-                : "black",
-            }}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
-          <Text
-            style={{
-              textAlign: "center",
-              fontSize: 14,
-              fontWeight: "500",
-              color: selectedColor.includes(color.name)
-                ? "#D55004"
-                : isDarkMode
-                ? "white"
-                : "black",
-            }}
-          >
-            {color.name}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ))}
-  </ScrollView>
-));
+const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorSelectorProps) => {
+  const { t } = useTranslation();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginBottom: 24 }}
+    >
+      {VEHICLE_COLORS.map((color) => (
+        <TouchableOpacity
+          key={color.name}
+          onPress={() =>
+            onSelectColor(
+              selectedColor.includes(color.name)
+                ? selectedColor.filter((c: string) => c !== color.name)
+                : [...selectedColor, color.name]
+            )
+          }
+          style={{ marginRight: 16 }}
+        >
+          <View style={{ padding: 8 }}>
+            <LinearGradient
+              colors={color.gradient}
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 12,
+                marginBottom: 8,
+                borderWidth: 2,
+                borderColor: selectedColor.includes(color.name)
+                  ? "#D55004"
+                  : isDarkMode
+                  ? "white"
+                  : "black",
+              }}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <Text
+              style={{
+                textAlign: "center",
+                fontSize: 14,
+                fontWeight: "500",
+                color: selectedColor.includes(color.name)
+                  ? "#D55004"
+                  : isDarkMode
+                  ? "white"
+                  : "black",
+              }}
+            >
+              {t(color.nameKey)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+});
 
 // --------------------
 // Selection Card Component
@@ -987,6 +997,8 @@ interface DealershipSelectorProps {
 
 const DealershipSelector = memo(
   ({ dealerships, filters, setFilters, isDarkMode }: DealershipSelectorProps) => {
+    const { t } = useTranslation();
+    const isRTL = I18nManager.isRTL;
     const [showAllDealers, setShowAllDealers] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -1031,13 +1043,13 @@ const DealershipSelector = memo(
                 color: isDarkMode ? "white" : "black",
               }}
             >
-              Dealerships
+              {t('dealership.dealerships')}
             </Text>
             <TouchableOpacity
               onPress={() => setShowAllDealers(true)}
               style={{ flexDirection: "row", alignItems: "center" }}
             >
-              <Text style={{ color: "#D55004" }}>View All</Text>
+              <Text style={{ color: "#D55004" }}>{t('common.view_all')}</Text>
               <FontAwesome
                 name="chevron-right"
                 size={14}
@@ -1053,7 +1065,7 @@ const DealershipSelector = memo(
               color: isDarkMode ? "#aaa" : "#555",
             }}
           >
-            Filter by dealerships
+            {t('filters.filter_by_dealerships')}
           </Text>
         </View>
         <ScrollView
@@ -1177,7 +1189,7 @@ const DealershipSelector = memo(
                       color: isDarkMode ? "white" : "black",
                     }}
                   >
-                    All Dealerships
+                    {t('dealership.view_all_dealerships')}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowAllDealers(false)}
@@ -1214,7 +1226,7 @@ const DealershipSelector = memo(
                       marginLeft: 12,
                       color: isDarkMode ? "white" : "black",
                     }}
-                    placeholder="Search dealerships..."
+                    placeholder={t('dealership.search_dealerships')}
                     placeholderTextColor={isDarkMode ? "gray" : "gray"}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -1312,6 +1324,8 @@ sortBy?: string;
 
 const FilterPage = () => {
 const { isDarkMode } = useTheme();
+const { t } = useTranslation();
+const isRTL = I18nManager.isRTL;
 const router = useRouter();
 const params = useLocalSearchParams();
 const [dealerships, setDealerships] = useState<any[]>([]);
@@ -1559,7 +1573,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
           fontWeight: "400",
         }}
       >
-        Clear All
+        {t('filters.clear_all')}
       </Text>
     </TouchableOpacity>
   </View>
@@ -1568,8 +1582,8 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
     <View style={{ paddingVertical: 16 }}>
       {/* Quick Filters Section */}
       <SectionHeader
-        title="Quick Filters"
-        subtitle="Popular filter combinations"
+        title={t('filters.quick_filters')}
+        subtitle={t('filters.popular_filter_combinations')}
         isDarkMode={isDarkMode}
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -1585,7 +1599,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       </ScrollView>
 
       <SectionHeader
-        subtitle="Select your budget range"
+        subtitle={t('filters.select_budget_range')}
         isDarkMode={isDarkMode}
       />
       <ScrollView
@@ -1596,7 +1610,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
         {PRICE_RANGES.map((range, index) => (
           <SelectionCard
             key={index}
-            label={range.label}
+            label={t(range.labelKey)}
             icon={range.icon}
             isSelected={
               JSON.stringify(filters.priceRange) ===
@@ -1654,12 +1668,12 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
       {/* Price Range Selector */}
       <SectionHeader
-        title="Price Range"
-        subtitle="Set your budget range"
+        title={t('filters.price_range')}
+        subtitle={t('filters.set_budget_range')}
         isDarkMode={isDarkMode}
       />
       <RangeSelector
-        title="Price"
+        title={t('filters.price')}
         min={0}
         max={1000000}
         step={1000}
@@ -1680,12 +1694,12 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
       {/* Mileage Range Selector */}
       <SectionHeader
-        title="Mileage Range"
-        subtitle="Set mileage preferences"
+        title={t('filters.mileage_range')}
+        subtitle={t('filters.set_mileage_preferences')}
         isDarkMode={isDarkMode}
       />
       <RangeSelector
-        title="Mileage"
+        title={t('filters.mileage')}
         min={0}
         max={500000}
         step={1000}
@@ -1706,12 +1720,12 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
       {/* Year Range Selector */}
       <SectionHeader
-        title="Year Range"
-        subtitle="Select manufacturing year range"
+        title={t('filters.year_range')}
+        subtitle={t('filters.select_manufacturing_year_range')}
         isDarkMode={isDarkMode}
       />
       <RangeSelector
-        title="Year"
+        title={t('filters.year')}
         min={1900}
         max={new Date().getFullYear()}
         step={1}
@@ -1749,8 +1763,8 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
       {/* Transmission Options */}
       <SectionHeader
-        title="Transmission"
-        subtitle="Choose transmission type"
+        title={t('filters.transmission')}
+        subtitle={t('filters.choose_transmission_type')}
         isDarkMode={isDarkMode}
       />
       <ScrollView
@@ -1761,7 +1775,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
         {TRANSMISSION_OPTIONS.map((option) => (
           <SelectionCard
             key={option.value}
-            label={option.label}
+            label={t(`filters.${option.value.toLowerCase()}`)}
             icon={option.icon}
             isSelected={filters.transmission.includes(option.value)}
             onSelect={() =>
@@ -1788,8 +1802,8 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
       {/* Drivetrain Options */}
       <SectionHeader
-        title="Drivetrain"
-        subtitle="Select drivetrain configuration"
+        title={t('filters.drivetrain')}
+        subtitle={t('filters.select_drivetrain_configuration')}
         isDarkMode={isDarkMode}
       />
       <ScrollView
@@ -1800,7 +1814,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 {DRIVETRAIN_OPTIONS.map((option) => (
   <SelectionCard
     key={option.value}
-    label={option.label}
+    label={t(`filters.${option.value.toLowerCase()}`)}
     imageUrl={option.getImage(isDarkMode)}  // Use the getImage function here
     isSelected={filters.drivetrain.includes(option.value)}
     onSelect={() =>
@@ -1827,8 +1841,8 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 
       {/* Color Selection */}
       <SectionHeader
-        title="Vehicle Color"
-        subtitle="Choose exterior color"
+        title={t('filters.vehicle_color')}
+        subtitle={t('filters.choose_exterior_color')}
         isDarkMode={isDarkMode}
       />
       <ColorSelector

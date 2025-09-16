@@ -18,6 +18,8 @@ import { supabase } from '@/utils/supabase'
 import { FontAwesome } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import SkeletonByBrands from '@/components/SkeletonByBrands'
+import { useLanguage } from '@/utils/LanguageContext'
+import i18n from '@/utils/i18n'
 import { getLogoUrl } from '@/hooks/getLogoUrl'
 
 interface Brand {
@@ -28,6 +30,7 @@ interface Brand {
 
 
 const ByBrands = React.memo(() => {
+	const { language } = useLanguage();
 	const [brands, setBrands] = useState<Brand[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const router = useRouter()
@@ -100,12 +103,12 @@ const ByBrands = React.memo(() => {
 					className={`text-xl font-bold ${
 						isDarkMode ? 'text-white' : 'text-black'
 					}`}>
-					Explore by Brands
+					{i18n.t('brands.explore_by_brands')}
 				</Text>
 				<TouchableOpacity
 					onPress={handleSeeAllBrands}
 					className='flex-row items-center'>
-					<Text className='text-red'>View All</Text>
+					<Text className='text-red'>{i18n.t('common.view_all')}</Text>
 					<FontAwesome
 						name='chevron-right'
 						size={14}

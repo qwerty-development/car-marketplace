@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 interface CompareButtonProps {
   onPress: () => void;
@@ -16,6 +17,7 @@ const CompareButton: React.FC<CompareButtonProps> = ({
   isDarkMode,
   inHeader = false
 }) => {
+  const { t } = useTranslation();
   // Animation for attention
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -64,7 +66,7 @@ const CompareButton: React.FC<CompareButtonProps> = ({
         activeOpacity={0.8}
       >
         <Text className='text-white font-extrabold'>
-          Compare 
+          {t('common.compare')}
         </Text>
         <Ionicons
           name="git-compare-outline"

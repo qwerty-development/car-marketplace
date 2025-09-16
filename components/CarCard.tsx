@@ -25,6 +25,9 @@ import { styled } from "nativewind";
 import { useTheme } from "@/utils/ThemeContext";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLanguage } from '@/utils/LanguageContext';
+import i18n from '@/utils/i18n';
+import { useTranslation } from 'react-i18next';
 import { useCarDetails } from "@/hooks/useCarDetails";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
@@ -158,6 +161,8 @@ export default function CarCard({
   disableActions = false,
 }: any) {
   const { isDarkMode } = useTheme();
+  const { language } = useLanguage();
+  const { t } = useTranslation();
   
   // Improved animation values with better spring physics
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -394,7 +399,9 @@ export default function CarCard({
                 alignItems: 'center'
               }}
             >
-              <StyledText className="text-red text-xl font-bold">See more</StyledText>
+              <Pressable onPress={handleCardPress} className="px-4 py-2 rounded-full active:opacity-80">
+                <StyledText className="text-white text-xl font-bold">{i18n.t('car.see_more_cta')}</StyledText>
+              </Pressable>
             </View>
           )}
 
@@ -404,10 +411,10 @@ export default function CarCard({
             <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
               <View className="bg-gray-900/90 px-6 py-3 rounded-xl border-2 border-gray-400">
                 <StyledText className="text-white text-lg font-bold text-center">
-                  SOLD
+{i18n.t('car.sold')}
                 </StyledText>
                 <StyledText className="text-gray-300 text-sm text-center mt-1">
-                  No longer available
+{i18n.t('car.no_longer_available')}
                 </StyledText>
               </View>
             </View>
@@ -598,36 +605,42 @@ export default function CarCard({
             }}
           >
             <SpecItem
-              title="Year"
+              title={t('car.year')}
               icon="calendar-outline"
               value={car.year}
               isDarkMode={isDarkMode}
               iconLibrary="Ionicons"
             />
             <SpecItem
-              title="Mileage"
+              title={t('car.mileage')}
               icon="highway"
               value={`${(car.mileage / 1000).toFixed(1)}k`}
               isDarkMode={isDarkMode}
               iconLibrary="MaterialCommunityIcons"
             />
             <SpecItem
-              title="Transmission"
+              title={t('car.transmission')}
               icon="car-shift-pattern"
               value={
                 car.transmission === "Automatic"
-                  ? "Auto"
+                  ? t('filters.automatic')
                   : car.transmission === "Manual"
-                  ? "Manual"
+                  ? t('filters.manual')
                   : car.transmission
               }
               isDarkMode={isDarkMode}
               iconLibrary="MaterialCommunityIcons"
             />
             <SpecItem
-              title="Condition"
+              title={t('car.condition')}
               icon="car-wrench"
-              value={car.condition}
+              value={
+                car.condition === "New"
+                  ? t('filters.new')
+                  : car.condition === "Used"
+                  ? t('filters.used')
+                  : car.condition
+              }
               isDarkMode={isDarkMode}
               iconLibrary="MaterialCommunityIcons"
             />

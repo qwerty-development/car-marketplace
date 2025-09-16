@@ -1092,7 +1092,7 @@ const DealershipDetails = () => {
                   color: isDarkMode ? '#999' : '#666',
                   textAlign: 'center'
                 }}>
-                  Could not load autoclips
+                  {t('autoclips.could_not_load_autoclips')}
                 </Text>
               </View>
             )}>

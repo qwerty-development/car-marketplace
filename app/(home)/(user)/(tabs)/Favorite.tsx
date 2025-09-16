@@ -35,6 +35,7 @@ import SkeletonCarCard from '@/components/SkeletonCarCard'
 import { BlurView } from 'expo-blur'
 import { useGuestUser } from '@/utils/GuestUserContext'
 import CompareButton from '@/components/CompareButton'
+import { useTranslation } from 'react-i18next'
 
 // -----------------------
 // Custom Header Component
@@ -105,6 +106,7 @@ interface Car {
 }
 
 export default function Favorite() {
+  const { t } = useTranslation()
   const { isDarkMode } = useTheme()
   const { favorites, toggleFavorite, isFavorite } = useFavorites()
   const { isGuest, clearGuestMode } = useGuestUser()
@@ -221,7 +223,7 @@ export default function Favorite() {
 
     } catch (error) {
       console.error('Error fetching favorite cars:', error)
-      setError('Failed to fetch favorite cars. Please try again.')
+      setError(t('favorites.failed_fetch_favorites'))
       setCanCompare(false)
     } finally {
       if (firstLoad) setIsLoading(false)
@@ -400,21 +402,21 @@ export default function Favorite() {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>
           {searchQuery
-            ? 'No cars match your search.'
+            ? t('search.no_results')
             : favorites.length > 0
-            ? 'All your favorite cars have been sold'
-            : 'No cars added as favorite'}
+            ? t('favorites.all_favorite_cars_sold')
+            : t('favorites.no_cars_added_favorite')}
         </Text>
         {!searchQuery && (
           <Text style={styles.emptySubText}>
             {favorites.length > 0
-              ? 'Sold favorites are automatically removed after 15 days'
-              : 'Your favorite cars will appear here'}
+              ? t('favorites.sold_favorites_removed')
+              : t('favorites.favorite_cars_will_appear')}
           </Text>
         )}
       </View>
     ),
-    [searchQuery, favorites.length]
+    [searchQuery, favorites.length, t]
   )
 
   const ErrorMessage = useMemo(
@@ -422,11 +424,11 @@ export default function Favorite() {
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
         <Text style={styles.errorSubText}>
-          Pull down to refresh and try again
+          {t('favorites.pull_down_refresh')}
         </Text>
       </View>
     ),
-    [error]
+    [error, t]
   )
 
   useEffect(() => {
@@ -484,7 +486,7 @@ export default function Favorite() {
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
       <CustomHeader
-        title="Favorites"
+        title={t('navbar.favorites')}
         onComparePress={handleComparePress}
         canCompare={canCompare}
         isDarkMode={isDarkMode}
@@ -515,7 +517,7 @@ export default function Favorite() {
               style={[
                 { flex: 1, padding: 12, color: isDarkMode ? 'white' : 'black' }
               ]}
-              placeholder="Search Favorites..."
+              placeholder={t('search.search_placeholder')}
               placeholderTextColor={isDarkMode ? 'lightgray' : 'gray'}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -552,12 +554,12 @@ export default function Favorite() {
               color="#ffffff"
               style={guestStyles.icon}
             />
-            <Text style={guestStyles.title}>You're browsing as a guest</Text>
+            <Text style={guestStyles.title}>{t('favorites.browsing_as_guest')}</Text>
             <Text style={guestStyles.subtitle}>
-              Please sign in to access this feature.
+              {t('favorites.sign_in_access_feature')}
             </Text>
             <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
-              <Text style={guestStyles.signInButtonText}>Sign In</Text>
+              <Text style={guestStyles.signInButtonText}>{t('favorites.sign_in')}</Text>
             </TouchableOpacity>
           </View>
         </View>

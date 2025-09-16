@@ -1,6 +1,7 @@
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
 import { useAuth } from '@/utils/AuthContext'
+import { useTranslation } from 'react-i18next'
 import { Ionicons } from '@expo/vector-icons'
 import { formatDistanceToNow } from 'date-fns'
 import { VideoState, Video, ResizeMode } from 'expo-av'
@@ -179,6 +180,7 @@ const VideoControls = ({
 
 const { width, height } = Dimensions.get('window')
 const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
+	const { t } = useTranslation()
 	const [autoClips, setAutoClips] = useState<AutoClip[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const [selectedClip, setSelectedClip] = useState<AutoClip | null>(null)
@@ -587,7 +589,7 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 						className={`text-xl font-bold ${
 							isDarkMode ? 'text-white' : 'text-black'
 						}`}>
-						Auto Clips
+						{t('autoclips.auto_clips')}
 					</Text>
 					</View>
 			{isLoading ? (
@@ -612,7 +614,7 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 						color: isDarkMode ? '#E0E0E0' : '#555',
 						fontStyle: 'italic'
 					}}>
-					No autoclips available.
+					{t('autoclips.no_clips_available')}
 				</Text>
 				</View>
 			)}

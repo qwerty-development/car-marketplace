@@ -28,6 +28,7 @@ import { supabase } from "@/utils/supabase";
 import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "@/utils/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { useTranslation } from "react-i18next";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Network from "expo-network";
@@ -491,8 +492,47 @@ const ClipItem = React.memo<ClipItemProps>(({
   );
 });
 
+// --- Helper function for relative time translation ---
+const getRelativeTime = (date: Date, t: any) => {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return t('car.seconds_ago', { count: diffInSeconds });
+  }
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return t('car.minutes_ago', { count: diffInMinutes });
+  }
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return t('car.hours_ago', { count: diffInHours });
+  }
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) {
+    return t('car.days_ago', { count: diffInDays });
+  }
+  
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) {
+    return t('car.weeks_ago', { count: diffInWeeks });
+  }
+  
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) {
+    return t('car.months_ago', { count: diffInMonths });
+  }
+  
+  const diffInYears = Math.floor(diffInDays / 365);
+  return t('car.years_ago', { count: diffInYears });
+};
+
 // --- Main AutoClips Component ---
 export default function AutoClips() {
+  const { t } = useTranslation();
   const { isDarkMode } = useTheme();
   const isFocused = useIsFocused();
   const { user } = useAuth();
@@ -604,7 +644,7 @@ export default function AutoClips() {
           }, 1000);
         }, 500);
       } else {
-        Alert.alert('Clip Not Found', 'The requested video is no longer available.');
+        Alert.alert(t('autoclips.clip_not_found'), t('autoclips.clip_no_longer_available'));
         setHasHandledDeepLink(true);
         deepLinkHandled.current = true;
       }
@@ -880,7 +920,7 @@ export default function AutoClips() {
   ]);
 
   const renderClipInfo = useMemo(() => (item: AutoClip) => {
-    const formattedPostDate = formatDistanceToNow(new Date(item.created_at), { addSuffix: true });
+    const formattedPostDate = getRelativeTime(new Date(item.created_at), t);
     const isDescriptionExpanded = expandedDescriptions[item.id] || false;
     const shouldShowExpandOption = item.description && item.description.length > 80;
 
@@ -936,7 +976,7 @@ export default function AutoClips() {
                   {shouldShowExpandOption && (
                     <Text style={styles.readMore}>
                       {" "}
-                      {isDescriptionExpanded ? "Read less" : "... Read more"}
+                      {isDescriptionExpanded ? t('autoclips.read_less') : t('autoclips.read_more')}
                     </Text>
                   )}
                 </Text>
@@ -955,7 +995,7 @@ export default function AutoClips() {
                   });
                 }}
               >
-                <Text style={styles.viewDetailsText}>View Details</Text>
+                <Text style={styles.viewDetailsText}>{t('autoclips.view_details')}</Text>
                 <Ionicons name="arrow-forward" size={18} color="white" />
               </TouchableOpacity>
 
@@ -965,7 +1005,7 @@ export default function AutoClips() {
                   if (item.dealership?.phone) {
                     Linking.openURL(`tel:${item.dealership.phone}`);
                   } else {
-                    Alert.alert("Contact", "Phone number not available");
+                    Alert.alert(t('autoclips.contact'), t('autoclips.phone_not_available'));
                   }
                 }}
               >
@@ -976,10 +1016,14 @@ export default function AutoClips() {
                 style={styles.actionButton}
                 onPress={() => {
                   if (item.dealership?.phone) {
-                    const message = `Hi, I'm interested in the ${item.car.year} ${item.car.make} ${item.car.model}`;
+                    const message = t('autoclips.interested_in_car', { 
+                      year: item.car.year, 
+                      make: item.car.make, 
+                      model: item.car.model 
+                    });
                     openWhatsApp(item.dealership.phone, message);
                   } else {
-                    Alert.alert("Contact", "Phone number not available");
+                    Alert.alert(t('autoclips.contact'), t('autoclips.phone_not_available'));
                   }
                 }}
               >
@@ -1000,7 +1044,7 @@ export default function AutoClips() {
         </LinearGradient>
       </View>
     );
-  }, [expandedDescriptions]);
+  }, [expandedDescriptions, t]);
 
   // FIXED: Heavily optimized viewability handler with debouncing
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
@@ -1064,10 +1108,10 @@ export default function AutoClips() {
       <View style={styles.centerContainer}>
         <Ionicons name="wifi-outline" size={64} color={isDarkMode ? "#fff" : "#000"} />
         <Text style={[styles.errorText, { color: isDarkMode ? "#fff" : "#000" }]}>
-          No Internet Connection
+          {t('autoclips.no_internet_connection')}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchData}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>{t('autoclips.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -1099,7 +1143,7 @@ export default function AutoClips() {
             color={connectionSpeed === 'very_slow' ? '#ff4444' : '#ffaa00'} 
           />
           <Text style={styles.networkText}>
-            {connectionSpeed === 'very_slow' ? 'Slow Connection' : 'Limited Connection'}
+            {connectionSpeed === 'very_slow' ? t('autoclips.slow_connection') : t('autoclips.limited_connection')}
           </Text>
         </View>
       )}

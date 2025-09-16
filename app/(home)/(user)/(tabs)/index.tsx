@@ -30,6 +30,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/utils/ThemeContext";
 import CategorySelector from "@/components/Category";
 import SortPicker from "@/components/SortPicker";
+import { useLanguage } from "@/utils/LanguageContext";
+import i18n from "@/utils/i18n";
 import { useScrollToTop } from "@react-navigation/native";
 import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
@@ -77,6 +79,7 @@ interface Filters {
 export default function BrowseCarsPage() {
   const { isDarkMode } = useTheme();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const { language } = useLanguage();
   const [cars, setCars] = useState<Car[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -835,7 +838,7 @@ export default function BrowseCarsPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {searchQuery || "Search cars..."}
+{searchQuery || i18n.t('search.search_placeholder')}
                 </Text>
                 {searchQuery ? (
                   <TouchableOpacity

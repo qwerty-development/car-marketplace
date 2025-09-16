@@ -36,6 +36,8 @@ import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
+import { useTranslation } from 'react-i18next';
+import { I18nManager } from 'react-native';
 let MapView: any;
 let MapViewMarker: any;
 
@@ -49,35 +51,35 @@ const { width, height } = Dimensions.get("window");
 // Feature definitions - moved outside component to prevent re-creation
 const VEHICLE_FEATURES = {
   tech: [
-    { id: "bluetooth", label: "Bluetooth", icon: "bluetooth" },
-    { id: "navigation", label: "Navigation System", icon: "map-marker" },
-    { id: "backup_camera", label: "Backup Camera", icon: "camera" },
-    { id: "apple_carplay", label: "Apple CarPlay", icon: "apple" },
-    { id: "android_auto", label: "Android Auto", icon: "android" },
-    { id: "premium_audio", label: "Premium Audio", icon: "speaker" },
-    { id: "remote_start", label: "Remote Start", icon: "remote" },
-    { id: "keyless_entry", label: "Keyless Entry", icon: "key-wireless" },
-    { id: "keyless_start", label: "Keyless Start", icon: "power" },
+    { id: "bluetooth", labelKey: "features.bluetooth", icon: "bluetooth" },
+    { id: "navigation", labelKey: "features.navigation", icon: "map-marker" },
+    { id: "backup_camera", labelKey: "features.backup_camera", icon: "camera" },
+    { id: "apple_carplay", labelKey: "features.apple_carplay", icon: "apple" },
+    { id: "android_auto", labelKey: "features.android_auto", icon: "android" },
+    { id: "premium_audio", labelKey: "features.premium_audio", icon: "speaker" },
+    { id: "remote_start", labelKey: "features.remote_start", icon: "remote" },
+    { id: "keyless_entry", labelKey: "features.keyless_entry", icon: "key-wireless" },
+    { id: "keyless_start", labelKey: "features.keyless_start", icon: "power" },
   ],
   safety: [
     {
       id: "lane_assist",
-      label: "Lane Departure Warning",
+      labelKey: "features.lane_assist",
       icon: "road-variant",
     },
-    { id: "blind_spot", label: "Blind Spot Monitoring", icon: "eye-off" },
-    { id: "parking_sensors", label: "Parking Sensors", icon: "parking" },
-    { id: "backup_camera", label: "Backup Camera", icon: "camera" },
-    { id: "cruise_control", label: "Cruise Control", icon: "speedometer" },
+    { id: "blind_spot", labelKey: "features.blind_spot", icon: "eye-off" },
+    { id: "parking_sensors", labelKey: "features.parking_sensors", icon: "parking" },
+    { id: "backup_camera", labelKey: "features.backup_camera", icon: "camera" },
+    { id: "cruise_control", labelKey: "features.cruise_control", icon: "speedometer" },
   ],
   comfort: [
-    { id: "heated_seats", label: "Heated Seats", icon: "car-seat-heater" },
-    { id: "leather_seats", label: "Leather Seats", icon: "car-seat" },
-    { id: "third_row_seats", label: "Third Row Seats", icon: "seat-passenger" },
-    { id: "sunroof", label: "Sunroof", icon: "weather-sunny" },
-    { id: "power_mirrors", label: "Power Mirrors", icon: "car-side" },
-    { id: "power_steering", label: "Power Steering", icon: "steering" },
-    { id: "power_windows", label: "Power Windows", icon: "window-maximize" },
+    { id: "heated_seats", labelKey: "features.heated_seats", icon: "car-seat-heater" },
+    { id: "leather_seats", labelKey: "features.leather_seats", icon: "car-seat" },
+    { id: "third_row_seats", labelKey: "features.third_row_seats", icon: "seat-passenger" },
+    { id: "sunroof", labelKey: "features.sunroof", icon: "weather-sunny" },
+    { id: "power_mirrors", labelKey: "features.power_mirrors", icon: "car-side" },
+    { id: "power_steering", labelKey: "features.power_steering", icon: "steering" },
+    { id: "power_windows", labelKey: "features.power_windows", icon: "window-maximize" },
   ],
 };
 
@@ -291,6 +293,7 @@ const TechnicalDataItem = memo(
 // Memoized feature category component
 const FeatureCategory = memo(({ title, features, isDarkMode }: any) => {
   if (!features || features.length === 0) return null;
+  const { t } = useTranslation();
 
   return (
     <View style={{ marginBottom: 24 }}>
@@ -353,7 +356,7 @@ const FeatureCategory = memo(({ title, features, isDarkMode }: any) => {
                 fontWeight: "500",
               }}
             >
-              {feature.label}
+              {feature.labelKey ? t(feature.labelKey) : feature.label}
             </Text>
           </View>
         )}
@@ -363,45 +366,45 @@ const FeatureCategory = memo(({ title, features, isDarkMode }: any) => {
 });
 
 // Helper function for relative time
-const getRelativeTime = (dateString: string) => {
-  if (!dateString) return "Recently";
+const getRelativeTime = (dateString: string, t: any) => {
+  if (!dateString) return t('car.recently');
 
   try {
     const now = new Date();
     const postedDate = new Date(dateString);
 
-    if (isNaN(postedDate.getTime())) return "Recently";
+    if (isNaN(postedDate.getTime())) return t('car.recently');
 
     const seconds = Math.floor((now.getTime() - postedDate.getTime()) / 1000);
 
     let interval = Math.floor(seconds / 31536000);
     if (interval >= 1) {
-      return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+      return t('car.years_ago', { count: interval });
     }
     interval = Math.floor(seconds / 2592000);
     if (interval >= 1) {
-      return interval + " month" + (interval > 1 ? "s" : "") + " ago";
+      return t('car.months_ago', { count: interval });
     }
     interval = Math.floor(seconds / 604800);
     if (interval >= 1) {
-      return interval + " week" + (interval > 1 ? "s" : "") + " ago";
+      return t('car.weeks_ago', { count: interval });
     }
     interval = Math.floor(seconds / 86400);
     if (interval >= 1) {
-      return interval + " day" + (interval > 1 ? "s" : "") + " ago";
+      return t('car.days_ago', { count: interval });
     }
     interval = Math.floor(seconds / 3600);
     if (interval >= 1) {
-      return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
+      return t('car.hours_ago', { count: interval });
     }
     interval = Math.floor(seconds / 60);
     if (interval >= 1) {
-      return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
+      return t('car.minutes_ago', { count: interval });
     }
-    return Math.floor(seconds) + " seconds ago";
+    return t('car.seconds_ago', { count: Math.floor(seconds) });
   } catch (error) {
     console.error("Error computing relative time:", error);
-    return "Recently";
+    return t('car.recently');
   }
 };
 
@@ -413,6 +416,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const router = useRouter();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
+  const { t } = useTranslation();
+  const isRTL = I18nManager.isRTL;
   const scrollViewRef = useRef<FlatList>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
@@ -1342,7 +1347,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               color: isDarkMode ? "#fff" : "#000",
             }}
           >
-            Technical Data
+            {t('car.technical_data')}
           </Text>
 
           {criticalState.autoclips.length > 0 && (
@@ -1387,36 +1392,36 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           {[
             {
               icon: "speedometer-outline",
-              label: "Mileage",
+              label: t('car.mileage'),
               value: car.mileage
                 ? `${(car.mileage / 1000).toFixed(1)}k`
                 : "N/A",
             },
             {
               icon: "hardware-chip-outline",
-              label: "Trans",
+              label: t('car.transmission'),
               value: car.transmission
                 ? car.transmission.substring(0, 4)
                 : "N/A",
             },
             {
               icon: "car-sport-outline",
-              label: "Drive",
+              label: t('car.drivetrain'),
               value: car.drivetrain || "N/A",
             },
             {
               icon: "color-palette-outline",
-              label: "Color",
+              label: t('car.exterior_color'),
               value: car.color || "N/A",
             },
             {
               icon: "thermometer-outline",
-              label: "Condition",
+              label: t('car.condition'),
               value: car.condition || "N/A",
             },
             {
               icon: "earth",
-              label: "Source",
+              label: t('car.source'),
               value: car.source || "N/A",
             },
           ].map((item, index, array) => (
@@ -1456,7 +1461,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             color: isDarkMode ? "#fff" : "#000",
           }}
         >
-          Description
+          {t('car.description')}
         </Text>
         <Text
           style={{
@@ -1484,24 +1489,24 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             color: isDarkMode ? "#fff" : "#000",
           }}
         >
-          Features
+          {t('car.features')}
         </Text>
 
         <View>
           <FeatureCategory
-            title="Technology"
+            title={t('car.technology')}
             features={techFeatures}
             isDarkMode={isDarkMode}
           />
 
           <FeatureCategory
-            title="Safety"
+            title={t('car.safety')}
             features={safetyFeatures}
             isDarkMode={isDarkMode}
           />
 
           <FeatureCategory
-            title="Comfort & Convenience"
+            title={t('car.comfort_convenience')}
             features={comfortFeatures}
             isDarkMode={isDarkMode}
           />
@@ -1516,7 +1521,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   color: isDarkMode ? "#777" : "#999",
                 }}
               >
-                No feature details available
+                {t('car.no_feature_details')}
               </Text>
             )}
         </View>
@@ -1542,7 +1547,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               color: isDarkMode ? "#fff" : "#000",
             }}
           >
-            Location
+            {t('car.location')}
           </Text>
 
           <View
@@ -1565,7 +1570,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 color: isDarkMode ? "#777" : "#999",
               }}
             >
-              Loading map...
+              {t('car.loading_map')}
             </Text>
           </View>
         </View>
@@ -1583,7 +1588,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             color: isDarkMode ? "#fff" : "#000",
           }}
         >
-          Location
+          {t('car.location')}
         </Text>
 
         <View style={{ height: 200, borderRadius: 10, overflow: "hidden" }}>
@@ -1621,7 +1626,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   marginTop: 8,
                 }}
               >
-                {Platform.OS === "ios" ? "Loading map..." : "Map not available"}
+                {Platform.OS === "ios" ? t('car.loading_map') : t('car.map_not_available')}
               </Text>
             </View>
           )}
@@ -1642,7 +1647,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           >
             <Ionicons name="navigate" size={16} color="white" />
             <Text style={{ color: "white", marginLeft: 8, fontWeight: "500" }}>
-              Take Me There
+              {t('car.take_me_there')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1700,8 +1705,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           {nonCriticalState.similarCars[0]?.make === car.make &&
           nonCriticalState.similarCars[0]?.model === car.model &&
           nonCriticalState.similarCars[0]?.year === car.year
-            ? "Explore Similar Cars"
-            : "Similarly Priced Cars"}
+            ? t('car.explore_similar_cars')
+            : t('car.similarly_priced_cars')}
         </Text>
 
         <FlatList
@@ -1753,7 +1758,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             color: isDarkMode ? "#fff" : "#000",
           }}
         >
-          More from {car.dealership_name || "Dealership"}
+          {t('car.more_from')} {car.dealership_name || t('car.dealership')}
         </Text>
 
         <FlatList
@@ -1873,7 +1878,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                           : "rgba(0,0,0,0.6)",
                       }}
                     >
-                      Posted {getRelativeTime(car.listed_at)}
+                      {t('car.posted')} {getRelativeTime(car.listed_at, t)}
                     </Text>
                   )}
                 </View>
@@ -2031,7 +2036,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               marginLeft: 8,
             }}
           >
-            Open in Maps
+            {t('car.open_in_maps')}
           </Text>
         </TouchableOpacity>
       </View>

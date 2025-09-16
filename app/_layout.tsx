@@ -51,6 +51,8 @@ import {
 import { notificationCoordinator } from "@/utils/NotificationOperationCoordinator";
 
 import { useSlowConnectionToast } from "@/utils/useSlowConnectionToast";
+import { LanguageProvider } from "@/utils/LanguageContext";
+import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -1057,6 +1059,8 @@ export default Sentry.wrap(function RootLayout() {
             SplashScreen.hideAsync().catch(() => {});
           }, 2000);
         }
+        // Configure i18n early
+        configureI18n();
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
         // RULE: Force completion on error
@@ -1108,11 +1112,13 @@ useSlowConnectionToast();
             <QueryClientProvider client={queryClient}>
               <ThemeProvider>
                 <StatusBarManager />
-                <FavoritesProvider>
-                  <NotificationsProvider />
-                  <RootLayoutNav />
-                  <Toast config={toastConfig} />
-                </FavoritesProvider>
+                <LanguageProvider>
+                  <FavoritesProvider>
+                    <NotificationsProvider />
+                    <RootLayoutNav />
+                    <Toast config={toastConfig} />
+                  </FavoritesProvider>
+                </LanguageProvider>
               </ThemeProvider>
             </QueryClientProvider>
           </AuthProvider>

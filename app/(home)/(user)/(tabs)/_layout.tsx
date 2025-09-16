@@ -4,9 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { View, Animated, Platform } from 'react-native';
 import FloatingChatFab from '@/components/FloatingChatFab';  // ADDED: Import for AI chat
+import { useTranslation } from 'react-i18next';
 
 export default function TabLayout() {
   const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <>
@@ -103,42 +105,42 @@ export default function TabLayout() {
         <Tabs.Screen 
           name='index' 
           options={{ 
-            headerTitle: 'Home',
-            tabBarLabel: 'Home'
+            headerTitle: t('navbar.home'),
+            tabBarLabel: t('navbar.home')
           }} 
         />
         <Tabs.Screen
           name='dealerships'
           options={{ 
-            headerTitle: 'Dealerships', 
+            headerTitle: t('navbar.dealerships'), 
             headerShown: false,
-            tabBarLabel: 'Dealerships'
+            tabBarLabel: t('navbar.dealerships')
           }}
         />
         <Tabs.Screen
           name='autoclips'
           options={{
             animation: 'fade',
-            headerTitle: 'Autoclips',
+            headerTitle: t('navbar.autoclips'),
             headerShown: false,
             tabBarStyle: { display: 'none' },
-            tabBarLabel: 'AutoClips'
+            tabBarLabel: t('navbar.autoclips')
           }}
         />
         <Tabs.Screen
           name='Favorite'
           options={{ 
-            headerTitle: 'Favorite', 
+            headerTitle: t('navbar.favorites'), 
             headerShown: false,
-            tabBarLabel: 'Favorites'
+            tabBarLabel: t('navbar.favorites')
           }}
         />
         <Tabs.Screen
           name='profile'
           options={{ 
-            headerTitle: 'Profile', 
+            headerTitle: t('navbar.profile'), 
             headerShown: false,
-            tabBarLabel: 'Profile'
+            tabBarLabel: t('navbar.profile')
           }}
         />
         {/* Chat tab removed. Global FAB now opens chat assistant. */}

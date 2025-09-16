@@ -22,6 +22,7 @@ import {
   Animated,
   Easing,
   RefreshControl,
+  I18nManager,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -33,6 +34,7 @@ import { useScrollToTop } from "@react-navigation/native";
 import DealershipSkeletonLoading from "../DealershipSkeletonLoading";
 // import * as Location from "expo-location"; // REMOVED
 import { BlurView } from "expo-blur";
+import i18n from '@/utils/i18n';
 
 // -------------------
 // Types & Constants
@@ -130,7 +132,7 @@ const SortModal = ({
             <Text
               style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}
             >
-              Sort Dealerships
+              {i18n.t('dealership.sort_dealerships')}
             </Text>
           </View>
 
@@ -154,7 +156,10 @@ const SortModal = ({
                   isDarkMode && styles.optionTextDark,
                 ]}
               >
-                {key.replace('ATOZ', 'From A to Z').replace('ZTOA', 'From Z to A').replace('RANDOMIZED', 'Randomized')}
+                {key
+                  .replace('ATOZ', i18n.t('dealership.from_a_to_z'))
+                  .replace('ZTOA', i18n.t('dealership.from_z_to_a'))
+                  .replace('RANDOMIZED', i18n.t('dealership.randomized'))}
               </Text>
               {currentSort === value && <View style={styles.checkmark} />}
             </TouchableOpacity>
@@ -300,7 +305,7 @@ const DealershipCard = React.memo(
                         { color: isDarkMode ? "white" : "#444" },
                       ]}
                     >
-                      {item.total_cars} vehicles available
+                      {i18n.t('dealership.vehicles_available', { count: item.total_cars })}
                     </Text>
                   </View>
                 )}
@@ -481,12 +486,12 @@ export default function DealershipListPage() {
         <Text
           style={[styles.emptyText, { color: isDarkMode ? "white" : "black" }]}
         >
-          No dealerships found
+          {i18n.t('dealership.no_dealerships_found')}
         </Text>
         <Text
           style={[styles.emptySubText, { color: isDarkMode ? "#CCC" : "#555" }]}
         >
-          Try adjusting your search
+          {i18n.t('dealership.try_adjusting_search')}
         </Text>
       </View>
     );
@@ -499,7 +504,7 @@ export default function DealershipListPage() {
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
-    <CustomHeader title="Dealerships" />
+    <CustomHeader title={i18n.t('dealership.dealerships')} />
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View
@@ -526,7 +531,7 @@ export default function DealershipListPage() {
               style={[
                 { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
               ]}
-              placeholder="Search Dealerships..."
+              placeholder={i18n.t('dealership.search_dealerships')}
               placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
               value={searchQuery}
               onChangeText={setSearchQuery}

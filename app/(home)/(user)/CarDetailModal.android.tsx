@@ -655,43 +655,43 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   // Helper function to compute relative time from the listed_at property
   const getRelativeTime = (dateString: string) => {
     try {
-      if (!dateString) return "Recently";
+      if (!dateString) return t('car.recently');
 
       const now = new Date();
       const postedDate = new Date(dateString);
 
-      if (isNaN(postedDate.getTime())) return "Recently";
+      if (isNaN(postedDate.getTime())) return t('car.recently');
 
       const seconds = Math.floor((now.getTime() - postedDate.getTime()) / 1000);
 
       let interval = Math.floor(seconds / 31536000);
       if (interval >= 1) {
-        return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+        return t('car.years_ago', { count: interval });
       }
       interval = Math.floor(seconds / 2592000);
       if (interval >= 1) {
-        return interval + " month" + (interval > 1 ? "s" : "") + " ago";
+        return t('car.months_ago', { count: interval });
       }
       interval = Math.floor(seconds / 604800);
       if (interval >= 1) {
-        return interval + " week" + (interval > 1 ? "s" : "") + " ago";
+        return t('car.weeks_ago', { count: interval });
       }
       interval = Math.floor(seconds / 86400);
       if (interval >= 1) {
-        return interval + " day" + (interval > 1 ? "s" : "") + " ago";
+        return t('car.days_ago', { count: interval });
       }
       interval = Math.floor(seconds / 3600);
       if (interval >= 1) {
-        return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
+        return t('car.hours_ago', { count: interval });
       }
       interval = Math.floor(seconds / 60);
       if (interval >= 1) {
-        return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
+        return t('car.minutes_ago', { count: interval });
       }
-      return Math.floor(seconds) + " seconds ago";
+      return t('car.seconds_ago', { count: Math.floor(seconds) });
     } catch (error) {
       console.error('Error calculating relative time:', error);
-      return "Recently";
+      return t('car.recently');
     }
   };
 

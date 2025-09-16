@@ -27,6 +27,8 @@ import * as Linking from 'expo-linking'
 import DealershipAutoClips from '@/components/DealershipAutoClips'
 import SortPicker from '@/components/SortPicker'
 import { ChevronLeft } from 'lucide-react-native'
+import { useTranslation } from 'react-i18next'
+import { I18nManager } from 'react-native'
 
 // **CONFIGURATION CONSTANTS**
 const ITEMS_PER_PAGE = 10
@@ -120,6 +122,7 @@ const SearchBar = React.memo(({
 	isSearching: boolean
 	isDarkMode: boolean
 }) => {
+	const { t } = useTranslation()
 	const [localSearchQuery, setLocalSearchQuery] = useState('')
 	const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
@@ -174,7 +177,7 @@ const SearchBar = React.memo(({
 				/>
 				<TextInput
 					className={`flex-1 p-3 ${isDarkMode ? "text-white" : "text-black"}`}
-					placeholder={`Search cars... (min ${MIN_SEARCH_LENGTH} chars)`}
+					placeholder={t('dealership.search_cars_placeholder', { min: MIN_SEARCH_LENGTH })}
 					placeholderTextColor={isDarkMode ? '#999999' : '#666666'}
 					textAlignVertical="center"
 					value={localSearchQuery}
@@ -232,6 +235,7 @@ const SearchBar = React.memo(({
 
 // **MAP COMPONENT - MEMOIZED FOR PERFORMANCE**
 const DealershipMapView = React.memo(({ dealership, isDarkMode }: any) => {
+	const { t } = useTranslation()
 	const mapRef = useRef<MapView | null>(null)
 	const [isMapReady, setIsMapReady] = useState(false)
 	const [mapError, setMapError] = useState(false)
@@ -287,7 +291,7 @@ const DealershipMapView = React.memo(({ dealership, isDarkMode }: any) => {
 					color={isDarkMode ? '#666' : '#999'}
 				/>
 				<Text className='text-neutral-500 dark:text-neutral-400 mt-4 text-center px-4'>
-					{mapError ? 'Unable to load map' : 'Location not available'}
+					{mapError ? t('dealership.unable_to_load_map') : t('dealership.location_not_available')}
 				</Text>
 			</View>
 		)
@@ -333,7 +337,7 @@ const DealershipMapView = React.memo(({ dealership, isDarkMode }: any) => {
 						className='absolute bottom-4 right-4 bg-red px-4 py-2 rounded-full flex-row items-center'
 					>
 						<Ionicons name='navigate' size={16} color='white' />
-						<Text className='text-white ml-2'>Take Me There</Text>
+						<Text className='text-white ml-2'>{t('dealership.take_me_there')}</Text>
 					</TouchableOpacity>
 				</>
 			)}
@@ -346,6 +350,8 @@ export default function DealershipDetails() {
 	const { isDarkMode } = useTheme()
 	const { dealershipId } = useLocalSearchParams<{ dealershipId: string }>()
 	const router = useRouter()
+	const { t } = useTranslation()
+	const isRTL = I18nManager.isRTL
 
 	// **STATE MANAGEMENT - OPTIMIZED**
 	const [dealership, setDealership] = useState<Dealership | null>(null)
@@ -679,7 +685,7 @@ export default function DealershipDetails() {
 								>
 									<View className='items-center'>
 										<Text className={`text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
-											Inventory
+											{t('dealership.inventory')}
 										</Text>
 										<Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 											{filteredCars.length}
@@ -695,7 +701,7 @@ export default function DealershipDetails() {
 
 									<View className='items-center'>
 										<Text className={`text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
-											Established
+											{t('dealership.established')}
 										</Text>
 										<Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
 											{dealership.created_at ? new Date(dealership.created_at).getFullYear() : 'N/A'}
@@ -724,7 +730,7 @@ export default function DealershipDetails() {
 											className={`font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}
 											style={{ fontSize: 15 }}
 										>
-											Call Dealer
+											{t('dealership.call_dealer')}
 										</Text>
 									</TouchableOpacity>
 
@@ -750,7 +756,7 @@ export default function DealershipDetails() {
 											className='text-white font-medium'
 											style={{ fontSize: 15 }}
 										>
-											WhatsApp
+											{t('dealership.whatsapp')}
 										</Text>
 									</TouchableOpacity>
 								</View>
@@ -782,7 +788,7 @@ export default function DealershipDetails() {
 				
 				<View className='flex-row items-center justify-between mb-4'>
 					<Text className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						Sort Options
+						{t('dealership.sort_options')}
 					</Text>
 					<View className='items-center justify-center'>
 						<SortPicker
@@ -796,14 +802,14 @@ export default function DealershipDetails() {
 			{/* **RESULTS HEADER** */}
 			<View className='px-6 mb-4 flex-row items-center justify-between'>
 				<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-					{activeSearchQuery ? 'Search Results' : 'Available Cars'}
+					{activeSearchQuery ? t('dealership.search_results') : t('dealership.available_cars')}
 				</Text>
 				<View className='flex-row items-center space-x-2'>
 					{loadingState.search && (
 						<ActivityIndicator size="small" color="#D55004" />
 					)}
 					<Text className={`${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>
-						{filteredCars.length} vehicles
+						{t('dealership.vehicles_count', { count: filteredCars.length })}
 					</Text>
 				</View>
 			</View>
@@ -825,7 +831,7 @@ export default function DealershipDetails() {
 								className={`ml-2 ${isDarkMode ? 'text-white' : 'text-black'} font-medium`}
 								numberOfLines={1}
 							>
-								Searching for: "{activeSearchQuery}"
+								{t('dealership.searching_for', { query: activeSearchQuery })}
 							</Text>
 						</View>
 						<TouchableOpacity onPress={clearSearch} className='ml-2'>
@@ -857,7 +863,7 @@ export default function DealershipDetails() {
 				<SafeAreaView className='flex-1 justify-center items-center'>
 					<ActivityIndicator size="large" color="#D55004" />
 					<Text className={`mt-4 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-						{loadingState.dealership ? 'Loading dealership...' : 'Loading cars...'}
+						{loadingState.dealership ? t('dealership.loading_dealership') : t('dealership.loading_cars')}
 					</Text>
 				</SafeAreaView>
 			</LinearGradient>
@@ -890,14 +896,14 @@ export default function DealershipDetails() {
 								color={isDarkMode ? '#666' : '#999'} 
 							/>
 							<Text className={`mt-4 text-lg ${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>
-								{activeSearchQuery ? 'No cars match your search' : 'No cars available'}
+								{activeSearchQuery ? t('dealership.no_cars_match_search') : t('dealership.no_cars_available')}
 							</Text>
 							{activeSearchQuery && (
 								<TouchableOpacity 
 									onPress={clearSearch}
 									className='mt-4 bg-[#D55004] px-6 py-2 rounded-full'
 								>
-									<Text className='text-white font-medium'>Clear Search</Text>
+									<Text className='text-white font-medium'>{t('dealership.clear_search')}</Text>
 								</TouchableOpacity>
 							)}
 						</View>

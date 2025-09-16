@@ -31,6 +31,8 @@ import * as Linking from 'expo-linking'
 import DealershipAutoClips from '@/components/DealershipAutoClips'
 import SortPicker from '@/components/SortPicker'
 import ErrorBoundary from 'react-native-error-boundary'
+import { useTranslation } from 'react-i18next'
+import { I18nManager } from 'react-native'
 
 // **ANDROID OPTIMIZATION CONSTANTS**
 const ITEMS_PER_PAGE = 10
@@ -807,6 +809,8 @@ const DealershipDetails = () => {
   const { isDarkMode } = useTheme()
   const { dealershipId } = useLocalSearchParams<{ dealershipId: string }>()
   const router = useRouter()
+  const { t } = useTranslation()
+  const isRTL = I18nManager.isRTL
 
   // **STATE MANAGEMENT**
   const [dealership, setDealership] = useState<Dealership | null>(null)
@@ -1437,7 +1441,7 @@ const DealershipDetails = () => {
                     color: isDarkMode ? '#999' : '#666',
                     textAlign: 'center'
                   }}>
-                    Could not load autoclips
+                    {t('autoclips.could_not_load_autoclips')}
                   </Text>
                 </View>
               )}

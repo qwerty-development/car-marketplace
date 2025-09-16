@@ -11,6 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -28,6 +29,7 @@ const Banner: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const { isDarkMode } = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const scrollViewRef = useRef<ScrollView>(null);
   const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
   const { width: screenWidth } = Dimensions.get('window');
@@ -168,7 +170,7 @@ const Banner: React.FC = () => {
       <View className={`mx-3 mb-4 ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'} rounded-2xl`}>
         <View className="h-48 justify-center items-center">
           <Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-            Loading banners...
+            {t('banner.loading')}
           </Text>
         </View>
       </View>

@@ -14,18 +14,20 @@ import {
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { BlurView } from 'expo-blur'
+import { useLanguage } from '@/utils/LanguageContext'
+import i18n from '@/utils/i18n'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 
-const sortOptions = [
-	{ label: 'Latest Listed', value: 'date_listed_desc', icon: 'time' },
-	{ label: 'Price: Low to High', value: 'price_asc', icon: 'trending-up' },
-	{ label: 'Price: High to Low', value: 'price_desc', icon: 'trending-down' },
-	{ label: 'Year: New to Old', value: 'year_desc', icon: 'calendar' },
-	{ label: 'Year: Old to New', value: 'year_asc', icon: 'calendar-outline' },
-	{ label: 'Mileage: Low to High', value: 'mileage_asc', icon: 'speedometer' },
+const getSortOptions = (t: any) => [
+	{ label: t('filters.newest_listings'), value: 'date_listed_desc', icon: 'time' },
+	{ label: t('filters.price_low_to_high'), value: 'price_asc', icon: 'trending-up' },
+	{ label: t('filters.price_high_to_low'), value: 'price_desc', icon: 'trending-down' },
+	{ label: t('filters.year_newest_first'), value: 'year_desc', icon: 'calendar' },
+	{ label: t('filters.year_oldest_first'), value: 'year_asc', icon: 'calendar-outline' },
+	{ label: t('filters.mileage_low_to_high'), value: 'mileage_asc', icon: 'speedometer' },
 	{
-		label: 'Mileage: High to Low',
+		label: t('filters.mileage_high_to_low'),
 		value: 'mileage_desc',
 		icon: 'speedometer-outline'
 	}
@@ -33,7 +35,9 @@ const sortOptions = [
 
 const SortPicker = ({ onValueChange, initialValue }: any) => {
 	const { isDarkMode } = useTheme()
+	const { language } = useLanguage()
 	const [modalVisible, setModalVisible] = useState(false)
+	const sortOptions = getSortOptions(i18n.t)
 	const [selectedOption, setSelectedOption] = useState<any>(() => {
 		if (initialValue) {
 			return sortOptions.find(option => option.value === initialValue)
@@ -177,7 +181,7 @@ const SortPicker = ({ onValueChange, initialValue }: any) => {
 									styles.modalTitle,
 									isDarkMode && styles.modalTitleDark
 								]}>
-								Sort By
+{i18n.t('filters.sort_by')}
 							</Text>
 						</View>
 						<FlatList

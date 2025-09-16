@@ -1,7 +1,8 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, Modal, ScrollView, I18nManager } from 'react-native'
 import RNPickerSelect from 'react-native-picker-select'
 import Slider from '@react-native-community/slider'
+import { useTranslation } from 'react-i18next'
 
 const FilterModal = ({
 	isVisible,
@@ -14,20 +15,24 @@ const FilterModal = ({
 	makes,
 	models,
 	colors
-}: any) => (
-	<Modal visible={isVisible} animationType='slide' transparent={true}>
-		<View className='flex-1 justify-end'>
-			<View className='bg-white rounded-t-3xl h-5/6 p-6'>
-				<View className='flex-row justify-between items-center mb-4'>
-					<Text className='text-2xl font-bold'>Filter Results</Text>
-					<TouchableOpacity onPress={resetFilters}>
-						<Text className='text-blue-500 text-lg'>Reset</Text>
-					</TouchableOpacity>
-				</View>
+}: any) => {
+	const { t } = useTranslation()
+	const isRTL = I18nManager.isRTL
+
+	return (
+		<Modal visible={isVisible} animationType='slide' transparent={true}>
+			<View className='flex-1 justify-end'>
+				<View className='bg-white rounded-t-3xl h-5/6 p-6'>
+					<View className={`flex-row justify-between items-center mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+						<Text className={`text-2xl font-bold ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.filter_results')}</Text>
+						<TouchableOpacity onPress={resetFilters}>
+							<Text className='text-blue-500 text-lg'>{t('filters.reset')}</Text>
+						</TouchableOpacity>
+					</View>
 				<ScrollView className='flex-grow'>
 					<View className='space-y-4'>
 						<View>
-							<Text className='font-semibold mb-2'>Dealership</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.dealership')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('dealership', value)}
 								items={dealerships.map((dealership: { name: any; id: { toString: () => any } }) => ({
@@ -35,48 +40,64 @@ const FilterModal = ({
 									value: dealership.id.toString()
 								}))}
 								value={tempFilters.dealership}
-								placeholder={{ label: 'All Dealerships', value: null }}
+								placeholder={{ label: t('filters.all_dealerships'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Make</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.make')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('make', value)}
 								items={makes.map((make: any) => ({ label: make, value: make }))}
 								value={tempFilters.make}
-								placeholder={{ label: 'All Makes', value: null }}
+								placeholder={{ label: t('filters.all_makes'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Model</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.model')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('model', value)}
 								items={models.map((model: any) => ({ label: model, value: model }))}
 								value={tempFilters.model}
-								placeholder={{ label: 'All Models', value: null }}
+								placeholder={{ label: t('filters.all_models'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Condition</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.condition')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('condition', value)}
 								items={[
-									{ label: 'New', value: 'New' },
-									{ label: 'Used', value: 'Used' }
+									{ label: t('filters.new'), value: 'New' },
+									{ label: t('filters.used'), value: 'Used' }
 								]}
 								value={tempFilters.condition}
-								placeholder={{ label: 'All Conditions', value: null }}
+								placeholder={{ label: t('filters.all_conditions'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Price Range</Text>
-							<View className='flex-row justify-between'>
-								<Text>${tempFilters.priceRange[0]}</Text>
-								<Text>${tempFilters.priceRange[1]}</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.price_range')}</Text>
+							<View className={`flex-row justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+								<Text className={isRTL ? 'text-right' : 'text-left'}>${tempFilters.priceRange[0]}</Text>
+								<Text className={isRTL ? 'text-right' : 'text-left'}>${tempFilters.priceRange[1]}</Text>
 							</View>
 							<Slider
 								minimumValue={0}
@@ -105,10 +126,10 @@ const FilterModal = ({
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Mileage Range</Text>
-							<View className='flex-row justify-between'>
-								<Text>{tempFilters.mileageRange[0]} mi</Text>
-								<Text>{tempFilters.mileageRange[1]} mi</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.mileage_range')}</Text>
+							<View className={`flex-row justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+								<Text className={isRTL ? 'text-right' : 'text-left'}>{tempFilters.mileageRange[0]} {t('filters.mi')}</Text>
+								<Text className={isRTL ? 'text-right' : 'text-left'}>{tempFilters.mileageRange[1]} {t('filters.mi')}</Text>
 							</View>
 							<Slider
 								minimumValue={0}
@@ -137,7 +158,7 @@ const FilterModal = ({
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Year</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.year')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('year', value)}
 								items={Array.from({ length: 30 }, (_, i) => {
@@ -149,67 +170,84 @@ const FilterModal = ({
 									}
 								})}
 								value={tempFilters.year}
-								placeholder={{ label: 'All Years', value: null }}
+								placeholder={{ label: t('filters.all_years'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Color</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.exterior_color')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('color', value)}
 								items={colors.map((color: any) => ({ label: color, value: color }))}
 								value={tempFilters.color}
-								placeholder={{ label: 'All Colors', value: null }}
+								placeholder={{ label: t('filters.all_colors'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Transmission</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.transmission')}</Text>
 							<RNPickerSelect
 								onValueChange={value =>
 									handleFilterChange('transmission', value)
 								}
 								items={[
-									{ label: 'Manual', value: 'Manual' },
-									{ label: 'Automatic', value: 'Automatic' }
+									{ label: t('filters.manual'), value: 'Manual' },
+									{ label: t('filters.automatic'), value: 'Automatic' }
 								]}
 								value={tempFilters.transmission}
-								placeholder={{ label: 'All Transmissions', value: null }}
+								placeholder={{ label: t('filters.all_transmissions'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 
 						<View>
-							<Text className='font-semibold mb-2'>Drivetrain</Text>
+							<Text className={`font-semibold mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.drivetrain')}</Text>
 							<RNPickerSelect
 								onValueChange={value => handleFilterChange('drivetrain', value)}
 								items={[
-									{ label: 'FWD', value: 'FWD' },
-									{ label: 'RWD', value: 'RWD' },
-									{ label: 'AWD', value: 'AWD' },
-									{ label: '4WD', value: '4WD' },
-									{ label: '4x4', value: '4x4' }
+									{ label: t('filters.fwd'), value: 'FWD' },
+									{ label: t('filters.rwd'), value: 'RWD' },
+									{ label: t('filters.awd'), value: 'AWD' },
+									{ label: t('filters.4wd'), value: '4WD' },
+									{ label: t('filters.4x4'), value: '4x4' }
 								]}
 								value={tempFilters.drivetrain}
-								placeholder={{ label: 'All Drivetrains', value: null }}
+								placeholder={{ label: t('filters.all_drivetrains'), value: null }}
+								style={{
+									inputIOS: { textAlign: isRTL ? 'right' : 'left' },
+									inputAndroid: { textAlign: isRTL ? 'right' : 'left' }
+								}}
 							/>
 						</View>
 					</View>
 				</ScrollView>
-				<View className='flex-row justify-end mt-4'>
+				<View className={`flex-row justify-end mt-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
 					<TouchableOpacity
-						className='bg-gray-300 py-2 px-4 rounded-full mr-2'
+						className={`bg-gray-300 py-2 px-4 rounded-full ${isRTL ? 'ml-2' : 'mr-2'}`}
 						onPress={closeModal}>
-						<Text>Cancel</Text>
+						<Text className={isRTL ? 'text-right' : 'text-left'}>{t('common.cancel')}</Text>
 					</TouchableOpacity>
 					<TouchableOpacity
 						className='bg-red-500 py-2 px-4 rounded-full'
 						onPress={applyFilters}>
-						<Text className='text-white'>Apply Filters</Text>
+						<Text className={`text-white ${isRTL ? 'text-right' : 'text-left'}`}>{t('filters.apply_filters')}</Text>
 					</TouchableOpacity>
 				</View>
 			</View>
 		</View>
 	</Modal>
-)
+	)
+}
 
 export default FilterModal

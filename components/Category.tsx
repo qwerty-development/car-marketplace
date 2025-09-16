@@ -10,6 +10,8 @@ import {
 } from 'react-native'
 import { useTheme } from '@/utils/ThemeContext'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useLanguage } from '@/utils/LanguageContext'
+import i18n from '@/utils/i18n'
 import { BlurView } from 'expo-blur'
 
 // Import your PNG assets
@@ -22,13 +24,13 @@ import CoupePng from '@/assets/types/coupe.png'
 import classicPng from '@/assets/types/classic.png'
 
 const categories = [
-	{ name: 'Sedan', image: SedanPng },
-	{ name: 'Sports', image: SportsPng },
-	{ name: 'SUV', image: SuvPng },
-	{ name: 'Hatchback', image: HatchbackPng },
-	{ name: 'Coupe', image: CoupePng },
-	{ name: 'Convertible', image: ConvertiblePng },
-	{ name: 'Classic', image: classicPng },
+	{ name: 'Sedan', image: SedanPng, key: 'sedan' },
+	{ name: 'Sports', image: SportsPng, key: 'sports' },
+	{ name: 'SUV', image: SuvPng, key: 'suv' },
+	{ name: 'Hatchback', image: HatchbackPng, key: 'hatchback' },
+	{ name: 'Coupe', image: CoupePng, key: 'coupe' },
+	{ name: 'Convertible', image: ConvertiblePng, key: 'convertible' },
+	{ name: 'Classic', image: classicPng, key: 'classic' },
 ]
 
 interface CategorySelectorProps {
@@ -41,6 +43,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 	onCategoryPress
 }) => {
 	const { isDarkMode } = useTheme()
+	const { language } = useLanguage()
 	const { width } = useWindowDimensions()
 	
 	// Fixed card size to match ByBrands component
@@ -57,7 +60,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 				className={`text-xl font-bold mb-4 ml-3 ${
 					isDarkMode ? 'text-white' : 'text-black'
 				}`}>
-				Explore by Category
+				{i18n.t('category.explore_by_category')}
 			</Text>
 
 			<ScrollView
@@ -108,7 +111,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 													: 'text-black'
 											}`}
 											numberOfLines={1}>
-											{item.name}
+{i18n.t(`category.${item.key}`)}
 										</Text>
 									</View>
 

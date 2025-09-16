@@ -34,6 +34,9 @@ import { coordinateSignOut } from "@/app/(home)/_layout";
 import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 import { useNavigation } from "@react-navigation/native";
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/utils/LanguageContext';
+import { I18nManager } from 'react-native';
 
 const WHATSAPP_NUMBER = "70786818";
 const SUPPORT_EMAIL = "info@fleetapp.com";
@@ -46,6 +49,9 @@ import * as Updates from 'expo-updates';
 
 export default function UserProfileAndSupportPage() {
   const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
+  const { language, setLanguage } = useLanguage();
+  const isRTL = I18nManager.isRTL;
   const {
     user,
     profile,
@@ -541,6 +547,7 @@ export default function UserProfileAndSupportPage() {
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
       {isGuest && (
+        <>
         <View style={guestStyles.overlay} pointerEvents="auto">
           <BlurView
             intensity={80}
@@ -554,18 +561,49 @@ export default function UserProfileAndSupportPage() {
               color="#ffffff"
               style={guestStyles.icon}
             />
-            <Text style={guestStyles.title}>You're browsing as a guest</Text>
+            <Text style={guestStyles.title}>{t('profile.youre_browsing_as_guest')}</Text>
             <Text style={guestStyles.subtitle}>
-              Please sign in to access this feature.
+              {t('profile.please_sign_in_to_access')}
             </Text>
             <TouchableOpacity
               style={guestStyles.signInButton}
               onPress={handleSignIn}
             >
-              <Text style={guestStyles.signInButtonText}>Sign In</Text>
+              <Text style={guestStyles.signInButtonText}>{t('profile.sign_in')}</Text>
             </TouchableOpacity>
           </Animated.View>
         </View>
+
+        {/* Language Section */}
+        <View className="mx-4 mb-4">
+          <Text
+            className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}
+          >
+            {t('profile.language')}
+          </Text>
+          <View
+            className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4 rounded-2xl`}
+          >
+            <Text className={`${isDarkMode ? 'text-white/80' : 'text-black/80'} mb-3`}>
+              {t('profile.choose_language')}
+            </Text>
+            <View className="flex-row">
+              <TouchableOpacity
+                onPress={() => setLanguage('en')}
+                className={`px-4 py-2 rounded-xl mr-2 ${language === 'en' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
+              >
+                <Text className={`${language === 'en' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.english')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLanguage('ar')}
+                className={`px-4 py-2 rounded-xl ${language === 'ar' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
+              >
+                <Text className={`${language === 'ar' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.arabic')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        </>
       )}
 
       <ScrollView
@@ -599,7 +637,7 @@ export default function UserProfileAndSupportPage() {
                 />
               </View>
               <Text className="text-white text-xl font-semibold mt-4">
-                {isGuest ? "Guest User" : `${firstName} ${lastName}`}
+                {isGuest ? t('profile.guest_user') : `${firstName} ${lastName}`}
               </Text>
               <Text className="text-white/80 text-sm">
                 {isGuest ? "" : email}
@@ -618,13 +656,14 @@ export default function UserProfileAndSupportPage() {
                     style={{ marginRight: 8 }}
                   />
                   <Text className="text-white font-semibold">
-                    You are a dealership, go to dealership interface
+                    {t('profile.dealership_interface')}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
           </LinearGradient>
         </View>
+
 
         {/* Quick Actions */}
         <View className="space-y-4 px-6 -mt-12">
@@ -655,14 +694,14 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white" : "text-black"
                 } font-semibold`}
               >
-                Edit Profile
+                {t('profile.edit_profile')}
               </Text>
               <Text
                 className={`${
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to edit your profile" : "Update your infos"}
+{t(isGuest ? 'profile.sign_in_to_edit' : 'profile.update_your_infos')}
               </Text>
             </View>
             <Ionicons
@@ -700,7 +739,7 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white" : "text-black"
                 } font-semibold`}
               >
-                Security
+                {t('profile.security_settings')}
               </Text>
               <Text
                 className={`${
@@ -708,8 +747,8 @@ export default function UserProfileAndSupportPage() {
                 } text-sm mt-1`}
               >
                 {isGuest
-                  ? "Sign in to access security settings"
-                  : "Change password"}
+                  ? t('profile.sign_in_to_access_security')
+                  : t('profile.update_password_security')}
               </Text>
             </View>
             <Ionicons
@@ -747,14 +786,14 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white" : "text-black"
                 } font-semibold`}
               >
-                Legal
+                {t('profile.legal')}
               </Text>
               <Text
                 className={`${
                   isDarkMode ? "text-white/60" : "text-gray-500"
                 } text-sm mt-1`}
               >
-                {isGuest ? "Sign in to access legal" : "Privacy and terms"}
+                {isGuest ? t('profile.sign_in_to_access_legal') : t('profile.privacy_and_terms')}
               </Text>
             </View>
             <Ionicons
@@ -764,6 +803,36 @@ export default function UserProfileAndSupportPage() {
               style={{ marginLeft: "auto" }}
             />
           </TouchableOpacity>
+        </View>
+
+        {/* Language Section - under Legal */}
+        <View className="mx-6 mt-4 mb-6">
+          <Text
+            className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}
+          >
+            {t('profile.language')}
+          </Text>
+          <View
+            className={`${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4 rounded-2xl`}
+          >
+            <Text className={`${isDarkMode ? 'text-white/80' : 'text-black/80'} mb-3`}>
+              {t('profile.choose_language')}
+            </Text>
+            <View className="flex-row">
+              <TouchableOpacity
+                onPress={() => setLanguage('en')}
+                className={`px-4 py-2 rounded-xl mr-2 ${language === 'en' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
+              >
+                <Text className={`${language === 'en' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.english')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLanguage('ar')}
+                className={`px-4 py-2 rounded-xl ${language === 'ar' ? 'bg-red' : isDarkMode ? 'bg-[#2a2a2a]' : 'bg-white'}`}
+              >
+                <Text className={`${language === 'ar' ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'}`}>{t('language.arabic')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Legal Modal */}
@@ -794,7 +863,7 @@ export default function UserProfileAndSupportPage() {
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  Legal Documents
+                  {t('profile.legal_documents')}
                 </Text>
                 <TouchableOpacity onPress={() => setIsLegalVisible(false)}>
                   <Ionicons
@@ -821,7 +890,7 @@ export default function UserProfileAndSupportPage() {
                 <Text
                   className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
                 >
-                  Privacy Policy
+                  {t('profile.privacy_policy')}
                 </Text>
                 <Ionicons
                   name="chevron-forward"
@@ -847,7 +916,7 @@ export default function UserProfileAndSupportPage() {
                 <Text
                   className={`ml-3 ${isDarkMode ? "text-white" : "text-black"}`}
                 >
-                  Terms
+                  {t('profile.terms_of_service')}
                 </Text>
                 <Ionicons
                   name="chevron-forward"
@@ -886,7 +955,7 @@ export default function UserProfileAndSupportPage() {
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  Edit Profile
+                  {t('profile.edit_profile')}
                 </Text>
                 <TouchableOpacity onPress={() => setIsEditMode(false)}>
                   <Ionicons
@@ -906,9 +975,10 @@ export default function UserProfileAndSupportPage() {
                   } p-4 rounded-xl`}
                   value={firstName}
                   onChangeText={setFirstName}
-                  placeholder="First Name"
+                  placeholder={t('profile.first_name')}
                   placeholderTextColor={isDarkMode ? "#999" : "#666"}
                   cursorColor="#D55004"
+                  textAlign={isRTL ? 'right' : 'left'}
                 />
                 <TextInput
                   className={`${
@@ -918,9 +988,10 @@ export default function UserProfileAndSupportPage() {
                   } p-4 rounded-xl`}
                   value={lastName}
                   onChangeText={setLastName}
-                  placeholder="Last Name"
+                  placeholder={t('profile.last_name')}
                   placeholderTextColor={isDarkMode ? "#999" : "#666"}
                   cursorColor="#D55004"
+                  textAlign={isRTL ? 'right' : 'left'}
                 />
                 <TextInput
                   className={`${
@@ -930,8 +1001,9 @@ export default function UserProfileAndSupportPage() {
                   } p-4 rounded-xl`}
                   value={email}
                   editable={false}
-                  placeholder="Email"
+                  placeholder={t('profile.email')}
                   placeholderTextColor={isDarkMode ? "#999" : "#666"}
+                  textAlign={isRTL ? 'right' : 'left'}
                 />
               </View>
 
@@ -940,7 +1012,7 @@ export default function UserProfileAndSupportPage() {
                 onPress={updateProfile}
               >
                 <Text className="text-white text-center font-semibold">
-                  Update Profile
+                  {t('profile.update_profile')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -975,7 +1047,7 @@ export default function UserProfileAndSupportPage() {
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  Change Password
+                  {t('profile.change_password')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setIsChangePasswordMode(false)}
@@ -997,10 +1069,11 @@ export default function UserProfileAndSupportPage() {
                   } p-4 rounded-xl`}
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
-                  placeholder="Current Password"
+                  placeholder={t('profile.current_password')}
                   placeholderTextColor={isDarkMode ? "#999" : "#666"}
                   secureTextEntry
                   cursorColor="#D55004"
+                  textAlign={isRTL ? 'right' : 'left'}
                 />
                 <TextInput
                   className={`${
@@ -1010,10 +1083,11 @@ export default function UserProfileAndSupportPage() {
                   } p-4 rounded-xl`}
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="New Password"
+                  placeholder={t('profile.new_password')}
                   placeholderTextColor={isDarkMode ? "#999" : "#666"}
                   secureTextEntry
                   cursorColor="#D55004"
+                  textAlign={isRTL ? 'right' : 'left'}
                 />
                 <TextInput
                   className={`${
@@ -1023,14 +1097,15 @@ export default function UserProfileAndSupportPage() {
                   } p-4 rounded-xl`}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Confirm New Password"
+                  placeholder={t('profile.confirm_new_password')}
                   placeholderTextColor={isDarkMode ? "#999" : "#666"}
                   secureTextEntry
                   cursorColor="#D55004"
+                  textAlign={isRTL ? 'right' : 'left'}
                 />
               </View>
 
-              <View className="flex-row space-x-4 mt-6">
+              <View className={`flex-row ${isRTL ? 'space-x-reverse' : 'space-x-4'} mt-6`}>
                 <TouchableOpacity
                   className="flex-1 bg-neutral-600/10 p-4 rounded-xl"
                   onPress={() => setIsChangePasswordMode(false)}
@@ -1040,7 +1115,7 @@ export default function UserProfileAndSupportPage() {
                       isDarkMode ? "text-white" : "text-black"
                     }`}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1048,7 +1123,7 @@ export default function UserProfileAndSupportPage() {
                   onPress={handleChangePassword}
                 >
                   <Text className="text-center text-white font-semibold">
-                    Update Password
+                    {t('profile.update_password')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1063,7 +1138,7 @@ export default function UserProfileAndSupportPage() {
               isDarkMode ? "text-white/60" : "text-textgray"
             } text-xs uppercase tracking-wider`}
           >
-            Support & Help
+            {t('profile.support_help')}
           </Text>
 
           <TouchableOpacity
@@ -1080,14 +1155,14 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white" : "text-black"
                 }`}
               >
-                WhatsApp Support
+                {t('profile.whatsapp_support')}
               </Text>
               <Text
                 className={`text-xs ${
                   isDarkMode ? "text-white/60" : "text-textgray"
                 }`}
               >
-                Available 24/7
+                {t('profile.available_24_7')}
               </Text>
             </View>
             <Ionicons
@@ -1112,14 +1187,14 @@ export default function UserProfileAndSupportPage() {
                   isDarkMode ? "text-white" : "text-black"
                 }`}
               >
-                Email Support
+                {t('profile.email_support')}
               </Text>
               <Text
                 className={`text-xs ${
                   isDarkMode ? "text-white/60" : "text-gray"
                 }`}
               >
-                Detailed inquiries
+                {t('profile.detailed_inquiries')}
               </Text>
             </View>
             <Ionicons
@@ -1149,7 +1224,7 @@ export default function UserProfileAndSupportPage() {
                 showSignOutOverlay ? "opacity-50" : "opacity-100"
               }`}
             >
-              {showSignOutOverlay ? "Signing Out..." : "Sign Out"}
+              {showSignOutOverlay ? t('profile.signing_out') : t('profile.sign_out')}
             </Text>
           </TouchableOpacity>
         )}
