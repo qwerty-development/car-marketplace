@@ -891,6 +891,7 @@ export default function CarComparison() {
               car1={car1}
               car2={car2}
               isDarkMode={isDarkMode}
+              t={t}
             />
 
             <View

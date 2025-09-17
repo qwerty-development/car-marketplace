@@ -164,7 +164,8 @@
     "seconds_ago": "{{count}} second ago",
     "seconds_ago_other": "{{count}} seconds ago",
     "listing_updated_successfully": "Listing updated successfully",
-    "listing_created_successfully": "New listing created successfully"
+    "listing_created_successfully": "New listing created successfully",
+    "features": "Features"
   },
   "features": {
     "heated_seats": "Heated Seats",
@@ -766,7 +767,14 @@
       "all_features": "All Features",
       "safety_features": "Safety Features",
       "comfort_features": "Comfort Features",
-      "technology_features": "Technology Features"
+      "technology_features": "Technology Features",
+      "value_comparison_matrix": "Value Comparison Matrix"
+    },
+    "metrics": {
+      "value_score": "Value Score",
+      "env_score": "Env. Score",
+      "features": "Features",
+      "price_ratio": "Price Ratio"
     },
     "value_score": "Score",
     "value_now": "Value Now",

@@ -697,38 +697,40 @@ export const ValueComparisonChart = ({
   car1,
   car2,
   isDarkMode,
+  t,
 }: {
   car1: Car | null;
   car2: Car | null;
   isDarkMode: boolean;
+  t?: (key: string) => string;
 }) => {
   if (!car1 || !car2) return null;
 
   // Define metrics to compare
   const metrics = [
     {
-      label: "Value Score",
+      label: t ? t('comparison.metrics.value_score') : "Value Score",
       car1Value: calculateValueScore(car1),
       car2Value: calculateValueScore(car2),
       maxValue: 100,
       higherIsBetter: true,
     },
     {
-      label: "Env. Score",
+      label: t ? t('comparison.metrics.env_score') : "Env. Score",
       car1Value: calculateEnvironmentalScore(car1),
       car2Value: calculateEnvironmentalScore(car2),
       maxValue: 100,
       higherIsBetter: true,
     },
     {
-      label: "Features",
+      label: t ? t('comparison.metrics.features') : "Features",
       car1Value: car1.features?.length || 0,
       car2Value: car2.features?.length || 0,
       maxValue: 20,
       higherIsBetter: true,
     },
     {
-      label: "Price Ratio",
+      label: t ? t('comparison.metrics.price_ratio') : "Price Ratio",
       car1Value: (car1.features?.length || 1) / (car1.price / 10000),
       car2Value: (car2.features?.length || 1) / (car2.price / 10000),
       maxValue: 5,
@@ -749,7 +751,7 @@ export const ValueComparisonChart = ({
           { color: isDarkMode ? "#ffffff" : "#000000" },
         ]}
       >
-        Value Comparison Matrix
+        {t ? t('comparison.sections.value_comparison_matrix') : 'Value Comparison Matrix'}
       </Text>
 
       <View style={styles.valueMetricsContainer}>
@@ -796,12 +798,12 @@ export const ValueComparisonChart = ({
 
           // Calculate formatted values
           const car1FormattedValue =
-            metric.label === "Price Ratio"
+            metric.label === (t ? t('comparison.metrics.price_ratio') : "Price Ratio")
               ? metric.car1Value.toFixed(1)
               : Math.round(metric.car1Value);
 
           const car2FormattedValue =
-            metric.label === "Price Ratio"
+            metric.label === (t ? t('comparison.metrics.price_ratio') : "Price Ratio")
               ? metric.car2Value.toFixed(1)
               : Math.round(metric.car2Value);
 

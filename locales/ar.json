@@ -164,7 +164,8 @@
     "seconds_ago": "منذ {{count}} ثانية",
     "seconds_ago_other": "منذ {{count}} ثوان",
     "listing_updated_successfully": "تم تحديث الإعلان بنجاح",
-    "listing_created_successfully": "تم إنشاء إعلان جديد بنجاح"
+    "listing_created_successfully": "تم إنشاء إعلان جديد بنجاح",
+    "features": "المميزات"
   },
   "features": {
     "heated_seats": "مقاعد مدفأة",
@@ -767,7 +768,14 @@
       "all_features": "جميع المميزات",
       "safety_features": "مميزات الأمان",
       "comfort_features": "مميزات الراحة",
-      "technology_features": "مميزات التكنولوجيا"
+      "technology_features": "مميزات التكنولوجيا",
+      "value_comparison_matrix": "مصفوفة مقارنة القيمة"
+    },
+    "metrics": {
+      "value_score": "نقاط القيمة",
+      "env_score": "نقاط البيئة",
+      "features": "المميزات",
+      "price_ratio": "نسبة السعر"
     },
     "value_score": "النقاط",
     "value_now": "القيمة الحالية",
