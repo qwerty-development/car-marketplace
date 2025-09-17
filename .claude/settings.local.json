@@ -4,7 +4,8 @@
       "Bash(npm run:*)",
       "Bash(npx expo start:*)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

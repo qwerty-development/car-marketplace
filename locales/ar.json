@@ -186,7 +186,12 @@
     "apple_carplay": "أبل كاربلاي",
     "android_auto": "أندرويد أوتو",
     "premium_audio": "صوت متميز",
-    "remote_start": "تشغيل عن بُعد"
+    "remote_start": "تشغيل عن بُعد",
+    "adaptive_cruise": "مثبت السرعة التكيفي",
+    "auto_emergency_braking": "الكبح التلقائي في حالات الطوارئ",
+    "heads_up_display": "شاشة عرض أمامية",
+    "wireless_charging": "الشحن اللاسلكي",
+    "panoramic_roof": "سقف بانورامي"
   },
   "profile": {
     "language": "اللغة",

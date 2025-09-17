@@ -928,6 +928,7 @@ export default function CarComparison() {
                 car1Features={car1.features}
                 car2Features={car2.features}
                 isDarkMode={isDarkMode}
+                t={t}
               />
             </View>
 
@@ -950,6 +951,7 @@ export default function CarComparison() {
                 car1Features={car1.features}
                 car2Features={car2.features}
                 isDarkMode={isDarkMode}
+                t={t}
                 filterByCategory="safety"
               />
             </View>
@@ -973,6 +975,7 @@ export default function CarComparison() {
                 car1Features={car1.features}
                 car2Features={car2.features}
                 isDarkMode={isDarkMode}
+                t={t}
                 filterByCategory="comfort"
               />
             </View>
@@ -996,6 +999,7 @@ export default function CarComparison() {
                 car1Features={car1.features}
                 car2Features={car2.features}
                 isDarkMode={isDarkMode}
+                t={t}
                 filterByCategory="technology"
               />
             </View>

@@ -514,11 +514,13 @@ export const FeatureComparison = ({
   car2Features = [],
   isDarkMode,
   filterByCategory,
+  t,
 }: {
   car1Features: string[];
   car2Features: string[];
   isDarkMode: boolean;
   filterByCategory?: string;
+  t?: (key: string) => string;
 }) => {
   // Get all unique features, optionally filtered by category
   const allFeatures = useMemo(() => {
@@ -568,6 +570,10 @@ export const FeatureComparison = ({
           importance: "medium" as "medium",
           category: "technology" as "technology",
         };
+
+        // Get translated feature name and description
+        const featureLabel = t ? t(`features.${feature}`) : metadata.label;
+        const featureDescription = t ? t(`features.descriptions.${feature}`) : metadata.description;
 
         // Importance-based styling with defaults for all features
         const getImportanceStyle = () => {
@@ -624,7 +630,7 @@ export const FeatureComparison = ({
                     { color: isDarkMode ? "#ffffff" : "#000000" },
                   ]}
                 >
-                  {metadata.label}
+                  {featureLabel}
                   {metadata.importance === "high" && (
                     <Text style={{ color: "#F97316", fontWeight: "bold" }}>
                       {" "}
@@ -638,7 +644,7 @@ export const FeatureComparison = ({
                     { color: isDarkMode ? "#bbbbbb" : "#666666" },
                   ]}
                 >
-                  {metadata.description}
+                  {featureDescription}
                 </Text>
               </View>
             </View>
