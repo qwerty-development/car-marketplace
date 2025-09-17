@@ -756,6 +756,8 @@
     "select_two_cars": "Select Two Cars to Compare",
     "select_two_cars_description": "Choose from your favorite cars to see a detailed comparison of specifications, features, and insights.",
     "browse_cars_add_favorites": "Browse Cars to Add Favorites",
+    "visual_comparison": "Visual Comparison",
+    "no_image": "No image",
     "tabs": {
       "basics": "Basics",
       "features": "Features",

@@ -154,6 +154,8 @@ export const ComparisonAttribute = ({
     highlightAnim,
   ]);
 
+  // We no longer need hardcoded translations, using the i18n system instead
+
   // Format the value based on type
   const formatValue = (value: any) => {
     if (value === null || value === undefined) return t ? t('common.not_available') : "N/A";
@@ -169,6 +171,58 @@ export const ComparisonAttribute = ({
 
       return `${prefix}${value.toLocaleString()}${suffix}`;
     }
+
+    // Check if value needs translation
+    if (typeof value === "string" && t) {
+      const lowerValue = value.toLowerCase();
+      
+      // Translate based on the type of value and label
+      if (label.toLowerCase().includes("drivetrain")) {
+        // For drivetrain values like AWD, FWD, RWD, 4WD, 4x4
+        if (lowerValue === "awd" || lowerValue === "fwd" || 
+            lowerValue === "rwd" || lowerValue === "4wd" || 
+            lowerValue === "4x4") {
+          return `${prefix}${t(lowerValue)}${suffix}`;
+        }
+      } 
+      else if (label.toLowerCase().includes("fuel")) {
+        // For fuel types like benzine, diesel, electric, hybrid
+        const fuelKey = `filters.fuel.${lowerValue}`;
+        const translated = t(fuelKey);
+        if (translated !== fuelKey) {
+          return `${prefix}${translated}${suffix}`;
+        }
+      }
+      else if (label.toLowerCase().includes("category")) {
+        // For categories like sedan, SUV, etc.
+        const categoryKey = `category.${lowerValue}`;
+        const translated = t(categoryKey);
+        if (translated !== categoryKey) {
+          return `${prefix}${translated}${suffix}`;
+        }
+      }
+      else if (label.toLowerCase().includes("condition")) {
+        // For condition values like new, used
+        if (lowerValue === "new" || lowerValue === "used") {
+          return `${prefix}${t(lowerValue)}${suffix}`;
+        }
+      }
+      else if (label.toLowerCase().includes("transmission")) {
+        // For transmission values like automatic, manual
+        if (lowerValue === "automatic" || lowerValue === "manual") {
+          return `${prefix}${t(lowerValue)}${suffix}`;
+        }
+      }
+      else if (label.toLowerCase().includes("color")) {
+        // For colors
+        const colorKey = `colors.${value}`;
+        const translated = t(colorKey);
+        if (translated !== colorKey) {
+          return `${prefix}${translated}${suffix}`;
+        }
+      }
+    }
+
     return `${prefix}${value}${suffix}`;
   };
 
@@ -358,10 +412,12 @@ export const ImageComparisonGallery = ({
   car1,
   car2,
   isDarkMode,
+  t
 }: {
   car1: Car | null;
   car2: Car | null;
   isDarkMode: boolean;
+  t?: (key: string) => string;
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const maxImages = Math.max(
@@ -379,7 +435,7 @@ export const ImageComparisonGallery = ({
           { color: isDarkMode ? "#ffffff" : "#000000" },
         ]}
       >
-        Visual Comparison
+        {t ? t('comparison.visual_comparison') : 'Visual Comparison'}
       </Text>
 
       <View style={styles.imagesContainer}>
@@ -404,7 +460,7 @@ export const ImageComparisonGallery = ({
                 color={isDarkMode ? "#666666" : "#cccccc"}
               />
               <Text style={{ color: isDarkMode ? "#666666" : "#cccccc" }}>
-                No image
+                {t ? t('comparison.no_image') : 'No image'}
               </Text>
             </View>
           )}
@@ -439,7 +495,7 @@ export const ImageComparisonGallery = ({
                 color={isDarkMode ? "#666666" : "#cccccc"}
               />
               <Text style={{ color: isDarkMode ? "#666666" : "#cccccc" }}>
-                No image
+                {t ? t('comparison.no_image') : 'No image'}
               </Text>
             </View>
           )}

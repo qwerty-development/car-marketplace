@@ -749,43 +749,75 @@ export default function CarComparison() {
       },
       {
         label: t('car.condition'),
-        value1: car1.condition,
-        value2: car2.condition,
+        value1: car1.condition.toLowerCase() === "used" ? t("profile.inventory.used") : car1.condition.toLowerCase() === "new" ? t("profile.inventory.new") : car1.condition,
+        value2: car2.condition.toLowerCase() === "used" ? t("profile.inventory.used") : car2.condition.toLowerCase() === "new" ? t("profile.inventory.new") : car2.condition,
         better: 0, // Subjective, no better value
         icon: "car-info",
       },
       {
         label: t('car.transmission'),
-        value1: car1.transmission,
-        value2: car2.transmission,
+        value1: car1.transmission.toLowerCase() === "automatic" ? t("profile.inventory.automatic") : car1.transmission.toLowerCase() === "manual" ? t("profile.inventory.manual") : car1.transmission,
+        value2: car2.transmission.toLowerCase() === "automatic" ? t("profile.inventory.automatic") : car2.transmission.toLowerCase() === "manual" ? t("profile.inventory.manual") : car2.transmission,
         better: 0, // Preference-based
         icon: "car-shift-pattern",
       },
       {
         label: t('car.color'),
-        value1: car1.color,
-        value2: car2.color,
+        value1: car1.color && typeof car1.color === 'string' ? t(`colors.${car1.color}`) || car1.color : car1.color,
+        value2: car2.color && typeof car2.color === 'string' ? t(`colors.${car2.color}`) || car2.color : car2.color,
         better: 0, // Subjective
         icon: "palette",
       },
       {
         label: t('car.drivetrain'),
-        value1: car1.drivetrain,
-        value2: car2.drivetrain,
+        value1: car1.drivetrain.toLowerCase() === "awd" ? t("awd") : 
+                car1.drivetrain.toLowerCase() === "fwd" ? t("fwd") : 
+                car1.drivetrain.toLowerCase() === "rwd" ? t("rwd") : 
+                car1.drivetrain.toLowerCase() === "4wd" ? t("4wd") : 
+                car1.drivetrain.toLowerCase() === "4x4" ? t("4x4") : 
+                car1.drivetrain,
+        value2: car2.drivetrain.toLowerCase() === "awd" ? t("awd") : 
+                car2.drivetrain.toLowerCase() === "fwd" ? t("fwd") : 
+                car2.drivetrain.toLowerCase() === "rwd" ? t("rwd") : 
+                car2.drivetrain.toLowerCase() === "4wd" ? t("4wd") : 
+                car2.drivetrain.toLowerCase() === "4x4" ? t("4x4") : 
+                car2.drivetrain,
         better: 0, // Depends on needs
         icon: "car-traction-control",
       },
       {
         label: t('car.fuel_type'),
-        value1: car1.type,
-        value2: car2.type,
+        value1: car1.type.toLowerCase() === "benzine" ? t("filters.fuel.benzine") : 
+                car1.type.toLowerCase() === "diesel" ? t("filters.fuel.diesel") : 
+                car1.type.toLowerCase() === "electric" ? t("filters.fuel.electric") : 
+                car1.type.toLowerCase() === "hybrid" ? t("filters.fuel.hybrid") : 
+                car1.type,
+        value2: car2.type.toLowerCase() === "benzine" ? t("filters.fuel.benzine") : 
+                car2.type.toLowerCase() === "diesel" ? t("filters.fuel.diesel") : 
+                car2.type.toLowerCase() === "electric" ? t("filters.fuel.electric") : 
+                car2.type.toLowerCase() === "hybrid" ? t("filters.fuel.hybrid") : 
+                car2.type,
         better: 0, // Depends on preference
         icon: "gas-station",
       },
       {
         label: t('car.category'),
-        value1: car1.category,
-        value2: car2.category,
+        value1: car1.category.toLowerCase() === "sedan" ? t("category.sedan") : 
+                car1.category.toLowerCase() === "suv" ? t("category.suv") : 
+                car1.category.toLowerCase() === "hatchback" ? t("category.hatchback") : 
+                car1.category.toLowerCase() === "coupe" ? t("category.coupe") : 
+                car1.category.toLowerCase() === "convertible" ? t("category.convertible") : 
+                car1.category.toLowerCase() === "sports" || car1.category.toLowerCase() === "sport" ? t("category.sports") :
+                car1.category.toLowerCase() === "classic" ? t("category.classic") :
+                car1.category,
+        value2: car2.category.toLowerCase() === "sedan" ? t("category.sedan") : 
+                car2.category.toLowerCase() === "suv" ? t("category.suv") : 
+                car2.category.toLowerCase() === "hatchback" ? t("category.hatchback") : 
+                car2.category.toLowerCase() === "coupe" ? t("category.coupe") : 
+                car2.category.toLowerCase() === "convertible" ? t("category.convertible") : 
+                car2.category.toLowerCase() === "sports" || car2.category.toLowerCase() === "sport" ? t("category.sports") :
+                car2.category.toLowerCase() === "classic" ? t("category.classic") :
+                car2.category,
         better: 0, // Depends on needs
         icon: "car-estate",
       },
@@ -822,6 +854,7 @@ export default function CarComparison() {
               car1={car1}
               car2={car2}
               isDarkMode={isDarkMode}
+              t={t}
             />
 
             <View

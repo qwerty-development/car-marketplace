@@ -641,8 +641,6 @@
       "sign_in_access_feature": "يرجى تسجيل الدخول للوصول إلى هذه الميزة.",
       "sign_in": "تسجيل الدخول"
     },
-    "visual_comparison": "المقارنة البصرية",
-    "no_image": "لا توجد صورة",
     "value_comparison_matrix": "مصفوفة مقارنة القيمة",
     "value_score": "نقاط القيمة",
     "env_score": "نقاط البيئة",
@@ -757,6 +755,8 @@
     "select_two_cars": "اختر سيارتين للمقارنة",
     "select_two_cars_description": "اختر من سياراتك المفضلة لرؤية مقارنة مفصلة للمواصفات والمميزات والرؤى.",
     "browse_cars_add_favorites": "تصفح السيارات لإضافة المفضلة",
+    "visual_comparison": "المقارنة البصرية",
+    "no_image": "لا توجد صورة",
     "tabs": {
       "basics": "الأساسيات",
       "features": "المميزات",
