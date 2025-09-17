@@ -15,7 +15,9 @@ export const CarPickerModal = ({
     onSelect,
     selectedCars,
     isDarkMode,
-    position
+    position,
+    t,
+    isRTL = false
   }: {
     visible: boolean;
     onClose: () => void;
@@ -24,15 +26,17 @@ export const CarPickerModal = ({
     selectedCars: [Car | null, Car | null];
     isDarkMode: boolean;
     position: 'left' | 'right';
+    t?: (key: string) => string;
+    isRTL?: boolean;
   }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOption, setSortOption] = useState('make');
     const sortOptions = [
-      { value: 'make', label: 'Make' },
-      { value: 'price_asc', label: 'Price (Low to High)' },
-      { value: 'price_desc', label: 'Price (High to Low)' },
-      { value: 'year_desc', label: 'Year (Newest First)' },
-      { value: 'year_asc', label: 'Year (Oldest First)' },
+      { value: 'make', label: t ? t('comparison.modal.sort_options.make') : 'Make' },
+      { value: 'price_asc', label: t ? t('comparison.modal.sort_options.price_low_high') : 'Price (Low to High)' },
+      { value: 'price_desc', label: t ? t('comparison.modal.sort_options.price_high_low') : 'Price (High to Low)' },
+      { value: 'year_desc', label: t ? t('comparison.modal.sort_options.year_newest') : 'Year (Newest First)' },
+      { value: 'year_asc', label: t ? t('comparison.modal.sort_options.year_oldest') : 'Year (Oldest First)' },
     ];
   
     // Filter and sort cars
@@ -96,14 +100,23 @@ export const CarPickerModal = ({
             ]}
           >
             {/* Header */}
-            <View style={styles.modalHeader}>
+            <View style={[
+              styles.modalHeader,
+              { flexDirection: isRTL ? 'row-reverse' : 'row' }
+            ]}>
               <View style={styles.modalHandleBar} />
   
               <Text style={[
                 styles.modalTitle,
-                { color: isDarkMode ? '#ffffff' : '#000000' }
+                { 
+                  color: isDarkMode ? '#ffffff' : '#000000',
+                  textAlign: isRTL ? 'right' : 'left'
+                }
               ]}>
-                Select Car for {position === 'left' ? 'Left' : 'Right'} Position
+                {position === 'left' 
+                  ? (t ? t('comparison.modal.title_left') : 'Select Car for Left Position')
+                  : (t ? t('comparison.modal.title_right') : 'Select Car for Right Position')
+                }
               </Text>
   
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -121,7 +134,8 @@ export const CarPickerModal = ({
                 styles.searchInputContainer,
                 {
                   backgroundColor: isDarkMode ? '#333333' : '#f0f0f0',
-                  borderColor: isDarkMode ? '#444444' : '#e0e0e0'
+                  borderColor: isDarkMode ? '#444444' : '#e0e0e0',
+                  flexDirection: isRTL ? 'row-reverse' : 'row'
                 }
               ]}>
                 <Ionicons
@@ -132,9 +146,12 @@ export const CarPickerModal = ({
                 <TextInput
                   style={[
                     styles.searchInput,
-                    { color: isDarkMode ? '#ffffff' : '#000000' }
+                    { 
+                      color: isDarkMode ? '#ffffff' : '#000000',
+                      textAlign: isRTL ? 'right' : 'left'
+                    }
                   ]}
-                  placeholder="Search cars..."
+                  placeholder={t ? t('comparison.modal.search_placeholder') : 'Search cars...'}
                   placeholderTextColor={isDarkMode ? '#888888' : '#aaaaaa'}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -153,9 +170,12 @@ export const CarPickerModal = ({
               <View style={styles.sortContainer}>
                 <Text style={[
                   styles.sortLabel,
-                  { color: isDarkMode ? '#bbbbbb' : '#666666' }
+                  { 
+                    color: isDarkMode ? '#bbbbbb' : '#666666',
+                    textAlign: isRTL ? 'right' : 'left'
+                  }
                 ]}>
-                  Sort by:
+                  {t ? t('comparison.modal.sort_by') : 'Sort by:'}
                 </Text>
                 <ScrollView
                   horizontal
@@ -202,11 +222,15 @@ export const CarPickerModal = ({
                 />
                 <Text style={[
                   styles.emptyStateText,
-                  { color: isDarkMode ? '#aaaaaa' : '#666666' }
+                  { 
+                    color: isDarkMode ? '#aaaaaa' : '#666666',
+                    textAlign: isRTL ? 'right' : 'left'
+                  }
                 ]}>
                   {searchQuery ?
-                    'No cars match your search' :
-                    'No favorite cars available to compare'}
+                    (t ? t('comparison.modal.no_cars_match') : 'No cars match your search') :
+                    (t ? t('comparison.modal.no_favorite_cars') : 'No favorite cars available to compare')
+                  }
                 </Text>
               </View>
             ) : (
@@ -245,22 +269,34 @@ export const CarPickerModal = ({
                         source={{ uri: car.images[0] }}
                         style={styles.carThumbnail}
                       />
-                      <View style={styles.carInfo}>
+                      <View style={[
+                        styles.carInfo,
+                        { alignItems: isRTL ? 'flex-end' : 'flex-start' }
+                      ]}>
                         <Text style={[
                           styles.carMake,
-                          { color: isDarkMode ? '#D55004' : '#D55004' }
+                          { 
+                            color: isDarkMode ? '#D55004' : '#D55004',
+                            textAlign: isRTL ? 'right' : 'left'
+                          }
                         ]}>
                           {car.make}
                         </Text>
                         <Text style={[
                           styles.carTitle,
-                          { color: isDarkMode ? '#ffffff' : '#000000' }
+                          { 
+                            color: isDarkMode ? '#ffffff' : '#000000',
+                            textAlign: isRTL ? 'right' : 'left'
+                          }
                         ]}>
                           {car.year} {car.model}
                         </Text>
                         <Text style={[
                           styles.carPrice,
-                          { color: isDarkMode ? '#ffffff' : '#000000' }
+                          { 
+                            color: isDarkMode ? '#ffffff' : '#000000',
+                            textAlign: isRTL ? 'right' : 'left'
+                          }
                         ]}>
                           ${car.price.toLocaleString()}
                         </Text>
@@ -291,16 +327,24 @@ export const CarPickerModal = ({
                           />
                           <Text style={[
                             styles.featureCountText,
-                            { color: isDarkMode ? '#bbbbbb' : '#666666' }
+                            { 
+                              color: isDarkMode ? '#bbbbbb' : '#666666',
+                              textAlign: isRTL ? 'right' : 'left'
+                            }
                           ]}>
-                            {car.features?.length || 0} features
+                            {car.features?.length || 0} {t ? t('comparison.modal.features') : 'features'}
                           </Text>
                         </View>
                       </View>
                       {
                         isSelectedInOtherPosition && (
                           <View style={styles.alreadySelectedBadge}>
-                            <Text style={styles.alreadySelectedText}>Already Selected</Text>
+                            <Text style={[
+                              styles.alreadySelectedText,
+                              { textAlign: isRTL ? 'right' : 'left' }
+                            ]}>
+                              {t ? t('comparison.modal.already_selected') : 'Already Selected'}
+                            </Text>
                           </View>
                         )
                       }

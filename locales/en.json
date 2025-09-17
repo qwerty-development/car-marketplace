@@ -795,6 +795,23 @@
     "depreciation_disclaimer": "* Depreciation estimates powered by AI analysis of market data and may vary based on market conditions.",
     "annual_cost_estimates": "Annual Cost Estimates",
     "cost_disclaimer": "* Cost estimates powered by AI analysis and may vary by location and driving habits.",
+    "modal": {
+      "title_left": "Select Car for Left Position",
+      "title_right": "Select Car for Right Position",
+      "search_placeholder": "Search cars...",
+      "sort_by": "Sort by:",
+      "sort_options": {
+        "make": "Make",
+        "price_low_high": "Price (Low to High)",
+        "price_high_low": "Price (High to Low)",
+        "year_newest": "Year (Newest First)",
+        "year_oldest": "Year (Oldest First)"
+      },
+      "no_cars_match": "No cars match your search",
+      "no_favorite_cars": "No favorite cars available to compare",
+      "features": "features",
+      "already_selected": "Already Selected"
+    },
     "summary": {
       "title": "Comparison Summary",
       "recommended_choice": "Recommended Choice",

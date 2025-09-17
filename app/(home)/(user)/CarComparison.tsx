@@ -1474,6 +1474,8 @@ export default function CarComparison() {
         selectedCars={selectedCars}
         isDarkMode={isDarkMode}
         position={pickerPosition}
+        t={t}
+        isRTL={isRTL}
       />
     </View>
   );
