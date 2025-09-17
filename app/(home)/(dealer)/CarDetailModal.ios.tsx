@@ -29,6 +29,7 @@ import { useAuth } from "@/utils/AuthContext";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get("window");
 
@@ -140,6 +141,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const router = useRouter();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
+  const { t } = useTranslation();
   const [similarCars, setSimilarCars] = useState<any>([]);
   const [dealerCars, setDealerCars] = useState<any>([]);
   const scrollViewRef = useRef<any>(null);
@@ -153,35 +155,45 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   // Helper function to compute relative time from the listed_at property
   const getRelativeTime = (dateString: string) => {
-    const now = new Date();
-    const postedDate = new Date(dateString);
-    const seconds = Math.floor((now.getTime() - postedDate.getTime()) / 1000);
+    try {
+      if (!dateString) return t('car.recently');
 
-    let interval = Math.floor(seconds / 31536000);
-    if (interval >= 1) {
-      return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+      const now = new Date();
+      const postedDate = new Date(dateString);
+
+      if (isNaN(postedDate.getTime())) return t('car.recently');
+
+      const seconds = Math.floor((now.getTime() - postedDate.getTime()) / 1000);
+
+      let interval = Math.floor(seconds / 31536000);
+      if (interval >= 1) {
+        return t('car.years_ago', { count: interval });
+      }
+      interval = Math.floor(seconds / 2592000);
+      if (interval >= 1) {
+        return t('car.months_ago', { count: interval });
+      }
+      interval = Math.floor(seconds / 604800);
+      if (interval >= 1) {
+        return t('car.weeks_ago', { count: interval });
+      }
+      interval = Math.floor(seconds / 86400);
+      if (interval >= 1) {
+        return t('car.days_ago', { count: interval });
+      }
+      interval = Math.floor(seconds / 3600);
+      if (interval >= 1) {
+        return t('car.hours_ago', { count: interval });
+      }
+      interval = Math.floor(seconds / 60);
+      if (interval >= 1) {
+        return t('car.minutes_ago', { count: interval });
+      }
+      return t('car.seconds_ago', { count: Math.floor(seconds) });
+    } catch (error) {
+      console.error('Error calculating relative time:', error);
+      return t('car.recently');
     }
-    interval = Math.floor(seconds / 2592000);
-    if (interval >= 1) {
-      return interval + " month" + (interval > 1 ? "s" : "") + " ago";
-    }
-    interval = Math.floor(seconds / 604800);
-    if (interval >= 1) {
-      return interval + " week" + (interval > 1 ? "s" : "") + " ago";
-    }
-    interval = Math.floor(seconds / 86400);
-    if (interval >= 1) {
-      return interval + " day" + (interval > 1 ? "s" : "") + " ago";
-    }
-    interval = Math.floor(seconds / 3600);
-    if (interval >= 1) {
-      return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
-    }
-    interval = Math.floor(seconds / 60);
-    if (interval >= 1) {
-      return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
-    }
-    return Math.floor(seconds) + " seconds ago";
   };
 
   // Add fetchAutoclips function

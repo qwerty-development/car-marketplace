@@ -515,12 +515,14 @@ export const FeatureComparison = ({
   isDarkMode,
   filterByCategory,
   t,
+  isRTL = false,
 }: {
   car1Features: string[];
   car2Features: string[];
   isDarkMode: boolean;
   filterByCategory?: string;
   t?: (key: string) => string;
+  isRTL?: boolean;
 }) => {
   // Get all unique features, optionally filtered by category
   const allFeatures = useMemo(() => {
@@ -545,12 +547,17 @@ export const FeatureComparison = ({
         <Text
           style={[
             styles.emptyFeaturesText,
-            { color: isDarkMode ? "#aaaaaa" : "#666666" },
+            { 
+              color: isDarkMode ? "#aaaaaa" : "#666666",
+              textAlign: isRTL ? 'right' : 'left',
+            },
           ]}
         >
           {filterByCategory
-            ? `No ${filterByCategory} features available for comparison`
-            : "No feature information available for comparison"}
+            ? t ? t('comparison.no_features_available_category') 
+                : `No ${filterByCategory} features available for comparison`
+            : t ? t('comparison.no_feature_information_available') 
+                : "No feature information available for comparison"}
         </Text>
       </View>
     );
@@ -613,21 +620,28 @@ export const FeatureComparison = ({
                   : "transparent",
                 borderRadius: 8, // Added rounded corners
                 marginHorizontal: 2, // Slight margin to make rounded corners more visible
+                flexDirection: isRTL ? 'row-reverse' : 'row', // RTL support
               },
             ]}
           >
-            <View style={[styles.featureInfo, { alignItems: 'center' }]}>
+            <View style={[styles.featureInfo, { 
+              alignItems: 'center',
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            }]}>
               <MaterialCommunityIcons
                 name={(metadata.icon as any) || "check-circle-outline"}
                 size={20}
                 color={isDarkMode ? "#ffffff" : "#000000"}
-                style={{ marginRight: 12 }} // Consistent margin
+                style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} // RTL margin
               />
               <View style={styles.featureTextContainer}>
                 <Text
                   style={[
                     styles.featureLabel,
-                    { color: isDarkMode ? "#ffffff" : "#000000" },
+                    { 
+                      color: isDarkMode ? "#ffffff" : "#000000",
+                      textAlign: isRTL ? 'right' : 'left', // RTL text alignment
+                    },
                   ]}
                 >
                   {featureLabel}
@@ -641,7 +655,10 @@ export const FeatureComparison = ({
                 <Text
                   style={[
                     styles.featureDescription,
-                    { color: isDarkMode ? "#bbbbbb" : "#666666" },
+                    { 
+                      color: isDarkMode ? "#bbbbbb" : "#666666",
+                      textAlign: isRTL ? 'right' : 'left', // RTL text alignment
+                    },
                   ]}
                 >
                   {featureDescription}
@@ -649,7 +666,10 @@ export const FeatureComparison = ({
               </View>
             </View>
 
-            <View style={styles.featureAvailability}>
+            <View style={[
+              styles.featureAvailability,
+              { flexDirection: isRTL ? 'row-reverse' : 'row' } // RTL support for checkmarks
+            ]}>
               <View style={styles.featureCheckContainer}>
                 {hasCar1 ? (
                   <AntDesign name="checkcircle" size={22} color="#4ADE80" />

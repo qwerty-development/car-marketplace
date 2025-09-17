@@ -14,6 +14,7 @@ import {
   Alert,
   Share,
   Pressable,
+  I18nManager,
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -46,7 +47,7 @@ import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Car } from "@/components/comparison/types";
 import {
   FEATURE_METADATA,
@@ -75,12 +76,13 @@ import { TotalCostOfOwnership } from "@/components/comparison/totalCostOfOwnersh
 const CustomHeader = React.memo(
   ({ title, onBack }: { title: string; onBack?: () => void }) => {
     const { isDarkMode } = useTheme();
+    const { i18n } = useTranslation();
+    const isRTL = i18n.language === 'ar';
 
     return (
       <SafeAreaView className={`bg-${isDarkMode ? "black" : "white"} -mb-7`}>
- 
         <View
-          className={`flex-row items-center ml-2  ${
+          className={`flex-row items-center ${isRTL ? 'flex-row-reverse mr-2' : 'ml-2'} ${
             Platform.OS === "ios" ? "" : "mb-7"
           }`}
         >
@@ -90,16 +92,24 @@ const CustomHeader = React.memo(
               className="p-2"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <ChevronLeft
-                size={24}
-                className={isDarkMode ? "text-white" : "text-black"}
-              />
+              {isRTL ? (
+                <ChevronRight
+                  size={24}
+                  className={isDarkMode ? "text-white" : "text-black"}
+                />
+              ) : (
+                <ChevronLeft
+                  size={24}
+                  className={isDarkMode ? "text-white" : "text-black"}
+                />
+              )}
             </Pressable>
           )}
           <Text
             className={`text-2xl ${
               isDarkMode ? "text-white" : "text-black"
-            } font-bold ml-2`}
+            } font-bold ${isRTL ? 'mr-2' : 'ml-2'}`}
+            style={{ textAlign: isRTL ? 'right' : 'left' }}
           >
             {title}
           </Text>
@@ -316,13 +326,18 @@ const TabNavigation = React.memo(
     handleTabChange,
     isDarkMode,
     t,
+    isRTL = false,
   }: {
     activeTab: "basics" | "features" | "cost" | "summary";
     handleTabChange: (tab: "basics" | "features" | "cost" | "summary") => void;
     isDarkMode: boolean;
     t: (key: string) => string;
+    isRTL?: boolean;
   }) => (
-    <View style={styles.tabContainer}>
+    <View style={[
+      styles.tabContainer, 
+      { flexDirection: isRTL ? 'row-reverse' : 'row' }
+    ]}>
       <TabButton
         tabName="basics"
         activeTab={activeTab}
@@ -362,9 +377,12 @@ export default function CarComparison() {
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isGuest } = useGuestUser();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ car1Id?: string; car2Id?: string }>();
+
+  // RTL support
+  const isRTL = i18n.language === 'ar';
 
   // Refs for animations
   const animationRef = useRef<any>(null);
@@ -929,6 +947,7 @@ export default function CarComparison() {
                 car2Features={car2.features}
                 isDarkMode={isDarkMode}
                 t={t}
+                isRTL={isRTL}
               />
             </View>
 
@@ -953,6 +972,7 @@ export default function CarComparison() {
                 isDarkMode={isDarkMode}
                 t={t}
                 filterByCategory="safety"
+                isRTL={isRTL}
               />
             </View>
 
@@ -977,6 +997,7 @@ export default function CarComparison() {
                 isDarkMode={isDarkMode}
                 t={t}
                 filterByCategory="comfort"
+                isRTL={isRTL}
               />
             </View>
 
@@ -1001,6 +1022,7 @@ export default function CarComparison() {
                 isDarkMode={isDarkMode}
                 t={t}
                 filterByCategory="technology"
+                isRTL={isRTL}
               />
             </View>
           </>
@@ -1391,10 +1413,13 @@ export default function CarComparison() {
           bounces={Platform.OS === 'ios'}
         >
           {/* Car selection cards */}
-          <View style={styles.carSelectionContainer}>
+          <View style={[
+            styles.carSelectionContainer,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' }
+          ]}>
             <CarSelectionCard
-              car={selectedCars[0]}
-              position="left"
+              car={selectedCars[isRTL ? 1 : 0]}
+              position={isRTL ? "right" : "left"}
               isDarkMode={isDarkMode}
               onOpenPicker={openCarPicker}
               onClearCar={handleClearCar}
@@ -1402,8 +1427,8 @@ export default function CarComparison() {
             />
 
             <CarSelectionCard
-              car={selectedCars[1]}
-              position="right"
+              car={selectedCars[isRTL ? 0 : 1]}
+              position={isRTL ? "left" : "right"}
               isDarkMode={isDarkMode}
               onOpenPicker={openCarPicker}
               onClearCar={handleClearCar}
@@ -1419,6 +1444,7 @@ export default function CarComparison() {
                 handleTabChange={handleTabChange}
                 isDarkMode={isDarkMode}
                 t={t}
+                isRTL={isRTL}
               />
 
               <Animated.View style={fadeStyle}>

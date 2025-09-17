@@ -32,6 +32,7 @@ import ImageViewing from "react-native-image-viewing";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get("window");
 
@@ -253,6 +254,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const router = useRouter();
   const { user } = useAuth();
   const { isFavorite } = useFavorites();
+  const { t } = useTranslation();
   const [similarCars, setSimilarCars] = useState<any>([]);
   const [dealerCars, setDealerCars] = useState<any>([]);
   const scrollViewRef = useRef<any>(null);
