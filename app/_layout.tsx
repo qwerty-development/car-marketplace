@@ -1059,8 +1059,8 @@ export default Sentry.wrap(function RootLayout() {
             SplashScreen.hideAsync().catch(() => {});
           }, 2000);
         }
-        // Configure i18n early
-        configureI18n();
+        // Configure i18n early and wait for it to complete
+        await configureI18n();
       } catch (e) {
         console.warn("[RootLayout] Initialization error:", e);
         // RULE: Force completion on error

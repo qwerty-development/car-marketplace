@@ -4,6 +4,7 @@ import { BarChart } from 'react-native-chart-kit'
 import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
+import { useTranslation } from 'react-i18next'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -20,6 +21,7 @@ const VIEW_MODES = {
  * @param {boolean} isDarkMode - Whether dark mode is enabled
  */
 const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
+  const { t } = useTranslation()
   // State for the current view mode
   const [viewMode, setViewMode] = useState(VIEW_MODES.COUNT)
 
@@ -131,12 +133,12 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
 
   // Get performance text based on growth rate
   const getPerformanceText = growthRate => {
-    if (growthRate > 20) return 'Exceptional growth!'
-    if (growthRate > 10) return 'Strong performance!'
-    if (growthRate > 0) return 'Positive trend'
-    if (growthRate === 0) return 'Stable performance'
-    if (growthRate > -10) return 'Slight decline'
-    return 'Needs attention'
+    if (growthRate > 20) return t('sales.exceptional_growth')
+    if (growthRate > 10) return t('sales.strong_performance')
+    if (growthRate > 0) return t('sales.positive_trend')
+    if (growthRate === 0) return t('sales.stable_performance')
+    if (growthRate > -10) return t('sales.slight_decline')
+    return t('sales.needs_attention')
   }
 
   // Chart configuration
@@ -313,7 +315,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ? 'text-neutral-400'
                 : 'text-neutral-600'
             }`}>
-            Sales
+            {t('sales.sales')}
           </Text>
         </TouchableOpacity>
 
@@ -332,7 +334,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ? 'text-neutral-400'
                 : 'text-neutral-600'
             }`}>
-            Revenue
+            {t('sales.revenue')}
           </Text>
         </TouchableOpacity>
 
@@ -351,7 +353,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ? 'text-neutral-400'
                 : 'text-neutral-600'
             }`}>
-            Profit
+            {t('sales.profit')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -371,7 +373,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
           className={`text-xl font-bold mb-4 ${
             isDarkMode ? 'text-white' : 'text-neutral-900'
           }`}>
-          Sales Overview
+          {t('sales.sales_overview')}
         </Text>
 
         {/* View Mode Toggle */}
@@ -383,13 +385,13 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
         {/* Metrics Cards */}
         <View className="flex-row mb-6">
           <InsightCard
-            title={viewMode === VIEW_MODES.COUNT ? 'Monthly Average' : 'Average'}
+            title={viewMode === VIEW_MODES.COUNT ? t('sales.monthly_average') : t('sales.average')}
             value={currentMetrics.average}
             icon="analytics"
             color="#0EA5E9"
           />
           <InsightCard
-            title={viewMode === VIEW_MODES.COUNT ? 'Current Month' : 'Current'}
+            title={viewMode === VIEW_MODES.COUNT ? t('sales.current_month') : t('sales.current')}
             value={currentMetrics.current}
             icon="pulse"
             trend={currentMetrics.growthRate}

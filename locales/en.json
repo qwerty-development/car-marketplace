@@ -216,11 +216,36 @@
     "version": "Version",
     "sales": {
       "sales_history": "Sales History",
+      "sales_overview": "Sales Overview",
+      "sales": "Sales",
+      "revenue": "Revenue", 
+      "profit": "Profit",
+      "monthly_average": "Monthly Average",
+      "current_month": "Current Month",
+      "average": "Average",
+      "current": "Current",
+      "stable_performance": "Stable performance",
+      "exceptional_growth": "Exceptional growth!",
+      "strong_performance": "Strong performance!",
+      "positive_trend": "Positive trend",
+      "slight_decline": "Slight decline",
+      "needs_attention": "Needs attention",
       "total_sold": "Total Sold",
       "total_views": "Total Views", 
       "total_revenue": "Total Revenue",
       "total_profit": "Total Profit",
-      "export_sales_data": "Export Sales Data"
+      "export_sales_data": "Export Sales Data",
+      "listed_price": "Listed Price",
+      "sold_price": "Sold Price",
+      "actual_profit": "Actual Profit",
+      "expected_profit": "Expected Profit",
+      "days_listed": "Days Listed",
+      "until_sale": "Until Sale",
+      "days_in_stock": "Days in Stock",
+      "total_duration": "Total Duration",
+      "bought": "Bought",
+      "listed": "Listed",
+      "sold": "Sold"
     },
     "inventory": {
       "search_inventory": "Search inventory...",
@@ -719,7 +744,70 @@
     "depreciation_description": "Estimated value after 5 years of ownership based on AI market analysis.",
     "depreciation_disclaimer": "* Depreciation estimates powered by AI analysis of market data and may vary based on market conditions.",
     "annual_cost_estimates": "Annual Cost Estimates",
-    "cost_disclaimer": "* Cost estimates powered by AI analysis and may vary by location and driving habits."
+    "cost_disclaimer": "* Cost estimates powered by AI analysis and may vary by location and driving habits.",
+    "summary": {
+      "title": "Comparison Summary",
+      "recommended_choice": "Recommended Choice",
+      "evenly_matched": "Evenly Matched",
+      "evenly_matched_description": "Both vehicles have comparable pros and cons. Consider your specific needs and preferences, or review the detailed insights below to make your decision.",
+      "confidence_levels": {
+        "high": "high",
+        "moderate": "moderate",
+        "slight": "slight"
+      },
+      "recommendation_reason": "With a {{confidence}} level of confidence, this vehicle scores better across key metrics including {{metrics}}.",
+      "pros_cons_title": "Pros & Cons Comparison",
+      "pros_title": "Pros:",
+      "cons_title": "Cons:",
+      "no_significant_advantages": "No significant advantages detected",
+      "no_significant_disadvantages": "No significant disadvantages detected",
+      "pros": {
+        "lower_purchase_price": "Lower purchase price",
+        "higher_purchase_price": "Higher purchase price",
+        "newer_model_year": "Newer model year",
+        "older_model_year": "Older model year",
+        "lower_mileage": "Lower mileage",
+        "higher_mileage": "Higher mileage",
+        "more_features_overall": "More features overall",
+        "fewer_features_overall": "Fewer features overall",
+        "better_safety_features": "Better safety features",
+        "fewer_safety_features": "Fewer safety features",
+        "more_comfort_features": "More comfort features",
+        "fewer_comfort_features": "Fewer comfort features",
+        "more_technology_features": "More technology features",
+        "fewer_technology_features": "Fewer technology features",
+        "lower_cost_ownership": "Lower cost of ownership",
+        "higher_cost_ownership": "Higher cost of ownership",
+        "better_environmental_score": "Better environmental score",
+        "lower_environmental_score": "Lower environmental score"
+      },
+      "use_cases": {
+        "title": "Best Use Cases",
+        "no_specific_use_cases": "No specific use cases identified",
+        "urban_driving": "Urban driving",
+        "off_road_driving": "Off-road driving",
+        "family_trips": "Family trips",
+        "comfortable_commuting": "Comfortable commuting",
+        "tech_enthusiasts": "Tech enthusiasts",
+        "budget_conscious_buyers": "Budget-conscious buyers",
+        "long_distance_travel": "Long distance travel"
+      },
+      "insights": {
+        "value_score_title": "Value Score",
+        "environmental_impact_title": "Environmental Impact",
+        "value_score_better": "The {{year}} {{make}} {{model}} offers better overall value with a score of {{score1}}/100 compared to {{score2}}/100 for the {{otherMake}}.",
+        "value_score_similar": "Both vehicles offer similar value with scores of {{score}}/100.",
+        "environmental_better": "The {{year}} {{make}} {{model}} has a better environmental score ({{score}}/100) based on fuel type, age, and vehicle category.",
+        "environmental_similar": "Both vehicles have similar environmental scores of {{score}}/100."
+      },
+      "metrics": {
+        "price": "price",
+        "value": "value",
+        "cost_of_ownership": "cost of ownership",
+        "features": "features",
+        "safety": "safety"
+      }
+    }
   },
   "password": {
     "change_password": "Change Password",
@@ -761,19 +849,6 @@
   "permissions": {
     "denied": "Permission Denied",
     "photo_access_required": "Please allow photo access."
-  },
-  "sales": {
-    "listed_price": "Listed Price",
-    "sold_price": "Sold Price",
-    "actual_profit": "Actual Profit",
-    "expected_profit": "Expected Profit",
-    "days_listed": "Days Listed",
-    "until_sale": "Until Sale",
-    "days_in_stock": "Days in Stock",
-    "total_duration": "Total Duration",
-    "bought": "Bought",
-    "listed": "Listed",
-    "sold": "Sold"
   }
 }
 

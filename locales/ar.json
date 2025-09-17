@@ -216,11 +216,36 @@
     "version": "الإصدار",
     "sales": {
       "sales_history": "تاريخ المبيعات",
+      "sales_overview": "نظرة عامة على المبيعات",
+      "sales": "المبيعات",
+      "revenue": "الإيرادات", 
+      "profit": "الربح",
+      "monthly_average": "المتوسط الشهري",
+      "current_month": "الشهر الحالي",
+      "average": "المتوسط",
+      "current": "الحالي",
+      "stable_performance": "أداء مستقر",
+      "exceptional_growth": "نمو استثنائي!",
+      "strong_performance": "أداء قوي!",
+      "positive_trend": "اتجاه إيجابي",
+      "slight_decline": "انخفاض طفيف",
+      "needs_attention": "يحتاج انتباه",
       "total_sold": "إجمالي المباع",
       "total_views": "إجمالي المشاهدات",
       "total_revenue": "إجمالي الإيرادات", 
       "total_profit": "إجمالي الربح",
-      "export_sales_data": "تصدير بيانات المبيعات"
+      "export_sales_data": "تصدير بيانات المبيعات",
+      "listed_price": "السعر المعروض",
+      "sold_price": "سعر البيع",
+      "actual_profit": "الربح الفعلي",
+      "expected_profit": "الربح المتوقع",
+      "days_listed": "أيام الإدراج",
+      "until_sale": "حتى البيع",
+      "days_in_stock": "أيام في المخزون",
+      "total_duration": "المدة الإجمالية",
+      "bought": "شراء",
+      "listed": "إدراج",
+      "sold": "بيع"
     },
     "inventory": {
       "search_inventory": "البحث في المخزون...",
@@ -719,7 +744,70 @@
     "depreciation_description": "القيمة المقدرة بعد ٥ سنوات من الملكية بناءً على تحليل السوق بالذكاء الاصطناعي.",
     "depreciation_disclaimer": "* تقديرات الانخفاض مدعومة بتحليل الذكاء الاصطناعي لبيانات السوق وقد تختلف حسب ظروف السوق.",
     "annual_cost_estimates": "تقديرات التكلفة السنوية",
-    "cost_disclaimer": "* تقديرات التكلفة مدعومة بتحليل الذكاء الاصطناعي وقد تختلف حسب الموقع وعادات القيادة."
+    "cost_disclaimer": "* تقديرات التكلفة مدعومة بتحليل الذكاء الاصطناعي وقد تختلف حسب الموقع وعادات القيادة.",
+    "summary": {
+      "title": "ملخص المقارنة",
+      "recommended_choice": "الخيار الموصى به",
+      "evenly_matched": "متطابقان بشكل متساوٍ",
+      "evenly_matched_description": "كلا المركبتين لديهما إيجابيات وسلبيات متشابهة. فكر في احتياجاتك وتفضيلاتك المحددة، أو راجع الرؤى التفصيلية أدناه لاتخاذ قرارك.",
+      "confidence_levels": {
+        "high": "عالية",
+        "moderate": "متوسطة",
+        "slight": "طفيفة"
+      },
+      "recommendation_reason": "بمستوى ثقة {{confidence}}، تحقق هذه المركبة نتائج أفضل في المقاييس الرئيسية بما في ذلك {{metrics}}.",
+      "pros_cons_title": "مقارنة الإيجابيات والسلبيات",
+      "pros_title": "الإيجابيات:",
+      "cons_title": "السلبيات:",
+      "no_significant_advantages": "لم يتم اكتشاف مزايا مهمة",
+      "no_significant_disadvantages": "لم يتم اكتشاف عيوب مهمة",
+      "pros": {
+        "lower_purchase_price": "سعر شراء أقل",
+        "higher_purchase_price": "سعر شراء أعلى",
+        "newer_model_year": "موديل أحدث",
+        "older_model_year": "موديل أقدم",
+        "lower_mileage": "مسافة مقطوعة أقل",
+        "higher_mileage": "مسافة مقطوعة أعلى",
+        "more_features_overall": "مميزات أكثر بشكل عام",
+        "fewer_features_overall": "مميزات أقل بشكل عام",
+        "better_safety_features": "مميزات أمان أفضل",
+        "fewer_safety_features": "مميزات أمان أقل",
+        "more_comfort_features": "مميزات راحة أكثر",
+        "fewer_comfort_features": "مميزات راحة أقل",
+        "more_technology_features": "مميزات تكنولوجيا أكثر",
+        "fewer_technology_features": "مميزات تكنولوجيا أقل",
+        "lower_cost_ownership": "تكلفة ملكية أقل",
+        "higher_cost_ownership": "تكلفة ملكية أعلى",
+        "better_environmental_score": "نقاط بيئية أفضل",
+        "lower_environmental_score": "نقاط بيئية أقل"
+      },
+      "use_cases": {
+        "title": "أفضل حالات الاستخدام",
+        "no_specific_use_cases": "لم يتم تحديد حالات استخدام محددة",
+        "urban_driving": "القيادة الحضرية",
+        "off_road_driving": "القيادة على الطرق الوعرة",
+        "family_trips": "الرحلات العائلية",
+        "comfortable_commuting": "التنقل المريح",
+        "tech_enthusiasts": "عشاق التكنولوجيا",
+        "budget_conscious_buyers": "المشترين المهتمين بالميزانية",
+        "long_distance_travel": "السفر لمسافات طويلة"
+      },
+      "insights": {
+        "value_score_title": "نقاط القيمة",
+        "environmental_impact_title": "التأثير البيئي",
+        "value_score_better": "{{make}} {{model}} {{year}} تقدم قيمة إجمالية أفضل بنقاط {{score1}}/100 مقارنة بـ {{score2}}/100 لـ {{otherMake}}.",
+        "value_score_similar": "كلا المركبتين تقدمان قيمة متشابهة بنقاط {{score}}/100.",
+        "environmental_better": "{{make}} {{model}} {{year}} لديها نقاط بيئية أفضل ({{score}}/100) بناءً على نوع الوقود والعمر وفئة المركبة.",
+        "environmental_similar": "كلا المركبتين لديهما نقاط بيئية متشابهة {{score}}/100."
+      },
+      "metrics": {
+        "price": "السعر",
+        "value": "القيمة",
+        "cost_of_ownership": "تكلفة الملكية",
+        "features": "المميزات",
+        "safety": "الأمان"
+      }
+    }
   },
   "password": {
     "change_password": "تغيير كلمة المرور",
@@ -777,19 +865,6 @@
   "permissions": {
     "denied": "تم رفض الإذن",
     "photo_access_required": "يرجى السماح بالوصول إلى الصور."
-  },
-  "sales": {
-    "listed_price": "السعر المعروض",
-    "sold_price": "سعر البيع",
-    "actual_profit": "الربح الفعلي",
-    "expected_profit": "الربح المتوقع",
-    "days_listed": "أيام الإدراج",
-    "until_sale": "حتى البيع",
-    "days_in_stock": "أيام في المخزون",
-    "total_duration": "المدة الإجمالية",
-    "bought": "شراء",
-    "listed": "إدراج",
-    "sold": "بيع"
   }
 }
 
