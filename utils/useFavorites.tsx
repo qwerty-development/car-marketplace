@@ -65,6 +65,9 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
     // Proceed with favorite toggle for authenticated users
     if (!user) return 0;
 
+    // Determine whether this action is an unlike (currently favorite) or like
+    const actionIsUnlike = isFavorite(carId);
+
     try {
       const { data, error } = await supabase.rpc('toggle_car_like', {
         car_id: carId,
@@ -77,7 +80,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       // Update local favorites
-      const newFavorites = isFavorite(carId)
+      const newFavorites = actionIsUnlike
         ? favorites.filter(id => id !== carId)
         : [...favorites, carId];
       setFavorites(newFavorites);
@@ -90,6 +93,37 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (updateError) {
         console.error('Error updating user favorites:', updateError);
+      }
+
+      // Fetch current liked_users for this car so we can update it deterministically
+      const { data: carRow, error: carFetchError } = await supabase
+        .from('cars')
+        .select('liked_users')
+        .eq('id', carId)
+        .single();
+
+      if (carFetchError) {
+        console.error('Error fetching car liked_users:', carFetchError);
+      } else {
+        const currentLikedUsers: string[] = Array.isArray(carRow?.liked_users)
+          ? carRow.liked_users
+          : [];
+
+        const newLikedUsers = actionIsUnlike
+          ? currentLikedUsers.filter((id: string) => id !== user.id)
+          : (currentLikedUsers.includes(user.id)
+              ? currentLikedUsers
+              : [...currentLikedUsers, user.id]);
+
+        // Persist liked_users and set likes to the authoritative array length
+        const computedLikes = newLikedUsers.length;
+        const { error: carUpdateError } = await supabase
+          .from('cars')
+          .update({ likes: computedLikes, liked_users: newLikedUsers })
+          .eq('id', carId);
+        if (carUpdateError) {
+          console.error('Error updating car likes/liked_users:', carUpdateError);
+        }
       }
 
       return data as number;
