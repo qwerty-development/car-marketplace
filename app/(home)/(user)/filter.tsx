@@ -589,6 +589,7 @@ interface ModelSelectorProps {
 
 const ModelSelector = memo(
   ({ make, selectedModels, onSelectModel, isDarkMode }: ModelSelectorProps) => {
+    const { t } = useTranslation();
     const [modelsByMake, setModelsByMake] = useState<Record<string, string[]>>({});
     const [showAllModels, setShowAllModels] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -1460,7 +1461,7 @@ const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorS
       >
         <View style={{ padding: 8 }}>
           <LinearGradient
-            colors={color.gradient}
+            colors={color.gradient as [string, string]}
             style={{
               width: 64,
               height: 64,
@@ -1547,7 +1548,7 @@ const SelectionCard = memo(
   />
 ) : icon ? (
   <MaterialCommunityIcons
-    name={icon}
+    name={icon as any}
     size={24}
     color={isSelected ? "#fff" : isDarkMode ? "#fff" : "#000"}
   />
@@ -2170,7 +2171,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       onPress={() => {
         setFilters(defaultFilters);
         router.replace({
-          pathname: "/(home)/(user)",
+          pathname: "/(home)/(user)/(tabs)",
           params: { filters: JSON.stringify({}) },
         });
       }}
@@ -2614,16 +2615,13 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
     >
       <TouchableOpacity
         disabled={!hasFiltersSelected}
-        onPress={
-          hasFiltersSelected
-            ? () => {
-              router.replace({
-                pathname: "/(home)/(user)",
-                params: { filters: JSON.stringify(filters) },
-              });
-            }
-            : null
-        }
+        onPress={() => {
+          if (!hasFiltersSelected) return;
+          router.replace({
+            pathname: "/(home)/(user)/(tabs)",
+            params: { filters: JSON.stringify(filters) },
+          });
+        }}
         style={{
           flex: 1,
           paddingVertical: 14,
