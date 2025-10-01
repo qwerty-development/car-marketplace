@@ -271,7 +271,11 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
               isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
             }`}>
             {t('profile.sales.performance_message', {
-              type: viewMode === VIEW_MODES.COUNT ? t('profile.sales.sales').toLowerCase() : viewMode,
+              type: viewMode === VIEW_MODES.COUNT 
+                ? t('profile.sales.sales').toLowerCase() 
+                : viewMode === VIEW_MODES.REVENUE 
+                  ? t('profile.sales.revenue').toLowerCase()
+                  : t('profile.sales.profit').toLowerCase(),
               rate: `${metrics.growthRate > 0 ? '+' : ''}${metrics.growthRate.toFixed(1)}%`
             })}
           </Text>
@@ -464,7 +468,11 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
             className={`text-sm ${
               isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
             }`}>
-            {t('profile.sales.based_on_current_trends')} {viewMode === VIEW_MODES.COUNT ? t('profile.sales.sales').toLowerCase() : viewMode} {viewMode === VIEW_MODES.COUNT ? t('profile.sales.are_projected_to_be') : t('profile.sales.is_projected_to_be')}{' '}
+            {t('profile.sales.based_on_current_trends')} {viewMode === VIEW_MODES.COUNT 
+              ? t('profile.sales.sales').toLowerCase() 
+              : viewMode === VIEW_MODES.REVENUE 
+                ? t('profile.sales.revenue').toLowerCase()
+                : t('profile.sales.profit').toLowerCase()} {viewMode === VIEW_MODES.COUNT ? t('profile.sales.are_projected_to_be') : t('profile.sales.is_projected_to_be')}{' '}
             <Text className="font-bold text-red">
               {formatThousand(
                 Math.round(
