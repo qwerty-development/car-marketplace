@@ -13,17 +13,51 @@ const VIEW_MODES = {
   COUNT: 'count',
   REVENUE: 'revenue',
   PROFIT: 'profit'
+} as const
+
+type ViewMode = typeof VIEW_MODES[keyof typeof VIEW_MODES]
+
+interface SalesDataItem {
+  month: string
+  count: number
+  total: number
+  profit?: number
+}
+
+interface MetricData {
+  current: number
+  previous: number
+  growthRate: number
+  total: number
+  average: number
+  trend: string
+}
+
+interface ProcessedData {
+  chartData: {
+    count: { labels: string[]; datasets: { data: number[] }[] }
+    revenue: { labels: string[]; datasets: { data: number[] }[] }
+    profit: { labels: string[]; datasets: { data: number[] }[] }
+  }
+  metrics: {
+    count: MetricData
+    revenue: MetricData
+    profit: MetricData
+  }
+}
+
+interface EnhancedSalesChartProps {
+  salesData: SalesDataItem[]
+  isDarkMode: boolean
 }
 
 /**
  * Enhanced sales chart component with multiple view modes and insights
- * @param {Array} salesData - Array of sales data objects containing month, count, total
- * @param {boolean} isDarkMode - Whether dark mode is enabled
  */
-const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
+const EnhancedSalesChart: React.FC<EnhancedSalesChartProps> = ({ salesData, isDarkMode }) => {
   const { t } = useTranslation()
   // State for the current view mode
-  const [viewMode, setViewMode] = useState(VIEW_MODES.COUNT)
+  const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.COUNT)
 
   // Process data for chart and insights
   const processedData = useMemo(() => {
@@ -72,7 +106,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
 
     // 3. Profit metrics
     // Estimate profit as 25% of total if not provided
-    const calculateProfit = (item) => {
+    const calculateProfit = (item: SalesDataItem): number => {
       if (item.profit) return item.profit
       return item.total ? item.total * 0.25 : 0
     }
@@ -132,7 +166,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
   }, [salesData])
 
   // Get performance text based on growth rate
-  const getPerformanceText = growthRate => {
+  const getPerformanceText = (growthRate: number): string => {
     if (growthRate > 20) return t('profile.sales.exceptional_growth')
     if (growthRate > 10) return t('profile.sales.strong_performance')
     if (growthRate > 0) return t('profile.sales.positive_trend')
@@ -194,19 +228,50 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
   const currentMetrics = processedData.metrics[viewMode]
   const currentChartData = processedData.chartData[viewMode]
 
+  // Early return if no valid data
+  if (!currentMetrics || !currentChartData) {
+    return (
+      <View className="rounded-3xl overflow-hidden mb-6">
+        <BlurView
+          intensity={isDarkMode ? 20 : 40}
+          tint={isDarkMode ? 'dark' : 'light'}
+          className="rounded-3xl">
+          <View className="p-6 items-center justify-center">
+            <Ionicons
+              name="bar-chart-outline"
+              size={50}
+              color={isDarkMode ? '#555' : '#ccc'}
+            />
+            <Text
+              className={`text-center mt-4 ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
+              {t('profile.sales.no_sales_data')}
+            </Text>
+          </View>
+        </BlurView>
+      </View>
+    )
+  }
+
   // Format values based on view mode
-  const formatValue = (value, mode) => {
+  const formatValue = (value: number, mode: ViewMode): string => {
     if (mode === VIEW_MODES.COUNT) return value.toLocaleString()
     return `$${value.toLocaleString()}`
   }
 
-  const formatThousand = (value, mode) => {
+  const formatThousand = (value: number, mode: ViewMode): string => {
     if (mode === VIEW_MODES.COUNT) return value.toLocaleString()
     return `$${Math.round(value / 1000)}k`
   }
 
   // Insight Card Component
-  const InsightCard = ({ title, value, icon, trend, color, mode = viewMode }) => (
+  const InsightCard: React.FC<{
+    title: string
+    value: number
+    icon: keyof typeof Ionicons.glyphMap
+    trend?: number
+    color: string
+    mode?: ViewMode
+  }> = ({ title, value, icon, trend, color, mode = viewMode }) => (
     <LinearGradient
       colors={
         isDarkMode
@@ -250,7 +315,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
   )
 
   // Performance Insight Component
-  const PerformanceInsight = ({ metrics }) => (
+  const PerformanceInsight: React.FC<{ metrics: MetricData }> = ({ metrics }) => (
     <LinearGradient
       colors={
         isDarkMode
