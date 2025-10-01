@@ -169,7 +169,7 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
 
         {/* Search Input */}
         <TextInput
-          placeholder={t('inventory.search_inventory')}
+          placeholder={t('profile.inventory.search_inventory')}
           value={localSearchQuery}
           onChangeText={handleTextChange}
           placeholderTextColor={isDarkMode ? '#a3a3a3' : '#666666'}
@@ -295,7 +295,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-xl font-semibold ${
 								isDarkMode ? 'text-white' : 'text-black'
 							}`}>
-							{t('inventory.mark_as_sold')}
+							{t('profile.inventory.mark_as_sold')}
 						</Text>
 						<TouchableOpacity onPress={onClose} className='p-2'>
 							<Ionicons
@@ -312,11 +312,11 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-sm font-medium mb-2 ${
 								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 							}`}>
-							{t('inventory.sold_price')}
+							{t('profile.inventory.sold_price')}
 						</Text>
 						<TextInput
              textAlignVertical="center"
-							placeholder={t('inventory.enter_sold_price')}
+							placeholder={t('profile.inventory.enter_sold_price')}
 							value={soldInfo.price}
 							onChangeText={text =>
 								setSoldInfo(prev => ({ ...prev, price: text }))
@@ -330,7 +330,7 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-sm font-medium mb-2 ${
 								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 							}`}>
-							{t('inventory.date_sold')}
+							{t('profile.inventory.date_sold')}
 						</Text>
 						<TextInput
              textAlignVertical="center"
@@ -347,11 +347,11 @@ const ModernSoldModal: React.FC<SoldModalProps> = ({
 							className={`text-sm font-medium mb-2 ${
 								isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
 							}`}>
-							{t('inventory.buyer_name')}
+							{t('profile.inventory.buyer_name')}
 						</Text>
 						<TextInput
              textAlignVertical="center"
-							placeholder={t('inventory.enter_buyer_name')}
+							placeholder={t('profile.inventory.enter_buyer_name')}
 							value={soldInfo.buyer_name}
 							onChangeText={text =>
 								setSoldInfo(prev => ({ ...prev, buyer_name: text }))
@@ -509,13 +509,13 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 						<View className='space-y-6'>
 							{/* Status Filter */}
 							<ModernPicker
-								label={t('inventory.status')}
+								label={t('profile.inventory.status')}
 								value={localFilters.status}
 								options={[
-									{ label: t('inventory.all'), value: '' },
-									{ label: t('inventory.available'), value: 'available' },
-									{ label: t('inventory.pending'), value: 'pending' },
-									{ label: t('inventory.sold'), value: 'sold' }
+									{ label: t('profile.inventory.all'), value: '' },
+									{ label: t('profile.inventory.available'), value: 'available' },
+									{ label: t('profile.inventory.pending'), value: 'pending' },
+									{ label: t('profile.inventory.sold'), value: 'sold' }
 								]}
 								onChange={value => handleChange('status', value)}
 								isDarkMode={isDarkMode}
@@ -523,12 +523,12 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 
 							{/* Condition Filter */}
 							<ModernPicker
-								label={t('inventory.condition')}
+								label={t('profile.inventory.condition')}
 								value={localFilters.condition}
 								options={[
-									{ label: t('inventory.all'), value: '' },
-									{ label: t('inventory.new'), value: 'New' },
-									{ label: t('inventory.used'), value: 'Used' }
+									{ label: t('profile.inventory.all'), value: '' },
+									{ label: t('profile.inventory.new'), value: 'New' },
+									{ label: t('profile.inventory.used'), value: 'Used' }
 								]}
 								onChange={value => handleChange('condition', value)}
 								isDarkMode={isDarkMode}
@@ -545,7 +545,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 								<View className='flex-row space-x-4'>
 									<TextInput
                    textAlignVertical="center"
-										placeholder={t('inventory.min_price')}
+										placeholder={t('profile.inventory.min_price')}
 										value={localFilters.minPrice}
 										onChangeText={value => handleChange('minPrice', value)}
 										keyboardType='numeric'
@@ -558,7 +558,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 									/>
 									<TextInput
                    textAlignVertical="center"
-										placeholder={t('inventory.max_price')}
+										placeholder={t('profile.inventory.max_price')}
 										value={localFilters.maxPrice}
 										onChangeText={value => handleChange('maxPrice', value)}
 										keyboardType='numeric'
@@ -583,7 +583,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 								<View className='flex-row space-x-4'>
 									<TextInput
                    textAlignVertical="center"
-										placeholder={t('inventory.min_year')}
+										placeholder={t('profile.inventory.min_year')}
 										value={localFilters.minYear}
 										onChangeText={value => handleChange('minYear', value)}
 										keyboardType='numeric'
@@ -596,7 +596,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 									/>
 									<TextInput
                    textAlignVertical="center"
-										placeholder={t('inventory.max_year')}
+										placeholder={t('profile.inventory.max_year')}
 										value={localFilters.maxYear}
 										onChangeText={value => handleChange('maxYear', value)}
 										keyboardType='numeric'
@@ -612,12 +612,12 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 
 							{/* Transmission Filter */}
 							<ModernPicker
-								label={t('inventory.transmission')}
+								label={t('profile.inventory.transmission')}
 								value={localFilters.transmission}
 								options={[
-									{ label: t('inventory.all'), value: '' },
-									{ label: t('inventory.automatic'), value: 'Automatic' },
-									{ label: t('inventory.manual'), value: 'Manual' }
+									{ label: t('profile.inventory.all'), value: '' },
+									{ label: t('profile.inventory.automatic'), value: 'Automatic' },
+									{ label: t('profile.inventory.manual'), value: 'Manual' }
 								]}
 								onChange={value => handleChange('transmission', value)}
 								isDarkMode={isDarkMode}
@@ -1122,7 +1122,7 @@ const ListingCard = useMemo(
                       className='w-2 h-2 rounded-full mr-2 animate-pulse'
                     />
                     <Text className='text-white text-xs font-bold uppercase tracking-wider'>
-                      {item.status}
+                      {t(`profile.inventory.${item.status.toLowerCase()}`)}
                     </Text>
                   </View>
 
@@ -1168,19 +1168,19 @@ const ListingCard = useMemo(
             <View className='px-5 py-4'>
               <View className='flex-row justify-between'>
                 <SpecItem
-                  title={t('inventory.year')}
+                  title={t('profile.inventory.year')}
                   icon='calendar-outline'
                   value={item.year}
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title={t('inventory.km')}
+                  title={t('profile.inventory.km')}
                   icon='speedometer-outline'
                   value={`${(item.mileage / 1000).toFixed(1)}k`}
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title={t('inventory.transmission')}
+                  title={t('profile.inventory.transmission')}
                   icon='cog-outline'
                   value={
                     item.transmission === 'Automatic'
@@ -1192,7 +1192,7 @@ const ListingCard = useMemo(
                   isDarkMode={isDarkMode}
                 />
                 <SpecItem
-                  title={t('inventory.condition')}
+                  title={t('profile.inventory.condition')}
                   icon='car-sport-outline'
                   value={item.condition}
                   isDarkMode={isDarkMode}

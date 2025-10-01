@@ -133,12 +133,12 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
 
   // Get performance text based on growth rate
   const getPerformanceText = growthRate => {
-    if (growthRate > 20) return t('sales.exceptional_growth')
-    if (growthRate > 10) return t('sales.strong_performance')
-    if (growthRate > 0) return t('sales.positive_trend')
-    if (growthRate === 0) return t('sales.stable_performance')
-    if (growthRate > -10) return t('sales.slight_decline')
-    return t('sales.needs_attention')
+    if (growthRate > 20) return t('profile.sales.exceptional_growth')
+    if (growthRate > 10) return t('profile.sales.strong_performance')
+    if (growthRate > 0) return t('profile.sales.positive_trend')
+    if (growthRate === 0) return t('profile.sales.stable_performance')
+    if (growthRate > -10) return t('profile.sales.slight_decline')
+    return t('profile.sales.needs_attention')
   }
 
   // Chart configuration
@@ -182,7 +182,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
             />
             <Text
               className={`text-center mt-4 ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
-              No sales data available to display
+              {t('profile.sales.no_sales_data')}
             </Text>
           </View>
         </BlurView>
@@ -270,13 +270,10 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
             className={`text-sm ${
               isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
             }`}>
-            Your {viewMode === VIEW_MODES.COUNT ? 'sales' : viewMode} performance is{' '}
-            <Text
-              className={metrics.growthRate >= 0 ? 'text-green-500' : 'text-pink-500'}>
-              {metrics.growthRate > 0 ? '+' : ''}
-              {metrics.growthRate.toFixed(1)}%
-            </Text>{' '}
-            compared to last month
+            {t('profile.sales.performance_message', {
+              type: viewMode === VIEW_MODES.COUNT ? t('profile.sales.sales').toLowerCase() : viewMode,
+              rate: `${metrics.growthRate > 0 ? '+' : ''}${metrics.growthRate.toFixed(1)}%`
+            })}
           </Text>
         </View>
         <View
@@ -315,7 +312,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ? 'text-neutral-400'
                 : 'text-neutral-600'
             }`}>
-            {t('sales.sales')}
+            {t('profile.sales.sales')}
           </Text>
         </TouchableOpacity>
 
@@ -334,7 +331,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ? 'text-neutral-400'
                 : 'text-neutral-600'
             }`}>
-            {t('sales.revenue')}
+            {t('profile.sales.revenue')}
           </Text>
         </TouchableOpacity>
 
@@ -353,7 +350,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ? 'text-neutral-400'
                 : 'text-neutral-600'
             }`}>
-            {t('sales.profit')}
+            {t('profile.sales.profit')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -373,7 +370,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
           className={`text-xl font-bold mb-4 ${
             isDarkMode ? 'text-white' : 'text-neutral-900'
           }`}>
-          {t('sales.sales_overview')}
+          {t('profile.sales.sales_overview')}
         </Text>
 
         {/* View Mode Toggle */}
@@ -385,13 +382,13 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
         {/* Metrics Cards */}
         <View className="flex-row mb-6">
           <InsightCard
-            title={viewMode === VIEW_MODES.COUNT ? t('sales.monthly_average') : t('sales.average')}
+            title={viewMode === VIEW_MODES.COUNT ? t('profile.sales.monthly_average') : t('profile.sales.average')}
             value={currentMetrics.average}
             icon="analytics"
             color="#0EA5E9"
           />
           <InsightCard
-            title={viewMode === VIEW_MODES.COUNT ? t('sales.current_month') : t('sales.current')}
+            title={viewMode === VIEW_MODES.COUNT ? t('profile.sales.current_month') : t('profile.sales.current')}
             value={currentMetrics.current}
             icon="pulse"
             trend={currentMetrics.growthRate}
@@ -432,7 +429,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
             }`}>
             <Text
               className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'} mb-1`}>
-              Total {viewMode === VIEW_MODES.COUNT ? 'Sales' : viewMode === VIEW_MODES.REVENUE ? 'Revenue' : 'Profit'}
+              {t('profile.sales.total')} {viewMode === VIEW_MODES.COUNT ? t('profile.sales.sales') : viewMode === VIEW_MODES.REVENUE ? t('profile.sales.revenue') : t('profile.sales.profit')}
             </Text>
             <Text
               className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
@@ -446,7 +443,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
             }`}>
             <Text
               className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'} mb-1`}>
-              Projected Next Month
+              {t('profile.sales.projected_next_month')}
             </Text>
             <Text
               className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
@@ -467,7 +464,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
             className={`text-sm ${
               isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
             }`}>
-            Based on current trends, next month's {viewMode} {viewMode === VIEW_MODES.COUNT ? 'are' : 'is'} projected to be{' '}
+            {t('profile.sales.based_on_current_trends')} {viewMode === VIEW_MODES.COUNT ? t('profile.sales.sales').toLowerCase() : viewMode} {viewMode === VIEW_MODES.COUNT ? t('profile.sales.are_projected_to_be') : t('profile.sales.is_projected_to_be')}{' '}
             <Text className="font-bold text-red">
               {formatThousand(
                 Math.round(
@@ -476,7 +473,7 @@ const EnhancedSalesChart = ({ salesData, isDarkMode }) => {
                 ),
                 viewMode
               )}
-              {viewMode === VIEW_MODES.COUNT ? ' cars' : ''}
+              {viewMode === VIEW_MODES.COUNT ? ` ${t('profile.sales.cars')}` : ''}
             </Text>
           </Text>
         </View>

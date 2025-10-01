@@ -82,7 +82,7 @@ const CustomHeader = ({ title, dealership }: any) => {
   );
 };
 
-const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
+const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode, t }: any) => {
   const daysListed = Math.ceil(
     (new Date(sale.date_sold).getTime() - new Date(sale.listed_at).getTime()) /
       (1000 * 60 * 60 * 24)
@@ -207,7 +207,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                   className={`text-2xl font-bold ${
                     isDarkMode ? 'text-white' : 'text-black'
                   }`}>
-                  Sale Details
+                  {t('profile.sales.sale_details')}
                 </Text>
                 <Text
                   className={`${
@@ -233,9 +233,9 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
               {/* Key Stats Grid */}
               <View className='p-4'>
                 <View className='flex-row mb-4'>
-                  <StatCard title={t('sales.listed_price')} value={sale.price} />
+                  <StatCard title={t('profile.sales.listed_price')} value={sale.price} />
                   <StatCard
-                    title={t('sales.sold_price')}
+                    title={t('profile.sales.sold_price')}
                     value={sale.sold_price}
                     trend={parseFloat(priceDifferencePercentage)}
                   />
@@ -243,25 +243,25 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
 
                 <View className='flex-row mb-4'>
                   <StatCard
-                    title={t('sales.actual_profit')}
+                    title={t('profile.sales.actual_profit')}
                     value={actualProfit}
                     trend={((actualProfit / sale.bought_price) * 100).toFixed(
                       1
                     )}
                   />
-                  <StatCard title={t('sales.expected_profit')} value={expectedProfit} />
+                  <StatCard title={t('profile.sales.expected_profit')} value={expectedProfit} />
                 </View>
 
                 <View className='flex-row mb-4'>
                   <StatCard2
-                    title={t('sales.days_listed')}
+                    title={t('profile.sales.days_listed')}
                     value={daysListed}
-                    subValue={t('sales.until_sale')}
+                    subValue={t('profile.sales.until_sale')}
                   />
                   <StatCard2
-                    title={t('sales.days_in_stock')}
+                    title={t('profile.sales.days_in_stock')}
                     value={daysInStock}
-                    subValue={t('sales.total_duration')}
+                    subValue={t('profile.sales.total_duration')}
                   />
                 </View>
               </View>
@@ -275,7 +275,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                   className={`text-lg font-bold mb-4 ${
                     isDarkMode ? 'text-white' : 'text-black'
                   }`}>
-                  Transaction Details
+                  {t('profile.sales.transaction_details')}
                 </Text>
 
                 <View className='space-y-3'>
@@ -285,7 +285,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                         className={`${
                           isDarkMode ? 'text-white' : 'text-neutral-700'
                         }`}>
-                        Buyer
+                        {t('profile.sales.buyer')}
                       </Text>
                       <Text
                         className={`font-medium ${
@@ -302,7 +302,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                         className={`${
                           isDarkMode ? 'text-white' : 'text-neutral-700'
                         }`}>
-                        Seller
+                        {t('profile.sales.seller')}
                       </Text>
                       <Text
                         className={`font-medium ${
@@ -318,7 +318,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                       className={`${
                         isDarkMode ? 'text-white' : 'text-neutral-700'
                       }`}>
-                      Purchase Date
+                      {t('profile.sales.purchase_date')}
                     </Text>
                     <Text
                       className={`font-medium ${
@@ -333,7 +333,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                       className={`${
                         isDarkMode ? 'text-white' : 'text-neutral-700'
                       }`}>
-                      Sale Date
+                      {t('profile.sales.sale_date')}
                     </Text>
                     <Text
                       className={`font-medium ${
@@ -351,11 +351,11 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode }: any) => {
                   className={`text-lg font-bold mb-4 ${
                     isDarkMode ? 'text-white' : 'text-black'
                   }`}>
-                  Price Breakdown
+                  {t('profile.sales.price_breakdown')}
                 </Text>
                 <BarChart
                   data={{
-                    labels: [t('sales.bought'), t('sales.listed'), t('sales.sold')],
+                    labels: [t('profile.sales.bought'), t('profile.sales.listed'), t('profile.sales.sold')],
                     datasets: [
                       {
                         data: [sale.bought_price, sale.price, sale.sold_price]
@@ -441,7 +441,7 @@ const KPICard = ({ title, value, icon, trend, isDarkMode }) => (
 )
 
 // Sale Card Component
-const SaleCard = ({ sale, isDarkMode, onPress }) => {
+const SaleCard = ({ sale, isDarkMode, onPress, t }) => {
   const profit = sale.sold_price - sale.bought_price
   const profitPercentage = ((profit / sale.bought_price) * 100).toFixed(1)
   const daysInStock = Math.ceil(
@@ -504,13 +504,13 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
                 className={`text-xs ${
                   isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
                 }`}>
-                Bought From
+                {t('profile.sales.bought_from')}
               </Text>
               <Text
                 className={`text-sm font-medium ${
                   isDarkMode ? 'text-white' : 'text-black'
                 }`}>
-                {sale.buyer_name || 'N/A'}
+                {sale.buyer_name || t('common.not_available')}
               </Text>
             </View>
           </View>
@@ -525,13 +525,13 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
                 className={`text-xs ${
                   isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
                 }`}>
-                Sold To
+                {t('profile.sales.sold_to')}
               </Text>
               <Text
                 className={`text-sm font-medium ${
                   isDarkMode ? 'text-white' : 'text-black'
                 }`}>
-                {sale.seller_name || 'N/A'}
+                {sale.seller_name || t('common.not_available')}
               </Text>
             </View>
           </View>
@@ -550,13 +550,13 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
                 className={`text-xs ${
                   isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
                 }`}>
-                In Stock
+                {t('profile.sales.in_stock')}
               </Text>
               <Text
                 className={`text-sm font-medium ${
                   isDarkMode ? 'text-white' : 'text-black'
                 }`}>
-                {daysInStock} days
+                {daysInStock} {t('analytics.days')}
               </Text>
             </View>
           </View>
@@ -571,7 +571,7 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
                 className={`text-xs ${
                   isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
                 }`}>
-                Listed Price
+                {t('profile.sales.listed_price')}
               </Text>
               <Text
                 className={`text-sm font-medium ${
@@ -596,7 +596,7 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
                 className={`text-xs ${
                   isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
                 }`}>
-                Bought
+                {t('profile.sales.bought')}
               </Text>
               <Text
                 className={`text-sm font-medium ${
@@ -617,7 +617,7 @@ const SaleCard = ({ sale, isDarkMode, onPress }) => {
                 className={`text-xs ${
                   isDarkMode ? 'text-neutral-400' : 'text-neutral-600'
                 }`}>
-                Sold
+                {t('profile.sales.sold')}
               </Text>
               <Text
                 className={`text-sm font-medium ${
@@ -821,7 +821,7 @@ export default function SalesHistoryPage() {
       colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
       className='flex-1 mb-12'>
       {/* Header */}
-      <CustomHeader title={t('sales.sales_history')} dealership={dealership} />
+      <CustomHeader title={t('profile.sales.sales_history')} dealership={dealership} />
 
       {/* KPI Section */}
       <ScrollView
@@ -836,13 +836,13 @@ export default function SalesHistoryPage() {
         <View className='px-4'>
           <View className='flex-row mb-4'>
             <KPICard
-              title={t('sales.total_sold')}
+              title={t('profile.sales.total_sold')}
               value={kpis.totalSold}
               icon='car-sport'
               isDarkMode={isDarkMode}
             />
             <KPICard
-              title={t('sales.total_views')}
+              title={t('profile.sales.total_views')}
               value={kpis.totalViews}
               icon='eye'
               isDarkMode={isDarkMode}
@@ -850,13 +850,13 @@ export default function SalesHistoryPage() {
           </View>
           <View className='flex-row mb-6'>
             <KPICard
-              title={t('sales.total_revenue')}
+              title={t('profile.sales.total_revenue')}
               value={`$${kpis.totalRevenue?.toLocaleString()}`}
               icon='cash'
               isDarkMode={isDarkMode}
             />
             <KPICard
-              title={t('sales.total_profit')}
+              title={t('profile.sales.total_profit')}
               value={`$${kpis.totalProfit?.toLocaleString()}`}
               icon='trending-up'
               isDarkMode={isDarkMode}
@@ -868,7 +868,7 @@ export default function SalesHistoryPage() {
             onPress={() => setIsExportModalVisible(true)}
             className='bg-red mb-6 py-3 rounded-xl flex-row items-center justify-center'>
             <FontAwesome5 name="file-export" size={16} color="white" style={{ marginRight: 8 }} />
-            <Text className='text-white font-medium'>{t('sales.export_sales_data')}</Text>
+            <Text className='text-white font-medium'>{t('profile.sales.export_sales_data')}</Text>
           </TouchableOpacity>
 
           {/* Chart Section */}
@@ -881,7 +881,7 @@ export default function SalesHistoryPage() {
                 className={`text-lg font-bold ${
                   isDarkMode ? 'text-white' : 'text-black'
                 }`}>
-                Recent Sales
+                {t('profile.sales.recent_sales')}
               </Text>
               <TouchableOpacity
                 onPress={toggleSortOrder}
@@ -903,6 +903,7 @@ export default function SalesHistoryPage() {
                   key={sale.id}
                   sale={sale}
                   isDarkMode={isDarkMode}
+                  t={t}
                   onPress={() => {
                     setSelectedSale(sale)
                     setIsModalVisible(true)
@@ -917,7 +918,7 @@ export default function SalesHistoryPage() {
                   color={isDarkMode ? '#666' : '#999'}
                 />
                 <Text className={`mt-4 text-center ${isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                  No sales records found
+                  {t('car.no_longer_available')}
                 </Text>
               </View>
             )}
@@ -932,6 +933,7 @@ export default function SalesHistoryPage() {
           onClose={() => setIsModalVisible(false)}
           sale={selectedSale}
           isDarkMode={isDarkMode}
+          t={t}
         />
       )}
 
