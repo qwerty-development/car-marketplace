@@ -96,6 +96,35 @@ const FeatureSelector = memo(
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
 
+      // Whether all features are currently selected
+      const allSelected = useMemo(() => {
+        return (
+          Array.isArray(selectedFeatures) &&
+          selectedFeatures.length === VEHICLE_FEATURES.length
+        );
+      }, [selectedFeatures]);
+
+      // Toggle select all / deselect all using the provided onFeatureToggle
+      const handleSelectAllToggle = useCallback(() => {
+        try {
+          if (allSelected) {
+            // Deselect every currently selected feature
+            (selectedFeatures || []).forEach((fid: string) => {
+              onFeatureToggle(fid);
+            });
+          } else {
+            // Select any feature that is not yet selected
+            VEHICLE_FEATURES.forEach((f) => {
+              if (!selectedFeatures.includes(f.id)) {
+                onFeatureToggle(f.id);
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('Error toggling select all features', err);
+        }
+      }, [allSelected, onFeatureToggle, selectedFeatures]);
+
     // Filter features based on search query
     const filteredFeatures = useMemo(
       () =>
@@ -200,16 +229,30 @@ const FeatureSelector = memo(
               ? `${selectedFeatures.length} Selected Features`
               : "Select Features"}
           </Text>
-          <TouchableOpacity
-            onPress={() => {
-              setShowAllFeatures(true);
-              setCurrentPage(0);
-              setHasMore(true);
-            }}
-            className="ml-auto bg-red px-3 py-1 rounded-full"
-          >
-            <Text className="text-white">View All</Text>
-          </TouchableOpacity>
+
+          <View className="flex-row items-center ml-auto space-x-2">
+            <TouchableOpacity
+              onPress={handleSelectAllToggle}
+              className={`px-3 py-1 rounded-full border ${
+                allSelected ? 'border-neutral-300' : 'border-transparent'
+              } bg-transparent`}
+            >
+              <Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowAllFeatures(true);
+                setCurrentPage(0);
+                setHasMore(true);
+              }}
+              className="bg-red px-3 py-1 rounded-full"
+            >
+              <Text className="text-white">View All</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Selected Features Count Badge */}
