@@ -88,7 +88,7 @@ const VEHICLE_FEATURES = [
 ];
 
 const FeatureSelector = memo(
-  ({ selectedFeatures = [], onFeatureToggle, isDarkMode }: any) => {
+  ({ selectedFeatures = [], onFeatureToggle, isDarkMode, ready, t }: any) => {
     // State Management
     const [showAllFeatures, setShowAllFeatures] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -226,8 +226,8 @@ const FeatureSelector = memo(
             }`}
           >
             {selectedFeatures.length > 0
-              ? `${selectedFeatures.length} Selected Features`
-              : "Select Features"}
+              ? (ready ? t('car.selected_features_count', { count: selectedFeatures.length }) : `${selectedFeatures.length} Selected Features`)
+              : (ready ? t('car.select_features') : 'Select Features')}
           </Text>
 
           <View className="flex-row items-center ml-auto space-x-2">
@@ -238,7 +238,7 @@ const FeatureSelector = memo(
               } bg-transparent`}
             >
               <Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
-                {allSelected ? 'Deselect All' : 'Select All'}
+                {allSelected ? (ready ? t('car.deselect_all') : 'Deselect All') : (ready ? t('car.select_all') : 'Select All')}
               </Text>
             </TouchableOpacity>
 
@@ -250,7 +250,7 @@ const FeatureSelector = memo(
               }}
               className="bg-red px-3 py-1 rounded-full"
             >
-              <Text className="text-white">View All</Text>
+              <Text className="text-white">{ready ? t('common.view_all') : 'View All'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -263,8 +263,7 @@ const FeatureSelector = memo(
                 isDarkMode ? "text-neutral-400" : "text-neutral-600"
               }`}
             >
-              {selectedFeatures.length} feature
-              {selectedFeatures.length !== 1 ? "s" : ""} selected
+              {ready ? t('car.features_count', { count: selectedFeatures.length }) : `${selectedFeatures.length} feature${selectedFeatures.length !== 1 ? "s" : ""}`} {ready ? t('car.selected').toLowerCase() : 'selected'}
             </Text>
           </View>
         )}
@@ -1652,7 +1651,7 @@ features
                       color: isDarkMode ? "#ffffff" : "#000000",
                     }}
                   >
-                    Mark as Sold
+                    {ready ? t('car.mark_as_sold') : 'Mark as Sold'}
                   </Text>
                   <TouchableOpacity onPress={() => setShowSoldModal(false)}>
                     <Ionicons
@@ -1673,12 +1672,12 @@ features
                       color: isDarkMode ? "#d4d4d4" : "#4b5563",
                     }}
                   >
-                    Selling Price
+                    {ready ? t('car.selling_price') : 'Selling Price'}
                   </Text>
                   <TextInput
                     value={localPrice}
                     onChangeText={setLocalPrice}
-                    placeholder="Enter selling price"
+                    placeholder={ready ? t('car.enter_selling_price') : 'Enter selling price'}
                     placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
                     keyboardType="numeric"
                     style={{
@@ -1705,12 +1704,12 @@ features
                       color: isDarkMode ? "#d4d4d4" : "#4b5563",
                     }}
                   >
-                    Buyer Name
+                    {ready ? t('profile.inventory.buyer_name') : 'Buyer Name'}
                   </Text>
                   <TextInput
                     value={localBuyerName}
                     onChangeText={setLocalBuyerName}
-                    placeholder="Enter buyer name"
+                    placeholder={ready ? t('car.enter_buyer_name') : 'Enter buyer name'}
                     placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
                     style={{
                       height: 50,
@@ -1736,7 +1735,7 @@ features
                       color: isDarkMode ? "#d4d4d4" : "#4b5563",
                     }}
                   >
-                    Sale Date
+                    {ready ? t('car.sale_date') : 'Sale Date'}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowInlinePicker(true)}
@@ -1878,8 +1877,8 @@ features
       <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
         <View className="py-4">
           <SectionHeader
-            title="Vehicle Images"
-            subtitle="Add up to 10 high-quality photos of your vehicle"
+            title={ready ? t('car.vehicle_images') : 'Vehicle Images'}
+            subtitle={ready ? t('common.add_vehicle_photos_subtitle') : 'Add up to 10 high-quality photos of your vehicle'}
             isDarkMode={isDarkMode}
           />
           
@@ -1888,7 +1887,7 @@ features
             <View className="mb-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-xl">
               <View className="flex-row items-center justify-between mb-2">
                 <Text className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Uploading Images
+                  {ready ? t('car.uploading_images') : 'Uploading Images'}
                 </Text>
                 <Text className="text-sm text-gray-500 dark:text-gray-400">
                   {uploadProgress.current} of {uploadProgress.total}
@@ -1933,8 +1932,8 @@ features
 
         <View className="mb-8">
           <SectionHeader
-            title="Vehicle Brand & Model"
-            subtitle="Select your vehicle's make and model"
+            title={ready ? t('common.vehicle_brand_model') : 'Vehicle Brand & Model'}
+            subtitle={ready ? t('common.select_vehicle_make_model') : "Select your vehicle's make and model"}
             isDarkMode={isDarkMode}
           />
           <Text
@@ -1942,7 +1941,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Brand
+            {ready ? t('car.brand') : 'Brand'}
           </Text>
           {/* Selected Make Display */}
           <BrandSelector
@@ -1972,7 +1971,7 @@ features
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                 >
-                  Selected: {formData.make}
+                  {ready ? t('car.selected') : 'Selected'}: {formData.make}
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -2014,10 +2013,10 @@ features
             )}
           <View className="n">
             <NeumorphicInput
-              label="Year"
+              label={ready ? t('common.year') : 'Year'}
               value={formData.year}
               onChangeText={(text: any) => handleInputChange("year", text)}
-              placeholder="Enter vehicle year"
+              placeholder={ready ? t('car.enter_vehicle_year') : 'Enter vehicle year'}
               keyboardType="numeric"
               required
               icon="calendar"
@@ -2025,10 +2024,10 @@ features
             />
 
             <NeumorphicInput
-              label="Price"
+              label={ready ? t('common.price') : 'Price'}
               value={formData.price}
               onChangeText={(text: any) => handleInputChange("price", text)}
-              placeholder="Enter vehicle price"
+              placeholder={ready ? t('car.enter_vehicle_price') : 'Enter vehicle price'}
               keyboardType="numeric"
               required
               isDarkMode={isDarkMode}
@@ -2039,8 +2038,8 @@ features
 
         <View className="mb-8">
           <SectionHeader
-            title="Vehicle Color"
-            subtitle="Select the exterior color"
+            title={ready ? t('common.vehicle_color') : 'Vehicle Color'}
+            subtitle={ready ? t('common.select_exterior_color') : 'Select the exterior color'}
             isDarkMode={isDarkMode}
           />
           <EnhancedColorSelector
@@ -2052,8 +2051,8 @@ features
 
         <View className="mb-8">
           <SectionHeader
-            title="Vehicle Classification"
-            subtitle="Select your vehicle's category and type"
+            title={ready ? t('common.vehicle_classification') : 'Vehicle Classification'}
+            subtitle={ready ? t('common.select_vehicle_category_type') : "Select your vehicle's category and type"}
             isDarkMode={isDarkMode}
           />
 
@@ -2062,7 +2061,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Category
+            {ready ? t('car.category') : 'Category'}
           </Text>
           <ScrollView
             horizontal
@@ -2086,7 +2085,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Fuel Type
+            {ready ? t('car.fuel_type') : 'Fuel Type'}
           </Text>
           <ScrollView
             horizontal
@@ -2108,8 +2107,8 @@ features
 
         <View className="mb-8">
           <SectionHeader
-            title="Vehicle Source"
-            subtitle="Select where the vehicle was sourced from"
+            title={ready ? t('car.vehicle_source') : 'Vehicle Source'}
+            subtitle={ready ? t('car.source_subtitle') : 'Select where the vehicle was sourced from'}
             isDarkMode={isDarkMode}
           />
 
@@ -2118,7 +2117,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Source
+            {ready ? t('car.source') : 'Source'}
           </Text>
           <ScrollView
             horizontal
@@ -2141,8 +2140,8 @@ features
         {/* Add this after the technical specifications section */}
         <View className="mb-8">
           <SectionHeader
-            title="Vehicle Description"
-            subtitle="Add details about the vehicle's history and features"
+            title={ready ? t('car.vehicle_description') : 'Vehicle Description'}
+            subtitle={ready ? t('car.description_subtitle') : "Add details about the vehicle's history and features"}
             isDarkMode={isDarkMode}
           />
 
@@ -2151,7 +2150,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Description
+            {ready ? t('car.description') : 'Description'}
           </Text>
           <View
             className={`rounded-2xl overflow-hidden ${
@@ -2169,7 +2168,7 @@ features
                 textAlignVertical="top"
                 value={formData.description}
                 onChangeText={(text) => handleInputChange("description", text)}
-                placeholder="Enter details about the vehicle, its history, features, etc."
+                placeholder={ready ? t('car.enter_details') : 'Enter details about the vehicle, its history, features, etc.'}
                 placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
                 className={`w-full text-base ${
                   isDarkMode ? "text-white" : "text-black"
@@ -2182,8 +2181,8 @@ features
 
         <View className="mb-8">
           <SectionHeader
-            title="Technical Specifications"
-            subtitle="Detailed technical information"
+            title={ready ? t('car.technical_specifications') : 'Technical Specifications'}
+            subtitle={ready ? t('car.detailed_technical_information') : 'Detailed technical information'}
             isDarkMode={isDarkMode}
           />
 
@@ -2199,8 +2198,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            {" "}
-            Transmission
+            {ready ? t('car.transmission') : 'Transmission'}
           </Text>
           <View className="flex-row mb-6">
             {TRANSMISSIONS.map((trans) => (
@@ -2220,7 +2218,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Drive Train
+            {ready ? t('car.drive_train') : 'Drive Train'}
           </Text>
           <ScrollView
             horizontal
@@ -2244,7 +2242,7 @@ features
               isDarkMode ? "text-neutral-300" : "text-neutral-700"
             }`}
           >
-            Condition
+            {ready ? t('car.condition') : 'Condition'}
           </Text>
           <View className="flex-row mb-6">
             {CONDITIONS.map((cond) => (
@@ -2262,8 +2260,8 @@ features
 
         <View className="mb-8">
           <SectionHeader
-            title="Vehicle Features"
-            subtitle="Select additional features and options available in this vehicle"
+            title={ready ? t('car.features') : 'Vehicle Features'}
+            subtitle={ready ? t('car.select_additional_features') : 'Select additional features and options available in this vehicle'}
             isDarkMode={isDarkMode}
           />
 
@@ -2289,24 +2287,26 @@ features
               });
             }}
             isDarkMode={isDarkMode}
+            ready={ready}
+            t={t}
           />
         </View>
 
         {/* Purchase Information */}
         <View className="mb-8">
           <SectionHeader
-            title="Purchase Information"
-            subtitle="Details about vehicle acquisition"
+            title={ready ? t('car.purchase_information') : 'Purchase Information'}
+            subtitle={ready ? t('car.purchase_info_subtitle') : 'Details about vehicle acquisition'}
             isDarkMode={isDarkMode}
           />
 
           <NeumorphicInput
-            label="Purchase Price"
+            label={ready ? t('car.purchase_price') : 'Purchase Price'}
             value={formData.bought_price}
             onChangeText={(text: any) =>
               handleInputChange("bought_price", text)
             }
-            placeholder="Enter purchase price"
+            placeholder={ready ? t('car.enter_purchase_price') : 'Enter purchase price'}
             keyboardType="numeric"
             icon="cash-multiple"
             prefix="$"
@@ -2407,10 +2407,10 @@ features
           />
 
           <NeumorphicInput
-            label="Bought From"
+            label={ready ? t('car.bought_from') : 'Bought From'}
             value={formData.seller_name}
             onChangeText={(text: any) => handleInputChange("seller_name", text)}
-            placeholder="Enter bought from name"
+            placeholder={ready ? t('car.enter_bought_from_name') : 'Enter bought from name'}
             icon="account"
             isDarkMode={isDarkMode}
           />
