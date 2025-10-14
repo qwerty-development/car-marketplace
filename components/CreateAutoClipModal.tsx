@@ -350,15 +350,15 @@ const VideoPreview = React.memo(
 )
 
 // Enhanced Guidelines Component with Review Information
-const Guidelines = React.memo(({ isDarkMode }) => {
+const Guidelines = React.memo(({ isDarkMode, t }: { isDarkMode: boolean; t: any }) => {
 	const guidelines = [
-		{ icon: 'file-video', text: 'Video must be less than 50MB' },
-		{ icon: 'clock-outline', text: 'Maximum duration: 25 seconds' },
-		{ icon: 'file-document', text: 'Supported formats: MP4, MOV' },
-		{ icon: 'text', text: 'Title must be at least 3 characters' },
-		{ icon: 'text-box', text: 'Description must be at least 10 characters' },
-		{ icon: 'clock-check-outline', text: 'Video will be submitted for admin review' },
-		{ icon: 'shield-check', text: 'Approval required before publication' }
+		{ icon: 'file-video' as const, text: t('autoclips.video_less_than_50mb') },
+		{ icon: 'clock-outline' as const, text: t('autoclips.max_duration_25_seconds') },
+		{ icon: 'file-document' as const, text: t('autoclips.supported_formats') },
+		{ icon: 'text' as const, text: t('autoclips.title_min_3_chars') },
+		{ icon: 'text-box' as const, text: t('autoclips.description_min_10_chars') },
+		{ icon: 'clock-check-outline' as const, text: t('autoclips.video_submitted_for_review') },
+		{ icon: 'shield-check' as const, text: t('autoclips.approval_required') }
 	]
 
 	return (
@@ -489,11 +489,11 @@ const fetchCars = async () => {
 		const availableCars = data?.filter(car => {
 			// Ensure auto_clips is always treated as an array
 			const autoClips = Array.isArray(car.auto_clips) ? car.auto_clips : []
-			
+
 			if (autoClips.length === 0) {
 				return true // No autoclips, available
 			}
-			
+
 			// Only allow if all existing autoclips are rejected
 			return autoClips.every(clip => clip && clip.status === 'rejected')
 		}).map(({ auto_clips, ...car }) => car) || []
@@ -501,7 +501,7 @@ const fetchCars = async () => {
 		setCars(availableCars)
 	} catch (error) {
 		console.error('Error fetching cars:', error)
-		Alert.alert('Error', 'Failed to load cars')
+		Alert.alert(t('common.error'), t('errors.server_error'))
 		triggerHaptic('heavy')
 	} finally {
 		setIsLoading(false)
@@ -517,10 +517,10 @@ const fetchCars = async () => {
 			// Title validation with enhanced checks
 			const trimmedTitle = formState.title?.trim() || ''
 			if (!trimmedTitle) {
-				newState.titleError = 'Title is required'
+				newState.titleError = t('errors.required_field')
 				isValid = false
 			} else if (trimmedTitle.length < 3) {
-				newState.titleError = 'Title must be at least 3 characters'
+				newState.titleError = t('autoclips.title_min_3_chars')
 				isValid = false
 			} else if (trimmedTitle.length > 100) {
 				newState.titleError = 'Title must be less than 100 characters'
@@ -528,11 +528,11 @@ const fetchCars = async () => {
 			} else {
 				newState.titleError = ''
 			}
-	
+
 			// Description validation with enhanced checks
 			const trimmedDescription = formState.description?.trim() || ''
 			if (trimmedDescription && trimmedDescription.length > 0 && trimmedDescription.length < 10) {
-				newState.descriptionError = 'Description must be at least 10 characters if provided'
+				newState.descriptionError = t('autoclips.description_min_10_chars')
 				isValid = false
 			} else if (trimmedDescription.length > 500) {
 				newState.descriptionError = 'Description must be less than 500 characters'
@@ -821,16 +821,16 @@ const fetchCars = async () => {
 
 			triggerHaptic('success')
 			Alert.alert(
-				'Submitted for Review', 
-				'Your AutoClip has been submitted for admin review. You will be notified once it is approved.',
-				[{ text: 'OK', style: 'default' }]
+				t('autoclips.submitted_for_review_title'),
+				t('autoclips.submitted_for_review_message'),
+				[{ text: t('common.ok'), style: 'default' }]
 			)
 			onSuccess()
 			handleClose()
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Error:', error)
 			triggerHaptic('error')
-			Alert.alert('Error', error.message || 'Failed to submit AutoClip')
+			Alert.alert(t('common.error'), error.message || 'Failed to submit AutoClip')
 		} finally {
 			setIsLoading(false)
 			setUploadProgress(0)
@@ -896,7 +896,7 @@ const fetchCars = async () => {
 										className={`text-xl font-bold ${
 											isDarkMode ? 'text-white' : 'text-black'
 										}`}>
-										Create AutoClip
+										{t('autoclips.create_autoclip')}
 									</Text>
 
 									<TouchableOpacity
@@ -922,18 +922,18 @@ const fetchCars = async () => {
 								{/* Guidelines Section */}
 								<View className='mb-6 pt-4'>
 									<SectionHeader
-										title='Review Process'
-										subtitle='Important information about AutoClip submission and review'
+										title={t('autoclips.review_process')}
+										subtitle={t('autoclips.review_process_subtitle')}
 										isDarkMode={isDarkMode}
 									/>
-									<Guidelines isDarkMode={isDarkMode} />
+									<Guidelines isDarkMode={isDarkMode} t={t} />
 								</View>
 
 								{/* Video Section */}
 								<View className='py-4'>
 									<SectionHeader
-										title='Video Upload'
-										subtitle='Select a video to submit for review'
+										title={t('autoclips.video_upload')}
+										subtitle={t('autoclips.video_upload_subtitle')}
 										isDarkMode={isDarkMode}
 									/>
 
@@ -971,13 +971,13 @@ const fetchCars = async () => {
 								{/* Clip Details */}
 								<View className='mb-8'>
 									<SectionHeader
-										title='Clip Details'
-										subtitle='Add information about your AutoClip'
+										title={t('autoclips.clip_details')}
+										subtitle={t('autoclips.clip_details_subtitle')}
 										isDarkMode={isDarkMode}
 									/>
 
 									<NeumorphicInput
-										label='Title'
+										label={t('autoclips.title')}
 										value={formState.title}
 										onChangeText={text =>
 											setFormState(prev => ({
@@ -986,7 +986,7 @@ const fetchCars = async () => {
 												titleError: ''
 											}))
 										}
-										placeholder='Enter a catchy title...'
+										placeholder={t('autoclips.title_placeholder')}
 										required
 										error={formState.titleError}
 										isDarkMode={isDarkMode}
@@ -995,7 +995,7 @@ const fetchCars = async () => {
 									/>
 
 									<NeumorphicInput
-										label='Description'
+										label={t('common.description')}
 										value={formState.description}
 										onChangeText={text =>
 											setFormState(prev => ({
@@ -1004,7 +1004,7 @@ const fetchCars = async () => {
 												descriptionError: ''
 											}))
 										}
-										placeholder='Describe your video...'
+										placeholder={t('autoclips.description_placeholder')}
 										multiline
 										error={formState.descriptionError}
 										isDarkMode={isDarkMode}
@@ -1017,8 +1017,8 @@ const fetchCars = async () => {
 								{/* Car Selection - TEMPORARILY OPTIONAL FOR TESTING */}
 								<View className='mb-8'>
 									<SectionHeader
-										title='Featured Vehicle (Optional - Testing Mode)'
-										subtitle='Optionally select the car featured in this clip'
+										title={t('autoclips.featured_vehicle')}
+										subtitle={t('autoclips.featured_vehicle_subtitle')}
 										isDarkMode={isDarkMode}
 									/>
 
@@ -1045,7 +1045,7 @@ const fetchCars = async () => {
 												className={`text-center ${
 													isDarkMode ? 'text-white' : 'text-black'
 												}`}>
-												No cars available for selection.{'\n'}You can still create AutoClips without selecting a car (testing mode).
+												{t('autoclips.no_cars_available_selection')}
 											</Text>
 										</BlurView>
 									)}
@@ -1055,8 +1055,8 @@ const fetchCars = async () => {
 								{isLoading && uploadProgress > 0 && (
 									<View className='mb-8'>
 										<SectionHeader
-											title='Uploading'
-											subtitle={`Progress: ${uploadProgress}%`}
+											title={t('autoclips.uploading')}
+											subtitle={t('autoclips.uploading_progress', { progress: uploadProgress })}
 											isDarkMode={isDarkMode}
 										/>
 										<ProgressBar
