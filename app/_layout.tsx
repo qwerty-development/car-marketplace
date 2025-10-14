@@ -44,6 +44,7 @@ import { TextInput } from "react-native";
 import * as Updates from "expo-updates";
 import Toast from "react-native-toast-message";
 import StatusBarManager from "@/components/StatusBarManager";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   notificationCache,
   NotificationCacheManager,
@@ -1106,6 +1107,7 @@ useSlowConnectionToast();
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
         <GuestUserProvider>
           <AuthProvider>
             <DeepLinkHandler />
@@ -1123,6 +1125,7 @@ useSlowConnectionToast();
             </QueryClientProvider>
           </AuthProvider>
         </GuestUserProvider>
+          </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

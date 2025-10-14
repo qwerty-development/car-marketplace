@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Platform, SafeAreaView, TouchableOpacity } from 'react-native';
+import { Modal, Platform, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { usePathname, useSegments } from 'expo-router';
