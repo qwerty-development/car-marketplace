@@ -430,11 +430,13 @@ export default function AddEditListing() {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{
-    dealershipId: string;
+    dealershipId?: string;
     listingId?: string;
+    userId?: string;
   }>();
 
   const [dealership, setDealership] = useState<any>(null);
+  const isUserMode = !!params.userId; // Determine if we're in user mode
   const [initialData, setInitialData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<any>({
@@ -570,12 +572,22 @@ export default function AddEditListing() {
 
   const handleSubmit = useCallback(() => {
     if (!validateFormData(formData)) return;
-    if (!dealership || !isSubscriptionValid()) {
-      Alert.alert(
-        "Subscription Error",
-        "Your subscription is not valid or has expired."
-      );
-      return;
+
+    // For user mode: skip dealership/subscription check
+    if (!isUserMode) {
+      if (!dealership || !isSubscriptionValid()) {
+        Alert.alert(
+          "Subscription Error",
+          "Your subscription is not valid or has expired."
+        );
+        return;
+      }
+    } else {
+      // For user mode: ensure we have a userId
+      if (!params.userId) {
+        Alert.alert("Error", "User authentication required");
+        return;
+      }
     }
 
     const submitListing = async () => {
@@ -630,15 +642,24 @@ export default function AddEditListing() {
               : "NA",
             source: allowedData.source,
             features: formData.features || [],
-            dealership_id: dealership.id,
+            // Set either dealership_id or user_id based on mode
+            ...(isUserMode
+              ? { user_id: params.userId, dealership_id: null }
+              : { dealership_id: dealership.id, user_id: null }
+            ),
           };
 
-          const { data, error } = await supabase
+          const updateQuery = supabase
             .from("cars")
             .update(dataToUpdate)
-            .eq("id", initialData.id)
-            .eq("dealership_id", dealership.id)
-            .select(
+            .eq("id", initialData.id);
+
+          // Add appropriate ownership check based on mode
+          const finalQuery = isUserMode
+            ? updateQuery.eq("user_id", params.userId)
+            : updateQuery.eq("dealership_id", dealership.id);
+
+          const { data, error } = await finalQuery.select(
               `
 id,
 listed_at,
@@ -711,14 +732,18 @@ features
               ? new Date(allowedData.date_bought).toISOString()
               : new Date().toISOString(),
             seller_name: allowedData.seller_name,
-            dealership_id: dealership.id,
             source: allowedData.source,
             features: formData.features || [],
-            status: "pending",
+            status: "pending", // Both users and dealers start with pending (awaiting admin approval)
             views: 0,
             likes: 0,
             viewed_users: [],
             liked_users: [],
+            // Set either dealership_id or user_id based on mode
+            ...(isUserMode
+              ? { user_id: params.userId, dealership_id: null }
+              : { dealership_id: dealership.id, user_id: null }
+            ),
           };
 
           const { data, error } = await supabase
@@ -801,7 +826,8 @@ features
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        if (params.dealershipId) {
+        // Only fetch dealership data if in dealer mode
+        if (params.dealershipId && !isUserMode) {
           const { data: dealershipData, error: dealershipError } =
             await supabase
               .from("dealerships")
@@ -1039,8 +1065,14 @@ features
 
   const handleMultipleImageUpload = useCallback(
     async (assets: any[]) => {
-      if (!dealership?.id) {
+      // Check for either dealership ID or user ID based on mode
+      if (!isUserMode && !dealership?.id) {
         console.error("No dealership ID available for upload");
+        return;
+      }
+
+      if (isUserMode && !params.userId) {
+        console.error("No user ID available for upload");
         return;
       }
 
@@ -1107,7 +1139,9 @@ features
             const isAndroid = Platform.OS === "android";
             const extension = isAndroid ? "webp" : "jpg";
             const fileName = `${timestamp}_${randomId}_${i}.${extension}`;
-            const filePath = `${dealership.id}/${fileName}`;
+            // Use user_id or dealership_id for the folder path
+            const folderId = isUserMode ? `user_${params.userId}` : dealership.id;
+            const filePath = `${folderId}/${fileName}`;
 
             // Upload image
             console.log(`Uploading ${imageName} (${imageNumber}/${totalImages})`);
@@ -1424,12 +1458,20 @@ features
   }, []);
 
   const handleDeleteConfirmation = useCallback(() => {
-    if (!dealership || !isSubscriptionValid()) {
-      Alert.alert(
-        "Subscription Error",
-        "Your subscription is not valid or has expired."
-      );
-      return;
+    // Check permissions based on mode
+    if (!isUserMode) {
+      if (!dealership || !isSubscriptionValid()) {
+        Alert.alert(
+          "Subscription Error",
+          "Your subscription is not valid or has expired."
+        );
+        return;
+      }
+    } else {
+      if (!params.userId) {
+        Alert.alert("Error", "User authentication required");
+        return;
+      }
     }
 
     Alert.alert(
@@ -1441,18 +1483,7 @@ features
           text: "Delete",
           onPress: async () => {
             try {
-              if (
-                !initialData ||
-                !initialData.id ||
-                !dealership ||
-                !dealership.id
-              ) {
-                console.error("Missing data for deletion:", {
-                  initialData: !!initialData,
-                  listingId: initialData?.id,
-                  dealership: !!dealership,
-                  dealershipId: dealership?.id,
-                });
+              if (!initialData || !initialData.id) {
                 Alert.alert(
                   "Error",
                   "Unable to delete: missing required information"
@@ -1462,15 +1493,19 @@ features
 
               setIsLoading(true);
 
-              console.log(
-                `Deleting listing ID ${initialData.id} from dealership ${dealership.id}`
-              );
+              console.log(`Deleting listing ID ${initialData.id}`);
 
-              const { error } = await supabase
+              // Build delete query based on mode
+              const deleteQuery = supabase
                 .from("cars")
                 .delete()
-                .eq("id", initialData.id)
-                .eq("dealership_id", dealership.id);
+                .eq("id", initialData.id);
+
+              const finalQuery = isUserMode
+                ? deleteQuery.eq("user_id", params.userId)
+                : deleteQuery.eq("dealership_id", dealership.id);
+
+              const { error } = await finalQuery;
 
               if (error) {
                 console.error("Supabase deletion error:", error);
@@ -1495,13 +1530,28 @@ features
         },
       ]
     );
-  }, [initialData, dealership, isSubscriptionValid, router]);
+  }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router]);
 
   const handleMarkAsSold = useCallback(
     async (soldData = soldInfo) => {
-      if (!initialData || !dealership || !isSubscriptionValid()) {
+      if (!initialData) {
         setShowSoldModal(false);
         return;
+      }
+
+      // Check permissions based on mode
+      if (!isUserMode) {
+        if (!dealership || !isSubscriptionValid()) {
+          setShowSoldModal(false);
+          Alert.alert("Subscription Error", "Your subscription is not valid.");
+          return;
+        }
+      } else {
+        if (!params.userId) {
+          setShowSoldModal(false);
+          Alert.alert("Error", "User authentication required");
+          return;
+        }
       }
 
       if (!soldData.price || !soldData.date || !soldData.buyer_name) {
@@ -1515,7 +1565,7 @@ features
       try {
         setIsLoading(true);
 
-        const { error } = await supabase
+        const updateQuery = supabase
           .from("cars")
           .update({
             status: "sold",
@@ -1523,8 +1573,13 @@ features
             date_sold: soldData.date,
             buyer_name: soldData.buyer_name,
           })
-          .eq("id", initialData.id)
-          .eq("dealership_id", dealership.id);
+          .eq("id", initialData.id);
+
+        const finalQuery = isUserMode
+          ? updateQuery.eq("user_id", params.userId)
+          : updateQuery.eq("dealership_id", dealership.id);
+
+        const { error } = await finalQuery;
 
         if (error) throw error;
 
@@ -1542,7 +1597,7 @@ features
         setIsLoading(false);
       }
     },
-    [initialData, dealership, isSubscriptionValid, soldInfo, router]
+    [initialData, dealership, isSubscriptionValid, soldInfo, isUserMode, params.userId, router]
   );
 
   const SoldModal = () => {

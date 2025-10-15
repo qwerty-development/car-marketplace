@@ -788,6 +788,106 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
+                  "Please sign in to see your listings",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                router.push({
+                  pathname: "/(home)/(user)/MyListings",
+                  params: { userId: user?.id }
+                });
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
+          >
+            <View className="bg-blue-500/10 p-3 rounded-xl">
+              <Ionicons name="list-outline" size={24} color="#D55004" />
+            </View>
+            <View className={isRTL ? "mr-4" : "ml-4"}>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                My Listings
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {isGuest ? "Sign in to see your cars" : "View and manage your cars"}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to sell your car",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                router.push({
+                  pathname: "/(home)/(dealer)/AddEditListing",
+                  params: { userId: user?.id }
+                });
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
+          >
+            <View className="bg-green-500/10 p-3 rounded-xl">
+              <Ionicons name="add-circle-outline" size={24} color="#D55004" />
+            </View>
+            <View className={isRTL ? "mr-4" : "ml-4"}>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                Sell Your Car
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {isGuest ? "Sign in to list your vehicle" : "List a new vehicle for sale"}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
                   t('profile.please_sign_in_security'),
                   [
                     { text: "Cancel", style: "cancel" },
