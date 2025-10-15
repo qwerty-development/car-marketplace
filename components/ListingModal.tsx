@@ -30,7 +30,7 @@ import { useTranslation } from 'react-i18next';
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
-import { Buffer } from "buffer";
+import { processImageToWebP, getWebPFileInfo } from "@/utils/imageProcessor";
 import DraggableFlatList from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTheme } from "@/utils/ThemeContext";
@@ -1219,20 +1219,36 @@ const ListingModal = ({
       const uploadPromises = assets.map(
         async (asset: { uri: string }, index: number) => {
           try {
+            // Process image to WebP format
+            const processedUri = await processImageToWebP(asset.uri);
+            
+            if (!processedUri) {
+              throw new Error("Image processing failed");
+            }
+
+            // Generate unique filename with WebP extension
+            const { extension, contentType } = getWebPFileInfo();
             const fileName = `${Date.now()}_${Math.random()
               .toString(36)
-              .substring(7)}_${index}.jpg`;
+              .substring(7)}_${index}.${extension}`;
             const filePath = `${dealership.id}/${fileName}`;
 
-            const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-
+            // Upload the processed WebP image
             const { data, error } = await supabase.storage
               .from("cars")
-              .upload(filePath, Buffer.from(base64, "base64"), {
-                contentType: "image/jpeg",
-              });
+              .upload(
+                filePath,
+                {
+                  uri: processedUri,
+                  name: fileName,
+                  type: contentType,
+                } as any,
+                {
+                  contentType,
+                  cacheControl: "3600",
+                  upsert: false,
+                }
+              );
 
             if (error) throw error;
 
@@ -1241,6 +1257,15 @@ const ListingModal = ({
               .getPublicUrl(filePath);
 
             if (!publicURLData) throw new Error("Error getting public URL");
+
+            // Cleanup processed file
+            try {
+              if (processedUri && processedUri !== asset.uri) {
+                await FileSystem.deleteAsync(processedUri, { idempotent: true });
+              }
+            } catch (cleanupError) {
+              console.warn("Failed to cleanup processed file:", cleanupError);
+            }
 
             return publicURLData.publicUrl;
           } catch (error) {
