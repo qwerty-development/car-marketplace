@@ -48,8 +48,9 @@ export const processImageToWebP = async (uri: string): Promise<string> => {
     console.log(`Original dimensions: ${originalWidth}×${originalHeight}`);
 
     // Step 4: Calculate target dimensions while preserving aspect ratio
-    const MAX_WIDTH = 1080;
-    const MAX_HEIGHT = 1080;
+    // Higher resolution for car marketplace - buyers need to see details!
+    const MAX_WIDTH = 1920;  // Full HD width for quality
+    const MAX_HEIGHT = 1920; // Full HD height for quality
     const aspectRatio = originalWidth / originalHeight;
 
     let targetWidth = originalWidth;
@@ -69,14 +70,18 @@ export const processImageToWebP = async (uri: string): Promise<string> => {
 
     console.log(`Target dimensions: ${targetWidth}×${targetHeight}`);
 
-    // Step 5: Determine optimal compression level based on file size
-    let compressionLevel = 0.6; // Default compression
+    // Step 5: HIGH-QUALITY compression optimized for car marketplace
+    // WebP maintains better quality than JPEG at same file size
+    // Using conservative compression to preserve car details (scratches, interior, etc.)
+    let compressionLevel = 0.75; // High quality default 
 
-    if (fileInfo.size > 10 * 1024 * 1024) {
-      compressionLevel = 0.4; // Aggressive compression for very large images
-    } else if (fileInfo.size > 5 * 1024 * 1024 || isLikelyiOSPhoto) {
-      compressionLevel = 0.5; // Stronger compression for large images and iOS photos
+    if (fileInfo.size > 15 * 1024 * 1024) {
+      compressionLevel = 0.75; // Still high quality for very large images (25% compression)
+    } else if (fileInfo.size > 8 * 1024 * 1024 || isLikelyiOSPhoto) {
+      compressionLevel = 0.80; // Balanced high quality (20% compression)
     }
+    
+    console.log(`Using compression level: ${compressionLevel} (${Math.round((1 - compressionLevel) * 100)}% compression)`);
 
     // Step 6: First-pass optimization with WebP format for both iOS and Android
     const firstPass = await ImageManipulator.manipulateAsync(
