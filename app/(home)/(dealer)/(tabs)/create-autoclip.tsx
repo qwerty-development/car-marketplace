@@ -530,7 +530,41 @@ export default function AutoClipsScreen() {
   useScrollToTop(flatListRef)
 
   const handleDelete = async (clipId: number) => {
-    const { error } = await supabase.from('auto_clips').delete().eq('id', clipId)
+    // Fetch the clip to get the video_url
+    const { data: clipData, error: fetchError } = await supabase
+      .from('auto_clips')
+      .select('video_url')
+      .eq('id', clipId)
+      .single();
+
+    if (fetchError || !clipData) {
+      Alert.alert('Error', 'Failed to fetch clip for deletion.')
+      return;
+    }
+
+    // Remove video from Supabase storage
+    if (clipData.video_url) {
+      // Extract the storage path from the video_url
+      // Example: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+      try {
+        const url = clipData.video_url;
+        const match = url.match(/\/storage\/v1\/object\/public\/(.+)/);
+        if (match && match[1]) {
+          const fullPath = match[1];
+          const bucket = fullPath.split('/')[0];
+          const path = fullPath.substring(bucket.length + 1);
+          const { error: removeError } = await supabase.storage.from(bucket).remove([path]);
+          if (removeError) {
+            console.error('Failed to remove video from storage:', removeError.message);
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing video_url for removal:', e);
+      }
+    }
+
+    // Delete the autoclip record
+    const { error } = await supabase.from('auto_clips').delete().eq('id', clipId);
     if (error) {
       Alert.alert('Error', 'Failed to delete clip.')
     } else {
