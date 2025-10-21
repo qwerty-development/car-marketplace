@@ -17,6 +17,7 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { useLanguage } from '@/utils/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +29,8 @@ const Section = ({ title, children, isLast = false }:any) => {
   const maxHeight = 1000; // Maximum height for animation
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { language } = useLanguage();
+  const isRTL = language === 'ar';
 
   const toggleSection = () => {
     const toValue = expanded ? 0 : 1;
@@ -67,18 +70,18 @@ const Section = ({ title, children, isLast = false }:any) => {
     ]}>
       <TouchableOpacity
         onPress={toggleSection}
-        style={styles.sectionHeader}
+        style={[styles.sectionHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
         activeOpacity={0.7}
       >
         <Text style={[
           styles.sectionTitle,
-          { color: isDark ? '#fff' : '#000' }
+          { color: isDark ? '#fff' : '#000', textAlign: isRTL ? 'right' : 'left' }
         ]}>
           {title}
         </Text>
         <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
           <Ionicons
-            name="chevron-forward"
+            name={isRTL ? 'chevron-back' : 'chevron-forward'}
             size={20}
             color={isDark ? '#D55004' : '#D55004'}
           />
@@ -119,6 +122,8 @@ export default function TermsOfServiceScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { language } = useLanguage();
+  const isRTL = language === 'ar';
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const headerOpacity = scrollY.interpolate({
@@ -141,7 +146,7 @@ export default function TermsOfServiceScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: isDark ? '#000' : '#fff' }
+        { backgroundColor: isDark ? '#000' : '#fff', writingDirection: isRTL ? 'rtl' : 'ltr' }
       ]}
     >
 

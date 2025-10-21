@@ -602,10 +602,11 @@ export default function DealershipProfilePage() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF", writingDirection: isRTL ? 'rtl' : 'ltr' }}>
       <ScrollView
         ref={scrollRef}
         className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
+        contentContainerStyle={{ writingDirection: isRTL ? 'rtl' : 'ltr' }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -633,7 +634,8 @@ export default function DealershipProfilePage() {
                 <TouchableOpacity
                   onPress={pickImage}
                   disabled={isUploading}
-                  className="absolute bottom-0 right-0 bg-white/90 p-2 rounded-full shadow-lg"
+                  className="absolute bottom-0 bg-white/90 p-2 rounded-full shadow-lg"
+                  style={isRTL ? { left: 0 } : { right: 0 }}
                 >
                   {isUploading ? (
                     <ActivityIndicator color="#D55004" size="small" />
