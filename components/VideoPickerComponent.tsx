@@ -10,11 +10,13 @@ import {
 } from 'react-native'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
-import { Video, AVPlaybackStatus } from 'expo-av'
+import { Video as ExpoVideo, AVPlaybackStatus } from 'expo-av'
 import { useTheme } from '@/utils/ThemeContext'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
 import * as FileSystem from 'expo-file-system'
+import { Video as CompressorVideo, getRealPath } from 'react-native-compressor'
+import type { Video as ExpoVideoType } from 'expo-av'
 
 interface VideoAsset {
 	uri: string
@@ -54,7 +56,7 @@ export default function VideoPickerButton({
 	const [isCompressing, setIsCompressing] = useState(false)
 	const [compressionProgress, setCompressionProgress] = useState(0)
 	const [isPlaying, setIsPlaying] = useState(false)
-	const [videoRef, setVideoRef] = useState<Video | null>(null)
+	const [videoRef, setVideoRef] = useState<ExpoVideoType | null>(null)
 	const [videoError, setVideoError] = useState<string | null>(null)
 	const cleanupTimeoutRef = useRef<NodeJS.Timeout>()
 
@@ -129,50 +131,133 @@ export default function VideoPickerButton({
 		[maxDuration, maxSize]
 	)
 
-	// Simple video "compression" (currently just simulation - no TurboModule errors)
-	const compressVideo = useCallback(async (uri: string, originalSize: number): Promise<{ uri: string; size: number }> => {
-		try {
-			setIsCompressing(true)
-			setCompressionProgress(0)
-			onCompressionProgress?.(0)
+	// Compress video using react-native-compressor
+	const compressVideo = useCallback(
+		async (
+			uri: string,
+			originalSize: number
+		): Promise<{ uri: string; size: number; originalSize: number; isSimulated: boolean }> => {
+			try {
+				setIsCompressing(true)
+				setCompressionProgress(0)
+				onCompressionProgress?.(0)
 
-			// Simulate compression progress for smooth UX
-			console.log('🎥 Processing video...')
-			
-			// Simulate realistic compression progress
-			const progressSteps = [0, 15, 35, 60, 85, 100]
-			for (const progress of progressSteps) {
-				setCompressionProgress(progress)
-				onCompressionProgress?.(progress)
-				await new Promise(resolve => setTimeout(resolve, 200))
+				let knownOriginalSize = originalSize
+				if (knownOriginalSize <= 0) {
+					try {
+						const originalInfo = await FileSystem.getInfoAsync(uri, { size: true })
+						if (originalInfo.exists && typeof originalInfo.size === 'number') {
+							knownOriginalSize = originalInfo.size
+						}
+					} catch (sizeLookupError) {
+						console.warn('Could not determine original video size before compression:', sizeLookupError)
+					}
+				}
+
+				const sizeInMb = knownOriginalSize / (1024 * 1024)
+				const shouldSkipCompression = sizeInMb > 0 && sizeInMb <= 2
+				if (shouldSkipCompression) {
+					setCompressionProgress(100)
+					onCompressionProgress?.(100)
+					return {
+						uri,
+						size: knownOriginalSize,
+						originalSize: knownOriginalSize,
+						isSimulated: true
+					}
+				}
+
+				console.log('Compressing video with react-native-compressor...')
+				let sourceUri = uri
+				if (Platform.OS === 'android' && uri.startsWith('content://')) {
+					try {
+						const realPath = await getRealPath(uri, 'video')
+						if (realPath) {
+							sourceUri = realPath
+						}
+					} catch (pathError) {
+						console.warn('Failed to resolve real video path, using original URI:', pathError)
+					}
+				}
+
+				const compressionOptions = {
+					compressionMethod: 'auto' as const,
+					maxSize: 1280,
+					minimumFileSizeForCompress: 2 // MB
+				}
+				const compressedUri = await CompressorVideo.compress(
+					sourceUri,
+					compressionOptions,
+					(progress) => {
+						if (typeof progress === 'number') {
+							const percentage = Math.min(100, Math.max(0, Math.round(progress * 100)))
+							setCompressionProgress(percentage)
+							onCompressionProgress?.(percentage)
+						}
+					}
+				)
+				let normalizedUri = compressedUri
+				if (Platform.OS === 'android') {
+					if (compressedUri.startsWith('content://')) {
+						try {
+							const realCompressedPath = await getRealPath(compressedUri, 'video')
+							if (realCompressedPath) {
+								normalizedUri = realCompressedPath.startsWith('file://')
+									? realCompressedPath
+									: `file://${realCompressedPath}`
+							}
+						} catch (compressedPathError) {
+							console.warn('Failed to resolve real path for compressed video:', compressedPathError)
+						}
+					} else if (!compressedUri.startsWith('file://')) {
+						normalizedUri = `file://${compressedUri}`
+					}
+				}
+				let compressedSize = originalSize
+				try {
+					const fileInfo = await FileSystem.getInfoAsync(normalizedUri, { size: true })
+					if (fileInfo.exists && typeof fileInfo.size === 'number') {
+						compressedSize = fileInfo.size
+					}
+				} catch (sizeError) {
+					console.warn('Failed to determine compressed video size:', sizeError)
+				}
+				const resolvedOriginalSize =
+					knownOriginalSize > 0 ? knownOriginalSize : compressedSize
+				setCompressionProgress(100)
+				onCompressionProgress?.(100)
+				console.log('Video compression completed')
+				return {
+					uri: normalizedUri,
+					size: compressedSize,
+					originalSize: resolvedOriginalSize,
+					isSimulated: false
+				}
+			} catch (error) {
+				console.error('Video compression failed, using original file:', error)
+				let fallbackSize = originalSize
+				try {
+					const fileInfo = await FileSystem.getInfoAsync(uri, { size: true })
+					if (fileInfo.exists && typeof fileInfo.size === 'number') {
+						fallbackSize = fileInfo.size
+					}
+				} catch (infoError) {
+					console.warn('Failed to read original video size:', infoError)
+				}
+				setCompressionProgress(100)
+				onCompressionProgress?.(100)
+				return {
+					uri,
+					size: fallbackSize,
+					originalSize: fallbackSize,
+					isSimulated: true
+				}
+			} finally {
+				setIsCompressing(false)
 			}
-			
-			// For now, simulate realistic compression results matching react-native-compressor performance
-			// This will be replaced with real compression once react-native-compressor is installed
-			const simulatedCompressionRatio = 0.15 + Math.random() * 0.25 // 60-85% compression (15-40% of original size)
-			const simulatedCompressedSize = Math.round(originalSize * simulatedCompressionRatio)
-			
-			const compressedResult = {
-				uri,
-				size: simulatedCompressedSize, // Simulated compressed size for demo
-				originalSize: originalSize, // Keep track of original
-				isSimulated: true // Flag to indicate this is simulated
-			}
-
-			console.log(`✅ Video ready for upload`)
-
-			return compressedResult
-
-		} catch (error) {
-			console.error('Video processing failed:', error)
-			return {
-				uri,
-				size: originalSize
-			}
-		} finally {
-			setIsCompressing(false)
-		}
-	}, [onCompressionProgress])
+		},
+		[onCompressionProgress]
+	)
 
 	// Enhanced video picker with better error handling
 	const pickVideo = async () => {
@@ -439,7 +524,7 @@ export default function VideoPickerButton({
 				{/* Enhanced video preview with error boundaries */}
 				{videoUri && !videoError && (
 					<View className='mt-4 rounded-xl overflow-hidden relative'>
-						<Video
+						<ExpoVideo
 							ref={setVideoRef}
 							source={{ uri: videoUri }}
 							className='w-full h-48 rounded-xl'

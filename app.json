@@ -199,7 +199,8 @@
           "project": "fleet",
           "organization": "qwerty-5v"
         }
-      ]
+      ],
+      "react-native-compressor"
     ],
     "experiments": {
       "typedRoutes": true
