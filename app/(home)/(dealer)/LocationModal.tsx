@@ -35,7 +35,7 @@ interface LocationModalProps {
   } | null
   setSelectedLocation: (location: { latitude: number; longitude: number } | null) => void
   getLocation: () => Promise<void>
-  onUpdate: () => Promise<void>
+  onUpdate: () => Promise<boolean | void>
   isLoading: boolean
 }
 
@@ -121,9 +121,11 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
               <TouchableOpacity
                 className="bg-red mt-4 p-4 rounded-xl flex-row justify-center items-center"
-                onPress={() => {
-                  onUpdate()
-                  onClose()
+                onPress={async () => {
+                  const shouldClose = await onUpdate()
+                  if (shouldClose !== false) {
+                    onClose()
+                  }
                 }}
                 disabled={isLoading}
               >

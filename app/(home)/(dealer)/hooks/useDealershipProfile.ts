@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Alert } from 'react-native'
 import { supabase } from '@/utils/supabase'
 import { useAuth } from '@/utils/AuthContext'
+import { onDealershipProfileRefresh } from './dealershipProfileEvents'
 
 export const useDealershipProfile = () => {
   const { user } = useAuth()
@@ -31,6 +32,16 @@ export const useDealershipProfile = () => {
 
   useEffect(() => {
     fetchDealershipProfile()
+  }, [fetchDealershipProfile])
+
+  useEffect(() => {
+    const unsubscribe = onDealershipProfileRefresh(() => {
+      fetchDealershipProfile()
+    })
+
+    return () => {
+      unsubscribe()
+    }
   }, [fetchDealershipProfile])
 
   return { dealership, isLoading, error, fetchDealershipProfile }

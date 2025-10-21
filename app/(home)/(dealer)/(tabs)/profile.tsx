@@ -16,17 +16,16 @@ import {
 } from 'react-native'
 import { useAuth } from '@/utils/AuthContext'
 import * as ImagePicker from 'expo-image-picker'
-import * as FileSystem from 'expo-file-system'
 import { useTheme } from '@/utils/ThemeContext'
 import { useRouter } from 'expo-router'
 import { Ionicons, Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useScrollToTop } from '@react-navigation/native'
 import { useDealershipProfile } from '../hooks/useDealershipProfile'
-import { supabase } from '@/utils/supabase'
-import { Buffer } from 'buffer'
+import { useImageUpload } from '../hooks/useImageUpload'
 import { coordinateSignOut } from '@/app/(home)/_layout'
 import { SignOutOverlay } from '@/components/SignOutOverlay'
+import { DealerLogoPicker } from '@/components/DealerLogoPicker'
 import Constants from 'expo-constants'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '@/utils/LanguageContext'
@@ -367,9 +366,24 @@ export default function DealershipProfilePage() {
   useScrollToTop(scrollRef)
 
   const { dealership, isLoading: isProfileLoading, fetchDealershipProfile } = useDealershipProfile()
+  const {
+    isUploading: isLogoUploading,
+    handleImageUpload: handleLogoUpload,
+  } = useImageUpload(
+    dealership?.id ? String(dealership.id) : undefined,
+    {
+      persistLogo: true,
+      onUploadComplete: async () => {
+        await fetchDealershipProfile()
+        Alert.alert(t('common.success'), t('profile.logo_updated_successfully'))
+      },
+      onUploadError: () => {
+        Alert.alert(t('common.error'), t('profile.failed_to_upload_image'))
+      },
+    }
+  )
 
   // State Management
-  const [isUploading, setIsUploading] = useState(false)
   const [isLegalsModalVisible, setIsLegalsModalVisible] = useState(false)
   const [isRenewModalVisible, setIsRenewModalVisible] = useState(false)
   const [isCreatingPayment, setIsCreatingPayment] = useState(false)
@@ -444,49 +458,10 @@ export default function DealershipProfilePage() {
       })
 
       if (!result.canceled && result.assets?.[0]) {
-        setIsUploading(true)
-        await handleImageUpload(result.assets[0].uri)
+        await handleLogoUpload(result.assets[0].uri)
       }
     } catch (error) {
       Alert.alert(t('common.error'), t('profile.failed_to_pick_image'))
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleImageUpload = async (imageUri: string) => {
-    if (!dealership?.id) return
-
-    try {
-      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
-      const filePath = `${dealership.id}/${fileName}`
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64
-      })
-
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(filePath, Buffer.from(base64, 'base64'), {
-          contentType: 'image/jpeg'
-        })
-
-      if (uploadError) throw uploadError
-
-      const { data: publicURLData } = supabase.storage
-        .from('logos')
-        .getPublicUrl(filePath)
-
-      if (!publicURLData?.publicUrl) throw new Error('Failed to get public URL')
-
-      await supabase
-        .from('dealerships')
-        .update({ logo: publicURLData.publicUrl })
-        .eq('id', dealership.id)
-
-      fetchDealershipProfile()
-      Alert.alert(t('common.success'), t('profile.logo_updated_successfully'))
-    } catch (error) {
-      Alert.alert(t('common.error'), t('profile.failed_to_upload_image'))
     }
   }
 
@@ -624,26 +599,13 @@ export default function DealershipProfilePage() {
             className="pt-12 pb-24 rounded-b-[40px]"
           >
             <View className="items-center mt-6">
-              <View className="relative">
-                <Image
-                  source={{
-                    uri: dealership?.logo || 'https://via.placeholder.com/150'
-                  }}
-                  className="w-32 h-32 rounded-full border-4 border-white/20"
-                />
-                <TouchableOpacity
-                  onPress={pickImage}
-                  disabled={isUploading}
-                  className="absolute bottom-0 bg-white/90 p-2 rounded-full shadow-lg"
-                  style={isRTL ? { left: 0 } : { right: 0 }}
-                >
-                  {isUploading ? (
-                    <ActivityIndicator color="#D55004" size="small" />
-                  ) : (
-                    <Ionicons name="camera" size={20} color="#D55004" />
-                  )}
-                </TouchableOpacity>
-              </View>
+              <DealerLogoPicker
+                logoUri={dealership?.logo}
+                onPick={pickImage}
+                isUploading={isLogoUploading}
+                size={128}
+                isRTL={isRTL}
+              />
 
               <Text className="text-white text-xl font-semibold mt-4" style={{ textAlign: 'center' }}>
                 {dealership?.name}

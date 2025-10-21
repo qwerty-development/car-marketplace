@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,12 @@ import { useTheme } from '@/utils/ThemeContext';
 import { BlurView } from 'expo-blur';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '@/utils/AuthContext';
+import MapView from 'react-native-maps';
+import * as Location from 'expo-location';
+import { DealerLogoPicker } from '@/components/DealerLogoPicker';
+import { LocationModal } from './LocationModal';
+import { useImageUpload } from './hooks/useImageUpload';
+import { notifyDealershipProfileUpdated } from './hooks/dealershipProfileEvents';
 
 interface DealerOnboardingModalProps {
   visible: boolean;
@@ -29,6 +35,9 @@ interface DealershipForm {
   location: string;
   phone: string;
   subscriptionEndDate: Date;
+  latitude: string;
+  longitude: string;
+  logo: string;
 }
 
 const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
@@ -46,6 +55,9 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
     location: '',
     phone: '',
     subscriptionEndDate: new Date(),
+    latitude: '',
+    longitude: '',
+    logo: '',
   });
   const [errors, setErrors] = useState({
     name: '',
@@ -53,6 +65,19 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
     phone: '',
     subscriptionEndDate: '',
   });
+  const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
+  const mapRef = useRef<MapView | null>(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 33.8547,
+    longitude: 35.8623,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const {
+    isUploading: isLogoUploading,
+    handleImageUpload: triggerLogoUpload,
+  } = useImageUpload(dealershipId ? String(dealershipId) : undefined);
 
   // Fetch existing dealership data when modal opens
   useEffect(() => {
@@ -66,13 +91,26 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
       setIsLoadingData(true);
       const { data, error } = await supabase
         .from('dealerships')
-        .select('name, location, phone, subscription_end_date')
+        .select('name, location, phone, subscription_end_date, latitude, longitude, logo')
         .eq('id', dealershipId)
         .single();
 
       if (error) throw error;
 
       if (data) {
+        const latitudeValue =
+          typeof data.latitude === 'number'
+            ? data.latitude
+            : data.latitude
+            ? parseFloat(data.latitude)
+            : null;
+        const longitudeValue =
+          typeof data.longitude === 'number'
+            ? data.longitude
+            : data.longitude
+            ? parseFloat(data.longitude)
+            : null;
+
         setDealershipForm({
           name: data.name || '',
           location: data.location || '',
@@ -80,7 +118,29 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
           subscriptionEndDate: data.subscription_end_date
             ? new Date(data.subscription_end_date)
             : new Date(),
+          latitude: latitudeValue !== null && !Number.isNaN(latitudeValue) ? latitudeValue.toString() : '',
+          longitude: longitudeValue !== null && !Number.isNaN(longitudeValue) ? longitudeValue.toString() : '',
+          logo: data.logo || '',
         });
+
+        if (
+          latitudeValue !== null &&
+          longitudeValue !== null &&
+          !Number.isNaN(latitudeValue) &&
+          !Number.isNaN(longitudeValue)
+        ) {
+          setSelectedLocation({
+            latitude: latitudeValue,
+            longitude: longitudeValue,
+          });
+          setMapRegion((prev) => ({
+            ...prev,
+            latitude: latitudeValue,
+            longitude: longitudeValue,
+          }));
+        } else {
+          setSelectedLocation(null);
+        }
       }
     } catch (error) {
       console.error('Error fetching dealership data:', error);
@@ -108,6 +168,17 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
     if (!dealershipForm.location.trim()) {
       newErrors.location = 'Location is required';
       isValid = false;
+    } else if (!dealershipForm.latitude.trim() || !dealershipForm.longitude.trim()) {
+      newErrors.location = 'Please select a location on the map';
+      isValid = false;
+    } else {
+      const latitudeValue = parseFloat(dealershipForm.latitude);
+      const longitudeValue = parseFloat(dealershipForm.longitude);
+
+      if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
+        newErrors.location = 'Invalid coordinates. Please reselect the location.';
+        isValid = false;
+      }
     }
 
     if (!dealershipForm.phone.trim()) {
@@ -127,6 +198,111 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
     return isValid;
   };
 
+  const handleLogoSelection = async () => {
+    try {
+      const uploadedLogo = await triggerLogoUpload();
+      if (uploadedLogo) {
+        setDealershipForm((prev) => ({
+          ...prev,
+          logo: uploadedLogo,
+        }));
+      }
+    } catch (error) {
+      console.error('Error uploading logo during onboarding:', error);
+    }
+  };
+
+  const getLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Please allow location access to select your dealership on the map.'
+        );
+        return;
+      }
+
+      const currentLocation = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = currentLocation.coords;
+
+      setDealershipForm((prev) => ({
+        ...prev,
+        latitude: latitude.toString(),
+        longitude: longitude.toString(),
+      }));
+
+      setSelectedLocation({
+        latitude,
+        longitude,
+      });
+
+      setMapRegion((prev) => ({
+        ...prev,
+        latitude,
+        longitude,
+      }));
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        1000
+      );
+    } catch (error) {
+      console.error('Error getting current location:', error);
+      Alert.alert('Error', 'Failed to get current location. Please try again.');
+    }
+  };
+
+  const handleLocationSave = async () => {
+    if (!dealershipForm.location.trim()) {
+      setErrors((prev) => ({
+        ...prev,
+        location: 'Location is required',
+      }));
+      return false;
+    }
+
+    const latitudeValue = parseFloat(dealershipForm.latitude);
+    const longitudeValue = parseFloat(dealershipForm.longitude);
+
+    if (!Number.isFinite(latitudeValue) || !Number.isFinite(longitudeValue)) {
+      setErrors((prev) => ({
+        ...prev,
+        location: 'Please select a location on the map',
+      }));
+      return false;
+    }
+
+    setSelectedLocation({
+      latitude: latitudeValue,
+      longitude: longitudeValue,
+    });
+
+    setMapRegion((prev) => ({
+      ...prev,
+      latitude: latitudeValue,
+      longitude: longitudeValue,
+    }));
+
+    setDealershipForm((prev) => ({
+      ...prev,
+      latitude: latitudeValue.toString(),
+      longitude: longitudeValue.toString(),
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      location: '',
+    }));
+
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) {
       Alert.alert('Validation Error', 'Please fill in all required fields correctly');
@@ -141,11 +317,17 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
     try {
       setIsLoading(true);
 
+      const latitudeValue = parseFloat(dealershipForm.latitude);
+      const longitudeValue = parseFloat(dealershipForm.longitude);
+
       const updateData = {
         name: dealershipForm.name.trim(),
         location: dealershipForm.location.trim(),
         phone: dealershipForm.phone.trim(),
         subscription_end_date: dealershipForm.subscriptionEndDate.toISOString().split('T')[0],
+        latitude: Number.isFinite(latitudeValue) ? latitudeValue : null,
+        longitude: Number.isFinite(longitudeValue) ? longitudeValue : null,
+        logo: dealershipForm.logo || null,
         first_login: false, // Set to false after successful submission
         user_id: user.id,
       };
@@ -156,6 +338,8 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
         .eq('id', dealershipId);
 
       if (error) throw error;
+
+      notifyDealershipProfileUpdated();
 
       Alert.alert('Success', 'Dealership information updated successfully', [
         {
@@ -187,6 +371,16 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
   }`;
 
   const errorTextStyle = `text-xs text-red-500 mb-3 ml-1`;
+  const latitudeNumber = parseFloat(dealershipForm.latitude);
+  const longitudeNumber = parseFloat(dealershipForm.longitude);
+  const hasCoordinates =
+    dealershipForm.latitude.trim().length > 0 &&
+    dealershipForm.longitude.trim().length > 0 &&
+    Number.isFinite(latitudeNumber) &&
+    Number.isFinite(longitudeNumber);
+  const coordinatesPreview = hasCoordinates
+    ? `Lat: ${latitudeNumber.toFixed(4)}, Lon: ${longitudeNumber.toFixed(4)}`
+    : null;
 
   if (isLoadingData) {
     return (
@@ -259,6 +453,34 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
               showsVerticalScrollIndicator={false}
               className="mb-4"
             >
+              {/* Dealership Logo */}
+              <View className="items-center mb-6">
+                <DealerLogoPicker
+                  logoUri={dealershipForm.logo}
+                  onPick={handleLogoSelection}
+                  isUploading={isLogoUploading}
+                  size={112}
+                  imageClassName={
+                    isDarkMode ? 'border-4 border-neutral-700' : 'border-4 border-neutral-200'
+                  }
+                  badgeClassName={isDarkMode ? 'bg-neutral-800' : 'bg-white'}
+                />
+                <Text
+                  className={`text-sm font-medium mt-3 ${
+                    isDarkMode ? 'text-neutral-300' : 'text-neutral-700'
+                  }`}
+                >
+                  Dealership Logo
+                </Text>
+                <Text
+                  className={`text-xs text-center mt-1 ${
+                    isDarkMode ? 'text-neutral-500' : 'text-neutral-500'
+                  }`}
+                >
+                  Upload a logo to help customers recognize your brand.
+                </Text>
+              </View>
+
               {/* Dealership Name */}
               <View className="mb-3">
                 <Text
@@ -291,17 +513,48 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
                 >
                   Location *
                 </Text>
-                <TextInput
-                  placeholder="Enter location (e.g., Beirut, Lebanon)"
-                  value={dealershipForm.location}
-                  onChangeText={(text) => {
-                    setDealershipForm({ ...dealershipForm, location: text });
-                    setErrors({ ...errors, location: '' });
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setErrors((prev) => ({ ...prev, location: '' }));
+                    setIsLocationModalVisible(true);
                   }}
-                  className={inputStyle}
-                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                  textAlignVertical="center"
-                />
+                  className={`${inputStyle} flex-col justify-center`}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons
+                        name="location-outline"
+                        size={18}
+                        color="#D55004"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text
+                        className={`flex-1 ${
+                          isDarkMode ? 'text-white' : 'text-black'
+                        }`}
+                        numberOfLines={2}
+                      >
+                        {dealershipForm.location.trim()
+                          ? dealershipForm.location
+                          : 'Tap to select your dealership location'}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="map-outline"
+                      size={20}
+                      color={isDarkMode ? '#FFFFFF' : '#000000'}
+                    />
+                  </View>
+                  <Text
+                    className={`text-xs mt-2 ${
+                      isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
+                    }`}
+                  >
+                    {coordinatesPreview ??
+                      'Pick the location from the interactive map to finish setup.'}
+                  </Text>
+                </TouchableOpacity>
                 {errors.location ? (
                   <Text className={errorTextStyle}>{errors.location}</Text>
                 ) : null}
@@ -428,6 +681,20 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
           </View>
         </View>
       </KeyboardAvoidingView>
+      <LocationModal
+        visible={isLocationModalVisible}
+        onClose={() => setIsLocationModalVisible(false)}
+        isDarkMode={isDarkMode}
+        formData={dealershipForm}
+        setFormData={setDealershipForm}
+        mapRef={mapRef}
+        mapRegion={mapRegion}
+        selectedLocation={selectedLocation}
+        setSelectedLocation={setSelectedLocation}
+        getLocation={getLocation}
+        onUpdate={handleLocationSave}
+        isLoading={isLoading}
+      />
     </Modal>
   );
 };

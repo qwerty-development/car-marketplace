@@ -1,11 +1,23 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { Alert } from 'react-native'
 import { supabase } from '@/utils/supabase'
+import { Buffer } from 'buffer'
+import { notifyDealershipProfileUpdated } from './dealershipProfileEvents'
 
-export const useImageUpload = (dealershipId: string | undefined) => {
+type UseImageUploadOptions = {
+  persistLogo?: boolean
+  onUploadComplete?: (publicUrl: string) => void | Promise<void>
+  onUploadError?: (error: Error) => void
+}
+
+export const useImageUpload = (
+  dealershipId: string | undefined,
+  options: UseImageUploadOptions = {}
+) => {
   const [isUploading, setIsUploading] = useState(false)
+  const { persistLogo = false, onUploadComplete, onUploadError } = options
 
   const pickImage = async () => {
     try {
@@ -33,7 +45,9 @@ export const useImageUpload = (dealershipId: string | undefined) => {
   }
 
   const uploadImage = async (imageUri: string) => {
-    if (!dealershipId) return null
+    if (!dealershipId) {
+      throw new Error('Missing dealership identifier')
+    }
 
     setIsUploading(true)
     try {
@@ -57,22 +71,44 @@ export const useImageUpload = (dealershipId: string | undefined) => {
 
       if (!publicURLData?.publicUrl) throw new Error('Failed to get public URL')
 
+      if (persistLogo) {
+        const { error: updateError } = await supabase
+          .from('dealerships')
+          .update({ logo: publicURLData.publicUrl })
+          .eq('id', dealershipId)
+
+        if (updateError) throw updateError
+        notifyDealershipProfileUpdated()
+      }
+
       return publicURLData.publicUrl
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload image')
-      return null
+    } catch (error: any) {
+      if (!onUploadError) {
+        Alert.alert('Error', 'Failed to upload image')
+      } else {
+        onUploadError(error)
+      }
+      throw error
     } finally {
       setIsUploading(false)
     }
   }
 
-  const handleImageUpload = async () => {
-    const imageUri = await pickImage()
-    if (imageUri) {
-      const publicUrl = await uploadImage(imageUri)
-      return publicUrl
+  const handleImageUpload = async (providedUri?: string) => {
+    try {
+      const imageUri = providedUri ?? (await pickImage())
+      if (imageUri) {
+        const publicUrl = await uploadImage(imageUri)
+        if (onUploadComplete) {
+          await onUploadComplete(publicUrl)
+        }
+        return publicUrl
+      }
+      return null
+    } catch (error) {
+      // uploadImage already handled alert/error callback
+      return null
     }
-    return null
   }
 
   return {

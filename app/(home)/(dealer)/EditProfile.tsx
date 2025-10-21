@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useDealershipProfile } from './hooks/useDealershipProfile'
+import { notifyDealershipProfileUpdated } from './hooks/dealershipProfileEvents'
 import * as Location from 'expo-location'
 import MapView, { Marker } from 'react-native-maps'
 
@@ -162,6 +163,7 @@ export default function EditProfileScreen() {
       
       // Refresh the dealership profile data
       await fetchDealershipProfile()
+      notifyDealershipProfileUpdated()
 
       Alert.alert(t('common.success'), t('profileUpdatedSuccess'), [
         { text: t('common.ok'), onPress: () => router.back() }
