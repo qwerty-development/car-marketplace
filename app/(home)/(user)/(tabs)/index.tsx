@@ -539,63 +539,67 @@ export default function BrowseCarsPage() {
 
         if (error) throw error;
 
-        // Relevance ordering when a search query is present and no explicit sort option
-        if (query && !currentSortOption && data) {
-          const cleanQueryLocal = query.trim().toLowerCase();
-          const terms = cleanQueryLocal.split(/\s+/).filter(Boolean);
-          const scoreEntry = (entry: any) => {
-            const make = (entry.make || "").toString().toLowerCase();
-            const model = (entry.model || "").toString().toLowerCase();
-            const concat = `${make} ${model}`.trim();
-            let score = 0;
+        // Apply randomization to ensure all cars get visibility
+        if (!currentSortOption && data) {
+          if (query) {
+            // For search results: maintain relevance but add randomization within relevance groups
+            const cleanQueryLocal = query.trim().toLowerCase();
+            const terms = cleanQueryLocal.split(/\s+/).filter(Boolean);
+            const scoreEntry = (entry: any) => {
+              const make = (entry.make || "").toString().toLowerCase();
+              const model = (entry.model || "").toString().toLowerCase();
+              const concat = `${make} ${model}`.trim();
+              let score = 0;
 
-            // Highest priority: make + model combos
-            if (terms.length >= 2) {
-              if ((make.includes(terms[0]) && model.includes(terms[1])) || (make.includes(terms[1]) && model.includes(terms[0]))) {
-                score += 1000;
+              // Highest priority: make + model combos
+              if (terms.length >= 2) {
+                if ((make.includes(terms[0]) && model.includes(terms[1])) || (make.includes(terms[1]) && model.includes(terms[0]))) {
+                  score += 1000;
+                }
               }
+
+              // Exact phrase match in make+model
+              if (concat.includes(cleanQueryLocal)) score += 800;
+
+              // Strong matches on model / make
+              if (model.includes(cleanQueryLocal)) score += 500;
+              if (make.includes(cleanQueryLocal)) score += 400;
+
+              // Partial term matches in make/model
+              terms.forEach(t => {
+                if (make.includes(t)) score += 120;
+                if (model.includes(t)) score += 150;
+              });
+
+              // Lower weight for other textual fields (if present)
+              const otherFields = [
+                (entry.category || ""),
+                (entry.color || ""),
+                (entry.transmission || ""),
+                (entry.drivetrain || ""),
+                (entry.type || ""),
+                (entry.condition || ""),
+                (entry.source || ""),
+                (entry.description || "")
+              ].map(v => v.toString().toLowerCase());
+              if (otherFields.some(v => v.includes(cleanQueryLocal))) score += 80;
+              terms.forEach(t => {
+                if (otherFields.some(v => v.includes(t))) score += 30;
+              });
+
+              // Add small random factor to break ties and add variety
+              score += Math.random() * 10;
+
+              return score;
+            };
+
+            data.sort((a: any, b: any) => scoreEntry(b) - scoreEntry(a));
+          } else {
+            // No search query: fully randomize to give all cars equal visibility
+            for (let i = data.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [data[i], data[j]] = [data[j], data[i]];
             }
-
-            // Exact phrase match in make+model
-            if (concat.includes(cleanQueryLocal)) score += 800;
-
-            // Strong matches on model / make
-            if (model.includes(cleanQueryLocal)) score += 500;
-            if (make.includes(cleanQueryLocal)) score += 400;
-
-            // Partial term matches in make/model
-            terms.forEach(t => {
-              if (make.includes(t)) score += 120;
-              if (model.includes(t)) score += 150;
-            });
-
-            // Lower weight for other textual fields (if present)
-            const otherFields = [
-              (entry.category || ""),
-              (entry.color || ""),
-              (entry.transmission || ""),
-              (entry.drivetrain || ""),
-              (entry.type || ""),
-              (entry.condition || ""),
-              (entry.source || ""),
-              (entry.description || "")
-            ].map(v => v.toString().toLowerCase());
-            if (otherFields.some(v => v.includes(cleanQueryLocal))) score += 80;
-            terms.forEach(t => {
-              if (otherFields.some(v => v.includes(t))) score += 30;
-            });
-
-            return score;
-          };
-
-          data.sort((a: any, b: any) => scoreEntry(b) - scoreEntry(a));
-        }
-
-        // Randomize order if no sort option and no search query
-        if (!currentSortOption && data && !query) {
-          for (let i = data.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [data[i], data[j]] = [data[j], data[i]];
           }
         }
 

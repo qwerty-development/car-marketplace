@@ -206,9 +206,9 @@ export default function CarsByBrand() {
 	const [selectedCar, setSelectedCar] = useState<any>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
-	const [sortOption, setSortOption] = useState('date_listed_desc')
+	const [sortOption, setSortOption] = useState('random') // Default to random ordering
 
-	const fetchCarsByBrand = useCallback(async (brandName: string, sortBy: string = 'date_listed_desc') => {
+	const fetchCarsByBrand = useCallback(async (brandName: string, sortBy: string = 'random') => {
 		if (!refreshing) setIsLoading(true)
 		try {
 			let query = supabase
@@ -218,6 +218,7 @@ export default function CarsByBrand() {
 				.eq('make', brandName)
 
 			// Apply sorting based on the selected option
+			// Only apply database sorting if a specific sort is selected
 			switch (sortBy) {
 				case 'date_listed_desc':
 					query = query.order('listed_at', { ascending: false })
@@ -240,15 +241,19 @@ export default function CarsByBrand() {
 				case 'mileage_desc':
 					query = query.order('mileage', { ascending: false })
 					break
+				case 'random':
+					// No sorting applied - we'll randomize after fetching
+					break
 				default:
-					query = query.order('listed_at', { ascending: false })
+					// Default to random order
+					break
 			}
 
 			const { data, error } = await query
 
 			if (error) throw error
 
-			const carsData =
+			let carsData =
 				data?.map(item => ({
 					...item,
 					dealership_name: item.dealerships.name,
@@ -258,13 +263,23 @@ export default function CarsByBrand() {
 					dealership_latitude: item.dealerships.latitude,
 					dealership_longitude: item.dealerships.longitude
 				})) || []
+
+			// Apply random shuffle if no specific sort is selected
+			if (sortBy === 'random' || !sortBy) {
+				// Fisher-Yates shuffle algorithm for true randomization
+				for (let i = carsData.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[carsData[i], carsData[j]] = [carsData[j], carsData[i]]
+				}
+			}
+
 			setCars(carsData)
 		} catch (error) {
 			console.error('Error fetching cars by brand:', error)
 		} finally {
 			setIsLoading(false)
 		}
-	}, [refreshing])
+	}, [])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
@@ -273,21 +288,19 @@ export default function CarsByBrand() {
 		} else {
 			setRefreshing(false)
 		}
-	}, [brand, fetchCarsByBrand, sortOption])
+	}, [brand, sortOption])
 
 	useEffect(() => {
 		if (brand) {
 			fetchCarsByBrand(brand, sortOption)
 		}
-	}, [brand, fetchCarsByBrand, sortOption])
+	}, [brand, sortOption])
 
 	// Handle sort option change
 	const handleSortChange = useCallback((newSortOption: string) => {
 		setSortOption(newSortOption)
-		if (brand) {
-			fetchCarsByBrand(brand, newSortOption)
-		}
-	}, [brand, fetchCarsByBrand])
+		// Don't call fetchCarsByBrand here - let the useEffect handle it
+	}, [brand])
 
 	const handleFavoritePress = useCallback(
 		async (carId: number) => {
