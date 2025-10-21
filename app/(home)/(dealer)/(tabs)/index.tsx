@@ -31,6 +31,7 @@ import { useRouter } from 'expo-router'
   import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/utils/AuthContext'
 import { ListingSkeletonLoader } from '../Skeleton'
+import DealerOnboardingModal from '../DealerOnboardingModal'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -661,6 +662,7 @@ interface Dealership {
 	name: string
 	user_id: string
 	subscription_end_date: string
+	first_login: boolean | null
 }
 
 export default function DealerListings() {
@@ -686,6 +688,7 @@ export default function DealerListings() {
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [totalListings, setTotalListings] = useState(0)
+	const [showOnboardingModal, setShowOnboardingModal] = useState(false)
 	const [filters, setFilters] = useState({
 		status: '',
 		condition: '',
@@ -723,7 +726,20 @@ export default function DealerListings() {
 				.single()
 
 			if (error) throw error
-			if (data) setDealership(data)
+			if (data) {
+				setDealership(data)
+
+				const requiresOnboarding =
+					data.first_login === true ||
+					data.first_login === null ||
+					typeof data.first_login === 'undefined'
+
+				if (requiresOnboarding) {
+					setShowOnboardingModal(true)
+				} else {
+					setShowOnboardingModal(false)
+				}
+			}
 			else setError('No dealership associated with your account')
 		} catch (error) {
 			setError('Failed to fetch dealership information')
@@ -1052,6 +1068,14 @@ export default function DealerListings() {
 		[selectedListing, dealership, isSubscriptionValid]
 	)
 
+	const handleOnboardingComplete = useCallback(async () => {
+		setShowOnboardingModal(false)
+		// Refresh dealership data to get updated information
+		await fetchDealership()
+		// Refresh listings if needed
+		handleRefresh()
+	}, [fetchDealership, handleRefresh])
+
 	const getStatusConfig = (status: string) => {
 		switch (status.toLowerCase()) {
 			case 'available':
@@ -1085,7 +1109,7 @@ const ListingCard = useMemo(
         router.push({
           pathname: '/(home)/(dealer)/AddEditListing',
           params: {
-            dealershipId: dealership.id,
+            dealershipId: dealership?.id ?? 0,
             listingId: item.id
           }
         });
@@ -1368,6 +1392,15 @@ const ListingCard = useMemo(
 						t={t}
 					/>
 				</>
+			)}
+
+			{/* Onboarding Modal - Always rendered, shown based on first_login */}
+			{dealership && (
+				<DealerOnboardingModal
+					visible={showOnboardingModal}
+					dealershipId={dealership.id}
+					onComplete={handleOnboardingComplete}
+				/>
 			)}
 		</LinearGradient>
 	)

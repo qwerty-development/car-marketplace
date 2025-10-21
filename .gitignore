@@ -25,3 +25,4 @@ expo-env.d.ts
 #Ignore vscode AI rules
 .github\instructions\codacy.instructions.md
 .codacy
+DEALER_ONBOARDING_IMPLEMENTATION.md
