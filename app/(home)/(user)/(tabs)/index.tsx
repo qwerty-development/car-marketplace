@@ -678,13 +678,17 @@ export default function BrowseCarsPage() {
 
   const renderCarItem = useCallback(
     ({ item, index }: { item: Car; index: number }) => (
-      <CarCard
-        car={item}
-        index={index}
-        onFavoritePress={() => handleFavoritePress(item.id)}
-        isFavorite={isFavorite(Number(item.id))}
-        isDealer={false}
-      />
+      <>
+        <CarCard
+          car={item}
+          index={index}
+          onFavoritePress={() => handleFavoritePress(item.id)}
+          isFavorite={isFavorite(Number(item.id))}
+          isDealer={false}
+        />
+        {/* Show banner after every 10 cars */}
+        {(index + 1) % 10 === 0 && <Banner />}
+      </>
     ),
     [handleFavoritePress, isFavorite]
   );
