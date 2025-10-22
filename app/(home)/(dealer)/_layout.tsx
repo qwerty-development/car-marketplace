@@ -88,6 +88,13 @@ export default function DealerLayout() {
 						headerShown: false
 					}}
 				/>
+				<Stack.Screen
+					name='NumberPlatesManager'
+					options={{
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
 																<Stack.Screen
 					name='terms-of-service'
 					options={{

@@ -754,6 +754,36 @@ export default function DealershipProfilePage() {
             />
           </TouchableOpacity>
 
+          {/* Number Plates Manager Button */}
+          <TouchableOpacity
+            onPress={() => router.push('/(home)/(dealer)/NumberPlatesManager')}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
+          >
+            <View className="w-10 h-10 rounded-full bg-indigo-500/10 items-center justify-center">
+              <Ionicons name="car-outline" size={24} color="#6366f1" />
+            </View>
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                Number Plates
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                Manage your number plates for sale
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
           {/* Legals Button */}
           <TouchableOpacity
             onPress={() => setIsLegalsModalVisible(true)}
