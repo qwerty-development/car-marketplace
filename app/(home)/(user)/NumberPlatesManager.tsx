@@ -265,57 +265,12 @@ export default function NumberPlatesManager() {
               if (pictureUrl) {
                 const filePath = resolveStoragePathFromUrl(pictureUrl, 'plate_numbers')
                 if (filePath) {
-                  console.log('Removing plate image from storage:', filePath)
-                  const removeAttempts: string[] = [filePath]
-                  if (!filePath.startsWith('public/')) {
-                    removeAttempts.push(`public/${filePath}`)
-                  }
-                  removeAttempts.push(encodeURIComponent(filePath))
-                  removeAttempts.push(filePath.split('/').map(encodeURIComponent).join('%2F'))
-
-                  const folderPath = filePath.includes('/')
-                    ? filePath.slice(0, filePath.lastIndexOf('/'))
-                    : ''
-                  const { data: folderContents, error: listError } = await supabase.storage
+                  const { error: storageError } = await supabase.storage
                     .from('plate_numbers')
-                    .list(folderPath || undefined)
-                  console.log('Folder contents before delete:', folderPath || '/', folderContents, 'error:', listError)
-                  if ((!folderContents || folderContents.length === 0) && !listError) {
-                    const { data: rootContents, error: rootError } = await supabase.storage
-                      .from('plate_numbers')
-                      .list(undefined, { limit: 100 })
-                    console.log('Root folder sample contents:', rootContents, 'error:', rootError)
-                  }
-
-                  let removed = false
-                  let lastError: any = null
-                  let lastResult: any = null
-
-                  for (const path of removeAttempts) {
-                    const { data, error } = await supabase.storage
-                      .from('plate_numbers')
-                      .remove([path])
-                    console.log('Storage remove attempt:', path, 'result:', data, 'error:', error)
-                    lastResult = data
-                    if (error) {
-                      lastError = error
-                      continue
-                    }
-                    if (Array.isArray(data) && data.length > 0) {
-                      removed = true
-                      break
-                    }
-                  }
-
-                  if (!removed && lastError) {
-                    throw lastError
-                  }
-
-                  if (!removed) {
-                    console.warn('Unable to confirm deletion for storage path:', filePath, 'result:', lastResult)
-                  }
+                    .remove([filePath])
+                  if (storageError) throw storageError
                 } else {
-                  console.warn('Could not determine storage path for picture URL:', pictureUrl)
+                  throw new Error('Unable to resolve storage path for plate image')
                 }
               }
 
