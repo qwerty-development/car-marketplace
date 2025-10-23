@@ -16,7 +16,8 @@ import {
   ActivityIndicator,
   Animated,
   RefreshControl,
-  Button
+  Button,
+  TextInput
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
@@ -37,6 +38,7 @@ import { useScrollToTop } from "@react-navigation/native";
 import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
+import PlateFilterModal from "@/components/PlateFilterModal";
 import * as Sentry from '@sentry/react-native';
 const ITEMS_PER_PAGE = 7;
 
@@ -107,7 +109,12 @@ export default function BrowseCarsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({});
+  const [filters, setFilters] = useState<Filters>({}); // Car filters
+  const [plateFilters, setPlateFilters] = useState<{
+    priceRange?: [number, number];
+    sortBy?: string;
+  }>({}); // Plate filters
+  const [plateSortOption, setPlateSortOption] = useState<string | null>(null);
   const [showScrollTopButton, setShowScrollTopButton] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -115,6 +122,7 @@ export default function BrowseCarsPage() {
   useScrollToTop(flatListRef);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+  const [isPlateFilterVisible, setIsPlateFilterVisible] = useState(false);
   
   // Simplified loading states - removed progressive loading that was causing issues
   const [componentsLoaded, setComponentsLoaded] = useState(false);
@@ -185,7 +193,7 @@ export default function BrowseCarsPage() {
         if (viewMode === 'cars') {
           await fetchCars(1, initialFilters, sortOption, initialQuery);
         } else {
-          await fetchPlates(1, initialFilters, sortOption, initialQuery);
+          await fetchPlates(1, plateFilters, sortOption, initialQuery);
         }
         setIsInitialLoadDone(true);
       }
@@ -686,7 +694,7 @@ export default function BrowseCarsPage() {
   const fetchPlates = useCallback(
     async (
       page: number = 1,
-      currentFilters: Filters = filters,
+      currentPlateFilters: { priceRange?: [number, number]; sortBy?: string } = plateFilters,
       currentSortOption: string | null = sortOption,
       query: string = searchQuery
     ) => {
@@ -721,11 +729,11 @@ export default function BrowseCarsPage() {
           );
         }
 
-        // Price Range
-        if (currentFilters.priceRange) {
+        // Price Range (from plate filters)
+        if (currentPlateFilters.priceRange) {
           queryBuilder = queryBuilder
-            .gte("price", currentFilters.priceRange[0])
-            .lte("price", currentFilters.priceRange[1]);
+            .gte("price", currentPlateFilters.priceRange[0])
+            .lte("price", currentPlateFilters.priceRange[1]);
         }
 
         // Sorting
@@ -818,16 +826,16 @@ export default function BrowseCarsPage() {
         }
       }
     },
-    [filters, sortOption, searchQuery, hasFetched]
+    [plateFilters, sortOption, searchQuery, hasFetched]
   );
 
   const onRefresh = useCallback(() => {
     if (viewMode === 'cars') {
       fetchCars(1, filters, sortOption, searchQuery);
     } else {
-      fetchPlates(1, filters, sortOption, searchQuery);
+      fetchPlates(1, plateFilters, sortOption, searchQuery);
     }
-  }, [filters, sortOption, searchQuery, fetchCars, fetchPlates, viewMode]);
+  }, [filters, plateFilters, sortOption, searchQuery, fetchCars, fetchPlates, viewMode]);
 
   const handleFavoritePress = useCallback(
     async (carId: string) => {
@@ -896,10 +904,10 @@ export default function BrowseCarsPage() {
       if (viewMode === 'cars') {
         fetchCars(1, filters, sortOption, query);
       } else {
-        fetchPlates(1, filters, sortOption, query);
+        fetchPlates(1, plateFilters, sortOption, query);
       }
     },
-    [filters, sortOption, fetchCars, fetchPlates, viewMode]
+    [filters, plateFilters, sortOption, fetchCars, fetchPlates, viewMode]
   );
 
   const handleCategoryPress = useCallback(
@@ -922,12 +930,15 @@ export default function BrowseCarsPage() {
   );
 
   const handleResetFilters = useCallback(() => {
-    setFilters({});
-    setSearchQuery("");
-    setSortOption(null);
     if (viewMode === 'cars') {
+      setFilters({});
+      setSearchQuery("");
+      setSortOption(null);
       fetchCars(1, {}, null, "");
     } else {
+      setPlateFilters({});
+      setSearchQuery("");
+      setSortOption(null);
       fetchPlates(1, {}, null, "");
     }
   }, [fetchCars, fetchPlates, viewMode]);
@@ -935,29 +946,34 @@ export default function BrowseCarsPage() {
   const renderListHeader = useMemo(
     () => (
       <>
-        {!componentsLoaded || isInitialLoading ? (
-          <SkeletonByBrands />
-        ) : (
-          <View>
-            <ByBrands />
-          </View>
-        )}
-        <Banner />
-        <View style={{ marginBottom: 12, marginTop: 12 }}>
-          {!componentsLoaded || isInitialLoading ? (
-            <SkeletonCategorySelector />
-          ) : (
-            <View>
-              <CategorySelector
-                selectedCategories={filters.categories || []}
-                onCategoryPress={handleCategoryPress}
-              />
+        {viewMode === 'cars' && (
+          <>
+            {!componentsLoaded || isInitialLoading ? (
+              <SkeletonByBrands />
+            ) : (
+              <View>
+                <ByBrands />
+              </View>
+            )}
+            <Banner />
+            <View style={{ marginBottom: 12, marginTop: 12 }}>
+              {!componentsLoaded || isInitialLoading ? (
+                <SkeletonCategorySelector />
+              ) : (
+                <View>
+                  <CategorySelector
+                    selectedCategories={filters.categories || []}
+                    onCategoryPress={handleCategoryPress}
+                  />
+                </View>
+              )}
             </View>
-          )}
-        </View>
+          </>
+        )}
+        {viewMode === 'plates' && <Banner />}
       </>
     ),
-    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress]
+    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress, viewMode]
   );
 
   const renderListEmpty = useCallback(
@@ -974,7 +990,9 @@ export default function BrowseCarsPage() {
                   : "No cars available.")
               : "No number plates available."}
           </Text>
-          {(Object.keys(filters).length > 0 || searchQuery) && (
+          {((viewMode === 'cars' && Object.keys(filters).length > 0) || 
+            (viewMode === 'plates' && Object.keys(plateFilters).length > 0) || 
+            searchQuery) && (
             <TouchableOpacity
               onPress={handleResetFilters}
               style={styles.resetButton}
@@ -986,6 +1004,7 @@ export default function BrowseCarsPage() {
       ),
     [
       filters,
+      plateFilters,
       searchQuery,
       isDarkMode,
       isInitialLoading,
@@ -998,6 +1017,18 @@ export default function BrowseCarsPage() {
 
   // Simplified skeleton rendering - only show when actually loading
   const renderSkeletonItem = useCallback(() => <SkeletonCarCard />, []);
+
+  const handleApplyPlateFilters = useCallback(
+    (newPlateFilters: { priceRange?: [number, number]; sortBy?: string }) => {
+      setPlateFilters(newPlateFilters);
+      setCurrentPage(1);
+      // If sortBy is in filters, use it as the sort option
+      const sortToUse = newPlateFilters.sortBy || plateSortOption;
+      setPlateSortOption(sortToUse);
+      fetchPlates(1, newPlateFilters, sortToUse, searchQuery);
+    },
+    [plateSortOption, searchQuery, fetchPlates]
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
@@ -1025,9 +1056,12 @@ export default function BrowseCarsPage() {
                   viewMode === 'cars' && isDarkMode && styles.darkToggleButtonActive,
                 ]}
                 onPress={() => {
-                  setViewMode('cars');
-                  setCurrentPage(1);
-                  fetchCars(1, filters, sortOption, searchQuery);
+                  if (viewMode !== 'cars') {
+                    setViewMode('cars');
+                    setCurrentPage(1);
+                    setSearchQuery(''); // Clear search when switching
+                    fetchCars(1, filters, sortOption, '');
+                  }
                 }}
               >
                 <Ionicons
@@ -1056,9 +1090,12 @@ export default function BrowseCarsPage() {
                   viewMode === 'plates' && isDarkMode && styles.darkToggleButtonActive,
                 ]}
                 onPress={() => {
-                  setViewMode('plates');
-                  setCurrentPage(1);
-                  fetchPlates(1, filters, sortOption, searchQuery);
+                  if (viewMode !== 'plates') {
+                    setViewMode('plates');
+                    setCurrentPage(1);
+                    setSearchQuery(''); // Clear search when switching
+                    fetchPlates(1, plateFilters, sortOption, '');
+                  }
                 }}
               >
                 <Ionicons
@@ -1080,88 +1117,168 @@ export default function BrowseCarsPage() {
               </TouchableOpacity>
             </View>
 
-            <View style={[
-              styles.searchInputContainer,
-              language === 'ar' && styles.rtlContainer
-            ]}>
-              <TouchableOpacity
-                style={[
-                  styles.searchBar,
-                  isDarkMode && styles.darkSearchBar,
-                  language === 'ar' && styles.rtlSearchBar
-                ]}
-                onPress={() => {
-                  router.push({
-                    pathname: "/(home)/(user)/search",
-                    params: {
-                      currentQuery: searchQuery,
-                      timestamp: Date.now().toString(),
-                    },
-                  });
-                }}
-              >
-                <FontAwesome
-                  name="search"
-                  size={20}
-                  color={isDarkMode ? "#FFFFFF" : "#000000"}
-                  style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
-                />
-                <Text
+            {viewMode === 'cars' ? (
+              // Car Search Bar
+              <View style={[
+                styles.searchInputContainer,
+                language === 'ar' && styles.rtlContainer
+              ]}>
+                <TouchableOpacity
                   style={[
-                    styles.searchPlaceholder,
-                    isDarkMode && { color: "#666" },
-                    language === 'ar' && styles.rtlText
+                    styles.searchBar,
+                    isDarkMode && styles.darkSearchBar,
+                    language === 'ar' && styles.rtlSearchBar
                   ]}
-                  numberOfLines={1}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/(home)/(user)/search",
+                      params: {
+                        currentQuery: searchQuery,
+                        timestamp: Date.now().toString(),
+                      },
+                    });
+                  }}
                 >
-{searchQuery || i18n.t('search.search_placeholder')}
-                </Text>
-                {searchQuery ? (
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setSearchQuery("");
-                      fetchCars(1, filters, sortOption, "");
-                    }}
+                  <FontAwesome
+                    name="search"
+                    size={20}
+                    color={isDarkMode ? "#FFFFFF" : "#000000"}
+                    style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
+                  />
+                  <Text
                     style={[
-                      styles.clearSearchButton,
-                      language === 'ar' && styles.rtlClearButton
+                      styles.searchPlaceholder,
+                      isDarkMode && { color: "#666" },
+                      language === 'ar' && styles.rtlText
                     ]}
+                    numberOfLines={1}
                   >
-                    <Ionicons
-                      name="close-circle"
-                      size={20}
-                      color={isDarkMode ? "#FFFFFF" : "#666666"}
-                    />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
+                    {searchQuery || i18n.t('search.search_placeholder')}
+                  </Text>
+                  {searchQuery ? (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setSearchQuery("");
+                        fetchCars(1, filters, sortOption, "");
+                      }}
+                      style={[
+                        styles.clearSearchButton,
+                        language === 'ar' && styles.rtlClearButton
+                      ]}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={isDarkMode ? "#FFFFFF" : "#666666"}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.iconButton,
+                        isDarkMode && styles.darkIconButton,
+                        language === 'ar' && styles.rtlIconButton
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        openFilterPage();
+                      }}
+                    >
+                      <FontAwesome
+                        name="sliders"
+                        size={20}
+                        color={isDarkMode ? "#000000" : "#ffffff"}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+                <SortPicker
+                  onValueChange={(value: string | null) => {
+                    setSortOption(value);
+                    fetchCars(1, filters, value, searchQuery);
+                  }}
+                  initialValue={sortOption}
+                />
+              </View>
+            ) : (
+              // Plate Search Bar
+              <View style={[
+                styles.searchInputContainer,
+                language === 'ar' && styles.rtlContainer
+              ]}>
+                <View
+                  style={[
+                    styles.searchBar,
+                    isDarkMode && styles.darkSearchBar,
+                    language === 'ar' && styles.rtlSearchBar
+                  ]}
+                >
+                  <FontAwesome
+                    name="search"
+                    size={20}
+                    color={isDarkMode ? "#FFFFFF" : "#000000"}
+                    style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
+                  />
+                  <TextInput
                     style={[
-                      styles.iconButton,
-                      isDarkMode && styles.darkIconButton,
-                      language === 'ar' && styles.rtlIconButton
+                      styles.searchPlaceholder,
+                      styles.plateSearchInput,
+                      isDarkMode && { color: "#FFFFFF" },
+                      language === 'ar' && styles.rtlText
                     ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openFilterPage();
+                    placeholder="Search plates by letter or number..."
+                    placeholderTextColor={isDarkMode ? "#666" : "#999"}
+                    value={searchQuery}
+                    onChangeText={(text) => {
+                      setSearchQuery(text);
                     }}
-                  >
-                    <FontAwesome
-                      name="sliders"
-                      size={20}
-                      color={isDarkMode ? "#000000" : "#ffffff"}
-                    />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-              <SortPicker
-                onValueChange={(value: string | null) => {
-                  setSortOption(value);
-                  fetchCars(1, filters, value, searchQuery);
-                }}
-                initialValue={sortOption}
-              />
-            </View>
+                    onSubmitEditing={() => {
+                      fetchPlates(1, plateFilters, sortOption, searchQuery);
+                    }}
+                    returnKeyType="search"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                  />
+                  {searchQuery ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSearchQuery("");
+                        fetchPlates(1, plateFilters, sortOption, "");
+                      }}
+                      style={[
+                        styles.clearSearchButton,
+                        language === 'ar' && styles.rtlClearButton
+                      ]}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={isDarkMode ? "#FFFFFF" : "#666666"}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.iconButton,
+                        isDarkMode && styles.darkIconButton,
+                        language === 'ar' && styles.rtlIconButton
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setIsPlateFilterVisible(true);
+                      }}
+                    >
+                      <FontAwesome
+                        name="sliders"
+                        size={20}
+                        color={isDarkMode ? "#000000" : "#ffffff"}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
           <FlatList
             refreshControl={
@@ -1204,7 +1321,7 @@ export default function BrowseCarsPage() {
                 if (viewMode === 'cars') {
                   fetchCars(currentPage + 1, filters, sortOption, searchQuery);
                 } else {
-                  fetchPlates(currentPage + 1, filters, sortOption, searchQuery);
+                  fetchPlates(currentPage + 1, plateFilters, sortOption, searchQuery);
                 }
               }
             }}
@@ -1230,6 +1347,14 @@ export default function BrowseCarsPage() {
           />
         </SafeAreaView>
       </LinearGradient>
+
+      {/* Plate Filter Modal */}
+      <PlateFilterModal
+        isVisible={isPlateFilterVisible}
+        plateFilters={plateFilters}
+        onApply={handleApplyPlateFilters}
+        onClose={() => setIsPlateFilterVisible(false)}
+      />
     </View>
   );
 }
@@ -1302,6 +1427,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
     color: "#666",
+  },
+  plateSearchInput: {
+    paddingVertical: 0,
+    marginLeft: 12,
+    fontSize: 16,
   },
   clearSearchButton: {
     padding: 8,
