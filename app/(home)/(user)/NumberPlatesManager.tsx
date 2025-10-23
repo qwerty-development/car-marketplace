@@ -16,7 +16,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
-import { useDealershipProfile } from './hooks/useDealershipProfile'
+import { useAuth } from '@/utils/AuthContext'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '@/utils/LanguageContext'
@@ -27,7 +27,7 @@ export default function NumberPlatesManager() {
   const { language } = useLanguage()
   const router = useRouter()
   const isRTL = language === 'ar'
-  const { dealership } = useDealershipProfile()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     letter: '',
@@ -41,20 +41,20 @@ export default function NumberPlatesManager() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (dealership?.id) {
+    if (user?.id) {
       fetchNumberPlates()
     }
-  }, [dealership?.id])
+  }, [user?.id])
 
   const fetchNumberPlates = async () => {
-    if (!dealership?.id) return
+    if (!user?.id) return
     
     setIsLoading(true)
     try {
       const { data, error } = await supabase
         .from('number_plates')
         .select('*')
-        .eq('dealership_id', dealership.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -104,11 +104,11 @@ export default function NumberPlatesManager() {
     } finally {
       setIsUploading(false)
     }
-  }, [dealership?.id])
+  }, [user?.id])
 
   const uploadImageToStorage = async (imageUri: string): Promise<string | null> => {
-    if (!dealership?.id) {
-      Alert.alert('Error', 'Dealership ID not found')
+    if (!user?.id) {
+      Alert.alert('Error', 'User ID not found')
       return null
     }
 
@@ -117,7 +117,7 @@ export default function NumberPlatesManager() {
       const randomId = Math.random().toString(36).substring(7)
       const extension = imageUri.split('.').pop()?.toLowerCase() || 'jpg'
       const fileName = `plate_${timestamp}_${randomId}.${extension}`
-      const filePath = `dealers/${dealership.id}/${fileName}`
+      const filePath = `users/${user.id}/${fileName}`
 
       // Determine correct MIME type based on extension
       let mimeType = 'image/jpeg'
@@ -200,8 +200,8 @@ export default function NumberPlatesManager() {
           digits: formData.digits.trim(),
           price: parseFloat(formData.price),
           picture: formData.picture,
-          dealership_id: dealership?.id,
-          user_id: null // Set to null for dealer-owned plates
+          user_id: user?.id,
+          dealership_id: null // Set to null for user-owned plates
         })
 
       if (error) throw error

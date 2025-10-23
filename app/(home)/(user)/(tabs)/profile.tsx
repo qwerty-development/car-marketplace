@@ -838,6 +838,100 @@ export default function UserProfileAndSupportPage() {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
+                  "Please sign in to manage number plates",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                router.push('/(home)/(user)/NumberPlatesManager');
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
+          >
+            <View className="bg-green-500/10 p-3 rounded-xl">
+              <Ionicons name="pricetag-outline" size={24} color="#D55004" />
+            </View>
+            <View className={isRTL ? "mr-4" : "ml-4"}>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                Number Plates Manager
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {isGuest ? "Sign in to sell number plates" : "Manage your number plates for sale"}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  t('profile.please_sign_in_security'),
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                setIsLegalVisible(true);
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
+          >
+            <View className="bg-purple-500/10 p-3 rounded-xl">
+              <Ionicons name="reader-outline" size={24} color="#D55004" />
+            </View>
+            <View className={isRTL ? "mr-4" : "ml-4"}>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {t('profile.legal_documents')}
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {isGuest ? t('profile.sign_in_to_view_legal') : t('profile.view_privacy_terms')}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
                   "Please sign in to sell your car",
                   [
                     { text: "Cancel", style: "cancel" },

@@ -26,3 +26,5 @@ expo-env.d.ts
 .github\instructions\codacy.instructions.md
 .codacy
 DEALER_ONBOARDING_IMPLEMENTATION.md
+AGENTS.md
+.github/copilot-instructions.md

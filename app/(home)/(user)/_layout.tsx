@@ -59,6 +59,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="NumberPlatesManager"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="AllBrandsPage"
             options={{
               animation: "slide_from_right",
