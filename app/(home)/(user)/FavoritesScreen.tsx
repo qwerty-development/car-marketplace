@@ -20,11 +20,11 @@ import {
   StyleProp,
   ViewStyle
 } from 'react-native'
-import { router } from 'expo-router'
+import { router, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
-import CarDetailModalIOS from '../CarDetailModal.ios'
+import CarDetailModalIOS from './CarDetailModal.ios'
 import { useFavorites } from '@/utils/useFavorites'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -44,12 +44,14 @@ const CustomHeader = React.memo(({
   title,
   onComparePress,
   canCompare,
-  isDarkMode
+  isDarkMode,
+  onBackPress
 }: {
   title: string;
   onComparePress: () => void;
   canCompare: boolean;
   isDarkMode: boolean;
+  onBackPress: () => void;
 }) => {
   return (
     <SafeAreaView style={{ backgroundColor: isDarkMode ? 'black' : 'white' }}>
@@ -63,9 +65,16 @@ const CustomHeader = React.memo(({
           backgroundColor: 'transparent' // Ensure no background color conflicts
         }}
       >
+        <TouchableOpacity onPress={onBackPress} style={{ marginRight: 16 }}>
+          <Ionicons
+            name='arrow-back'
+            size={24}
+            color={isDarkMode ? '#FFFFFF' : '#000000'}
+          />
+        </TouchableOpacity>
         <Text
           style={[
-            { fontSize: 24, fontWeight: 'bold' },
+            { fontSize: 24, fontWeight: 'bold', flex: 1 },
             { color: isDarkMode ? 'white' : 'black' }
           ]}
         >
@@ -110,6 +119,7 @@ export default function Favorite() {
   const { isDarkMode } = useTheme()
   const { favorites, toggleFavorite, isFavorite } = useFavorites()
   const { isGuest, clearGuestMode } = useGuestUser()
+  const router = useRouter()
   const [favoriteCars, setFavoriteCars] = useState<Car[]>([])
   const [filteredCars, setFilteredCars] = useState<Car[]>([])
   const [sortedCars, setSortedCars] = useState<Car[]>([])
@@ -129,6 +139,11 @@ export default function Favorite() {
   useScrollToTop(scrollRef)
 
   const fadeAnim = useRef(new Animated.Value(0)).current
+
+  // Handle back navigation
+  const handleBack = () => {
+    router.back()
+  }
 
   // -----------------------
   // Fetch Favorite Cars
@@ -490,6 +505,7 @@ export default function Favorite() {
         onComparePress={handleComparePress}
         canCompare={canCompare}
         isDarkMode={isDarkMode}
+        onBackPress={handleBack}
       />
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

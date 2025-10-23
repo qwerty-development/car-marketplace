@@ -969,6 +969,7 @@ features
           const asset = assets[i];
           const imageNumber = i + 1;
           const imageName = `Image ${imageNumber}`;
+          let processedUri: string | null = null; // Declare outside try block
           
           // Update progress for current image
           setUploadProgress(prev => ({
@@ -981,7 +982,7 @@ features
 
           try {
             // Process and optimize image
-            const processedUri = await processImage(asset.uri);
+            processedUri = await processImage(asset.uri);
 
             if (!processedUri) {
               console.error(`Failed to process ${imageName}`);
@@ -1018,21 +1019,30 @@ features
               ...prev,
               currentImageName: `Uploading ${imageName}...`
             }));
+
+            // Read file as binary data for proper upload
+            const fileData = await FileSystem.readAsStringAsync(processedUri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+
+            // Decode base64 to ArrayBuffer for React Native
+            const binaryString = atob(fileData);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let j = 0; j < binaryString.length; j++) {
+              bytes[j] = binaryString.charCodeAt(j);
+            }
+
             const uploadOptions = {
               contentType,
               cacheControl: "3600",
               upsert: false,
-            } as any;
+            };
 
             const uploadPromise = supabase.storage
               .from("cars")
               .upload(
                 filePath,
-                {
-                  uri: processedUri,
-                  name: fileName,
-                  type: contentType,
-                } as any,
+                bytes.buffer,
                 uploadOptions
               );
 

@@ -50,8 +50,8 @@ export default function TabLayout() {
             else if (route.name === 'autoclips') iconName = 'film';
             else if (route.name === 'dealerships')
               iconName = focused ? 'business' : 'business-outline';
-            else if (route.name === 'Favorite')
-              iconName = focused ? 'heart' : 'heart-outline';
+            else if (route.name === 'MyListings')
+              iconName = focused ? 'list' : 'list-outline';
             else if (route.name === 'profile')
               iconName = focused ? 'person' : 'person-outline';
             // Removed chat tab mapping
@@ -128,11 +128,11 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name='Favorite'
+          name='MyListings'
           options={{ 
-            headerTitle: t('navbar.favorites'), 
+            headerTitle: 'My Listings', 
             headerShown: false,
-            tabBarLabel: t('navbar.favorites')
+            tabBarLabel: 'My Listings'
           }}
         />
         <Tabs.Screen
