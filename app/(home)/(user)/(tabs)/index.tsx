@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
+import NumberPlateCard from "@/components/NumberPlateCard";
 import { useFavorites } from "@/utils/useFavorites";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -58,6 +59,22 @@ interface Car {
   likes?: number;
 }
 
+interface NumberPlate {
+  id: string;
+  picture: string;
+  price: number;
+  letter: string;
+  digits: string;
+  status: string;
+  user_id?: string;
+  dealership_id?: number;
+  seller_name?: string;
+  seller_phone?: string;
+  seller_type?: 'user' | 'dealer';
+  dealership_logo?: string;
+  dealership_location?: string;
+}
+
 interface Filters {
   dealership?: string | string[];
   make?: string | string[];
@@ -81,6 +98,8 @@ export default function BrowseCarsPage() {
   const { toggleFavorite, isFavorite } = useFavorites();
   const { language } = useLanguage();
   const [cars, setCars] = useState<Car[]>([]);
+  const [plates, setPlates] = useState<NumberPlate[]>([]);
+  const [viewMode, setViewMode] = useState<'cars' | 'plates'>('cars');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -163,13 +182,17 @@ export default function BrowseCarsPage() {
       }
 
       if (shouldFetch || !isInitialLoadDone) {
-        await fetchCars(1, initialFilters, sortOption, initialQuery);
+        if (viewMode === 'cars') {
+          await fetchCars(1, initialFilters, sortOption, initialQuery);
+        } else {
+          await fetchPlates(1, initialFilters, sortOption, initialQuery);
+        }
         setIsInitialLoadDone(true);
       }
     };
 
     initializePage();
-  }, [params.searchQuery, params.filters, params.timestamp]);
+  }, [params.searchQuery, params.filters, params.timestamp, viewMode]);
 
   const fetchCars = useCallback(
     async (
@@ -660,9 +683,151 @@ export default function BrowseCarsPage() {
     [filters, sortOption, searchQuery, hasFetched]
   );
 
+  const fetchPlates = useCallback(
+    async (
+      page: number = 1,
+      currentFilters: Filters = filters,
+      currentSortOption: string | null = sortOption,
+      query: string = searchQuery
+    ) => {
+      if (page === 1) {
+        if (!hasFetched) {
+          setIsInitialLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+      } else {
+        setLoadingMore(true);
+      }
+      
+      try {
+        let queryBuilder = supabase
+          .from("number_plates")
+          .select(
+            `
+            *,
+            users (name, id),
+            dealerships (name, logo, phone, location, latitude, longitude)
+            `,
+            { count: "exact" }
+          )
+          .eq("status", "available");
+
+        // Search query for plates
+        if (query) {
+          const cleanQuery = query.trim().toLowerCase();
+          queryBuilder = queryBuilder.or(
+            `letter.ilike.%${cleanQuery}%,digits.ilike.%${cleanQuery}%`
+          );
+        }
+
+        // Price Range
+        if (currentFilters.priceRange) {
+          queryBuilder = queryBuilder
+            .gte("price", currentFilters.priceRange[0])
+            .lte("price", currentFilters.priceRange[1]);
+        }
+
+        // Sorting
+        if (currentSortOption) {
+          switch (currentSortOption) {
+            case "price_asc":
+              queryBuilder = queryBuilder.order("price", { ascending: true });
+              break;
+            case "price_desc":
+              queryBuilder = queryBuilder.order("price", { ascending: false });
+              break;
+          }
+        }
+
+        // Get count first for pagination
+        const { count } = await queryBuilder;
+        if (!count) {
+          setPlates([]);
+          setTotalPages(0);
+          setCurrentPage(1);
+          return;
+        }
+        
+        const totalItems = count;
+        const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+        const safePageNumber = Math.min(page, totalPages);
+        const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE;
+        const endRange = Math.min(
+          safePageNumber * ITEMS_PER_PAGE - 1,
+          totalItems - 1
+        );
+
+        // Fetch data for current page
+        const { data, error } = await queryBuilder.range(startRange, endRange);
+
+        if (error) throw error;
+
+        // Map seller info
+        const newPlates: NumberPlate[] =
+          data?.map((item: any) => {
+            const isDealer = !!item.dealership_id;
+            return {
+              ...item,
+              seller_type: isDealer ? 'dealer' : 'user',
+              seller_name: isDealer ? item.dealerships?.name : item.users?.name,
+              seller_phone: isDealer ? item.dealerships?.phone : null,
+              dealership_logo: isDealer ? item.dealerships?.logo : null,
+              dealership_location: isDealer ? item.dealerships?.location : null,
+            };
+          }) || [];
+
+        // Deduplication
+        const plateMap = new Map();
+        newPlates.forEach(plate => {
+          if (!plateMap.has(plate.id)) {
+            plateMap.set(plate.id, plate);
+          }
+        });
+        const uniquePlates = Array.from(plateMap.values());
+
+        // Update plates state
+        setPlates((prevPlates) => {
+          if (safePageNumber === 1) {
+            return uniquePlates;
+          } else {
+            const allPlatesMap = new Map();
+            prevPlates.forEach(plate => allPlatesMap.set(plate.id, plate));
+            uniquePlates.forEach(plate => allPlatesMap.set(plate.id, plate));
+            return Array.from(allPlatesMap.values());
+          }
+        });
+        
+        setTotalPages(totalPages);
+        setCurrentPage(safePageNumber);
+      } catch (error) {
+        console.error("Error fetching plates:", error);
+        setPlates([]);
+        setTotalPages(0);
+        setCurrentPage(1);
+      } finally {
+        if (page === 1) {
+          if (!hasFetched) {
+            setIsInitialLoading(false);
+          } else {
+            setRefreshing(false);
+          }
+          setHasFetched(true);
+        } else {
+          setLoadingMore(false);
+        }
+      }
+    },
+    [filters, sortOption, searchQuery, hasFetched]
+  );
+
   const onRefresh = useCallback(() => {
-    fetchCars(1, filters, sortOption, searchQuery);
-  }, [filters, sortOption, searchQuery, fetchCars]);
+    if (viewMode === 'cars') {
+      fetchCars(1, filters, sortOption, searchQuery);
+    } else {
+      fetchPlates(1, filters, sortOption, searchQuery);
+    }
+  }, [filters, sortOption, searchQuery, fetchCars, fetchPlates, viewMode]);
 
   const handleFavoritePress = useCallback(
     async (carId: string) => {
@@ -693,6 +858,24 @@ export default function BrowseCarsPage() {
     [handleFavoritePress, isFavorite]
   );
 
+  const renderPlateItem = useCallback(
+    ({ item, index }: { item: NumberPlate; index: number }) => (
+      <>
+        <NumberPlateCard
+          plate={item}
+          index={index}
+          onPress={() => {
+            // Handle plate details navigation if needed
+            console.log('Plate pressed:', item.id);
+          }}
+        />
+        {/* Show banner after every 10 plates */}
+        {(index + 1) % 10 === 0 && <Banner />}
+      </>
+    ),
+    []
+  );
+
   const openFilterPage = useCallback(() => {
     router.push({
       pathname: "/(home)/(user)/filter",
@@ -710,9 +893,13 @@ export default function BrowseCarsPage() {
     (query: string) => {
       setSearchQuery(query);
       setIsSearchVisible(false);
-      fetchCars(1, filters, sortOption, query);
+      if (viewMode === 'cars') {
+        fetchCars(1, filters, sortOption, query);
+      } else {
+        fetchPlates(1, filters, sortOption, query);
+      }
     },
-    [filters, sortOption, fetchCars]
+    [filters, sortOption, fetchCars, fetchPlates, viewMode]
   );
 
   const handleCategoryPress = useCallback(
@@ -738,8 +925,12 @@ export default function BrowseCarsPage() {
     setFilters({});
     setSearchQuery("");
     setSortOption(null);
-    fetchCars(1, {}, null, "");
-  }, [fetchCars]);
+    if (viewMode === 'cars') {
+      fetchCars(1, {}, null, "");
+    } else {
+      fetchPlates(1, {}, null, "");
+    }
+  }, [fetchCars, fetchPlates, viewMode]);
 
   const renderListHeader = useMemo(
     () => (
@@ -772,14 +963,16 @@ export default function BrowseCarsPage() {
   const renderListEmpty = useCallback(
     () =>
       !isInitialLoading &&
-      cars.length === 0 && (
+      ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0)) && (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-            {filters.categories && filters.categories.length > 0
-              ? `No cars available for the selected ${
-                  filters.categories.length === 1 ? "category" : "categories"
-                }:\n${filters.categories.join(", ")}`
-              : "No cars available."}
+            {viewMode === 'cars' 
+              ? (filters.categories && filters.categories.length > 0
+                  ? `No cars available for the selected ${
+                      filters.categories.length === 1 ? "category" : "categories"
+                    }:\n${filters.categories.join(", ")}`
+                  : "No cars available.")
+              : "No number plates available."}
           </Text>
           {(Object.keys(filters).length > 0 || searchQuery) && (
             <TouchableOpacity
@@ -798,6 +991,8 @@ export default function BrowseCarsPage() {
       isInitialLoading,
       handleResetFilters,
       cars,
+      plates,
+      viewMode,
     ]
   );
 
@@ -820,6 +1015,71 @@ export default function BrowseCarsPage() {
           ]}
         >
           <View style={styles.searchContainer}>
+            {/* Toggle Button for Cars/Plates */}
+            <View style={styles.toggleContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  viewMode === 'cars' && styles.toggleButtonActive,
+                  isDarkMode && styles.darkToggleButton,
+                  viewMode === 'cars' && isDarkMode && styles.darkToggleButtonActive,
+                ]}
+                onPress={() => {
+                  setViewMode('cars');
+                  setCurrentPage(1);
+                  fetchCars(1, filters, sortOption, searchQuery);
+                }}
+              >
+                <Ionicons
+                  name="car-sport"
+                  size={20}
+                  color={viewMode === 'cars' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    viewMode === 'cars' && styles.toggleButtonTextActive,
+                    isDarkMode && styles.darkToggleButtonText,
+                    viewMode === 'cars' && isDarkMode && styles.darkToggleButtonTextActive,
+                  ]}
+                >
+                  Cars
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  viewMode === 'plates' && styles.toggleButtonActive,
+                  isDarkMode && styles.darkToggleButton,
+                  viewMode === 'plates' && isDarkMode && styles.darkToggleButtonActive,
+                ]}
+                onPress={() => {
+                  setViewMode('plates');
+                  setCurrentPage(1);
+                  fetchPlates(1, filters, sortOption, searchQuery);
+                }}
+              >
+                <Ionicons
+                  name="id-card"
+                  size={20}
+                  color={viewMode === 'plates' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    viewMode === 'plates' && styles.toggleButtonTextActive,
+                    isDarkMode && styles.darkToggleButtonText,
+                    viewMode === 'plates' && isDarkMode && styles.darkToggleButtonTextActive,
+                  ]}
+                >
+                  Plates
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={[
               styles.searchInputContainer,
               language === 'ar' && styles.rtlContainer
@@ -924,20 +1184,28 @@ export default function BrowseCarsPage() {
             )}
             scrollEventThrottle={16}
             ListHeaderComponent={renderListHeader}
-            data={isInitialLoading && cars.length === 0 ? Array(3).fill({}) : cars}
+            data={
+              isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0)) 
+                ? Array(3).fill({}) 
+                : (viewMode === 'cars' ? cars : plates) as any
+            }
             renderItem={
-              isInitialLoading && cars.length === 0
+              isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0))
                 ? renderSkeletonItem
-                : renderCarItem
+                : (viewMode === 'cars' ? renderCarItem : renderPlateItem) as any
             }
             keyExtractor={
-              isInitialLoading && cars.length === 0
+              isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0))
                 ? (_, index) => `skeleton-${index}`
                 : keyExtractor
             }
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
-                fetchCars(currentPage + 1, filters, sortOption, searchQuery);
+                if (viewMode === 'cars') {
+                  fetchCars(currentPage + 1, filters, sortOption, searchQuery);
+                } else {
+                  fetchPlates(currentPage + 1, filters, sortOption, searchQuery);
+                }
               }
             }}
             onEndReachedThreshold={0.5}
@@ -1073,5 +1341,52 @@ const styles = StyleSheet.create({
   rtlIconButton: {
     marginRight: 0,
     marginLeft: 8,
+  },
+  // Toggle Button Styles
+  toggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    backgroundColor: "#f5f5f5",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#D55004",
+    borderColor: "#D55004",
+  },
+  darkToggleButton: {
+    borderColor: "#333",
+    backgroundColor: "#222",
+  },
+  darkToggleButtonActive: {
+    backgroundColor: "#D55004",
+    borderColor: "#D55004",
+  },
+  toggleButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  toggleButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  darkToggleButtonText: {
+    color: "#FFFFFF",
+  },
+  darkToggleButtonTextActive: {
+    color: "#FFFFFF",
   },
 });
