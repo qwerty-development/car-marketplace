@@ -972,6 +972,20 @@ export default function DealerListings() {
 		setIsFilterModalVisible(false)
 	}, [])
 
+	const resolveStoragePathFromUrl = useCallback((publicUrl: string, bucket: string): string | null => {
+		try {
+			const { pathname } = new URL(publicUrl)
+			const decodedPath = decodeURIComponent(pathname)
+			const bucketPath = `/storage/v1/object/public/${bucket}/`
+			if (!decodedPath.startsWith(bucketPath)) {
+				return null
+			}
+			return decodedPath.slice(bucketPath.length)
+		} catch (error) {
+			return null
+		}
+	}, [])
+
 	const handleDeleteListing = useCallback(
 		async (id: number) => {
 			if (!dealership || !isSubscriptionValid()) return
@@ -984,15 +998,38 @@ export default function DealerListings() {
 						text: 'Delete',
 						onPress: async () => {
 							try {
-								await supabase
+								// First, get the car data to retrieve image URLs
+								const { data: carData, error: fetchError } = await supabase
+									.from('cars')
+									.select('images')
+									.eq('id', id)
+									.single()
+
+								if (fetchError) throw fetchError
+
+								// Delete images from storage if they exist
+								if (carData?.images && Array.isArray(carData.images) && carData.images.length > 0) {
+									for (const imageUrl of carData.images) {
+										const filePath = resolveStoragePathFromUrl(imageUrl, 'cars')
+										if (filePath) {
+											await supabase.storage.from('cars').remove([filePath])
+										}
+									}
+								}
+
+								// Delete from database
+								const { error: dbError } = await supabase
 									.from('cars')
 									.delete()
 									.eq('id', id)
 									.eq('dealership_id', dealership.id)
+
+								if (dbError) throw dbError
+
 								setListings(prevListings =>
 									prevListings.filter(listing => listing.id !== id)
 								)
-								Alert.alert('Success', 'Listing deleted successfully')
+								Alert.alert('Success', 'Listing and all images deleted successfully')
 							} catch (error) {
 								console.error('Error in handleDeleteListing:', error)
 								Alert.alert('Error', 'Failed to delete listing')
@@ -1003,7 +1040,7 @@ export default function DealerListings() {
 				]
 			)
 		},
-		[dealership, isSubscriptionValid]
+		[dealership, isSubscriptionValid, resolveStoragePathFromUrl]
 	)
 
 

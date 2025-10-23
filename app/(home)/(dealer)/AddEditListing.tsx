@@ -1332,6 +1332,20 @@ features
     setHasChanges(true); // Mark changes as made
   }, []);
 
+  const resolveStoragePathFromUrl = useCallback((publicUrl: string, bucket: string): string | null => {
+    try {
+      const { pathname } = new URL(publicUrl);
+      const decodedPath = decodeURIComponent(pathname);
+      const bucketPath = `/storage/v1/object/public/${bucket}/`;
+      if (!decodedPath.startsWith(bucketPath)) {
+        return null;
+      }
+      return decodedPath.slice(bucketPath.length);
+    } catch (error) {
+      return null;
+    }
+  }, []);
+
   const handleDeleteConfirmation = useCallback(() => {
     // Check permissions based on mode
     if (!isUserMode) {
@@ -1368,7 +1382,15 @@ features
 
               setIsLoading(true);
 
-              console.log(`Deleting listing ID ${initialData.id}`);
+              // Delete images from storage if they exist
+              if (initialData.images && Array.isArray(initialData.images) && initialData.images.length > 0) {
+                for (const imageUrl of initialData.images) {
+                  const filePath = resolveStoragePathFromUrl(imageUrl, 'cars');
+                  if (filePath) {
+                    await supabase.storage.from('cars').remove([filePath]);
+                  }
+                }
+              }
 
               // Build delete query based on mode
               const deleteQuery = supabase
@@ -1387,8 +1409,7 @@ features
                 throw error;
               }
 
-              console.log("Deletion successful");
-              Alert.alert("Success", "Listing deleted successfully", [
+              Alert.alert("Success", "Listing and all images deleted successfully", [
                 { text: "OK", onPress: () => router.back() },
               ]);
             } catch (error: any) {
@@ -1405,7 +1426,7 @@ features
         },
       ]
     );
-  }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router]);
+  }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router, resolveStoragePathFromUrl]);
 
   const handleMarkAsSold = useCallback(
     async (soldData = soldInfo) => {
