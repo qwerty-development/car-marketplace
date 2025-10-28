@@ -13,7 +13,8 @@ import {
 	Modal,
 	ScrollView,
   Platform,
-  StyleSheet
+  StyleSheet,
+  Dimensions
 } from 'react-native'
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
@@ -35,6 +36,73 @@ import DealerOnboardingModal from '../DealerOnboardingModal'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
+
+type ViewMode = 'sale' | 'rent'
+
+interface SegmentedControlProps {
+	mode: ViewMode
+	onModeChange: (mode: ViewMode) => void
+	isDarkMode: boolean
+	t: (key: string) => string
+}
+
+const SegmentedControl: React.FC<SegmentedControlProps> = ({
+	mode,
+	onModeChange,
+	isDarkMode,
+	t
+}) => {
+	const screenWidth = Dimensions.get('window').width
+
+	return (
+		<View
+			style={{
+				flexDirection: 'row',
+				backgroundColor: isDarkMode ? '#1F1F1F' : '#F3F4F6',
+				borderRadius: 12,
+				padding: 4,
+				marginHorizontal: 16,
+				marginVertical: 12
+			}}>
+			<TouchableOpacity
+				onPress={() => onModeChange('sale')}
+				style={{
+					flex: 1,
+					paddingVertical: 10,
+					borderRadius: 8,
+					backgroundColor: mode === 'sale' ? '#D55004' : 'transparent'
+				}}>
+				<Text
+					style={{
+						textAlign: 'center',
+						fontWeight: '600',
+						fontSize: 15,
+						color: mode === 'sale' ? '#FFFFFF' : isDarkMode ? '#9CA3AF' : '#6B7280'
+					}}>
+					{t('profile.inventory.for_sale')}
+				</Text>
+			</TouchableOpacity>
+			<TouchableOpacity
+				onPress={() => onModeChange('rent')}
+				style={{
+					flex: 1,
+					paddingVertical: 10,
+					borderRadius: 8,
+					backgroundColor: mode === 'rent' ? '#D55004' : 'transparent'
+				}}>
+				<Text
+					style={{
+						textAlign: 'center',
+						fontWeight: '600',
+						fontSize: 15,
+						color: mode === 'rent' ? '#FFFFFF' : isDarkMode ? '#9CA3AF' : '#6B7280'
+					}}>
+					{t('profile.inventory.for_rent')}
+				</Text>
+			</TouchableOpacity>
+		</View>
+	)
+}
 
 const CustomHeader = ({ title, dealership }:any) => {
   const { isDarkMode } = useTheme();
@@ -426,7 +494,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 	}
 
 	const validateFilters = () => {
-		const numericFields = [
+		const numericFields: Array<{ key: keyof FilterState; max: keyof FilterState; label: string }> = [
 			{ key: 'minPrice', max: 'maxPrice', label: 'Price' },
 			{ key: 'minYear', max: 'maxYear', label: 'Year' }
 		]
@@ -516,7 +584,8 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 									{ label: t('profile.inventory.all'), value: '' },
 									{ label: t('profile.inventory.available'), value: 'available' },
 									{ label: t('profile.inventory.pending'), value: 'pending' },
-									{ label: t('profile.inventory.sold'), value: 'sold' }
+									{ label: t('profile.inventory.sold'), value: 'sold' },
+									{ label: t('profile.inventory.rented'), value: 'rented' }
 								]}
 								onChange={value => handleChange('status', value)}
 								isDarkMode={isDarkMode}
@@ -651,7 +720,7 @@ interface CarListing {
 	images: string[]
 	views: number
 	likes: number
-	status: 'available' | 'pending' | 'sold'
+	status: 'available' | 'pending' | 'sold' | 'rented'
 	condition: 'New' | 'Used'
 	mileage: number
 	transmission: 'Manual' | 'Automatic'
@@ -680,6 +749,7 @@ export default function DealerListings() {
 	const [selectedListing, setSelectedListing] = useState<CarListing | null>(
 		null
 	)
+	const [viewMode, setViewMode] = useState<ViewMode>('sale')
   const router=useRouter()
 	const [isListingModalVisible, setIsListingModalVisible] = useState(false)
 	const [error, setError] = useState<string | null>(null)
@@ -751,6 +821,7 @@ export default function DealerListings() {
 	const sortByRef = useRef(sortBy)
 	const sortOrderRef = useRef(sortOrder)
 	const searchQueryRef = useRef(searchQuery)
+	const viewModeRef = useRef(viewMode)
 	const [fetchTrigger, setFetchTrigger] = useState(0)
 
 	const applyFiltersToQuery = (query: any, currentFilters: any) => {
@@ -797,11 +868,15 @@ export default function DealerListings() {
 				const currentSortBy = sortByRef.current
 				const currentSortOrder = sortOrderRef.current
 				const currentSearchQuery = searchQueryRef.current
+				const currentViewMode = viewModeRef.current
+
+				// Determine which table to query based on view mode
+				const tableName = currentViewMode === 'sale' ? 'cars' : 'cars_rent'
 
 				// Helper to build a fresh query with all conditions
 				const buildBaseQuery = () => {
 					let query = supabase
-						.from('cars')
+						.from(tableName)
 						.select(
 							'*, dealerships!inner(name,logo,phone,location,latitude,longitude)',
 							{ count: 'exact' }
@@ -989,6 +1064,9 @@ export default function DealerListings() {
 	const handleDeleteListing = useCallback(
 		async (id: number) => {
 			if (!dealership || !isSubscriptionValid()) return
+			
+			const tableName = viewMode === 'sale' ? 'cars' : 'cars_rent'
+			
 			Alert.alert(
 				'Delete Listing',
 				'Are you sure you want to delete this listing?',
@@ -1000,7 +1078,7 @@ export default function DealerListings() {
 							try {
 								// First, get the car data to retrieve image URLs
 								const { data: carData, error: fetchError } = await supabase
-									.from('cars')
+									.from(tableName)
 									.select('images')
 									.eq('id', id)
 									.single()
@@ -1019,7 +1097,7 @@ export default function DealerListings() {
 
 								// Delete from database
 								const { error: dbError } = await supabase
-									.from('cars')
+									.from(tableName)
 									.delete()
 									.eq('id', id)
 									.eq('dealership_id', dealership.id)
@@ -1040,7 +1118,7 @@ export default function DealerListings() {
 				]
 			)
 		},
-		[dealership, isSubscriptionValid, resolveStoragePathFromUrl]
+		[dealership, isSubscriptionValid, resolveStoragePathFromUrl, viewMode]
 	)
 
 
@@ -1073,11 +1151,15 @@ export default function DealerListings() {
 	const handleMarkAsSold = useCallback(
 		async (soldInfo: { price: string; date: string; buyer_name: string }) => {
 			if (!selectedListing || !dealership || !isSubscriptionValid()) return
+			
+			const tableName = viewMode === 'sale' ? 'cars' : 'cars_rent'
+			const statusValue = viewMode === 'sale' ? 'sold' : 'rented'
+			
 			try {
 				const { error } = await supabase
-					.from('cars')
+					.from(tableName)
 					.update({
-						status: 'sold',
+						status: statusValue,
 						sold_price: parseInt(soldInfo.price),
 						date_sold: soldInfo.date,
 						buyer_name: soldInfo.buyer_name
@@ -1090,19 +1172,19 @@ export default function DealerListings() {
 				setListings(prevListings =>
 					prevListings.map(listing =>
 						listing.id === selectedListing.id
-							? { ...listing, status: 'sold' }
+							? { ...listing, status: statusValue }
 							: listing
 					)
 				)
 				setIsSoldModalVisible(false)
 				setSelectedListing(null)
-				Alert.alert('Success', 'Listing marked as sold successfully')
+				Alert.alert('Success', `Listing marked as ${statusValue} successfully`)
 			} catch (error) {
-				console.error('Error marking as sold:', error)
-				Alert.alert('Error', 'Failed to mark listing as sold')
+				console.error('Error marking as sold/rented:', error)
+				Alert.alert('Error', `Failed to mark listing as ${statusValue}`)
 			}
 		},
-		[selectedListing, dealership, isSubscriptionValid]
+		[selectedListing, dealership, isSubscriptionValid, viewMode]
 	)
 
 	const handleOnboardingComplete = useCallback(async () => {
@@ -1113,6 +1195,13 @@ export default function DealerListings() {
 		handleRefresh()
 	}, [fetchDealership, handleRefresh])
 
+	const handleViewModeChange = useCallback((mode: ViewMode) => {
+		viewModeRef.current = mode
+		setViewMode(mode)
+		setCurrentPage(1)
+		setFetchTrigger(prev => prev + 1)
+	}, [])
+
 	const getStatusConfig = (status: string) => {
 		switch (status.toLowerCase()) {
 			case 'available':
@@ -1121,6 +1210,8 @@ export default function DealerListings() {
 				return { color: '#EAB308', dotColor: '#FDE047' } // Yellow
 			case 'sold':
 				return { color: '#EF4444', dotColor: '#FCA5A5' } // Red
+			case 'rented':
+				return { color: '#3B82F6', dotColor: '#93C5FD' } // Blue
 			default:
 				return { color: '#6B7280', dotColor: '#9CA3AF' } // Gray
 		}
@@ -1142,12 +1233,13 @@ const ListingCard = useMemo(
           return;
         }
 
-        // Navigate directly to edit page
+        // Navigate directly to edit page with viewMode
         router.push({
           pathname: '/(home)/(dealer)/AddEditListing',
           params: {
             dealershipId: dealership?.id ?? 0,
-            listingId: item.id
+            listingId: item.id,
+            mode: viewMode
           }
         });
       };
@@ -1268,7 +1360,8 @@ const ListingCard = useMemo(
     isDarkMode,
     router,
     dealership,
-    isSubscriptionValid
+    isSubscriptionValid,
+    viewMode
   ]
 );
 
@@ -1326,6 +1419,14 @@ const ListingCard = useMemo(
       </BlurView>
     )}
 
+    {/* Segmented Control for Sale/Rent */}
+    <SegmentedControl
+      mode={viewMode}
+      onModeChange={handleViewModeChange}
+      isDarkMode={isDarkMode}
+      t={t}
+    />
+
     {/* Search and Filter Bar */}
     <ModernSearchBar
       searchQuery={searchQuery}
@@ -1341,7 +1442,10 @@ const ListingCard = useMemo(
     }
     router.push({
       pathname: '/(home)/(dealer)/AddEditListing',
-      params: { dealershipId: dealership.id }
+      params: { 
+        dealershipId: dealership.id,
+        mode: viewMode
+      }
     });
   }}
       isDarkMode={isDarkMode}

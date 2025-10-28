@@ -383,6 +383,8 @@
     },
     "inventory": {
       "search_inventory": "البحث في المخزون...",
+      "for_sale": "للبيع",
+      "for_rent": "للإيجار",
       "year": "السنة",
       "km": "كم",
       "transmission": "ناقل الحركة",
@@ -392,6 +394,7 @@
       "available": "متاح",
       "pending": "قيد الانتظار",
       "sold": "مباع",
+      "rented": "مؤجر",
       "new": "جديد",
       "used": "مستعمل",
       "min_price": "الحد الأدنى للسعر",

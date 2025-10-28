@@ -433,10 +433,12 @@ export default function AddEditListing() {
     dealershipId?: string;
     listingId?: string;
     userId?: string;
+    mode?: 'sale' | 'rent';
   }>();
 
   const [dealership, setDealership] = useState<any>(null);
   const isUserMode = !!params.userId; // Determine if we're in user mode
+  const viewMode = params.mode || 'sale'; // Default to 'sale' if not specified
   const [initialData, setInitialData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<any>({
@@ -643,21 +645,28 @@ export default function AddEditListing() {
             source: allowedData.source,
             features: formData.features || [],
             // Set either dealership_id or user_id based on mode
-            ...(isUserMode
+            // Note: cars_rent only supports dealership_id (no user_id column)
+            ...(viewMode === 'rent'
+              ? { dealership_id: dealership.id }
+              : isUserMode
               ? { user_id: params.userId, dealership_id: null }
               : { dealership_id: dealership.id, user_id: null }
             ),
           };
 
+          // Determine table name based on mode
+          const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+
           const updateQuery = supabase
-            .from("cars")
+            .from(tableName)
             .update(dataToUpdate)
             .eq("id", initialData.id);
 
           // Add appropriate ownership check based on mode
-          const finalQuery = isUserMode
-            ? updateQuery.eq("user_id", params.userId)
-            : updateQuery.eq("dealership_id", dealership.id);
+          // cars_rent only has dealership_id
+          const finalQuery = (viewMode === 'rent' || !isUserMode)
+            ? updateQuery.eq("dealership_id", dealership.id)
+            : updateQuery.eq("user_id", params.userId);
 
           const { data, error } = await finalQuery.select(
               `
@@ -740,14 +749,20 @@ features
             viewed_users: [],
             liked_users: [],
             // Set either dealership_id or user_id based on mode
-            ...(isUserMode
+            // Note: cars_rent only supports dealership_id (no user_id column)
+            ...(viewMode === 'rent'
+              ? { dealership_id: dealership.id }
+              : isUserMode
               ? { user_id: params.userId, dealership_id: null }
               : { dealership_id: dealership.id, user_id: null }
             ),
           };
 
+          // Determine table name based on mode
+          const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+
           const { data, error } = await supabase
-            .from("cars")
+            .from(tableName)
             .insert(newListingData)
             .select()
             .single();
@@ -840,8 +855,11 @@ features
         }
 
         if (params.listingId) {
+          // Determine table name based on mode
+          const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+
           const { data: carData, error: carError } = await supabase
-            .from("cars")
+            .from(tableName)
             .select("*")
             .eq("id", params.listingId)
             .single();
@@ -1009,7 +1027,9 @@ features
             const fileName = `${timestamp}_${randomId}_${i}.${extension}`;
             // Use user_id or dealership_id for the folder path
             const folderId = isUserMode ? `user_${params.userId}` : dealership.id;
-            const filePath = `${folderId}/${fileName}`;
+            // Add cars_for_rent subfolder if in rent mode
+            const folderPath = viewMode === 'rent' ? `${folderId}/cars_for_rent` : folderId;
+            const filePath = `${folderPath}/${fileName}`;
 
             // Upload image
             console.log(`Uploading ${imageName} (${imageNumber}/${totalImages})`);
@@ -1076,13 +1096,13 @@ features
 
             // Add image to gallery immediately
             setModalImages(prevImages => [...prevImages, publicUrl]);
-            setFormData(prev => ({
+            setFormData((prev: any) => ({
               ...prev,
               images: [...(prev.images || []), publicUrl]
             }));
 
             // Update progress with completed image
-            setUploadProgress(prev => ({
+            setUploadProgress((prev: any) => ({
               ...prev,
               current: imageNumber,
               completedImages: [...prev.completedImages, publicUrl]
@@ -1392,15 +1412,20 @@ features
                 }
               }
 
+              // Determine table name based on mode
+              const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+
               // Build delete query based on mode
               const deleteQuery = supabase
-                .from("cars")
+                .from(tableName)
                 .delete()
                 .eq("id", initialData.id);
 
-              const finalQuery = isUserMode
-                ? deleteQuery.eq("user_id", params.userId)
-                : deleteQuery.eq("dealership_id", dealership.id);
+              // For rent mode, always use dealership_id (cars_rent has no user_id column)
+              // For sale mode, use user_id for users, dealership_id for dealers
+              const finalQuery = (viewMode === 'rent' || !isUserMode)
+                ? deleteQuery.eq("dealership_id", dealership.id)
+                : deleteQuery.eq("user_id", params.userId);
 
               const { error } = await finalQuery;
 
@@ -1461,10 +1486,14 @@ features
       try {
         setIsLoading(true);
 
+        // Determine table name and status based on mode
+        const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+        const statusValue = viewMode === 'rent' ? 'rented' : 'sold';
+
         const updateQuery = supabase
-          .from("cars")
+          .from(tableName)
           .update({
-            status: "sold",
+            status: statusValue,
             sold_price: parseInt(soldData.price),
             date_sold: soldData.date,
             buyer_name: soldData.buyer_name,
@@ -1480,7 +1509,10 @@ features
         if (error) throw error;
 
         setShowSoldModal(false);
-        Alert.alert("Success", "Listing marked as sold successfully", [
+        const successMessage = viewMode === 'rent' 
+          ? 'Listing marked as rented successfully' 
+          : 'Listing marked as sold successfully';
+        Alert.alert("Success", successMessage, [
           { text: "OK", onPress: () => router.back() },
         ]);
       } catch (error) {
@@ -1592,18 +1624,41 @@ features
                     flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: 24,
+                    marginBottom: 16,
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: "bold",
-                      color: isDarkMode ? "#ffffff" : "#000000",
-                    }}
-                  >
-                    {ready ? t('car.mark_as_sold') : 'Mark as Sold'}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 20,
+                        fontWeight: "bold",
+                        color: isDarkMode ? "#ffffff" : "#000000",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {viewMode === 'rent' 
+                        ? (ready ? t('profile.inventory.mark_as_rented') : 'Mark as Rented')
+                        : (ready ? t('car.mark_as_sold') : 'Mark as Sold')
+                      }
+                    </Text>
+                    {/* Mode indicator badge */}
+                    <View 
+                      style={{ 
+                        backgroundColor: viewMode === 'rent' ? '#3B82F6' : '#EF4444',
+                        paddingHorizontal: 12,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        alignSelf: 'flex-start'
+                      }}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                        {viewMode === 'rent' 
+                          ? (ready ? t('profile.inventory.for_rent') : 'FOR RENT')
+                          : (ready ? t('profile.inventory.for_sale') : 'FOR SALE')
+                        }
+                      </Text>
+                    </View>
+                  </View>
                   <TouchableOpacity onPress={() => setShowSoldModal(false)}>
                     <Ionicons
                       name="close-circle"
@@ -1613,7 +1668,7 @@ features
                   </TouchableOpacity>
                 </View>
 
-                {/* Selling Price */}
+                {/* Selling/Rental Price */}
                 <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
@@ -1623,12 +1678,19 @@ features
                       color: isDarkMode ? "#d4d4d4" : "#4b5563",
                     }}
                   >
-                    {ready ? t('car.selling_price') : 'Selling Price'}
+                    {viewMode === 'rent'
+                      ? (ready ? t('profile.inventory.rental_price') : 'Rental Price')
+                      : (ready ? t('car.selling_price') : 'Selling Price')
+                    }
                   </Text>
                   <TextInput
                     value={localPrice}
                     onChangeText={setLocalPrice}
-                    placeholder={ready ? t('car.enter_selling_price') : 'Enter selling price'}
+                    placeholder={
+                      viewMode === 'rent'
+                        ? (ready ? t('profile.inventory.enter_rental_price') : 'Enter rental price')
+                        : (ready ? t('car.enter_selling_price') : 'Enter selling price')
+                    }
                     placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
                     keyboardType="numeric"
                     style={{
@@ -1645,7 +1707,7 @@ features
                   />
                 </View>
 
-                {/* Buyer Name */}
+                {/* Buyer/Renter Name */}
                 <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
@@ -1655,12 +1717,19 @@ features
                       color: isDarkMode ? "#d4d4d4" : "#4b5563",
                     }}
                   >
-                    {ready ? t('profile.inventory.buyer_name') : 'Buyer Name'}
+                    {viewMode === 'rent'
+                      ? (ready ? t('profile.inventory.renter_name') : 'Renter Name')
+                      : (ready ? t('profile.inventory.buyer_name') : 'Buyer Name')
+                    }
                   </Text>
                   <TextInput
                     value={localBuyerName}
                     onChangeText={setLocalBuyerName}
-                    placeholder={ready ? t('car.enter_buyer_name') : 'Enter buyer name'}
+                    placeholder={
+                      viewMode === 'rent'
+                        ? (ready ? t('profile.inventory.enter_renter_name') : 'Enter renter name')
+                        : (ready ? t('car.enter_buyer_name') : 'Enter buyer name')
+                    }
                     placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
                     style={{
                       height: 50,
@@ -1798,31 +1867,53 @@ features
 
   return (
     <SafeAreaView className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"}`}>
-      <View className="flex-row items-center justify-between px-6 py-4">
-        <TouchableOpacity onPress={handleGoBack} className="p-2">
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={isDarkMode ? "#fff" : "#000"}
-          />
-        </TouchableOpacity>
-        <Text
-          className={`text-xl  font-bold ${
-            isDarkMode ? "text-white" : "text-black"
-          }`}
-        >
-{initialData ? (ready ? t('common.edit_vehicle') : 'Edit Vehicle') : (ready ? t('common.add_vehicle') : 'Add Vehicle')}
-        </Text>
-        {initialData && (
-          <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
+      <View className="px-6 py-4">
+        {/* Top Bar with Back and Delete */}
+        <View className="flex-row items-center justify-between mb-3">
+          <TouchableOpacity onPress={handleGoBack} className="p-2">
             <Ionicons
-              name="trash-bin-outline"
+              name="arrow-back"
               size={24}
-              color={isDarkMode ? "red" : "red"}
+              color={isDarkMode ? "#fff" : "#000"}
             />
           </TouchableOpacity>
-        )}
-        {!initialData && <View className="w-10 h-10" />}
+          <Text
+            className={`text-xl font-bold ${
+              isDarkMode ? "text-white" : "text-black"
+            }`}
+          >
+            {initialData ? (ready ? t('common.edit_vehicle') : 'Edit Vehicle') : (ready ? t('common.add_vehicle') : 'Add Vehicle')}
+          </Text>
+          {initialData && (
+            <TouchableOpacity onPress={handleDeleteConfirmation} className="p-2">
+              <Ionicons
+                name="trash-bin-outline"
+                size={24}
+                color={isDarkMode ? "red" : "red"}
+              />
+            </TouchableOpacity>
+          )}
+          {!initialData && <View className="w-10 h-10" />}
+        </View>
+
+        {/* Mode Indicator Badge */}
+        <View className="flex-row items-center justify-center mb-2">
+          <View 
+            style={{ 
+              backgroundColor: viewMode === 'rent' ? '#3B82F6' : '#EF4444',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 20
+            }}
+          >
+            <Text className="text-white text-sm font-bold uppercase tracking-wide">
+              {viewMode === 'rent' 
+                ? (ready ? t('profile.inventory.for_rent') : 'FOR RENT')
+                : (ready ? t('profile.inventory.for_sale') : 'FOR SALE')
+              }
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>

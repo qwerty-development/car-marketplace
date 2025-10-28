@@ -382,6 +382,8 @@
     },
     "inventory": {
       "search_inventory": "Search inventory...",
+      "for_sale": "For Sale",
+      "for_rent": "For Rent",
       "year": "Year",
       "km": "Km",
       "transmission": "Transm.",
@@ -391,6 +393,7 @@
       "available": "Available",
       "pending": "Pending",
       "sold": "Sold",
+      "rented": "Rented",
       "recent_sales": "Recent Sales",
       "sale_details": "Sale Details",
       "transaction_details": "Transaction Details",
