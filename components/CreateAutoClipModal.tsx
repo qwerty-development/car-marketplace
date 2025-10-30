@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
+import * as FileSystem from 'expo-file-system'
 
 import Animated, {
 	FadeIn,
@@ -765,29 +766,73 @@ const fetchCars = async () => {
 				.substring(7)}.${fileExtension}`
 			const filePath = `${dealership!.id}/${fileName}`
 
-			// Progress handler
-			const progressHandler = (progress: number) => {
-				setUploadProgress(Math.round(progress * 100))
-				if (progress === 1) triggerHaptic('light')
+			// Verify file exists and get size
+			console.log('Reading video file from:', fileUri)
+			const fileInfo = await FileSystem.getInfoAsync(fileUri, { size: true })
+			
+			if (!fileInfo.exists) {
+				throw new Error('Video file not found')
+			}
+			
+			if ('size' in fileInfo && fileInfo.size < 1000) {
+				throw new Error('Video file is too small, compression may have failed')
+			}
+			
+			console.log('Video file size:', fileInfo.size, 'bytes')
+
+			// React Native compatible upload using XMLHttpRequest
+			setUploadProgress(20)
+			console.log('Preparing file upload...')
+
+			// Get auth session
+			const { data: { session } } = await supabase.auth.getSession()
+			if (!session) {
+				throw new Error('No active session')
 			}
 
-			// Upload video to Supabase storage
-			const { error: uploadError } = await supabase.storage
-				.from('autoclips')
-				.upload(
-					filePath,
-					{
-						uri: fileUri,
-						type: isMovFile ? 'video/quicktime' : 'video/mp4',
-						name: fileName
-					},
-					{
-						onUploadProgress: event =>
-							progressHandler(event.loaded / event.total)
-					}
-				)
+			const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
+			const uploadUrl = `${supabaseUrl}/storage/v1/object/autoclips/${filePath}`
 
-			if (uploadError) throw uploadError
+			setUploadProgress(30)
+			console.log('Uploading to Supabase storage...')
+
+			// Read the file as base64 and convert to ArrayBuffer for binary upload
+			console.log('Reading file as base64...')
+			const base64Data = await FileSystem.readAsStringAsync(fileUri, {
+				encoding: FileSystem.EncodingType.Base64
+			})
+			
+			setUploadProgress(50)
+			console.log('Converting base64 to binary ArrayBuffer...')
+			
+			// Convert base64 to ArrayBuffer (binary data)
+			const binaryString = atob(base64Data)
+			const bytes = new Uint8Array(binaryString.length)
+			for (let i = 0; i < binaryString.length; i++) {
+				bytes[i] = binaryString.charCodeAt(i)
+			}
+			const arrayBuffer = bytes.buffer
+			
+			console.log('ArrayBuffer size:', arrayBuffer.byteLength, 'bytes')
+			setUploadProgress(70)
+
+			// Upload binary data to Supabase
+			console.log('Uploading binary data to Supabase...')
+			const { data, error: uploadError } = await supabase.storage
+				.from('autoclips')
+				.upload(filePath, arrayBuffer, {
+					contentType: isMovFile ? 'video/quicktime' : 'video/mp4',
+					upsert: false
+				})
+
+			if (uploadError) {
+				console.error('Upload error:', uploadError)
+				throw uploadError
+			}
+			
+			console.log('Upload successful!')
+			setUploadProgress(100)
+			triggerHaptic('light')
 
 			// Get public URL
 			const {
