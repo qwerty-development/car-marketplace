@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
+import RentalCarCard from "@/components/RentalCarCard";
 import NumberPlateCard from "@/components/NumberPlateCard";
 import { useFavorites } from "@/utils/useFavorites";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -102,6 +103,7 @@ export default function BrowseCarsPage() {
   const [cars, setCars] = useState<Car[]>([]);
   const [plates, setPlates] = useState<NumberPlate[]>([]);
   const [viewMode, setViewMode] = useState<'cars' | 'plates'>('cars');
+  const [carViewMode, setCarViewMode] = useState<'sale' | 'rent'>('sale');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -191,7 +193,7 @@ export default function BrowseCarsPage() {
 
       if (shouldFetch || !isInitialLoadDone) {
         if (viewMode === 'cars') {
-          await fetchCars(1, initialFilters, sortOption, initialQuery);
+          await fetchCars(1, initialFilters, sortOption, initialQuery, carViewMode);
         } else {
           await fetchPlates(1, plateFilters, sortOption, initialQuery);
         }
@@ -200,14 +202,15 @@ export default function BrowseCarsPage() {
     };
 
     initializePage();
-  }, [params.searchQuery, params.filters, params.timestamp, viewMode]);
+  }, [params.searchQuery, params.filters, params.timestamp, viewMode, carViewMode]);
 
   const fetchCars = useCallback(
     async (
       page: number = 1,
       currentFilters: Filters = filters,
       currentSortOption: string | null = sortOption,
-      query: string = searchQuery
+      query: string = searchQuery,
+      currentCarViewMode: 'sale' | 'rent' = carViewMode
     ) => {
       if (page === 1) {
         if (!hasFetched) {
@@ -220,8 +223,11 @@ export default function BrowseCarsPage() {
       }
       
       try {
+        // Determine table based on car view mode
+        const tableName = currentCarViewMode === 'rent' ? 'cars_rent' : 'cars';
+        
         let queryBuilder = supabase
-          .from("cars")
+          .from(tableName)
           .select(
             `*, dealerships (name,logo,phone,location,latitude,longitude)`,
             { count: "exact" }
@@ -272,16 +278,19 @@ export default function BrowseCarsPage() {
         ) {
           queryBuilder = queryBuilder.in("model", currentFilters.model);
         }
-        if (
-          Array.isArray(currentFilters.condition) &&
-          currentFilters.condition.length > 0
-        ) {
-          queryBuilder = queryBuilder.in("condition", currentFilters.condition);
-        } else if (
-          typeof currentFilters.condition === "string" &&
-          currentFilters.condition
-        ) {
-          queryBuilder = queryBuilder.eq("condition", currentFilters.condition);
+        // Condition filter (only for sale mode - cars_rent doesn't have condition)
+        if (currentCarViewMode === 'sale') {
+          if (
+            Array.isArray(currentFilters.condition) &&
+            currentFilters.condition.length > 0
+          ) {
+            queryBuilder = queryBuilder.in("condition", currentFilters.condition);
+          } else if (
+            typeof currentFilters.condition === "string" &&
+            currentFilters.condition
+          ) {
+            queryBuilder = queryBuilder.eq("condition", currentFilters.condition);
+          }
         }
 
         // Year Range
@@ -314,16 +323,19 @@ export default function BrowseCarsPage() {
             currentFilters.drivetrain
           );
         }
-        if (
-          Array.isArray(currentFilters.source) &&
-          currentFilters.source.length > 0
-        ) {
-          queryBuilder = queryBuilder.in("source", currentFilters.source);
-        } else if (
-          typeof currentFilters.source === "string" &&
-          currentFilters.source
-        ) {
-          queryBuilder = queryBuilder.eq("source", currentFilters.source);
+        // Source filter (only for sale mode - cars_rent doesn't have source)
+        if (currentCarViewMode === 'sale') {
+          if (
+            Array.isArray(currentFilters.source) &&
+            currentFilters.source.length > 0
+          ) {
+            queryBuilder = queryBuilder.in("source", currentFilters.source);
+          } else if (
+            typeof currentFilters.source === "string" &&
+            currentFilters.source
+          ) {
+            queryBuilder = queryBuilder.eq("source", currentFilters.source);
+          }
         }
 
         // Fuel Type filter
@@ -345,8 +357,8 @@ export default function BrowseCarsPage() {
             .gte("price", currentFilters.priceRange[0])
             .lte("price", currentFilters.priceRange[1]);
         }
-        // Mileage Range
-        if (currentFilters.mileageRange) {
+        // Mileage Range (only for sale mode - cars_rent doesn't have mileage)
+        if (currentCarViewMode === 'sale' && currentFilters.mileageRange) {
           queryBuilder = queryBuilder
             .gte("mileage", currentFilters.mileageRange[0])
             .lte("mileage", currentFilters.mileageRange[1]);
@@ -399,16 +411,28 @@ export default function BrowseCarsPage() {
                 `transmission.ilike.%${singleTerm}%`,
                 `drivetrain.ilike.%${singleTerm}%`,
                 `type.ilike.%${singleTerm}%`,
-                `condition.ilike.%${singleTerm}%`,
-                `source.ilike.%${singleTerm}%`,
               ];
 
+              // Add fields that only exist in cars table (not in cars_rent)
+              if (currentCarViewMode === 'sale') {
+                searchConditions.push(
+                  `condition.ilike.%${singleTerm}%`,
+                  `source.ilike.%${singleTerm}%`
+                );
+              }
+
               if (!isNaN(Number(singleTerm))) {
-                searchConditions = searchConditions.concat([
+                const numericConditions = [
                   `year::text.ilike.%${singleTerm}%`,
                   `price::text.ilike.%${singleTerm}%`,
-                  `mileage::text.ilike.%${singleTerm}%`,
-                ]);
+                ];
+                
+                // Mileage only exists in cars table
+                if (currentCarViewMode === 'sale') {
+                  numericConditions.push(`mileage::text.ilike.%${singleTerm}%`);
+                }
+                
+                searchConditions = searchConditions.concat(numericConditions);
               }
 
               queryBuilder = queryBuilder.or(searchConditions.join(","));
@@ -688,7 +712,7 @@ export default function BrowseCarsPage() {
         }
       }
     },
-    [filters, sortOption, searchQuery, hasFetched]
+    [filters, sortOption, searchQuery, hasFetched, carViewMode]
   );
 
   const fetchPlates = useCallback(
@@ -831,11 +855,11 @@ export default function BrowseCarsPage() {
 
   const onRefresh = useCallback(() => {
     if (viewMode === 'cars') {
-      fetchCars(1, filters, sortOption, searchQuery);
+      fetchCars(1, filters, sortOption, searchQuery, carViewMode);
     } else {
       fetchPlates(1, plateFilters, sortOption, searchQuery);
     }
-  }, [filters, plateFilters, sortOption, searchQuery, fetchCars, fetchPlates, viewMode]);
+  }, [filters, plateFilters, sortOption, searchQuery, fetchCars, fetchPlates, viewMode, carViewMode]);
 
   const handleFavoritePress = useCallback(
     async (carId: string) => {
@@ -852,18 +876,28 @@ export default function BrowseCarsPage() {
   const renderCarItem = useCallback(
     ({ item, index }: { item: Car; index: number }) => (
       <>
-        <CarCard
-          car={item}
-          index={index}
-          onFavoritePress={() => handleFavoritePress(item.id)}
-          isFavorite={isFavorite(Number(item.id))}
-          isDealer={false}
-        />
+        {carViewMode === 'rent' ? (
+          <RentalCarCard
+            car={item}
+            index={index}
+            onFavoritePress={() => handleFavoritePress(item.id)}
+            isFavorite={isFavorite(Number(item.id))}
+            isDealer={false}
+          />
+        ) : (
+          <CarCard
+            car={item}
+            index={index}
+            onFavoritePress={() => handleFavoritePress(item.id)}
+            isFavorite={isFavorite(Number(item.id))}
+            isDealer={false}
+          />
+        )}
         {/* Show banner after every 10 cars */}
         {(index + 1) % 10 === 0 && <Banner />}
       </>
     ),
-    [handleFavoritePress, isFavorite]
+    [handleFavoritePress, isFavorite, carViewMode]
   );
 
   const renderPlateItem = useCallback(
@@ -902,12 +936,12 @@ export default function BrowseCarsPage() {
       setSearchQuery(query);
       setIsSearchVisible(false);
       if (viewMode === 'cars') {
-        fetchCars(1, filters, sortOption, query);
+        fetchCars(1, filters, sortOption, query, carViewMode);
       } else {
         fetchPlates(1, plateFilters, sortOption, query);
       }
     },
-    [filters, plateFilters, sortOption, fetchCars, fetchPlates, viewMode]
+    [filters, plateFilters, sortOption, fetchCars, fetchPlates, viewMode, carViewMode]
   );
 
   const handleCategoryPress = useCallback(
@@ -922,11 +956,11 @@ export default function BrowseCarsPage() {
           ...prevFilters,
           categories: updatedCategories,
         };
-        fetchCars(1, newFilters, sortOption, searchQuery);
+        fetchCars(1, newFilters, sortOption, searchQuery, carViewMode);
         return newFilters;
       });
     },
-    [sortOption, searchQuery, fetchCars]
+    [sortOption, searchQuery, fetchCars, carViewMode]
   );
 
   const handleResetFilters = useCallback(() => {
@@ -934,14 +968,14 @@ export default function BrowseCarsPage() {
       setFilters({});
       setSearchQuery("");
       setSortOption(null);
-      fetchCars(1, {}, null, "");
+      fetchCars(1, {}, null, "", carViewMode);
     } else {
       setPlateFilters({});
       setSearchQuery("");
       setSortOption(null);
       fetchPlates(1, {}, null, "");
     }
-  }, [fetchCars, fetchPlates, viewMode]);
+  }, [fetchCars, fetchPlates, viewMode, carViewMode]);
 
   const renderListHeader = useMemo(
     () => (
@@ -1060,7 +1094,7 @@ export default function BrowseCarsPage() {
                     setViewMode('cars');
                     setCurrentPage(1);
                     setSearchQuery(''); // Clear search when switching
-                    fetchCars(1, filters, sortOption, '');
+                    fetchCars(1, filters, sortOption, '', carViewMode);
                   }
                 }}
               >
@@ -1117,6 +1151,81 @@ export default function BrowseCarsPage() {
               </TouchableOpacity>
             </View>
 
+            {/* Car Type Toggle (Sale/Rent) - Only show when Cars mode is active */}
+            {viewMode === 'cars' && (
+              <View style={styles.carTypeToggleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.carTypeToggleButton,
+                    carViewMode === 'sale' && styles.carTypeToggleButtonActive,
+                    isDarkMode && styles.darkCarTypeToggleButton,
+                    carViewMode === 'sale' && isDarkMode && styles.darkCarTypeToggleButtonActive,
+                  ]}
+                  onPress={() => {
+                    if (carViewMode !== 'sale') {
+                      setCarViewMode('sale');
+                      setCurrentPage(1);
+                      setSearchQuery('');
+                      setFilters({});
+                      fetchCars(1, {}, sortOption, '', 'sale');
+                    }
+                  }}
+                >
+                  <Ionicons
+                    name="pricetag"
+                    size={18}
+                    color={carViewMode === 'sale' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.carTypeToggleButtonText,
+                      carViewMode === 'sale' && styles.carTypeToggleButtonTextActive,
+                      isDarkMode && styles.darkCarTypeToggleButtonText,
+                      carViewMode === 'sale' && isDarkMode && styles.darkCarTypeToggleButtonTextActive,
+                    ]}
+                  >
+                    For Sale
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.carTypeToggleButton,
+                    carViewMode === 'rent' && styles.carTypeToggleButtonActive,
+                    isDarkMode && styles.darkCarTypeToggleButton,
+                    carViewMode === 'rent' && isDarkMode && styles.darkCarTypeToggleButtonActive,
+                  ]}
+                  onPress={() => {
+                    if (carViewMode !== 'rent') {
+                      setCarViewMode('rent');
+                      setCurrentPage(1);
+                      setSearchQuery('');
+                      setFilters({});
+                      fetchCars(1, {}, sortOption, '', 'rent');
+                    }
+                  }}
+                >
+                  <Ionicons
+                    name="time"
+                    size={18}
+                    color={carViewMode === 'rent' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.carTypeToggleButtonText,
+                      carViewMode === 'rent' && styles.carTypeToggleButtonTextActive,
+                      isDarkMode && styles.darkCarTypeToggleButtonText,
+                      carViewMode === 'rent' && isDarkMode && styles.darkCarTypeToggleButtonTextActive,
+                    ]}
+                  >
+                    For Rent
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {viewMode === 'cars' ? (
               // Car Search Bar
               <View style={[
@@ -1160,7 +1269,7 @@ export default function BrowseCarsPage() {
                       onPress={(e) => {
                         e.stopPropagation();
                         setSearchQuery("");
-                        fetchCars(1, filters, sortOption, "");
+                        fetchCars(1, filters, sortOption, "", carViewMode);
                       }}
                       style={[
                         styles.clearSearchButton,
@@ -1196,7 +1305,7 @@ export default function BrowseCarsPage() {
                 <SortPicker
                   onValueChange={(value: string | null) => {
                     setSortOption(value);
-                    fetchCars(1, filters, value, searchQuery);
+                    fetchCars(1, filters, value, searchQuery, carViewMode);
                   }}
                   initialValue={sortOption}
                 />
@@ -1319,7 +1428,7 @@ export default function BrowseCarsPage() {
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 if (viewMode === 'cars') {
-                  fetchCars(currentPage + 1, filters, sortOption, searchQuery);
+                  fetchCars(currentPage + 1, filters, sortOption, searchQuery, carViewMode);
                 } else {
                   fetchPlates(currentPage + 1, plateFilters, sortOption, searchQuery);
                 }
@@ -1517,6 +1626,53 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   darkToggleButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  // Car Type Toggle Styles (Sale/Rent)
+  carTypeToggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+  carTypeToggleButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    backgroundColor: "#f5f5f5",
+  },
+  carTypeToggleButtonActive: {
+    backgroundColor: "#D55004",
+    borderColor: "#D55004",
+  },
+  darkCarTypeToggleButton: {
+    borderColor: "#333",
+    backgroundColor: "#222",
+  },
+  darkCarTypeToggleButtonActive: {
+    backgroundColor: "#D55004",
+    borderColor: "#D55004",
+  },
+  carTypeToggleButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  carTypeToggleButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  darkCarTypeToggleButtonText: {
+    color: "#FFFFFF",
+  },
+  darkCarTypeToggleButtonTextActive: {
     color: "#FFFFFF",
   },
 });
