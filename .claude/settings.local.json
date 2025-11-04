@@ -6,7 +6,9 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
-      "Read(//c/Users/charb/AppData/Roaming/Code/User/workspaceStorage/vscode-chat-images/**)"
+      "Read(//c/Users/charb/AppData/Roaming/Code/User/workspaceStorage/vscode-chat-images/**)",
+      "WebSearch",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

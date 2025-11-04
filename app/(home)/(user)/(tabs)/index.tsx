@@ -17,8 +17,10 @@ import {
   Animated,
   RefreshControl,
   Button,
-  TextInput
+  TextInput,
+  Platform
 } from "react-native";
+import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
 import RentalCarCard from "@/components/RentalCarCard";
@@ -1152,67 +1154,38 @@ export default function BrowseCarsPage() {
               </TouchableOpacity>
             </View>
 
-            {/* Car Type Toggle (Sale/Rent) - Only show when Cars mode is active */}
+            {/* Car Type Segmented Control - Only show when Cars mode is active */}
             {viewMode === 'cars' && (
-              <View style={styles.carTypeToggleContainer}>
-                <View style={[
-                  styles.carTypeToggleWrapper,
-                  isDarkMode && styles.darkCarTypeToggleWrapper
-                ]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.carTypeToggleButton,
-                      carViewMode === 'sale' && styles.carTypeToggleButtonActive,
-                    ]}
-                    onPress={() => {
-                      if (carViewMode !== 'sale') {
-                        setCarViewMode('sale');
-                        setCurrentPage(1);
-                        setSearchQuery('');
-                        setFilters({});
-                        fetchCars(1, {}, sortOption, '', 'sale');
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.carTypeToggleButtonText,
-                        carViewMode === 'sale' && styles.carTypeToggleButtonTextActive,
-                        isDarkMode && carViewMode !== 'sale' && styles.darkCarTypeToggleButtonTextInactive,
-                      ]}
-                    >
-                      For Sale
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.carTypeToggleButton,
-                      carViewMode === 'rent' && styles.carTypeToggleButtonActive,
-                    ]}
-                    onPress={() => {
-                      if (carViewMode !== 'rent') {
-                        setCarViewMode('rent');
-                        setCurrentPage(1);
-                        setSearchQuery('');
-                        setFilters({});
-                        fetchCars(1, {}, sortOption, '', 'rent');
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.carTypeToggleButtonText,
-                        carViewMode === 'rent' && styles.carTypeToggleButtonTextActive,
-                        isDarkMode && carViewMode !== 'rent' && styles.darkCarTypeToggleButtonTextInactive,
-                      ]}
-                    >
-                      For Rent
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.segmentedControlContainer}>
+                <SegmentedControl
+                  values={[t('inventory.for_sale'), t('inventory.for_rent')]}
+                  selectedIndex={carViewMode === 'sale' ? 0 : 1}
+                  onChange={(event) => {
+                    const index = event.nativeEvent.selectedSegmentIndex;
+                    const newMode = index === 0 ? 'sale' : 'rent';
+                    if (carViewMode !== newMode) {
+                      setCarViewMode(newMode);
+                      setCurrentPage(1);
+                      setSearchQuery('');
+                      setFilters({});
+                      fetchCars(1, {}, sortOption, '', newMode);
+                    }
+                  }}
+                  style={styles.segmentedControl}
+                  appearance={isDarkMode ? 'dark' : 'light'}
+                  fontStyle={{
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: isDarkMode ? '#FFFFFF' : '#000000'
+                  }}
+                  activeFontStyle={{
+                    fontSize: 15,
+                    fontWeight: '700',
+                    color: '#FFFFFF'
+                  }}
+                  tintColor="#D55004"
+                  backgroundColor={isDarkMode ? '#1a1a1a' : '#f0f0f0'}
+                />
               </View>
             )}
 
@@ -1618,55 +1591,15 @@ const styles = StyleSheet.create({
   darkToggleButtonTextActive: {
     color: "#FFFFFF",
   },
-  // Car Type Toggle Styles (Sale/Rent)
-  carTypeToggleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
+  // Segmented Control Styles (Sale/Rent)
+  segmentedControlContainer: {
     paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
-  carTypeToggleWrapper: {
-    flexDirection: "row",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 12,
-    padding: 4,
-    width: "100%",
-    maxWidth: 320,
-  },
-  darkCarTypeToggleWrapper: {
-    backgroundColor: "#1a1a1a",
-  },
-  carTypeToggleButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: "transparent",
-  },
-  carTypeToggleButtonActive: {
-    backgroundColor: "#D55004",
-    shadowColor: "#D55004",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  carTypeToggleButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#666666",
-  },
-  carTypeToggleButtonTextActive: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  darkCarTypeToggleButtonTextInactive: {
-    color: "#999999",
+  segmentedControl: {
+    width: '100%',
+    maxWidth: 340,
+    height: 40,
   },
 });
