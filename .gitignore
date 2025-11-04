@@ -28,3 +28,7 @@ expo-env.d.ts
 DEALER_ONBOARDING_IMPLEMENTATION.md
 AGENTS.md
 .github/copilot-instructions.md
+add_rental_period_column.sql
+CARS_RENT_IMPLEMENTATION.md
+CARS_RENT_QUICK_REFERENCE.md
+CARS_RENT_VISUAL_FLOW.md

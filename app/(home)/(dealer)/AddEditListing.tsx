@@ -87,6 +87,13 @@ const VEHICLE_FEATURES = [
   { id: "remote_start", label: "Remote Start", icon: "remote" },
 ];
 
+const RENTAL_PERIODS = [
+  { value: "hourly", label: "Hourly", icon: "clock-time-four" },
+  { value: "daily", label: "Daily", icon: "calendar-today" },
+  { value: "weekly", label: "Weekly", icon: "calendar-week" },
+  { value: "monthly", label: "Monthly", icon: "calendar-month" },
+];
+
 const FeatureSelector = memo(
   ({ selectedFeatures = [], onFeatureToggle, isDarkMode, ready, t }: any) => {
     // State Management
@@ -442,13 +449,23 @@ export default function AddEditListing() {
   const [initialData, setInitialData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<any>({
-    bought_price: null,
-    date_bought: new Date(),
-    seller_name: null,
+    // Common fields
     features: [],
     trim: null,
     make: null,
     model: null,
+    // Mode-specific fields
+    ...(viewMode === 'sale' && {
+      bought_price: null,
+      date_bought: new Date(),
+      seller_name: null,
+      source: null,
+      mileage: null,
+      condition: null,
+    }),
+    ...(viewMode === 'rent' && {
+      rental_period: 'daily', // Default rental period for rent mode
+    }),
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -482,18 +499,22 @@ export default function AddEditListing() {
   }, [dealership]);
 
   const validateFormData = (data: any) => {
-    const requiredFields = [
+    // Base required fields for both modes
+    const baseRequiredFields = [
       "make",
       "model",
       "price",
       "year",
-      "condition",
       "transmission",
-      "mileage",
       "drivetrain",
       "type",
       "category",
     ];
+
+    // Add mode-specific required fields
+    const requiredFields = viewMode === 'rent'
+      ? [...baseRequiredFields, "rental_period"] // For rent: need rental_period, no mileage/condition
+      : [...baseRequiredFields, "condition", "mileage"]; // For sale: need condition and mileage
 
     const missingFields = requiredFields.filter((field) => {
       if (field === "mileage") {
@@ -618,7 +639,8 @@ export default function AddEditListing() {
             ...allowedData
           } = formData;
 
-          const dataToUpdate = {
+          // Build base data (common fields for both modes)
+          const baseData = {
             make: allowedData.make,
             model: allowedData.model,
             trim: allowedData.trim,
@@ -626,23 +648,11 @@ export default function AddEditListing() {
             year: allowedData.year,
             description: allowedData.description,
             images: modalImages,
-            condition: allowedData.condition,
             transmission: allowedData.transmission,
             color: allowedData.color,
-            mileage: allowedData.mileage,
             drivetrain: allowedData.drivetrain,
             type: allowedData.type,
             category: allowedData.category,
-            bought_price: allowedData.bought_price
-              ? allowedData.bought_price
-              : 0,
-            date_bought: allowedData.date_bought
-              ? new Date(allowedData.date_bought).toISOString()
-              : null,
-            seller_name: allowedData.seller_name
-              ? allowedData.seller_name
-              : "NA",
-            source: allowedData.source,
             features: formData.features || [],
             // Set either dealership_id or user_id based on mode
             // Note: cars_rent only supports dealership_id (no user_id column)
@@ -653,6 +663,24 @@ export default function AddEditListing() {
               : { dealership_id: dealership.id, user_id: null }
             ),
           };
+
+          // Add mode-specific fields
+          const dataToUpdate = viewMode === 'rent'
+            ? {
+                ...baseData,
+                rental_period: allowedData.rental_period || 'daily',
+                // Don't include mileage, condition, source, or purchase info for rent mode
+              }
+            : {
+                ...baseData,
+                condition: allowedData.condition,
+                mileage: allowedData.mileage,
+                bought_price: allowedData.bought_price ? allowedData.bought_price : 0,
+                date_bought: allowedData.date_bought ? new Date(allowedData.date_bought).toISOString() : null,
+                seller_name: allowedData.seller_name ? allowedData.seller_name : "NA",
+                source: allowedData.source,
+                // Don't include rental_period for sale mode
+              };
 
           // Determine table name based on mode
           const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
@@ -721,7 +749,8 @@ features
             ...allowedData
           } = formData;
 
-          const newListingData = {
+          // Build base listing data (common fields for both modes)
+          const baseListingData = {
             make: allowedData.make,
             model: allowedData.model,
             trim: allowedData.trim,
@@ -729,19 +758,11 @@ features
             year: allowedData.year,
             description: allowedData.description,
             images: modalImages,
-            condition: allowedData.condition,
             transmission: allowedData.transmission,
             color: allowedData.color,
-            mileage: allowedData.mileage,
             drivetrain: allowedData.drivetrain,
             type: allowedData.type,
             category: allowedData.category,
-            bought_price: allowedData.bought_price,
-            date_bought: allowedData.date_bought
-              ? new Date(allowedData.date_bought).toISOString()
-              : new Date().toISOString(),
-            seller_name: allowedData.seller_name,
-            source: allowedData.source,
             features: formData.features || [],
             status: "pending", // Both users and dealers start with pending (awaiting admin approval)
             views: 0,
@@ -757,6 +778,26 @@ features
               : { dealership_id: dealership.id, user_id: null }
             ),
           };
+
+          // Add mode-specific fields
+          const newListingData = viewMode === 'rent'
+            ? {
+                ...baseListingData,
+                rental_period: allowedData.rental_period || 'daily',
+                // Don't include mileage, condition, source, or purchase info for rent mode
+              }
+            : {
+                ...baseListingData,
+                condition: allowedData.condition,
+                mileage: allowedData.mileage,
+                bought_price: allowedData.bought_price,
+                date_bought: allowedData.date_bought
+                  ? new Date(allowedData.date_bought).toISOString()
+                  : new Date().toISOString(),
+                seller_name: allowedData.seller_name,
+                source: allowedData.source,
+                // Don't include rental_period for sale mode
+              };
 
           // Determine table name based on mode
           const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
@@ -2066,10 +2107,18 @@ features
             />
 
             <NeumorphicInput
-              label={ready ? t('common.price') : 'Price'}
+              label={
+                viewMode === 'rent'
+                  ? (ready ? t('profile.inventory.rental_price') : 'Rental Price')
+                  : (ready ? t('common.price') : 'Price')
+              }
               value={formData.price}
               onChangeText={(text: any) => handleInputChange("price", text)}
-              placeholder={ready ? t('car.enter_vehicle_price') : 'Enter vehicle price'}
+              placeholder={
+                viewMode === 'rent'
+                  ? (ready ? t('profile.inventory.enter_rental_price') : 'Enter rental rate')
+                  : (ready ? t('car.enter_vehicle_price') : 'Enter vehicle price')
+              }
               keyboardType="numeric"
               required
               isDarkMode={isDarkMode}
@@ -2147,38 +2196,41 @@ features
           </ScrollView>
         </View>
 
-        <View className="mb-8">
-          <SectionHeader
-            title={ready ? t('car.vehicle_source') : 'Vehicle Source'}
-            subtitle={ready ? t('car.source_subtitle') : 'Select where the vehicle was sourced from'}
-            isDarkMode={isDarkMode}
-          />
+        {/* Show Vehicle Source only for Sale mode */}
+        {viewMode === 'sale' && (
+          <View className="mb-8">
+            <SectionHeader
+              title={ready ? t('car.vehicle_source') : 'Vehicle Source'}
+              subtitle={ready ? t('car.source_subtitle') : 'Select where the vehicle was sourced from'}
+              isDarkMode={isDarkMode}
+            />
 
-          <Text
-            className={`text-sm font-medium mb-3 ${
-              isDarkMode ? "text-neutral-300" : "text-neutral-700"
-            }`}
-          >
-            {ready ? t('car.source') : 'Source'}
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
-            {SOURCE_OPTIONS.map((source) => (
-              <SelectionCard
-                key={source.value}
-                label={source.label}
-                isEmoji={true}
-                icon={source.icon}
-                isSelected={formData.source === source.value}
-                onSelect={() => handleInputChange("source", source.value)}
-                isDarkMode={isDarkMode}
-              />
-            ))}
-          </ScrollView>
-        </View>
+            <Text
+              className={`text-sm font-medium mb-3 ${
+                isDarkMode ? "text-neutral-300" : "text-neutral-700"
+              }`}
+            >
+              {ready ? t('car.source') : 'Source'}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-6"
+            >
+              {SOURCE_OPTIONS.map((source) => (
+                <SelectionCard
+                  key={source.value}
+                  label={source.label}
+                  isEmoji={true}
+                  icon={source.icon}
+                  isSelected={formData.source === source.value}
+                  onSelect={() => handleInputChange("source", source.value)}
+                  isDarkMode={isDarkMode}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
         {/* Add this after the technical specifications section */}
         <View className="mb-8">
           <SectionHeader
@@ -2228,12 +2280,44 @@ features
             isDarkMode={isDarkMode}
           />
 
-          <KilometrageWithConverter
-            value={formData.mileage}
-            onChangeText={(text) => handleInputChange("mileage", text)}
-            isDarkMode={isDarkMode}
-            placeholder="Enter vehicle kilometrage"
-          />
+          {/* Show Mileage only for Sale mode */}
+          {viewMode === 'sale' && (
+            <KilometrageWithConverter
+              value={formData.mileage}
+              onChangeText={(text) => handleInputChange("mileage", text)}
+              isDarkMode={isDarkMode}
+              placeholder="Enter vehicle kilometrage"
+            />
+          )}
+
+          {/* Show Rental Period only for Rent mode */}
+          {viewMode === 'rent' && (
+            <>
+              <Text
+                className={`text-sm font-medium mb-3 ${
+                  isDarkMode ? "text-neutral-300" : "text-neutral-700"
+                }`}
+              >
+                {ready ? t('profile.inventory.rental_period') : 'Rental Period'}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-6"
+              >
+                {RENTAL_PERIODS.map((period) => (
+                  <SelectionCard
+                    key={period.value}
+                    label={period.label}
+                    icon={period.icon}
+                    isSelected={formData.rental_period === period.value}
+                    onSelect={() => handleInputChange("rental_period", period.value)}
+                    isDarkMode={isDarkMode}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           <Text
             className={`text-sm font-medium mb-3 ${
@@ -2279,25 +2363,30 @@ features
             ))}
           </ScrollView>
 
-          <Text
-            className={`text-sm font-medium mb-3 ${
-              isDarkMode ? "text-neutral-300" : "text-neutral-700"
-            }`}
-          >
-            {ready ? t('car.condition') : 'Condition'}
-          </Text>
-          <View className="flex-row mb-6">
-            {CONDITIONS.map((cond) => (
-              <SelectionCard
-                key={cond.value}
-                label={cond.label}
-                icon={cond.icon}
-                isSelected={formData.condition === cond.value}
-                onSelect={() => handleInputChange("condition", cond.value)}
-                isDarkMode={isDarkMode}
-              />
-            ))}
-          </View>
+          {/* Show Condition only for Sale mode */}
+          {viewMode === 'sale' && (
+            <>
+              <Text
+                className={`text-sm font-medium mb-3 ${
+                  isDarkMode ? "text-neutral-300" : "text-neutral-700"
+                }`}
+              >
+                {ready ? t('car.condition') : 'Condition'}
+              </Text>
+              <View className="flex-row mb-6">
+                {CONDITIONS.map((cond) => (
+                  <SelectionCard
+                    key={cond.value}
+                    label={cond.label}
+                    icon={cond.icon}
+                    isSelected={formData.condition === cond.value}
+                    onSelect={() => handleInputChange("condition", cond.value)}
+                    isDarkMode={isDarkMode}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         <View className="mb-8">
@@ -2334,129 +2423,131 @@ features
           />
         </View>
 
-        {/* Purchase Information */}
-        <View className="mb-8">
-          <SectionHeader
-            title={ready ? t('car.purchase_information') : 'Purchase Information'}
-            subtitle={ready ? t('car.purchase_info_subtitle') : 'Details about vehicle acquisition'}
-            isDarkMode={isDarkMode}
-          />
+        {/* Show Purchase Information only for Sale mode */}
+        {viewMode === 'sale' && (
+          <View className="mb-8">
+            <SectionHeader
+              title={ready ? t('car.purchase_information') : 'Purchase Information'}
+              subtitle={ready ? t('car.purchase_info_subtitle') : 'Details about vehicle acquisition'}
+              isDarkMode={isDarkMode}
+            />
 
-          <NeumorphicInput
-            label={ready ? t('car.purchase_price') : 'Purchase Price'}
-            value={formData.bought_price}
-            onChangeText={(text: any) =>
-              handleInputChange("bought_price", text)
-            }
-            placeholder={ready ? t('car.enter_purchase_price') : 'Enter purchase price'}
-            keyboardType="numeric"
-            icon="cash-multiple"
-            prefix="$"
-            isDarkMode={isDarkMode}
-          />
+            <NeumorphicInput
+              label={ready ? t('car.purchase_price') : 'Purchase Price'}
+              value={formData.bought_price}
+              onChangeText={(text: any) =>
+                handleInputChange("bought_price", text)
+              }
+              placeholder={ready ? t('car.enter_purchase_price') : 'Enter purchase price'}
+              keyboardType="numeric"
+              icon="cash-multiple"
+              prefix="$"
+              isDarkMode={isDarkMode}
+            />
 
-          {/* Date Picker Implementation */}
-          <TouchableOpacity
-            onPress={() => setShowDatePicker(true)}
-            className="mb-6"
-          >
-            <Text
-              className={`text-sm font-medium mb-2 ${
-                isDarkMode ? "text-neutral-300" : "text-neutral-700"
-              }`}
+            {/* Date Picker Implementation */}
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(true)}
+              className="mb-6"
             >
-              Purchase Date
-            </Text>
-            <View
-              className={`rounded-2xl overflow-hidden ${
-                isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
-              }`}
-            >
-              <BlurView
-                intensity={isDarkMode ? 20 : 40}
-                tint={isDarkMode ? "dark" : "light"}
-                className="flex-row items-center p-4"
+              <Text
+                className={`text-sm font-medium mb-2 ${
+                  isDarkMode ? "text-neutral-300" : "text-neutral-700"
+                }`}
               >
-                <MaterialCommunityIcons
-                  name="calendar"
-                  size={24}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-                <Text
-                  className={`ml-3 text-base ${
-                    isDarkMode ? "text-white" : "text-black"
-                  }`}
+                Purchase Date
+              </Text>
+              <View
+                className={`rounded-2xl overflow-hidden ${
+                  isDarkMode ? "bg-[#1c1c1c]" : "bg-[#f5f5f5]"
+                }`}
+              >
+                <BlurView
+                  intensity={isDarkMode ? 20 : 40}
+                  tint={isDarkMode ? "dark" : "light"}
+                  className="flex-row items-center p-4"
                 >
-                  {formData.date_bought ? (
-                    <Text
-                      className={`ml-3 text-base ${
-                        isDarkMode ? "text-white" : "text-black"
-                      }`}
-                    >
-                      {(() => {
-                        try {
-                          const dateObj = new Date(formData.date_bought);
-                          return !isNaN(dateObj.getTime())
-                            ? format(dateObj, "PPP")
-                            : "Select purchase date";
-                        } catch (error) {
-                          console.warn("Date display error:", error);
-                          return "Select purchase date";
-                        }
-                      })()}
-                    </Text>
-                  ) : (
-                    <Text
-                      className={`ml-3 text-base ${
-                        isDarkMode ? "text-neutral-400" : "text-neutral-500"
-                      }`}
-                    >
-                      Select purchase date
-                    </Text>
-                  )}
-                </Text>
-              </BlurView>
-            </View>
-          </TouchableOpacity>
+                  <MaterialCommunityIcons
+                    name="calendar"
+                    size={24}
+                    color={isDarkMode ? "#fff" : "#000"}
+                  />
+                  <Text
+                    className={`ml-3 text-base ${
+                      isDarkMode ? "text-white" : "text-black"
+                    }`}
+                  >
+                    {formData.date_bought ? (
+                      <Text
+                        className={`ml-3 text-base ${
+                          isDarkMode ? "text-white" : "text-black"
+                        }`}
+                      >
+                        {(() => {
+                          try {
+                            const dateObj = new Date(formData.date_bought);
+                            return !isNaN(dateObj.getTime())
+                              ? format(dateObj, "PPP")
+                              : "Select purchase date";
+                          } catch (error) {
+                            console.warn("Date display error:", error);
+                            return "Select purchase date";
+                          }
+                        })()}
+                      </Text>
+                    ) : (
+                      <Text
+                        className={`ml-3 text-base ${
+                          isDarkMode ? "text-neutral-400" : "text-neutral-500"
+                        }`}
+                      >
+                        Select purchase date
+                      </Text>
+                    )}
+                  </Text>
+                </BlurView>
+              </View>
+            </TouchableOpacity>
 
-          <DateTimePickerModal
-            isVisible={showDatePicker}
-            mode="date"
-            date={
-              formData.date_bought &&
-              !isNaN(new Date(formData.date_bought).getTime())
-                ? new Date(formData.date_bought)
-                : new Date()
-            }
-            onConfirm={(selectedDate) => {
-              try {
-                // Add safety check before calling toISOString
-                if (selectedDate && !isNaN(selectedDate.getTime())) {
-                  handleInputChange("date_bought", selectedDate.toISOString());
-                } else {
+            <DateTimePickerModal
+              isVisible={showDatePicker}
+              mode="date"
+              date={
+                formData.date_bought &&
+                !isNaN(new Date(formData.date_bought).getTime())
+                  ? new Date(formData.date_bought)
+                  : new Date()
+              }
+              onConfirm={(selectedDate) => {
+                try {
+                  // Add safety check before calling toISOString
+                  if (selectedDate && !isNaN(selectedDate.getTime())) {
+                    handleInputChange("date_bought", selectedDate.toISOString());
+                  } else {
+                    handleInputChange("date_bought", new Date().toISOString());
+                  }
+                } catch (error) {
+                  console.warn("Date handling error:", error);
                   handleInputChange("date_bought", new Date().toISOString());
                 }
-              } catch (error) {
-                console.warn("Date handling error:", error);
-                handleInputChange("date_bought", new Date().toISOString());
-              }
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-            isDarkModeEnabled={isDarkMode}
-            cancelButtonTestID="cancel-button"
-            confirmButtonTestID="confirm-button"
-          />
+                setShowDatePicker(false);
+              }}
+              onCancel={() => setShowDatePicker(false)}
+              isDarkModeEnabled={isDarkMode}
+              cancelButtonTestID="cancel-button"
+              confirmButtonTestID="confirm-button"
+            />
 
-          <NeumorphicInput
-            label={ready ? t('car.bought_from') : 'Bought From'}
-            value={formData.seller_name}
-            onChangeText={(text: any) => handleInputChange("seller_name", text)}
-            placeholder={ready ? t('car.enter_bought_from_name') : 'Enter bought from name'}
-            icon="account"
-            isDarkMode={isDarkMode}
-          />
-        </View>
+            <NeumorphicInput
+              label={ready ? t('car.bought_from') : 'Bought From'}
+              value={formData.seller_name}
+              onChangeText={(text: any) => handleInputChange("seller_name", text)}
+              placeholder={ready ? t('car.enter_bought_from_name') : 'Enter bought from name'}
+              icon="account"
+              isDarkMode={isDarkMode}
+            />
+          </View>
+        )}
       </ScrollView>
 
       {/* Pinned Buttons - Conditional Rendering */}

@@ -463,6 +463,7 @@ interface FilterModalProps {
 	currentFilters: FilterState
 	isDarkMode: boolean
 	t: (key: string) => string
+	viewMode: ViewMode // Add viewMode to filter based on sale/rent
 }
 
 interface FilterState {
@@ -481,7 +482,8 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 	onApply,
 	currentFilters,
 	isDarkMode,
-	t
+	t,
+	viewMode
 }) => {
 	const [localFilters, setLocalFilters] = useState<FilterState>(currentFilters)
 
@@ -580,29 +582,39 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 							<ModernPicker
 								label={t('profile.inventory.status')}
 								value={localFilters.status}
-								options={[
-									{ label: t('profile.inventory.all'), value: '' },
-									{ label: t('profile.inventory.available'), value: 'available' },
-									{ label: t('profile.inventory.pending'), value: 'pending' },
-									{ label: t('profile.inventory.sold'), value: 'sold' },
-									{ label: t('profile.inventory.rented'), value: 'rented' }
-								]}
+								options={
+									viewMode === 'sale'
+										? [
+												{ label: t('profile.inventory.all'), value: '' },
+												{ label: t('profile.inventory.available'), value: 'available' },
+												{ label: t('profile.inventory.pending'), value: 'pending' },
+												{ label: t('profile.inventory.sold'), value: 'sold' }
+										  ]
+										: [
+												{ label: t('profile.inventory.all'), value: '' },
+												{ label: t('profile.inventory.available'), value: 'available' },
+												{ label: t('profile.inventory.pending'), value: 'pending' },
+												{ label: t('profile.inventory.rented'), value: 'rented' }
+										  ]
+								}
 								onChange={value => handleChange('status', value)}
 								isDarkMode={isDarkMode}
 							/>
 
-							{/* Condition Filter */}
-							<ModernPicker
-								label={t('profile.inventory.condition')}
-								value={localFilters.condition}
-								options={[
-									{ label: t('profile.inventory.all'), value: '' },
-									{ label: t('profile.inventory.new'), value: 'New' },
-									{ label: t('profile.inventory.used'), value: 'Used' }
-								]}
-								onChange={value => handleChange('condition', value)}
-								isDarkMode={isDarkMode}
-							/>
+							{/* Condition Filter - Only show for sale mode */}
+							{viewMode === 'sale' && (
+								<ModernPicker
+									label={t('profile.inventory.condition')}
+									value={localFilters.condition}
+									options={[
+										{ label: t('profile.inventory.all'), value: '' },
+										{ label: t('profile.inventory.new'), value: 'New' },
+										{ label: t('profile.inventory.used'), value: 'Used' }
+									]}
+									onChange={value => handleChange('condition', value)}
+									isDarkMode={isDarkMode}
+								/>
+							)}
 
 							{/* Price Range */}
 							<View className='-top-6'>
@@ -721,9 +733,10 @@ interface CarListing {
 	views: number
 	likes: number
 	status: 'available' | 'pending' | 'sold' | 'rented'
-	condition: 'New' | 'Used'
-	mileage: number
+	condition?: 'New' | 'Used' // Optional - not present in cars_rent
+	mileage?: number // Optional - not present in cars_rent
 	transmission: 'Manual' | 'Automatic'
+	rental_period?: string // Optional - for rent listings (daily, weekly, monthly, hourly)
 }
 
 interface Dealership {
@@ -895,11 +908,15 @@ export default function DealerListings() {
 								`description.ilike.%${term}%`
 							]
 							if (!isNaN(numericTerm)) {
-								searchConditions = searchConditions.concat([
+								// Only search mileage for sale mode (cars table has mileage)
+								const numericSearches = [
 									`year::text.eq.${numericTerm}`,
-									`price::text.ilike.%${numericTerm}%`,
-									`mileage::text.ilike.%${numericTerm}%`
-								])
+									`price::text.ilike.%${numericTerm}%`
+								]
+								if (currentViewMode === 'sale') {
+									numericSearches.push(`mileage::text.ilike.%${numericTerm}%`)
+								}
+								searchConditions = searchConditions.concat(numericSearches)
 							}
 							query = query.or(searchConditions.join(','))
 						})
@@ -1309,9 +1326,16 @@ const ListingCard = useMemo(
                     <Text className='text-white text-2xl font-bold tracking-tight mb-1'>
                       {item.make} {item.model}
                     </Text>
-                    <Text className='text-white text-3xl font-extrabold'>
-                      ${item.price.toLocaleString()}
-                    </Text>
+                    <View className='flex-row items-baseline'>
+                      <Text className='text-white text-3xl font-extrabold'>
+                        ${item.price.toLocaleString()}
+                      </Text>
+                      {viewMode === 'rent' && item.rental_period && (
+                        <Text className='text-white text-lg font-semibold ml-2'>
+                          / {item.rental_period}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </View>
               </View>
@@ -1326,12 +1350,24 @@ const ListingCard = useMemo(
                   value={item.year}
                   isDarkMode={isDarkMode}
                 />
-                <SpecItem
-                  title={t('profile.inventory.km')}
-                  icon='speedometer-outline'
-                  value={`${(item.mileage / 1000).toFixed(1)}k`}
-                  isDarkMode={isDarkMode}
-                />
+                {/* Show mileage only for sale mode (cars table has mileage) */}
+                {viewMode === 'sale' && item.mileage !== undefined && (
+                  <SpecItem
+                    title={t('profile.inventory.km')}
+                    icon='speedometer-outline'
+                    value={`${(item.mileage / 1000).toFixed(1)}k`}
+                    isDarkMode={isDarkMode}
+                  />
+                )}
+                {/* Show rental period for rent mode */}
+                {viewMode === 'rent' && item.rental_period && (
+                  <SpecItem
+                    title={t('profile.inventory.rental_period') || 'Period'}
+                    icon='time-outline'
+                    value={item.rental_period.charAt(0).toUpperCase() + item.rental_period.slice(1)}
+                    isDarkMode={isDarkMode}
+                  />
+                )}
                 <SpecItem
                   title={t('profile.inventory.transmission')}
                   icon='cog-outline'
@@ -1344,12 +1380,15 @@ const ListingCard = useMemo(
                   }
                   isDarkMode={isDarkMode}
                 />
-                <SpecItem
-                  title={t('profile.inventory.condition')}
-                  icon='car-sport-outline'
-                  value={item.condition}
-                  isDarkMode={isDarkMode}
-                />
+                {/* Show condition only for sale mode (cars_rent doesn't have condition) */}
+                {viewMode === 'sale' && item.condition && (
+                  <SpecItem
+                    title={t('profile.inventory.condition')}
+                    icon='car-sport-outline'
+                    value={item.condition}
+                    isDarkMode={isDarkMode}
+                  />
+                )}
               </View>
             </View>
           </Animated.View>
@@ -1523,6 +1562,7 @@ const ListingCard = useMemo(
 						currentFilters={filters}
 						isDarkMode={isDarkMode}
 						t={t}
+						viewMode={viewMode}
 					/>
 
 					<ModernSoldModal
