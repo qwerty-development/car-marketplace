@@ -1471,18 +1471,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
   tabsSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   darkTabsSection: {
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   stickySearchContainer: {
     padding: 10,
     zIndex: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   darkSearchContainer: {
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   searchInputContainer: {
     flexDirection: "row",
