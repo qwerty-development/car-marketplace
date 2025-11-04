@@ -1158,7 +1158,7 @@ export default function BrowseCarsPage() {
             {viewMode === 'cars' && (
               <View style={styles.segmentedControlContainer}>
                 <SegmentedControl
-                  values={[t('inventory.for_sale'), t('inventory.for_rent')]}
+                  values={[i18n.t('profile.inventory.for_sale'), i18n.t('profile.inventory.for_rent')]}
                   selectedIndex={carViewMode === 'sale' ? 0 : 1}
                   onChange={(event) => {
                     const index = event.nativeEvent.selectedSegmentIndex;
