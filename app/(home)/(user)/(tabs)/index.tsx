@@ -125,6 +125,14 @@ export default function BrowseCarsPage() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<Car>>(null);
   useScrollToTop(flatListRef);
+  const [searchBarHeight, setSearchBarHeight] = useState(0);
+
+  // Calculate sticky search bar position
+  const stickySearchTranslateY = scrollY.interpolate({
+    inputRange: [0, 200],
+    outputRange: [0, 0],
+    extrapolate: 'clamp',
+  });
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isPlateFilterVisible, setIsPlateFilterVisible] = useState(false);
@@ -980,7 +988,292 @@ export default function BrowseCarsPage() {
     }
   }, [fetchCars, fetchPlates, viewMode, carViewMode]);
 
-  const renderListHeader = useMemo(
+  // Render tabs section (Cars/Plates toggle + For Sale/For Rent)
+  const renderTabsSection = useMemo(
+    () => (
+      <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
+        {/* Toggle Button for Cars/Plates */}
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'cars' && styles.toggleButtonActive,
+              isDarkMode && styles.darkToggleButton,
+              viewMode === 'cars' && isDarkMode && styles.darkToggleButtonActive,
+            ]}
+            onPress={() => {
+              if (viewMode !== 'cars') {
+                setViewMode('cars');
+                setCurrentPage(1);
+                setSearchQuery('');
+                fetchCars(1, filters, sortOption, '', carViewMode);
+              }
+            }}
+          >
+            <Ionicons
+              name="car-sport"
+              size={20}
+              color={viewMode === 'cars' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.toggleButtonText,
+                viewMode === 'cars' && styles.toggleButtonTextActive,
+                isDarkMode && styles.darkToggleButtonText,
+                viewMode === 'cars' && isDarkMode && styles.darkToggleButtonTextActive,
+              ]}
+            >
+              Cars
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'plates' && styles.toggleButtonActive,
+              isDarkMode && styles.darkToggleButton,
+              viewMode === 'plates' && isDarkMode && styles.darkToggleButtonActive,
+            ]}
+            onPress={() => {
+              if (viewMode !== 'plates') {
+                setViewMode('plates');
+                setCurrentPage(1);
+                setSearchQuery('');
+                fetchPlates(1, plateFilters, sortOption, '');
+              }
+            }}
+          >
+            <Ionicons
+              name="id-card"
+              size={20}
+              color={viewMode === 'plates' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.toggleButtonText,
+                viewMode === 'plates' && styles.toggleButtonTextActive,
+                isDarkMode && styles.darkToggleButtonText,
+                viewMode === 'plates' && isDarkMode && styles.darkToggleButtonTextActive,
+              ]}
+            >
+              Plates
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Car Type Segmented Control - Only show when Cars mode is active */}
+        {viewMode === 'cars' && (
+          <View style={styles.segmentedControlContainer}>
+            <SegmentedControl
+              values={[i18n.t('profile.inventory.for_sale'), i18n.t('profile.inventory.for_rent')]}
+              selectedIndex={carViewMode === 'sale' ? 0 : 1}
+              onChange={(event) => {
+                const index = event.nativeEvent.selectedSegmentIndex;
+                const newMode = index === 0 ? 'sale' : 'rent';
+                if (carViewMode !== newMode) {
+                  setCarViewMode(newMode);
+                  setCurrentPage(1);
+                  setSearchQuery('');
+                  setFilters({});
+                  fetchCars(1, {}, sortOption, '', newMode);
+                }
+              }}
+              style={styles.segmentedControl}
+              appearance={isDarkMode ? 'dark' : 'light'}
+              fontStyle={{
+                fontSize: 15,
+                fontWeight: '600',
+                color: isDarkMode ? '#FFFFFF' : '#000000'
+              }}
+              activeFontStyle={{
+                fontSize: 15,
+                fontWeight: '700',
+                color: '#FFFFFF'
+              }}
+              tintColor="#D55004"
+              backgroundColor={isDarkMode ? '#1a1a1a' : '#f0f0f0'}
+            />
+          </View>
+        )}
+      </View>
+    ),
+    [viewMode, carViewMode, isDarkMode, filters, sortOption, plateFilters, fetchCars, fetchPlates]
+  );
+
+  // Render sticky search bar
+  const renderStickySearchBar = useMemo(
+    () => (
+      <View style={[styles.stickySearchContainer, isDarkMode && styles.darkSearchContainer]}>
+        {viewMode === 'cars' ? (
+          // Car Search Bar
+          <View style={[
+            styles.searchInputContainer,
+            language === 'ar' && styles.rtlContainer
+          ]}>
+            <TouchableOpacity
+              style={[
+                styles.searchBar,
+                isDarkMode && styles.darkSearchBar,
+                language === 'ar' && styles.rtlSearchBar
+              ]}
+              onPress={() => {
+                router.push({
+                  pathname: "/(home)/(user)/search",
+                  params: {
+                    currentQuery: searchQuery,
+                    timestamp: Date.now().toString(),
+                  },
+                });
+              }}
+            >
+              <FontAwesome
+                name="search"
+                size={20}
+                color={isDarkMode ? "#FFFFFF" : "#000000"}
+                style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
+              />
+              <Text
+                style={[
+                  styles.searchPlaceholder,
+                  isDarkMode && { color: "#666" },
+                  language === 'ar' && styles.rtlText
+                ]}
+                numberOfLines={1}
+              >
+                {searchQuery || i18n.t('search.search_placeholder')}
+              </Text>
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery("");
+                    fetchCars(1, filters, sortOption, "", carViewMode);
+                  }}
+                  style={[
+                    styles.clearSearchButton,
+                    language === 'ar' && styles.rtlClearButton
+                  ]}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={isDarkMode ? "#FFFFFF" : "#666666"}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.iconButton,
+                    isDarkMode && styles.darkIconButton,
+                    language === 'ar' && styles.rtlIconButton
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openFilterPage();
+                  }}
+                >
+                  <FontAwesome
+                    name="sliders"
+                    size={20}
+                    color={isDarkMode ? "#000000" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+            <SortPicker
+              onValueChange={(value: string | null) => {
+                setSortOption(value);
+                fetchCars(1, filters, value, searchQuery, carViewMode);
+              }}
+              initialValue={sortOption}
+            />
+          </View>
+        ) : (
+          // Plate Search Bar
+          <View style={[
+            styles.searchInputContainer,
+            language === 'ar' && styles.rtlContainer
+          ]}>
+            <View
+              style={[
+                styles.searchBar,
+                isDarkMode && styles.darkSearchBar,
+                language === 'ar' && styles.rtlSearchBar
+              ]}
+            >
+              <FontAwesome
+                name="search"
+                size={20}
+                color={isDarkMode ? "#FFFFFF" : "#000000"}
+                style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
+              />
+              <TextInput
+                style={[
+                  styles.searchPlaceholder,
+                  styles.plateSearchInput,
+                  isDarkMode && { color: "#FFFFFF" },
+                  language === 'ar' && styles.rtlText
+                ]}
+                placeholder="Search plates by letter or number..."
+                placeholderTextColor={isDarkMode ? "#666" : "#999"}
+                value={searchQuery}
+                onChangeText={(text) => {
+                  setSearchQuery(text);
+                }}
+                onSubmitEditing={() => {
+                  fetchPlates(1, plateFilters, sortOption, searchQuery);
+                }}
+                returnKeyType="search"
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchQuery("");
+                    fetchPlates(1, plateFilters, sortOption, "");
+                  }}
+                  style={[
+                    styles.clearSearchButton,
+                    language === 'ar' && styles.rtlClearButton
+                  ]}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={isDarkMode ? "#FFFFFF" : "#666666"}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.iconButton,
+                    isDarkMode && styles.darkIconButton,
+                    language === 'ar' && styles.rtlIconButton
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setIsPlateFilterVisible(true);
+                  }}
+                >
+                  <FontAwesome
+                    name="sliders"
+                    size={20}
+                    color={isDarkMode ? "#000000" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+      </View>
+    ),
+    [viewMode, searchQuery, isDarkMode, language, filters, sortOption, carViewMode, plateFilters, fetchCars, fetchPlates, openFilterPage, router]
+  );
+
+  const renderRestOfHeader = useMemo(
     () => (
       <>
         {viewMode === 'cars' && (
@@ -1082,276 +1375,6 @@ export default function BrowseCarsPage() {
             { backgroundColor: "transparent" },
           ]}
         >
-          <View style={styles.searchContainer}>
-            {/* Toggle Button for Cars/Plates */}
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  viewMode === 'cars' && styles.toggleButtonActive,
-                  isDarkMode && styles.darkToggleButton,
-                  viewMode === 'cars' && isDarkMode && styles.darkToggleButtonActive,
-                ]}
-                onPress={() => {
-                  if (viewMode !== 'cars') {
-                    setViewMode('cars');
-                    setCurrentPage(1);
-                    setSearchQuery(''); // Clear search when switching
-                    fetchCars(1, filters, sortOption, '', carViewMode);
-                  }
-                }}
-              >
-                <Ionicons
-                  name="car-sport"
-                  size={20}
-                  color={viewMode === 'cars' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
-                  style={{ marginRight: 6 }}
-                />
-                <Text
-                  style={[
-                    styles.toggleButtonText,
-                    viewMode === 'cars' && styles.toggleButtonTextActive,
-                    isDarkMode && styles.darkToggleButtonText,
-                    viewMode === 'cars' && isDarkMode && styles.darkToggleButtonTextActive,
-                  ]}
-                >
-                  Cars
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  viewMode === 'plates' && styles.toggleButtonActive,
-                  isDarkMode && styles.darkToggleButton,
-                  viewMode === 'plates' && isDarkMode && styles.darkToggleButtonActive,
-                ]}
-                onPress={() => {
-                  if (viewMode !== 'plates') {
-                    setViewMode('plates');
-                    setCurrentPage(1);
-                    setSearchQuery(''); // Clear search when switching
-                    fetchPlates(1, plateFilters, sortOption, '');
-                  }
-                }}
-              >
-                <Ionicons
-                  name="id-card"
-                  size={20}
-                  color={viewMode === 'plates' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
-                  style={{ marginRight: 6 }}
-                />
-                <Text
-                  style={[
-                    styles.toggleButtonText,
-                    viewMode === 'plates' && styles.toggleButtonTextActive,
-                    isDarkMode && styles.darkToggleButtonText,
-                    viewMode === 'plates' && isDarkMode && styles.darkToggleButtonTextActive,
-                  ]}
-                >
-                  Plates
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Car Type Segmented Control - Only show when Cars mode is active */}
-            {viewMode === 'cars' && (
-              <View style={styles.segmentedControlContainer}>
-                <SegmentedControl
-                  values={[i18n.t('profile.inventory.for_sale'), i18n.t('profile.inventory.for_rent')]}
-                  selectedIndex={carViewMode === 'sale' ? 0 : 1}
-                  onChange={(event) => {
-                    const index = event.nativeEvent.selectedSegmentIndex;
-                    const newMode = index === 0 ? 'sale' : 'rent';
-                    if (carViewMode !== newMode) {
-                      setCarViewMode(newMode);
-                      setCurrentPage(1);
-                      setSearchQuery('');
-                      setFilters({});
-                      fetchCars(1, {}, sortOption, '', newMode);
-                    }
-                  }}
-                  style={styles.segmentedControl}
-                  appearance={isDarkMode ? 'dark' : 'light'}
-                  fontStyle={{
-                    fontSize: 15,
-                    fontWeight: '600',
-                    color: isDarkMode ? '#FFFFFF' : '#000000'
-                  }}
-                  activeFontStyle={{
-                    fontSize: 15,
-                    fontWeight: '700',
-                    color: '#FFFFFF'
-                  }}
-                  tintColor="#D55004"
-                  backgroundColor={isDarkMode ? '#1a1a1a' : '#f0f0f0'}
-                />
-              </View>
-            )}
-
-            {viewMode === 'cars' ? (
-              // Car Search Bar
-              <View style={[
-                styles.searchInputContainer,
-                language === 'ar' && styles.rtlContainer
-              ]}>
-                <TouchableOpacity
-                  style={[
-                    styles.searchBar,
-                    isDarkMode && styles.darkSearchBar,
-                    language === 'ar' && styles.rtlSearchBar
-                  ]}
-                  onPress={() => {
-                    router.push({
-                      pathname: "/(home)/(user)/search",
-                      params: {
-                        currentQuery: searchQuery,
-                        timestamp: Date.now().toString(),
-                      },
-                    });
-                  }}
-                >
-                  <FontAwesome
-                    name="search"
-                    size={20}
-                    color={isDarkMode ? "#FFFFFF" : "#000000"}
-                    style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
-                  />
-                  <Text
-                    style={[
-                      styles.searchPlaceholder,
-                      isDarkMode && { color: "#666" },
-                      language === 'ar' && styles.rtlText
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {searchQuery || i18n.t('search.search_placeholder')}
-                  </Text>
-                  {searchQuery ? (
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setSearchQuery("");
-                        fetchCars(1, filters, sortOption, "", carViewMode);
-                      }}
-                      style={[
-                        styles.clearSearchButton,
-                        language === 'ar' && styles.rtlClearButton
-                      ]}
-                    >
-                      <Ionicons
-                        name="close-circle"
-                        size={20}
-                        color={isDarkMode ? "#FFFFFF" : "#666666"}
-                      />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.iconButton,
-                        isDarkMode && styles.darkIconButton,
-                        language === 'ar' && styles.rtlIconButton
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        openFilterPage();
-                      }}
-                    >
-                      <FontAwesome
-                        name="sliders"
-                        size={20}
-                        color={isDarkMode ? "#000000" : "#ffffff"}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-                <SortPicker
-                  onValueChange={(value: string | null) => {
-                    setSortOption(value);
-                    fetchCars(1, filters, value, searchQuery, carViewMode);
-                  }}
-                  initialValue={sortOption}
-                />
-              </View>
-            ) : (
-              // Plate Search Bar
-              <View style={[
-                styles.searchInputContainer,
-                language === 'ar' && styles.rtlContainer
-              ]}>
-                <View
-                  style={[
-                    styles.searchBar,
-                    isDarkMode && styles.darkSearchBar,
-                    language === 'ar' && styles.rtlSearchBar
-                  ]}
-                >
-                  <FontAwesome
-                    name="search"
-                    size={20}
-                    color={isDarkMode ? "#FFFFFF" : "#000000"}
-                    style={language === 'ar' ? { marginRight: 12 } : { marginLeft: 12 }}
-                  />
-                  <TextInput
-                    style={[
-                      styles.searchPlaceholder,
-                      styles.plateSearchInput,
-                      isDarkMode && { color: "#FFFFFF" },
-                      language === 'ar' && styles.rtlText
-                    ]}
-                    placeholder="Search plates by letter or number..."
-                    placeholderTextColor={isDarkMode ? "#666" : "#999"}
-                    value={searchQuery}
-                    onChangeText={(text) => {
-                      setSearchQuery(text);
-                    }}
-                    onSubmitEditing={() => {
-                      fetchPlates(1, plateFilters, sortOption, searchQuery);
-                    }}
-                    returnKeyType="search"
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                  />
-                  {searchQuery ? (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSearchQuery("");
-                        fetchPlates(1, plateFilters, sortOption, "");
-                      }}
-                      style={[
-                        styles.clearSearchButton,
-                        language === 'ar' && styles.rtlClearButton
-                      ]}
-                    >
-                      <Ionicons
-                        name="close-circle"
-                        size={20}
-                        color={isDarkMode ? "#FFFFFF" : "#666666"}
-                      />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.iconButton,
-                        isDarkMode && styles.darkIconButton,
-                        language === 'ar' && styles.rtlIconButton
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setIsPlateFilterVisible(true);
-                      }}
-                    >
-                      <FontAwesome
-                        name="sliders"
-                        size={20}
-                        color={isDarkMode ? "#000000" : "#ffffff"}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            )}
-          </View>
           <FlatList
             refreshControl={
               <RefreshControl
@@ -1372,22 +1395,31 @@ export default function BrowseCarsPage() {
               }
             )}
             scrollEventThrottle={16}
-            ListHeaderComponent={renderListHeader}
             data={
-              isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0)) 
-                ? Array(3).fill({}) 
-                : (viewMode === 'cars' ? cars : plates) as any
+              [
+                { id: 'tabs', type: 'tabs' },
+                { id: 'search', type: 'search' },
+                { id: 'rest-header', type: 'rest-header' },
+                ...(isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0))
+                  ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
+                  : (viewMode === 'cars' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item })))
+              ]
             }
-            renderItem={
-              isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0))
-                ? renderSkeletonItem
-                : (viewMode === 'cars' ? renderCarItem : renderPlateItem) as any
-            }
-            keyExtractor={
-              isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0))
-                ? (_, index) => `skeleton-${index}`
-                : keyExtractor
-            }
+            renderItem={({ item, index }: any) => {
+              if (item.type === 'tabs') return renderTabsSection;
+              if (item.type === 'search') return renderStickySearchBar;
+              if (item.type === 'rest-header') return renderRestOfHeader;
+              if (item.type === 'skeleton') return renderSkeletonItem();
+
+              const dataIndex = index - 3; // Subtract header items
+              if (viewMode === 'cars') {
+                return renderCarItem({ item: item.data, index: dataIndex });
+              } else {
+                return renderPlateItem({ item: item.data, index: dataIndex });
+              }
+            }}
+            keyExtractor={(item: any) => item.id.toString()}
+            stickyHeaderIndices={[1]}
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 if (viewMode === 'cars') {
@@ -1438,9 +1470,19 @@ const styles = StyleSheet.create({
   darkContainer: {
     backgroundColor: "#000000",
   },
-  searchContainer: {
+  tabsSection: {
+    backgroundColor: '#FFFFFF',
+  },
+  darkTabsSection: {
+    backgroundColor: '#000000',
+  },
+  stickySearchContainer: {
     padding: 10,
     zIndex: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  darkSearchContainer: {
+    backgroundColor: '#000000',
   },
   searchInputContainer: {
     flexDirection: "row",
