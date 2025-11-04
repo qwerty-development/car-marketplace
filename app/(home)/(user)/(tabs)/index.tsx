@@ -28,6 +28,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import ByBrands from "@/components/ByBrands";
 import Banner from "@/components/Banner";
+import AdBanner from "@/components/AdBanner";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/utils/ThemeContext";
@@ -893,8 +894,8 @@ export default function BrowseCarsPage() {
             isDealer={false}
           />
         )}
-        {/* Show banner after every 10 cars */}
-        {(index + 1) % 10 === 0 && <Banner />}
+        {/* Show random ad banner after every 10 cars */}
+        {(index + 1) % 10 === 0 && <AdBanner key={`ad-${index}`} />}
       </>
     ),
     [handleFavoritePress, isFavorite, carViewMode]
@@ -911,8 +912,8 @@ export default function BrowseCarsPage() {
             console.log('Plate pressed:', item.id);
           }}
         />
-        {/* Show banner after every 10 plates */}
-        {(index + 1) % 10 === 0 && <Banner />}
+        {/* Show random ad banner after every 10 plates */}
+        {(index + 1) % 10 === 0 && <AdBanner key={`ad-${index}`} />}
       </>
     ),
     []
