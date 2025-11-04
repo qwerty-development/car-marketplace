@@ -1155,75 +1155,64 @@ export default function BrowseCarsPage() {
             {/* Car Type Toggle (Sale/Rent) - Only show when Cars mode is active */}
             {viewMode === 'cars' && (
               <View style={styles.carTypeToggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.carTypeToggleButton,
-                    carViewMode === 'sale' && styles.carTypeToggleButtonActive,
-                    isDarkMode && styles.darkCarTypeToggleButton,
-                    carViewMode === 'sale' && isDarkMode && styles.darkCarTypeToggleButtonActive,
-                  ]}
-                  onPress={() => {
-                    if (carViewMode !== 'sale') {
-                      setCarViewMode('sale');
-                      setCurrentPage(1);
-                      setSearchQuery('');
-                      setFilters({});
-                      fetchCars(1, {}, sortOption, '', 'sale');
-                    }
-                  }}
-                >
-                  <Ionicons
-                    name="pricetag"
-                    size={18}
-                    color={carViewMode === 'sale' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
+                <View style={[
+                  styles.carTypeToggleWrapper,
+                  isDarkMode && styles.darkCarTypeToggleWrapper
+                ]}>
+                  <TouchableOpacity
                     style={[
-                      styles.carTypeToggleButtonText,
-                      carViewMode === 'sale' && styles.carTypeToggleButtonTextActive,
-                      isDarkMode && styles.darkCarTypeToggleButtonText,
-                      carViewMode === 'sale' && isDarkMode && styles.darkCarTypeToggleButtonTextActive,
+                      styles.carTypeToggleButton,
+                      carViewMode === 'sale' && styles.carTypeToggleButtonActive,
                     ]}
+                    onPress={() => {
+                      if (carViewMode !== 'sale') {
+                        setCarViewMode('sale');
+                        setCurrentPage(1);
+                        setSearchQuery('');
+                        setFilters({});
+                        fetchCars(1, {}, sortOption, '', 'sale');
+                      }
+                    }}
+                    activeOpacity={0.7}
                   >
-                    For Sale
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.carTypeToggleButtonText,
+                        carViewMode === 'sale' && styles.carTypeToggleButtonTextActive,
+                        isDarkMode && carViewMode !== 'sale' && styles.darkCarTypeToggleButtonTextInactive,
+                      ]}
+                    >
+                      For Sale
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.carTypeToggleButton,
-                    carViewMode === 'rent' && styles.carTypeToggleButtonActive,
-                    isDarkMode && styles.darkCarTypeToggleButton,
-                    carViewMode === 'rent' && isDarkMode && styles.darkCarTypeToggleButtonActive,
-                  ]}
-                  onPress={() => {
-                    if (carViewMode !== 'rent') {
-                      setCarViewMode('rent');
-                      setCurrentPage(1);
-                      setSearchQuery('');
-                      setFilters({});
-                      fetchCars(1, {}, sortOption, '', 'rent');
-                    }
-                  }}
-                >
-                  <Ionicons
-                    name="time"
-                    size={18}
-                    color={carViewMode === 'rent' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
+                  <TouchableOpacity
                     style={[
-                      styles.carTypeToggleButtonText,
-                      carViewMode === 'rent' && styles.carTypeToggleButtonTextActive,
-                      isDarkMode && styles.darkCarTypeToggleButtonText,
-                      carViewMode === 'rent' && isDarkMode && styles.darkCarTypeToggleButtonTextActive,
+                      styles.carTypeToggleButton,
+                      carViewMode === 'rent' && styles.carTypeToggleButtonActive,
                     ]}
+                    onPress={() => {
+                      if (carViewMode !== 'rent') {
+                        setCarViewMode('rent');
+                        setCurrentPage(1);
+                        setSearchQuery('');
+                        setFilters({});
+                        fetchCars(1, {}, sortOption, '', 'rent');
+                      }
+                    }}
+                    activeOpacity={0.7}
                   >
-                    For Rent
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.carTypeToggleButtonText,
+                        carViewMode === 'rent' && styles.carTypeToggleButtonTextActive,
+                        isDarkMode && carViewMode !== 'rent' && styles.darkCarTypeToggleButtonTextInactive,
+                      ]}
+                    >
+                      For Rent
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 
@@ -1634,46 +1623,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 20,
+  },
+  carTypeToggleWrapper: {
+    flexDirection: "row",
+    backgroundColor: "#f0f0f0",
+    borderRadius: 12,
+    padding: 4,
+    width: "100%",
+    maxWidth: 320,
+  },
+  darkCarTypeToggleWrapper: {
+    backgroundColor: "#1a1a1a",
   },
   carTypeToggleButton: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: "transparent",
   },
   carTypeToggleButtonActive: {
     backgroundColor: "#D55004",
-    borderColor: "#D55004",
-  },
-  darkCarTypeToggleButton: {
-    borderColor: "#333",
-    backgroundColor: "#222",
-  },
-  darkCarTypeToggleButtonActive: {
-    backgroundColor: "#D55004",
-    borderColor: "#D55004",
+    shadowColor: "#D55004",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   carTypeToggleButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#000000",
+    color: "#666666",
   },
   carTypeToggleButtonTextActive: {
     color: "#FFFFFF",
+    fontWeight: "700",
   },
-  darkCarTypeToggleButtonText: {
-    color: "#FFFFFF",
-  },
-  darkCarTypeToggleButtonTextActive: {
-    color: "#FFFFFF",
+  darkCarTypeToggleButtonTextInactive: {
+    color: "#999999",
   },
 });
