@@ -22,6 +22,8 @@ import HatchbackPng from '@/assets/types/hatchback.png'
 import ConvertiblePng from '@/assets/types/convertible.png'
 import CoupePng from '@/assets/types/coupe.png'
 import classicPng from '@/assets/types/classic.png'
+import MotorcyclePng from '@/assets/types/motorcycle.png'
+import TruckPng from '@/assets/types/truck.png'
 
 const categories = [
 	{ name: 'Sedan', image: SedanPng, key: 'sedan' },
@@ -31,6 +33,8 @@ const categories = [
 	{ name: 'Coupe', image: CoupePng, key: 'coupe' },
 	{ name: 'Convertible', image: ConvertiblePng, key: 'convertible' },
 	{ name: 'Classic', image: classicPng, key: 'classic' },
+	{ name: 'Motorcycle', image: MotorcyclePng, key: 'motorcycle' },
+	{ name: 'Truck', image: TruckPng, key: 'truck' },
 ]
 
 interface CategorySelectorProps {

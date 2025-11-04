@@ -83,7 +83,9 @@
     "hatchback": "هاتشباك",
     "coupe": "كوبيه",
     "convertible": "كابريوليه",
-    "classic": "كلاسيكية"
+    "classic": "كلاسيكية",
+    "motorcycle": "دراجة نارية",
+    "truck": "شاحنة"
   },
   "banner": {
     "loading": "جاري تحميل البنرات..."

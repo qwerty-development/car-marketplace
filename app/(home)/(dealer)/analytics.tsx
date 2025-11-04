@@ -747,6 +747,9 @@ const translateCategory = (category: string, language: string, t: any) => {
 			'Convertible': 'قابل للتحويل',
 			'Coupe': 'كوبيه',
 			'Sports': 'رياضي',
+			'Classic': 'كلاسيكية',
+			'Motorcycle': 'دراجة نارية',
+			'Truck': 'شاحنة',
 			'Other': 'أخرى'
 		}
 		return translations[category] || category
@@ -762,6 +765,9 @@ const getCategoryColor = (category: string) => {
 		'Convertible': '#EA4335',
 		'Coupe': '#9C27B0',
 		'Sports': '#FF9800',
+		'Classic': '#8D6E63',
+		'Motorcycle': '#E91E63',
+		'Truck': '#607D8B',
 		'Other': '#795548',
 		// Arabic translations
 		'سيدان': '#4285F4',
@@ -770,6 +776,9 @@ const getCategoryColor = (category: string) => {
 		'قابل للتحويل': '#EA4335',
 		'كوبيه': '#9C27B0',
 		'رياضي': '#FF9800',
+		'كلاسيكية': '#8D6E63',
+		'دراجة نارية': '#E91E63',
+		'شاحنة': '#607D8B',
 		'أخرى': '#795548'
 	}
 	return colors[category] || '#CCCCCC'

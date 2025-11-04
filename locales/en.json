@@ -83,7 +83,9 @@
     "hatchback": "Hatchback",
     "coupe": "Coupe",
     "convertible": "Convertible",
-    "classic": "Classic"
+    "classic": "Classic",
+    "motorcycle": "Motorcycle",
+    "truck": "Truck"
   },
   "banner": {
     "loading": "Loading banners..."

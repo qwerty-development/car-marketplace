@@ -18,7 +18,8 @@ interface FeatureMetadata {
     TRUCK: 'Truck',
     SEDAN: 'Sedan',
     HATCHBACK: 'Hatchback',
-    COUPE: 'Coupe'
+    COUPE: 'Coupe',
+    MOTORCYCLE: 'Motorcycle'
     // Add any other categories from your database
   };
 
@@ -32,7 +33,8 @@ interface FeatureMetadata {
     'Sedan': { min: 0.40, max: 0.55, avg: 0.475 },
     'Truck': { min: 0.45, max: 0.65, avg: 0.55 },
     'Hatchback': { min: 0.38, max: 0.52, avg: 0.45 },
-    'Coupe': { min: 0.42, max: 0.60, avg: 0.51 }
+    'Coupe': { min: 0.42, max: 0.60, avg: 0.51 },
+    'Motorcycle': { min: 0.35, max: 0.50, avg: 0.425 }
     // Add other categories as needed
   };
 
@@ -246,6 +248,12 @@ export const FEATURE_METADATA: FeatureMetadata = {
       features: 8,
       yearModel: 2021,
     },
+    "Motorcycle": {
+      price: 15000,
+      mileage: 20000,
+      features: 5,
+      yearModel: 2021,
+    },
   };
   
   // Annual cost estimates
@@ -261,6 +269,7 @@ export const FEATURE_METADATA: FeatureMetadata = {
       "Truck": { min: 800, max: 1800, avg: 1300 },
       "Hatchback": { min: 500, max: 1300, avg: 900 },
       "Coupe": { min: 600, max: 1500, avg: 1050 },
+      "Motorcycle": { min: 300, max: 800, avg: 550 },
       "New": 500,
       "Used": 1200
     },
@@ -275,6 +284,7 @@ export const FEATURE_METADATA: FeatureMetadata = {
       "Truck": { min: 1200, max: 2800, avg: 2000 },
       "Hatchback": { min: 900, max: 2200, avg: 1550 },
       "Coupe": { min: 1100, max: 3000, avg: 2050 },
+      "Motorcycle": { min: 400, max: 1200, avg: 800 },
       // Keep existing values for backward compatibility
       "Sedan-old": 1200,
       "SUV-old": 1400,
@@ -288,28 +298,32 @@ export const FEATURE_METADATA: FeatureMetadata = {
         "SUV": 2000,
         "Coupe": 1700,
         "Hatchback": 1400,
-        "Truck": 2500
+        "Truck": 2500,
+        "Motorcycle": 600
       },
       "Diesel": {
         "Sedan": 1200,
         "SUV": 1700,
         "Coupe": 1400,
         "Hatchback": 1100,
-        "Truck": 2200
+        "Truck": 2200,
+        "Motorcycle": 500
       },
       "Hybrid": {
         "Sedan": 1000,
         "SUV": 1300,
         "Coupe": 1100,
         "Hatchback": 900,
-        "Truck": 1800
+        "Truck": 1800,
+        "Motorcycle": 400
       },
       "Electric": {
         "Sedan": 500,
         "SUV": 700,
         "Coupe": 600,
         "Hatchback": 450,
-        "Truck": 1000
+        "Truck": 1000,
+        "Motorcycle": 300
       }
     },
     "depreciation": {
