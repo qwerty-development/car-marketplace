@@ -354,14 +354,14 @@ const BrandSelector = memo(
             </Text>
             <TouchableOpacity
               onPress={() => setShowAllBrands(true)}
-              style={{ flexDirection: "row", alignItems: "center" }}
+              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}
             >
               <Text style={{ color: "#D55004" }}>{t('common.view_all')}</Text>
               <FontAwesome
-                name="chevron-right"
+                name={isRTL ? "chevron-left" : "chevron-right"}
                 size={14}
                 color={isDarkMode ? "#FFFFFF" : "#000000"}
-                style={{ marginLeft: 8 }}
+                style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}
               />
             </TouchableOpacity>
           </View>
@@ -381,7 +381,7 @@ const BrandSelector = memo(
             <TouchableOpacity
               key={index}
               onPress={() => handleBrandPress(brand.name)}
-              style={{ alignItems: "center", marginRight: 16 }}
+              style={{ alignItems: "center", marginRight: isRTL ? 0 : 16, marginLeft: isRTL ? 16 : 0 }}
             >
               <View
                 style={{
@@ -502,7 +502,8 @@ const BrandSelector = memo(
                   <TextInput
                     style={{
                       flex: 1,
-                      marginLeft: 12,
+                      marginLeft: isRTL ? 0 : 12,
+                      marginRight: isRTL ? 12 : 0,
                       color: isDarkMode ? "white" : "black",
                     }}
                     placeholder="Search brands..."
@@ -539,7 +540,8 @@ const BrandSelector = memo(
                           height: 48,
                           justifyContent: "center",
                           alignItems: "center",
-                          marginRight: 12,
+                          marginRight: isRTL ? 0 : 12,
+                          marginLeft: isRTL ? 12 : 0,
                         }}
                       >
                         <Image
@@ -590,6 +592,7 @@ interface ModelSelectorProps {
 const ModelSelector = memo(
   ({ make, selectedModels, onSelectModel, isDarkMode }: ModelSelectorProps) => {
     const { t } = useTranslation();
+    const isRTL = I18nManager.isRTL;
     const [modelsByMake, setModelsByMake] = useState<Record<string, string[]>>({});
     const [showAllModels, setShowAllModels] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -734,7 +737,8 @@ const ModelSelector = memo(
                   borderRadius: 20,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
-                  marginRight: 8,
+                  marginRight: isRTL ? 0 : 8,
+                  marginLeft: isRTL ? 8 : 0,
                   marginBottom: 8,
                   borderWidth: 1,
                   borderColor: isDarkMode ? "#555" : "#ddd",
@@ -744,7 +748,8 @@ const ModelSelector = memo(
                   style={{
                     color: isDarkMode ? "#fff" : "#000",
                     fontSize: 14,
-                    marginRight: 4,
+                    marginRight: isRTL ? 0 : 4,
+                    marginLeft: isRTL ? 4 : 0,
                   }}
                 >
                   {model}
@@ -792,7 +797,7 @@ const ModelSelector = memo(
           <TouchableOpacity
             onPress={() => setShowAllModels(true)}
             style={{
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               backgroundColor: isDarkMode ? "#333" : "#f0f0f0",
               paddingHorizontal: 12,
@@ -800,11 +805,11 @@ const ModelSelector = memo(
               borderRadius: 16,
             }}
           >
-            <Text style={{ color: "#D55004", marginRight: 4 }}>
+            <Text style={{ color: "#D55004", marginRight: isRTL ? 0 : 4, marginLeft: isRTL ? 4 : 0 }}>
 {t('common.view_all')} {totalModelsCount > 0 ? `(${totalModelsCount})` : ""}
             </Text>
             <FontAwesome
-              name="chevron-right"
+              name={isRTL ? "chevron-left" : "chevron-right"}
               size={12}
               color="#D55004"
             />
@@ -933,7 +938,8 @@ const ModelSelector = memo(
                   <TextInput
                     style={{
                       flex: 1,
-                      marginLeft: 12,
+                      marginLeft: isRTL ? 0 : 12,
+                      marginRight: isRTL ? 12 : 0,
                       color: isDarkMode ? "white" : "black",
                     }}
                     placeholder="Search models..."
@@ -990,7 +996,8 @@ const ModelSelector = memo(
                       style={{
                         paddingHorizontal: 16,
                         paddingVertical: 8,
-                        marginRight: 8,
+                        marginRight: isRTL ? 0 : 8,
+                        marginLeft: isRTL ? 8 : 0,
                         borderRadius: 20,
                         backgroundColor: selectedMake === null
                           ? "#D55004"
@@ -1015,7 +1022,8 @@ const ModelSelector = memo(
                         style={{
                           paddingHorizontal: 16,
                           paddingVertical: 8,
-                          marginRight: 8,
+                          marginRight: isRTL ? 0 : 8,
+                          marginLeft: isRTL ? 8 : 0,
                           borderRadius: 20,
                           backgroundColor: selectedMake === makeName
                             ? "#D55004"
@@ -1114,7 +1122,8 @@ const ModelSelector = memo(
                                 style={{
                                   width: "48%", // Approx 2 columns
                                   marginBottom: 10,
-                                  marginRight: "2%",
+                                  marginRight: isRTL ? 0 : "2%",
+                                  marginLeft: isRTL ? "2%" : 0,
                                 }}
                               >
                                 <BlurView
@@ -1164,7 +1173,8 @@ const ModelSelector = memo(
                                           backgroundColor: "white",
                                           justifyContent: "center",
                                           alignItems: "center",
-                                          marginLeft: 8,
+                                          marginLeft: isRTL ? 0 : 8,
+                                          marginRight: isRTL ? 8 : 0,
                                         }}
                                       >
                                         <Ionicons name="checkmark" size={14} color="#D55004" />
@@ -1385,8 +1395,9 @@ interface QuickFilterCardProps {
 
 const QuickFilterCard = memo(({ filter, isSelected, onSelect, isDarkMode }: QuickFilterCardProps) => {
   const { t } = useTranslation();
+  const isRTL = I18nManager.isRTL;
   return (
-    <TouchableOpacity onPress={onSelect} style={{ marginRight: 16, width: 160 }}>
+    <TouchableOpacity onPress={onSelect} style={{ marginRight: isRTL ? 0 : 16, marginLeft: isRTL ? 16 : 0, width: 160 }}>
     <BlurView
       intensity={isDarkMode ? 20 : 40}
       tint={isDarkMode ? "dark" : "light"}
@@ -1441,6 +1452,7 @@ interface ColorSelectorProps {
 
 const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorSelectorProps) => {
   const { t } = useTranslation();
+  const isRTL = I18nManager.isRTL;
   return (
     <ScrollView
     horizontal
@@ -1457,7 +1469,7 @@ const ColorSelector = memo(({ selectedColor, onSelectColor, isDarkMode }: ColorS
               : [...selectedColor, color.name]
           )
         }
-        style={{ marginRight: 16 }}
+        style={{ marginRight: isRTL ? 0 : 16, marginLeft: isRTL ? 16 : 0 }}
       >
         <View style={{ padding: 8 }}>
           <LinearGradient
@@ -1518,10 +1530,12 @@ const SelectionCard = memo(
     onSelect = () => { },
     isDarkMode = false,
     imageUrl = null,
-  }: SelectionCardProps) => (
+  }: SelectionCardProps) => {
+    const isRTL = I18nManager.isRTL;
+    return (
     <TouchableOpacity
       onPress={onSelect}
-      style={{ marginRight: 16, marginBottom: 16, width: 160 }}
+      style={{ marginRight: isRTL ? 0 : 16, marginLeft: isRTL ? 16 : 0, marginBottom: 16, width: 160 }}
     >
       <BlurView
         intensity={isDarkMode ? 20 : 40}
@@ -1566,7 +1580,8 @@ const SelectionCard = memo(
         </LinearGradient>
       </BlurView>
     </TouchableOpacity>
-  )
+    );
+  }
 );
 
 // --------------------
@@ -1582,6 +1597,7 @@ interface DealershipSelectorProps {
 const DealershipSelector = memo(
   ({ dealerships, filters, setFilters, isDarkMode }: DealershipSelectorProps) => {
     const { t } = useTranslation();
+    const isRTL = I18nManager.isRTL;
     const [showAllDealers, setShowAllDealers] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -1630,14 +1646,14 @@ const DealershipSelector = memo(
             </Text>
             <TouchableOpacity
               onPress={() => setShowAllDealers(true)}
-              style={{ flexDirection: "row", alignItems: "center" }}
+              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}
             >
               <Text style={{ color: "#D55004" }}>{t('common.view_all')}</Text>
               <FontAwesome
-                name="chevron-right"
+                name={isRTL ? "chevron-left" : "chevron-right"}
                 size={14}
                 color={isDarkMode ? "#FFFFFF" : "#000000"}
-                style={{ marginLeft: 8 }}
+                style={{ marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }}
               />
             </TouchableOpacity>
           </View>
@@ -1661,7 +1677,7 @@ const DealershipSelector = memo(
               <TouchableOpacity
                 key={dealer.id}
                 onPress={() => handleDealershipSelect(dealer)}
-                style={{ marginRight: 16 }}
+                style={{ marginRight: isRTL ? 0 : 16, marginLeft: isRTL ? 16 : 0 }}
               >
                 <View
                   style={{
@@ -1806,7 +1822,8 @@ const DealershipSelector = memo(
                   <TextInput
                     style={{
                       flex: 1,
-                      marginLeft: 12,
+                      marginLeft: isRTL ? 0 : 12,
+                      marginRight: isRTL ? 12 : 0,
                       color: isDarkMode ? "white" : "black",
                     }}
                     placeholder={t('dealership.search_dealerships')}
@@ -1838,7 +1855,8 @@ const DealershipSelector = memo(
                           height: 60,
                           justifyContent: "center",
                           alignItems: "center",
-                          marginRight: 12,
+                          marginRight: isRTL ? 0 : 12,
+                          marginLeft: isRTL ? 12 : 0,
                         }}
                       >
                         {dealer.logo ? (

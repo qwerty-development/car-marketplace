@@ -4,7 +4,7 @@ import { useAuth } from '@/utils/AuthContext'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useState, useEffect, useRef } from 'react'
-import { TouchableOpacity, View, Text } from 'react-native'
+import { TouchableOpacity, View, Text, I18nManager } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import Animated, {
   useAnimatedStyle,
@@ -21,6 +21,7 @@ const AnimatedTouchableOpacity =
   Animated.createAnimatedComponent(TouchableOpacity)
 
 const NotificationBadge = ({ count }: { count: number }) => {
+  const isRTL = I18nManager.isRTL
   // Convert count to display text, handling large numbers
   const displayText = count > 99 ? '99+' : count.toString()
 
@@ -31,12 +32,15 @@ const NotificationBadge = ({ count }: { count: number }) => {
     <Animated.View
       entering={FadeInDown}
       exiting={FadeOutUp}
-      className='absolute -top-2 -right-2 bg-red rounded-full items-center justify-center'
-      style={{
-        minWidth: badgeWidth,
-        height: 20,
-        paddingHorizontal: 4
-      }}>
+      className='absolute -top-2 bg-red rounded-full items-center justify-center'
+      style={[
+        {
+          minWidth: badgeWidth,
+          height: 20,
+          paddingHorizontal: 4
+        },
+        isRTL ? { left: -8 } : { right: -8 }
+      ]}>
       <Text
         className='text-white text-xs font-bold'
         numberOfLines={1}
@@ -52,6 +56,7 @@ export const NotificationBell = () => {
   const { user } = useAuth()
   const router = useRouter()
   const lastCount = useRef(0)
+  const isRTL = I18nManager.isRTL
 
   // Use the centralized notification hook instead of direct Supabase queries
   const {
@@ -110,7 +115,7 @@ export const NotificationBell = () => {
 
   return (
     <AnimatedTouchableOpacity
-      style={[animatedStyle, { marginRight: 4 }]}
+      style={[animatedStyle, isRTL ? { marginLeft: 4 } : { marginRight: 4 }]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         router.push('/(home)/(user)/notifications')

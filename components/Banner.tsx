@@ -9,6 +9,7 @@ import {
   Linking,
   StyleSheet,
   Animated,
+  I18nManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +34,7 @@ const Banner: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
   const { width: screenWidth } = Dimensions.get('window');
+  const isRTL = I18nManager.isRTL;
   // Account for horizontal margins (mx-3 => 12px left + 12px right)
   const contentWidth = screenWidth - 24;
   // Maintain 3780x1890 aspect ratio (2:1)
@@ -211,7 +213,16 @@ const Banner: React.FC = () => {
 
       {/* Pagination dots overlaid at the bottom of the banner */}
       {banners.length > 1 && (
-        <View style={{ position: 'absolute', bottom: 8, left: 0, right: 0 }} className="flex-row justify-center items-center">
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            left: isRTL ? undefined : 0,
+            right: isRTL ? 0 : undefined,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          }}
+          className="justify-center items-center"
+        >
           {banners.map((_, index) => (
             <TouchableOpacity
               key={index}

@@ -18,6 +18,7 @@ import {
   Pressable,
   Platform,
   Animated,
+  I18nManager,
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -36,6 +37,7 @@ interface Brand {
 const BrandSkeletonLoading = ({ isDarkMode }:any) => {
   const skeletonCount = 8; // Number of skeleton items to show
   const fadeAnim = useRef(new Animated.Value(0.5)).current;
+  const isRTL = I18nManager.isRTL;
 
   useEffect(() => {
     // Create shimmer effect
@@ -75,15 +77,15 @@ const BrandSkeletonLoading = ({ isDarkMode }:any) => {
             />
             
             {/* Text placeholder */}
-            <View className="flex-1 ml-4">
-              <Animated.View 
-                style={{ 
-                  height: 20, 
-                  width: '60%', 
-                  borderRadius: 4, 
+            <View className={`flex-1 ${isRTL ? 'mr-4' : 'ml-4'}`}>
+              <Animated.View
+                style={{
+                  height: 20,
+                  width: '60%',
+                  borderRadius: 4,
                   backgroundColor: shimmerColor,
-                  opacity: fadeAnim 
-                }} 
+                  opacity: fadeAnim
+                }}
               />
             </View>
             
@@ -146,6 +148,7 @@ export default function AllBrandsPage() {
   const router = useRouter();
   const sectionListRef = useRef<SectionList>(null);
   const { isDarkMode } = useTheme();
+  const isRTL = I18nManager.isRTL;
 
   const textColor = isDarkMode ? "text-white" : "text-black";
   const bgColor = isDarkMode ? "bg-black" : "bg-white";
@@ -237,20 +240,20 @@ export default function AllBrandsPage() {
               resizeMode="contain"
             />
           </View>
-          <View className="flex-1 ml-4">
+          <View className={`flex-1 ${isRTL ? 'mr-4' : 'ml-4'}`}>
             <Text className={`text-lg font-medium ${textColor}`}>
               {item.name}
             </Text>
           </View>
           <FontAwesome
-            name="chevron-right"
+            name={isRTL ? "chevron-left" : "chevron-right"}
             size={16}
             color={isDarkMode ? '#D55004' : '#D55004'}
           />
         </View>
       </TouchableOpacity>
     ),
-    [textColor, handleBrandPress, isDarkMode]
+    [textColor, handleBrandPress, isDarkMode, isRTL]
   );
 
   const renderSectionHeader = useCallback(

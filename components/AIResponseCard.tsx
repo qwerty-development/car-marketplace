@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, I18nManager } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 
@@ -9,14 +9,15 @@ interface AIResponseCardProps {
   isLoading?: boolean;
 }
 
-export default function AIResponseCard({ 
-  message, 
-  carCount = 0, 
+export default function AIResponseCard({
+  message,
+  carCount = 0,
   isLoading = false,
 }: AIResponseCardProps) {
   const { isDarkMode } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
-  const styles = getStyles(isDarkMode);
+  const isRTL = I18nManager.isRTL;
+  const styles = getStyles(isDarkMode, isRTL);
 
   // Parse the message for better formatting
   const formatMessage = (text: string) => {
@@ -160,7 +161,7 @@ export default function AIResponseCard({
   );
 }
 
-const getStyles = (isDarkMode: boolean) => StyleSheet.create({
+const getStyles = (isDarkMode: boolean, isRTL: boolean) => StyleSheet.create({
   card: {
     backgroundColor: isDarkMode ? '#232323' : '#fff',
     borderRadius: 16,
@@ -176,7 +177,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     overflow: 'hidden',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -191,7 +192,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     backgroundColor: isDarkMode ? '#D55004' : '#D55004',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    ...(isRTL ? { marginLeft: 10 } : { marginRight: 10 }),
   },
   aiLabel: {
     fontSize: 16,
@@ -211,7 +212,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontWeight: '600',
   },
   loadingDots: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
   },
   dot: {
@@ -249,27 +250,26 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     color: isDarkMode ? '#e0e0e0' : '#333',
   },
   highlightContainer: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'flex-start',
     backgroundColor: isDarkMode ? 'rgba(255, 179, 133, 0.1)' : 'rgba(213, 80, 4, 0.05)',
     padding: 12,
     borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: isDarkMode ? '#FFB385' : '#D55004',
+    ...(isRTL ? { borderRightWidth: 3, borderRightColor: isDarkMode ? '#FFB385' : '#D55004' } : { borderLeftWidth: 3, borderLeftColor: isDarkMode ? '#FFB385' : '#D55004' }),
   },
   highlightText: {
     fontSize: 16,
     fontWeight: '500',
     color: isDarkMode ? '#FFB385' : '#D55004',
-    marginLeft: 8,
+    ...(isRTL ? { marginRight: 8 } : { marginLeft: 8 }),
     flex: 1,
     lineHeight: 22,
   },
   listContainer: {
-    marginLeft: 8,
+    ...(isRTL ? { marginRight: 8 } : { marginLeft: 8 }),
   },
   listItem: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
@@ -279,7 +279,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     borderRadius: 3,
     backgroundColor: isDarkMode ? '#FFB385' : '#D55004',
     marginTop: 9,
-    marginRight: 12,
+    ...(isRTL ? { marginLeft: 12 } : { marginRight: 12 }),
   },
   listText: {
     fontSize: 15,
@@ -288,7 +288,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     flex: 1,
   },
   expandButton: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -298,10 +298,10 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontSize: 14,
     color: isDarkMode ? '#FFB385' : '#D55004',
     fontWeight: '500',
-    marginRight: 4,
+    ...(isRTL ? { marginLeft: 4 } : { marginRight: 4 }),
   },
   actionContainer: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: isDarkMode ? '#2a2a2a' : '#f8f9fa',
@@ -310,7 +310,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
@@ -325,6 +325,6 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: isDarkMode ? '#FFB385' : '#D55004',
-    marginLeft: 6,
+    ...(isRTL ? { marginRight: 6 } : { marginLeft: 6 }),
   },
 }); 

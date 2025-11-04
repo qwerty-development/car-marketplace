@@ -19,6 +19,7 @@ import {
   Animated,
   Platform,
   useWindowDimensions,
+  I18nManager,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { styled } from "nativewind";
@@ -163,6 +164,7 @@ export default function CarCard({
   const { isDarkMode } = useTheme();
   const { language } = useLanguage();
   const { t } = useTranslation();
+  const isRTL = I18nManager.isRTL;
   
   // Improved animation values with better spring physics
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -445,7 +447,8 @@ export default function CarCard({
           {!isDealer && (
             <StyledPressable
               onPress={handleFavoritePress}
-              className={`absolute top-4 right-4 active:opacity-70`}
+              className="absolute top-4 active:opacity-70"
+              style={isRTL ? { left: 16 } : { right: 16 }}
             >
               <Ionicons
                 name={isFavorite ? "heart-sharp" : "heart-outline"}
@@ -542,28 +545,28 @@ export default function CarCard({
         >
           {/* Car Info Section - Price, Name, and Logo */}
           <View className="px-4 py-3">
-            <View className="flex-row items-center justify-between">
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <View className="flex-1">
                 {/* Price */}
                 <StyledText
                   className="text-lg font-bold text-red"
                   numberOfLines={1}
-                  style={{ 
-                    textAlign: 'left', 
+                  style={{
+                    textAlign: isRTL ? 'right' : 'left',
                     marginBottom: 4
                   }}
                 >
                   ${car.price.toLocaleString()}
                 </StyledText>
-                
+
                 {/* Car Name */}
                 <StyledText
                   className={`text-xl font-bold ${
                     isDarkMode ? "text-white" : "text-black"
                   }`}
                   numberOfLines={1}
-                  style={{ 
-                    textAlign: 'left',
+                  style={{
+                    textAlign: isRTL ? 'right' : 'left',
                     textShadowColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
                     textShadowOffset: { width: 1, height: 1 },
                     textShadowRadius: 2
@@ -572,18 +575,11 @@ export default function CarCard({
                   {car.year} {car.make} {car.model}
                 </StyledText>
               </View>
-              
+
               {/* Car Logo */}
               {car.make && (
-                <View 
-                  className="ml-4"
-                  style={{
-                    shadowColor: '#000',
-                    shadowOffset: { width: 2, height: 2 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 4,
-                    elevation: 5
-                  }}
+                <View
+                  style={isRTL ? { marginRight: 16 } : { marginLeft: 16 }}
                 >
                   <OptimizedImage
                     source={{ uri: getLogoUrl(car.make, isDarkMode) }}
@@ -653,9 +649,12 @@ export default function CarCard({
             } rounded-t-3xl`}
             style={{ marginTop: 4 }}
           >
-            <StyledView className="flex-row items-center justify-between">
+            <StyledView style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               {car.dealership_logo && (
-                <Pressable onPress={handleDealershipPress} className="mr-3">
+                <Pressable
+                  onPress={handleDealershipPress}
+                  style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }}
+                >
                   <StyledImage
                     source={{ uri: car.dealership_logo }}
                     style={{ width: 48, height: 48 }}
@@ -665,12 +664,16 @@ export default function CarCard({
                 </Pressable>
               )}
 
-              <StyledView className="flex-1 ml-2">
+              <StyledView
+                className="flex-1"
+                style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }}
+              >
                 <StyledText
                   className={`text-base font-semibold ${
                     isDarkMode ? "text-white" : "text-black"
                   } mb-0.5`}
                   numberOfLines={2}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
                 >
                   {car.dealership_name}
                 </StyledText>
@@ -679,14 +682,14 @@ export default function CarCard({
                     isDarkMode ? "text-white/80" : "text-black"
                   }`}
                   numberOfLines={2}
+                  style={{ textAlign: isRTL ? 'right' : 'left' }}
                 >
                   {formattedLocation}
                 </StyledText>
               </StyledView>
 
-              <StyledView 
-                className="flex-row items-center"
-                style={{ gap: 8 }}
+              <StyledView
+                style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}
               >
                 {!disableActions ? (
                   <>

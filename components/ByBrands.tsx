@@ -21,6 +21,7 @@ import SkeletonByBrands from '@/components/SkeletonByBrands'
 import { useLanguage } from '@/utils/LanguageContext'
 import i18n from '@/utils/i18n'
 import { getLogoUrl } from '@/hooks/getLogoUrl'
+import { I18nManager } from 'react-native'
 
 interface Brand {
 	name: string
@@ -36,6 +37,7 @@ const ByBrands = React.memo(() => {
 	const router = useRouter()
 	const { isDarkMode } = useTheme()
 	const scrollAnim = useRef(new Animated.Value(0)).current
+	const isRTL = I18nManager.isRTL
 
 	const fetchBrands = useCallback(async () => {
 		try {
@@ -98,7 +100,7 @@ const ByBrands = React.memo(() => {
 	return (
 		<View
 			className={`mt-3  px-3  mb-4 ${isDarkMode ? '' : 'bg-[#FFFFFF]'}`}>
-			<View className='flex-row justify-between items-center mb-4'>
+			<View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
 				<Text
 					className={`text-xl font-bold ${
 						isDarkMode ? 'text-white' : 'text-black'
@@ -107,13 +109,13 @@ const ByBrands = React.memo(() => {
 				</Text>
 				<TouchableOpacity
 					onPress={handleSeeAllBrands}
-					className='flex-row items-center'>
+					style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }}>
 					<Text className='text-red'>{i18n.t('common.view_all')}</Text>
 					<FontAwesome
-						name='chevron-right'
+						name={isRTL ? 'chevron-left' : 'chevron-right'}
 						size={14}
 						color={isDarkMode ? '#FFFFFF' : '#000000'}
-						style={{ marginLeft: 8 }}
+						style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }}
 					/>
 				</TouchableOpacity>
 			</View>

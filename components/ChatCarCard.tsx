@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, I18nManager } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 
@@ -10,7 +10,8 @@ interface ChatCarCardProps {
 
 export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
   const { isDarkMode } = useTheme();
-  const styles = getStyles(isDarkMode);
+  const isRTL = I18nManager.isRTL;
+  const styles = getStyles(isDarkMode, isRTL);
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       <View style={styles.imageContainer}>
@@ -28,7 +29,7 @@ export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
           <Text style={styles.title} numberOfLines={1}>
             {car.make} {car.model}
           </Text>
-          <Ionicons name="chevron-forward" size={22} color={isDarkMode ? '#FFB385' : '#D55004'} style={styles.chevron} />
+          <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={22} color={isDarkMode ? '#FFB385' : '#D55004'} style={styles.chevron} />
         </View>
         <View style={styles.specRow}>
           <View style={styles.specItem}>
@@ -62,12 +63,12 @@ export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
   );
 }
 
-const getStyles = (isDarkMode: boolean) => StyleSheet.create({
+const getStyles = (isDarkMode: boolean, isRTL: boolean) => StyleSheet.create({
   card: {
     width: 320,
     backgroundColor: isDarkMode ? '#232323' : '#fff',
     borderRadius: 18,
-    marginRight: 16,
+    ...(isRTL ? { marginLeft: 16 } : { marginRight: 16 }),
     shadowColor: isDarkMode ? '#000' : '#000',
     shadowOpacity: isDarkMode ? 0.25 : 0.08,
     shadowRadius: 8,
@@ -92,7 +93,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
   priceBadge: {
     position: 'absolute',
     top: 10,
-    right: 10,
+    ...(isRTL ? { left: 10 } : { right: 10 }),
     backgroundColor: isDarkMode ? '#D55004' : '#D55004',
     borderRadius: 14,
     paddingHorizontal: 10,
@@ -108,7 +109,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     padding: 12,
   },
   titleRow: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     marginBottom: 4,
   },
@@ -117,28 +118,29 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
     color: isDarkMode ? '#fff' : '#222',
+    textAlign: isRTL ? 'right' : 'left',
   },
   chevron: {
-    marginLeft: 6,
+    ...(isRTL ? { marginRight: 6 } : { marginLeft: 6 }),
   },
   specRow: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
     marginTop: 2,
   },
   specItem: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
-    marginRight: 8,
+    ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }),
   },
   specText: {
     fontSize: 13,
     color: isDarkMode ? '#ccc' : '#555',
-    marginLeft: 3,
+    ...(isRTL ? { marginRight: 3 } : { marginLeft: 3 }),
   },
   dealerRow: {
-    flexDirection: 'row',
+    flexDirection: isRTL ? 'row-reverse' : 'row',
     alignItems: 'center',
     marginTop: 2,
   },
@@ -146,7 +148,7 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 8,
+    ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }),
     backgroundColor: isDarkMode ? '#444' : '#eee',
   },
   dealerInfo: {
@@ -156,10 +158,12 @@ const getStyles = (isDarkMode: boolean) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: isDarkMode ? '#fff' : '#333',
+    textAlign: isRTL ? 'right' : 'left',
   },
   dealerLocation: {
     fontSize: 12,
     color: isDarkMode ? '#aaa' : '#888',
     marginTop: 1,
+    textAlign: isRTL ? 'right' : 'left',
   },
 }); 

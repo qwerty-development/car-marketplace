@@ -8,6 +8,7 @@ import {
   Dimensions,
   Linking,
   Alert,
+  I18nManager,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -41,6 +42,7 @@ interface CompactCarCardProps {
 
 export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarCardProps) {
   const { t } = useTranslation();
+  const isRTL = I18nManager.isRTL;
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleCall = useCallback(async () => {
@@ -85,6 +87,8 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
         {
           backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
           shadowColor: isDarkMode ? '#000' : '#000',
+          marginRight: isRTL ? 0 : 16,
+          marginLeft: isRTL ? 16 : 0,
         }
       ]}
       onPress={handleCardPress}
@@ -123,21 +127,60 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
         />
 
         {/* Price Badge */}
-        <View style={styles.priceBadge}>
+        <View style={[
+          styles.priceBadge,
+          {
+            right: isRTL ? undefined : 12,
+            left: isRTL ? 12 : undefined,
+          }
+        ]}>
           <Text style={styles.priceText}>
             ${car.price.toLocaleString()}
           </Text>
         </View>
 
         {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
+        <View style={[
+          styles.statsContainer,
+          {
+            left: isRTL ? undefined : 12,
+            right: isRTL ? 12 : undefined,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          }
+        ]}>
+          <View style={[
+            styles.statItem,
+            {
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+              marginRight: isRTL ? 0 : 12,
+              marginLeft: isRTL ? 12 : 0,
+            }
+          ]}>
             <Ionicons name="eye-outline" size={14} color="#FFFFFF" />
-            <Text style={styles.statText}>{car.views || 0}</Text>
+            <Text style={[
+              styles.statText,
+              {
+                marginLeft: isRTL ? 0 : 4,
+                marginRight: isRTL ? 4 : 0,
+              }
+            ]}>{car.views || 0}</Text>
           </View>
-          <View style={styles.statItem}>
+          <View style={[
+            styles.statItem,
+            {
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+              marginRight: isRTL ? 0 : 12,
+              marginLeft: isRTL ? 12 : 0,
+            }
+          ]}>
             <Ionicons name="heart-outline" size={14} color="#FFFFFF" />
-            <Text style={styles.statText}>{car.likes || 0}</Text>
+            <Text style={[
+              styles.statText,
+              {
+                marginLeft: isRTL ? 0 : 4,
+                marginRight: isRTL ? 4 : 0,
+              }
+            ]}>{car.likes || 0}</Text>
           </View>
         </View>
       </View>
@@ -156,8 +199,14 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
         </Text>
 
         {/* Specs Row */}
-        <View style={styles.specsContainer}>
-          <View style={styles.specItem}>
+        <View style={[
+          styles.specsContainer,
+          { flexDirection: isRTL ? 'row-reverse' : 'row' }
+        ]}>
+          <View style={[
+            styles.specItem,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' }
+          ]}>
             <MaterialCommunityIcons
               name="highway"
               size={16}
@@ -165,15 +214,22 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
             />
             <Text style={[
               styles.specText,
-              { color: isDarkMode ? '#B0B0B0' : '#666666' }
+              {
+                color: isDarkMode ? '#B0B0B0' : '#666666',
+                marginLeft: isRTL ? 0 : 4,
+                marginRight: isRTL ? 4 : 0,
+              }
             ]}>
               {(car.mileage / 1000).toFixed(0)}k Km
             </Text>
           </View>
-          
+
           <View style={styles.specDivider} />
-          
-          <View style={styles.specItem}>
+
+          <View style={[
+            styles.specItem,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' }
+          ]}>
             <MaterialCommunityIcons
               name="car-shift-pattern"
               size={16}
@@ -181,7 +237,11 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
             />
             <Text style={[
               styles.specText,
-              { color: isDarkMode ? '#B0B0B0' : '#666666' }
+              {
+                color: isDarkMode ? '#B0B0B0' : '#666666',
+                marginLeft: isRTL ? 0 : 4,
+                marginRight: isRTL ? 4 : 0,
+              }
             ]}>
               {car.transmission === 'Automatic' ? 'Auto' : 'Manual'}
             </Text>
@@ -189,12 +249,24 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
         </View>
 
         {/* Dealership Info */}
-        <View style={styles.dealershipContainer}>
-          <View style={styles.dealershipInfo}>
+        <View style={[
+          styles.dealershipContainer,
+          { flexDirection: isRTL ? 'row-reverse' : 'row' }
+        ]}>
+          <View style={[
+            styles.dealershipInfo,
+            {
+              marginRight: isRTL ? 0 : 8,
+              marginLeft: isRTL ? 8 : 0,
+            }
+          ]}>
             <Text
               style={[
                 styles.dealershipName,
-                { color: isDarkMode ? '#FFFFFF' : '#000000' }
+                {
+                  color: isDarkMode ? '#FFFFFF' : '#000000',
+                  textAlign: isRTL ? 'right' : 'left',
+                }
               ]}
               numberOfLines={1}
             >
@@ -203,7 +275,10 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
             <Text
               style={[
                 styles.dealershipLocation,
-                { color: isDarkMode ? '#B0B0B0' : '#666666' }
+                {
+                  color: isDarkMode ? '#B0B0B0' : '#666666',
+                  textAlign: isRTL ? 'right' : 'left',
+                }
               ]}
               numberOfLines={1}
             >
@@ -212,11 +287,18 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
           </View>
 
           {/* Action Buttons */}
-          <View style={styles.actionButtons}>
+          <View style={[
+            styles.actionButtons,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' }
+          ]}>
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: isDarkMode ? '#404040' : '#F0F0F0' }
+                {
+                  backgroundColor: isDarkMode ? '#404040' : '#F0F0F0',
+                  marginLeft: isRTL ? 0 : 6,
+                  marginRight: isRTL ? 6 : 0,
+                }
               ]}
               onPress={handleCall}
             >
@@ -226,11 +308,15 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
                 color={isDarkMode ? '#FFFFFF' : '#000000'}
               />
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: '#25D366' }
+                {
+                  backgroundColor: '#25D366',
+                  marginLeft: isRTL ? 0 : 6,
+                  marginRight: isRTL ? 6 : 0,
+                }
               ]}
               onPress={handleWhatsApp}
             >
@@ -249,7 +335,9 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
           {
             backgroundColor: car.condition === 'Excellent' ? '#10B981' :
                             car.condition === 'Good' ? '#F59E0B' :
-                            car.condition === 'Fair' ? '#EF4444' : '#6B7280'
+                            car.condition === 'Fair' ? '#EF4444' : '#6B7280',
+            right: isRTL ? undefined : 16,
+            left: isRTL ? 16 : undefined,
           }
         ]}>
           <Text style={styles.conditionText}>
@@ -266,7 +354,6 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 16,
-    marginRight: 16,
     elevation: 4,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -298,7 +385,6 @@ const styles = StyleSheet.create({
   priceBadge: {
     position: 'absolute',
     top: 12,
-    right: 12,
     backgroundColor: '#D55004',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -312,18 +398,13 @@ const styles = StyleSheet.create({
   statsContainer: {
     position: 'absolute',
     bottom: 12,
-    left: 12,
-    flexDirection: 'row',
   },
   statItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
   },
   statText: {
     color: '#FFFFFF',
     fontSize: 12,
-    marginLeft: 4,
     fontWeight: '500',
   },
   contentContainer: {
@@ -337,17 +418,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   specsContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
   specItem: {
-    flexDirection: 'row',
     alignItems: 'center',
   },
   specText: {
     fontSize: 12,
-    marginLeft: 4,
     fontWeight: '500',
   },
   specDivider: {
@@ -357,14 +435,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   dealershipContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
   dealershipInfo: {
     flex: 1,
-    marginRight: 8,
   },
   dealershipName: {
     fontSize: 14,
@@ -376,7 +452,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   actionButtons: {
-    flexDirection: 'row',
   },
   actionButton: {
     width: 32,
@@ -384,12 +459,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 6,
   },
   conditionBadge: {
     position: 'absolute',
     bottom: 16,
-    right: 16,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
