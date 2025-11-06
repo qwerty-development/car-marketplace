@@ -10,13 +10,20 @@
       "WebSearch",
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql",
+      "Bash(supabase functions deploy:*)",
+      "Bash(chmod:*)",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__list_edge_functions",
+      "Bash(tail:*)"
     ],
     "deny": [],
     "ask": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

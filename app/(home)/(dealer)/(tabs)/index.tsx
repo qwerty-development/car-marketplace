@@ -33,6 +33,7 @@ import { useRouter } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
 import { ListingSkeletonLoader } from '../Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
+import { BoostListingModal } from '@/components/BoostListingModal'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -772,6 +773,8 @@ export default function DealerListings() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [totalListings, setTotalListings] = useState(0)
 	const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+	const [showBoostModal, setShowBoostModal] = useState(false)
+	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
 	const [filters, setFilters] = useState({
 		status: '',
 		condition: '',
@@ -1234,6 +1237,18 @@ export default function DealerListings() {
 		}
 	}
 
+	const handleBoostPress = useCallback((carId: number) => {
+		if (!isSubscriptionValid()) {
+			Alert.alert(
+				'Subscription Expired',
+				'Please renew your subscription to boost listings.'
+			);
+			return;
+		}
+		setSelectedCarForBoost(carId);
+		setShowBoostModal(true);
+	}, [isSubscriptionValid]);
+
 const ListingCard = useMemo(
   () =>
     React.memo(({ item }: { item: CarListing }) => {
@@ -1391,6 +1406,47 @@ const ListingCard = useMemo(
                 )}
               </View>
             </View>
+
+            {/* Boost Button Section - Only for available listings in sale mode */}
+            {item.status === 'available' && viewMode === 'sale' && (
+              <View className='px-5 pb-4'>
+                {item.is_boosted && item.boost_end_date && new Date(item.boost_end_date) > new Date() ? (
+                  <View className={`flex-row items-center justify-between p-3 rounded-xl ${isDarkMode ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}>
+                    <View className='flex-row items-center flex-1'>
+                      <Ionicons name="rocket" size={20} color="#D55004" />
+                      <View className='ml-2 flex-1'>
+                        <Text className={`font-semibold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+                          Boosted - Slot {item.boost_slot}
+                        </Text>
+                        <Text className={`text-xs ${isDarkMode ? 'text-orange-300/70' : 'text-orange-500'}`}>
+                          Until {new Date(item.boost_end_date).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleBoostPress(item.id);
+                      }}
+                      className='bg-orange-500 px-3 py-2 rounded-lg'
+                    >
+                      <Text className='text-white font-semibold text-xs'>Extend</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleBoostPress(item.id);
+                    }}
+                    className='bg-orange-500 p-3 rounded-xl flex-row items-center justify-center'
+                  >
+                    <Ionicons name="rocket-outline" size={20} color="white" />
+                    <Text className='text-white font-bold ml-2'>Boost Listing</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </Animated.View>
         </TouchableOpacity>
       );
@@ -1400,7 +1456,8 @@ const ListingCard = useMemo(
     router,
     dealership,
     isSubscriptionValid,
-    viewMode
+    viewMode,
+    handleBoostPress
   ]
 );
 
@@ -1581,6 +1638,25 @@ const ListingCard = useMemo(
 					visible={showOnboardingModal}
 					dealershipId={dealership.id}
 					onComplete={handleOnboardingComplete}
+				/>
+			)}
+
+			{/* Boost Listing Modal */}
+			{selectedCarForBoost && (
+				<BoostListingModal
+					visible={showBoostModal}
+					onClose={() => {
+						setShowBoostModal(false);
+						setSelectedCarForBoost(null);
+					}}
+					carId={selectedCarForBoost}
+					isDarkMode={isDarkMode}
+					onSuccess={() => {
+						setShowBoostModal(false);
+						setSelectedCarForBoost(null);
+						// Refresh listings to show updated boost status
+						fetchListings();
+					}}
 				/>
 			)}
 		</LinearGradient>

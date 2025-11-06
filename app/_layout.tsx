@@ -55,6 +55,7 @@ import { useSlowConnectionToast } from "@/utils/useSlowConnectionToast";
 import { LanguageProvider } from "@/utils/LanguageContext";
 import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
+import { CreditProvider } from "@/utils/CreditContext";
 
 Sentry.init({
   dsn: 'https://785ae89de27dd58c218eb6dd0544d7a7@o4509672135065600.ingest.de.sentry.io/4509689676693584',
@@ -1115,11 +1116,13 @@ useSlowConnectionToast();
               <ThemeProvider>
                 <StatusBarManager />
                 <LanguageProvider>
-                  <FavoritesProvider>
-                    <NotificationsProvider />
-                    <RootLayoutNav />
-                    <Toast config={toastConfig} />
-                  </FavoritesProvider>
+                  <CreditProvider>
+                    <FavoritesProvider>
+                      <NotificationsProvider />
+                      <RootLayoutNav />
+                      <Toast config={toastConfig} />
+                    </FavoritesProvider>
+                  </CreditProvider>
                 </LanguageProvider>
               </ThemeProvider>
             </QueryClientProvider>

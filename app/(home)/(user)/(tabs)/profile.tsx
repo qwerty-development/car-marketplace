@@ -37,6 +37,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '@/utils/LanguageContext';
 import { I18nManager } from 'react-native';
+import { CreditBalance } from "@/components/CreditBalance";
+import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
 
 const WHATSAPP_NUMBER = "70786818";
 const SUPPORT_EMAIL = "info@fleetapp.com";
@@ -68,6 +70,7 @@ export default function UserProfileAndSupportPage() {
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   // CRITICAL FIX: Simplified state management without aggressive refresh mechanisms
   const [firstName, setFirstName] = useState("");
@@ -684,9 +687,19 @@ export default function UserProfileAndSupportPage() {
           </LinearGradient>
         </View>
 
+        {/* Credit Balance Widget */}
+        {!isGuest && (
+          <View className="px-6 -mt-12 mb-4">
+            <CreditBalance
+              isDarkMode={isDarkMode}
+              onPurchasePress={() => setShowPurchaseModal(true)}
+              isRTL={isRTL}
+            />
+          </View>
+        )}
 
         {/* Quick Actions */}
-        <View className="space-y-4 px-6 -mt-12">
+        <View className={`space-y-4 px-6 ${isGuest ? '-mt-12' : ''}`}>
           <TouchableOpacity
             onPress={() => {
               if (isGuest) {
@@ -773,6 +786,56 @@ export default function UserProfileAndSupportPage() {
                 {isGuest
                   ? t('profile.sign_in_to_access_security')
                   : t('profile.update_password_security')}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
+            />
+          </TouchableOpacity>
+
+          {/* Transaction History Button */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  "Feature Not Available",
+                  "Please sign in to view your transaction history.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign In", onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                router.push("/(home)/(user)/TransactionHistory");
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
+          >
+            <View className="bg-green-500/10 p-3 rounded-xl">
+              <Ionicons name="receipt-outline" size={24} color="#10b981" />
+            </View>
+            <View className={isRTL ? "mr-4" : "ml-4"}>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                Transaction History
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {isGuest
+                  ? "Sign in to view transactions"
+                  : "View your credit transactions"}
               </Text>
             </View>
             <Ionicons
@@ -1512,6 +1575,17 @@ export default function UserProfileAndSupportPage() {
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* Purchase Credits Modal */}
+        <PurchaseCreditsModal
+          visible={showPurchaseModal}
+          onClose={() => setShowPurchaseModal(false)}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onSuccess={() => {
+            setShowPurchaseModal(false);
+          }}
+        />
       </ScrollView>
     </View>
   );

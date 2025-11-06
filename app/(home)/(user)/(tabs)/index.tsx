@@ -553,7 +553,15 @@ export default function BrowseCarsPage() {
           }
         }
 
-        // Sorting
+        // Boost Prioritization - Always prioritize boosted cars first (only for sale mode)
+        if (currentCarViewMode === 'sale') {
+          // Order by is_boosted DESC (true first), then by boost_slot ASC (slot 1 first)
+          queryBuilder = queryBuilder
+            .order("is_boosted", { ascending: false, nullsFirst: false })
+            .order("boost_slot", { ascending: true, nullsFirst: false });
+        }
+
+        // Sorting - Applied as secondary sort after boost prioritization
         if (currentSortOption) {
           switch (currentSortOption) {
             case "price_asc":
@@ -580,6 +588,9 @@ export default function BrowseCarsPage() {
               queryBuilder = queryBuilder.order("views", { ascending: false });
               break;
           }
+        } else if (currentCarViewMode === 'sale') {
+          // Default sort for sale mode after boost prioritization
+          queryBuilder = queryBuilder.order("listed_at", { ascending: false });
         }
 
         // Get count first for pagination

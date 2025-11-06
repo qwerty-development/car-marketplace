@@ -573,6 +573,34 @@ export default function CarCard({
           bounces={false}
         />
 
+        {/* Boost Indicator Badge */}
+        {car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date() && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: isRTL ? undefined : 12,
+              right: isRTL ? 12 : undefined,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(213, 80, 4, 0.95)',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+              elevation: 5,
+            }}
+          >
+            <Ionicons name="rocket" size={16} color="white" style={isRTL ? { marginLeft: 6 } : { marginRight: 6 }} />
+            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>
+              {t('car.boosted', 'Boosted')} #{car.boost_slot}
+            </Text>
+          </View>
+        )}
+
         <StyledPressable
           onPress={handleCardPress}
           className="active:opacity-90"
