@@ -34,6 +34,9 @@ import { supabase } from "@/utils/supabase";
 import { shareCar } from "@/utils/centralizedSharing";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import * as Haptics from 'expo-haptics';
+import { startDealerChat } from '@/utils/chatHelpers';
+import { useGuestUser } from '@/utils/GuestUserContext';
+import AuthRequiredModal from '@/components/AuthRequiredModal';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -130,9 +133,10 @@ const SpecItem = ({
   </StyledView>
 );
 
-const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
+const ActionButton = ({ icon, text, onPress, isDarkMode, disabled = false, loading = false }: any) => (
   <StyledPressable
     onPress={async () => {
+      if (disabled || loading) return;
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onPress();
     }}
@@ -142,12 +146,17 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
       height: 44,
       borderRadius: 22,
     }}
+    disabled={disabled || loading}
   >
-    <Ionicons
-      name={icon}
-      size={24}
-      color={isDarkMode ? "#FFFFFF" : "#000000"}
-    />
+    {loading ? (
+      <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
+    ) : (
+      <Ionicons
+        name={icon}
+        size={24}
+        color={isDarkMode ? "#FFFFFF" : "#000000"}
+      />
+    )}
   </StyledPressable>
 );
 
@@ -180,10 +189,13 @@ export default function RentalCarCard({
   const translateY = useRef(new Animated.Value(20)).current;
   
   const { user } = useAuth();
+  const { isGuest } = useGuestUser();
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const flatListRef = useRef(null);
   const { prefetchCarDetails } = useCarDetails();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const cardWidth = windowWidth - 32;
@@ -302,6 +314,20 @@ export default function RentalCarCard({
       });
     }
   }, [router, car, isDealer, prefetchCarDetails, scaleAnim]);
+
+  const handleChat = useCallback(async () => {
+    if (disableActions) return;
+
+    await startDealerChat({
+      dealershipId: car?.dealership_id,
+      userId: user?.id ?? null,
+      isGuest,
+      router,
+      t,
+      onAuthRequired: () => setShowAuthModal(true),
+      setLoading: setIsStartingChat,
+    });
+  }, [car?.dealership_id, disableActions, isGuest, router, t, user?.id]);
 
   const handleCall = useCallback(() => {
     if (car.dealership_phone) {
@@ -436,6 +462,7 @@ export default function RentalCarCard({
   );
 
   return (
+    <>
     <Animated.View
       style={{
         opacity: fadeAnim,
@@ -714,6 +741,14 @@ export default function RentalCarCard({
           {!disableActions && (
             <StyledView className="flex-row justify-around items-center">
               <ActionButton
+                icon="chatbubble-ellipses-outline"
+                text={t('chat.chat')}
+                onPress={handleChat}
+                isDarkMode={isDarkMode}
+                disabled={isStartingChat}
+                loading={isStartingChat}
+              />
+              <ActionButton
                 icon="call"
                 text={t('common.call')}
                 onPress={handleCall}
@@ -736,5 +771,11 @@ export default function RentalCarCard({
         </StyledView>
       </StyledPressable>
     </Animated.View>
+    <AuthRequiredModal
+      isVisible={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+      featureName={t('chat.feature_name', 'chat with dealers')}
+    />
+  </>
   );
 }

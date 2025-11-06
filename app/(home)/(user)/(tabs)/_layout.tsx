@@ -1,14 +1,35 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
-import { View, Animated, Platform } from 'react-native';
+import { View, Animated, Platform, TouchableOpacity, Text } from 'react-native';
 import FloatingChatFab from '@/components/FloatingChatFab';  // ADDED: Import for AI chat
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/utils/AuthContext';
+import { useGuestUser } from '@/utils/GuestUserContext';
+import { useConversations } from '@/hooks/useConversations';
 
 export default function TabLayout() {
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isGuest } = useGuestUser();
+  const { data: conversations } = useConversations({
+    userId: user?.id ?? null,
+    enabled: !!user && !isGuest,
+  });
+
+  const totalUnread = useMemo(() => {
+    if (!conversations) return 0;
+    return conversations.reduce(
+      (count, convo) => count + (convo.user_unread_count ?? 0),
+      0
+    );
+  }, [conversations]);
+
+  const showHeaderAction = !!user && !isGuest;
 
   return (
     <>
@@ -41,6 +62,46 @@ export default function TabLayout() {
             borderBottomWidth: 0,
           },
           headerTintColor: '#D55004',
+          headerRight: () =>
+            showHeaderAction ? (
+              <TouchableOpacity
+                onPress={() =>
+                  router.push('/(home)/(user)/messages')
+                }
+                style={{ marginRight: 16, position: 'relative' }}
+              >
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={24}
+                  color={isDarkMode ? '#F8FAFC' : '#0F172A'}
+                />
+                {totalUnread > 0 && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -4,
+                      minWidth: 18,
+                      paddingHorizontal: 4,
+                      paddingVertical: 1,
+                      borderRadius: 9,
+                      backgroundColor: '#D55004',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : null,
           headerShown: route.name !== 'index',
           tabBarIcon: ({ color, size, focused }) => {
             let iconName: keyof typeof Ionicons.glyphMap = 'home';

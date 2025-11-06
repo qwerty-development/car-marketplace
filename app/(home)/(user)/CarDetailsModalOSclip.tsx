@@ -10,7 +10,8 @@ import {
 	Linking,
 	Alert,
 	Share,
-	Platform
+	Platform,
+	ActivityIndicator
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
@@ -21,6 +22,10 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
 import { shareCar } from '@/utils/centralizedSharing'
+import { useGuestUser } from '@/utils/GuestUserContext'
+import AuthRequiredModal from '@/components/AuthRequiredModal'
+import { startDealerChat } from '@/utils/chatHelpers'
+import { useTranslation } from 'react-i18next'
 
 import Animated, {
 	useSharedValue,
@@ -73,7 +78,11 @@ const CarDetailModalIOS = memo(
 		const { isDarkMode } = useTheme()
 		const router = useRouter()
 		const { user } = useAuth()
+		const { isGuest } = useGuestUser()
+		const { t } = useTranslation()
 		const { isFavorite } = useFavorites()
+		const [showAuthModal, setShowAuthModal] = useState(false)
+		const [isStartingChat, setIsStartingChat] = useState(false)
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])
 		const scrollViewRef = useRef<any>(null)
@@ -215,9 +224,17 @@ const CarDetailModalIOS = memo(
 			}
 		}, [car.dealership_phone, car.make, car.model])
 
-		const handleChat = useCallback(() => {
-			Alert.alert('Chat feature coming soon!')
-		}, [])
+		const handleChat = useCallback(async () => {
+			await startDealerChat({
+				dealershipId: car?.dealership_id,
+				userId: user?.id ?? null,
+				isGuest,
+				router,
+				t,
+				onAuthRequired: () => setShowAuthModal(true),
+				setLoading: setIsStartingChat,
+			})
+		}, [car?.dealership_id, isGuest, router, t, user?.id])
 
 		const handleShare = useCallback(async () => {
 			try {
@@ -586,23 +603,33 @@ const CarDetailModalIOS = memo(
 							</TouchableOpacity>
 							<TouchableOpacity
 								style={styles.callToActionButton}
-								onPress={handleChat}>
-								<Ionicons
-									name='chatbubbles-outline'
-									size={24}
-									color='#D55004'
-								/>
+								onPress={handleChat}
+								disabled={isStartingChat}>
+								{isStartingChat ? (
+									<ActivityIndicator color='#D55004' />
+								) : (
+									<Ionicons
+										name='chatbubbles-outline'
+										size={24}
+										color='#D55004'
+									/>
+								)}
 							</TouchableOpacity>
-							<TouchableOpacity
-								style={styles.callToActionButton}
-								onPress={handleShare}>
-								<MaterialIcons name='share' size={24} color='#D55004' />
-							</TouchableOpacity>
-						</View>
-						</ScrollView>
+						<TouchableOpacity
+							style={styles.callToActionButton}
+							onPress={handleShare}>
+							<MaterialIcons name='share' size={24} color='#D55004' />
+						</TouchableOpacity>
+					</View>
+					<AuthRequiredModal
+						isVisible={showAuthModal}
+						onClose={() => setShowAuthModal(false)}
+						featureName={t('chat.feature_name', 'chat with dealers')}
+					/>
+					</ScrollView>
 
-					</LinearGradient>
-				</Animated.View>
+				</LinearGradient>
+			</Animated.View>
 			</PanGestureHandler>
 		)
 	}

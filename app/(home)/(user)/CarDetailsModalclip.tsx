@@ -10,7 +10,8 @@ import {
 	Share,
 	StyleSheet,
 	Platform,
-	Animated
+	Animated,
+	ActivityIndicator
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
@@ -24,6 +25,10 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'
 import * as Linking from 'expo-linking'
 import { useAuth } from '@/utils/AuthContext'
 import { shareCar } from '@/utils/centralizedSharing'
+import { useGuestUser } from '@/utils/GuestUserContext'
+import AuthRequiredModal from '@/components/AuthRequiredModal'
+import { startDealerChat } from '@/utils/chatHelpers'
+import { useTranslation } from 'react-i18next'
 
 const { width, height } = Dimensions.get('window')
 
@@ -66,7 +71,11 @@ const CarDetailModal = memo(
 		const { isDarkMode } = useTheme()
 		const router = useRouter()
 		const { user } = useAuth()
+		const { isGuest } = useGuestUser()
+		const { t } = useTranslation()
 		const { isFavorite } = useFavorites()
+		const [showAuthModal, setShowAuthModal] = useState(false)
+		const [isStartingChat, setIsStartingChat] = useState(false)
 		const [similarCars, setSimilarCars] = useState<any>([])
 		const [dealerCars, setDealerCars] = useState<any>([])
 		const [activeImageIndex, setActiveImageIndex] = useState<any>(0)
@@ -196,9 +205,17 @@ const CarDetailModal = memo(
 			}
 		}, [car.dealership_phone, car.make, car.model])
 
-		const handleChat = useCallback(() => {
-			Alert.alert('Chat feature coming soon!')
-		}, [])
+		const handleChat = useCallback(async () => {
+			await startDealerChat({
+				dealershipId: car?.dealership_id,
+				userId: user?.id ?? null,
+				isGuest,
+				router,
+				t,
+				onAuthRequired: () => setShowAuthModal(true),
+				setLoading: setIsStartingChat,
+			})
+		}, [car?.dealership_id, isGuest, router, t, user?.id])
 
 		const handleShare = useCallback(async () => {
 			try {
@@ -623,8 +640,13 @@ const CarDetailModal = memo(
 						</TouchableOpacity>
 						<TouchableOpacity
 							style={styles.callToActionButton}
-							onPress={handleChat}>
-							<Ionicons name='chatbubbles-outline' size={24} color='#D55004' />
+							onPress={handleChat}
+							disabled={isStartingChat}>
+							{isStartingChat ? (
+								<ActivityIndicator color='#D55004' />
+							) : (
+								<Ionicons name='chatbubbles-outline' size={24} color='#D55004' />
+							)}
 						</TouchableOpacity>
 						<TouchableOpacity
 							style={styles.callToActionButton}
@@ -632,6 +654,11 @@ const CarDetailModal = memo(
 							<MaterialIcons name='share' size={24} color='#D55004' />
 						</TouchableOpacity>
 					</View>
+					<AuthRequiredModal
+						isVisible={showAuthModal}
+						onClose={() => setShowAuthModal(false)}
+						featureName={t('chat.feature_name', 'chat with dealers')}
+					/>
 				</View>
 			</Modal>
 		)
