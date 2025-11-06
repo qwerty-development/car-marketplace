@@ -12,7 +12,7 @@ export default function RootLayout() {
       <View
         style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       >
-        <Stack>
+        <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen
             name="(tabs)"
             options={{ animation: "slide_from_bottom", headerShown: false }}
@@ -31,7 +31,7 @@ export default function RootLayout() {
               headerShown: false,
             }}
           />
-                    <Stack.Screen
+          <Stack.Screen
             name="terms-of-service"
             options={{
               headerShown: false,
@@ -44,14 +44,14 @@ export default function RootLayout() {
               headerShown: false,
             }}
           />
-                    <Stack.Screen
+          <Stack.Screen
             name="ChangePassword"
             options={{
               animation: "slide_from_right",
               headerShown: false,
             }}
           />
-                              <Stack.Screen
+          <Stack.Screen
             name="EditProfile"
             options={{
               animation: "slide_from_right",

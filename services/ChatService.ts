@@ -67,6 +67,22 @@ const enrichConversationSelect = `
 `;
 
 export class ChatService {
+  static async getUserNameById(userId: string): Promise<string | null> {
+    if (!userId) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_user_name_by_id', {
+        user_id_input: userId,
+      });
+      if (error) {
+        console.warn('[ChatService] getUserNameById RPC failed', { userId, error });
+        return null;
+      }
+      return (data as string) || null;
+    } catch (e) {
+      console.warn('[ChatService] getUserNameById unexpected error', e);
+      return null;
+    }
+  }
   static async ensureConversation({
     userId,
     dealershipId,
@@ -122,7 +138,17 @@ export class ChatService {
       throw error ?? new Error('Conversation not found');
     }
 
-    return mapConversationRow(data as RawConversationRow);
+    const mapped = mapConversationRow(data as RawConversationRow);
+
+    // Fallback: If user info is missing due to RLS, resolve name via RPC
+    if (!mapped.user || !mapped.user.name) {
+      const rpcName = await this.getUserNameById(mapped.user_id);
+      if (rpcName) {
+        mapped.user = { id: mapped.user_id, name: rpcName, email: null };
+      }
+    }
+
+    return mapped;
   }
 
   static async fetchConversationsForUser(

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ConversationSummary } from '@/types/chat';
+import { useUserName } from '@/hooks/useUserName';
 import { useTranslation } from 'react-i18next';
 
 interface ConversationListItemProps {
@@ -55,7 +56,8 @@ function formatTimestamp(timestamp?: string | null) {
 
 function getDisplayInfo(
   conversation: ConversationSummary,
-  viewerRole: 'user' | 'dealer'
+  viewerRole: 'user' | 'dealer',
+  fetchedUserName?: string | null
 ) {
   if (viewerRole === 'user') {
     const dealer = conversation.dealership;
@@ -69,10 +71,11 @@ function getDisplayInfo(
 
   const user = conversation.user;
   const emailUsername = user?.email?.split('@')[0];
+  const resolvedName = fetchedUserName || user?.name || emailUsername;
   const idSnippet = conversation.user_id
     ? conversation.user_id.slice(0, 8)
     : 'Customer';
-  const fallbackLabel = user?.name ?? emailUsername ?? idSnippet ?? 'Customer';
+  const fallbackLabel = resolvedName ?? idSnippet ?? 'Customer';
 
   return {
     title: fallbackLabel,
@@ -89,9 +92,15 @@ export default function ConversationListItem({
   isDarkMode = false,
 }: ConversationListItemProps) {
   const { t } = useTranslation();
+  // Try to resolve user name via RPC when missing (helps dealer view under RLS)
+  const { data: fetchedName } = useUserName(
+    conversation.user_id,
+    viewerRole === 'dealer' && (!conversation.user || !conversation.user.name)
+  );
+
   const info = useMemo(
-    () => getDisplayInfo(conversation, viewerRole),
-    [conversation, viewerRole]
+    () => getDisplayInfo(conversation, viewerRole, fetchedName ?? undefined),
+    [conversation, viewerRole, fetchedName]
   );
 
   const unreadCount =
