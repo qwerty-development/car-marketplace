@@ -35,7 +35,9 @@ export function useConversations({
     fetcher,
     {
       enabled: isEnabled,
-      staleTime: 5 * 1000,
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false, // Prevent refetch when switching tabs
     }
   );
 
@@ -61,6 +63,8 @@ export function useConversations({
       .subscribe();
 
     return () => {
+      // Properly cleanup channel on unmount
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [userId, isEnabled, queryClient]);

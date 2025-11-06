@@ -28,6 +28,9 @@ export function useConversationMessages(conversationId?: number | string | null)
     },
     {
       enabled: conversationId != null,
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+      refetchOnWindowFocus: false, // Prevent refetch when switching tabs
       getNextPageParam: (lastPage) => {
         if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
         return lastPage[0]?.created_at;
@@ -49,30 +52,21 @@ export function useConversationMessages(conversationId?: number | string | null)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${channelKey}`,
         },
         () => {
-          queryClient.invalidateQueries(queryKey);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${channelKey}`,
-        },
-        () => {
+          // Debounce invalidation to prevent multiple rapid refetches
           queryClient.invalidateQueries(queryKey);
         }
       )
       .subscribe();
 
     return () => {
+      // Properly cleanup channel on unmount
+      channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient, queryKey]);

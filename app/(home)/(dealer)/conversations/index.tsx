@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import ConversationListItem from '@/components/chat/ConversationListItem';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { supabase } from '@/utils/supabase';
 import { ConversationSummary } from '@/types/chat';
 
@@ -23,6 +23,7 @@ export default function DealerConversationsScreen() {
   const { user, profile, isLoaded } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Fetch dealership ID for current user
   const { data: dealership } = useQuery(
@@ -94,9 +95,37 @@ export default function DealerConversationsScreen() {
     },
     {
       enabled: !!dealership?.id,
-      refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     }
   );
+
+  // Set up Realtime subscription for live updates
+  useEffect(() => {
+    if (!dealership?.id) return;
+
+    const filter = `dealership_id=eq.${dealership.id}`;
+    const channel = supabase
+      .channel(`dealer-conversations:${dealership.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter,
+        },
+        () => {
+          // Invalidate query to refetch when conversations change
+          queryClient.invalidateQueries(['dealer-conversations', dealership.id]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dealership?.id, queryClient]);
 
   const handleOpenConversation = useCallback(
     (conversationId: number) => {

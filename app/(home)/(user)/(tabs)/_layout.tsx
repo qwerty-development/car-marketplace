@@ -21,13 +21,14 @@ export default function TabLayout() {
     enabled: !!user && !isGuest,
   });
 
+  // Memoize with stable dependency to prevent unnecessary recalculations
   const totalUnread = useMemo(() => {
-    if (!conversations) return 0;
+    if (!conversations || conversations.length === 0) return 0;
     return conversations.reduce(
       (count, convo) => count + (convo.user_unread_count ?? 0),
       0
     );
-  }, [conversations]);
+  }, [conversations?.length, conversations?.map(c => c.user_unread_count).join(',')]);
 
   const showHeaderAction = !!user && !isGuest;
 
