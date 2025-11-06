@@ -5,7 +5,6 @@ import {
   RefreshControl,
   Text,
   View,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,42 +17,23 @@ import { useQuery, useQueryClient } from 'react-query';
 import { supabase } from '@/utils/supabase';
 import { ConversationSummary } from '@/types/chat';
 
-export default function DealerConversationsScreen() {
+export default function UserConversationsScreen() {
   const { isDarkMode } = useTheme();
-  const { user, profile, isLoaded } = useAuth();
+  const { user, isLoaded } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Fetch dealership ID for current user
-  const { data: dealership } = useQuery(
-    ['dealership', user?.id],
-    async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('dealerships')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    {
-      enabled: !!user?.id && profile?.role === 'dealer',
-    }
-  );
-
-  // Fetch dealer conversations
+  // Fetch user conversations
   const {
     data: conversations,
     isLoading,
     refetch,
     isRefetching,
   } = useQuery(
-    ['dealer-conversations', dealership?.id],
+    ['user-conversations', user?.id],
     async () => {
-      if (!dealership?.id) return [];
+      if (!user?.id) return [];
       
       const { data, error } = await supabase
         .from('conversations')
@@ -80,7 +60,7 @@ export default function DealerConversationsScreen() {
             phone
           )
         `)
-        .eq('dealership_id', dealership.id)
+        .eq('user_id', user.id)
         .not('last_message_at', 'is', null)
         .order('last_message_at', { ascending: false });
       
@@ -94,7 +74,7 @@ export default function DealerConversationsScreen() {
       })) as ConversationSummary[];
     },
     {
-      enabled: !!dealership?.id,
+      enabled: !!user?.id,
       staleTime: 30 * 1000, // Consider data fresh for 30 seconds
       cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     }
@@ -102,11 +82,11 @@ export default function DealerConversationsScreen() {
 
   // Set up Realtime subscription for live updates
   useEffect(() => {
-    if (!dealership?.id) return;
+    if (!user?.id) return;
 
-    const filter = `dealership_id=eq.${dealership.id}`;
+    const filter = `user_id=eq.${user.id}`;
     const channel = supabase
-      .channel(`dealer-conversations:${dealership.id}`)
+      .channel(`user-conversations:${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -117,7 +97,7 @@ export default function DealerConversationsScreen() {
         },
         () => {
           // Invalidate query to refetch when conversations change
-          queryClient.invalidateQueries(['dealer-conversations', dealership.id]);
+          queryClient.invalidateQueries(['user-conversations', user.id]);
         }
       )
       .subscribe();
@@ -125,12 +105,12 @@ export default function DealerConversationsScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [dealership?.id, queryClient]);
+  }, [user?.id, queryClient]);
 
   const handleOpenConversation = useCallback(
     (conversationId: number) => {
       router.push({
-        pathname: '/(home)/(dealer)/conversations/[conversationId]' as any,
+        pathname: '/(home)/(user)/conversations/[conversationId]' as any,
         params: { conversationId: conversationId.toString() },
       });
     },
@@ -182,47 +162,8 @@ export default function DealerConversationsScreen() {
             style={{ textAlign: 'center', lineHeight: 22 }}
           >
             {t(
-              'chat.dealer_sign_in_required',
-              'Sign in to manage your customer conversations.'
-            )}
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (profile?.role !== 'dealer') {
-    return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingHorizontal: 24,
-          backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
-        }}
-      >
-        <View className="items-center">
-          <View className="w-20 h-20 rounded-full bg-red-500/10 items-center justify-center mb-4">
-            <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
-          </View>
-          <Text
-            className={`text-xl font-bold mb-3 ${
-              isDarkMode ? 'text-white' : 'text-black'
-            }`}
-            style={{ textAlign: 'center' }}
-          >
-            {t('chat.not_available_for_role', 'Access Denied')}
-          </Text>
-          <Text
-            className={`text-base ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}
-            style={{ textAlign: 'center', lineHeight: 22 }}
-          >
-            {t(
-              'chat.dealer_only',
-              'This section is only available for dealer accounts.'
+              'chat.user_sign_in_required',
+              'Sign in to view your conversations with dealers.'
             )}
           </Text>
         </View>
@@ -283,7 +224,7 @@ export default function DealerConversationsScreen() {
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}
             >
-              {conversations.filter(c => (c.dealer_unread_count ?? 0) > 0).length}{' '}
+              {conversations.filter(c => (c.user_unread_count ?? 0) > 0).length}{' '}
               {t('chat.unread', 'unread')}
             </Text>
           </View>
@@ -309,7 +250,7 @@ export default function DealerConversationsScreen() {
           renderItem={({ item }) => (
             <ConversationListItem
               conversation={item}
-              viewerRole="dealer"
+              viewerRole="user"
               isDarkMode={isDarkMode}
               onPress={(conversation) => handleOpenConversation(conversation.id)}
             />
@@ -352,8 +293,8 @@ export default function DealerConversationsScreen() {
                 style={{ textAlign: 'center', lineHeight: 22 }}
               >
                 {t(
-                  'chat.dealer_no_conversations_body',
-                  'When customers message you about your vehicles, conversations will appear here.'
+                  'chat.user_no_conversations_body',
+                  'When you message dealers about vehicles, conversations will appear here.'
                 )}
               </Text>
             </View>

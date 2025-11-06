@@ -102,10 +102,16 @@ export default function DealerLayout() {
 						headerShown: false
 					}}
 				/>
-																				<Stack.Screen
+				<Stack.Screen
 					name='privacy-policy'
 					options={{
 						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
+				<Stack.Screen
+					name='conversations'
+					options={{
 						headerShown: false
 					}}
 				/>

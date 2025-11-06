@@ -783,29 +783,27 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity>
 
+          {/* Messages Button */}
           <TouchableOpacity
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
                   "Feature Not Available",
-                  "Please sign in to see your listings",
+                  "Please sign in to view your messages",
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Sign In", onPress: handleSignIn },
                   ]
                 );
               } else {
-                router.push({
-                  pathname: "/(home)/(user)/MyListings",
-                  params: { userId: user?.id }
-                });
+                router.push('/(home)/(user)/conversations' as any);
               }
             }}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
             p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
           >
-            <View className="bg-blue-500/10 p-3 rounded-xl">
-              <Ionicons name="list-outline" size={24} color="#D55004" />
+            <View className="bg-orange-500/10 p-3 rounded-xl">
+              <Ionicons name="chatbubbles-outline" size={24} color="#D55004" />
             </View>
             <View className={isRTL ? "mr-4" : "ml-4"}>
               <Text
@@ -814,7 +812,7 @@ export default function UserProfileAndSupportPage() {
                 } font-semibold`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                My Listings
+                {t('profile.messages', 'Messages')}
               </Text>
               <Text
                 className={`${
@@ -822,7 +820,7 @@ export default function UserProfileAndSupportPage() {
                 } text-sm mt-1`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                {isGuest ? "Sign in to see your cars" : "View and manage your cars"}
+                {isGuest ? "Sign in to view your messages" : "View your conversations with dealers"}
               </Text>
             </View>
             <Ionicons
