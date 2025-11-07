@@ -1,5 +1,6 @@
 // supabase/functions/credit-operations/index.ts
 // Handles credit deductions for posting cars and boosting listings
+// Updated to use priority-based boost system
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -20,12 +21,13 @@ const json = (data: any, status = 200) => new Response(JSON.stringify(data), {
 // Pricing configuration (can be moved to database later)
 const PRICING = {
   POST_LISTING_COST: 10,
-  BOOST_SLOTS: {
-    1: 9, // Highest priority
-    2: 8,
-    3: 7,
-    4: 6,
-    5: 5  // Lowest priority
+  // Priority-based pricing: 1 (Basic) to 5 (Ultimate)
+  BOOST_PRIORITIES: {
+    1: 5,  // Basic - cheapest
+    2: 6,  // Standard
+    3: 7,  // Enhanced
+    4: 8,  // Premium
+    5: 9   // Ultimate - highest priority, most expensive
   },
   BOOST_DURATION_MULTIPLIERS: {
     3: 1.0,   // 3 days
@@ -144,8 +146,6 @@ Deno.serve(async (req: Request) => {
         amount: -PRICING.POST_LISTING_COST,
         balance_after: newBalance,
         transaction_type: 'deduction',
-        purpose: 'post_listing',
-        reference_id: String(carId),
         description: `Posted car listing #${carId}`,
         metadata: {
           car_id: carId
@@ -169,15 +169,15 @@ Deno.serve(async (req: Request) => {
     // OPERATION: BOOST LISTING
     // ========================================================================
     else if (operation === 'boost_listing') {
-      if (!boostConfig || !boostConfig.slot || !boostConfig.durationDays) {
-        return json({ error: 'Missing boostConfig (slot, durationDays)' }, 400);
+      if (!boostConfig || !boostConfig.priority || !boostConfig.durationDays) {
+        return json({ error: 'Missing boostConfig (priority, durationDays)' }, 400);
       }
 
-      const { slot, durationDays } = boostConfig;
+      const { priority, durationDays } = boostConfig;
 
-      // Validate slot and duration
-      if (![1, 2, 3, 4, 5].includes(slot)) {
-        return json({ error: 'Invalid slot - must be 1-5' }, 400);
+      // Validate priority and duration
+      if (![1, 2, 3, 4, 5].includes(priority)) {
+        return json({ error: 'Invalid priority - must be 1-5' }, 400);
       }
 
       if (![3, 7, 10].includes(durationDays)) {
@@ -185,12 +185,12 @@ Deno.serve(async (req: Request) => {
       }
 
       // Calculate cost
-      const baseCost = PRICING.BOOST_SLOTS[slot as keyof typeof PRICING.BOOST_SLOTS];
+      const baseCost = PRICING.BOOST_PRIORITIES[priority as keyof typeof PRICING.BOOST_PRIORITIES];
       const multiplier = PRICING.BOOST_DURATION_MULTIPLIERS[durationDays as keyof typeof PRICING.BOOST_DURATION_MULTIPLIERS];
       const totalCost = Math.round(baseCost * multiplier);
 
       console.log(`[${requestId}] BOOST_COST_CALCULATION:`, {
-        slot,
+        priority,
         durationDays,
         baseCost,
         multiplier,
@@ -212,36 +212,26 @@ Deno.serve(async (req: Request) => {
       }
 
       // Check if car already has an active boost
-      const { data: existingBoost } = await supabase
-        .from('boosted_listings')
-        .select('id, end_date')
-        .eq('car_id', carId)
-        .eq('status', 'active')
+      const { data: existingCar } = await supabase
+        .from('cars')
+        .select('is_boosted, boost_end_date, boost_priority')
+        .eq('id', carId)
         .single();
 
-      if (existingBoost) {
-        console.warn(`[${requestId}] Car already has active boost`);
-        return json({
-          error: 'Car already has an active boost',
-          existingBoostEndDate: existingBoost.end_date
-        }, 409); // Conflict
+      if (!existingCar) {
+        return json({ error: 'Car not found' }, 404);
       }
 
-      // Check slot availability
-      const { data: slotBoost } = await supabase
-        .from('boosted_listings')
-        .select('id, car_id')
-        .eq('boost_slot', slot)
-        .eq('status', 'active')
-        .single();
-
-      if (slotBoost) {
-        console.warn(`[${requestId}] Boost slot not available:`, { slot });
-        return json({
-          error: 'Boost slot not available',
-          slot,
-          message: `Slot ${slot} is currently occupied`
-        }, 409);
+      if (existingCar.is_boosted && existingCar.boost_end_date) {
+        const endDate = new Date(existingCar.boost_end_date);
+        if (endDate > new Date()) {
+          console.warn(`[${requestId}] Car already has active boost`);
+          return json({
+            error: 'Car already has an active boost',
+            existingBoostEndDate: existingCar.boost_end_date,
+            existingPriority: existingCar.boost_priority
+          }, 409); // Conflict
+        }
       }
 
       // Deduct credits and create boost
@@ -259,43 +249,24 @@ Deno.serve(async (req: Request) => {
         throw updateBalanceError;
       }
 
-      // Create boost record
-      const { data: boostRecord, error: boostError } = await supabase
-        .from('boosted_listings')
-        .insert({
-          car_id: carId,
-          user_id: userId,
-          boost_slot: slot,
-          duration_days: durationDays,
-          credits_paid: totalCost,
-          end_date: endDate.toISOString()
-        })
-        .select()
-        .single();
-
-      if (boostError) {
-        console.error(`[${requestId}] Error creating boost:`, boostError);
-        // Rollback balance update
-        await supabase
-          .from('users')
-          .update({ credit_balance: currentBalance })
-          .eq('id', userId);
-        throw boostError;
-      }
-
       // Update car with boost info
       const { error: carUpdateError } = await supabase
         .from('cars')
         .update({
           is_boosted: true,
-          boost_slot: slot,
+          boost_priority: priority,
           boost_end_date: endDate.toISOString()
         })
         .eq('id', carId);
 
       if (carUpdateError) {
         console.error(`[${requestId}] Error updating car:`, carUpdateError);
-        // Don't rollback - boost record exists, car just won't show as boosted
+        // Rollback balance update
+        await supabase
+          .from('users')
+          .update({ credit_balance: currentBalance })
+          .eq('id', userId);
+        throw carUpdateError;
       }
 
       // Log transaction
@@ -304,21 +275,39 @@ Deno.serve(async (req: Request) => {
         amount: -totalCost,
         balance_after: newBalance,
         transaction_type: 'deduction',
-        purpose: 'boost_listing',
-        reference_id: String(boostRecord.id),
-        description: `Boosted car #${carId} (slot ${slot}, ${durationDays} days)`,
+        description: `Boosted car #${carId} (priority ${priority}, ${durationDays} days)`,
         metadata: {
           car_id: carId,
-          boost_slot: slot,
+          boost_priority: priority,
           duration_days: durationDays,
-          boost_id: boostRecord.id
+          end_date: endDate.toISOString()
         }
       });
 
+      // Log boost history for analytics
+      const { data: carData } = await supabase
+        .from('cars')
+        .select('dealership_id')
+        .eq('id', carId)
+        .single();
+
+      await supabase.from('boost_history').insert({
+        car_id: carId,
+        dealership_id: carData?.dealership_id || null,
+        user_id: userId,
+        action_type: 'purchased',
+        boost_priority: priority,
+        duration_days: durationDays,
+        credits_spent: totalCost,
+        start_date: new Date().toISOString(),
+        end_date: endDate.toISOString(),
+        notes: `Boost purchased via credit system`
+      });
+
       console.log(`[${requestId}] BOOST_LISTING_SUCCESS:`, {
-        boostId: boostRecord.id,
         charged: totalCost,
         newBalance,
+        priority,
         endDate
       });
 
@@ -328,9 +317,9 @@ Deno.serve(async (req: Request) => {
         success: true,
         charged: totalCost,
         balance: newBalance,
-        boostId: boostRecord.id,
+        priority,
         endDate: endDate.toISOString(),
-        message: `Listing boosted in slot ${slot} for ${durationDays} days`,
+        message: `Listing boosted at priority ${priority} for ${durationDays} days`,
         processingTimeMs: totalTime
       });
     }

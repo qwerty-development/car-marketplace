@@ -1,7 +1,8 @@
 // components/BoostListingModal.tsx
-// Modal for boosting car listings with slot and duration selection
+// Modal for boosting car listings with priority and duration selection
+// Updated for priority-based boost system
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +16,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useCredits } from '@/utils/CreditContext';
 import { useAuth } from '@/utils/AuthContext';
-import { supabase } from '@/utils/supabase';
 
 interface BoostListingModalProps {
   visible: boolean;
@@ -26,8 +26,8 @@ interface BoostListingModalProps {
   onSuccess?: () => void;
 }
 
-interface BoostSlot {
-  slot: number;
+interface PriorityLevel {
+  priority: number;
   baseCredits: number;
   label: string;
   icon: string;
@@ -41,41 +41,41 @@ interface Duration {
   popular?: boolean;
 }
 
-const BOOST_SLOTS: BoostSlot[] = [
+const PRIORITY_LEVELS: PriorityLevel[] = [
   {
-    slot: 1,
+    priority: 5,
     baseCredits: 9,
-    label: 'Premium Slot',
+    label: 'Ultimate',
     icon: 'trophy',
-    description: 'Top position - Maximum visibility',
+    description: 'Highest priority - Maximum visibility',
   },
   {
-    slot: 2,
+    priority: 4,
     baseCredits: 8,
-    label: 'Featured Slot',
+    label: 'Premium',
     icon: 'medal',
-    description: 'High visibility position',
+    description: 'Premium priority - High visibility',
   },
   {
-    slot: 3,
+    priority: 3,
     baseCredits: 7,
-    label: 'Priority Slot',
+    label: 'Enhanced',
     icon: 'star',
-    description: 'Priority placement',
+    description: 'Enhanced priority - Good visibility',
   },
   {
-    slot: 4,
+    priority: 2,
     baseCredits: 6,
-    label: 'Standard Slot',
+    label: 'Standard',
     icon: 'star-half',
-    description: 'Standard boost',
+    description: 'Standard priority - Decent boost',
   },
   {
-    slot: 5,
+    priority: 1,
     baseCredits: 5,
-    label: 'Basic Slot',
+    label: 'Basic',
     icon: 'star-outline',
-    description: 'Basic visibility boost',
+    description: 'Basic priority - Entry level boost',
   },
 ];
 
@@ -95,43 +95,14 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
 }) => {
   const { user } = useAuth();
   const { creditBalance, refreshBalance } = useCredits();
-  const [selectedSlot, setSelectedSlot] = useState(1);
+  const [selectedPriority, setSelectedPriority] = useState(3); // Default to Enhanced (middle tier)
   const [selectedDuration, setSelectedDuration] = useState(7);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState<number[]>([1, 2, 3, 4, 5]);
-
-  useEffect(() => {
-    if (visible) {
-      fetchAvailableSlots();
-    }
-  }, [visible]);
-
-  const fetchAvailableSlots = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_available_boost_slots');
-
-      if (error) throw error;
-
-      if (data) {
-        const available = data
-          .filter((slot: any) => slot.is_available)
-          .map((slot: any) => slot.slot_number);
-        setAvailableSlots(available);
-
-        // Auto-select first available slot
-        if (available.length > 0 && !available.includes(selectedSlot)) {
-          setSelectedSlot(available[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching available slots:', error);
-    }
-  };
 
   const calculateCost = (): number => {
-    const slotConfig = BOOST_SLOTS.find((s) => s.slot === selectedSlot)!;
+    const priorityConfig = PRIORITY_LEVELS.find((p) => p.priority === selectedPriority)!;
     const durationConfig = DURATIONS.find((d) => d.days === selectedDuration)!;
-    return Math.round(slotConfig.baseCredits * durationConfig.multiplier);
+    return Math.round(priorityConfig.baseCredits * durationConfig.multiplier);
   };
 
   const handleBoost = async () => {
@@ -152,7 +123,7 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
             text: 'Buy Credits',
             onPress: () => {
               onClose();
-              // Navigate to purchase screen or show purchase modal
+              // User can navigate to profile to purchase
             },
           },
         ]
@@ -177,7 +148,7 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
             userId: user.id,
             carId: carId,
             boostConfig: {
-              slot: selectedSlot,
+              priority: selectedPriority,
               durationDays: selectedDuration,
             },
           }),
@@ -194,20 +165,23 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
 
       Alert.alert(
         'Success!',
-        `Your listing is now boosted in slot ${selectedSlot} for ${selectedDuration} days!`,
+        `Your listing is now boosted at priority ${selectedPriority} for ${selectedDuration} days!`,
         [
           {
             text: 'OK',
             onPress: () => {
-              onSuccess?.();
               onClose();
+              onSuccess?.();
             },
           },
         ]
       );
     } catch (error: any) {
       console.error('Boost error:', error);
-      Alert.alert('Error', error.message || 'Failed to boost listing. Please try again.');
+      Alert.alert(
+        'Boost Failed',
+        error.message || 'Failed to boost listing. Please try again.'
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -215,184 +189,383 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
 
   const cost = calculateCost();
   const canAfford = creditBalance >= cost;
-  const slotAvailable = availableSlots.includes(selectedSlot);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
-        <View className="flex-1 bg-black/50 justify-end">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'flex-end',
+          }}
+        >
           <TouchableWithoutFeedback>
             <View
-              className={`${isDarkMode ? 'bg-neutral-900' : 'bg-white'} rounded-t-3xl p-6 max-h-[90%]`}
+              style={{
+                backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                paddingBottom: 40,
+                maxHeight: '90%',
+              }}
             >
               {/* Header */}
-              <View className="flex-row justify-between items-center mb-4">
-                <View>
-                  <Text className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                    Boost Your Listing
-                  </Text>
-                  <Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} mt-1`}>
-                    Balance: {creditBalance} credits
-                  </Text>
-                </View>
+              <View
+                style={{
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: isDarkMode ? '#333' : '#e5e5e5',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: isDarkMode ? '#fff' : '#000',
+                  }}
+                >
+                  Boost Your Listing
+                </Text>
                 <TouchableOpacity onPress={onClose}>
-                  <Ionicons name="close" size={28} color={isDarkMode ? '#fff' : '#000'} />
+                  <Ionicons
+                    name="close"
+                    size={28}
+                    color={isDarkMode ? '#fff' : '#000'}
+                  />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Slot Selection */}
-                <Text className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                  Select Priority Slot
-                </Text>
-                {BOOST_SLOTS.map((slot) => {
-                  const isAvailable = availableSlots.includes(slot.slot);
-                  const isSelected = selectedSlot === slot.slot;
+              <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Priority Selection */}
+                <View style={{ padding: 20 }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '600',
+                      marginBottom: 12,
+                      color: isDarkMode ? '#fff' : '#000',
+                    }}
+                  >
+                    Select Priority Level
+                  </Text>
 
-                  return (
-                    <TouchableOpacity
-                      key={slot.slot}
-                      className={`p-4 rounded-xl mb-2 flex-row items-center justify-between ${
-                        isSelected
-                          ? 'bg-orange-500 border-2 border-orange-600'
-                          : isDarkMode
-                          ? 'bg-neutral-800'
-                          : 'bg-neutral-100'
-                      } ${!isAvailable ? 'opacity-50' : ''}`}
-                      onPress={() => isAvailable && setSelectedSlot(slot.slot)}
-                      disabled={!isAvailable}
-                    >
-                      <View className="flex-row items-center flex-1">
-                        <Ionicons
-                          name={slot.icon as any}
-                          size={24}
-                          color={isSelected ? '#fff' : '#D55004'}
-                        />
-                        <View className="ml-3 flex-1">
-                          <View className="flex-row items-center">
-                            <Text
-                              className={`font-semibold ${
-                                isSelected ? 'text-white' : isDarkMode ? 'text-white' : 'text-black'
-                              }`}
-                            >
-                              Slot {slot.slot} - {slot.label}
-                            </Text>
-                            {!isAvailable && (
-                              <View className="ml-2 bg-red-500 px-2 py-0.5 rounded">
-                                <Text className="text-white text-xs font-bold">TAKEN</Text>
-                              </View>
-                            )}
-                          </View>
+                  {PRIORITY_LEVELS.map((level) => {
+                    const isSelected = selectedPriority === level.priority;
+                    return (
+                      <TouchableOpacity
+                        key={level.priority}
+                        onPress={() => setSelectedPriority(level.priority)}
+                        style={{
+                          flexDirection: isRTL ? 'row-reverse' : 'row',
+                          alignItems: 'center',
+                          padding: 16,
+                          marginBottom: 12,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: isSelected ? '#D55004' : isDarkMode ? '#333' : '#e5e5e5',
+                          backgroundColor: isSelected
+                            ? 'rgba(213, 80, 4, 0.1)'
+                            : isDarkMode
+                            ? '#252525'
+                            : '#f9f9f9',
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 24,
+                            backgroundColor: isSelected ? '#D55004' : isDarkMode ? '#333' : '#e5e5e5',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: isRTL ? 0 : 12,
+                            marginLeft: isRTL ? 12 : 0,
+                          }}
+                        >
+                          <Ionicons
+                            name={level.icon as any}
+                            size={24}
+                            color={isSelected ? '#fff' : isDarkMode ? '#999' : '#666'}
+                          />
+                        </View>
+
+                        <View style={{ flex: 1 }}>
                           <Text
-                            className={`text-xs mt-0.5 ${
-                              isSelected ? 'text-white/80' : isDarkMode ? 'text-white/60' : 'text-gray-500'
-                            }`}
+                            style={{
+                              fontSize: 16,
+                              fontWeight: '600',
+                              color: isDarkMode ? '#fff' : '#000',
+                            }}
                           >
-                            {slot.description} • {slot.baseCredits} credits base
+                            {level.label} - Priority {level.priority}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: isDarkMode ? '#999' : '#666',
+                              marginTop: 4,
+                            }}
+                          >
+                            {level.description}
                           </Text>
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: isSelected ? '#D55004' : isDarkMode ? '#999' : '#666',
+                          }}
+                        >
+                          {level.baseCredits} credits
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
                 {/* Duration Selection */}
-                <Text className={`text-lg font-semibold mt-6 mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                  Select Duration
-                </Text>
-                <View className="flex-row justify-between mb-6">
-                  {DURATIONS.map((duration) => (
-                    <TouchableOpacity
-                      key={duration.days}
-                      className={`flex-1 mx-1 p-4 rounded-xl items-center ${
-                        selectedDuration === duration.days
-                          ? 'bg-orange-500 border-2 border-orange-600'
-                          : isDarkMode
-                          ? 'bg-neutral-800'
-                          : 'bg-neutral-100'
-                      }`}
-                      onPress={() => setSelectedDuration(duration.days)}
-                    >
-                      {duration.popular && (
-                        <View className="absolute -top-2 bg-green-500 px-2 py-1 rounded">
-                          <Text className="text-white text-xs font-bold">BEST</Text>
-                        </View>
-                      )}
-                      <Text
-                        className={`text-2xl font-bold ${
-                          selectedDuration === duration.days
-                            ? 'text-white'
-                            : isDarkMode
-                            ? 'text-white'
-                            : 'text-black'
-                        }`}
-                      >
-                        {duration.days}
-                      </Text>
-                      <Text
-                        className={`text-xs ${
-                          selectedDuration === duration.days
-                            ? 'text-white/80'
-                            : isDarkMode
-                            ? 'text-white/60'
-                            : 'text-gray-500'
-                        }`}
-                      >
-                        Days
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ padding: 20, paddingTop: 0 }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '600',
+                      marginBottom: 12,
+                      color: isDarkMode ? '#fff' : '#000',
+                    }}
+                  >
+                    Select Duration
+                  </Text>
+
+                  <View
+                    style={{
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    {DURATIONS.map((duration) => {
+                      const isSelected = selectedDuration === duration.days;
+                      return (
+                        <TouchableOpacity
+                          key={duration.days}
+                          onPress={() => setSelectedDuration(duration.days)}
+                          style={{
+                            flex: 1,
+                            marginHorizontal: 4,
+                            padding: 16,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: isSelected ? '#D55004' : isDarkMode ? '#333' : '#e5e5e5',
+                            backgroundColor: isSelected
+                              ? 'rgba(213, 80, 4, 0.1)'
+                              : isDarkMode
+                              ? '#252525'
+                              : '#f9f9f9',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {duration.popular && (
+                            <View
+                              style={{
+                                position: 'absolute',
+                                top: -8,
+                                backgroundColor: '#10b981',
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: 8,
+                              }}
+                            >
+                              <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                                POPULAR
+                              </Text>
+                            </View>
+                          )}
+                          <Text
+                            style={{
+                              fontSize: 18,
+                              fontWeight: 'bold',
+                              color: isSelected ? '#D55004' : isDarkMode ? '#fff' : '#000',
+                            }}
+                          >
+                            {duration.days}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: isDarkMode ? '#999' : '#666',
+                              marginTop: 4,
+                            }}
+                          >
+                            days
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
 
                 {/* Cost Summary */}
-                <View className={`p-4 rounded-xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'} mb-4`}>
-                  <View className="flex-row justify-between mb-2">
-                    <Text className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>
-                      Base Cost (Slot {selectedSlot})
+                <View
+                  style={{
+                    margin: 20,
+                    padding: 20,
+                    borderRadius: 16,
+                    backgroundColor: isDarkMode ? '#252525' : '#f9f9f9',
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                      justifyContent: 'space-between',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
+                      Base Cost:
                     </Text>
-                    <Text className={isDarkMode ? 'text-white' : 'text-black'}>
-                      {BOOST_SLOTS.find((s) => s.slot === selectedSlot)!.baseCredits} credits
+                    <Text style={{ color: isDarkMode ? '#fff' : '#000', fontWeight: '600' }}>
+                      {PRIORITY_LEVELS.find((p) => p.priority === selectedPriority)?.baseCredits}{' '}
+                      credits
                     </Text>
                   </View>
-                  <View className="flex-row justify-between mb-2">
-                    <Text className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>
-                      Duration ({selectedDuration} days)
+
+                  <View
+                    style={{
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                      justifyContent: 'space-between',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
+                      Duration:
                     </Text>
-                    <Text className={isDarkMode ? 'text-white' : 'text-black'}>
-                      ×{DURATIONS.find((d) => d.days === selectedDuration)!.multiplier}
+                    <Text style={{ color: isDarkMode ? '#fff' : '#000', fontWeight: '600' }}>
+                      {selectedDuration} days (×
+                      {DURATIONS.find((d) => d.days === selectedDuration)?.multiplier})
                     </Text>
                   </View>
-                  <View className="border-t border-gray-300 mt-2 pt-2 flex-row justify-between">
-                    <Text className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                      Total Cost
+
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: isDarkMode ? '#333' : '#e5e5e5',
+                      marginVertical: 12,
+                    }}
+                  />
+
+                  <View
+                    style={{
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 'bold',
+                        color: isDarkMode ? '#fff' : '#000',
+                      }}
+                    >
+                      Total Cost:
                     </Text>
-                    <Text className={`font-bold text-lg ${canAfford ? 'text-green-500' : 'text-red-500'}`}>
+                    <Text
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 'bold',
+                        color: canAfford ? '#10b981' : '#ef4444',
+                      }}
+                    >
                       {cost} credits
+                    </Text>
+                  </View>
+
+                  <View
+                    style={{
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                      justifyContent: 'space-between',
+                      marginTop: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
+                      Your Balance:
+                    </Text>
+                    <Text style={{ fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
+                      {creditBalance} credits
                     </Text>
                   </View>
                 </View>
 
-                {/* Boost Button */}
+                {/* Info Box */}
+                <View
+                  style={{
+                    margin: 20,
+                    marginTop: 0,
+                    padding: 16,
+                    borderRadius: 12,
+                    backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#3b82f6',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                    <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginRight: 8, marginTop: 2 }} />
+                    <Text style={{ flex: 1, fontSize: 13, color: isDarkMode ? '#bfdbfe' : '#1e40af', lineHeight: 20 }}>
+                      Boosted listings appear at the top of search results. Higher priority levels get better placement. Multiple listings can have the same priority - first-come, first-served!
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Action Buttons */}
+              <View style={{ padding: 20, paddingTop: 12 }}>
                 <TouchableOpacity
-                  className={`p-4 rounded-xl items-center ${
-                    canAfford && slotAvailable && !isProcessing ? 'bg-orange-500' : 'bg-gray-400'
-                  }`}
                   onPress={handleBoost}
-                  disabled={!canAfford || !slotAvailable || isProcessing}
+                  disabled={isProcessing || !canAfford}
+                  style={{
+                    backgroundColor: !canAfford || isProcessing ? '#999' : '#D55004',
+                    padding: 16,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}
                 >
                   {isProcessing ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text className="text-white font-bold text-lg">
-                      {!slotAvailable
-                        ? 'Slot Not Available'
-                        : !canAfford
-                        ? 'Insufficient Credits'
-                        : 'Boost Listing'}
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
+                      {!canAfford ? 'Insufficient Credits' : `Boost for ${cost} Credits`}
                     </Text>
                   )}
                 </TouchableOpacity>
-              </ScrollView>
+
+                <TouchableOpacity
+                  onPress={onClose}
+                  disabled={isProcessing}
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#333' : '#e5e5e5',
+                  }}
+                >
+                  <Text style={{ color: isDarkMode ? '#999' : '#666', fontSize: 16 }}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </TouchableWithoutFeedback>
         </View>

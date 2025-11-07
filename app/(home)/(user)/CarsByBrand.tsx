@@ -264,13 +264,49 @@ export default function CarsByBrand() {
 					dealership_longitude: item.dealerships.longitude
 				})) || []
 
-			// Apply random shuffle if no specific sort is selected
+			// Apply boost prioritization and randomization
 			if (sortBy === 'random' || !sortBy) {
-				// Fisher-Yates shuffle algorithm for true randomization
-				for (let i = carsData.length - 1; i > 0; i--) {
+				// Separate boosted and non-boosted cars
+				const boostedCars = carsData.filter((car: any) => {
+					return car.is_boosted && car.boost_priority && car.boost_end_date &&
+						   new Date(car.boost_end_date) > new Date();
+				});
+				const nonBoostedCars = carsData.filter((car: any) => {
+					return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+						   new Date(car.boost_end_date) <= new Date();
+				});
+
+				// Sort boosted cars by priority (highest first), then randomize within same priority
+				boostedCars.sort((a: any, b: any) => {
+					if (b.boost_priority !== a.boost_priority) {
+						return b.boost_priority - a.boost_priority;
+					}
+					return Math.random() - 0.5;
+				});
+
+				// Fisher-Yates shuffle for non-boosted cars
+				for (let i = nonBoostedCars.length - 1; i > 0; i--) {
 					const j = Math.floor(Math.random() * (i + 1));
-					[carsData[i], carsData[j]] = [carsData[j], carsData[i]]
+					[nonBoostedCars[i], nonBoostedCars[j]] = [nonBoostedCars[j], nonBoostedCars[i]]
 				}
+
+				// Combine: boosted first, then non-boosted
+				carsData = [...boostedCars, ...nonBoostedCars];
+			} else {
+				// For sorted views, still prioritize boosted cars at each sort level
+				carsData.sort((a: any, b: any) => {
+					// First check boost status
+					const aActive = a.is_boosted && a.boost_end_date && new Date(a.boost_end_date) > new Date();
+					const bActive = b.is_boosted && b.boost_end_date && new Date(b.boost_end_date) > new Date();
+
+					if (aActive && !bActive) return -1;
+					if (!aActive && bActive) return 1;
+					if (aActive && bActive && a.boost_priority !== b.boost_priority) {
+						return b.boost_priority - a.boost_priority;
+					}
+					// If both same boost status, maintain the database sort order
+					return 0;
+				});
 			}
 
 			setCars(carsData)

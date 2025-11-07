@@ -444,13 +444,32 @@ export default function DealershipDetails() {
 
 			if (error) throw error
 
-			const processedCars: Car[] = data?.map(item => ({
+			let processedCars: Car[] = data?.map(item => ({
 				...item,
 				dealership_name: item.dealerships.name,
 				dealership_logo: item.dealerships.logo,
 				dealership_phone: item.dealerships.phone,
 				dealership_location: item.dealerships.location,
 			})) || []
+
+			// **APPLY BOOST PRIORITY - Boosted cars always appear first**
+			// Separate boosted and non-boosted cars
+			const boostedCars = processedCars.filter(car => {
+				return car.is_boosted && car.boost_priority && car.boost_end_date &&
+					   new Date(car.boost_end_date) > new Date();
+			});
+			const nonBoostedCars = processedCars.filter(car => {
+				return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+					   new Date(car.boost_end_date) <= new Date();
+			});
+
+			// Sort boosted cars by priority (highest first)
+			boostedCars.sort((a, b) => {
+				return (b.boost_priority || 0) - (a.boost_priority || 0);
+			});
+
+			// Combine: boosted first, then non-boosted (maintaining their sort order)
+			processedCars = [...boostedCars, ...nonBoostedCars];
 
 			setAllCars(processedCars)
 			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
@@ -487,12 +506,28 @@ export default function DealershipDetails() {
 						car.color
 					]
 					return searchTerms.every(term =>
-						searchableFields.some(field => 
+						searchableFields.some(field =>
 							field.toLowerCase().includes(term)
 						)
 					)
 				})
 			}
+
+			// **PRIORITIZE BOOSTED CARS IN SEARCH RESULTS**
+			const boostedResults = result.filter(car => {
+				return car.is_boosted && car.boost_priority && car.boost_end_date &&
+					   new Date(car.boost_end_date) > new Date();
+			});
+			const nonBoostedResults = result.filter(car => {
+				return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+					   new Date(car.boost_end_date) <= new Date();
+			});
+
+			// Sort boosted by priority
+			boostedResults.sort((a, b) => (b.boost_priority || 0) - (a.boost_priority || 0));
+
+			// Combine with boosted first
+			result = [...boostedResults, ...nonBoostedResults];
 
 			setFilteredCars(result)
 			setLoadingState(prev => ({ ...prev, search: false }))

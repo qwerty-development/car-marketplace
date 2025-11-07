@@ -34,6 +34,7 @@ import { useAuth } from '@/utils/AuthContext'
 import { ListingSkeletonLoader } from '../Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { BoostListingModal } from '@/components/BoostListingModal'
+import { BoostInsightsWidget } from '@/components/BoostInsightsWidget'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -1416,7 +1417,7 @@ const ListingCard = useMemo(
                       <Ionicons name="rocket" size={20} color="#D55004" />
                       <View className='ml-2 flex-1'>
                         <Text className={`font-semibold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-                          Boosted - Slot {item.boost_slot}
+                          Boosted - Priority {item.boost_priority}
                         </Text>
                         <Text className={`text-xs ${isDarkMode ? 'text-orange-300/70' : 'text-orange-500'}`}>
                           Until {new Date(item.boost_end_date).toLocaleDateString()}
@@ -1522,6 +1523,11 @@ const ListingCard = useMemo(
       isDarkMode={isDarkMode}
       t={t}
     />
+
+    {/* Boost Performance Insights */}
+    {dealership?.id && (
+      <BoostInsightsWidget dealershipId={dealership.id} />
+    )}
 
     {/* Search and Filter Bar */}
     <ModernSearchBar

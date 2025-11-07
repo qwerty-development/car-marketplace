@@ -1,5 +1,6 @@
 // supabase/functions/expire-boosts/index.ts
 // Cron job to expire boosted listings that have passed their end_date
+// Updated for priority-based boost system
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -23,19 +24,33 @@ Deno.serve(async () => {
   try {
     const now = new Date().toISOString();
 
-    // Find expired boosts
-    const { data: expiredBoosts, error: findError } = await supabase
-      .from('boosted_listings')
-      .select('id, car_id, boost_slot, end_date')
-      .eq('status', 'active')
-      .lt('end_date', now);
+    // Find expired boosts in cars table (include dealership_id for logging)
+    const { data: expiredCars, error: findError } = await supabase
+      .from('cars')
+      .select('id, boost_priority, boost_end_date, dealership_id')
+      .eq('is_boosted', true)
+      .lt('boost_end_date', now);
 
     if (findError) {
       console.error(`[${requestId}] Error finding expired boosts:`, findError);
       throw findError;
     }
 
-    if (!expiredBoosts || expiredBoosts.length === 0) {
+    // Also check cars_rent table (no dealership_id in rentals)
+    const { data: expiredRentals, error: findRentError } = await supabase
+      .from('cars_rent')
+      .select('id, boost_priority, boost_end_date, user_id')
+      .eq('is_boosted', true)
+      .lt('boost_end_date', now);
+
+    if (findRentError) {
+      console.error(`[${requestId}] Error finding expired rental boosts:`, findRentError);
+      throw findRentError;
+    }
+
+    const totalExpired = (expiredCars?.length || 0) + (expiredRentals?.length || 0);
+
+    if (totalExpired === 0) {
       console.log(`[${requestId}] No expired boosts found`);
       return new Response(JSON.stringify({
         success: true,
@@ -47,54 +62,103 @@ Deno.serve(async () => {
       });
     }
 
-    console.log(`[${requestId}] Found ${expiredBoosts.length} expired boosts:`, {
-      count: expiredBoosts.length,
-      boostIds: expiredBoosts.map(b => b.id)
+    console.log(`[${requestId}] Found ${totalExpired} expired boosts:`, {
+      cars: expiredCars?.length || 0,
+      rentals: expiredRentals?.length || 0
     });
 
-    // Update boost status
-    const { error: updateBoostError } = await supabase
-      .from('boosted_listings')
-      .update({ status: 'expired' })
-      .in('id', expiredBoosts.map(b => b.id));
+    // Update expired cars and log expiration
+    if (expiredCars && expiredCars.length > 0) {
+      const { error: updateCarsError } = await supabase
+        .from('cars')
+        .update({
+          is_boosted: false,
+          boost_priority: null,
+          boost_end_date: null
+        })
+        .in('id', expiredCars.map(c => c.id));
 
-    if (updateBoostError) {
-      console.error(`[${requestId}] Error updating boost status:`, updateBoostError);
-      throw updateBoostError;
+      if (updateCarsError) {
+        console.error(`[${requestId}] Error updating cars:`, updateCarsError);
+        throw updateCarsError;
+      }
+
+      // Log expiration events to boost_history
+      const expirationLogs = expiredCars.map(car => ({
+        car_id: car.id,
+        dealership_id: car.dealership_id,
+        user_id: null,
+        action_type: 'expired',
+        boost_priority: car.boost_priority || 1,
+        duration_days: 0,
+        credits_spent: 0,
+        start_date: car.boost_end_date, // Use end date as reference
+        end_date: car.boost_end_date,
+        notes: 'Boost expired automatically via cron job'
+      }));
+
+      const { error: logError } = await supabase
+        .from('boost_history')
+        .insert(expirationLogs);
+
+      if (logError) {
+        console.warn(`[${requestId}] Error logging expiration:`, logError);
+        // Don't throw - expiration logging is non-critical
+      }
     }
 
-    // Update cars
-    const { error: updateCarsError } = await supabase
-      .from('cars')
-      .update({
-        is_boosted: false,
-        boost_slot: null,
-        boost_end_date: null
-      })
-      .in('id', expiredBoosts.map(b => b.car_id));
+    // Update expired rentals and log expiration
+    if (expiredRentals && expiredRentals.length > 0) {
+      const { error: updateRentalsError } = await supabase
+        .from('cars_rent')
+        .update({
+          is_boosted: false,
+          boost_priority: null,
+          boost_end_date: null
+        })
+        .in('id', expiredRentals.map(c => c.id));
 
-    if (updateCarsError) {
-      console.error(`[${requestId}] Error updating cars:`, updateCarsError);
-      throw updateCarsError;
+      if (updateRentalsError) {
+        console.error(`[${requestId}] Error updating rentals:`, updateRentalsError);
+        throw updateRentalsError;
+      }
+
+      // Log rental expiration events to boost_history
+      const rentalExpirationLogs = expiredRentals.map(rental => ({
+        car_id: rental.id,
+        dealership_id: null, // Rentals don't have dealership_id
+        user_id: rental.user_id,
+        action_type: 'expired',
+        boost_priority: rental.boost_priority || 1,
+        duration_days: 0,
+        credits_spent: 0,
+        start_date: rental.boost_end_date,
+        end_date: rental.boost_end_date,
+        notes: 'Rental boost expired automatically via cron job'
+      }));
+
+      const { error: logRentalError } = await supabase
+        .from('boost_history')
+        .insert(rentalExpirationLogs);
+
+      if (logRentalError) {
+        console.warn(`[${requestId}] Error logging rental expiration:`, logRentalError);
+        // Don't throw - expiration logging is non-critical
+      }
     }
 
     const totalTime = Date.now() - startTime;
 
     console.log(`[${requestId}] EXPIRE_BOOSTS_SUCCESS:`, {
-      expired: expiredBoosts.length,
-      processingTimeMs: totalTime,
-      expiredBoostIds: expiredBoosts.map(b => b.id)
+      expired: totalExpired,
+      processingTimeMs: totalTime
     });
 
     return new Response(JSON.stringify({
       success: true,
-      expired: expiredBoosts.length,
-      boosts: expiredBoosts.map(b => ({
-        id: b.id,
-        carId: b.car_id,
-        slot: b.boost_slot,
-        endDate: b.end_date
-      })),
+      expired: totalExpired,
+      cars: expiredCars?.length || 0,
+      rentals: expiredRentals?.length || 0,
       processingTimeMs: totalTime
     }), {
       headers: { 'Content-Type': 'application/json' },

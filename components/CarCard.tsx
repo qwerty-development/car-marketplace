@@ -225,6 +225,28 @@ export default function CarCard({
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Track boost impression when card becomes visible
+    if (car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date()) {
+      // Debounce impression tracking to avoid spam
+      const trackImpression = async () => {
+        try {
+          await supabase.rpc('track_boost_impression', {
+            p_car_id: car.id,
+            p_dealership_id: car.dealership_id || null,
+            p_user_id: user?.id || null,
+            p_boost_priority: car.boost_priority
+          });
+        } catch (error) {
+          // Silently fail - analytics shouldn't break user experience
+          console.debug('Boost impression tracking failed:', error);
+        }
+      };
+
+      // Track after a short delay to ensure it's actually viewed
+      const impressionTimer = setTimeout(trackImpression, 500);
+      return () => clearTimeout(impressionTimer);
+    }
   }, []);
 
   // Track call button clicks
@@ -270,7 +292,19 @@ export default function CarCard({
   const handleCardPress = useCallback(async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
+
+      // Track boost click analytics
+      if (car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date()) {
+        supabase.rpc('track_boost_click', {
+          p_car_id: car.id,
+          p_dealership_id: car.dealership_id || null,
+          p_user_id: user?.id || null,
+          p_boost_priority: car.boost_priority
+        }).catch(() => {
+          // Silently fail - don't block navigation
+        });
+      }
+
       // Add subtle press animation
       Animated.sequence([
         Animated.timing(scaleAnim, {
@@ -284,7 +318,7 @@ export default function CarCard({
           useNativeDriver: true,
         }),
       ]).start();
-      
+
       const prefetchedData = await prefetchCarDetails(car.id);
 
       router.push({
@@ -309,7 +343,7 @@ export default function CarCard({
         },
       });
     }
-  }, [router, car, isDealer, prefetchCarDetails, scaleAnim]);
+  }, [router, car, isDealer, prefetchCarDetails, scaleAnim, user]);
 
   const handleChat = useCallback(async () => {
     if (disableActions) return;
@@ -420,25 +454,6 @@ export default function CarCard({
             style={{ width: cardWidth, height: imageHeight }}
           />
 
-          {/* Last image overlay: black opacity with centered See more */}
-          {index === displayedImages.length - 1 && (
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.55)',
-                justifyContent: 'center',
-                alignItems: 'center'
-              }}
-            >
-              <Pressable onPress={handleCardPress} className="px-4 py-2 rounded-full active:opacity-80">
-                <StyledText className="text-white text-xl font-bold">{i18n.t('car.see_more_cta')}</StyledText>
-              </Pressable>
-            </View>
-          )}
 
 
           {/* Sold Banner */}
@@ -573,9 +588,12 @@ export default function CarCard({
           bounces={false}
         />
 
-        {/* Boost Indicator Badge */}
+        {/* Boost Indicator Badge - Premium Design */}
         {car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date() && (
-          <View
+          <LinearGradient
+            colors={['#D55004', '#FF6B1A']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={{
               position: 'absolute',
               top: 12,
@@ -583,22 +601,23 @@ export default function CarCard({
               right: isRTL ? 12 : undefined,
               flexDirection: isRTL ? 'row-reverse' : 'row',
               alignItems: 'center',
-              backgroundColor: 'rgba(213, 80, 4, 0.95)',
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 20,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
-              elevation: 5,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 24,
+              shadowColor: '#D55004',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 8,
+              elevation: 8,
+              borderWidth: 1.5,
+              borderColor: 'rgba(255, 255, 255, 0.3)',
             }}
           >
-            <Ionicons name="rocket" size={16} color="white" style={isRTL ? { marginLeft: 6 } : { marginRight: 6 }} />
-            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>
-              {t('car.boosted', 'Boosted')} #{car.boost_slot}
+            <Ionicons name="trophy" size={18} color="white" style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }} />
+            <Text style={{ color: 'white', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>
+              FEATURED
             </Text>
-          </View>
+          </LinearGradient>
         )}
 
         <StyledPressable

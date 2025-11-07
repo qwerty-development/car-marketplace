@@ -553,15 +553,7 @@ export default function BrowseCarsPage() {
           }
         }
 
-        // Boost Prioritization - Always prioritize boosted cars first (only for sale mode)
-        if (currentCarViewMode === 'sale') {
-          // Order by is_boosted DESC (true first), then by boost_slot ASC (slot 1 first)
-          queryBuilder = queryBuilder
-            .order("is_boosted", { ascending: false, nullsFirst: false })
-            .order("boost_slot", { ascending: true, nullsFirst: false });
-        }
-
-        // Sorting - Applied as secondary sort after boost prioritization
+        // Sorting
         if (currentSortOption) {
           switch (currentSortOption) {
             case "price_asc":
@@ -588,9 +580,6 @@ export default function BrowseCarsPage() {
               queryBuilder = queryBuilder.order("views", { ascending: false });
               break;
           }
-        } else if (currentCarViewMode === 'sale') {
-          // Default sort for sale mode after boost prioritization
-          queryBuilder = queryBuilder.order("listed_at", { ascending: false });
         }
 
         // Get count first for pagination
@@ -601,7 +590,7 @@ export default function BrowseCarsPage() {
           setCurrentPage(1);
           return;
         }
-        
+
         const totalItems = count;
         const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
         const safePageNumber = Math.min(page, totalPages);
@@ -610,6 +599,12 @@ export default function BrowseCarsPage() {
           safePageNumber * ITEMS_PER_PAGE - 1,
           totalItems - 1
         );
+
+        // Apply priority-based boost ordering (always prioritize boosted cars in sale mode)
+        if (currentCarViewMode === 'sale') {
+          queryBuilder = queryBuilder
+            .order("boost_priority", { ascending: false, nullsFirst: false });
+        }
 
         // Fetch data for current page
         const { data, error } = await queryBuilder.range(startRange, endRange);
@@ -628,6 +623,18 @@ export default function BrowseCarsPage() {
               const concat = `${make} ${model}`.trim();
               let score = 0;
 
+              // PRIORITY 1: Boost priority gets highest weight (10000 points per priority level)
+              // This ensures boosted cars ALWAYS appear before non-boosted cars
+              if (entry.is_boosted && entry.boost_priority && entry.boost_end_date) {
+                const now = new Date();
+                const boostEnd = new Date(entry.boost_end_date);
+                if (boostEnd > now) {
+                  // Active boost: priority 5 = 50000 points, priority 1 = 10000 points
+                  score += entry.boost_priority * 10000;
+                }
+              }
+
+              // PRIORITY 2: Relevance scoring (max ~2000 points)
               // Highest priority: make + model combos
               if (terms.length >= 2) {
                 if ((make.includes(terms[0]) && model.includes(terms[1])) || (make.includes(terms[1]) && model.includes(terms[0]))) {
@@ -672,11 +679,32 @@ export default function BrowseCarsPage() {
 
             data.sort((a: any, b: any) => scoreEntry(b) - scoreEntry(a));
           } else {
-            // No search query: fully randomize to give all cars equal visibility
-            for (let i = data.length - 1; i > 0; i--) {
+            // No search query: prioritize boosted cars, then randomize within each group
+            const boostedCars = data.filter((car: any) => {
+              return car.is_boosted && car.boost_priority && car.boost_end_date &&
+                     new Date(car.boost_end_date) > new Date();
+            });
+            const nonBoostedCars = data.filter((car: any) => {
+              return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+                     new Date(car.boost_end_date) <= new Date();
+            });
+
+            // Sort boosted cars by priority (highest first), then randomize within same priority
+            boostedCars.sort((a: any, b: any) => {
+              if (b.boost_priority !== a.boost_priority) {
+                return b.boost_priority - a.boost_priority;
+              }
+              return Math.random() - 0.5;
+            });
+
+            // Randomize non-boosted cars
+            for (let i = nonBoostedCars.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
-              [data[i], data[j]] = [data[j], data[i]];
+              [nonBoostedCars[i], nonBoostedCars[j]] = [nonBoostedCars[j], nonBoostedCars[i]];
             }
+
+            // Combine: boosted first, then non-boosted
+            data.splice(0, data.length, ...boostedCars, ...nonBoostedCars);
           }
         }
 
