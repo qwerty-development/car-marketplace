@@ -54,6 +54,8 @@ interface Car {
   price: number;
   mileage: number;
   category: string;
+  seller_type?: 'user' | 'dealer';
+  seller_name?: string;
   dealership_name: string;
   dealership_logo: string;
   dealership_phone: string;
@@ -240,7 +242,7 @@ export default function BrowseCarsPage() {
         let queryBuilder = supabase
           .from(tableName)
           .select(
-            `*, dealerships (name,logo,phone,location,latitude,longitude)`,
+            `*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)`,
             { count: "exact" }
           )
           .eq("status", "available");
@@ -708,17 +710,22 @@ export default function BrowseCarsPage() {
           }
         }
 
-        // Map dealership info - simplified approach
+        // Map seller info - handle both dealerships and users
         const newCars: Car[] =
-          data?.map((item: any) => ({
-            ...item,
-            dealership_name: item.dealerships.name,
-            dealership_logo: item.dealerships.logo,
-            dealership_phone: item.dealerships.phone,
-            dealership_location: item.dealerships.location,
-            dealership_latitude: item.dealerships.latitude,
-            dealership_longitude: item.dealerships.longitude,
-          })) || [];
+          data?.map((item: any) => {
+            const isDealer = !!item.dealership_id;
+            return {
+              ...item,
+              seller_type: isDealer ? 'dealer' : 'user',
+              seller_name: isDealer ? item.dealerships?.name : item.users?.name,
+              dealership_name: item.dealerships?.name || null,
+              dealership_logo: item.dealerships?.logo || null,
+              dealership_phone: item.dealerships?.phone || null,
+              dealership_location: item.dealerships?.location || null,
+              dealership_latitude: item.dealerships?.latitude || null,
+              dealership_longitude: item.dealerships?.longitude || null,
+            };
+          }) || [];
 
         // Simplified deduplication - use Map for better performance
         const carMap = new Map();

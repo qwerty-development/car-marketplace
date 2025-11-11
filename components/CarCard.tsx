@@ -192,6 +192,18 @@ export default function CarCard({
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const cardWidth = windowWidth - 32;
 
+  // Determine if this is a dealership car or user car
+  const isDealershipCar = useMemo(() => !!car.dealership_id, [car.dealership_id]);
+  
+  // Get seller info - works for both dealership and user cars
+  const sellerInfo = useMemo(() => ({
+    name: isDealershipCar ? car.dealership_name : car.seller_name || car.users?.name || t('common.private_seller'),
+    logo: isDealershipCar ? car.dealership_logo : null,
+    phone: isDealershipCar ? car.dealership_phone : car.seller_phone,
+    location: isDealershipCar ? car.dealership_location : null,
+    id: isDealershipCar ? car.dealership_id : car.user_id,
+  }), [car, isDealershipCar, t]);
+
   const imageHeight = useMemo(() => {
     const baseHeight = 260;
     const isTablet = windowWidth >= 768;
@@ -293,16 +305,20 @@ export default function CarCard({
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Track boost click analytics
+      // Track boost click analytics (fire and forget)
       if (car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date()) {
-        supabase.rpc('track_boost_click', {
-          p_car_id: car.id,
-          p_dealership_id: car.dealership_id || null,
-          p_user_id: user?.id || null,
-          p_boost_priority: car.boost_priority
-        }).catch(() => {
-          // Silently fail - don't block navigation
-        });
+        (async () => {
+          try {
+            await supabase.rpc('track_boost_click', {
+              p_car_id: car.id,
+              p_dealership_id: car.dealership_id || null,
+              p_user_id: user?.id || null,
+              p_boost_priority: car.boost_priority || 1
+            });
+          } catch {
+            // Silently fail - don't block navigation
+          }
+        })();
       }
 
       // Add subtle press animation
@@ -348,6 +364,15 @@ export default function CarCard({
   const handleChat = useCallback(async () => {
     if (disableActions) return;
 
+    // Only support chat for dealership cars
+    if (!isDealershipCar) {
+      Alert.alert(
+        t('common.not_available'),
+        t('common.chat_not_available_user_cars', 'Chat is only available for dealership cars. Please use call or WhatsApp to contact the seller.')
+      );
+      return;
+    }
+
     await startDealerChat({
       dealershipId: car?.dealership_id,
       userId: user?.id ?? null,
@@ -360,6 +385,7 @@ export default function CarCard({
   }, [
     car?.dealership_id,
     disableActions,
+    isDealershipCar,
     isGuest,
     router,
     t,
@@ -367,13 +393,13 @@ export default function CarCard({
   ]);
 
   const handleCall = useCallback(() => {
-    if (car.dealership_phone) {
+    if (sellerInfo.phone) {
       trackCallClick(car.id);
-      Linking.openURL(`tel:${car.dealership_phone}`);
+      Linking.openURL(`tel:${sellerInfo.phone}`);
     } else {
       Alert.alert(t('common.phone_not_available'));
     }
-  }, [car.dealership_phone, car.id, trackCallClick]);
+  }, [sellerInfo.phone, car.id, trackCallClick, t]);
 
   const handleShare = useCallback(async () => {
     if (!car) return;
@@ -387,6 +413,9 @@ export default function CarCard({
   }, [car]);
   
   const handleDealershipPress = useCallback(async () => {
+    // Only allow navigation to dealership details for dealership cars
+    if (!isDealershipCar) return;
+    
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     const route = isDealer
@@ -396,7 +425,7 @@ export default function CarCard({
       pathname: route,
       params: { dealershipId: car.dealership_id },
     });
-  }, [isDealer, router, car.dealership_id]);
+  }, [isDealer, isDealershipCar, router, car.dealership_id]);
 
   const handleFavoritePress = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -420,15 +449,18 @@ export default function CarCard({
   }, [onFavoritePress, car.id]);
 
   const formattedLocation = useMemo(() => {
-    if (car.dealership_location?.length > 20) {
+    const location = sellerInfo.location;
+    if (!location) return null;
+    
+    if (location.length > 20) {
       return (
-        car.dealership_location.slice(0, 20) +
+        location.slice(0, 20) +
         "\n" +
-        car.dealership_location.slice(20)
+        location.slice(20)
       );
     }
-    return car.dealership_location;
-  }, [car.dealership_location]);
+    return location;
+  }, [sellerInfo.location]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
@@ -525,12 +557,12 @@ export default function CarCard({
   );
 
   const handleWhatsAppPress = useCallback(() => {
-    if (car?.dealership_phone) {
+    if (sellerInfo.phone) {
       if (trackWhatsAppClick) {
         trackWhatsAppClick(car.id);
       }
 
-      const cleanedPhoneNumber = car.dealership_phone
+      const cleanedPhoneNumber = sellerInfo.phone
         .toString()
         .replace(/\D/g, "");
 
@@ -550,7 +582,7 @@ export default function CarCard({
     } else {
       Alert.alert(t('common.error'), t('common.phone_not_available'));
     }
-  }, [car, trackWhatsAppClick]);
+  }, [sellerInfo.phone, car, trackWhatsAppClick, t]);
 
   return (
     <>
@@ -731,18 +763,42 @@ export default function CarCard({
             style={{ marginTop: 4 }}
           >
             <StyledView style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              {car.dealership_logo && (
+              {/* Seller Logo/Avatar - Only show for dealerships */}
+              {isDealershipCar && sellerInfo.logo && (
                 <Pressable
                   onPress={handleDealershipPress}
                   style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }}
                 >
                   <StyledImage
-                    source={{ uri: car.dealership_logo }}
+                    source={{ uri: sellerInfo.logo }}
                     style={{ width: 48, height: 48 }}
                     className="rounded-full border border-textgray/20"
                     resizeMode="cover"
                   />
                 </Pressable>
+              )}
+
+              {/* For user cars without logo, show a placeholder icon */}
+              {!isDealershipCar && (
+                <View
+                  style={[
+                    isRTL ? { marginLeft: 12 } : { marginRight: 12 },
+                    {
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: isDarkMode ? '#444' : '#ccc',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="person"
+                    size={28}
+                    color={isDarkMode ? "#FFFFFF" : "#000000"}
+                  />
+                </View>
               )}
 
               <StyledView
@@ -756,17 +812,19 @@ export default function CarCard({
                   numberOfLines={2}
                   style={{ textAlign: isRTL ? 'right' : 'left' }}
                 >
-                  {car.dealership_name}
+                  {sellerInfo.name}
                 </StyledText>
-                <StyledText
-                  className={`text-sm ${
-                    isDarkMode ? "text-white/80" : "text-black"
-                  }`}
-                  numberOfLines={2}
-                  style={{ textAlign: isRTL ? 'right' : 'left' }}
-                >
-                  {formattedLocation}
-                </StyledText>
+                {formattedLocation && (
+                  <StyledText
+                    className={`text-sm ${
+                      isDarkMode ? "text-white/80" : "text-black"
+                    }`}
+                    numberOfLines={2}
+                    style={{ textAlign: isRTL ? 'right' : 'left' }}
+                  >
+                    {formattedLocation}
+                  </StyledText>
+                )}
               </StyledView>
 
               <StyledView
@@ -774,13 +832,16 @@ export default function CarCard({
               >
                 {!disableActions ? (
                   <>
-                    <ActionButton
-                      icon="chatbubble-ellipses-outline"
-                      onPress={handleChat}
-                      isDarkMode={isDarkMode}
-                      disabled={isStartingChat}
-                      loading={isStartingChat}
-                    />
+                    {/* Only show chat for dealership cars */}
+                    {isDealershipCar && (
+                      <ActionButton
+                        icon="chatbubble-ellipses-outline"
+                        onPress={handleChat}
+                        isDarkMode={isDarkMode}
+                        disabled={isStartingChat}
+                        loading={isStartingChat}
+                      />
+                    )}
                     <ActionButton
                       icon="call-outline"
                       onPress={handleCall}

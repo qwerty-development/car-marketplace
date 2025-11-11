@@ -42,6 +42,11 @@ interface CarListing {
 	is_boosted?: boolean
 	boost_priority?: number
 	boost_end_date?: string
+	user_id?: string
+	dealership_id?: number
+	seller_type?: 'user' | 'dealer'
+	seller_name?: string
+	seller_phone?: string
 }
 
 export default function MyListings() {
@@ -84,10 +89,10 @@ export default function MyListings() {
 			}
 
 			try {
-				// Build query to fetch user's cars
+				// Build query to fetch user's cars with user data
 				let query = supabase
 					.from('cars')
-					.select('*', { count: 'exact' })
+					.select('*, users!cars_user_id_fkey(name, id)', { count: 'exact' })
 					.eq('user_id', user.id)
 					.order('listed_at', { ascending: false })
 
@@ -99,6 +104,7 @@ export default function MyListings() {
 					setListings([])
 					setCurrentPage(1)
 					setHasMoreListings(false)
+					setTotalListings(0)
 					setIsLoading(false)
 					setInitialLoading(false)
 					return
@@ -117,9 +123,17 @@ export default function MyListings() {
 				const { data, error } = await query.range(startRange, endRange)
 				if (error) throw error
 
+				// Map the data to include seller info
+				const mappedData = (data || []).map((item: any) => ({
+					...item,
+					seller_type: 'user' as const,
+					seller_name: item.users?.name || 'Private Seller',
+					seller_phone: item.seller_phone || null,
+				}))
+
 				const uniqueListings = Array.from(
-					new Set((data || []).map(car => car.id))
-				).map(id => (data || []).find(car => car.id === id))
+					new Set(mappedData.map(car => car.id))
+				).map(id => mappedData.find(car => car.id === id))
 
 				setListings(prev =>
 					refresh ? uniqueListings : [...prev, ...uniqueListings]
@@ -218,7 +232,8 @@ export default function MyListings() {
 						pathname: '/(home)/(dealer)/AddEditListing',
 						params: {
 							userId: user?.id,
-							listingId: item.id
+							listingId: item.id,
+							isUserListing: 'true' // Flag to indicate this is a user listing
 						}
 					})
 				}
@@ -248,6 +263,14 @@ export default function MyListings() {
 											/>
 											<Text className='text-white text-xs font-bold uppercase tracking-wider'>
 												{item.status}
+											</Text>
+										</View>
+
+										{/* User Listing Badge */}
+										<View className='bg-blue-500/90 backdrop-blur-lg rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
+											<Ionicons name='person' size={12} color='#FFFFFF' />
+											<Text className='text-white text-xs font-bold ml-1.5'>
+												Private
 											</Text>
 										</View>
 
@@ -327,7 +350,7 @@ export default function MyListings() {
 												<Ionicons name="rocket" size={20} color="#D55004" />
 												<View className='ml-2 flex-1'>
 													<Text className={`font-semibold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-														Boosted - Priority {item.boost_priority}
+														Boosted{item.boost_priority ? ` - Priority ${item.boost_priority}` : ''}
 													</Text>
 													<Text className={`text-xs ${isDarkMode ? 'text-orange-300/70' : 'text-orange-500'}`}>
 														Until {new Date(item.boost_end_date).toLocaleDateString()}

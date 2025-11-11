@@ -895,7 +895,7 @@ export default function DealerListings() {
 					let query = supabase
 						.from(tableName)
 						.select(
-							'*, dealerships!inner(name,logo,phone,location,latitude,longitude)',
+							'*, dealerships!inner(name,logo,phone,location,latitude,longitude), users(name, id)',
 							{ count: 'exact' }
 						)
 						.eq('dealership_id', dealership.id)
@@ -958,15 +958,20 @@ export default function DealerListings() {
 				const { data, error } = await dataQuery.range(startRange, endRange)
 				if (error) throw error
 
-				const formattedData = (data || []).map(item => ({
-					...item,
-					dealership_name: item.dealerships.name,
-					dealership_logo: item.dealerships.logo,
-					dealership_phone: item.dealerships.phone,
-					dealership_location: item.dealerships.location,
-					dealership_latitude: item.dealerships.latitude,
-					dealership_longitude: item.dealerships.longitude
-				}))
+				const formattedData = (data || []).map(item => {
+					const isDealer = !!item.dealership_id;
+					return {
+						...item,
+						seller_type: isDealer ? 'dealer' : 'user',
+						seller_name: isDealer ? item.dealerships?.name : item.users?.name,
+						dealership_name: item.dealerships?.name || null,
+						dealership_logo: item.dealerships?.logo || null,
+						dealership_phone: item.dealerships?.phone || null,
+						dealership_location: item.dealerships?.location || null,
+						dealership_latitude: item.dealerships?.latitude || null,
+						dealership_longitude: item.dealerships?.longitude || null
+					};
+				})
 
 				const uniqueListings = Array.from(
 					new Set(formattedData.map(car => car.id))
