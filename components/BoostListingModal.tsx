@@ -211,8 +211,9 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                 backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
                 borderTopLeftRadius: 24,
                 borderTopRightRadius: 24,
-                paddingBottom: 40,
-                maxHeight: '90%',
+                height: '90%',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               {/* Header */}
@@ -226,15 +227,27 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                   borderBottomColor: isDarkMode ? '#333' : '#e5e5e5',
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 'bold',
-                    color: isDarkMode ? '#fff' : '#000',
-                  }}
-                >
-                  Boost Your Listing
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 24,
+                      fontWeight: '700',
+                      color: isDarkMode ? '#fff' : '#000',
+                    }}
+                  >
+                    Boost Your Listing
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: isDarkMode ? '#888' : '#666',
+                      marginTop: 6,
+                      fontWeight: '500',
+                    }}
+                  >
+                    Get more visibility with priority placement
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={onClose}>
                   <Ionicons
                     name="close"
@@ -247,19 +260,28 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
               <ScrollView
                 style={{ flex: 1 }}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 24 }}
               >
                 {/* Priority Selection */}
-                <View style={{ padding: 20 }}>
-                  <Text
-                    style={{
-                      fontSize: 18,
-                      fontWeight: '600',
-                      marginBottom: 12,
-                      color: isDarkMode ? '#fff' : '#000',
-                    }}
-                  >
-                    Select Priority Level
-                  </Text>
+                <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+                    <View style={{
+                      width: 4,
+                      height: 20,
+                      backgroundColor: '#D55004',
+                      borderRadius: 2,
+                      marginRight: 10
+                    }} />
+                    <Text
+                      style={{
+                        fontSize: 19,
+                        fontWeight: '700',
+                        color: isDarkMode ? '#fff' : '#000',
+                      }}
+                    >
+                      Select Priority
+                    </Text>
+                  </View>
 
                   {PRIORITY_LEVELS.map((level) => {
                     const isSelected = selectedPriority === level.priority;
@@ -271,37 +293,37 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                           flexDirection: isRTL ? 'row-reverse' : 'row',
                           alignItems: 'center',
                           padding: 16,
-                          marginBottom: 12,
-                          borderRadius: 12,
-                          borderWidth: 2,
-                          borderColor: isSelected ? '#D55004' : isDarkMode ? '#333' : '#e5e5e5',
+                          marginBottom: 10,
+                          borderRadius: 14,
+                          borderWidth: isSelected ? 2 : 1,
+                          borderColor: isSelected ? '#D55004' : isDarkMode ? '#2a2a2a' : '#e8e8e8',
                           backgroundColor: isSelected
-                            ? 'rgba(213, 80, 4, 0.1)'
+                            ? isDarkMode ? '#2a1810' : '#fff5f0'
                             : isDarkMode
-                            ? '#252525'
-                            : '#f9f9f9',
+                            ? '#1f1f1f'
+                            : '#ffffff',
                         }}
                       >
-                        <View
-                          style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 24,
-                            backgroundColor: isSelected ? '#D55004' : isDarkMode ? '#333' : '#e5e5e5',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: isRTL ? 0 : 12,
-                            marginLeft: isRTL ? 12 : 0,
-                          }}
-                        >
-                          <Ionicons
-                            name={level.icon as any}
-                            size={24}
-                            color={isSelected ? '#fff' : isDarkMode ? '#999' : '#666'}
-                          />
-                        </View>
-
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                          <View
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 10,
+                              backgroundColor: isSelected
+                                ? '#D55004'
+                                : isDarkMode ? '#2a2a2a' : '#f5f5f5',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: 14,
+                            }}
+                          >
+                            <Ionicons
+                              name={level.icon as any}
+                              size={20}
+                              color={isSelected ? '#fff' : isDarkMode ? '#999' : '#666'}
+                            />
+                          </View>
                           <Text
                             style={{
                               fontSize: 16,
@@ -309,27 +331,18 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                               color: isDarkMode ? '#fff' : '#000',
                             }}
                           >
-                            {level.label} - Priority {level.priority}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 14,
-                              color: isDarkMode ? '#999' : '#666',
-                              marginTop: 4,
-                            }}
-                          >
-                            {level.description}
+                            {level.label}
                           </Text>
                         </View>
 
                         <Text
                           style={{
-                            fontSize: 16,
-                            fontWeight: 'bold',
-                            color: isSelected ? '#D55004' : isDarkMode ? '#999' : '#666',
+                            fontSize: 17,
+                            fontWeight: '700',
+                            color: isSelected ? '#D55004' : isDarkMode ? '#888' : '#666',
                           }}
                         >
-                          {level.baseCredits} credits
+                          {level.baseCredits} cr
                         </Text>
                       </TouchableOpacity>
                     );
@@ -337,17 +350,25 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                 </View>
 
                 {/* Duration Selection */}
-                <View style={{ padding: 20, paddingTop: 0 }}>
-                  <Text
-                    style={{
-                      fontSize: 18,
-                      fontWeight: '600',
-                      marginBottom: 12,
-                      color: isDarkMode ? '#fff' : '#000',
-                    }}
-                  >
-                    Select Duration
-                  </Text>
+                <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+                    <View style={{
+                      width: 4,
+                      height: 20,
+                      backgroundColor: '#D55004',
+                      borderRadius: 2,
+                      marginRight: 10
+                    }} />
+                    <Text
+                      style={{
+                        fontSize: 19,
+                        fontWeight: '700',
+                        color: isDarkMode ? '#fff' : '#000',
+                      }}
+                    >
+                      Select Duration
+                    </Text>
+                  </View>
 
                   <View
                     style={{
@@ -364,38 +385,40 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                           style={{
                             flex: 1,
                             marginHorizontal: 4,
-                            padding: 16,
-                            borderRadius: 12,
-                            borderWidth: 2,
-                            borderColor: isSelected ? '#D55004' : isDarkMode ? '#333' : '#e5e5e5',
+                            paddingVertical: 18,
+                            paddingHorizontal: 8,
+                            borderRadius: 14,
+                            borderWidth: isSelected ? 2 : 1,
+                            borderColor: isSelected ? '#D55004' : isDarkMode ? '#2a2a2a' : '#e8e8e8',
                             backgroundColor: isSelected
-                              ? 'rgba(213, 80, 4, 0.1)'
+                              ? isDarkMode ? '#2a1810' : '#fff5f0'
                               : isDarkMode
-                              ? '#252525'
-                              : '#f9f9f9',
+                              ? '#1f1f1f'
+                              : '#ffffff',
                             alignItems: 'center',
+                            position: 'relative',
                           }}
                         >
                           {duration.popular && (
                             <View
                               style={{
                                 position: 'absolute',
-                                top: -8,
+                                top: -10,
                                 backgroundColor: '#10b981',
-                                paddingHorizontal: 8,
-                                paddingVertical: 2,
-                                borderRadius: 8,
+                                paddingHorizontal: 10,
+                                paddingVertical: 3,
+                                borderRadius: 10,
                               }}
                             >
-                              <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                              <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>
                                 POPULAR
                               </Text>
                             </View>
                           )}
                           <Text
                             style={{
-                              fontSize: 18,
-                              fontWeight: 'bold',
+                              fontSize: 26,
+                              fontWeight: '700',
                               color: isSelected ? '#D55004' : isDarkMode ? '#fff' : '#000',
                             }}
                           >
@@ -403,9 +426,10 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                           </Text>
                           <Text
                             style={{
-                              fontSize: 12,
-                              color: isDarkMode ? '#999' : '#666',
-                              marginTop: 4,
+                              fontSize: 13,
+                              color: isDarkMode ? '#888' : '#666',
+                              marginTop: 2,
+                              fontWeight: '500',
                             }}
                           >
                             days
@@ -419,48 +443,48 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                 {/* Cost Summary */}
                 <View
                   style={{
-                    margin: 20,
-                    padding: 20,
+                    marginHorizontal: 20,
+                    marginTop: 20,
+                    marginBottom: 16,
+                    padding: 18,
                     borderRadius: 16,
-                    backgroundColor: isDarkMode ? '#252525' : '#f9f9f9',
+                    backgroundColor: isDarkMode ? '#1f1f1f' : '#ffffff',
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? '#2a2a2a' : '#e8e8e8',
                   }}
                 >
                   <View
                     style={{
                       flexDirection: isRTL ? 'row-reverse' : 'row',
                       justifyContent: 'space-between',
-                      marginBottom: 12,
+                      alignItems: 'center',
                     }}
                   >
-                    <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
-                      Base Cost:
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: '500',
+                        color: isDarkMode ? '#999' : '#666',
+                      }}
+                    >
+                      Total Cost
                     </Text>
-                    <Text style={{ color: isDarkMode ? '#fff' : '#000', fontWeight: '600' }}>
-                      {PRIORITY_LEVELS.find((p) => p.priority === selectedPriority)?.baseCredits}{' '}
-                      credits
-                    </Text>
-                  </View>
-
-                  <View
-                    style={{
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                      justifyContent: 'space-between',
-                      marginBottom: 12,
-                    }}
-                  >
-                    <Text style={{ color: isDarkMode ? '#999' : '#666' }}>
-                      Duration:
-                    </Text>
-                    <Text style={{ color: isDarkMode ? '#fff' : '#000', fontWeight: '600' }}>
-                      {selectedDuration} days (×
-                      {DURATIONS.find((d) => d.days === selectedDuration)?.multiplier})
+                    <Text
+                      style={{
+                        fontSize: 28,
+                        fontWeight: '700',
+                        color: canAfford ? '#10b981' : '#ef4444',
+                      }}
+                    >
+                      {cost}
+                      <Text style={{ fontSize: 16, fontWeight: '600' }}> cr</Text>
                     </Text>
                   </View>
 
                   <View
                     style={{
                       height: 1,
-                      backgroundColor: isDarkMode ? '#333' : '#e5e5e5',
+                      backgroundColor: isDarkMode ? '#2a2a2a' : '#f0f0f0',
                       marginVertical: 12,
                     }}
                   />
@@ -469,82 +493,42 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                     style={{
                       flexDirection: isRTL ? 'row-reverse' : 'row',
                       justifyContent: 'space-between',
+                      alignItems: 'center',
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 'bold',
-                        color: isDarkMode ? '#fff' : '#000',
-                      }}
-                    >
-                      Total Cost:
+                    <Text style={{ fontSize: 14, color: isDarkMode ? '#888' : '#666', fontWeight: '500' }}>
+                      Your Balance
                     </Text>
-                    <Text
-                      style={{
-                        fontSize: 20,
-                        fontWeight: 'bold',
-                        color: canAfford ? '#10b981' : '#ef4444',
-                      }}
-                    >
-                      {cost} credits
-                    </Text>
-                  </View>
-
-                  <View
-                    style={{
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                      justifyContent: 'space-between',
-                      marginTop: 8,
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
-                      Your Balance:
-                    </Text>
-                    <Text style={{ fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
-                      {creditBalance} credits
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Info Box */}
-                <View
-                  style={{
-                    margin: 20,
-                    marginTop: 0,
-                    padding: 16,
-                    borderRadius: 12,
-                    backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
-                    borderLeftWidth: 4,
-                    borderLeftColor: '#3b82f6',
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                    <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginRight: 8, marginTop: 2 }} />
-                    <Text style={{ flex: 1, fontSize: 13, color: isDarkMode ? '#bfdbfe' : '#1e40af', lineHeight: 20 }}>
-                      Boosted listings appear at the top of search results. Higher priority levels get better placement. Multiple listings can have the same priority - first-come, first-served!
+                    <Text style={{ fontSize: 15, color: isDarkMode ? '#aaa' : '#444', fontWeight: '600' }}>
+                      {creditBalance} cr
                     </Text>
                   </View>
                 </View>
               </ScrollView>
 
               {/* Action Buttons */}
-              <View style={{ padding: 20, paddingTop: 12 }}>
+              <View style={{
+                padding: 20,
+                paddingTop: 16,
+                borderTopWidth: 1,
+                borderTopColor: isDarkMode ? '#2a2a2a' : '#e8e8e8',
+                backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+              }}>
                 <TouchableOpacity
                   onPress={handleBoost}
                   disabled={isProcessing || !canAfford}
                   style={{
-                    backgroundColor: !canAfford || isProcessing ? '#999' : '#D55004',
-                    padding: 16,
-                    borderRadius: 12,
+                    backgroundColor: !canAfford || isProcessing ? '#888' : '#D55004',
+                    paddingVertical: 16,
+                    borderRadius: 14,
                     alignItems: 'center',
-                    marginBottom: 12,
+                    marginBottom: 10,
                   }}
                 >
                   {isProcessing ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
                       {!canAfford ? 'Insufficient Credits' : `Boost for ${cost} Credits`}
                     </Text>
                   )}
@@ -554,14 +538,12 @@ export const BoostListingModal: React.FC<BoostListingModalProps> = ({
                   onPress={onClose}
                   disabled={isProcessing}
                   style={{
-                    padding: 16,
-                    borderRadius: 12,
+                    paddingVertical: 14,
+                    borderRadius: 14,
                     alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: isDarkMode ? '#333' : '#e5e5e5',
                   }}
                 >
-                  <Text style={{ color: isDarkMode ? '#999' : '#666', fontSize: 16 }}>
+                  <Text style={{ color: isDarkMode ? '#888' : '#666', fontSize: 15, fontWeight: '600' }}>
                     Cancel
                   </Text>
                 </TouchableOpacity>
