@@ -36,6 +36,7 @@ import { shareCar } from "@/utils/centralizedSharing";
 import { styled } from "nativewind";
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import { formatMileage } from '@/utils/formatMileage';
 
 const { width } = Dimensions.get("window");
 
@@ -1595,7 +1596,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 {
                   icon: "speedometer-outline",
                   label: "Mileage",
-                  value: car.mileage ? `${(car.mileage / 1000).toFixed(1)}k` : "N/A",
+                  value: car.mileage ? formatMileage(car.mileage) : "N/A",
                 },
                 {
                   icon: "hardware-chip-outline",

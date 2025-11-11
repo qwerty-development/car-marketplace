@@ -16,16 +16,22 @@ import {
 } from 'react-native'
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
+
 import { debounce } from '@/utils/debounce'
+
 import { useFavorites } from '@/utils/useFavorites'
+
 import MapView, { Marker } from 'react-native-maps'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/utils/ThemeContext'
+
 import { Image } from 'expo-image'
 import { Radius } from 'lucide-react-native'
 import { useAuth } from '@/utils/AuthContext'
+
 import { shareCar } from '@/utils/centralizedSharing'
+import { formatMileage } from '@/utils/formatMileage';
 import { getLogoUrl } from '@/hooks/getLogoUrl'
 
 const { width, height } = Dimensions.get('window')
@@ -373,7 +379,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 							{
 								icon: 'speedometer-outline',
 								label: 'Mileage',
-								value: `${(car.mileage / 1000).toFixed(1)}k`
+								value: `formatMileage(car.mileage)`
 							},
 							{
 								icon: 'hardware-chip-outline',

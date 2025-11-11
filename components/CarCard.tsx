@@ -38,6 +38,7 @@ import * as Haptics from 'expo-haptics';
 import { startDealerChat } from '@/utils/chatHelpers';
 import { useGuestUser } from '@/utils/GuestUserContext';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
+import { formatMileage } from '@/utils/formatMileage';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -723,7 +724,7 @@ export default function CarCard({
             <SpecItem
               title={t('car.mileage')}
               icon="highway"
-              value={`${(car.mileage / 1000).toFixed(1)}k`}
+              value={formatMileage(car.mileage)}
               isDarkMode={isDarkMode}
               iconLibrary="MaterialCommunityIcons"
             />
@@ -755,7 +756,7 @@ export default function CarCard({
             />
           </StyledView>
 
-          {/* Dealership Info */}
+          {/* Seller Info */}
           <StyledView
             className={`p-3 ${
               isDarkMode ? "bg-[#2b2b2b]" : "bg-[#d1d1d1]"
@@ -778,52 +779,110 @@ export default function CarCard({
                 </Pressable>
               )}
 
-              {/* For user cars without logo, show a placeholder icon */}
+              {/* For user cars, show improved avatar with gradient background */}
               {!isDealershipCar && (
-                <View
+                <LinearGradient
+                  colors={isDarkMode ? ['#4A5568', '#2D3748'] : ['#CBD5E0', '#A0AEC0']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                   style={[
                     isRTL ? { marginLeft: 12 } : { marginRight: 12 },
                     {
                       width: 48,
                       height: 48,
                       borderRadius: 24,
-                      backgroundColor: isDarkMode ? '#444' : '#ccc',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                     }
                   ]}
                 >
                   <Ionicons
                     name="person"
-                    size={28}
-                    color={isDarkMode ? "#FFFFFF" : "#000000"}
+                    size={26}
+                    color={isDarkMode ? "#E2E8F0" : "#2D3748"}
                   />
-                </View>
+                </LinearGradient>
               )}
 
               <StyledView
                 className="flex-1"
                 style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }}
               >
-                <StyledText
-                  className={`text-base font-semibold ${
-                    isDarkMode ? "text-white" : "text-black"
-                  } mb-0.5`}
-                  numberOfLines={2}
-                  style={{ textAlign: isRTL ? 'right' : 'left' }}
-                >
-                  {sellerInfo.name}
-                </StyledText>
-                {formattedLocation && (
+                <View style={{
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 6
+                }}>
+                  <StyledText
+                    className={`text-base font-semibold ${
+                      isDarkMode ? "text-white" : "text-black"
+                    }`}
+                    numberOfLines={1}
+                    style={{ textAlign: isRTL ? 'right' : 'left' }}
+                  >
+                    {sellerInfo.name}
+                  </StyledText>
+
+                  {/* Private Seller Badge for user cars */}
+                  {!isDealershipCar && (
+                    <View style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 12,
+                      backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)',
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.3)',
+                    }}>
+                      <Text style={{
+                        fontSize: 10,
+                        fontWeight: '600',
+                        color: isDarkMode ? '#A5B4FC' : '#4F46E5',
+                        letterSpacing: 0.3,
+                      }}>
+                        {t('common.private_seller', 'PRIVATE')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Location for dealership cars */}
+                {formattedLocation && isDealershipCar && (
                   <StyledText
                     className={`text-sm ${
                       isDarkMode ? "text-white/80" : "text-black"
                     }`}
                     numberOfLines={2}
-                    style={{ textAlign: isRTL ? 'right' : 'left' }}
+                    style={{ textAlign: isRTL ? 'right' : 'left', marginTop: 2 }}
                   >
                     {formattedLocation}
                   </StyledText>
+                )}
+
+                {/* Contact info hint for user cars */}
+                {!isDealershipCar && (
+                  <View style={{
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                    alignItems: 'center',
+                    marginTop: 4,
+                    gap: 4
+                  }}>
+                    <Ionicons
+                      name="call-outline"
+                      size={12}
+                      color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    />
+                    <StyledText
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                      style={{ textAlign: isRTL ? 'right' : 'left' }}
+                    >
+                      {t('car.contact_via_call_whatsapp', 'Contact via Call or WhatsApp')}
+                    </StyledText>
+                  </View>
                 )}
               </StyledView>
 

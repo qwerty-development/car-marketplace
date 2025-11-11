@@ -38,6 +38,7 @@ import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
 import { useTranslation } from 'react-i18next';
 import { I18nManager } from 'react-native';
+import { formatMileage } from '@/utils/formatMileage';
 let MapView: any;
 let MapViewMarker: any;
 
@@ -1417,9 +1418,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             {
               icon: "speedometer-outline",
               label: t('car.mileage'),
-              value: car.mileage
-                ? `${(car.mileage / 1000).toFixed(1)}k`
-                : "N/A",
+              value: car.mileage ? formatMileage(car.mileage) : "N/A",
             },
             {
               icon: "hardware-chip-outline",

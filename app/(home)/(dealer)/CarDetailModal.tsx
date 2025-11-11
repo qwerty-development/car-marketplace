@@ -18,13 +18,18 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from "@/utils/supabase";
+
 import { debounce } from "@/utils/debounce";
+
 import { useFavorites } from "@/utils/useFavorites";
+
 import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
+
 import { Image } from "react-native";
 import AutoclipModal from "@/components/AutoclipModal";
 import { useAuth } from "@/utils/AuthContext";
+
 import ErrorBoundary from "react-native-error-boundary";
 import ImageViewing from "react-native-image-viewing";
 
@@ -32,6 +37,7 @@ import ImageViewing from "react-native-image-viewing";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
+import { formatMileage } from '@/utils/formatMileage';
 import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get("window");
@@ -1059,7 +1065,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 {
                   icon: "speedometer-outline",
                   label: "Mileage",
-                  value: car.mileage ? `${(car.mileage / 1000).toFixed(1)}k` : "N/A",
+                  value: car.mileage ? `formatMileage(car.mileage)` : "N/A",
                 },
                 {
                   icon: "hardware-chip-outline",

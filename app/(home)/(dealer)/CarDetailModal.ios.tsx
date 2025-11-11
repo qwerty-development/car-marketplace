@@ -30,6 +30,7 @@ import { getLogoUrl } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
 import { useTranslation } from 'react-i18next';
+import { formatMileage } from '@/utils/formatMileage';
 
 const { width } = Dimensions.get("window");
 
@@ -843,7 +844,7 @@ const handleWhatsAppPress = useCallback(() => {
               {
                 icon: "speedometer-outline",
                 label: "Mileage",
-                value: `${(car.mileage / 1000).toFixed(1)}k`,
+                value: formatMileage(car.mileage),
               },
               {
                 icon: "hardware-chip-outline",

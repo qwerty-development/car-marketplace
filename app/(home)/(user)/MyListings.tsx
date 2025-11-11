@@ -15,11 +15,13 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
+import { formatMileage } from '@/utils/formatMileage';
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useScrollToTop, useFocusEffect } from '@react-navigation/native'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
+
 
 const ITEMS_PER_PAGE = 10
 
@@ -274,7 +276,7 @@ export default function MyListings() {
 									<SpecItem
 										title='KM'
 										icon='speedometer-outline'
-										value={`${(item.mileage / 1000).toFixed(1)}k`}
+										value={formatMileage(item.mileage)}
 										isDarkMode={isDarkMode}
 									/>
 									<SpecItem

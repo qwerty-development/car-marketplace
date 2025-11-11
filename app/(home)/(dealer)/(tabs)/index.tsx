@@ -19,8 +19,10 @@ import {
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
+
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
+
 import { useTranslation } from 'react-i18next'
 
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -31,6 +33,7 @@ import ModernPicker from '@/components/ModernPicker'
 import { useRouter } from 'expo-router'
   import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/utils/AuthContext'
+import { formatMileage } from '@/utils/formatMileage';
 import { ListingSkeletonLoader } from '../Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { BoostListingModal } from '@/components/BoostListingModal'
@@ -1376,7 +1379,7 @@ const ListingCard = useMemo(
                   <SpecItem
                     title={t('profile.inventory.km')}
                     icon='speedometer-outline'
-                    value={`${(item.mileage / 1000).toFixed(1)}k`}
+                    value={formatMileage(item.mileage)}
                     isDarkMode={isDarkMode}
                   />
                 )}

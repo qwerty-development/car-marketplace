@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
+import { formatMileage } from '@/utils/formatMileage';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = 270;
@@ -220,7 +221,7 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
                 marginRight: isRTL ? 4 : 0,
               }
             ]}>
-              {(car.mileage / 1000).toFixed(0)}k Km
+              {formatMileage(car.mileage)}
             </Text>
           </View>
 

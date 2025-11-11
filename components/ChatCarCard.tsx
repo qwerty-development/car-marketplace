@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, I18nManager } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
+import { formatMileage } from '@/utils/formatMileage';
 
 interface ChatCarCardProps {
   car: any;
@@ -38,7 +39,7 @@ export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
           </View>
           <View style={styles.specItem}>
             <MaterialCommunityIcons name="highway" size={16} color={isDarkMode ? '#bbb' : '#888'} />
-            <Text style={styles.specText}>{(car.mileage / 1000).toFixed(1)}k</Text>
+            <Text style={styles.specText}>{formatMileage(car.mileage)}</Text>
           </View>
           <View style={styles.specItem}>
             <MaterialCommunityIcons name="car-shift-pattern" size={16} color={isDarkMode ? '#bbb' : '#888'} />
