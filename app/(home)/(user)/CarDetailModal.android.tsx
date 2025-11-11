@@ -645,6 +645,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   const [isMapSectionVisible, setIsMapSectionVisible] = useState(false);
   const [mapLoadAttempted, setMapLoadAttempted] = useState(false);
 
+  // Determine if this is a dealership car or user car
+  const isDealershipCar = useMemo(() => !!car.dealership_id, [car.dealership_id]);
+
+  // Get seller info - works for both dealership and user cars
+  const sellerInfo = useMemo(() => ({
+    name: isDealershipCar ? car.dealership_name : car.seller_name || car.users?.name || t('common.private_seller'),
+    logo: isDealershipCar ? car.dealership_logo : null,
+    phone: isDealershipCar ? car.dealership_phone : car.seller_phone || car.phone,
+    location: isDealershipCar ? car.dealership_location : car.location || null,
+    id: isDealershipCar ? car.dealership_id : car.user_id,
+  }), [car, isDealershipCar, t]);
+
   // Delayed loading of heavy components
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -914,7 +926,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   );
 
   const fetchDealerCars = useCallback(async () => {
-    if (!car?.dealership_id || !car?.id) return;
+    // Only fetch dealer cars if this is a dealership listing
+    if (!isDealershipCar || !car?.dealership_id || !car?.id) return;
 
     try {
       const { data, error } = await supabase
@@ -922,6 +935,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
         .eq("dealership_id", car.dealership_id)
         .neq("id", car.id)
+        .eq("status", "available")
         .limit(5);
 
       if (error) throw error;
@@ -943,7 +957,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error("Error fetching dealer cars:", error);
       setDealerCars([]);
     }
-  }, [car?.dealership_id, car?.id]);
+  }, [isDealershipCar, car?.dealership_id, car?.id]);
 
   useEffect(() => {
     if (!car) return;
@@ -967,9 +981,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   }, [car, fetchSimilarCars, fetchDealerCars]);
 
   const handleDealershipPress = useCallback(() => {
-    if (!car?.dealership_id) {
-      Alert.alert('Error', 'Dealership information not available');
-      return;
+    // Only allow navigation to dealership details for dealership cars
+    if (!isDealershipCar || !car?.dealership_id) {
+      return; // Silently return for user listings
     }
 
     try {
@@ -981,10 +995,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error('Navigation error:', error);
       Alert.alert('Error', 'Could not navigate to dealership details');
     }
-  }, [router, car?.dealership_id]);
+  }, [isDealershipCar, router, car?.dealership_id]);
 
   const handleCall = useCallback(() => {
-    if (!car?.dealership_phone) {
+    if (!sellerInfo.phone) {
       Alert.alert("Phone number not available");
       return;
     }
@@ -996,12 +1010,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       }
 
       // Then proceed with the call
-      Linking.openURL(`tel:${car.dealership_phone}`);
+      Linking.openURL(`tel:${sellerInfo.phone}`);
     } catch (error) {
       console.error('Error making call:', error);
       Alert.alert('Error', 'Could not initiate call');
     }
-  }, [car?.dealership_phone, car?.id, trackCallClick]);
+  }, [sellerInfo.phone, car?.id, trackCallClick]);
 
   const handleShare = useCallback(async () => {
     if (!car) return;
@@ -1017,18 +1031,20 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
   // Improved maps handling for Android
   const handleOpenInMaps = useCallback(() => {
     try {
-      const { dealership_latitude, dealership_longitude } = car || {};
+      // Get location based on seller type
+      const latitude = isDealershipCar ? car.dealership_latitude : car.latitude;
+      const longitude = isDealershipCar ? car.dealership_longitude : car.longitude;
 
       // Validate coordinates
-      if (!dealership_latitude || !dealership_longitude ||
-          isNaN(Number(dealership_latitude)) || isNaN(Number(dealership_longitude))) {
+      if (!latitude || !longitude ||
+          isNaN(Number(latitude)) || isNaN(Number(longitude))) {
         Alert.alert("Location unavailable", "No valid location information available");
         return;
       }
 
-      const lat = parseFloat(dealership_latitude);
-      const lng = parseFloat(dealership_longitude);
-      const label = encodeURIComponent(car.dealership_name || "Dealership");
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      const label = encodeURIComponent(sellerInfo.name || "Location");
 
       // For Android, directly use Google Maps intent
       const url = `geo:${lat},${lng}?q=${lat},${lng}(${label})`;
@@ -1044,15 +1060,19 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error("Error opening maps:", error);
       Alert.alert("Error", "Unable to open maps at this time");
     }
-  }, [car]);
+  }, [isDealershipCar, car, sellerInfo.name]);
 
   const handleOpenInGoogleMaps = useCallback(() => {
     try {
-      const latitude = parseFloat(car?.dealership_latitude) || 0;
-      const longitude = parseFloat(car?.dealership_longitude) || 0;
+      // Get location based on seller type
+      const latValue = isDealershipCar ? car?.dealership_latitude : car?.latitude;
+      const lngValue = isDealershipCar ? car?.dealership_longitude : car?.longitude;
 
-      if (isNaN(latitude) || isNaN(longitude)) {
-        Alert.alert("Error", "Invalid location coordinates");
+      const latitude = parseFloat(latValue) || 0;
+      const longitude = parseFloat(lngValue) || 0;
+
+      if (isNaN(latitude) || isNaN(longitude) || (latitude === 0 && longitude === 0)) {
+        Alert.alert("Location unavailable", "No location information available");
         return;
       }
 
@@ -1065,7 +1085,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error("Error with map coordinates:", error);
       Alert.alert("Error", "Could not process map coordinates");
     }
-  }, [car?.dealership_latitude, car?.dealership_longitude]);
+  }, [isDealershipCar, car?.dealership_latitude, car?.dealership_longitude, car?.latitude, car?.longitude]);
 
   const renderCarItem = useCallback(
     ({ item }: any) => {
@@ -1116,7 +1136,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
   // Enhanced WhatsApp handling for Android
   const handleWhatsAppPress = useCallback(() => {
-    if (!car?.dealership_phone) {
+    if (!sellerInfo.phone) {
       Alert.alert('Phone number not available');
       return;
     }
@@ -1127,7 +1147,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         trackWhatsAppClick(car.id);
       }
 
-      const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+      const cleanedPhoneNumber = sellerInfo.phone.toString().replace(/\D/g, '');
       const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
 
@@ -1141,7 +1161,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error('Error opening WhatsApp:', error);
       Alert.alert('Error', 'Could not open WhatsApp');
     }
-  }, [car, trackWhatsAppClick]);
+  }, [sellerInfo.phone, car, trackWhatsAppClick]);
 
   // Safer image modal for Android
   const renderImageModal = () => {
@@ -1640,29 +1660,39 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
           {renderFeatures()}
 
           {/* Location Section with Map - Enhanced for Android */}
-          {isMapSectionVisible && (
-            <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  color: isDarkMode ? "#fff" : "#000",
-                  marginBottom: 12
-                }}
-              >
-                Location
-              </Text>
+          {isMapSectionVisible && (() => {
+            // Get location based on seller type
+            const latitude = isDealershipCar ? car.dealership_latitude : car.latitude;
+            const longitude = isDealershipCar ? car.dealership_longitude : car.longitude;
+            const hasLocation = latitude && longitude;
 
-              <SafeMapView
-                latitude={car.dealership_latitude}
-                longitude={car.dealership_longitude}
-                dealershipName={car.dealership_name}
-                dealershipLocation={car.dealership_location}
-                onMapPress={handleOpenInMaps}
-                isDarkMode={isDarkMode}
-              />
-            </View>
-          )}
+            // Only show map if we have valid location data
+            if (!hasLocation) return null;
+
+            return (
+              <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: isDarkMode ? "#fff" : "#000",
+                    marginBottom: 12
+                  }}
+                >
+                  Location
+                </Text>
+
+                <SafeMapView
+                  latitude={latitude}
+                  longitude={longitude}
+                  dealershipName={sellerInfo.name}
+                  dealershipLocation={sellerInfo.location}
+                  onMapPress={handleOpenInMaps}
+                  isDarkMode={isDarkMode}
+                />
+              </View>
+            );
+          })()}
 
           {/* Similar Cars Section */}
           {similarCars.length > 0 && (
@@ -1696,7 +1726,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             </View>
           )}
 
-          {dealerCars.length > 0 && (
+          {dealerCars.length > 0 && isDealershipCar && (
             <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
               <Text
                 style={{
@@ -1706,7 +1736,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                   marginBottom: 8
                 }}
               >
-                More from {car.dealership_name || 'Dealership'}
+                More from {sellerInfo.name || 'Dealership'}
               </Text>
               <FlatList
                 data={dealerCars}
@@ -1721,6 +1751,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 initialNumToRender={3}
               />
             </View>
+          )}
+
+          {/* Bottom spacing when dealer cars section is not shown */}
+          {(dealerCars.length === 0 || !isDealershipCar) && (
+            <View style={{ marginBottom: 180 }} />
           )}
         </ScrollView>
 
@@ -1743,10 +1778,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <TouchableOpacity onPress={handleDealershipPress}>
-                {car.dealership_logo ? (
+              <TouchableOpacity
+                onPress={handleDealershipPress}
+                disabled={!isDealershipCar}
+              >
+                {isDealershipCar && sellerInfo.logo ? (
                   <OptimizedImage
-                    source={{ uri: car.dealership_logo }}
+                    source={{ uri: sellerInfo.logo }}
                     style={{ width: 50, height: 50, borderRadius: 25 }}
                     fallbackColor={isDarkMode ? '#333' : '#e0e0e0'}
                   />
@@ -1759,11 +1797,18 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                     justifyContent: 'center',
                     alignItems: 'center'
                   }}>
-                    <Ionicons name="business-outline" size={24} color={isDarkMode ? '#999' : '#555'} />
+                    <Ionicons
+                      name={isDealershipCar ? "business-outline" : "person-outline"}
+                      size={24}
+                      color={isDarkMode ? '#999' : '#555'}
+                    />
                   </View>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDealershipPress}>
+              <TouchableOpacity
+                onPress={handleDealershipPress}
+                disabled={!isDealershipCar}
+              >
                 <View style={{ marginLeft: 12 }}>
                   <Text
                     style={{
@@ -1773,19 +1818,21 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                     }}
                     numberOfLines={1}
                   >
-                    {car.dealership_name || 'Dealership'}
+                    {sellerInfo.name}
                   </Text>
 
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: isDarkMode ? "#fff" : "#000",
-                      marginRight: 28
-                    }}
-                    numberOfLines={2}
-                  >
-                    <Ionicons name="location" size={12} /> {car.dealership_location || 'Location not available'}
-                  </Text>
+                  {sellerInfo.location && (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: isDarkMode ? "#fff" : "#000",
+                        marginRight: 28
+                      }}
+                      numberOfLines={2}
+                    >
+                      <Ionicons name="location" size={12} /> {sellerInfo.location}
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
             </View>

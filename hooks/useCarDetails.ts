@@ -13,22 +13,28 @@ export function useCarDetails() {
     try {
       const { data, error } = await supabase
         .from('cars')
-        .select('*, dealerships (name,logo,phone,location,latitude,longitude)')
+        .select('*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)')
         .eq('id', carId)
         .single()
-        console.log(data.trim)
 
       if (error) throw error
 
       if (data) {
+        // Determine if this is a dealership car or user car
+        const isDealershipCar = !!data.dealership_id
+
         return {
           ...data,
-          dealership_name: data.dealerships.name,
-          dealership_logo: data.dealerships.logo,
-          dealership_phone: data.dealerships.phone,
-          dealership_location: data.dealerships.location,
-          dealership_latitude: data.dealerships.latitude,
-          dealership_longitude: data.dealerships.longitude
+          // Dealership info (will be null for user cars)
+          dealership_name: data.dealerships?.name || null,
+          dealership_logo: data.dealerships?.logo || null,
+          dealership_phone: data.dealerships?.phone || null,
+          dealership_location: data.dealerships?.location || null,
+          dealership_latitude: data.dealerships?.latitude || null,
+          dealership_longitude: data.dealerships?.longitude || null,
+          // User info (for user-posted cars)
+          seller_name: isDealershipCar ? data.dealerships?.name : data.users?.name,
+          seller_phone: data.phone || null,
         }
       }
     } catch (err) {
