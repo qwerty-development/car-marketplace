@@ -39,6 +39,7 @@ import { useLanguage } from '@/utils/LanguageContext';
 import { I18nManager } from 'react-native';
 import { CreditBalance } from "@/components/CreditBalance";
 import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
+import { useCredits } from "@/utils/CreditContext";
 
 const WHATSAPP_NUMBER = "70786818";
 const SUPPORT_EMAIL = "info@fleetapp.com";
@@ -67,6 +68,7 @@ export default function UserProfileAndSupportPage() {
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
+  const { refreshBalance } = useCredits();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
@@ -117,27 +119,33 @@ export default function UserProfileAndSupportPage() {
         clearTimeout(refreshTimeoutRef.current);
       }
 
-      if (forceProfileRefresh) {
-        await forceProfileRefresh();
-      } else {
-        // Direct database fetch as fallback
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", user.id)
-          .single();
+      // Refresh both profile and credit balance
+      await Promise.all([
+        (async () => {
+          if (forceProfileRefresh) {
+            await forceProfileRefresh();
+          } else {
+            // Direct database fetch as fallback
+            const { data, error } = await supabase
+              .from("users")
+              .select("*")
+              .eq("id", user.id)
+              .single();
 
-        if (data && !error) {
-          console.log("[Profile] Manual refresh successful");
-          // The profile will be updated through normal AuthContext flow
-        }
-      }
+            if (data && !error) {
+              console.log("[Profile] Manual refresh successful");
+              // The profile will be updated through normal AuthContext flow
+            }
+          }
+        })(),
+        refreshBalance() // Refresh credit balance
+      ]);
     } catch (error) {
       console.error("[Profile] Refresh error:", error);
     } finally {
       setRefreshing(false);
     }
-  }, [user?.id, isGuest, refreshing, forceProfileRefresh]);
+  }, [user?.id, isGuest, refreshing, forceProfileRefresh, refreshBalance]);
 
   // CRITICAL FIX: Optimized profile state synchronization with change detection
   const syncProfileState = useCallback(() => {

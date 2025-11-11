@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/utils/AuthContext';
+import { useCredits } from '@/utils/CreditContext';
 
 interface PurchaseCreditsModalProps {
   visible: boolean;
@@ -48,6 +49,7 @@ export const PurchaseCreditsModal: React.FC<PurchaseCreditsModalProps> = ({
   onSuccess,
 }) => {
   const { user } = useAuth();
+  const { refreshBalance } = useCredits();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePurchase = async (pkg: CreditPackage) => {
@@ -92,6 +94,8 @@ export const PurchaseCreditsModal: React.FC<PurchaseCreditsModalProps> = ({
               text: 'Open Payment',
               onPress: async () => {
                 await Linking.openURL(data.collectUrl);
+                // Refresh credit balance after payment
+                await refreshBalance();
                 onSuccess?.();
               },
             },

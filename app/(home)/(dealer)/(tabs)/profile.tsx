@@ -29,6 +29,9 @@ import { DealerLogoPicker } from '@/components/DealerLogoPicker'
 import Constants from 'expo-constants'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '@/utils/LanguageContext'
+import { useCredits } from '@/utils/CreditContext'
+import { CreditBalance } from '@/components/CreditBalance'
+import { PurchaseCreditsModal } from '@/components/PurchaseCreditsModal'
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 const MODAL_HEIGHT_PERCENTAGE = 0.7;
@@ -366,6 +369,7 @@ export default function DealershipProfilePage() {
   useScrollToTop(scrollRef)
 
   const { dealership, isLoading: isProfileLoading, fetchDealershipProfile } = useDealershipProfile()
+  const { refreshBalance } = useCredits()
   const {
     isUploading: isLogoUploading,
     handleImageUpload: handleLogoUpload,
@@ -389,6 +393,7 @@ export default function DealershipProfilePage() {
   const [isCreatingPayment, setIsCreatingPayment] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false)
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
 
   // Subscription checks
   const isSubscriptionValid = useCallback(() => {
@@ -508,10 +513,18 @@ export default function DealershipProfilePage() {
     );
   };
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    fetchDealershipProfile().finally(() => setRefreshing(false))
-  }, [fetchDealershipProfile])
+    try {
+      // Refresh both dealership profile and credit balance
+      await Promise.all([
+        fetchDealershipProfile(),
+        refreshBalance()
+      ])
+    } finally {
+      setRefreshing(false)
+    }
+  }, [fetchDealershipProfile, refreshBalance])
 
   const handleSelectPlan = useCallback(async (plan: 'monthly' | 'yearly') => {
     try {
@@ -650,8 +663,8 @@ export default function DealershipProfilePage() {
         </View>
 
         {/* Subscription Banner */}
-        <View className="px-6 mt-4 mb-6">
-          <SubscriptionBanner 
+        <View className="px-6 mt-4 mb-4">
+          <SubscriptionBanner
             isDarkMode={isDarkMode}
             subscriptionExpired={subscriptionExpired}
             showWarning={showWarning}
@@ -659,6 +672,15 @@ export default function DealershipProfilePage() {
             router={router}
             onRenewPress={() => setIsRenewModalVisible(true)}
             t={t}
+          />
+        </View>
+
+        {/* Credit Balance Widget */}
+        <View className="px-6 mb-6">
+          <CreditBalance
+            isDarkMode={isDarkMode}
+            onPurchasePress={() => setShowPurchaseModal(true)}
+            isRTL={isRTL}
           />
         </View>
 
@@ -958,6 +980,17 @@ export default function DealershipProfilePage() {
         isDarkMode={isDarkMode}
         onSelectPlan={handleSelectPlan}
         isSubmitting={isCreatingPayment}
+      />
+
+      {/* Purchase Credits Modal */}
+      <PurchaseCreditsModal
+        visible={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onSuccess={() => {
+          setShowPurchaseModal(false);
+        }}
       />
 
       {/* Sign Out Overlay */}
