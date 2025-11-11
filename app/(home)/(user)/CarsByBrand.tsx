@@ -213,7 +213,7 @@ export default function CarsByBrand() {
 		try {
 			let query = supabase
 				.from('cars')
-				.select(`*, dealerships (name,logo,phone,location,latitude,longitude)`)
+				.select(`*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)`)
 				.eq('status', 'available')
 				.eq('make', brandName)
 
@@ -254,15 +254,24 @@ export default function CarsByBrand() {
 			if (error) throw error
 
 			let carsData =
-				data?.map(item => ({
-					...item,
-					dealership_name: item.dealerships.name,
-					dealership_logo: item.dealerships.logo,
-					dealership_phone: item.dealerships.phone,
-					dealership_location: item.dealerships.location,
-					dealership_latitude: item.dealerships.latitude,
-					dealership_longitude: item.dealerships.longitude
-				})) || []
+				data?.map(item => {
+					// Check if this is a dealer car or user car
+					const isDealer = !!item.dealership_id
+					return {
+						...item,
+						// Set seller info based on whether it's a dealer or user car
+						seller_type: isDealer ? 'dealer' : 'user',
+						seller_name: isDealer ? item.dealerships?.name : item.users?.name,
+						seller_phone: isDealer ? item.dealerships?.phone : null,
+						// Keep dealership fields for backward compatibility
+						dealership_name: item.dealerships?.name || null,
+						dealership_logo: item.dealerships?.logo || null,
+						dealership_phone: item.dealerships?.phone || null,
+						dealership_location: item.dealerships?.location || null,
+						dealership_latitude: item.dealerships?.latitude || null,
+						dealership_longitude: item.dealerships?.longitude || null
+					}
+				}) || []
 
 			// Apply boost prioritization and randomization
 			if (sortBy === 'random' || !sortBy) {
