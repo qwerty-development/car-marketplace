@@ -34,7 +34,7 @@ interface CreditPackage {
 }
 
 const CREDIT_PACKAGES: CreditPackage[] = [
-  { credits: 10, price: 10, label: 'Starter' },
+  { credits: 1, price: 1, label: 'Starter' },
   { credits: 25, price: 25, label: 'Basic', popular: true },
   { credits: 50, price: 48, label: 'Value', savings: '4% off' },
   { credits: 100, price: 90, label: 'Pro', savings: '10% off' },
@@ -113,36 +113,36 @@ export const PurchaseCreditsModal: React.FC<PurchaseCreditsModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View className="flex-1 bg-black/50 justify-end">
-          <TouchableWithoutFeedback>
-            <View
-              className={`${isDarkMode ? 'bg-neutral-900' : 'bg-white'} rounded-t-3xl p-6 max-h-[85%]`}
-            >
-              {/* Header */}
-              <View
-                className={`flex-row ${isRTL ? 'flex-row-reverse' : ''} justify-between items-center mb-6`}
+      <View className="flex-1 bg-black/50 justify-end">
+        <TouchableWithoutFeedback onPress={isProcessing ? undefined : onClose}>
+          <View className="flex-1" />
+        </TouchableWithoutFeedback>
+        
+        <View className={`${isDarkMode ? 'bg-neutral-900' : 'bg-white'} rounded-t-3xl p-6 max-h-[85%]`}>
+          {/* Header */}
+          <View
+            className={`flex-row ${isRTL ? 'flex-row-reverse' : ''} justify-between items-center mb-6`}
+          >
+            <View>
+              <Text
+                className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}
               >
-                <View>
-                  <Text
-                    className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}
-                  >
-                    Purchase Credits
-                  </Text>
-                  <Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} mt-1`}>
-                    Credits never expire
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={onClose} disabled={isProcessing}>
-                  <Ionicons
-                    name="close"
-                    size={28}
-                    color={isDarkMode ? '#fff' : '#000'}
-                  />
-                </TouchableOpacity>
-              </View>
+                Purchase Credits
+              </Text>
+              <Text className={`${isDarkMode ? 'text-white/60' : 'text-gray-500'} mt-1`}>
+                Credits never expire
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} disabled={isProcessing}>
+              <Ionicons
+                name="close"
+                size={28}
+                color={isDarkMode ? '#fff' : '#000'}
+              />
+            </TouchableOpacity>
+          </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false}>
                 {CREDIT_PACKAGES.map((pkg) => (
                   <TouchableOpacity
                     key={pkg.credits}
@@ -182,6 +182,7 @@ export const PurchaseCreditsModal: React.FC<PurchaseCreditsModalProps> = ({
                                 isRTL ? 'mr-2' : 'ml-2'
                               }`}
                             >
+                              
                               <Text className="text-white text-xs font-semibold">
                                 {pkg.savings}
                               </Text>
@@ -242,18 +243,10 @@ export const PurchaseCreditsModal: React.FC<PurchaseCreditsModalProps> = ({
                 </View>
               </View>
 
-              {isProcessing && (
-                <View className="absolute inset-0 bg-black/50 rounded-t-3xl items-center justify-center">
-                  <View className="bg-white p-6 rounded-2xl items-center">
-                    <ActivityIndicator size="large" color="#D55004" />
-                    <Text className="text-black font-semibold mt-3">Processing...</Text>
-                  </View>
-                </View>
-              )}
+              
             </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
+          </View>
+        </Modal>
+      );
+    };
+  
