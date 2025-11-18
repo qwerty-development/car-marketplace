@@ -1,4 +1,6 @@
-export const getLogoUrl = (make: string, isLightMode: boolean) => {
+export const getLogoUrl = (make: string | null | undefined, isLightMode: boolean) => {
+	if (!make) return null;
+	
 	const formattedMake = make.toLowerCase().replace(/\s+/g, '-')
 
 	// Handle special cases

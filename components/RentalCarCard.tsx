@@ -161,7 +161,9 @@ const ActionButton = ({ icon, text, onPress, isDarkMode, disabled = false, loadi
 );
 
 // Helper function to format rental period display
-const formatRentalPeriod = (period: string) => {
+const formatRentalPeriod = (period: string | null | undefined) => {
+  if (!period) return 'Day'; // Default to 'Day' if period is null/undefined
+  
   const periodMap: { [key: string]: string } = {
     'hourly': 'Hour',
     'daily': 'Day',
@@ -458,8 +460,8 @@ export default function RentalCarCard({
   }, [displayImages.length, currentImageIndex, isDarkMode]);
 
   const dealerLogo = useMemo(
-    () => getLogoUrl(car.dealership_logo, isDarkMode),
-    [car.dealership_logo, isDarkMode]
+    () => car.dealership_logo || null,
+    [car.dealership_logo]
   );
 
   return (
