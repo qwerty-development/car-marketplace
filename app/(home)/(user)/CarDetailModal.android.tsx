@@ -37,6 +37,13 @@ import { styled } from "nativewind";
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { formatMileage } from '@/utils/formatMileage';
+import {
+  isRentalCar,
+  formatCarPrice,
+  getTechnicalDataFields,
+  getCarWhatsAppMessage,
+  getSimilarCarsTableName
+} from '@/utils/carDisplayHelpers';
 
 const { width } = Dimensions.get("window");
 
@@ -825,9 +832,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!car?.id || !car?.make) return;
 
     try {
+      const tableName = getSimilarCarsTableName(car);
+
       // First, try to find cars with same make, model, and year
       let { data: exactMatches, error: exactMatchError } = await supabase
-        .from("cars")
+        .from(tableName)
         .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
         .eq("make", car.make)
         .eq("model", car.model)
@@ -855,7 +864,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       // If no exact matches, fall back to similarly priced cars
       const { data: priceMatches, error: priceMatchError } = await supabase
-        .from("cars")
+        .from(tableName)
         .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
         .neq("id", car.id)
         .eq("status", "available")
@@ -1149,7 +1158,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       }
 
       const cleanedPhoneNumber = sellerInfo.phone.toString().replace(/\D/g, '');
-      const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
+      const message = getCarWhatsAppMessage(car);
       const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
 
       Linking.openURL(webURL).catch(() => {
@@ -1481,7 +1490,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
               zIndex: 20
             }}>
               <Text style={{ color: '#D55004', fontSize: 18, fontWeight: 'bold' }}>
-                ${car.price ? car.price.toLocaleString() : 'N/A'}
+                {formatCarPrice(car.price, car.rental_period)}
               </Text>
             </View>
           </View>
@@ -1592,38 +1601,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
                 backgroundColor: isDarkMode ? "#1c1c1c" : "#e9e9e9"
               }}
             >
-              {[
-                {
-                  icon: "speedometer-outline",
-                  label: "Mileage",
-                  value: car.mileage ? formatMileage(car.mileage) : "N/A",
-                },
-                {
-                  icon: "hardware-chip-outline",
-                  label: "Trans",
-                  value: car.transmission ? car.transmission.substring(0, 4) : "N/A",
-                },
-                {
-                  icon: "car-sport-outline",
-                  label: "Drive",
-                  value: car.drivetrain || "N/A",
-                },
-                {
-                  icon: "color-palette-outline",
-                  label: "Color",
-                  value: car.color || "N/A",
-                },
-                {
-                  icon: "thermometer-outline",
-                  label: "Condition",
-                  value: car.condition || "N/A",
-                },
-                {
-                  icon: "earth",
-                  label: "Source",
-                  value: car.source || "Local",
-                },
-              ].map((item, index, array) => (
+              {getTechnicalDataFields(car, t).map((item, index, array) => (
                 <TechnicalDataItem
                   key={item.label}
                   icon={item.icon}

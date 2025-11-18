@@ -143,6 +143,7 @@
     "year": "Year",
     "mileage": "Mileage",
     "transmission": "Transmission",
+    "rental_period": "Rental Period",
     "fuel_type": "Fuel Type",
     "engine": "Engine",
     "drivetrain": "Drivetrain",
