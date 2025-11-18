@@ -424,6 +424,7 @@
       "km": "Km",
       "transmission": "Transm.",
       "condition": "Condition",
+      "rental_period": "Period",
       "status": "Status",
       "all": "All",
       "available": "Available",
