@@ -742,6 +742,9 @@ interface CarListing {
 	mileage?: number // Optional - not present in cars_rent
 	transmission: 'Manual' | 'Automatic'
 	rental_period?: string // Optional - for rent listings (daily, weekly, monthly, hourly)
+	is_boosted?: boolean // Optional - boost status
+	boost_priority?: number // Optional - boost priority level
+	boost_end_date?: string // Optional - boost end date
 }
 
 interface Dealership {
@@ -895,12 +898,15 @@ export default function DealerListings() {
 
 				// Helper to build a fresh query with all conditions
 				const buildBaseQuery = () => {
+					// Build select string based on view mode
+					// cars_rent only has dealerships, no users relationship
+					const selectString = currentViewMode === 'sale'
+						? '*, dealerships!inner(name,logo,phone,location,latitude,longitude), users(name, id)'
+						: '*, dealerships!inner(name,logo,phone,location,latitude,longitude)'
+					
 					let query = supabase
 						.from(tableName)
-						.select(
-							'*, dealerships!inner(name,logo,phone,location,latitude,longitude), users(name, id)',
-							{ count: 'exact' }
-						)
+						.select(selectString, { count: 'exact' })
 						.eq('dealership_id', dealership.id)
 						.order(currentSortBy, { ascending: currentSortOrder === 'asc' })
 
@@ -961,12 +967,14 @@ export default function DealerListings() {
 				const { data, error } = await dataQuery.range(startRange, endRange)
 				if (error) throw error
 
-				const formattedData = (data || []).map(item => {
+				const formattedData = (data || []).map((item: any) => {
+					// For dealer listings, always dealer type
+					// In sale mode, check if it's a dealer or user listing
 					const isDealer = !!item.dealership_id;
 					return {
 						...item,
-						seller_type: isDealer ? 'dealer' : 'user',
-						seller_name: isDealer ? item.dealerships?.name : item.users?.name,
+						seller_type: 'dealer',
+						seller_name: item.dealerships?.name || null,
 						dealership_name: item.dealerships?.name || null,
 						dealership_logo: item.dealerships?.logo || null,
 						dealership_phone: item.dealerships?.phone || null,
