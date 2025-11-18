@@ -21,6 +21,7 @@ import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
+import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
 
 export default function DealerConversationDetailScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId?: string | string[] }>();
@@ -205,6 +206,13 @@ export default function DealerConversationDetailScreen() {
           </View>
         ) : (
           <>
+            {conversation && (
+              <ConversationCarHeader 
+                conversation={conversation}
+                dealershipId={conversation.dealership_id}
+                isDealer={true}
+              />
+            )}
             <FlatList
               ref={listRef}
               data={messages}

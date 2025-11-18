@@ -326,8 +326,9 @@ export default function RentalCarCard({
       t,
       onAuthRequired: () => setShowAuthModal(true),
       setLoading: setIsStartingChat,
+      carRentId: car?.id ?? null,
     });
-  }, [car?.dealership_id, disableActions, isGuest, router, t, user?.id]);
+  }, [car?.dealership_id, car?.id, disableActions, isGuest, router, t, user?.id]);
 
   const handleCall = useCallback(() => {
     if (car.dealership_phone) {

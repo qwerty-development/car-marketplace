@@ -382,9 +382,11 @@ export default function CarCard({
       t,
       onAuthRequired: () => setShowAuthModal(true),
       setLoading: setIsStartingChat,
+      carId: car?.id ?? null,
     });
   }, [
     car?.dealership_id,
+    car?.id,
     disableActions,
     isDealershipCar,
     isGuest,

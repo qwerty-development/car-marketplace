@@ -2,6 +2,8 @@ export interface ConversationSummary {
   id: number;
   user_id: string;
   dealership_id: number;
+  car_id: number | null;
+  car_rent_id: number | null;
   created_at: string;
   updated_at: string;
   last_message_at: string | null;
@@ -10,6 +12,8 @@ export interface ConversationSummary {
   dealer_unread_count: number;
   user?: ChatUserParticipant | null;
   dealership?: ChatDealershipParticipant | null;
+  car?: CarListingContext | null;
+  carRent?: RentalCarContext | null;
 }
 
 export interface ChatUserParticipant {
@@ -46,7 +50,63 @@ export interface SendMessagePayload {
   mediaUrl?: string;
 }
 
+export interface CarListingContext {
+  id: number;
+  dealership_id: number;
+  make: string;
+  model: string;
+  year: number;
+  price: number;
+  images: string[] | null;
+  status: 'available' | 'sold' | 'pending';
+}
+
+export interface RentalCarContext {
+  id: number;
+  dealership_id: number;
+  make: string;
+  model: string;
+  year: number;
+  price: number;
+  images: string[] | null;
+  status: 'available' | 'unavailable';
+}
+
 export interface CreateConversationParams {
   userId: string;
   dealershipId: number;
+  carId?: number | null;
+  carRentId?: number | null;
+}
+
+export type CarContext = CarListingContext | RentalCarContext | null;
+
+/**
+ * Validates that exactly one car type is provided (XOR constraint)
+ * @param carId - Car listing ID
+ * @param carRentId - Rental car ID
+ * @throws Error if both or neither car types are provided
+ */
+export function validateCarContext(carId?: number | null, carRentId?: number | null): {
+  isValid: boolean;
+  error?: string;
+} {
+  const hasCarId = carId !== null && carId !== undefined;
+  const hasCarRentId = carRentId !== null && carRentId !== undefined;
+
+  if (hasCarId && hasCarRentId) {
+    return {
+      isValid: false,
+      error: 'Cannot specify both car_id and car_rent_id. Provide only one.',
+    };
+  }
+
+  if (!hasCarId && !hasCarRentId) {
+    return {
+      isValid: false,
+      error: 'Must specify either car_id or car_rent_id.',
+    };
+  }
+
+  return { isValid: true };
 }

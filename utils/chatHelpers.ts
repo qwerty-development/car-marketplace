@@ -11,6 +11,8 @@ interface StartDealerChatOptions {
   t: (key: string, defaultMessage?: string) => string;
   onAuthRequired?: () => void;
   setLoading?: (loading: boolean) => void;
+  carId?: number | null;
+  carRentId?: number | null;
 }
 
 export async function startDealerChat({
@@ -21,6 +23,8 @@ export async function startDealerChat({
   t,
   onAuthRequired,
   setLoading,
+  carId,
+  carRentId,
 }: StartDealerChatOptions): Promise<{ started: boolean; conversationId?: number }> {
   if (isGuest || !userId) {
     onAuthRequired?.();
@@ -44,6 +48,8 @@ export async function startDealerChat({
     const conversation = await ChatService.ensureConversation({
       userId,
       dealershipId,
+      carId: carId ?? null,
+      carRentId: carRentId ?? null,
     });
 
     router.push({

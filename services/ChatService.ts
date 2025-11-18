@@ -5,12 +5,17 @@ import {
   ChatDealershipParticipant,
   CreateConversationParams,
   SendMessagePayload,
+  CarListingContext,
+  RentalCarContext,
+  validateCarContext,
 } from '@/types/chat';
 
 type RawConversationRow = {
   id: number;
   user_id: string;
   dealership_id: number;
+  car_id: number | null;
+  car_rent_id: number | null;
   created_at: string;
   updated_at: string;
   last_message_at: string | null;
@@ -21,6 +26,10 @@ type RawConversationRow = {
   dealerships?: ChatDealershipParticipant | ChatDealershipParticipant[] | null;
   user?: { id: string; name: string | null; email: string | null } | { id: string; name: string | null; email: string | null }[] | null;
   users?: { id: string; name: string | null; email: string | null } | { id: string; name: string | null; email: string | null }[] | null;
+  car?: CarListingContext | CarListingContext[] | null;
+  cars?: CarListingContext | CarListingContext[] | null;
+  carRent?: RentalCarContext | RentalCarContext[] | null;
+  cars_rent?: RentalCarContext | RentalCarContext[] | null;
 };
 
 const extractSingleOrNull = <T>(data: T | T[] | null | undefined): T | null => {
@@ -31,11 +40,15 @@ const extractSingleOrNull = <T>(data: T | T[] | null | undefined): T | null => {
 const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
   const dealership = extractSingleOrNull(row.dealership ?? row.dealerships);
   const user = extractSingleOrNull(row.user ?? row.users);
+  const car = extractSingleOrNull(row.car ?? row.cars);
+  const carRent = extractSingleOrNull(row.carRent ?? row.cars_rent);
 
   return {
     id: row.id,
     user_id: row.user_id,
     dealership_id: row.dealership_id,
+    car_id: row.car_id,
+    car_rent_id: row.car_rent_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
     last_message_at: row.last_message_at,
@@ -44,6 +57,8 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
     dealer_unread_count: row.dealer_unread_count ?? 0,
     dealership,
     user,
+    car: car as CarListingContext | null,
+    carRent: carRent as RentalCarContext | null,
   };
 };
 
@@ -51,6 +66,8 @@ const enrichConversationSelect = `
   id,
   user_id,
   dealership_id,
+  car_id,
+  car_rent_id,
   created_at,
   updated_at,
   last_message_at,
@@ -63,6 +80,26 @@ const enrichConversationSelect = `
     logo,
     phone,
     location
+  ),
+  car:cars (
+    id,
+    dealership_id,
+    make,
+    model,
+    year,
+    price,
+    images,
+    status
+  ),
+  carRent:cars_rent (
+    id,
+    dealership_id,
+    make,
+    model,
+    year,
+    price,
+    images,
+    status
   )
 `;
 
@@ -86,14 +123,35 @@ export class ChatService {
   static async ensureConversation({
     userId,
     dealershipId,
+    carId,
+    carRentId,
   }: CreateConversationParams): Promise<ConversationSummary> {
-    // Check if a conversation already exists
-    const { data: existing, error: lookupError } = await supabase
+    // Validate car context (XOR: exactly one or neither)
+    if (carId !== undefined || carRentId !== undefined) {
+      const validation = validateCarContext(carId, carRentId);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+    }
+
+    // Build query filters
+    let query = supabase
       .from('conversations')
       .select('id')
       .eq('user_id', userId)
-      .eq('dealership_id', dealershipId)
-      .maybeSingle();
+      .eq('dealership_id', dealershipId);
+
+    // Add car-specific filters
+    if (carId !== undefined && carId !== null) {
+      query = query.eq('car_id', carId).is('car_rent_id', null);
+    } else if (carRentId !== undefined && carRentId !== null) {
+      query = query.eq('car_rent_id', carRentId).is('car_id', null);
+    } else {
+      // Generic conversation (no specific car)
+      query = query.is('car_id', null).is('car_rent_id', null);
+    }
+
+    const { data: existing, error: lookupError } = await query.maybeSingle();
 
     if (lookupError && lookupError.code !== 'PGRST116') {
       throw lookupError;
@@ -102,12 +160,21 @@ export class ChatService {
     let conversationId = existing?.id;
 
     if (!conversationId) {
+      const insertPayload: any = {
+        user_id: userId,
+        dealership_id: dealershipId,
+      };
+
+      if (carId !== undefined && carId !== null) {
+        insertPayload.car_id = carId;
+      }
+      if (carRentId !== undefined && carRentId !== null) {
+        insertPayload.car_rent_id = carRentId;
+      }
+
       const { data: inserted, error: insertError } = await supabase
         .from('conversations')
-        .insert({
-          user_id: userId,
-          dealership_id: dealershipId,
-        })
+        .insert(insertPayload)
         .select('id')
         .single();
 

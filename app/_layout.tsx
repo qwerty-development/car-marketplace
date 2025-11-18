@@ -306,7 +306,7 @@ const DeepLinkHandler = () => {
 
   // FIXED: Enhanced navigation with better stack management
   const navigateToDeepLink = useCallback(
-    async (type: "car" | "clip", id: string, isInitialLink: boolean) => {
+    async (type: "car" | "clip" | "conversation", id: string, isInitialLink: boolean) => {
       console.log(
         `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}`
       );
@@ -318,8 +318,10 @@ const DeepLinkHandler = () => {
       currentPath.includes("CarDetails") && type === "car";
     const isAlreadyOnAutoclips =
       currentPath.includes("autoclips") && type === "clip";
+    const isAlreadyOnConversation =
+      currentPath.includes("messages") && type === "conversation";
 
-    if (isAlreadyOnCarDetails || isAlreadyOnAutoclips) {
+    if (isAlreadyOnCarDetails || isAlreadyOnAutoclips || isAlreadyOnConversation) {
       console.log("[DeepLink] Already on target page, navigating to new instance");
 
       // FIXED: Use replace navigation to force a reload with new params
@@ -333,12 +335,21 @@ const DeepLinkHandler = () => {
             fromDeepLink: "true",
           },
         });
-      } else {
+      } else if (type === "clip") {
         // Force navigation to the same route with new params
         router.replace({
           pathname: "/(home)/(user)/(tabs)/autoclips",
           params: {
             clipId: id,
+            fromDeepLink: "true",
+          },
+        });
+      } else if (type === "conversation") {
+        // Force navigation to conversation with new params
+        router.replace({
+          pathname: "/(home)/(user)/messages/[conversationId]",
+          params: {
+            conversationId: id,
             fromDeepLink: "true",
           },
         });
@@ -448,6 +459,50 @@ const DeepLinkHandler = () => {
               });
             }
           }
+        } else if (type === "conversation") {
+          // For conversation deep links
+          if (Platform.OS === "android") {
+            // Android: Always establish proper stack
+            if (isInitialLink || !segments.includes("(home)")) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              router.replace("/(home)/(user)");
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+
+            // Navigate to conversation
+            router.push({
+              pathname: "/(home)/(user)/messages/[conversationId]",
+              params: {
+                conversationId: id,
+                fromDeepLink: "true",
+              },
+            });
+          } else {
+            // iOS: Direct navigation if stack exists, otherwise build it
+            if (!segments.includes("(home)") && isInitialLink) {
+              // Build stack for iOS initial link
+              router.replace("/(home)/(user)");
+              // Wait for navigation to settle
+              setTimeout(() => {
+                router.push({
+                  pathname: "/(home)/(user)/messages/[conversationId]",
+                  params: {
+                    conversationId: id,
+                    fromDeepLink: "true",
+                  },
+                });
+              }, 300);
+            } else {
+              // Direct navigation for runtime links
+              router.push({
+                pathname: "/(home)/(user)/messages/[conversationId]",
+                params: {
+                  conversationId: id,
+                  fromDeepLink: "true",
+                },
+              });
+            }
+          }
         }
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
@@ -543,17 +598,21 @@ const DeepLinkHandler = () => {
           // Extract ID from various path formats
           let carId: string | null = null;
           let clipId: string | null = null;
+          let conversationId: string | null = null;
 
           // Match patterns like: cars/123, car/123, /cars/123, etc.
           const carMatch = normalizedPath.match(/^(?:\/)?cars?\/(\d+)$/);
           const clipMatch = normalizedPath.match(
             /^(?:\/)?(?:clips?|autoclips?)\/(\d+)$/
           );
+          const conversationMatch = normalizedPath.match(/^(?:\/)?(?:conversation|messages?)\/(\d+)$/);
 
           if (carMatch) {
             carId = carMatch[1];
           } else if (clipMatch) {
             clipId = clipMatch[1];
+          } else if (conversationMatch) {
+            conversationId = conversationMatch[1];
           }
 
           const isEffectivelySignedIn = isSignedIn || isGuest;
@@ -580,6 +639,19 @@ const DeepLinkHandler = () => {
             }
 
             await navigateToDeepLink("clip", clipId, isInitialLink);
+          }
+          // Handle conversation deep links
+          else if (conversationId && !isNaN(Number(conversationId))) {
+            if (!isEffectivelySignedIn) {
+              console.log(
+                "[DeepLink] User not signed in, redirecting to sign-in first"
+              );
+              global.pendingDeepLink = { type: "conversation", id: conversationId };
+              router.replace("/(auth)/sign-in");
+              return;
+            }
+
+            await navigateToDeepLink("conversation", conversationId, isInitialLink);
           }
           // Handle invalid deep links
           else {

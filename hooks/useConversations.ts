@@ -7,6 +7,7 @@ import { ConversationSummary } from '@/types/chat';
 interface UseConversationsOptions {
   userId?: string | null;
   enabled?: boolean;
+  includeCarContext?: boolean;
 }
 
 const queryKey = (userId?: string | null) => [
@@ -17,6 +18,7 @@ const queryKey = (userId?: string | null) => [
 export function useConversations({
   userId,
   enabled = true,
+  includeCarContext = true,
 }: UseConversationsOptions) {
   const queryClient = useQueryClient();
 
@@ -46,6 +48,8 @@ export function useConversations({
 
     const filter = `user_id=eq.${userId}`;
 
+    // Subscribe to all conversation changes (INSERT, UPDATE, DELETE)
+    // Changes include car_id and car_rent_id fields automatically
     const channel = supabase
       .channel(`conversations:${filter}`)
       .on(
@@ -56,18 +60,44 @@ export function useConversations({
           table: 'conversations',
           filter,
         },
-        () => {
+        (payload) => {
+          // Invalidate query to refetch conversations with updated car context
           queryClient.invalidateQueries(queryKey(userId));
         }
       )
       .subscribe();
 
+    // Optional: Also listen to car table changes if car context is enabled
+    // This ensures we get updates if car status/price changes
+    let carChannel: any = null;
+    if (includeCarContext) {
+      carChannel = supabase
+        .channel(`cars-realtime:${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'cars',
+          },
+          () => {
+            // Invalidate conversations when car details change
+            queryClient.invalidateQueries(queryKey(userId));
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
-      // Properly cleanup channel on unmount
+      // Properly cleanup channels on unmount
       channel.unsubscribe();
       supabase.removeChannel(channel);
+      if (carChannel) {
+        carChannel.unsubscribe();
+        supabase.removeChannel(carChannel);
+      }
     };
-  }, [userId, isEnabled, queryClient]);
+  }, [userId, isEnabled, includeCarContext, queryClient]);
 
   return result;
 }

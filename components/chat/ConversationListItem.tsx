@@ -61,11 +61,19 @@ function getDisplayInfo(
 ) {
   if (viewerRole === 'user') {
     const dealer = conversation.dealership;
+    const carInfo = conversation.car || conversation.carRent;
+    const carLabel = carInfo
+      ? `${carInfo.make} ${carInfo.model} (${carInfo.year})${
+          conversation.carRent ? ' • For Rent' : ''
+        }`
+      : '';
+
     return {
       title: dealer?.name ?? 'Dealer',
-      subtitle: dealer?.location ?? dealer?.phone ?? '',
+      subtitle: carLabel || dealer?.location || dealer?.phone || '',
       avatarUrl: dealer?.logo ?? null,
       fallbackLetter: dealer?.name?.[0]?.toUpperCase() ?? 'D',
+      carInfo: carLabel || null,
     };
   }
 
@@ -82,6 +90,7 @@ function getDisplayInfo(
     subtitle: user?.email ?? '',
     avatarUrl: null,
     fallbackLetter: fallbackLabel.charAt(0).toUpperCase(),
+    carInfo: null,
   };
 }
 
@@ -176,6 +185,26 @@ export default function ConversationListItem({
           </Text>
         ) : null}
 
+        {info.carInfo ? (
+          <View style={styles.carBadge}>
+            <Ionicons
+              name={conversation.carRent ? 'car-outline' : 'checkmark-circle'}
+              size={14}
+              color={conversation.carRent ? '#D55004' : '#666'}
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.carInfo,
+                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+              ]}
+              numberOfLines={1}
+            >
+              {info.carInfo}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.previewRow}>
           <Ionicons
             name="chatbubble-ellipses-outline"
@@ -260,6 +289,16 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     marginTop: 2,
+  },
+  carBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  carInfo: {
+    fontSize: 12,
+    marginTop: 2,
+    flex: 1,
   },
   previewRow: {
     flexDirection: 'row',
