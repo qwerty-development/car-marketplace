@@ -40,6 +40,7 @@ export default function CarDetailsPage() {
   const { isDarkMode } = useTheme()
   const carId = params.carId as string
   const isDealer = params.isDealerView === 'true'
+  const isRental = params.isRental === 'true'
   const fromDeepLink = params.fromDeepLink === 'true'
   const [appState, setAppState] = useState(AppState.currentState)
 
@@ -136,7 +137,7 @@ export default function CarDetailsPage() {
     }, 15000)
 
     loadCarDetails()
-  }, [carId, params.prefetchedData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [carId, params.prefetchedData, isRental]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Extract car details loading logic to a reusable function
   const loadCarDetails = useCallback(async () => {
@@ -182,7 +183,7 @@ export default function CarDetailsPage() {
         throw new Error('No valid car ID available')
       }
 
-      const fetchedCar = await prefetchCarDetails(carId)
+      const fetchedCar = await prefetchCarDetails(carId, isRental)
       if (!fetchedCar) {
         throw new Error('Car not found')
       }
@@ -210,7 +211,7 @@ export default function CarDetailsPage() {
         setIsLoading(false)
       }
     }
-  }, [carId, params.prefetchedData, prefetchCarDetails])
+  }, [carId, params.prefetchedData, prefetchCarDetails, isRental])
 
   // Load car details on mount with proper cleanup and timeout handling
   useEffect(() => {

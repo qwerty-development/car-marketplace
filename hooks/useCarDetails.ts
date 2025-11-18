@@ -6,14 +6,21 @@ export function useCarDetails() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const prefetchCarDetails = useCallback(async (carId: string) => {
+  const prefetchCarDetails = useCallback(async (carId: string, isRental: boolean = false) => {
     setIsLoading(true)
     setError(null)
 
     try {
+      // Determine which table to query based on isRental flag
+      const tableName = isRental ? 'cars_rent' : 'cars'
+      // cars_rent only has dealerships relationship, no users
+      const selectString = isRental
+        ? '*, dealerships (name,logo,phone,location,latitude,longitude)'
+        : '*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)'
+      
       const { data, error } = await supabase
-        .from('cars')
-        .select('*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)')
+        .from(tableName)
+        .select(selectString)
         .eq('id', carId)
         .single()
 

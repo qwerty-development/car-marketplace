@@ -239,12 +239,15 @@ export default function BrowseCarsPage() {
         // Determine table based on car view mode
         const tableName = currentCarViewMode === 'rent' ? 'cars_rent' : 'cars';
         
+        // Build select string based on view mode
+        // cars_rent only has dealerships relationship, no users
+        const selectString = currentCarViewMode === 'rent'
+          ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
+          : `*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)`;
+        
         let queryBuilder = supabase
           .from(tableName)
-          .select(
-            `*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)`,
-            { count: "exact" }
-          )
+          .select(selectString, { count: "exact" })
           .eq("status", "available");
 
         // Special Filters

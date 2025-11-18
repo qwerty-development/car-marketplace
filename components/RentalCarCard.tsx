@@ -289,7 +289,7 @@ export default function RentalCarCard({
         }),
       ]).start();
       
-      const prefetchedData = await prefetchCarDetails(car.id);
+      const prefetchedData = await prefetchCarDetails(car.id, true); // Pass true for isRental
 
       router.push({
         pathname: isDealer
@@ -406,28 +406,32 @@ export default function RentalCarCard({
 
   const renderImageItem = useCallback(
     ({ item, index: imageIndex }: any) => (
-      <OptimizedImage
-        key={imageIndex}
-        source={{ uri: item }}
-        style={{
-          width: cardWidth,
-          height: imageHeight,
-        }}
-        fallbackColor={isDarkMode ? "#1a1a1a" : "#f0f0f0"}
-      />
+      <Pressable onPress={handleCardPress} className="bg-neutral-800">
+        <View className="relative bg-neutral-800">
+          <OptimizedImage
+            key={imageIndex}
+            source={{ uri: item }}
+            style={{
+              width: cardWidth,
+              height: imageHeight,
+            }}
+            fallbackColor={isDarkMode ? "#1a1a1a" : "#f0f0f0"}
+          />
+        </View>
+      </Pressable>
     ),
-    [cardWidth, imageHeight, isDarkMode]
+    [cardWidth, imageHeight, isDarkMode, handleCardPress]
   );
 
   const displayImages = useMemo(() => {
     return car.images ? car.images.slice(0, MAX_IMAGES) : [];
   }, [car.images]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
-      setCurrentImageIndex(viewableItems[0].index || 0);
+      setCurrentImageIndex(viewableItems[0].index);
     }
-  }).current;
+  }, []);
 
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
 
@@ -435,29 +439,24 @@ export default function RentalCarCard({
     if (displayImages.length <= 1) return null;
     
     return (
-      <StyledView 
-        className="absolute bottom-3 left-0 right-0 flex-row justify-center items-center"
-        style={{ gap: 6 }}
-      >
+      <View className="absolute bottom-4 left-0 right-0 flex-row justify-center items-center z-10">
         {displayImages.map((_: any, index: number) => (
-          <StyledView
+          <View
             key={index}
-            className="rounded-full"
+            className={`mx-1 rounded-full ${
+              index === currentImageIndex
+                ? "bg-white"
+                : "bg-white/50"
+            }`}
             style={{
-              width: currentImageIndex === index ? 24 : 8,
-              height: 8,
-              backgroundColor:
-                currentImageIndex === index
-                  ? "#D55004"
-                  : isDarkMode
-                  ? "rgba(255, 255, 255, 0.5)"
-                  : "rgba(0, 0, 0, 0.3)",
+              width: index === currentImageIndex ? 8 : 6,
+              height: index === currentImageIndex ? 8 : 6,
             }}
           />
         ))}
-      </StyledView>
+      </View>
     );
-  }, [displayImages.length, currentImageIndex, isDarkMode]);
+  }, [displayImages.length, currentImageIndex]);
 
   const dealerLogo = useMemo(
     () => car.dealership_logo || null,
@@ -470,309 +469,286 @@ export default function RentalCarCard({
       style={{
         opacity: fadeAnim,
         transform: [
-          { scale: scaleAnim },
-          { translateY: translateY },
+          { translateY },
+          { scale: scaleAnim }
         ],
-        marginBottom: 20,
       }}
     >
-      <StyledPressable
-        onPress={handleCardPress}
-        className={`mx-4 rounded-3xl overflow-hidden shadow-lg ${
-          isDarkMode ? "bg-neutral-900" : "bg-white"
-        }`}
-        style={{
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: isDarkMode ? 0.4 : 0.1,
-          shadowRadius: 12,
-          elevation: 8,
-        }}
+      <StyledView
+        className={`mx-4 my-3 ${
+          isDarkMode ? "bg-[#242424]" : "bg-[#e1e1e1]"
+        } rounded-3xl overflow-hidden shadow-xl`}
       >
-        {/* Image Section */}
-        <StyledView className="relative">
-          <FlatList
-            ref={flatListRef}
-            data={displayImages}
-            renderItem={renderImageItem}
-            keyExtractor={(_, index) => `image-${index}`}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewConfigRef.current}
-            scrollEventThrottle={16}
-            decelerationRate="fast"
-            snapToInterval={cardWidth}
-            snapToAlignment="start"
-            getItemLayout={(data, index) => ({
-              length: cardWidth,
-              offset: cardWidth * index,
-              index,
-            })}
-          />
+        <FlatList
+          ref={flatListRef}
+          data={displayImages}
+          renderItem={renderImageItem}
+          keyExtractor={(_, index) => `image-${index}`}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewConfigRef.current}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={cardWidth}
+          snapToAlignment="center"
+          bounces={false}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={true}
+        />
 
-          {/* Rental Badge - Top Left */}
+        {/* Rented Banner */}
+        {showRentedBanner && (
+          <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
+            <View className="bg-gray-900/90 px-6 py-3 rounded-xl border-2 border-gray-400">
+              <StyledText className="text-white text-lg font-bold text-center">
+                RENTED
+              </StyledText>
+              <StyledText className="text-gray-300 text-sm text-center mt-1">
+                No longer available
+              </StyledText>
+            </View>
+          </View>
+        )}
+
+        <StyledPressable
+          onPress={handleCardPress}
+          className="active:opacity-90"
+        >
+          {/* Car Info Section - Price, Name, and Logo */}
+          <View className="px-4 py-3">
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View className="flex-1">
+                {/* Price with Rental Period */}
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 }}>
+                  <StyledText
+                    className="text-lg font-bold text-red"
+                    numberOfLines={1}
+                  >
+                    ${car.price?.toLocaleString()}
+                  </StyledText>
+                  {car.rental_period && (
+                    <StyledText
+                      className={`text-sm font-semibold ml-2 ${
+                        isDarkMode ? "text-orange-400" : "text-orange-600"
+                      }`}
+                    >
+                      / {formatRentalPeriod(car.rental_period)}
+                    </StyledText>
+                  )}
+                </View>
+
+                {/* Car Name */}
+                <StyledText
+                  className={`text-xl font-bold ${
+                    isDarkMode ? "text-white" : "text-black"
+                  }`}
+                  numberOfLines={1}
+                  style={{
+                    textShadowColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                    textShadowOffset: { width: 1, height: 1 },
+                    textShadowRadius: 2
+                  }}
+                >
+                  {car.year} {car.make} {car.model}
+                </StyledText>
+              </View>
+
+              {/* Car Logo */}
+              {car.make && (
+                <View style={{ marginLeft: 16 }}>
+                  <OptimizedImage
+                    source={{ uri: getLogoUrl(car.make, isDarkMode) }}
+                    style={{ width: 60, height: 40 }}
+                    fallbackColor="transparent"
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Specs Grid */}
           <StyledView 
-            className="absolute top-3 left-3"
+            className="flex-row"
             style={{
-              backgroundColor: 'rgba(213, 80, 4, 0.95)',
+              marginTop: 0,
+              marginBottom: 4,
               paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 12,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
             }}
           >
-            <Ionicons name="time" size={16} color="#FFFFFF" />
-            <StyledText className="text-white text-xs font-bold uppercase">
-              FOR RENT
-            </StyledText>
+            <SpecItem
+              title={t('car.year')}
+              icon="calendar-outline"
+              value={car.year}
+              isDarkMode={isDarkMode}
+              iconLibrary="Ionicons"
+            />
+            <SpecItem
+              title={t('car.color')}
+              icon="color-palette-outline"
+              value={car.color || 'N/A'}
+              isDarkMode={isDarkMode}
+              iconLibrary="Ionicons"
+            />
+            <SpecItem
+              title={t('car.transmission')}
+              icon="car-shift-pattern"
+              value={
+                car.transmission === "Automatic"
+                  ? "Auto"
+                  : car.transmission === "Manual"
+                  ? "Man"
+                  : car.transmission
+              }
+              isDarkMode={isDarkMode}
+              iconLibrary="MaterialCommunityIcons"
+            />
           </StyledView>
 
-          {/* Favorite Button */}
-          {!disableActions && (
-            <StyledView className="absolute top-3 right-3">
-              <StyledPressable
-                onPress={handleFavoritePress}
-                className="items-center justify-center active:opacity-70"
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: isDarkMode
-                    ? "rgba(0, 0, 0, 0.6)"
-                    : "rgba(255, 255, 255, 0.9)",
-                }}
-              >
-                <Ionicons
-                  name={isFavorite ? "heart" : "heart-outline"}
-                  size={24}
-                  color={isFavorite ? "#D55004" : isDarkMode ? "#FFFFFF" : "#000000"}
-                />
-              </StyledPressable>
-            </StyledView>
-          )}
-
-          {/* Pagination Dots */}
-          {renderPaginationDots}
-
-          {/* Rented Banner */}
-          {showRentedBanner && (
-            <StyledView className="absolute inset-0 bg-black/60 items-center justify-center">
-              <StyledView
-                className="bg-orange-600 px-6 py-3 rounded-full"
-                style={{
-                  transform: [{ rotate: "-15deg" }],
-                }}
-              >
-                <StyledText className="text-white text-2xl font-bold">
-                  RENTED
-                </StyledText>
-              </StyledView>
-            </StyledView>
-          )}
-        </StyledView>
-
-        {/* Content Section */}
-        <StyledView className="p-4">
-          {/* Price with Rental Period */}
-          <StyledView className="flex-row items-baseline mb-2">
-            <StyledText
-              className={`text-2xl font-bold ${
-                isDarkMode ? "text-white" : "text-black"
-              }`}
-            >
-              ${car.price?.toLocaleString()}
-            </StyledText>
-            {car.rental_period && (
-              <StyledText
-                className={`text-base font-semibold ml-2 ${
-                  isDarkMode ? "text-orange-400" : "text-orange-600"
-                }`}
-              >
-                / {formatRentalPeriod(car.rental_period)}
-              </StyledText>
-            )}
-          </StyledView>
-
-          {/* Car Title */}
-          <StyledText
-            className={`text-lg font-bold mb-4 ${
-              isDarkMode ? "text-white" : "text-black"
-            }`}
-            numberOfLines={1}
+          {/* Seller Info */}
+          <StyledView
+            className={`p-3 ${
+              isDarkMode ? "bg-[#2b2b2b]" : "bg-[#d1d1d1]"
+            } rounded-t-3xl`}
+            style={{ marginTop: 4 }}
           >
-            {car.year} {car.make} {car.model}
-          </StyledText>
-
-          {/* Specifications Row - Rental Specific */}
-          <StyledView className="flex-row justify-between mb-4">
-            {/* Year */}
-            <StyledView className="flex-row items-center">
-              <Ionicons
-                name="calendar"
-                size={18}
-                color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                style={{ marginRight: 6 }}
-              />
-              <StyledText
-                className={`text-sm ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}
+            <StyledView style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              {/* Dealership Logo */}
+              <Pressable
+                onPress={handleDealershipPress}
+                style={{ marginRight: 12 }}
               >
-                {t('car.year')}
-              </StyledText>
-              <StyledText
-                className={`text-sm font-semibold ml-2 ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-              >
-                {car.year}
-              </StyledText>
-            </StyledView>
-
-            {/* Rental Period */}
-            <StyledView className="flex-row items-center">
-              <Ionicons
-                name="time"
-                size={18}
-                color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                style={{ marginRight: 6 }}
-              />
-              <StyledText
-                className={`text-sm ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}
-              >
-                Rental Period
-              </StyledText>
-              <StyledText
-                className={`text-sm font-semibold ml-2 ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-              >
-                {formatRentalPeriod(car.rental_period || 'daily')}
-              </StyledText>
-            </StyledView>
-
-            {/* Transmission */}
-            <StyledView className="flex-row items-center">
-              <MaterialCommunityIcons
-                name="car-shift-pattern"
-                size={18}
-                color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                style={{ marginRight: 6 }}
-              />
-              <StyledText
-                className={`text-sm ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}
-              >
-                {t('car.transmission')}
-              </StyledText>
-              <StyledText
-                className={`text-sm font-semibold ml-2 ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-              >
-                {car.transmission}
-              </StyledText>
-            </StyledView>
-          </StyledView>
-
-          {/* Dealership Info */}
-          <StyledPressable
-            onPress={handleDealershipPress}
-            className="flex-row items-center mb-4 active:opacity-70"
-          >
-            <StyledView
-              className="rounded-full overflow-hidden mr-3"
-              style={{
-                width: 40,
-                height: 40,
-                backgroundColor: isDarkMode ? "#333" : "#e5e5e5",
-              }}
-            >
-              {dealerLogo ? (
-                <StyledImage
-                  source={{ uri: dealerLogo }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
-              ) : (
-                <StyledView className="w-full h-full items-center justify-center">
-                  <Ionicons
-                    name="business"
-                    size={20}
-                    color={isDarkMode ? "#666" : "#999"}
+                {dealerLogo ? (
+                  <StyledImage
+                    source={{ uri: dealerLogo }}
+                    style={{ width: 48, height: 48 }}
+                    className="rounded-full border border-textgray/20"
+                    resizeMode="cover"
                   />
-                </StyledView>
-              )}
-            </StyledView>
+                ) : (
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: isDarkMode ? "#333" : "#e5e5e5",
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons
+                      name="business"
+                      size={24}
+                      color={isDarkMode ? "#666" : "#999"}
+                    />
+                  </View>
+                )}
+              </Pressable>
 
-            <StyledView className="flex-1">
-              <StyledText
-                className={`text-sm font-semibold ${
-                  isDarkMode ? "text-white" : "text-black"
-                }`}
-                numberOfLines={1}
-              >
-                {car.dealership_name || t('common.unknown_dealer')}
-              </StyledText>
-              {car.dealership_location && (
+              <StyledView className="flex-1" style={{ marginLeft: 8 }}>
                 <StyledText
-                  className={`text-xs ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  className={`text-base font-semibold ${
+                    isDarkMode ? "text-white" : "text-black"
                   }`}
                   numberOfLines={1}
                 >
-                  📍 {car.dealership_location}
+                  {car.dealership_name || t('common.unknown_dealer')}
                 </StyledText>
-              )}
-            </StyledView>
 
+                {car.dealership_location && (
+                  <StyledText
+                    className={`text-sm ${
+                      isDarkMode ? "text-white/80" : "text-black"
+                    }`}
+                    numberOfLines={2}
+                    style={{ marginTop: 2 }}
+                  >
+                    {car.dealership_location}
+                  </StyledText>
+                )}
+              </StyledView>
+
+              <StyledView style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {!disableActions ? (
+                  <>
+                    <ActionButton
+                      icon="chatbubble-ellipses-outline"
+                      onPress={handleChat}
+                      isDarkMode={isDarkMode}
+                      disabled={isStartingChat}
+                      loading={isStartingChat}
+                    />
+                    <ActionButton
+                      icon="call-outline"
+                      onPress={handleCall}
+                      isDarkMode={isDarkMode}
+                    />
+                    <ActionButton
+                      icon="logo-whatsapp"
+                      onPress={handleWhatsAppPress}
+                      isDarkMode={isDarkMode}
+                    />
+                    {Platform.OS === 'android' ? (
+                      <StyledPressable
+                        onPress={async () => {
+                          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          handleShare();
+                        }}
+                        className="items-center justify-center active:opacity-70"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                        }}
+                      >
+                        <Ionicons
+                          name="share-social-outline"
+                          size={24}
+                          color={isDarkMode ? "#FFFFFF" : "#000000"}
+                        />
+                      </StyledPressable>
+                    ) : (
+                      <ActionButton
+                        icon="share-outline"
+                        onPress={handleShare}
+                        isDarkMode={isDarkMode}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <StyledView className="flex-row items-center justify-center px-4 py-2 bg-gray-500/50 rounded-xl">
+                    <StyledText className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+                      Contact unavailable
+                    </StyledText>
+                  </StyledView>
+                )}
+              </StyledView>
+            </StyledView>
+          </StyledView>
+        </StyledPressable>
+
+        {/* Favorite Button - Top Right - Positioned absolutely over the image */}
+        {!disableActions && (
+          <StyledPressable
+            onPress={handleFavoritePress}
+            className="absolute top-4 right-4 active:opacity-70"
+          >
             <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+              name={isFavorite ? "heart-sharp" : "heart-outline"}
+              size={30}
+              color={
+                isFavorite ? "#D55004" : isDarkMode ? "#9d174d" : "#f43f5e"
+              }
             />
           </StyledPressable>
+        )}
 
-          {/* Action Buttons */}
-          {!disableActions && (
-            <StyledView className="flex-row justify-around items-center">
-              <ActionButton
-                icon="chatbubble-ellipses-outline"
-                text={t('chat.chat')}
-                onPress={handleChat}
-                isDarkMode={isDarkMode}
-                disabled={isStartingChat}
-                loading={isStartingChat}
-              />
-              <ActionButton
-                icon="call"
-                text={t('common.call')}
-                onPress={handleCall}
-                isDarkMode={isDarkMode}
-              />
-              <ActionButton
-                icon="logo-whatsapp"
-                text="WhatsApp"
-                onPress={handleWhatsAppPress}
-                isDarkMode={isDarkMode}
-              />
-              <ActionButton
-                icon="share-social"
-                text={t('common.share')}
-                onPress={handleShare}
-                isDarkMode={isDarkMode}
-              />
-            </StyledView>
-          )}
-        </StyledView>
-      </StyledPressable>
+        {/* Pagination Dots - Bottom Center of Image */}
+        {renderPaginationDots}
+      </StyledView>
     </Animated.View>
     <AuthRequiredModal
       isVisible={showAuthModal}
