@@ -6,13 +6,15 @@
   "build": {
     "apk": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       }
     },
     "release": {
       "android": {
         "buildType": "app-bundle", 
-        "gradleCommand": ":app:bundleRelease"
+        "gradleCommand": ":app:bundleRelease",
+        "image": "latest"
       },
       "ios": {}
     },
