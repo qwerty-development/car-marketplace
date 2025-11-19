@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "eas-build-pre-install": "rm -rf ~/.cocoapods/repos/trunk || true"
   },
   "jest": {
     "preset": "jest-expo"
