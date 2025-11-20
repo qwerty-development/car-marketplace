@@ -254,7 +254,7 @@ const ErrorFallback = ({ error, resetError }) => (
 );
 
 // Main component
-const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
+const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false }: any) => {
   if (!car) return null;
 
   const { isDarkMode } = useTheme();
@@ -441,9 +441,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!car?.id || !car?.make) return;
 
     try {
+      // Determine which table to query based on whether this is a rental car
+      const tableName = isRental ? 'cars_rent' : 'cars';
+
       // First, try to find cars with same make, model, and year
       let { data: exactMatches, error: exactMatchError } = await supabase
-        .from("cars")
+        .from(tableName)
         .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
         .eq("make", car.make)
         .eq("model", car.model)
@@ -471,7 +474,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 
       // If no exact matches, fall back to similarly priced cars
       const { data: priceMatches, error: priceMatchError } = await supabase
-        .from("cars")
+        .from(tableName)
         .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
         .neq("id", car.id)
         .eq("status", "available")
@@ -500,7 +503,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error("Error fetching similar cars:", error);
       setSimilarCars([]);
     }
-  }, [car?.id, car?.make, car?.model, car?.year, car?.price]);
+  }, [car?.id, car?.make, car?.model, car?.year, car?.price, isRental]);
 
   // Track call button clicks
   const trackCallClick = useCallback(
@@ -546,8 +549,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!car?.dealership_id || !car?.id) return;
 
     try {
+      // Determine which table to query based on whether this is a rental car
+      const tableName = isRental ? 'cars_rent' : 'cars';
+
       const { data, error } = await supabase
-        .from("cars")
+        .from(tableName)
         .select("*, dealerships (name,logo,phone,location,latitude,longitude)")
         .eq("dealership_id", car.dealership_id)
         .neq("id", car.id)
@@ -572,7 +578,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
       console.error("Error fetching dealer cars:", error);
       setDealerCars([]);
     }
-  }, [car?.dealership_id, car?.id]);
+  }, [car?.dealership_id, car?.id, isRental]);
 
   useEffect(() => {
     if (!car) return;
@@ -714,7 +720,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             try {
               router.push({
                 pathname: "/(home)/(user)/CarDetails",
-                params: { carId: item.id },
+                params: {
+                  carId: item.id,
+                  isRental: isRental ? 'true' : 'false'
+                },
               });
             } catch (error) {
               console.error('Navigation error:', error);
@@ -740,7 +749,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </TouchableOpacity>
       );
     },
-    [isDarkMode, router]
+    [isDarkMode, router, isRental]
   );
 
   // Enhanced WhatsApp handling for Android

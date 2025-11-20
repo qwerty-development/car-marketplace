@@ -333,6 +333,7 @@ export default function CarDetailsPage() {
                   fromDeepLink: params.fromDeepLink
                 }}
                 isDealer={isDealer}
+                isRental={isRental}
                 onFavoritePress={handleFavoritePress}
               />
             </View>

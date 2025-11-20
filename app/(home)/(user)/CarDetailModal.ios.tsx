@@ -417,7 +417,7 @@ const getRelativeTime = (dateString: string, t: any) => {
 };
 
 // Main component with performance optimizations
-const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
+const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false }: any) => {
   if (!car) return null;
 
   const { isDarkMode } = useTheme();
@@ -743,7 +743,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!car || !car.id || !car.make) return;
 
     try {
-      const tableName = getSimilarCarsTableName(car);
+      // Determine which table to query based on whether this is a rental car
+      const tableName = isRental ? 'cars_rent' : 'cars';
 
       // First, try to find cars with same make, model, and year
       let { data: exactMatches, error: exactMatchError } = await supabase
@@ -842,7 +843,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         similarCarsLoaded: true,
       }));
     }
-  }, [car?.id, car?.make, car?.model, car?.year, car?.price]);
+  }, [car?.id, car?.make, car?.model, car?.year, car?.price, isRental]);
 
   // Fetch dealer cars with error handling and optimization
   const fetchDealerCars = useCallback(async () => {
@@ -850,14 +851,17 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
     if (!isDealershipCar || !car || !car.dealership_id || !car.id) return;
 
     try {
+      // Determine which table to query based on whether this is a rental car
+      const tableName = isRental ? 'cars_rent' : 'cars';
+
       const { data, error } = await supabase
-        .from("cars")
+        .from(tableName)
         .select(
           "id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo)"
         )
         .eq("dealership_id", car.dealership_id)
-        .neq("id", car.id)
         .eq("status", "available")
+        .neq("id", car.id)
         .limit(5);
 
       if (error) throw error;
@@ -897,7 +901,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         dealerCarsLoaded: true,
       }));
     }
-  }, [isDealershipCar, car?.dealership_id, car?.id]);
+  }, [isDealershipCar, car?.dealership_id, car?.id, isRental]);
 
   // Optimized navigation to dealership details
   const handleDealershipPress = useCallback(() => {
@@ -1120,7 +1124,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
             InteractionManager.runAfterInteractions(() => {
               router.push({
                 pathname: "/(home)/(user)/CarDetails",
-                params: { carId: item.id },
+                params: {
+                  carId: item.id,
+                  isRental: isRental ? 'true' : 'false'
+                },
               });
             });
           }}
@@ -1156,7 +1163,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
         </TouchableOpacity>
       );
     },
-    [isDarkMode, router]
+    [isDarkMode, router, isRental]
   );
 
   // Memoized map region
