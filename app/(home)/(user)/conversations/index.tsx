@@ -41,26 +41,55 @@ export default function UserConversationsScreen() {
           id,
           user_id,
           dealership_id,
+          seller_user_id,
+          conversation_type,
+          car_id,
+          car_rent_id,
           created_at,
           updated_at,
           last_message_at,
           last_message_preview,
           user_unread_count,
-          dealer_unread_count,
-          user:users!user_id (
+          seller_unread_count,
+          user:users!conversations_user_id_fkey (
             id,
             name,
             email
           ),
-          dealership:dealerships!dealership_id (
+          dealership:dealerships (
             id,
             name,
             logo,
             location,
             phone
+          ),
+          seller_user:users!conversations_seller_user_id_fkey (
+            id,
+            name,
+            email
+          ),
+          car:cars (
+            id,
+            dealership_id,
+            make,
+            model,
+            year,
+            price,
+            images,
+            status
+          ),
+          carRent:cars_rent (
+            id,
+            dealership_id,
+            make,
+            model,
+            year,
+            price,
+            images,
+            status
           )
         `)
-        .eq('user_id', user.id)
+        .or(`user_id.eq.${user.id},seller_user_id.eq.${user.id}`)
         .not('last_message_at', 'is', null)
         .order('last_message_at', { ascending: false });
       
@@ -71,6 +100,9 @@ export default function UserConversationsScreen() {
         ...conv,
         user: Array.isArray(conv.user) ? conv.user[0] : conv.user,
         dealership: Array.isArray(conv.dealership) ? conv.dealership[0] : conv.dealership,
+        seller_user: Array.isArray(conv.seller_user) ? conv.seller_user[0] : conv.seller_user,
+        car: Array.isArray(conv.car) ? conv.car[0] : conv.car,
+        carRent: Array.isArray(conv.carRent) ? conv.carRent[0] : conv.carRent,
       })) as ConversationSummary[];
     },
     {
@@ -80,37 +112,72 @@ export default function UserConversationsScreen() {
     }
   );
 
-  // Set up Realtime subscription for live updates
+  // Set up Realtime subscription for live updates (both as buyer and seller)
   useEffect(() => {
     if (!user?.id) return;
 
-    const filter = `user_id=eq.${user.id}`;
-    const channel = supabase
-      .channel(`user-conversations:${user.id}`)
+    let debounceTimer: NodeJS.Timeout | null = null;
+
+    const handleConversationChange = (payload: any) => {
+      // Debounce the invalidation to prevent too many refetches
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      debounceTimer = setTimeout(() => {
+        // Only invalidate if there's a new message (last_message_at changed) or new conversation
+        if (payload.eventType === 'INSERT' || 
+            (payload.eventType === 'UPDATE' && payload.new?.last_message_preview !== payload.old?.last_message_preview)) {
+          queryClient.invalidateQueries(['user-conversations', user.id]);
+        }
+      }, 500); // Wait 500ms before invalidating
+    };
+
+    // Subscribe to conversations where user is buyer
+    const buyerFilter = `user_id=eq.${user.id}`;
+    const buyerChannel = supabase
+      .channel(`user-conversations-buyer:${user.id}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'conversations',
-          filter,
+          filter: buyerFilter,
         },
-        () => {
-          // Invalidate query to refetch when conversations change
-          queryClient.invalidateQueries(['user-conversations', user.id]);
-        }
+        handleConversationChange
+      )
+      .subscribe();
+
+    // Subscribe to conversations where user is seller
+    const sellerFilter = `seller_user_id=eq.${user.id}`;
+    const sellerChannel = supabase
+      .channel(`user-conversations-seller:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: sellerFilter,
+        },
+        handleConversationChange
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      supabase.removeChannel(buyerChannel);
+      supabase.removeChannel(sellerChannel);
     };
   }, [user?.id, queryClient]);
 
   const handleOpenConversation = useCallback(
     (conversationId: number) => {
       router.push({
-        pathname: '/(home)/(user)/conversations/[conversationId]' as any,
+        pathname: '/(home)/(user)/messages/[conversationId]',
         params: { conversationId: conversationId.toString() },
       });
     },

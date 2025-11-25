@@ -61,23 +61,52 @@ export default function DealerConversationsScreen() {
           id,
           user_id,
           dealership_id,
+          seller_user_id,
+          conversation_type,
+          car_id,
+          car_rent_id,
           created_at,
           updated_at,
           last_message_at,
           last_message_preview,
           user_unread_count,
-          dealer_unread_count,
-          user:users!user_id (
+          seller_unread_count,
+          user:users!conversations_user_id_fkey (
             id,
             name,
             email
           ),
-          dealership:dealerships!dealership_id (
+          dealership:dealerships (
             id,
             name,
             logo,
             location,
             phone
+          ),
+          seller_user:users!conversations_seller_user_id_fkey (
+            id,
+            name,
+            email
+          ),
+          car:cars (
+            id,
+            dealership_id,
+            make,
+            model,
+            year,
+            price,
+            images,
+            status
+          ),
+          carRent:cars_rent (
+            id,
+            dealership_id,
+            make,
+            model,
+            year,
+            price,
+            images,
+            status
           )
         `)
         .eq('dealership_id', dealership.id)
@@ -91,6 +120,9 @@ export default function DealerConversationsScreen() {
         ...conv,
         user: Array.isArray(conv.user) ? conv.user[0] : conv.user,
         dealership: Array.isArray(conv.dealership) ? conv.dealership[0] : conv.dealership,
+        seller_user: Array.isArray(conv.seller_user) ? conv.seller_user[0] : conv.seller_user,
+        car: Array.isArray(conv.car) ? conv.car[0] : conv.car,
+        carRent: Array.isArray(conv.carRent) ? conv.carRent[0] : conv.carRent,
       })) as ConversationSummary[];
     },
     {
@@ -283,7 +315,7 @@ export default function DealerConversationsScreen() {
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}
             >
-              {conversations.filter(c => (c.dealer_unread_count ?? 0) > 0).length}{' '}
+              {conversations.filter(c => (c.seller_unread_count ?? 0) > 0).length}{' '}
               {t('chat.unread', 'unread')}
             </Text>
           </View>

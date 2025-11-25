@@ -40,11 +40,16 @@ export function useConversationMessages(conversationId?: number | string | null)
 
   const flatMessages = useMemo(() => {
     if (!result.data?.pages) return [] as ChatMessage[];
-    return result.data.pages.flat();
+    // Flatten pages and reverse to get correct chronological order
+    // (Pages come in newest-first, but we want oldest-first for chat display)
+    const flattened = result.data.pages.flat();
+    return flattened.reverse();
   }, [result.data?.pages]);
 
   useEffect(() => {
     if (conversationId == null) return;
+
+    let debounceTimer: NodeJS.Timeout | null = null;
 
     const channelKey = String(conversationId);
     const channel = supabase
@@ -57,15 +62,28 @@ export function useConversationMessages(conversationId?: number | string | null)
           table: 'messages',
           filter: `conversation_id=eq.${channelKey}`,
         },
-        () => {
-          // Debounce invalidation to prevent multiple rapid refetches
-          queryClient.invalidateQueries(queryKey);
+        (payload) => {
+          // Clear existing timer
+          if (debounceTimer) {
+            clearTimeout(debounceTimer);
+          }
+
+          // Debounce to prevent multiple rapid refetches
+          debounceTimer = setTimeout(() => {
+            // Only invalidate on INSERT (new messages) or UPDATE (read status)
+            // Skip invalidation for rapid successive updates
+            console.log('[useConversationMessages] Message change:', payload.eventType);
+            queryClient.invalidateQueries(queryKey);
+          }, 300);
         }
       )
       .subscribe();
 
     return () => {
-      // Properly cleanup channel on unmount
+      // Cleanup timer and channel
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
       channel.unsubscribe();
       supabase.removeChannel(channel);
     };

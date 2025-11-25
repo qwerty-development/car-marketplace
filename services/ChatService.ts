@@ -13,7 +13,9 @@ import {
 type RawConversationRow = {
   id: number;
   user_id: string;
-  dealership_id: number;
+  dealership_id: number | null;
+  seller_user_id: string | null;
+  conversation_type: 'user_dealer' | 'user_user';
   car_id: number | null;
   car_rent_id: number | null;
   created_at: string;
@@ -21,11 +23,12 @@ type RawConversationRow = {
   last_message_at: string | null;
   last_message_preview: string | null;
   user_unread_count: number;
-  dealer_unread_count: number;
+  seller_unread_count: number;
   dealership?: ChatDealershipParticipant | ChatDealershipParticipant[] | null;
   dealerships?: ChatDealershipParticipant | ChatDealershipParticipant[] | null;
   user?: { id: string; name: string | null; email: string | null } | { id: string; name: string | null; email: string | null }[] | null;
   users?: { id: string; name: string | null; email: string | null } | { id: string; name: string | null; email: string | null }[] | null;
+  seller_user?: { id: string; name: string | null; email: string | null } | { id: string; name: string | null; email: string | null }[] | null;
   car?: CarListingContext | CarListingContext[] | null;
   cars?: CarListingContext | CarListingContext[] | null;
   carRent?: RentalCarContext | RentalCarContext[] | null;
@@ -40,6 +43,7 @@ const extractSingleOrNull = <T>(data: T | T[] | null | undefined): T | null => {
 const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
   const dealership = extractSingleOrNull(row.dealership ?? row.dealerships);
   const user = extractSingleOrNull(row.user ?? row.users);
+  const sellerUser = extractSingleOrNull(row.seller_user);
   const car = extractSingleOrNull(row.car ?? row.cars);
   const carRent = extractSingleOrNull(row.carRent ?? row.cars_rent);
 
@@ -47,6 +51,8 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
     id: row.id,
     user_id: row.user_id,
     dealership_id: row.dealership_id,
+    seller_user_id: row.seller_user_id,
+    conversation_type: row.conversation_type,
     car_id: row.car_id,
     car_rent_id: row.car_rent_id,
     created_at: row.created_at,
@@ -54,9 +60,10 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
     last_message_at: row.last_message_at,
     last_message_preview: row.last_message_preview,
     user_unread_count: row.user_unread_count ?? 0,
-    dealer_unread_count: row.dealer_unread_count ?? 0,
+    seller_unread_count: row.seller_unread_count ?? 0,
     dealership,
     user,
+    seller_user: sellerUser,
     car: car as CarListingContext | null,
     carRent: carRent as RentalCarContext | null,
   };
@@ -66,6 +73,8 @@ const enrichConversationSelect = `
   id,
   user_id,
   dealership_id,
+  seller_user_id,
+  conversation_type,
   car_id,
   car_rent_id,
   created_at,
@@ -73,13 +82,23 @@ const enrichConversationSelect = `
   last_message_at,
   last_message_preview,
   user_unread_count,
-  dealer_unread_count,
+  seller_unread_count,
   dealership:dealerships (
     id,
     name,
     logo,
     phone,
     location
+  ),
+  user:users!conversations_user_id_fkey (
+    id,
+    name,
+    email
+  ),
+  seller_user:users!conversations_seller_user_id_fkey (
+    id,
+    name,
+    email
   ),
   car:cars (
     id,
@@ -123,6 +142,8 @@ export class ChatService {
   static async ensureConversation({
     userId,
     dealershipId,
+    sellerUserId,
+    conversationType,
     carId,
     carRentId,
   }: CreateConversationParams): Promise<ConversationSummary> {
@@ -134,12 +155,29 @@ export class ChatService {
       }
     }
 
+    // Validate conversation type and participants
+    if (conversationType === 'user_dealer' && !dealershipId) {
+      throw new Error('dealershipId is required for user_dealer conversations');
+    }
+    if (conversationType === 'user_user' && !sellerUserId) {
+      throw new Error('sellerUserId is required for user_user conversations');
+    }
+    if (conversationType === 'user_user' && userId === sellerUserId) {
+      throw new Error('Cannot create conversation with yourself');
+    }
+
     // Build query filters
     let query = supabase
       .from('conversations')
       .select('id')
       .eq('user_id', userId)
-      .eq('dealership_id', dealershipId);
+      .eq('conversation_type', conversationType);
+
+    if (conversationType === 'user_dealer') {
+      query = query.eq('dealership_id', dealershipId);
+    } else {
+      query = query.eq('seller_user_id', sellerUserId);
+    }
 
     // Add car-specific filters
     if (carId !== undefined && carId !== null) {
@@ -162,8 +200,14 @@ export class ChatService {
     if (!conversationId) {
       const insertPayload: any = {
         user_id: userId,
-        dealership_id: dealershipId,
+        conversation_type: conversationType,
       };
+
+      if (conversationType === 'user_dealer') {
+        insertPayload.dealership_id = dealershipId;
+      } else {
+        insertPayload.seller_user_id = sellerUserId;
+      }
 
       if (carId !== undefined && carId !== null) {
         insertPayload.car_id = carId;
@@ -221,10 +265,11 @@ export class ChatService {
   static async fetchConversationsForUser(
     userId: string
   ): Promise<ConversationSummary[]> {
+    // Fetch conversations where user is either the buyer or the seller
     const { data, error } = await supabase
       .from('conversations')
       .select(enrichConversationSelect)
-      .eq('user_id', userId)
+      .or(`user_id.eq.${userId},seller_user_id.eq.${userId}`)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .order('updated_at', { ascending: false });
 
@@ -306,7 +351,7 @@ export class ChatService {
 
     const { data: conversation, error: fetchError } = await supabase
       .from('conversations')
-      .select('user_unread_count, dealer_unread_count')
+      .select('user_unread_count, seller_unread_count, conversation_type')
       .eq('id', conversationIdValue)
       .single();
 
@@ -324,10 +369,13 @@ export class ChatService {
       updated_at: new Date().toISOString(),
     };
 
+    // Update unread count based on sender role
     if (senderRole === 'user') {
-      const current = conversation?.dealer_unread_count ?? 0;
-      updates.dealer_unread_count = current + 1;
-    } else {
+      // User sent message, increment seller unread count
+      const current = conversation?.seller_unread_count ?? 0;
+      updates.seller_unread_count = current + 1;
+    } else if (senderRole === 'dealer' || senderRole === 'seller_user') {
+      // Dealer or seller_user sent message, increment user unread count
       const current = conversation?.user_unread_count ?? 0;
       updates.user_unread_count = current + 1;
     }
@@ -346,31 +394,41 @@ export class ChatService {
 
   static async markConversationRead(
     conversationId: number | string,
-    viewerRole: 'user' | 'dealer'
+    viewerRole: 'user' | 'dealer' | 'seller_user'
   ): Promise<void> {
     const conversationIdValue =
       typeof conversationId === 'string' ? parseInt(conversationId, 10) : conversationId;
 
-    const senderRoleToAcknowledge = viewerRole === 'user' ? 'dealer' : 'user';
+    // Determine which sender roles to mark as read
+    let senderRolesToAcknowledge: ('user' | 'dealer' | 'seller_user')[] = [];
+    if (viewerRole === 'user') {
+      senderRolesToAcknowledge = ['dealer', 'seller_user'];
+    } else {
+      senderRolesToAcknowledge = ['user'];
+    }
 
     const nowIso = new Date().toISOString();
 
-    const { error: updateMessagesError } = await supabase
-      .from('messages')
-      .update({
-        is_read: true,
-        read_at: nowIso,
-      })
-      .eq('conversation_id', conversationIdValue)
-      .eq('sender_role', senderRoleToAcknowledge)
-      .eq('is_read', false);
+    // Mark messages as read from the sender roles
+    for (const senderRole of senderRolesToAcknowledge) {
+      const { error: updateMessagesError } = await supabase
+        .from('messages')
+        .update({
+          is_read: true,
+          read_at: nowIso,
+        })
+        .eq('conversation_id', conversationIdValue)
+        .eq('sender_role', senderRole)
+        .eq('is_read', false);
 
-    if (updateMessagesError) {
-      throw updateMessagesError;
+      if (updateMessagesError) {
+        throw updateMessagesError;
+      }
     }
 
+    // Reset unread count
     const resetColumn =
-      viewerRole === 'user' ? 'user_unread_count' : 'dealer_unread_count';
+      viewerRole === 'user' ? 'user_unread_count' : 'seller_unread_count';
 
     const { error: updateConversationError } = await supabase
       .from('conversations')

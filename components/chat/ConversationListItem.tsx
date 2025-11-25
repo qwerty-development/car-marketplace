@@ -59,24 +59,44 @@ function getDisplayInfo(
   viewerRole: 'user' | 'dealer',
   fetchedUserName?: string | null
 ) {
-  if (viewerRole === 'user') {
-    const dealer = conversation.dealership;
-    const carInfo = conversation.car || conversation.carRent;
-    const carLabel = carInfo
-      ? `${carInfo.make} ${carInfo.model} (${carInfo.year})${
-          conversation.carRent ? ' • For Rent' : ''
-        }`
-      : '';
+  const carInfo = conversation.car || conversation.carRent;
+  const carLabel = carInfo
+    ? `${carInfo.make} ${carInfo.model} (${carInfo.year})${
+        conversation.carRent ? ' • For Rent' : ''
+      }`
+    : '';
 
+  if (viewerRole === 'user') {
+    // For user_user conversations, show the seller user
+    if (conversation.conversation_type === 'user_user') {
+      const sellerUser = conversation.seller_user;
+      const emailUsername = sellerUser?.email?.split('@')[0];
+      const resolvedName = sellerUser?.name || emailUsername;
+      const fallbackLabel = resolvedName ?? 'Seller';
+
+      return {
+        title: fallbackLabel,
+        subtitle: carLabel || sellerUser?.email || '',
+        avatarUrl: null,
+        fallbackLetter: fallbackLabel.charAt(0).toUpperCase(),
+        carInfo: carLabel || null,
+        conversationType: 'user_user' as const,
+      };
+    }
+
+    // For user_dealer conversations, show the dealer
+    const dealer = conversation.dealership;
     return {
       title: dealer?.name ?? 'Dealer',
       subtitle: carLabel || dealer?.location || dealer?.phone || '',
       avatarUrl: dealer?.logo ?? null,
       fallbackLetter: dealer?.name?.[0]?.toUpperCase() ?? 'D',
       carInfo: carLabel || null,
+      conversationType: 'user_dealer' as const,
     };
   }
 
+  // Dealer view: show the buyer user
   const user = conversation.user;
   const emailUsername = user?.email?.split('@')[0];
   const resolvedName = fetchedUserName || user?.name || emailUsername;
@@ -91,6 +111,7 @@ function getDisplayInfo(
     avatarUrl: null,
     fallbackLetter: fallbackLabel.charAt(0).toUpperCase(),
     carInfo: null,
+    conversationType: conversation.conversation_type,
   };
 }
 
@@ -115,7 +136,7 @@ export default function ConversationListItem({
   const unreadCount =
     viewerRole === 'user'
       ? conversation.user_unread_count ?? 0
-      : conversation.dealer_unread_count ?? 0;
+      : conversation.seller_unread_count ?? 0;
 
   const preview =
     conversation.last_message_preview ||
@@ -201,6 +222,26 @@ export default function ConversationListItem({
               numberOfLines={1}
             >
               {info.carInfo}
+            </Text>
+          </View>
+        ) : null}
+
+        {info.conversationType === 'user_user' && viewerRole === 'user' ? (
+          <View style={styles.carBadge}>
+            <Ionicons
+              name="person-outline"
+              size={14}
+              color="#2563EB"
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.carInfo,
+                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+              ]}
+              numberOfLines={1}
+            >
+              {t('chat.private_seller', 'Private Seller')}
             </Text>
           </View>
         ) : null}

@@ -35,7 +35,7 @@ import { supabase } from "@/utils/supabase";
 import { shareCar } from "@/utils/centralizedSharing";
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import * as Haptics from 'expo-haptics';
-import { startDealerChat } from '@/utils/chatHelpers';
+import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 import { useGuestUser } from '@/utils/GuestUserContext';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
 import { formatMileage } from '@/utils/formatMileage';
@@ -365,28 +365,41 @@ export default function CarCard({
   const handleChat = useCallback(async () => {
     if (disableActions) return;
 
-    // Only support chat for dealership cars
-    if (!isDealershipCar) {
+    // Support chat for both user and dealership cars
+    if (isDealershipCar) {
+      // Chat with dealership
+      await startDealerChat({
+        dealershipId: car?.dealership_id,
+        userId: user?.id ?? null,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        setLoading: setIsStartingChat,
+        carId: car?.id ?? null,
+      });
+    } else if (car?.user_id) {
+      // Chat with private seller
+      await startUserChat({
+        sellerUserId: car.user_id,
+        userId: user?.id ?? null,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        setLoading: setIsStartingChat,
+        carId: car?.id ?? null,
+      });
+    } else {
       Alert.alert(
         t('common.not_available'),
-        t('common.chat_not_available_user_cars', 'Chat is only available for dealership cars. Please use call or WhatsApp to contact the seller.')
+        t('common.seller_info_not_available', 'Seller information is not available for this listing.')
       );
-      return;
     }
-
-    await startDealerChat({
-      dealershipId: car?.dealership_id,
-      userId: user?.id ?? null,
-      isGuest,
-      router,
-      t,
-      onAuthRequired: () => setShowAuthModal(true),
-      setLoading: setIsStartingChat,
-      carId: car?.id ?? null,
-    });
   }, [
     car?.dealership_id,
     car?.id,
+    car?.user_id,
     disableActions,
     isDealershipCar,
     isGuest,
@@ -893,26 +906,28 @@ export default function CarCard({
               >
                 {!disableActions ? (
                   <>
-                    {/* Only show chat for dealership cars */}
-                    {isDealershipCar && (
-                      <ActionButton
-                        icon="chatbubble-ellipses-outline"
-                        onPress={handleChat}
-                        isDarkMode={isDarkMode}
-                        disabled={isStartingChat}
-                        loading={isStartingChat}
-                      />
+                    {/* Show chat for all cars (both dealership and user-listed) */}
+                    <ActionButton
+                      icon="chatbubble-ellipses-outline"
+                      onPress={handleChat}
+                      isDarkMode={isDarkMode}
+                      disabled={isStartingChat}
+                      loading={isStartingChat}
+                    />
+                    {sellerInfo.phone && (
+                      <>
+                        <ActionButton
+                          icon="call-outline"
+                          onPress={handleCall}
+                          isDarkMode={isDarkMode}
+                        />
+                        <ActionButton
+                          icon="logo-whatsapp"
+                          onPress={handleWhatsAppPress}
+                          isDarkMode={isDarkMode}
+                        />
+                      </>
                     )}
-                    <ActionButton
-                      icon="call-outline"
-                      onPress={handleCall}
-                      isDarkMode={isDarkMode}
-                    />
-                    <ActionButton
-                      icon="logo-whatsapp"
-                      onPress={handleWhatsAppPress}
-                      isDarkMode={isDarkMode}
-                    />
                     {Platform.OS === 'android' ? (
                       <StyledPressable
                         onPress={async () => {

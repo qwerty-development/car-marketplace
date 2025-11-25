@@ -27,10 +27,20 @@ export default function UserConversationsScreen() {
     isLoading,
     refetch,
     isRefetching,
+    error: conversationsError,
   } = useConversations({
     userId: user?.id ?? null,
     enabled: !!user && !isGuest,
   });
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[ConversationsList] User ID:', user?.id);
+    console.log('[ConversationsList] Conversations count:', conversations?.length || 0);
+    console.log('[ConversationsList] Conversations:', conversations);
+    console.log('[ConversationsList] Error:', conversationsError);
+    console.log('[ConversationsList] Loading:', isLoading);
+  }, [conversations, conversationsError, isLoading, user?.id]);
 
   const handleOpenConversation = useCallback(
     (conversationId: number) => {

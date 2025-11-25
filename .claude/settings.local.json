@@ -18,7 +18,8 @@
       "mcp__supabase__get_project_url",
       "mcp__supabase__list_edge_functions",
       "Bash(tail:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

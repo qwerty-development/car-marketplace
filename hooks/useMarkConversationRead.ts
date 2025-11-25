@@ -3,7 +3,7 @@ import { ChatService } from '@/services/ChatService';
 
 interface MarkReadVariables {
   conversationId: string | number;
-  viewerRole: 'user' | 'dealer';
+  viewerRole: 'user' | 'dealer' | 'seller_user';
 }
 
 export function useMarkConversationRead() {
@@ -14,9 +14,11 @@ export function useMarkConversationRead() {
       ChatService.markConversationRead(conversationId, viewerRole),
     {
       onSuccess: (_, variables) => {
+        // Only invalidate the specific conversation messages, not all conversations
+        // The conversation list will be updated via realtime subscription
         const cacheKey = String(variables.conversationId);
         queryClient.invalidateQueries(['conversationMessages', cacheKey]);
-        queryClient.invalidateQueries('conversations');
+        // Don't invalidate all conversations - let realtime handle it
       },
     }
   );

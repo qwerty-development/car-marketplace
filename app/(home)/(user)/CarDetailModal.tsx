@@ -40,6 +40,7 @@ import { shareCar } from "@/utils/centralizedSharing";
 import { formatMileage } from '@/utils/formatMileage';
 import { useTranslation } from 'react-i18next';
 import { I18nManager } from 'react-native';
+import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 
 const { width } = Dimensions.get("window");
 
@@ -781,6 +782,53 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     }
   }, [car, trackWhatsAppClick]);
 
+  // Handle chat button press - works for both dealer and user-listed cars
+  const handleChatPress = useCallback(async () => {
+    if (!car) return;
+
+    // Check if this is a user-listed car or dealer car
+    if (car.user_id && !car.dealership_id) {
+      // User-to-user chat
+      await startUserChat({
+        sellerUserId: car.user_id,
+        userId: user?.id,
+        isGuest: !user,
+        router,
+        t,
+        onAuthRequired: () => {
+          Alert.alert(
+            t('auth.sign_in_required', 'Sign in required'),
+            t('auth.sign_in_to_chat', 'Please sign in to chat with sellers')
+          );
+        },
+        carId: isRental ? null : car.id,
+        carRentId: isRental ? car.id : null,
+      });
+    } else if (car.dealership_id) {
+      // User-to-dealer chat
+      await startDealerChat({
+        dealershipId: car.dealership_id,
+        userId: user?.id,
+        isGuest: !user,
+        router,
+        t,
+        onAuthRequired: () => {
+          Alert.alert(
+            t('auth.sign_in_required', 'Sign in required'),
+            t('auth.sign_in_to_chat', 'Please sign in to chat with dealers')
+          );
+        },
+        carId: isRental ? null : car.id,
+        carRentId: isRental ? car.id : null,
+      });
+    } else {
+      Alert.alert(
+        t('chat.unavailable', 'Chat unavailable'),
+        t('chat.no_seller_info', 'Seller information is not available for this listing')
+      );
+    }
+  }, [car, user, router, t, isRental]);
+
   // Safer image modal for Android
   const renderImageModal = () => {
     if (selectedImageIndex === null || !car?.images?.[selectedImageIndex]) return null;
@@ -1383,15 +1431,24 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             </View>
             <View style={{ flexDirection: 'row' }}>
               <ActionButton
-                icon="call-outline"
-                onPress={handleCall}
+                icon="chatbubble-outline"
+                onPress={handleChatPress}
                 isDarkMode={isDarkMode}
               />
-              <ActionButton
-                icon="logo-whatsapp"
-                onPress={handleWhatsAppPress}
-                isDarkMode={isDarkMode}
-              />
+              {car.dealership_phone && (
+                <>
+                  <ActionButton
+                    icon="call-outline"
+                    onPress={handleCall}
+                    isDarkMode={isDarkMode}
+                  />
+                  <ActionButton
+                    icon="logo-whatsapp"
+                    onPress={handleWhatsAppPress}
+                    isDarkMode={isDarkMode}
+                  />
+                </>
+              )}
               <ActionButton
                 icon="share-outline"
                 onPress={handleShare}

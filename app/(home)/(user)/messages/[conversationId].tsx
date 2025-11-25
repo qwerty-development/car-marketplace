@@ -74,14 +74,20 @@ export default function ConversationDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!conversationIdParam || !user || profile?.role !== 'user') {
+      if (!conversationIdParam || !user || profile?.role !== 'user' || !conversation) {
         return;
+      }
+
+      // Determine the correct viewer role based on conversation type and user position
+      let viewerRole: 'user' | 'seller_user' = 'user';
+      if (conversation.conversation_type === 'user_user' && conversation.seller_user_id === user.id) {
+        viewerRole = 'seller_user';
       }
 
       markReadMutation.mutate(
         {
           conversationId: conversationIdParam,
-          viewerRole: 'user',
+          viewerRole,
         },
         {
           onError: (error) => {
@@ -89,7 +95,7 @@ export default function ConversationDetailScreen() {
           },
         }
       );
-    }, [markReadMutation, conversationIdParam, user, profile?.role])
+    }, [conversationIdParam, user?.id, profile?.role])
   );
 
   useEffect(() => {

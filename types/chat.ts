@@ -1,7 +1,9 @@
 export interface ConversationSummary {
   id: number;
   user_id: string;
-  dealership_id: number;
+  dealership_id: number | null;
+  seller_user_id: string | null;
+  conversation_type: 'user_dealer' | 'user_user';
   car_id: number | null;
   car_rent_id: number | null;
   created_at: string;
@@ -9,9 +11,10 @@ export interface ConversationSummary {
   last_message_at: string | null;
   last_message_preview: string | null;
   user_unread_count: number;
-  dealer_unread_count: number;
+  seller_unread_count: number;
   user?: ChatUserParticipant | null;
   dealership?: ChatDealershipParticipant | null;
+  seller_user?: ChatUserParticipant | null;
   car?: CarListingContext | null;
   carRent?: RentalCarContext | null;
 }
@@ -34,7 +37,7 @@ export interface ChatMessage {
   id: number;
   conversation_id: number;
   sender_id: string;
-  sender_role: 'user' | 'dealer';
+  sender_role: 'user' | 'dealer' | 'seller_user';
   body: string | null;
   media_url: string | null;
   is_read: boolean;
@@ -45,7 +48,7 @@ export interface ChatMessage {
 export interface SendMessagePayload {
   conversationId: number | string;
   senderId: string;
-  senderRole: 'user' | 'dealer';
+  senderRole: 'user' | 'dealer' | 'seller_user';
   body?: string;
   mediaUrl?: string;
 }
@@ -74,7 +77,9 @@ export interface RentalCarContext {
 
 export interface CreateConversationParams {
   userId: string;
-  dealershipId: number;
+  dealershipId?: number | null;
+  sellerUserId?: string | null;
+  conversationType: 'user_dealer' | 'user_user';
   carId?: number | null;
   carRentId?: number | null;
 }

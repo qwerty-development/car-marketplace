@@ -46,58 +46,70 @@ export function useConversations({
   useEffect(() => {
     if (!isEnabled) return;
 
-    const filter = `user_id=eq.${userId}`;
+    let debounceTimer: NodeJS.Timeout | null = null;
 
-    // Subscribe to all conversation changes (INSERT, UPDATE, DELETE)
-    // Changes include car_id and car_rent_id fields automatically
-    const channel = supabase
-      .channel(`conversations:${filter}`)
+    const handleConversationChange = (payload: any) => {
+      // Clear existing timer
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+
+      // Debounce to prevent rapid refetches
+      debounceTimer = setTimeout(() => {
+        // Only invalidate on INSERT or when last_message_preview changes (new message)
+        // Skip invalidation for read status updates (user_unread_count/seller_unread_count changes)
+        if (payload.eventType === 'INSERT' ||
+            (payload.eventType === 'UPDATE' && 
+             payload.new?.last_message_preview !== payload.old?.last_message_preview)) {
+          console.log('[useConversations] Meaningful change detected, invalidating:', payload.eventType);
+          queryClient.invalidateQueries(queryKey(userId));
+        }
+      }, 300);
+    };
+
+    // Subscribe to conversations where user is the buyer (user_id)
+    const buyerFilter = `user_id=eq.${userId}`;
+    const buyerChannel = supabase
+      .channel(`conversations-buyer:${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'conversations',
-          filter,
+          filter: buyerFilter,
         },
-        (payload) => {
-          // Invalidate query to refetch conversations with updated car context
-          queryClient.invalidateQueries(queryKey(userId));
-        }
+        handleConversationChange
       )
       .subscribe();
 
-    // Optional: Also listen to car table changes if car context is enabled
-    // This ensures we get updates if car status/price changes
-    let carChannel: any = null;
-    if (includeCarContext) {
-      carChannel = supabase
-        .channel(`cars-realtime:${userId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'cars',
-          },
-          () => {
-            // Invalidate conversations when car details change
-            queryClient.invalidateQueries(queryKey(userId));
-          }
-        )
-        .subscribe();
-    }
+    // Subscribe to conversations where user is the seller (seller_user_id)
+    const sellerFilter = `seller_user_id=eq.${userId}`;
+    const sellerChannel = supabase
+      .channel(`conversations-seller:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: sellerFilter,
+        },
+        handleConversationChange
+      )
+      .subscribe();
 
     return () => {
-      // Properly cleanup channels on unmount
-      channel.unsubscribe();
-      supabase.removeChannel(channel);
-      if (carChannel) {
-        carChannel.unsubscribe();
-        supabase.removeChannel(carChannel);
+      // Cleanup timer and channels
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
       }
+      buyerChannel.unsubscribe();
+      supabase.removeChannel(buyerChannel);
+      sellerChannel.unsubscribe();
+      supabase.removeChannel(sellerChannel);
     };
-  }, [userId, isEnabled, includeCarContext, queryClient]);
+  }, [userId, isEnabled, queryClient]);
 
   return result;
 }
