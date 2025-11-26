@@ -19,6 +19,7 @@ import { useAuth } from '@/utils/AuthContext';
 import { ChatService } from '@/services/ChatService';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useSendMessage } from '@/hooks/useSendMessage';
+import { useUserName } from '@/hooks/useUserName';
 import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
 import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
@@ -59,6 +60,12 @@ export default function DealerConversationDetailScreen() {
 
   const sendMessageMutation = useSendMessage(conversationIdParam ?? '');
 
+  // Fetch user name via RPC if not available directly (helps with RLS)
+  const { data: fetchedUserName } = useUserName(
+    conversation?.user_id,
+    !!conversation && (!conversation.user || !conversation.user.name)
+  );
+
   // Set header title based on customer info
   useEffect(() => {
     if (!conversation) return;
@@ -68,12 +75,13 @@ export default function DealerConversationDetailScreen() {
     const idSnippet = conversation.user_id
       ? conversation.user_id.slice(0, 8)
       : 'Customer';
-    const customerLabel = user?.name ?? emailUsername ?? idSnippet ?? t('chat.customer', 'Customer');
+    // Use fetched name from RPC if direct access is blocked by RLS
+    const customerLabel = fetchedUserName ?? user?.name ?? emailUsername ?? idSnippet ?? t('chat.customer', 'Customer');
 
     navigation.setOptions({
       title: customerLabel,
     });
-  }, [conversation, navigation, t]);
+  }, [conversation, navigation, t, fetchedUserName]);
 
   // Mark as read when screen is focused (only once)
   const hasMarkedReadRef = useRef(false);

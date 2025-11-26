@@ -65,6 +65,7 @@ export default function DealerConversationsScreen() {
           conversation_type,
           car_id,
           car_rent_id,
+          number_plate_id,
           created_at,
           updated_at,
           last_message_at,
@@ -107,6 +108,16 @@ export default function DealerConversationsScreen() {
             price,
             images,
             status
+          ),
+          numberPlate:number_plates (
+            id,
+            letter,
+            digits,
+            price,
+            picture,
+            status,
+            user_id,
+            dealership_id
           )
         `)
         .eq('dealership_id', dealership.id)
@@ -123,6 +134,7 @@ export default function DealerConversationsScreen() {
         seller_user: Array.isArray(conv.seller_user) ? conv.seller_user[0] : conv.seller_user,
         car: Array.isArray(conv.car) ? conv.car[0] : conv.car,
         carRent: Array.isArray(conv.carRent) ? conv.carRent[0] : conv.carRent,
+        numberPlate: Array.isArray(conv.numberPlate) ? conv.numberPlate[0] : conv.numberPlate,
       })) as ConversationSummary[];
     },
     {
