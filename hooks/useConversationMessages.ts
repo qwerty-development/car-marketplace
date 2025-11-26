@@ -40,10 +40,10 @@ export function useConversationMessages(conversationId?: number | string | null)
 
   const flatMessages = useMemo(() => {
     if (!result.data?.pages) return [] as ChatMessage[];
-    // Flatten pages and reverse to get correct chronological order
-    // (Pages come in newest-first, but we want oldest-first for chat display)
-    const flattened = result.data.pages.flat();
-    return flattened.reverse();
+    // Flatten pages - ChatService.fetchMessages already returns messages in chronological order
+    // (oldest first), so no need to reverse. For pagination, older pages should come first.
+    const allPages = [...result.data.pages].reverse(); // Reverse page order (older pages first)
+    return allPages.flat();
   }, [result.data?.pages]);
 
   useEffect(() => {

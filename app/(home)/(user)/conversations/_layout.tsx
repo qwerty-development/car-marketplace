@@ -1,35 +1,41 @@
+import React from 'react';
 import { Stack } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/utils/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
-export default function UserConversationsLayout() {
-  const { t } = useTranslation();
+export default function UserMessagesLayout() {
   const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+          backgroundColor: isDarkMode ? '#0F172A' : '#FFFFFF',
         },
-        headerTintColor: isDarkMode ? '#FFFFFF' : '#000000',
-        headerShadowVisible: false,
+        headerTitleStyle: {
+          color: isDarkMode ? '#F8FAFC' : '#0F172A',
+          fontWeight: '600',
+        },
+        headerTintColor: '#D55004',
+        contentStyle: {
+          backgroundColor: isDarkMode ? '#020617' : '#F8FAFC',
+        },
       }}
     >
       <Stack.Screen
         name="index"
         options={{
           title: t('chat.messages', 'Messages'),
-          headerShown: true,
         }}
       />
       <Stack.Screen
         name="[conversationId]"
         options={{
           title: t('chat.conversation', 'Conversation'),
-          headerShown: true,
         }}
       />
     </Stack>
   );
 }
+
