@@ -61,16 +61,28 @@ export default function ConversationDetailScreen() {
   const markReadMutation = useMarkConversationRead();
 
   useEffect(() => {
-    if (!conversation) return;
+    if (!conversation || !user) return;
 
-    const dealerLabel =
-      conversation.dealership?.name ??
-      t('chat.dealer', 'Dealer');
+    let headerTitle = t('chat.dealer', 'Dealer');
+
+    if (conversation.conversation_type === 'user_dealer') {
+      // User-to-Dealer conversation: show dealership name
+      headerTitle = conversation.dealership?.name ?? t('chat.dealer', 'Dealer');
+    } else if (conversation.conversation_type === 'user_user') {
+      // User-to-User conversation: show the other user's name
+      if (conversation.seller_user_id === user.id) {
+        // Current user is the seller, show the buyer's name
+        headerTitle = conversation.user?.name ?? t('chat.user', 'User');
+      } else {
+        // Current user is the buyer, show the seller's name
+        headerTitle = conversation.seller_user?.name ?? t('chat.user', 'User');
+      }
+    }
 
     navigation.setOptions({
-      title: dealerLabel,
+      title: headerTitle,
     });
-  }, [conversation, navigation, t]);
+  }, [conversation, navigation, t, user]);
 
   useFocusEffect(
     useCallback(() => {
