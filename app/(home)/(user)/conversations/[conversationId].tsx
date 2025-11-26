@@ -23,6 +23,7 @@ import { useMarkConversationRead } from '@/hooks/useMarkConversationRead';
 import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
 import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
+import ConversationPlateHeader from '@/components/chat/ConversationPlateHeader';
 
 export default function ConversationDetailScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId?: string | string[] }>();
@@ -207,7 +208,12 @@ export default function ConversationDetailScreen() {
           </View>
         ) : (
           <>
-            {conversation && <ConversationCarHeader conversation={conversation} />}
+            {conversation && (conversation.car || conversation.carRent) && (
+              <ConversationCarHeader conversation={conversation} />
+            )}
+            {conversation && conversation.numberPlate && (
+              <ConversationPlateHeader conversation={conversation} />
+            )}
             <FlatList
               ref={listRef}
               data={messages}

@@ -6,6 +6,7 @@ export interface ConversationSummary {
   conversation_type: 'user_dealer' | 'user_user';
   car_id: number | null;
   car_rent_id: number | null;
+  number_plate_id: number | null;
   created_at: string;
   updated_at: string;
   last_message_at: string | null;
@@ -17,6 +18,7 @@ export interface ConversationSummary {
   seller_user?: ChatUserParticipant | null;
   car?: CarListingContext | null;
   carRent?: RentalCarContext | null;
+  numberPlate?: NumberPlateContext | null;
 }
 
 export interface ChatUserParticipant {
@@ -75,6 +77,17 @@ export interface RentalCarContext {
   status: 'available' | 'unavailable';
 }
 
+export interface NumberPlateContext {
+  id: number;
+  letter: string;
+  digits: string;
+  price: number;
+  picture: string | null;
+  status: string;
+  user_id?: string | null;
+  dealership_id?: number | null;
+}
+
 export interface CreateConversationParams {
   userId: string;
   dealershipId?: number | null;
@@ -82,11 +95,51 @@ export interface CreateConversationParams {
   conversationType: 'user_dealer' | 'user_user';
   carId?: number | null;
   carRentId?: number | null;
+  numberPlateId?: number | null;
 }
 
 export type CarContext = CarListingContext | RentalCarContext | null;
 
 /**
+ * Validates that exactly one listing type is provided (XOR constraint)
+ * @param carId - Car listing ID
+ * @param carRentId - Rental car ID
+ * @param numberPlateId - Number plate ID
+ * @throws Error if multiple or no listing types are provided
+ */
+export function validateListingContext(
+  carId?: number | null, 
+  carRentId?: number | null,
+  numberPlateId?: number | null
+): {
+  isValid: boolean;
+  error?: string;
+} {
+  const hasCarId = carId !== null && carId !== undefined;
+  const hasCarRentId = carRentId !== null && carRentId !== undefined;
+  const hasNumberPlateId = numberPlateId !== null && numberPlateId !== undefined;
+
+  const count = [hasCarId, hasCarRentId, hasNumberPlateId].filter(Boolean).length;
+
+  if (count > 1) {
+    return {
+      isValid: false,
+      error: 'Cannot specify multiple listing types. Provide only one of car_id, car_rent_id, or number_plate_id.',
+    };
+  }
+
+  if (count === 0) {
+    return {
+      isValid: false,
+      error: 'Must specify exactly one listing type: car_id, car_rent_id, or number_plate_id.',
+    };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * @deprecated Use validateListingContext instead
  * Validates that exactly one car type is provided (XOR constraint)
  * @param carId - Car listing ID
  * @param carRentId - Rental car ID
@@ -96,22 +149,5 @@ export function validateCarContext(carId?: number | null, carRentId?: number | n
   isValid: boolean;
   error?: string;
 } {
-  const hasCarId = carId !== null && carId !== undefined;
-  const hasCarRentId = carRentId !== null && carRentId !== undefined;
-
-  if (hasCarId && hasCarRentId) {
-    return {
-      isValid: false,
-      error: 'Cannot specify both car_id and car_rent_id. Provide only one.',
-    };
-  }
-
-  if (!hasCarId && !hasCarRentId) {
-    return {
-      isValid: false,
-      error: 'Must specify either car_id or car_rent_id.',
-    };
-  }
-
-  return { isValid: true };
+  return validateListingContext(carId, carRentId, null);
 }

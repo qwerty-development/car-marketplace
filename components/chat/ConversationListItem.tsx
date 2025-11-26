@@ -60,11 +60,17 @@ function getDisplayInfo(
   fetchedUserName?: string | null
 ) {
   const carInfo = conversation.car || conversation.carRent;
-  const carLabel = carInfo
-    ? `${carInfo.make} ${carInfo.model} (${carInfo.year})${
-        conversation.carRent ? ' • For Rent' : ''
-      }`
-    : '';
+  const plateInfo = conversation.numberPlate;
+  
+  // Determine listing label
+  let listingLabel = '';
+  if (carInfo) {
+    listingLabel = `${carInfo.make} ${carInfo.model} (${carInfo.year})${
+      conversation.carRent ? ' • For Rent' : ''
+    }`;
+  } else if (plateInfo) {
+    listingLabel = `Plate: ${plateInfo.letter} ${plateInfo.digits}`;
+  }
 
   if (viewerRole === 'user') {
     // For user_user conversations, show the seller user
@@ -76,10 +82,11 @@ function getDisplayInfo(
 
       return {
         title: fallbackLabel,
-        subtitle: carLabel || sellerUser?.email || '',
+        subtitle: listingLabel || sellerUser?.email || '',
         avatarUrl: null,
         fallbackLetter: fallbackLabel.charAt(0).toUpperCase(),
-        carInfo: carLabel || null,
+        carInfo: carInfo ? listingLabel : null,
+        plateInfo: plateInfo ? listingLabel : null,
         conversationType: 'user_user' as const,
       };
     }
@@ -88,10 +95,11 @@ function getDisplayInfo(
     const dealer = conversation.dealership;
     return {
       title: dealer?.name ?? 'Dealer',
-      subtitle: carLabel || dealer?.location || dealer?.phone || '',
+      subtitle: listingLabel || dealer?.location || dealer?.phone || '',
       avatarUrl: dealer?.logo ?? null,
       fallbackLetter: dealer?.name?.[0]?.toUpperCase() ?? 'D',
-      carInfo: carLabel || null,
+      carInfo: carInfo ? listingLabel : null,
+      plateInfo: plateInfo ? listingLabel : null,
       conversationType: 'user_dealer' as const,
     };
   }
@@ -110,7 +118,8 @@ function getDisplayInfo(
     subtitle: user?.email ?? '',
     avatarUrl: null,
     fallbackLetter: fallbackLabel.charAt(0).toUpperCase(),
-    carInfo: null,
+    carInfo: carInfo ? listingLabel : null,
+    plateInfo: plateInfo ? listingLabel : null,
     conversationType: conversation.conversation_type,
   };
 }
@@ -222,6 +231,26 @@ export default function ConversationListItem({
               numberOfLines={1}
             >
               {info.carInfo}
+            </Text>
+          </View>
+        ) : null}
+
+        {info.plateInfo ? (
+          <View style={styles.carBadge}>
+            <Ionicons
+              name="id-card-outline"
+              size={14}
+              color="#D55004"
+              style={{ marginRight: 4 }}
+            />
+            <Text
+              style={[
+                styles.carInfo,
+                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+              ]}
+              numberOfLines={1}
+            >
+              {info.plateInfo}
             </Text>
           </View>
         ) : null}

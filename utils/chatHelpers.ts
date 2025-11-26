@@ -13,6 +13,7 @@ interface StartDealerChatOptions {
   setLoading?: (loading: boolean) => void;
   carId?: number | null;
   carRentId?: number | null;
+  numberPlateId?: number | null;
 }
 
 export async function startDealerChat({
@@ -25,8 +26,10 @@ export async function startDealerChat({
   setLoading,
   carId,
   carRentId,
+  numberPlateId,
 }: StartDealerChatOptions): Promise<{ started: boolean; conversationId?: number }> {
-  if (isGuest || !userId) {
+  // User is authenticated if userId exists - ignore isGuest flag in that case
+  if (!userId) {
     onAuthRequired?.();
     return { started: false };
   }
@@ -51,6 +54,7 @@ export async function startDealerChat({
       conversationType: 'user_dealer',
       carId: carId ?? null,
       carRentId: carRentId ?? null,
+      numberPlateId: numberPlateId ?? null,
     });
 
     router.push({
@@ -84,6 +88,7 @@ interface StartUserChatOptions {
   setLoading?: (loading: boolean) => void;
   carId?: number | null;
   carRentId?: number | null;
+  numberPlateId?: number | null;
 }
 
 export async function startUserChat({
@@ -96,8 +101,10 @@ export async function startUserChat({
   setLoading,
   carId,
   carRentId,
+  numberPlateId,
 }: StartUserChatOptions): Promise<{ started: boolean; conversationId?: number }> {
-  if (isGuest || !userId) {
+  // User is authenticated if userId exists - ignore isGuest flag in that case
+  if (!userId) {
     onAuthRequired?.();
     return { started: false };
   }
@@ -131,6 +138,7 @@ export async function startUserChat({
       conversationType: 'user_user',
       carId: carId ?? null,
       carRentId: carRentId ?? null,
+      numberPlateId: numberPlateId ?? null,
     });
 
     router.push({

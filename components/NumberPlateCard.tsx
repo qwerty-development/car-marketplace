@@ -9,6 +9,7 @@ import {
   Animated,
   Platform,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styled } from "nativewind";
@@ -18,7 +19,10 @@ import { useLanguage } from '@/utils/LanguageContext';
 import i18n from '@/utils/i18n';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from "@/utils/AuthContext";
+import { useGuestUser } from "@/utils/GuestUserContext";
 import * as Haptics from 'expo-haptics';
+import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
+import AuthRequiredModal from '@/components/AuthRequiredModal';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -99,7 +103,11 @@ export default function NumberPlateCard({
   const { language } = useLanguage();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { isGuest } = useGuestUser();
   const router = useRouter();
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -110,6 +118,9 @@ export default function NumberPlateCard({
   const imageHeight = 260;
 
   const isDealer = plate.seller_type === 'dealer';
+  
+  // Check if the current user owns this plate (don't show chat button for own listings)
+  const isOwnListing = user?.id === plate.user_id;
 
   useEffect(() => {
     Animated.parallel([
@@ -189,6 +200,40 @@ export default function NumberPlateCard({
       Alert.alert(t('common.error'), t('common.phone_not_available'));
     }
   }, [plate, t]);
+
+  const handleChatPress = useCallback(async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const plateIdNum = typeof plate.id === 'string' ? parseInt(plate.id, 10) : plate.id;
+    
+    if (isDealer && plate.dealership_id) {
+      // Chat with dealer
+      await startDealerChat({
+        dealershipId: plate.dealership_id,
+        userId: user?.id,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        setLoading: setIsChatLoading,
+        numberPlateId: plateIdNum,
+      });
+    } else if (plate.user_id) {
+      // Chat with private seller (user-to-user)
+      await startUserChat({
+        sellerUserId: plate.user_id,
+        userId: user?.id,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        setLoading: setIsChatLoading,
+        numberPlateId: plateIdNum,
+      });
+    } else {
+      Alert.alert(t('common.error'), t('chat.seller_not_found', 'Seller unavailable'));
+    }
+  }, [plate, isDealer, user?.id, isGuest, router, t]);
 
   const plateDisplay = useMemo(() => {
     return `${plate.letter} ${plate.digits}`;
@@ -316,6 +361,19 @@ export default function NumberPlateCard({
                   className="flex-row items-center"
                   style={{ gap: 8 }}
                 >
+                  {!isOwnListing && (
+                    isChatLoading ? (
+                      <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                      </View>
+                    ) : (
+                      <ActionButton
+                        icon="chatbubble-outline"
+                        onPress={handleChatPress}
+                        isDarkMode={isDarkMode}
+                      />
+                    )
+                  )}
                   <ActionButton
                     icon="call-outline"
                     onPress={handleCall}
@@ -352,6 +410,19 @@ export default function NumberPlateCard({
                   className="flex-row items-center"
                   style={{ gap: 8 }}
                 >
+                  {!isOwnListing && (
+                    isChatLoading ? (
+                      <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                      </View>
+                    ) : (
+                      <ActionButton
+                        icon="chatbubble-outline"
+                        onPress={handleChatPress}
+                        isDarkMode={isDarkMode}
+                      />
+                    )
+                  )}
                   <ActionButton
                     icon="call-outline"
                     onPress={handleCall}
@@ -368,6 +439,12 @@ export default function NumberPlateCard({
           </StyledView>
         </StyledPressable>
       </StyledView>
+
+      {/* Auth Required Modal */}
+      <AuthRequiredModal
+        isVisible={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </Animated.View>
   );
 }

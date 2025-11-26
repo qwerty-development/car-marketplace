@@ -22,6 +22,7 @@ import { useSendMessage } from '@/hooks/useSendMessage';
 import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
 import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
+import ConversationPlateHeader from '@/components/chat/ConversationPlateHeader';
 
 export default function DealerConversationDetailScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId?: string | string[] }>();
@@ -206,10 +207,16 @@ export default function DealerConversationDetailScreen() {
           </View>
         ) : (
           <>
-            {conversation && (
+            {conversation && (conversation.car || conversation.carRent) && (
               <ConversationCarHeader 
                 conversation={conversation}
-                dealershipId={conversation.dealership_id}
+                dealershipId={conversation.dealership_id ?? undefined}
+                isDealer={true}
+              />
+            )}
+            {conversation && conversation.numberPlate && (
+              <ConversationPlateHeader 
+                conversation={conversation}
                 isDealer={true}
               />
             )}
