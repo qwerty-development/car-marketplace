@@ -54,7 +54,7 @@ export async function startDealerChat({
     });
 
     router.push({
-      pathname: '/(home)/(user)/messages/[conversationId]',
+      pathname: '/(home)/(user)/conversations/[conversationId]',
       params: { conversationId: conversation.id.toString() },
     });
 
@@ -134,7 +134,7 @@ export async function startUserChat({
     });
 
     router.push({
-      pathname: '/(home)/(user)/messages/[conversationId]',
+      pathname: '/(home)/(user)/conversations/[conversationId]',
       params: { conversationId: conversation.id.toString() },
     });
 

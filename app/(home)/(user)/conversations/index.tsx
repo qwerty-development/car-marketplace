@@ -45,7 +45,7 @@ export default function UserConversationsScreen() {
   const handleOpenConversation = useCallback(
     (conversationId: number) => {
       router.push({
-        pathname: '/(home)/(user)/messages/[conversationId]',
+        pathname: '/(home)/(user)/conversations/[conversationId]',
         params: { conversationId: conversationId.toString() },
       });
     },

@@ -347,7 +347,7 @@ const DeepLinkHandler = () => {
       } else if (type === "conversation") {
         // Force navigation to conversation with new params
         router.replace({
-          pathname: "/(home)/(user)/messages/[conversationId]",
+          pathname: "/(home)/(user)/conversations/[conversationId]",
           params: {
             conversationId: id,
             fromDeepLink: "true",
@@ -471,7 +471,7 @@ const DeepLinkHandler = () => {
 
             // Navigate to conversation
             router.push({
-              pathname: "/(home)/(user)/messages/[conversationId]",
+              pathname: "/(home)/(user)/conversations/[conversationId]",
               params: {
                 conversationId: id,
                 fromDeepLink: "true",
@@ -485,7 +485,7 @@ const DeepLinkHandler = () => {
               // Wait for navigation to settle
               setTimeout(() => {
                 router.push({
-                  pathname: "/(home)/(user)/messages/[conversationId]",
+                  pathname: "/(home)/(user)/conversations/[conversationId]",
                   params: {
                     conversationId: id,
                     fromDeepLink: "true",
@@ -495,7 +495,7 @@ const DeepLinkHandler = () => {
             } else {
               // Direct navigation for runtime links
               router.push({
-                pathname: "/(home)/(user)/messages/[conversationId]",
+                pathname: "/(home)/(user)/conversations/[conversationId]",
                 params: {
                   conversationId: id,
                   fromDeepLink: "true",
