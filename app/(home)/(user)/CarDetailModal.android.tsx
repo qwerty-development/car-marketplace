@@ -1680,9 +1680,37 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             );
           })()}
 
+          {/* More from Dealership Section */}
+          {dealerCars.length > 0 && isDealershipCar && (
+            <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                  color: isDarkMode ? "#fff" : "#000",
+                  marginBottom: 8
+                }}
+              >
+                More from {sellerInfo.name || 'Dealership'}
+              </Text>
+              <FlatList
+                data={dealerCars}
+                renderItem={renderCarItem}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={192 + 12}
+                decelerationRate="fast"
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={3}
+                initialNumToRender={3}
+              />
+            </View>
+          )}
+
           {/* Similar Cars Section */}
           {similarCars.length > 0 && (
-            <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+            <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
               <Text
                 style={{
                   fontSize: 18,
@@ -1712,35 +1740,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             </View>
           )}
 
-          {dealerCars.length > 0 && isDealershipCar && (
-            <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  color: isDarkMode ? "#fff" : "#000",
-                  marginBottom: 8
-                }}
-              >
-                More from {sellerInfo.name || 'Dealership'}
-              </Text>
-              <FlatList
-                data={dealerCars}
-                renderItem={renderCarItem}
-                keyExtractor={(item) => item.id.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={192 + 12}
-                decelerationRate="fast"
-                removeClippedSubviews={true}
-                maxToRenderPerBatch={3}
-                initialNumToRender={3}
-              />
-            </View>
-          )}
-
-          {/* Bottom spacing when dealer cars section is not shown */}
-          {(dealerCars.length === 0 || !isDealershipCar) && (
+          {/* Bottom spacing when similar cars section is not shown */}
+          {similarCars.length === 0 && (
             <View style={{ marginBottom: 180 }} />
           )}
         </ScrollView>

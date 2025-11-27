@@ -1698,8 +1698,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   // Updated renderSimilarCars function without title during loading
   const renderSimilarCars = useCallback(() => {
     // If not loaded yet, show the skeleton without any title
+    // Include the bottom margin to ensure proper spacing at the end
     if (!loadingStatus.similarCarsLoaded) {
-      return <CarSectionSkeleton isDarkMode={isDarkMode} />;
+      return (
+        <View style={{ marginBottom: 150 }}>
+          <CarSectionSkeleton isDarkMode={isDarkMode} />
+        </View>
+      );
     }
 
     // If loaded but empty, return null (show nothing)
@@ -1707,7 +1712,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
 
     // If loaded and we have content, show the full section with title
     return (
-      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+      <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
         <Text
           style={{
             fontSize: 18,
@@ -1752,13 +1757,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     if (!isDealershipCar) return null;
 
     // If not loaded yet, show the skeleton without any title (only for dealership cars)
-    // Include the bottom margin to ensure proper spacing at the end
     if (!loadingStatus.dealerCarsLoaded) {
-      return (
-        <View style={{ marginBottom: 150 }}>
-          <CarSectionSkeleton isDarkMode={isDarkMode} />
-        </View>
-      );
+      return <CarSectionSkeleton isDarkMode={isDarkMode} />;
     }
 
     // If loaded but empty, return null (show nothing)
@@ -1766,7 +1766,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
 
     // If loaded and we have content, show the full section with title
     return (
-      <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
+      <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
         <Text
           style={{
             fontSize: 18,
@@ -1916,11 +1916,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             {/* Map */}
             {renderMap()}
 
+            {/* Dealer Cars (More from...) */}
+            {renderDealerCars()}
+
             {/* Similar Cars */}
             {renderSimilarCars()}
-
-            {/* Dealer Cars */}
-            {renderDealerCars()}
 
             {/* Bottom spacing - ensure content isn't cropped by bottom action bar */}
             {(!isDealershipCar || (loadingStatus.dealerCarsLoaded && nonCriticalState.dealerCars.length === 0)) && (

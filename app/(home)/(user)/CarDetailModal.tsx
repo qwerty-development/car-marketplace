@@ -1304,9 +1304,37 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             </View>
           )}
 
+          {/* More from Dealership Section */}
+          {dealerCars.length > 0 && (
+            <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                  color: isDarkMode ? "#fff" : "#000",
+                  marginBottom: 8
+                }}
+              >
+                More from {car.dealership_name || 'Dealership'}
+              </Text>
+              <FlatList
+                data={dealerCars}
+                renderItem={renderCarItem}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={192 + 12}
+                decelerationRate="fast"
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={3}
+                initialNumToRender={3}
+              />
+            </View>
+          )}
+
           {/* Similar Cars Section */}
           {similarCars.length > 0 && (
-            <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+            <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
               <Text
                 style={{
                   fontSize: 18,
@@ -1323,33 +1351,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
               </Text>
               <FlatList
                 data={similarCars}
-                renderItem={renderCarItem}
-                keyExtractor={(item) => item.id.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={192 + 12}
-                decelerationRate="fast"
-                removeClippedSubviews={true}
-                maxToRenderPerBatch={3}
-                initialNumToRender={3}
-              />
-            </View>
-          )}
-
-          {dealerCars.length > 0 && (
-            <View style={{ marginTop: 32, paddingHorizontal: 16, marginBottom: 160 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  color: isDarkMode ? "#fff" : "#000",
-                  marginBottom: 8
-                }}
-              >
-                More from {car.dealership_name || 'Dealership'}
-              </Text>
-              <FlatList
-                data={dealerCars}
                 renderItem={renderCarItem}
                 keyExtractor={(item) => item.id.toString()}
                 horizontal
