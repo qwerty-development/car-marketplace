@@ -29,9 +29,11 @@ import { DealerLogoPicker } from '@/components/DealerLogoPicker'
 import Constants from 'expo-constants'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '@/utils/LanguageContext'
+/* CREDIT_DISABLED: Credit system temporarily disabled
 import { useCredits } from '@/utils/CreditContext'
 import { CreditBalance } from '@/components/CreditBalance'
 import { PurchaseCreditsModal } from '@/components/PurchaseCreditsModal'
+*/
 
 const SUBSCRIPTION_WARNING_DAYS = 7
 const MODAL_HEIGHT_PERCENTAGE = 0.7;
@@ -369,7 +371,7 @@ export default function DealershipProfilePage() {
   useScrollToTop(scrollRef)
 
   const { dealership, isLoading: isProfileLoading, fetchDealershipProfile } = useDealershipProfile()
-  const { refreshBalance } = useCredits()
+  /* CREDIT_DISABLED: const { refreshBalance } = useCredits() */
   const {
     isUploading: isLogoUploading,
     handleImageUpload: handleLogoUpload,
@@ -393,7 +395,7 @@ export default function DealershipProfilePage() {
   const [isCreatingPayment, setIsCreatingPayment] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false)
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  /* CREDIT_DISABLED: const [showPurchaseModal, setShowPurchaseModal] = useState(false) */
 
   // Subscription checks
   const isSubscriptionValid = useCallback(() => {
@@ -516,15 +518,17 @@ export default function DealershipProfilePage() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
-      // Refresh both dealership profile and credit balance
+      /* CREDIT_DISABLED: Refresh both dealership profile and credit balance
       await Promise.all([
         fetchDealershipProfile(),
         refreshBalance()
       ])
+      */
+      await fetchDealershipProfile()
     } finally {
       setRefreshing(false)
     }
-  }, [fetchDealershipProfile, refreshBalance])
+  }, [fetchDealershipProfile])
 
   const handleSelectPlan = useCallback(async (plan: 'monthly' | 'yearly') => {
     try {
@@ -675,7 +679,7 @@ export default function DealershipProfilePage() {
           />
         </View>
 
-        {/* Credit Balance Widget */}
+        {/* CREDIT_DISABLED: Credit Balance Widget
         <View className="px-6 mb-6">
           <CreditBalance
             isDarkMode={isDarkMode}
@@ -683,6 +687,7 @@ export default function DealershipProfilePage() {
             isRTL={isRTL}
           />
         </View>
+        */}
 
         {/* Menu Items - Styled like User Profile */}
         <View className="space-y-4 px-6">
@@ -982,7 +987,7 @@ export default function DealershipProfilePage() {
         isSubmitting={isCreatingPayment}
       />
 
-      {/* Purchase Credits Modal */}
+      {/* CREDIT_DISABLED: Purchase Credits Modal
       <PurchaseCreditsModal
         visible={showPurchaseModal}
         onClose={() => setShowPurchaseModal(false)}
@@ -992,6 +997,7 @@ export default function DealershipProfilePage() {
           setShowPurchaseModal(false);
         }}
       />
+      */}
 
       {/* Sign Out Overlay */}
       <SignOutOverlay visible={showSignOutOverlay} />

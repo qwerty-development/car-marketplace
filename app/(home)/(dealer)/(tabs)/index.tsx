@@ -36,8 +36,10 @@ import { useAuth } from '@/utils/AuthContext'
 import { formatMileage } from '@/utils/formatMileage';
 import { ListingSkeletonLoader } from '../Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
+/* CREDIT_DISABLED: Boost system temporarily disabled
 import { BoostListingModal } from '@/components/BoostListingModal'
 import { BoostInsightsWidget } from '@/components/BoostInsightsWidget'
+*/
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -780,8 +782,10 @@ export default function DealerListings() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [totalListings, setTotalListings] = useState(0)
 	const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+	/* CREDIT_DISABLED: Boost state disabled
 	const [showBoostModal, setShowBoostModal] = useState(false)
 	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
+	*/
 	const [filters, setFilters] = useState({
 		status: '',
 		condition: '',
@@ -1254,6 +1258,7 @@ export default function DealerListings() {
 		}
 	}
 
+	/* CREDIT_DISABLED: Boost handler disabled
 	const handleBoostPress = useCallback((carId: number) => {
 		if (!isSubscriptionValid()) {
 			Alert.alert(
@@ -1265,6 +1270,7 @@ export default function DealerListings() {
 		setSelectedCarForBoost(carId);
 		setShowBoostModal(true);
 	}, [isSubscriptionValid]);
+	*/
 
 const ListingCard = useMemo(
   () =>
@@ -1424,7 +1430,7 @@ const ListingCard = useMemo(
               </View>
             </View>
 
-            {/* Boost Button Section - Only for available listings in sale mode */}
+            {/* CREDIT_DISABLED: Boost Button Section - Only for available listings in sale mode
             {item.status === 'available' && viewMode === 'sale' && (
               <View className='px-5 pb-4'>
                 {item.is_boosted && item.boost_end_date && new Date(item.boost_end_date) > new Date() ? (
@@ -1464,6 +1470,7 @@ const ListingCard = useMemo(
                 )}
               </View>
             )}
+            */}
           </Animated.View>
         </TouchableOpacity>
       );
@@ -1473,8 +1480,8 @@ const ListingCard = useMemo(
     router,
     dealership,
     isSubscriptionValid,
-    viewMode,
-    handleBoostPress
+    viewMode
+    /* CREDIT_DISABLED: , handleBoostPress */
   ]
 );
 
@@ -1540,10 +1547,11 @@ const ListingCard = useMemo(
       t={t}
     />
 
-    {/* Boost Performance Insights */}
+    {/* CREDIT_DISABLED: Boost Performance Insights
     {dealership?.id && (
       <BoostInsightsWidget dealershipId={dealership.id} />
     )}
+    */}
 
     {/* Search and Filter Bar */}
     <ModernSearchBar
@@ -1663,7 +1671,7 @@ const ListingCard = useMemo(
 				/>
 			)}
 
-			{/* Boost Listing Modal */}
+			{/* CREDIT_DISABLED: Boost Listing Modal
 			{selectedCarForBoost && (
 				<BoostListingModal
 					visible={showBoostModal}
@@ -1681,6 +1689,7 @@ const ListingCard = useMemo(
 					}}
 				/>
 			)}
+			*/}
 		</LinearGradient>
 	)
 }
