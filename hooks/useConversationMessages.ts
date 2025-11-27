@@ -28,8 +28,9 @@ export function useConversationMessages(conversationId?: number | string | null)
     },
     {
       enabled: conversationId != null,
-      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-      cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+      staleTime: 0, // Always consider data stale for real-time chat
+      cacheTime: 0, // Don't cache - always fetch fresh for real-time
+      refetchOnMount: 'always', // Always refetch when conversation screen opens
       refetchOnWindowFocus: false, // Prevent refetch when switching tabs
       getNextPageParam: (lastPage) => {
         if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
@@ -68,16 +69,28 @@ export function useConversationMessages(conversationId?: number | string | null)
             clearTimeout(debounceTimer);
           }
 
-          // Debounce to prevent multiple rapid refetches
+          // For INSERT events (new messages), invalidate immediately for real-time feel
+          if (payload.eventType === 'INSERT') {
+            console.log('[useConversationMessages] New message received, refreshing immediately');
+            queryClient.invalidateQueries(queryKey);
+            return;
+          }
+
+          // For UPDATE/DELETE events, debounce to prevent rapid refetches (e.g., read receipts)
           debounceTimer = setTimeout(() => {
-            // Only invalidate on INSERT (new messages) or UPDATE (read status)
-            // Skip invalidation for rapid successive updates
             console.log('[useConversationMessages] Message change:', payload.eventType);
             queryClient.invalidateQueries(queryKey);
           }, 300);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // When subscription is ready, force a refetch to catch any messages 
+        // that arrived between initial fetch and subscription becoming active
+        if (status === 'SUBSCRIBED') {
+          console.log('[useConversationMessages] Realtime subscribed, syncing messages');
+          queryClient.invalidateQueries(queryKey);
+        }
+      });
 
     return () => {
       // Cleanup timer and channel
