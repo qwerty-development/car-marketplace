@@ -4,7 +4,6 @@ import {
   Text,
   Linking,
   Alert,
-  Image,
   Pressable,
   Animated,
   Platform,
@@ -23,10 +22,10 @@ import { useGuestUser } from "@/utils/GuestUserContext";
 import * as Haptics from 'expo-haptics';
 import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
+import CachedImage from '@/utils/CachedImage';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
-const StyledImage = styled(Image);
 const StyledPressable = styled(Pressable);
 
 const OptimizedImage = ({ source, style, onLoad, fallbackColor = 'transparent' }: any) => {
@@ -40,12 +39,13 @@ const OptimizedImage = ({ source, style, onLoad, fallbackColor = 'transparent' }
 
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
-      <StyledImage
+      <CachedImage
         source={source}
-        className="w-full h-full"
-        style={{ opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
+        style={{ width: '100%', height: '100%', opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
+        contentFit="cover"
         onLoad={handleLoad}
-        resizeMode="cover"
+        cachePolicy="disk"
+        transition={150}
       />
     </View>
   );
@@ -327,11 +327,12 @@ export default function NumberPlateCard({
               <StyledView className="flex-row items-center justify-between">
                 {plate.dealership_logo && (
                   <View className="mr-3">
-                    <StyledImage
+                    <CachedImage
                       source={{ uri: plate.dealership_logo }}
-                      style={{ width: 48, height: 48 }}
-                      className="rounded-full border border-textgray/20"
-                      resizeMode="cover"
+                      style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(128, 128, 128, 0.2)' }}
+                      contentFit="cover"
+                      cachePolicy="disk"
+                      transition={100}
                     />
                   </View>
                 )}

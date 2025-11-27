@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, I18nManager } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, I18nManager } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { formatMileage } from '@/utils/formatMileage';
+import CachedImage from '@/utils/CachedImage';
 
 interface ChatCarCardProps {
   car: any;
@@ -16,10 +17,11 @@ export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       <View style={styles.imageContainer}>
-        <Image
+        <CachedImage
           source={{ uri: car.images?.[0] || '' }}
           style={styles.image}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="disk"
         />
         <View style={styles.priceBadge}>
           <Text style={styles.priceText}>${car.price?.toLocaleString() || 'N/A'}</Text>
@@ -52,7 +54,7 @@ export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
         </View>
         <View style={styles.dealerRow}>
           {car.dealership_logo ? (
-            <Image source={{ uri: car.dealership_logo }} style={styles.dealerLogo} />
+            <CachedImage source={{ uri: car.dealership_logo }} style={styles.dealerLogo} cachePolicy="disk" />
           ) : null}
           <View style={styles.dealerInfo}>
             <Text style={styles.dealerName} numberOfLines={1}>{car.dealership_name}</Text>

@@ -1,13 +1,14 @@
 // (home)/(dealer)/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { useColorScheme, View, Image, Platform } from 'react-native'
+import { useColorScheme, View, Platform } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { useDealershipProfile } from '../hooks/useDealershipProfile'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLanguage } from '@/utils/LanguageContext'
 import { useTranslation } from 'react-i18next'
+import CachedImage from '@/utils/CachedImage'
 
 // Custom Dealership Logo Component
 const DealershipLogo = ({ color, focused }: { color: string; focused: boolean }) => {
@@ -54,14 +55,15 @@ const DealershipLogo = ({ color, focused }: { color: string; focused: boolean })
         }),
       }}>
         {dealership?.logo ? (
-          <Image
+          <CachedImage
             source={{ uri: dealership.logo }}
             style={{
               width: '100%',
               height: '100%',
               borderRadius: 15,
             }}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="disk"
           />
         ) : (
           <View style={{

@@ -1,9 +1,10 @@
 import React from 'react'
-import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import ThemeSwitch from '@/components/ThemeSwitch'
 import { NotificationBell } from '@/components/NotificationBell'
+import CachedImage from '@/utils/CachedImage'
 
 interface ProfileHeaderProps {
   isDarkMode: boolean
@@ -35,11 +36,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
         <View className="items-center mt-6">
           <View className="relative">
-            <Image
+            <CachedImage
               source={{
                 uri: formData.logo || 'https://via.placeholder.com/150'
               }}
               className="w-32 h-32 rounded-full border-4 border-white/20"
+              cachePolicy="disk"
             />
             <TouchableOpacity
               onPress={onPickImage}

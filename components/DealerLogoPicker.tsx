@@ -1,6 +1,7 @@
 import React from 'react'
-import { View, Image, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import CachedImage from '@/utils/CachedImage'
 
 interface DealerLogoPickerProps {
   logoUri?: string | null
@@ -30,10 +31,11 @@ export const DealerLogoPicker: React.FC<DealerLogoPickerProps> = ({
       className={`relative ${containerClassName}`}
       style={{ width: size, height: size }}
     >
-      <Image
+      <CachedImage
         source={{ uri: logoUri || PLACEHOLDER_URI }}
         className={`rounded-full ${imageClassName}`}
         style={{ width: size, height: size }}
+        cachePolicy="disk"
       />
       <TouchableOpacity
         onPress={onPick}

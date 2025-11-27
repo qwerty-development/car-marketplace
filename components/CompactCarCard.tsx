@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -15,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { formatMileage } from '@/utils/formatMileage';
+import CachedImage from '@/utils/CachedImage';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = 270;
@@ -97,14 +97,16 @@ export default function CompactCarCard({ car, isDarkMode, onPress }: CompactCarC
     >
       {/* Image Section */}
       <View style={styles.imageContainer}>
-        <Image
+        <CachedImage
           source={{ uri: car.images[0] || 'https://via.placeholder.com/270x160' }}
           style={[
             styles.carImage,
             { opacity: imageLoaded ? 1 : 0 }
           ]}
           onLoad={() => setImageLoaded(true)}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="disk"
+          transition={150}
         />
         
         {!imageLoaded && (

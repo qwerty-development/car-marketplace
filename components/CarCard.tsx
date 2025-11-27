@@ -12,7 +12,6 @@ import {
   Linking,
   Alert,
   FlatList,
-  Image,
   ActivityIndicator,
   Pressable,
   Share,
@@ -39,10 +38,10 @@ import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 import { useGuestUser } from '@/utils/GuestUserContext';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
 import { formatMileage } from '@/utils/formatMileage';
+import CachedImage, { prefetchImages } from '@/utils/CachedImage';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
-const StyledImage = styled(Image);
 const StyledPressable = styled(Pressable);
 
 const MAX_IMAGES = 3;
@@ -58,12 +57,14 @@ const OptimizedImage = ({ source, style, onLoad, fallbackColor = 'transparent' }
 
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
-      <StyledImage
+      <CachedImage
         source={source}
-        className="w-full h-full"
-        style={{ opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
+        style={{ width: '100%', height: '100%', opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
+        contentFit="cover"
         onLoad={handleLoad}
-        resizeMode="cover"
+        cachePolicy="disk"
+        transition={150}
+        priority="normal"
       />
     </View>
   );
@@ -785,11 +786,12 @@ export default function CarCard({
                   onPress={handleDealershipPress}
                   style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }}
                 >
-                  <StyledImage
+                  <CachedImage
                     source={{ uri: sellerInfo.logo }}
-                    style={{ width: 48, height: 48 }}
-                    className="rounded-full border border-textgray/20"
-                    resizeMode="cover"
+                    style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(128, 128, 128, 0.2)' }}
+                    contentFit="cover"
+                    cachePolicy="disk"
+                    transition={100}
                   />
                 </Pressable>
               )}

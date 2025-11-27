@@ -3,13 +3,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ConversationSummary } from '@/types/chat';
 import { useUserName } from '@/hooks/useUserName';
 import { useTranslation } from 'react-i18next';
+import CachedImage from '@/utils/CachedImage';
 
 interface ConversationListItemProps {
   conversation: ConversationSummary;
@@ -169,7 +169,7 @@ export default function ConversationListItem({
       ]}
     >
       {info.avatarUrl ? (
-        <Image source={{ uri: info.avatarUrl }} style={styles.avatar} />
+        <CachedImage source={{ uri: info.avatarUrl }} style={styles.avatar} cachePolicy="disk" />
       ) : (
         <View
           style={[

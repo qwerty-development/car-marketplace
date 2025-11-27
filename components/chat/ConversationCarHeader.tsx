@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, Text, Image, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { ConversationSummary } from '@/types/chat';
 import { useTheme } from '@/utils/ThemeContext';
+import CachedImage from '@/utils/CachedImage';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
-const StyledImage = styled(Image);
+const StyledCachedImage = styled(CachedImage);
 const StyledPressable = styled(Pressable);
 
 interface ConversationCarHeaderProps {
@@ -72,10 +73,11 @@ export default function ConversationCarHeader({
       <StyledView className="flex-row items-center">
         {/* Car Image */}
         {carData && (carData as any).images && (carData as any).images.length > 0 ? (
-          <StyledImage
+          <StyledCachedImage
             source={{ uri: (carData as any).images[0] }}
             className="w-16 h-16 rounded-lg mr-3"
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="disk"
           />
         ) : (
           <StyledView
