@@ -227,7 +227,8 @@ export default function BrowseCarsPage() {
       currentFilters: Filters = filters,
       currentSortOption: string | null = sortOption,
       query: string = searchQuery,
-      currentCarViewMode: 'sale' | 'rent' = carViewMode
+      currentCarViewMode: 'sale' | 'rent' = carViewMode,
+      forceRefresh: boolean = false
     ) => {
       if (page === 1) {
         if (!hasFetched) {
@@ -646,7 +647,7 @@ export default function BrowseCarsPage() {
             ttl: currentFilters.specialFilter === 'newArrivals' 
               ? 5 * 60 * 1000  // 5 minutes for new arrivals
               : 24 * 60 * 60 * 1000, // 24 hours for regular queries
-            forceRefresh: false,
+            forceRefresh: forceRefresh, // Bypass cache on pull-to-refresh
           }
         );
 
@@ -977,7 +978,7 @@ export default function BrowseCarsPage() {
 
   const onRefresh = useCallback(() => {
     if (viewMode === 'cars') {
-      fetchCars(1, filters, sortOption, searchQuery, carViewMode);
+      fetchCars(1, filters, sortOption, searchQuery, carViewMode, true); // forceRefresh=true to bypass cache
     } else {
       fetchPlates(1, plateFilters, sortOption, searchQuery);
     }
