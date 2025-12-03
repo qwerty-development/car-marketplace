@@ -10,7 +10,8 @@ import { AuthProvider, useAuth } from "@/utils/AuthContext";
 import * as SplashScreen from "expo-splash-screen";
 import { FavoritesProvider } from "@/utils/useFavorites";
 import { ThemeProvider } from "@/utils/ThemeContext";
-import { QueryClient, QueryClientProvider } from "react-query";
+import { QueryClientProvider } from "react-query";
+import { queryClient } from "@/utils/queryClient";
 import {
   LogBox,
   View,
@@ -113,18 +114,8 @@ LogBox.ignoreAllLogs();
 // CRITICAL SYSTEM: Prevent auto-hiding splash screen
 SplashScreen.preventAutoHideAsync();
 
-// PERSISTENT CONFIGURATION: QueryClient setup - OPTIMIZED
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 2 * 60 * 1000,
-      cacheTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-    },
-  },
-});
+// PERSISTENT CONFIGURATION: QueryClient setup - AGGRESSIVE CACHING
+// Using optimized queryClient from utils/queryClient.ts with 24h staleTime
 
 // GLOBAL SYSTEM: Deep link state management
 declare global {

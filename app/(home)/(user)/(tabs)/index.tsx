@@ -44,6 +44,11 @@ import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
 import PlateFilterModal from "@/components/PlateFilterModal";
 import * as Sentry from '@sentry/react-native';
+import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
+import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
+import CacheStatsPanel from "@/components/CacheStatsPanel";
+import { cacheLogger } from "@/utils/cacheLogger";
+import { cachedQuery, generateCacheKey } from "@/utils/supabaseCache";
 const ITEMS_PER_PAGE = 7;
 
 interface Car {
@@ -611,10 +616,56 @@ export default function BrowseCarsPage() {
             .order("boost_priority", { ascending: false, nullsFirst: false });
         }
 
-        // Fetch data for current page
-        const { data, error } = await queryBuilder.range(startRange, endRange);
+        // Fetch data for current page - USE CACHE WRAPPER
+        const cacheKey = generateCacheKey(
+          tableName,
+          {
+            page: safePageNumber,
+            filters: currentFilters,
+            sortOption: currentSortOption,
+            query: query,
+            range: { start: startRange, end: endRange },
+          },
+          selectString
+        );
+        
+        console.log(`\n[FetchCars] ========================================`);
+        console.log(`[FetchCars] 🔍 Querying: ${tableName} page ${safePageNumber}`);
+        console.log(`[FetchCars] 📋 Cache Key: ${cacheKey.substring(0, 100)}${cacheKey.length > 100 ? '...' : ''}`);
+        console.log(`[FetchCars] 📊 Filters: ${JSON.stringify(currentFilters).substring(0, 50)}...`);
+        console.log(`[FetchCars] 🔢 Range: ${startRange}-${endRange}`);
+        
+        // Use cached query wrapper to actually check cache first
+        const result = await cachedQuery(
+          async () => {
+            console.log(`[FetchCars] 🌐 Executing Supabase query...`);
+            const queryResult = await queryBuilder.range(startRange, endRange);
+            return queryResult;
+          },
+          cacheKey,
+          {
+            ttl: currentFilters.specialFilter === 'newArrivals' 
+              ? 5 * 60 * 1000  // 5 minutes for new arrivals
+              : 24 * 60 * 60 * 1000, // 24 hours for regular queries
+            forceRefresh: false,
+          }
+        );
 
-        if (error) throw error;
+        const { data, error, fromCache } = result;
+        const dataSize = data ? JSON.stringify(data).length : 0;
+
+        if (error) {
+          console.error(`[FetchCars] ❌ Error: ${error.message}`);
+          console.log(`[FetchCars] ========================================\n`);
+          throw error;
+        }
+
+        const cacheStatus = fromCache ? '✅ CACHE HIT' : '❌ CACHE MISS';
+        const totalCarsAfter = safePageNumber === 1 ? (data?.length || 0) : cars.length + (data?.length || 0);
+        console.log(`[FetchCars] ${cacheStatus} - Fetched ${data?.length || 0} cars (${(dataSize / 1024).toFixed(2)}KB)`);
+        console.log(`[FetchCars] 📊 Total cars in state after this query: ${totalCarsAfter}`);
+        console.log(`[FetchCars] 📄 Page ${safePageNumber}/${totalPages} | Current state: ${cars.length} cars`);
+        console.log(`[FetchCars] ========================================\n`);
 
         // Apply randomization to ensure all cars get visibility
         if (!currentSortOption && data) {
@@ -741,15 +792,27 @@ export default function BrowseCarsPage() {
 
         // Update cars state more efficiently
         setCars((prevCars) => {
-          if (safePageNumber === 1) {
-            return uniqueCars;
-          } else {
-            // Create a new map to ensure no duplicates when appending
-            const allCarsMap = new Map();
-            prevCars.forEach(car => allCarsMap.set(car.id, car));
-            uniqueCars.forEach(car => allCarsMap.set(car.id, car));
-            return Array.from(allCarsMap.values());
+          const newCars = safePageNumber === 1 
+            ? uniqueCars 
+            : (() => {
+                const allCarsMap = new Map();
+                prevCars.forEach(car => allCarsMap.set(car.id, car));
+                uniqueCars.forEach(car => allCarsMap.set(car.id, car));
+                return Array.from(allCarsMap.values());
+              })();
+          
+          // Prefetch images for newly loaded cars (non-blocking)
+          if (newCars.length > 0 && safePageNumber === 1) {
+            setTimeout(() => {
+              prefetchCarImages(newCars.slice(0, 10), {
+                startIndex: 0,
+                count: 10,
+                priority: 'normal',
+              }).catch(() => {}); // Silently fail prefetch
+            }, 500);
           }
+          
+          return newCars;
         });
         
         setTotalPages(totalPages);
@@ -1471,6 +1534,7 @@ export default function BrowseCarsPage() {
             stickyHeaderIndices={[1]}
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
+                console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} cars in state)`);
                 if (viewMode === 'cars') {
                   fetchCars(currentPage + 1, filters, sortOption, searchQuery, carViewMode);
                 } else {
@@ -1490,12 +1554,12 @@ export default function BrowseCarsPage() {
                 <View style={{ paddingBottom: 50 }} />
               )
             }
-            // Enhanced FlatList performance optimization
+            // Aggressive lazy loading for minimal egress and memory usage
             removeClippedSubviews={true}
             maxToRenderPerBatch={5}
             updateCellsBatchingPeriod={50}
             initialNumToRender={5}
-            windowSize={10}
+            windowSize={5} // Reduced from 10 to save memory
             getItemLayout={undefined} // Let FlatList handle this automatically
           />
         </SafeAreaView>
@@ -1508,6 +1572,9 @@ export default function BrowseCarsPage() {
         onApply={handleApplyPlateFilters}
         onClose={() => setIsPlateFilterVisible(false)}
       />
+
+      {/* Cache Stats Panel */}
+      <CacheStatsPanel />
     </View>
   );
 }
