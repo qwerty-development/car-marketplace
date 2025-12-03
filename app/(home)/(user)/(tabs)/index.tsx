@@ -46,7 +46,6 @@ import PlateFilterModal from "@/components/PlateFilterModal";
 import * as Sentry from '@sentry/react-native';
 import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
 import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
-import CacheStatsPanel from "@/components/CacheStatsPanel";
 import { cacheLogger } from "@/utils/cacheLogger";
 import { cachedQuery, generateCacheKey } from "@/utils/supabaseCache";
 const ITEMS_PER_PAGE = 7;
@@ -1100,107 +1099,70 @@ export default function BrowseCarsPage() {
     }
   }, [fetchCars, fetchPlates, viewMode, carViewMode]);
 
-  // Render tabs section (Cars/Plates toggle + For Sale/For Rent)
+  // Unified tabs section - Clean, modern design
   const renderTabsSection = useMemo(
-    () => (
-      <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
-        {/* Toggle Button for Cars/Plates */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              viewMode === 'cars' && styles.toggleButtonActive,
-              isDarkMode && styles.darkToggleButton,
-              viewMode === 'cars' && isDarkMode && styles.darkToggleButtonActive,
-            ]}
-            onPress={() => {
-              if (viewMode !== 'cars') {
-                setViewMode('cars');
-                setCurrentPage(1);
-                setSearchQuery('');
-                fetchCars(1, filters, sortOption, '', carViewMode);
-              }
-            }}
-          >
-            <Ionicons
-              name="car-sport"
-              size={20}
-              color={viewMode === 'cars' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.toggleButtonText,
-                viewMode === 'cars' && styles.toggleButtonTextActive,
-                isDarkMode && styles.darkToggleButtonText,
-                viewMode === 'cars' && isDarkMode && styles.darkToggleButtonTextActive,
-              ]}
-            >
-              Cars
-            </Text>
-          </TouchableOpacity>
+    () => {
+      // Determine the selected index for unified segmented control
+      let selectedIndex = 0;
+      if (viewMode === 'cars' && carViewMode === 'sale') {
+        selectedIndex = 0;
+      } else if (viewMode === 'cars' && carViewMode === 'rent') {
+        selectedIndex = 1;
+      } else if (viewMode === 'plates') {
+        selectedIndex = 2;
+      }
 
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              viewMode === 'plates' && styles.toggleButtonActive,
-              isDarkMode && styles.darkToggleButton,
-              viewMode === 'plates' && isDarkMode && styles.darkToggleButtonActive,
-            ]}
-            onPress={() => {
-              if (viewMode !== 'plates') {
-                setViewMode('plates');
-                setCurrentPage(1);
-                setSearchQuery('');
-                fetchPlates(1, plateFilters, sortOption, '');
-              }
-            }}
-          >
-            <Ionicons
-              name="id-card"
-              size={20}
-              color={viewMode === 'plates' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000')}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.toggleButtonText,
-                viewMode === 'plates' && styles.toggleButtonTextActive,
-                isDarkMode && styles.darkToggleButtonText,
-                viewMode === 'plates' && isDarkMode && styles.darkToggleButtonTextActive,
-              ]}
-            >
-              Plates
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Car Type Segmented Control - Only show when Cars mode is active */}
-        {viewMode === 'cars' && (
-          <View style={styles.segmentedControlContainer}>
+      return (
+        <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
+          <View style={styles.unifiedTabContainer}>
             <SegmentedControl
-              values={[i18n.t('profile.inventory.for_sale'), i18n.t('profile.inventory.for_rent')]}
-              selectedIndex={carViewMode === 'sale' ? 0 : 1}
+              values={[
+                i18n.t('profile.inventory.for_sale'),
+                i18n.t('profile.inventory.for_rent'),
+                'Plates'
+              ]}
+              selectedIndex={selectedIndex}
               onChange={(event) => {
                 const index = event.nativeEvent.selectedSegmentIndex;
-                const newMode = index === 0 ? 'sale' : 'rent';
-                if (carViewMode !== newMode) {
-                  setCarViewMode(newMode);
-                  setCurrentPage(1);
-                  setSearchQuery('');
-                  setFilters({});
-                  fetchCars(1, {}, sortOption, '', newMode);
+                if (index === 0) {
+                  // Cars - Sale
+                  if (viewMode !== 'cars' || carViewMode !== 'sale') {
+                    setViewMode('cars');
+                    setCarViewMode('sale');
+                    setCurrentPage(1);
+                    setSearchQuery('');
+                    setFilters({});
+                    fetchCars(1, {}, sortOption, '', 'sale');
+                  }
+                } else if (index === 1) {
+                  // Cars - Rent
+                  if (viewMode !== 'cars' || carViewMode !== 'rent') {
+                    setViewMode('cars');
+                    setCarViewMode('rent');
+                    setCurrentPage(1);
+                    setSearchQuery('');
+                    setFilters({});
+                    fetchCars(1, {}, sortOption, '', 'rent');
+                  }
+                } else if (index === 2) {
+                  // Plates
+                  if (viewMode !== 'plates') {
+                    setViewMode('plates');
+                    setCurrentPage(1);
+                    setSearchQuery('');
+                    fetchPlates(1, plateFilters, sortOption, '');
+                  }
                 }
               }}
-              style={styles.segmentedControl}
+              style={styles.unifiedSegmentedControl}
               appearance={isDarkMode ? 'dark' : 'light'}
               fontStyle={{
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: '600',
                 color: isDarkMode ? '#FFFFFF' : '#000000'
               }}
               activeFontStyle={{
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: '700',
                 color: '#FFFFFF'
               }}
@@ -1208,9 +1170,9 @@ export default function BrowseCarsPage() {
               backgroundColor={isDarkMode ? '#1a1a1a' : '#f0f0f0'}
             />
           </View>
-        )}
-      </View>
-    ),
+        </View>
+      );
+    },
     [viewMode, carViewMode, isDarkMode, filters, sortOption, plateFilters, fetchCars, fetchPlates]
   );
 
@@ -1572,9 +1534,6 @@ export default function BrowseCarsPage() {
         onApply={handleApplyPlateFilters}
         onClose={() => setIsPlateFilterVisible(false)}
       />
-
-      {/* Cache Stats Panel */}
-      <CacheStatsPanel />
     </View>
   );
 }
@@ -1702,62 +1661,14 @@ const styles = StyleSheet.create({
     marginRight: 0,
     marginLeft: 8,
   },
-  // Toggle Button Styles
-  toggleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-    paddingHorizontal: 10,
-    gap: 10,
-  },
-  toggleButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
+  // Unified Tab Styles - Clean, modern design
+  unifiedTabContainer: {
     paddingHorizontal: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    backgroundColor: "#f5f5f5",
-  },
-  toggleButtonActive: {
-    backgroundColor: "#D55004",
-    borderColor: "#D55004",
-  },
-  darkToggleButton: {
-    borderColor: "#333",
-    backgroundColor: "#222",
-  },
-  darkToggleButtonActive: {
-    backgroundColor: "#D55004",
-    borderColor: "#D55004",
-  },
-  toggleButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  toggleButtonTextActive: {
-    color: "#FFFFFF",
-  },
-  darkToggleButtonText: {
-    color: "#FFFFFF",
-  },
-  darkToggleButtonTextActive: {
-    color: "#FFFFFF",
-  },
-  // Segmented Control Styles (Sale/Rent)
-  segmentedControlContainer: {
-    paddingHorizontal: 20,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  segmentedControl: {
+  unifiedSegmentedControl: {
     width: '100%',
-    maxWidth: 340,
-    height: 40,
+    height: 44,
   },
 });
