@@ -177,6 +177,11 @@ export default function CarCard({
   const { t } = useTranslation();
   const isRTL = I18nManager.isRTL;
   
+  // Determine banner type based on car status
+  const isDeleted = car?.status === 'deleted';
+  const bannerTitle = isDeleted ? t('car.deleted', 'Deleted') : i18n.t('car.sold');
+  const bannerSubtitle = i18n.t('car.no_longer_available');
+  
   // Improved animation values with better spring physics
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -505,15 +510,15 @@ export default function CarCard({
 
 
 
-          {/* Sold Banner */}
+          {/* Sold/Deleted Banner */}
           {showSoldBanner && (
             <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
-              <View className="bg-gray-900/90 px-6 py-3 rounded-xl border-2 border-gray-400">
+              <View className={`px-6 py-3 rounded-xl border-2 ${isDeleted ? 'bg-red-900/90 border-red-400' : 'bg-gray-900/90 border-gray-400'}`}>
                 <StyledText className="text-white text-lg font-bold text-center">
-{i18n.t('car.sold')}
+{bannerTitle}
                 </StyledText>
                 <StyledText className="text-gray-300 text-sm text-center mt-1">
-{i18n.t('car.no_longer_available')}
+{bannerSubtitle}
                 </StyledText>
               </View>
             </View>

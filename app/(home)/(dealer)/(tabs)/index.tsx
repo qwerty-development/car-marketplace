@@ -739,7 +739,7 @@ interface CarListing {
 	images: string[]
 	views: number
 	likes: number
-	status: 'available' | 'pending' | 'sold' | 'rented'
+	status: 'available' | 'pending' | 'sold' | 'rented' | 'deleted'
 	condition?: 'New' | 'Used' // Optional - not present in cars_rent
 	mileage?: number // Optional - not present in cars_rent
 	transmission: 'Manual' | 'Automatic'
@@ -912,6 +912,7 @@ export default function DealerListings() {
 						.from(tableName)
 						.select(selectString, { count: 'exact' })
 						.eq('dealership_id', dealership.id)
+						.neq('status', 'deleted')
 						.order(currentSortBy, { ascending: currentSortOrder === 'asc' })
 
 					if (currentSearchQuery) {
@@ -1110,45 +1111,27 @@ export default function DealerListings() {
 			
 			Alert.alert(
 				'Delete Listing',
-				'Are you sure you want to delete this listing?',
+				'Are you sure you want to delete this listing? It will be hidden from all users but conversations will be preserved.',
 				[
 					{ text: 'Cancel', style: 'cancel' },
 					{
 						text: 'Delete',
 						onPress: async () => {
 							try {
-								// First, get the car data to retrieve image URLs
-								const { data: carData, error: fetchError } = await supabase
+								// Soft delete: update status to 'deleted' instead of hard delete
+								// The database trigger will automatically set deleted_at and deleted_by
+								const { error: updateError } = await supabase
 									.from(tableName)
-									.select('images')
-									.eq('id', id)
-									.single()
-
-								if (fetchError) throw fetchError
-
-								// Delete images from storage if they exist
-								if (carData?.images && Array.isArray(carData.images) && carData.images.length > 0) {
-									for (const imageUrl of carData.images) {
-										const filePath = resolveStoragePathFromUrl(imageUrl, 'cars')
-										if (filePath) {
-											await supabase.storage.from('cars').remove([filePath])
-										}
-									}
-								}
-
-								// Delete from database
-								const { error: dbError } = await supabase
-									.from(tableName)
-									.delete()
+									.update({ status: 'deleted' })
 									.eq('id', id)
 									.eq('dealership_id', dealership.id)
 
-								if (dbError) throw dbError
+								if (updateError) throw updateError
 
 								setListings(prevListings =>
 									prevListings.filter(listing => listing.id !== id)
 								)
-								Alert.alert('Success', 'Listing and all images deleted successfully')
+								Alert.alert('Success', 'Listing deleted successfully')
 							} catch (error) {
 								console.error('Error in handleDeleteListing:', error)
 								Alert.alert('Error', 'Failed to delete listing')
@@ -1159,7 +1142,7 @@ export default function DealerListings() {
 				]
 			)
 		},
-		[dealership, isSubscriptionValid, resolveStoragePathFromUrl, viewMode]
+		[dealership, isSubscriptionValid, viewMode]
 	)
 
 

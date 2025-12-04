@@ -55,6 +55,7 @@ export default function NumberPlatesManager() {
         .from('number_plates')
         .select('*')
         .eq('dealership_id', dealership.id)
+        .neq('status', 'deleted')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -245,7 +246,7 @@ export default function NumberPlatesManager() {
   const handleDelete = async (plateId: number, pictureUrl: string) => {
     Alert.alert(
       'Delete Plate',
-      'Are you sure you want to delete this number plate?',
+      'Are you sure you want to delete this number plate? It will be hidden from all users but conversations will be preserved.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -253,26 +254,13 @@ export default function NumberPlatesManager() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete from database
+              // Soft delete: update status to 'deleted' instead of hard delete
               const { error: dbError } = await supabase
                 .from('number_plates')
-                .delete()
+                .update({ status: 'deleted' })
                 .eq('id', plateId)
 
               if (dbError) throw dbError
-
-              // Delete from storage
-              if (pictureUrl) {
-                const filePath = resolveStoragePathFromUrl(pictureUrl, 'plate_numbers')
-                if (filePath) {
-                  const { error: storageError } = await supabase.storage
-                    .from('plate_numbers')
-                    .remove([filePath])
-                  if (storageError) throw storageError
-                } else {
-                  throw new Error('Unable to resolve storage path for plate image')
-                }
-              }
 
               Alert.alert('Success', 'Number plate deleted successfully')
               fetchNumberPlates()

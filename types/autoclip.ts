@@ -25,7 +25,7 @@ export interface Car {
   model: string
   year: number
   price: number
-  status: 'available' | 'pending' | 'sold'
+  status: 'available' | 'pending' | 'sold' | 'deleted'
 }
 
 export interface VideoAsset {

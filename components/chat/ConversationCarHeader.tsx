@@ -31,7 +31,13 @@ export default function ConversationCarHeader({
 
   if (!carData) return null;
 
+  // Check if car is deleted - should not be clickable
+  const isDeleted = 'status' in carData && (carData as any).status === 'deleted';
+
   const handlePress = () => {
+    // Don't navigate if car is deleted
+    if (isDeleted) return;
+
     // For dealers - navigate to edit listing
     if (isDealer && dealershipId) {
       router.push({
@@ -66,6 +72,7 @@ export default function ConversationCarHeader({
   return (
     <StyledPressable
       onPress={handlePress}
+      disabled={isDeleted}
       className={`px-4 py-3 border-b ${
         isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'
       }`}
@@ -173,13 +180,15 @@ export default function ConversationCarHeader({
           )}
         </StyledView>
 
-        {/* Chevron */}
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={isDarkMode ? '#666' : '#999'}
-          style={{ marginLeft: 8 }}
-        />
+        {/* Chevron - only show when car is not deleted */}
+        {!isDeleted && (
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={isDarkMode ? '#666' : '#999'}
+            style={{ marginLeft: 8 }}
+          />
+        )}
       </StyledView>
     </StyledPressable>
   );

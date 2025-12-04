@@ -1486,7 +1486,7 @@ features
 
     Alert.alert(
       "Delete Listing",
-      "Are you sure you want to delete this listing? This action cannot be undone.",
+      "Are you sure you want to delete this listing? It will be hidden from all users but conversations will be preserved.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -1503,30 +1503,22 @@ features
 
               setIsLoading(true);
 
-              // Delete images from storage if they exist
-              if (initialData.images && Array.isArray(initialData.images) && initialData.images.length > 0) {
-                for (const imageUrl of initialData.images) {
-                  const filePath = resolveStoragePathFromUrl(imageUrl, 'cars');
-                  if (filePath) {
-                    await supabase.storage.from('cars').remove([filePath]);
-                  }
-                }
-              }
-
               // Determine table name based on mode
               const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
 
-              // Build delete query based on mode
-              const deleteQuery = supabase
+              // Soft delete: update status to 'deleted' instead of hard delete
+              // The database trigger will automatically set deleted_at and deleted_by
+              // Images are kept in storage for now (can be cleaned up later if needed)
+              let updateQuery = supabase
                 .from(tableName)
-                .delete()
+                .update({ status: 'deleted' })
                 .eq("id", initialData.id);
 
               // For rent mode, always use dealership_id (cars_rent has no user_id column)
               // For sale mode, use user_id for users, dealership_id for dealers
               const finalQuery = (viewMode === 'rent' || !isUserMode)
-                ? deleteQuery.eq("dealership_id", dealership.id)
-                : deleteQuery.eq("user_id", params.userId);
+                ? updateQuery.eq("dealership_id", dealership.id)
+                : updateQuery.eq("user_id", params.userId);
 
               const { error } = await finalQuery;
 
@@ -1535,7 +1527,7 @@ features
                 throw error;
               }
 
-              Alert.alert("Success", "Listing and all images deleted successfully", [
+              Alert.alert("Success", "Listing deleted successfully", [
                 { text: "OK", onPress: () => router.back() },
               ]);
             } catch (error: any) {
@@ -1552,7 +1544,7 @@ features
         },
       ]
     );
-  }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router, resolveStoragePathFromUrl]);
+  }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router]);
 
   const handleMarkAsSold = useCallback(
     async (soldData = soldInfo) => {

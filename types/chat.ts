@@ -63,7 +63,7 @@ export interface CarListingContext {
   year: number;
   price: number;
   images: string[] | null;
-  status: 'available' | 'sold' | 'pending';
+  status: 'available' | 'sold' | 'pending' | 'deleted';
 }
 
 export interface RentalCarContext {
@@ -74,7 +74,7 @@ export interface RentalCarContext {
   year: number;
   price: number;
   images: string[] | null;
-  status: 'available' | 'unavailable';
+  status: 'available' | 'unavailable' | 'rented' | 'deleted';
 }
 
 export interface NumberPlateContext {

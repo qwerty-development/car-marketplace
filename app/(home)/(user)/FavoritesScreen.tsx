@@ -185,11 +185,15 @@ export default function Favorite() {
         })) || []
 
       // Filter out cars that have been sold for more than 15 days
+      // Keep deleted cars to show as "No longer available"
       const fifteenDaysAgo = new Date()
       fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15)
       
       const validCars = carsData.filter(car => {
         if (car.status === 'available') return true
+        
+        // Keep deleted cars to show greyed out with "No longer available" message
+        if (car.status === 'deleted') return true
         
         // For sold cars, check if sold_at is within 15 days
         if (car.sold_at) {
@@ -201,10 +205,14 @@ export default function Favorite() {
         return true
       })
 
-      // Sort: available cars first, then sold cars
+      // Sort: available cars first, then sold/pending cars, then deleted cars last
       const sortedValidCars = validCars.sort((a, b) => {
+        // Available cars first
         if (a.status === 'available' && b.status !== 'available') return -1
         if (a.status !== 'available' && b.status === 'available') return 1
+        // Deleted cars last
+        if (a.status === 'deleted' && b.status !== 'deleted') return 1
+        if (a.status !== 'deleted' && b.status === 'deleted') return -1
         return 0
       })
 

@@ -1045,7 +1045,7 @@ export default function UserProfileAndSupportPage() {
               style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
-
+{/* 
           <TouchableOpacity
             onPress={() => {
               if (isGuest) {
@@ -1094,7 +1094,7 @@ export default function UserProfileAndSupportPage() {
               color={isDarkMode ? "#fff" : "#000"}
               style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
             onPress={() => {

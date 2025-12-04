@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { formatMileage } from '@/utils/formatMileage';
 import CachedImage from '@/utils/CachedImage';
+import { useTranslation } from 'react-i18next';
 
 interface ChatCarCardProps {
   car: any;
@@ -12,27 +13,57 @@ interface ChatCarCardProps {
 
 export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
   const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const isRTL = I18nManager.isRTL;
-  const styles = getStyles(isDarkMode, isRTL);
+  const isDeleted = car?.status === 'deleted';
+  const styles = getStyles(isDarkMode, isRTL, isDeleted);
+  
+  // For deleted cars, we still allow pressing to open details but the navigation
+  // will need to be handled by the parent component
+  const handlePress = () => {
+    if (!isDeleted) {
+      onPress();
+    }
+  };
+  
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity 
+      style={styles.card} 
+      activeOpacity={isDeleted ? 1 : 0.85} 
+      onPress={handlePress}
+      disabled={isDeleted}
+    >
       <View style={styles.imageContainer}>
         <CachedImage
           source={{ uri: car.images?.[0] || '' }}
-          style={styles.image}
+          style={[styles.image, isDeleted && { opacity: 0.4 }]}
           contentFit="cover"
           cachePolicy="disk"
         />
-        <View style={styles.priceBadge}>
-          <Text style={styles.priceText}>${car.price?.toLocaleString() || 'N/A'}</Text>
-        </View>
+        {isDeleted ? (
+          <View style={styles.deletedBadge}>
+            <Text style={styles.deletedText}>{t('car.deleted', 'Deleted')}</Text>
+          </View>
+        ) : (
+          <View style={styles.priceBadge}>
+            <Text style={styles.priceText}>${car.price?.toLocaleString() || 'N/A'}</Text>
+          </View>
+        )}
+        {isDeleted && (
+          <View style={styles.deletedOverlay}>
+            <Ionicons name="close-circle" size={40} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.deletedOverlayText}>{t('car.no_longer_available', 'No longer available')}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.infoContainer}>
         <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.title, isDeleted && { opacity: 0.5 }]} numberOfLines={1}>
             {car.make} {car.model}
           </Text>
-          <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={22} color={isDarkMode ? '#FFB385' : '#D55004'} style={styles.chevron} />
+          {!isDeleted && (
+            <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={22} color={isDarkMode ? '#FFB385' : '#D55004'} style={styles.chevron} />
+          )}
         </View>
         <View style={styles.specRow}>
           <View style={styles.specItem}>
@@ -66,7 +97,7 @@ export default function ChatCarCard({ car, onPress }: ChatCarCardProps) {
   );
 }
 
-const getStyles = (isDarkMode: boolean, isRTL: boolean) => StyleSheet.create({
+const getStyles = (isDarkMode: boolean, isRTL: boolean, isDeleted: boolean = false) => StyleSheet.create({
   card: {
     width: 320,
     backgroundColor: isDarkMode ? '#232323' : '#fff',
@@ -79,7 +110,8 @@ const getStyles = (isDarkMode: boolean, isRTL: boolean) => StyleSheet.create({
     elevation: 3,
     overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
     borderWidth: isDarkMode ? 1 : 0,
-    borderColor: isDarkMode ? '#333' : undefined,
+    borderColor: isDeleted ? '#666' : (isDarkMode ? '#333' : undefined),
+    opacity: isDeleted ? 0.7 : 1,
   },
   imageContainer: {
     width: '100%',
@@ -168,5 +200,37 @@ const getStyles = (isDarkMode: boolean, isRTL: boolean) => StyleSheet.create({
     color: isDarkMode ? '#aaa' : '#888',
     marginTop: 1,
     textAlign: isRTL ? 'right' : 'left',
+  },
+  deletedBadge: {
+    position: 'absolute',
+    top: 10,
+    ...(isRTL ? { left: 10 } : { right: 10 }),
+    backgroundColor: '#666',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    zIndex: 2,
+  },
+  deletedText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  deletedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  deletedOverlayText: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
 }); 

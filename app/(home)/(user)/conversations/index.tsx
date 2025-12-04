@@ -106,44 +106,8 @@ export default function UserConversationsScreen() {
     );
   }
 
-  if (profile?.role !== 'user') {
-    return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingHorizontal: 24,
-          backgroundColor: isDarkMode ? '#020617' : '#F8FAFC',
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: '600',
-            color: isDarkMode ? '#E2E8F0' : '#0F172A',
-            textAlign: 'center',
-            marginBottom: 12,
-          }}
-        >
-          {t('chat.not_available_for_role', 'Messaging unavailable')}
-        </Text>
-        <Text
-          style={{
-            fontSize: 15,
-            color: isDarkMode ? '#94A3B8' : '#475569',
-            textAlign: 'center',
-            lineHeight: 22,
-          }}
-        >
-          {t(
-            'chat.only_user_role',
-            'Dealer accounts can manage conversations from their dashboard.'
-          )}
-        </Text>
-      </SafeAreaView>
-    );
-  }
+  // Allow dealers to use user messaging as well - they can message other dealers
+  // This enables dealers to act as users when browsing the marketplace
 
   return (
     <SafeAreaView

@@ -62,14 +62,17 @@ function getDisplayInfo(
   const carInfo = conversation.car || conversation.carRent;
   const plateInfo = conversation.numberPlate;
   
+  // Check if the listing is deleted
+  const isDeleted = carInfo?.status === 'deleted' || plateInfo?.status === 'deleted';
+  
   // Determine listing label
   let listingLabel = '';
   if (carInfo) {
     listingLabel = `${carInfo.make} ${carInfo.model} (${carInfo.year})${
       conversation.carRent ? ' • For Rent' : ''
-    }`;
+    }${isDeleted ? ' • (Deleted)' : ''}`;
   } else if (plateInfo) {
-    listingLabel = `Plate: ${plateInfo.letter} ${plateInfo.digits}`;
+    listingLabel = `Plate: ${plateInfo.letter} ${plateInfo.digits}${isDeleted ? ' • (Deleted)' : ''}`;
   }
 
   if (viewerRole === 'user') {
@@ -88,6 +91,7 @@ function getDisplayInfo(
         carInfo: carInfo ? listingLabel : null,
         plateInfo: plateInfo ? listingLabel : null,
         conversationType: 'user_user' as const,
+        isDeleted,
       };
     }
 
@@ -101,6 +105,7 @@ function getDisplayInfo(
       carInfo: carInfo ? listingLabel : null,
       plateInfo: plateInfo ? listingLabel : null,
       conversationType: 'user_dealer' as const,
+      isDeleted,
     };
   }
 
@@ -121,6 +126,7 @@ function getDisplayInfo(
     carInfo: carInfo ? listingLabel : null,
     plateInfo: plateInfo ? listingLabel : null,
     conversationType: conversation.conversation_type,
+    isDeleted,
   };
 }
 
@@ -166,15 +172,16 @@ export default function ConversationListItem({
       style={[
         styles.container,
         { backgroundColor: isDarkMode ? '#111' : '#fff' },
+        info.isDeleted && { opacity: 0.6 },
       ]}
     >
       {info.avatarUrl ? (
-        <CachedImage source={{ uri: info.avatarUrl }} style={styles.avatar} cachePolicy="disk" />
+        <CachedImage source={{ uri: info.avatarUrl }} style={[styles.avatar, info.isDeleted && { opacity: 0.5 }]} cachePolicy="disk" />
       ) : (
         <View
           style={[
             styles.fallbackAvatar,
-            { backgroundColor: fallbackColor },
+            { backgroundColor: info.isDeleted ? '#666' : fallbackColor },
           ]}
         >
           <Text style={styles.fallbackLetter}>{info.fallbackLetter}</Text>

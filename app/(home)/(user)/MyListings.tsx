@@ -34,7 +34,7 @@ interface CarListing {
 	images: string[]
 	views: number
 	likes: number
-	status: 'available' | 'pending' | 'sold'
+	status: 'available' | 'pending' | 'sold' | 'deleted'
 	condition: 'New' | 'Used'
 	mileage: number
 	transmission: 'Manual' | 'Automatic'
@@ -76,6 +76,7 @@ export default function MyListings() {
 					.from('cars')
 					.select('*', { count: 'exact' })
 					.eq('user_id', user.id)
+					.neq('status', 'deleted')
 					.order('listed_at', { ascending: false })
 
 				// Get count first
