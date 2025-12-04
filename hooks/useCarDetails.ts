@@ -16,7 +16,7 @@ export function useCarDetails() {
       // cars_rent only has dealerships relationship, no users
       const selectString = isRental
         ? '*, dealerships (name,logo,phone,location,latitude,longitude)'
-        : '*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)'
+        : '*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)'
       
       const { data, error } = await supabase
         .from(tableName)

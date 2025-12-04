@@ -246,9 +246,10 @@ export default function BrowseCarsPage() {
         
         // Build select string based on view mode
         // cars_rent only has dealerships relationship, no users
+        // Use explicit FK hint for users since there are multiple relationships (user_id and deleted_by)
         const selectString = currentCarViewMode === 'rent'
           ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
-          : `*, dealerships (name,logo,phone,location,latitude,longitude), users (name, id)`;
+          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)`;
         
         let queryBuilder = supabase
           .from(tableName)
@@ -861,7 +862,7 @@ export default function BrowseCarsPage() {
           .select(
             `
             *,
-            users (name, id),
+            users!number_plates_user_fk (name, id),
             dealerships (name, logo, phone, location, latitude, longitude)
             `,
             { count: "exact" }
