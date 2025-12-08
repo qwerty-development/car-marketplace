@@ -252,7 +252,15 @@ export default function NumberPlateCard({
       <StyledView
         className={`mx-4 my-3 ${
           isDarkMode ? "bg-[#242424]" : "bg-[#e1e1e1]"
-        } rounded-3xl overflow-hidden shadow-xl`}
+        } overflow-hidden`}
+        style={{
+          borderRadius: 28,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDarkMode ? 0.4 : 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
       >
         <Pressable onPress={handleCardPress} className="bg-neutral-800">
           <View className="relative bg-neutral-800">
@@ -280,16 +288,19 @@ export default function NumberPlateCard({
           className="active:opacity-90"
         >
           {/* Plate Info Section */}
-          <View className="px-4 py-3">
+          <View className="px-4 py-4">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 {/* Price */}
                 <StyledText
-                  className="text-lg font-bold text-red"
                   numberOfLines={1}
                   style={{ 
                     textAlign: 'left', 
-                    marginBottom: 4
+                    marginBottom: 6,
+                    fontSize: 24,
+                    fontWeight: '800',
+                    color: '#D55004',
+                    letterSpacing: 0.5,
                   }}
                 >
                   ${plate.price.toLocaleString()}

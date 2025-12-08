@@ -356,11 +356,11 @@ const styles = StyleSheet.create({
   container: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 16,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    borderRadius: 20,
+    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
     overflow: 'hidden',
   },
   imageContainer: {
@@ -395,8 +395,9 @@ const styles = StyleSheet.create({
   },
   priceText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   statsContainer: {
     position: 'absolute',
@@ -457,9 +458,9 @@ const styles = StyleSheet.create({
   actionButtons: {
   },
   actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

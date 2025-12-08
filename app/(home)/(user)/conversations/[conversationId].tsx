@@ -5,6 +5,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   Text,
   View,
 } from 'react-native';
@@ -14,6 +15,7 @@ import { useQuery } from 'react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import { ChatService } from '@/services/ChatService';
@@ -82,8 +84,25 @@ export default function ConversationDetailScreen() {
 
     navigation.setOptions({
       title: headerTitle,
+      headerTitleAlign: 'center',
+      headerLeft: () => (
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 8,
+            marginLeft: -4,
+          }}
+        >
+          <Ionicons
+            name="chevron-back"
+            size={28}
+            color={isDarkMode ? '#E5E7EB' : '#1F2937'}
+          />
+        </Pressable>
+      ),
     });
-  }, [conversation, navigation, t, user]);
+  }, [conversation, navigation, t, user, isDarkMode]);
 
   useFocusEffect(
     useCallback(() => {
@@ -194,8 +213,9 @@ export default function ConversationDetailScreen() {
     <SafeAreaView
       style={{
         flex: 1,
-        backgroundColor: isDarkMode ? '#020617' : '#F8FAFC',
+        backgroundColor: isDarkMode ? '#0A0A0A' : '#FAFAFA',
       }}
+      edges={['bottom']}
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -218,9 +238,13 @@ export default function ConversationDetailScreen() {
               ref={listRef}
               data={messages}
               keyExtractor={(item) => item.id.toString()}
+              style={{
+                flex: 1,
+              }}
               contentContainerStyle={{
-                paddingVertical: 16,
-                paddingHorizontal: 4,
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                flexGrow: 1,
               }}
               renderItem={({ item }) => (
                 <MessageBubble

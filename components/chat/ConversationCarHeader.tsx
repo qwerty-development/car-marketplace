@@ -73,28 +73,37 @@ export default function ConversationCarHeader({
     <StyledPressable
       onPress={handlePress}
       disabled={isDeleted}
-      className={`px-4 py-3 border-b ${
-        isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'
-      }`}
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: isDarkMode ? '#2A2A2A' : '#E5E7EB',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: isDarkMode ? 0.2 : 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+      }}
     >
       <StyledView className="flex-row items-center">
         {/* Car Image */}
         {carData && (carData as any).images && (carData as any).images.length > 0 ? (
           <StyledCachedImage
             source={{ uri: (carData as any).images[0] }}
-            className="w-16 h-16 rounded-lg mr-3"
+            className="w-20 h-20 rounded-xl mr-4"
             contentFit="cover"
             cachePolicy="disk"
           />
         ) : (
           <StyledView
-            className={`w-16 h-16 rounded-lg mr-3 items-center justify-center ${
+            className={`w-20 h-20 rounded-xl mr-4 items-center justify-center ${
               isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
             }`}
           >
             <Ionicons
               name="car"
-              size={28}
+              size={32}
               color={isDarkMode ? '#fff' : '#666'}
             />
           </StyledView>
@@ -104,7 +113,7 @@ export default function ConversationCarHeader({
         <StyledView className="flex-1">
           <StyledView className="flex-row items-center justify-between">
             <StyledText
-              className={`text-sm font-semibold flex-1 ${
+              className={`text-base font-bold flex-1 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}
               numberOfLines={1}

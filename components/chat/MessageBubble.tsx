@@ -39,9 +39,11 @@ export default function MessageBubble({
         style={[
           styles.bubble,
           {
-            backgroundColor: isOwn ? '#D55004' : isDarkMode ? '#1F2937' : '#F3F4F6',
-            borderBottomRightRadius: isOwn ? 4 : 18,
-            borderBottomLeftRadius: isOwn ? 18 : 4,
+            backgroundColor: isOwn ? '#D55004' : isDarkMode ? '#2A2A2A' : '#FFFFFF',
+            borderBottomRightRadius: isOwn ? 6 : 20,
+            borderBottomLeftRadius: isOwn ? 20 : 6,
+            borderWidth: isOwn ? 0 : 1,
+            borderColor: isDarkMode ? '#3A3A3A' : '#E5E7EB',
           },
         ]}
       >
@@ -116,17 +118,23 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   bubble: {
-    maxWidth: '85%',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: '80%',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   text: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '400',
   },
   metaRow: {
     flexDirection: 'row',
@@ -135,18 +143,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   time: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '500',
   },
   attachment: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    marginTop: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    marginTop: 8,
   },
   attachmentText: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '500',
     flex: 1,
   },
 });

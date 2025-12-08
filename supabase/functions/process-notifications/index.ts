@@ -370,6 +370,19 @@ console.log(`Marked invalid token as inactive: ${tokenData.token}`);
             badge: 1,
             channelId: 'default',
           };
+        } else if (record.type === 'new_message') {
+          message = {
+            to: tokenData.token,
+            sound: 'default',
+            title: record.data.title || 'New Message 💬',
+            body: record.data.message || 'You have a new message',
+            data: {
+              ...record.data,
+              notificationId,
+            },
+            badge: 1,
+            channelId: 'default',
+          };
         } else {
           // Handle unknown notification type
           console.error('Unknown notification type:', record.type);
