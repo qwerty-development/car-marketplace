@@ -37,9 +37,10 @@ export function useConversations({
     fetcher,
     {
       enabled: isEnabled,
-      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-      cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-      refetchOnWindowFocus: false, // Prevent refetch when switching tabs
+      staleTime: 0, // Always consider data stale
+      cacheTime: 0, // Don't cache - always fetch fresh
+      refetchOnMount: 'always', // Always refetch when component mounts
+      refetchOnWindowFocus: true, // Refetch when window gains focus
     }
   );
 

@@ -31,7 +31,7 @@ export function useConversationMessages(conversationId?: number | string | null)
       staleTime: 0, // Always consider data stale for real-time chat
       cacheTime: 0, // Don't cache - always fetch fresh for real-time
       refetchOnMount: 'always', // Always refetch when conversation screen opens
-      refetchOnWindowFocus: false, // Prevent refetch when switching tabs
+      refetchOnWindowFocus: true, // Refetch when switching tabs
       getNextPageParam: (lastPage) => {
         if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
         return lastPage[0]?.created_at;

@@ -58,6 +58,7 @@ export default function ConversationDetailScreen() {
     hasNextPage,
     isFetchingNextPage,
     isLoading: isMessagesLoading,
+    refetch,
   } = useConversationMessages(conversationIdParam);
 
   const sendMessageMutation = useSendMessage(conversationIdParam ?? '');
@@ -110,6 +111,9 @@ export default function ConversationDetailScreen() {
         return;
       }
 
+      // Explicitly refetch messages when screen comes into focus
+      refetch();
+
       // Determine the correct viewer role based on conversation type and user position
       let viewerRole: 'user' | 'seller_user' = 'user';
       if (conversation.conversation_type === 'user_user' && conversation.seller_user_id === user.id) {
@@ -127,7 +131,7 @@ export default function ConversationDetailScreen() {
           },
         }
       );
-    }, [conversationIdParam, user?.id, profile?.role])
+    }, [conversationIdParam, user?.id, profile?.role, refetch])
   );
 
   useEffect(() => {

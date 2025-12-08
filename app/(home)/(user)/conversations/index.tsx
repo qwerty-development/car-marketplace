@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
+import { useFocusEffect } from '@react-navigation/native';
 import ConversationListItem from '@/components/chat/ConversationListItem';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -32,6 +33,14 @@ export default function UserConversationsScreen() {
     userId: user?.id ?? null,
     enabled: !!user && !isGuest,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user && !isGuest) {
+        refetch();
+      }
+    }, [refetch, user, isGuest])
+  );
 
   // Debug logging
   React.useEffect(() => {
