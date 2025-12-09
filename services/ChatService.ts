@@ -374,45 +374,9 @@ export class ChatService {
       throw insertError ?? new Error('Failed to send message.');
     }
 
-    const { data: conversation, error: fetchError } = await supabase
-      .from('conversations')
-      .select('user_unread_count, seller_unread_count, conversation_type')
-      .eq('id', conversationIdValue)
-      .single();
-
-    if (fetchError) {
-      throw fetchError;
-    }
-
-    const previewText =
-      inserted.body?.trim() ||
-      (inserted.media_url ? 'Sent an attachment' : null);
-
-    const updates: Record<string, any> = {
-      last_message_at: inserted.created_at,
-      last_message_preview: previewText,
-      updated_at: new Date().toISOString(),
-    };
-
-    // Update unread count based on sender role
-    if (senderRole === 'user') {
-      // User sent message, increment seller unread count
-      const current = conversation?.seller_unread_count ?? 0;
-      updates.seller_unread_count = current + 1;
-    } else if (senderRole === 'dealer' || senderRole === 'seller_user') {
-      // Dealer or seller_user sent message, increment user unread count
-      const current = conversation?.user_unread_count ?? 0;
-      updates.user_unread_count = current + 1;
-    }
-
-    const { error: updateError } = await supabase
-      .from('conversations')
-      .update(updates)
-      .eq('id', conversationIdValue);
-
-    if (updateError) {
-      throw updateError;
-    }
+    // Note: unread counts are automatically updated by the database trigger
+    // (update_conversation_metadata), so we don't need to manually increment them here.
+    // The trigger handles all unread count logic based on conversation type and sender role.
 
     return inserted as ChatMessage;
   }
