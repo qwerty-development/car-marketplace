@@ -13,12 +13,20 @@ export function useMarkConversationRead() {
     ({ conversationId, viewerRole }) =>
       ChatService.markConversationRead(conversationId, viewerRole),
     {
+      onMutate: (variables) => {
+        console.log('[useMarkConversationRead] mutate', variables);
+      },
       onSuccess: (_, variables) => {
+        console.log('[useMarkConversationRead] success', variables);
         // Only invalidate the specific conversation messages, not all conversations
         // The conversation list will be updated via realtime subscription
         const cacheKey = String(variables.conversationId);
         queryClient.invalidateQueries(['conversationMessages', cacheKey]);
-        // Don't invalidate all conversations - let realtime handle it
+        // Also refresh conversation summaries so unread badges drop when returning to the list
+        queryClient.invalidateQueries('conversations');
+      },
+      onError: (error, variables) => {
+        console.warn('[useMarkConversationRead] failed', { error, variables });
       },
     }
   );

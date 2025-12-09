@@ -396,10 +396,21 @@ export class ChatService {
       senderRolesToAcknowledge = ['user'];
     }
 
+    console.log('[ChatService.markConversationRead] start', {
+      conversationId: conversationIdValue,
+      viewerRole,
+      senderRolesToAcknowledge,
+    });
+
     const nowIso = new Date().toISOString();
 
     // Mark messages as read from the sender roles
     for (const senderRole of senderRolesToAcknowledge) {
+      console.log('[ChatService.markConversationRead] updating messages', {
+        conversationId: conversationIdValue,
+        senderRole,
+      });
+
       const { error: updateMessagesError } = await supabase
         .from('messages')
         .update({
@@ -411,6 +422,11 @@ export class ChatService {
         .eq('is_read', false);
 
       if (updateMessagesError) {
+        console.warn('[ChatService.markConversationRead] messages update failed', {
+          conversationId: conversationIdValue,
+          senderRole,
+          error: updateMessagesError,
+        });
         throw updateMessagesError;
       }
     }
@@ -428,7 +444,17 @@ export class ChatService {
       .eq('id', conversationIdValue);
 
     if (updateConversationError) {
+      console.warn('[ChatService.markConversationRead] conversation update failed', {
+        conversationId: conversationIdValue,
+        resetColumn,
+        error: updateConversationError,
+      });
       throw updateConversationError;
     }
+
+    console.log('[ChatService.markConversationRead] success', {
+      conversationId: conversationIdValue,
+      resetColumn,
+    });
   }
 }

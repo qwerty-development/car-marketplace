@@ -38,6 +38,7 @@ export default function ConversationDetailScreen() {
   const { isDarkMode } = useTheme();
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
+  const hasMarkedReadRef = useRef(false);
   const { t } = useTranslation();
 
   const {
@@ -107,7 +108,23 @@ export default function ConversationDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!conversationIdParam || !user || profile?.role !== 'user' || !conversation) {
+      const isUserLikeRole = profile?.role === 'user' || profile?.role === 'admin';
+
+      if (!conversationIdParam || !user || !isUserLikeRole || !conversation) {
+        console.log('[ConversationDetail] Skip markRead: missing data', {
+          conversationIdParam,
+          hasUser: !!user,
+          role: profile?.role,
+          hasConversation: !!conversation,
+          isUserLikeRole,
+        });
+        return;
+      }
+
+      if (hasMarkedReadRef.current) {
+        console.log('[ConversationDetail] Skip markRead: already marked in this focus', {
+          conversationIdParam,
+        });
         return;
       }
 
@@ -120,6 +137,13 @@ export default function ConversationDetailScreen() {
         viewerRole = 'seller_user';
       }
 
+      console.log('[ConversationDetail] Marking conversation read', {
+        conversationId: conversationIdParam,
+        viewerRole,
+      });
+
+      hasMarkedReadRef.current = true;
+
       markReadMutation.mutate(
         {
           conversationId: conversationIdParam,
@@ -129,9 +153,15 @@ export default function ConversationDetailScreen() {
           onError: (error) => {
             console.warn('Failed to mark conversation read', error);
           },
+          onSuccess: () => {
+            console.log('[ConversationDetail] Mark read success', {
+              conversationId: conversationIdParam,
+              viewerRole,
+            });
+          },
         }
       );
-    }, [conversationIdParam, user?.id, profile?.role, refetch])
+    }, [conversationIdParam, conversation, markReadMutation, profile?.role, refetch, user?.id])
   );
 
   useEffect(() => {
