@@ -26,7 +26,7 @@ import CarCard from "@/components/CarCard";
 import RentalCarCard from "@/components/RentalCarCard";
 import NumberPlateCard from "@/components/NumberPlateCard";
 import { useFavorites } from "@/utils/useFavorites";
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { FontAwesome, Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import ByBrands from "@/components/ByBrands";
 import Banner from "@/components/Banner";
@@ -43,6 +43,7 @@ import SkeletonByBrands from "@/components/SkeletonByBrands";
 import SkeletonCategorySelector from "@/components/SkeletonCategorySelector";
 import SkeletonCarCard from "@/components/SkeletonCarCard";
 import PlateFilterModal from "@/components/PlateFilterModal";
+import CategorySelectorModal, { VehicleCategory } from "@/components/CategorySelectorModal";
 import * as Sentry from '@sentry/react-native';
 import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
 import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
@@ -111,7 +112,8 @@ export default function BrowseCarsPage() {
   const { language } = useLanguage();
   const [cars, setCars] = useState<Car[]>([]);
   const [plates, setPlates] = useState<NumberPlate[]>([]);
-  const [viewMode, setViewMode] = useState<'cars' | 'plates'>('cars');
+  const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('cars');
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [carViewMode, setCarViewMode] = useState<'sale' | 'rent'>('sale');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -209,8 +211,8 @@ export default function BrowseCarsPage() {
       }
 
       if (shouldFetch || !isInitialLoadDone) {
-        if (viewMode === 'cars') {
-          await fetchCars(1, initialFilters, sortOption, initialQuery, carViewMode);
+        if (vehicleCategory !== 'plates') {
+          await fetchCars(1, initialFilters, sortOption, initialQuery, carViewMode, false, vehicleCategory);
         } else {
           await fetchPlates(1, plateFilters, sortOption, initialQuery);
         }
@@ -219,7 +221,7 @@ export default function BrowseCarsPage() {
     };
 
     initializePage();
-  }, [params.searchQuery, params.filters, params.timestamp, viewMode, carViewMode]);
+  }, [params.searchQuery, params.filters, params.timestamp, vehicleCategory, carViewMode]);
 
   const fetchCars = useCallback(
     async (
@@ -228,7 +230,8 @@ export default function BrowseCarsPage() {
       currentSortOption: string | null = sortOption,
       query: string = searchQuery,
       currentCarViewMode: 'sale' | 'rent' = carViewMode,
-      forceRefresh: boolean = false
+      forceRefresh: boolean = false,
+      currentVehicleCategory: VehicleCategory = vehicleCategory
     ) => {
       if (page === 1) {
         if (!hasFetched) {
@@ -256,6 +259,16 @@ export default function BrowseCarsPage() {
           .select(selectString, { count: "exact" })
           .eq("status", "available");
 
+        // Vehicle category filter (bikes = Motorcycle, trucks = Truck, cars = exclude Motorcycle/Truck)
+        if (currentVehicleCategory === 'bikes') {
+          queryBuilder = queryBuilder.eq("category", "Motorcycle");
+        } else if (currentVehicleCategory === 'trucks') {
+          queryBuilder = queryBuilder.eq("category", "Truck");
+        } else if (currentVehicleCategory === 'cars') {
+          // For cars, exclude motorcycles and trucks
+          queryBuilder = queryBuilder.not("category", "in", "(Motorcycle,Truck)");
+        }
+
         // Special Filters
         if (currentFilters.specialFilter) {
           switch (currentFilters.specialFilter) {
@@ -273,7 +286,7 @@ export default function BrowseCarsPage() {
           }
         }
 
-        // Categories
+        // Categories (user-selected filter categories, not vehicle category)
         if (currentFilters.categories && currentFilters.categories.length > 0) {
           queryBuilder = queryBuilder.in("category", currentFilters.categories);
         }
@@ -836,7 +849,7 @@ export default function BrowseCarsPage() {
         }
       }
     },
-    [filters, sortOption, searchQuery, hasFetched, carViewMode]
+    [filters, sortOption, searchQuery, hasFetched, carViewMode, vehicleCategory]
   );
 
   const fetchPlates = useCallback(
@@ -978,12 +991,12 @@ export default function BrowseCarsPage() {
   );
 
   const onRefresh = useCallback(() => {
-    if (viewMode === 'cars') {
-      fetchCars(1, filters, sortOption, searchQuery, carViewMode, true); // forceRefresh=true to bypass cache
+    if (vehicleCategory !== 'plates') {
+      fetchCars(1, filters, sortOption, searchQuery, carViewMode, true, vehicleCategory); // forceRefresh=true to bypass cache
     } else {
       fetchPlates(1, plateFilters, sortOption, searchQuery);
     }
-  }, [filters, plateFilters, sortOption, searchQuery, fetchCars, fetchPlates, viewMode, carViewMode]);
+  }, [filters, plateFilters, sortOption, searchQuery, fetchCars, fetchPlates, vehicleCategory, carViewMode]);
 
   const handleFavoritePress = useCallback(
     async (carId: string) => {
@@ -1059,13 +1072,13 @@ export default function BrowseCarsPage() {
     (query: string) => {
       setSearchQuery(query);
       setIsSearchVisible(false);
-      if (viewMode === 'cars') {
-        fetchCars(1, filters, sortOption, query, carViewMode);
+      if (vehicleCategory !== 'plates') {
+        fetchCars(1, filters, sortOption, query, carViewMode, false, vehicleCategory);
       } else {
         fetchPlates(1, plateFilters, sortOption, query);
       }
     },
-    [filters, plateFilters, sortOption, fetchCars, fetchPlates, viewMode, carViewMode]
+    [filters, plateFilters, sortOption, fetchCars, fetchPlates, vehicleCategory, carViewMode]
   );
 
   const handleCategoryPress = useCallback(
@@ -1080,80 +1093,133 @@ export default function BrowseCarsPage() {
           ...prevFilters,
           categories: updatedCategories,
         };
-        fetchCars(1, newFilters, sortOption, searchQuery, carViewMode);
+        fetchCars(1, newFilters, sortOption, searchQuery, carViewMode, false, vehicleCategory);
         return newFilters;
       });
     },
-    [sortOption, searchQuery, fetchCars, carViewMode]
+    [sortOption, searchQuery, fetchCars, carViewMode, vehicleCategory]
   );
 
   const handleResetFilters = useCallback(() => {
-    if (viewMode === 'cars') {
+    if (vehicleCategory !== 'plates') {
       setFilters({});
       setSearchQuery("");
       setSortOption(null);
-      fetchCars(1, {}, null, "", carViewMode);
+      fetchCars(1, {}, null, "", carViewMode, false, vehicleCategory);
     } else {
       setPlateFilters({});
       setSearchQuery("");
       setSortOption(null);
       fetchPlates(1, {}, null, "");
     }
-  }, [fetchCars, fetchPlates, viewMode, carViewMode]);
+  }, [fetchCars, fetchPlates, vehicleCategory, carViewMode]);
 
-  // Unified tabs section - Clean, modern design
+  // Get category icon based on selected category
+  const getCategoryIcon = (category: VehicleCategory) => {
+    switch (category) {
+      case 'cars':
+        return <Ionicons name="car" size={20} color={isDarkMode ? '#fff' : '#000'} />;
+      case 'bikes':
+        return <MaterialCommunityIcons name="motorbike" size={20} color={isDarkMode ? '#fff' : '#000'} />;
+      case 'trucks':
+        return <FontAwesome5 name="truck" size={16} color={isDarkMode ? '#fff' : '#000'} />;
+      case 'plates':
+        return <MaterialCommunityIcons name="card-text-outline" size={20} color={isDarkMode ? '#fff' : '#000'} />;
+    }
+  };
+
+  // Handle category change from modal
+  const handleCategoryChange = useCallback((newCategory: VehicleCategory) => {
+    if (newCategory !== vehicleCategory) {
+      setVehicleCategory(newCategory);
+      setCurrentPage(1);
+      setSearchQuery('');
+      setFilters({});
+      setPlateFilters({});
+      
+      if (newCategory === 'plates') {
+        fetchPlates(1, {}, null, '');
+      } else {
+        // Reset to 'sale' mode when switching vehicle categories
+        setCarViewMode('sale');
+        fetchCars(1, {}, null, '', 'sale', false, newCategory);
+      }
+    }
+  }, [vehicleCategory, fetchCars, fetchPlates]);
+
+  // Header section with category dropdown and profile icon
+  const renderHeaderSection = useMemo(
+    () => {
+      const isRTL = language === 'ar';
+      
+      return (
+        <View style={[styles.headerSection, isDarkMode && styles.darkHeaderSection]}>
+          <View style={[styles.headerRow, isRTL && styles.headerRowRTL]}>
+            {/* Category Dropdown Button */}
+            <TouchableOpacity
+              style={[styles.categoryDropdownButton, isDarkMode && styles.categoryDropdownButtonDark]}
+              onPress={() => setIsCategoryModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              {getCategoryIcon(vehicleCategory)}
+              <Text style={[styles.categoryDropdownText, isDarkMode && styles.categoryDropdownTextDark]}>
+                {i18n.t(`home.categories.${vehicleCategory}`)}
+              </Text>
+              <Ionicons 
+                name="chevron-down" 
+                size={16} 
+                color={isDarkMode ? '#fff' : '#000'} 
+                style={{ marginLeft: 4 }}
+              />
+            </TouchableOpacity>
+
+            {/* Profile Icon */}
+            <TouchableOpacity
+              style={[styles.profileButton, isDarkMode && styles.profileButtonDark]}
+              onPress={() => router.push('/(home)/(user)/(tabs)/profile')}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="person" 
+                size={22} 
+                color={isDarkMode ? '#000' : '#fff'} 
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    },
+    [vehicleCategory, isDarkMode, language, router]
+  );
+
+  // Buy/Rent tabs section - only shown for vehicles (not plates)
   const renderTabsSection = useMemo(
     () => {
-      // Determine the selected index for unified segmented control
-      let selectedIndex = 0;
-      if (viewMode === 'cars' && carViewMode === 'sale') {
-        selectedIndex = 0;
-      } else if (viewMode === 'cars' && carViewMode === 'rent') {
-        selectedIndex = 1;
-      } else if (viewMode === 'plates') {
-        selectedIndex = 2;
+      // Don't render tabs for plates
+      if (vehicleCategory === 'plates') {
+        return null;
       }
+
+      const selectedIndex = carViewMode === 'sale' ? 0 : 1;
 
       return (
         <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
           <View style={styles.unifiedTabContainer}>
             <SegmentedControl
               values={[
-                i18n.t('profile.inventory.for_sale'),
-                i18n.t('profile.inventory.for_rent'),
-                'Plates'
+                i18n.t('home.buy'),
+                i18n.t('home.rent'),
               ]}
               selectedIndex={selectedIndex}
               onChange={(event) => {
                 const index = event.nativeEvent.selectedSegmentIndex;
-                if (index === 0) {
-                  // Cars - Sale
-                  if (viewMode !== 'cars' || carViewMode !== 'sale') {
-                    setViewMode('cars');
-                    setCarViewMode('sale');
-                    setCurrentPage(1);
-                    setSearchQuery('');
-                    setFilters({});
-                    fetchCars(1, {}, sortOption, '', 'sale');
-                  }
-                } else if (index === 1) {
-                  // Cars - Rent
-                  if (viewMode !== 'cars' || carViewMode !== 'rent') {
-                    setViewMode('cars');
-                    setCarViewMode('rent');
-                    setCurrentPage(1);
-                    setSearchQuery('');
-                    setFilters({});
-                    fetchCars(1, {}, sortOption, '', 'rent');
-                  }
-                } else if (index === 2) {
-                  // Plates
-                  if (viewMode !== 'plates') {
-                    setViewMode('plates');
-                    setCurrentPage(1);
-                    setSearchQuery('');
-                    fetchPlates(1, plateFilters, sortOption, '');
-                  }
+                const newMode = index === 0 ? 'sale' : 'rent';
+                if (carViewMode !== newMode) {
+                  setCarViewMode(newMode);
+                  setCurrentPage(1);
+                  setSearchQuery('');
+                  setFilters({});
+                  fetchCars(1, {}, sortOption, '', newMode, false, vehicleCategory);
                 }
               }}
               style={styles.unifiedSegmentedControl}
@@ -1175,14 +1241,14 @@ export default function BrowseCarsPage() {
         </View>
       );
     },
-    [viewMode, carViewMode, isDarkMode, filters, sortOption, plateFilters, fetchCars, fetchPlates]
+    [vehicleCategory, carViewMode, isDarkMode, sortOption, fetchCars]
   );
 
   // Render sticky search bar
   const renderStickySearchBar = useMemo(
     () => (
       <View style={[styles.stickySearchContainer, isDarkMode && styles.darkSearchContainer]}>
-        {viewMode === 'cars' ? (
+        {vehicleCategory !== 'plates' ? (
           // Car Search Bar
           <View style={[
             styles.searchInputContainer,
@@ -1225,7 +1291,7 @@ export default function BrowseCarsPage() {
                   onPress={(e) => {
                     e.stopPropagation();
                     setSearchQuery("");
-                    fetchCars(1, filters, sortOption, "", carViewMode);
+                    fetchCars(1, filters, sortOption, "", carViewMode, false, vehicleCategory);
                   }}
                   style={[
                     styles.clearSearchButton,
@@ -1261,7 +1327,7 @@ export default function BrowseCarsPage() {
             <SortPicker
               onValueChange={(value: string | null) => {
                 setSortOption(value);
-                fetchCars(1, filters, value, searchQuery, carViewMode);
+                fetchCars(1, filters, value, searchQuery, carViewMode, false, vehicleCategory);
               }}
               initialValue={sortOption}
             />
@@ -1346,13 +1412,13 @@ export default function BrowseCarsPage() {
         )}
       </View>
     ),
-    [viewMode, searchQuery, isDarkMode, language, filters, sortOption, carViewMode, plateFilters, fetchCars, fetchPlates, openFilterPage, router]
+    [vehicleCategory, searchQuery, isDarkMode, language, filters, sortOption, carViewMode, plateFilters, fetchCars, fetchPlates, openFilterPage, router]
   );
 
   const renderRestOfHeader = useMemo(
     () => (
       <>
-        {viewMode === 'cars' && (
+        {vehicleCategory !== 'plates' && (
           <>
             {!componentsLoaded || isInitialLoading ? (
               <SkeletonByBrands />
@@ -1376,28 +1442,28 @@ export default function BrowseCarsPage() {
             </View>
           </>
         )}
-        {viewMode === 'plates' && <Banner />}
+        {vehicleCategory === 'plates' && <Banner />}
       </>
     ),
-    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress, viewMode]
+    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress, vehicleCategory]
   );
 
   const renderListEmpty = useCallback(
     () =>
       !isInitialLoading &&
-      ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0)) && (
+      ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0)) && (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-            {viewMode === 'cars' 
+            {vehicleCategory !== 'plates' 
               ? (filters.categories && filters.categories.length > 0
-                  ? `No cars available for the selected ${
+                  ? `No ${vehicleCategory} available for the selected ${
                       filters.categories.length === 1 ? "category" : "categories"
                     }:\n${filters.categories.join(", ")}`
-                  : "No cars available.")
+                  : `No ${vehicleCategory} available.`)
               : "No number plates available."}
           </Text>
-          {((viewMode === 'cars' && Object.keys(filters).length > 0) || 
-            (viewMode === 'plates' && Object.keys(plateFilters).length > 0) || 
+          {((vehicleCategory !== 'plates' && Object.keys(filters).length > 0) || 
+            (vehicleCategory === 'plates' && Object.keys(plateFilters).length > 0) || 
             searchQuery) && (
             <TouchableOpacity
               onPress={handleResetFilters}
@@ -1417,7 +1483,7 @@ export default function BrowseCarsPage() {
       handleResetFilters,
       cars,
       plates,
-      viewMode,
+      vehicleCategory,
     ]
   );
 
@@ -1473,34 +1539,36 @@ export default function BrowseCarsPage() {
             scrollEventThrottle={16}
             data={
               [
+                { id: 'header', type: 'header' },
                 { id: 'tabs', type: 'tabs' },
                 { id: 'search', type: 'search' },
                 { id: 'rest-header', type: 'rest-header' },
-                ...(isInitialLoading && ((viewMode === 'cars' && cars.length === 0) || (viewMode === 'plates' && plates.length === 0))
+                ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
                   ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
-                  : (viewMode === 'cars' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item })))
+                  : (vehicleCategory !== 'plates' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item })))
               ]
             }
             renderItem={({ item, index }: any) => {
+              if (item.type === 'header') return renderHeaderSection;
               if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'search') return renderStickySearchBar;
               if (item.type === 'rest-header') return renderRestOfHeader;
               if (item.type === 'skeleton') return renderSkeletonItem();
 
-              const dataIndex = index - 3; // Subtract header items
-              if (viewMode === 'cars') {
+              const dataIndex = index - 4; // Subtract header items (now 4 instead of 3)
+              if (vehicleCategory !== 'plates') {
                 return renderCarItem({ item: item.data, index: dataIndex });
               } else {
                 return renderPlateItem({ item: item.data, index: dataIndex });
               }
             }}
             keyExtractor={(item: any) => item.id.toString()}
-            stickyHeaderIndices={[1]}
+            stickyHeaderIndices={[2]} // Search bar is now at index 2 (after header and tabs)
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
-                console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} cars in state)`);
-                if (viewMode === 'cars') {
-                  fetchCars(currentPage + 1, filters, sortOption, searchQuery, carViewMode);
+                console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} items in state)`);
+                if (vehicleCategory !== 'plates') {
+                  fetchCars(currentPage + 1, filters, sortOption, searchQuery, carViewMode, false, vehicleCategory);
                 } else {
                   fetchPlates(currentPage + 1, plateFilters, sortOption, searchQuery);
                 }
@@ -1529,6 +1597,14 @@ export default function BrowseCarsPage() {
         </SafeAreaView>
       </LinearGradient>
 
+      {/* Category Selector Modal */}
+      <CategorySelectorModal
+        visible={isCategoryModalVisible}
+        onClose={() => setIsCategoryModalVisible(false)}
+        selectedCategory={vehicleCategory}
+        onSelectCategory={handleCategoryChange}
+      />
+
       {/* Plate Filter Modal */}
       <PlateFilterModal
         isVisible={isPlateFilterVisible}
@@ -1546,6 +1622,58 @@ const styles = StyleSheet.create({
   },
   darkContainer: {
     backgroundColor: "#000000",
+  },
+  // Header Section Styles
+  headerSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  darkHeaderSection: {
+    backgroundColor: 'transparent',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerRowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  categoryDropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  categoryDropdownButtonDark: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#333',
+  },
+  categoryDropdownText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginLeft: 8,
+  },
+  categoryDropdownTextDark: {
+    color: '#fff',
+  },
+  profileButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileButtonDark: {
+    backgroundColor: '#fff',
   },
   tabsSection: {
     backgroundColor: 'transparent',

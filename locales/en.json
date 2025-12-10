@@ -71,6 +71,17 @@
     "inventory": "Inventory",
     "create": "Create"
   },
+  "home": {
+    "categories": {
+      "cars": "Cars",
+      "bikes": "Bikes",
+      "trucks": "Trucks",
+      "plates": "License Plates"
+    },
+    "buy": "Buy",
+    "rent": "Rent",
+    "select_category": "Select Category"
+  },
   "chat": {
     "messages": "Messages",
     "conversation": "Conversation",

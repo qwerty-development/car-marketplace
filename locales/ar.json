@@ -71,6 +71,17 @@
     "inventory": "المخزون",
     "create": "إنشاء"
   },
+  "home": {
+    "categories": {
+      "cars": "سيارات",
+      "bikes": "دراجات",
+      "trucks": "شاحنات",
+      "plates": "لوحات أرقام"
+    },
+    "buy": "شراء",
+    "rent": "إيجار",
+    "select_category": "اختر الفئة"
+  },
   "brands": {
     "explore_by_brands": "استكشف حسب العلامات",
     "all_brands": "جميع العلامات"
