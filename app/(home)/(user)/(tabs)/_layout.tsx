@@ -2,10 +2,9 @@ import React, { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
-import { View, Animated, Platform, TouchableOpacity, Text } from 'react-native';
-import FloatingChatFab from '@/components/FloatingChatFab';  // ADDED: Import for AI chat
+import { View, Platform, Text } from 'react-native';
+import FloatingChatFab from '@/components/FloatingChatFab';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
 import { useConversations } from '@/hooks/useConversations';
@@ -13,7 +12,6 @@ import { useConversations } from '@/hooks/useConversations';
 export default function TabLayout() {
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
-  const router = useRouter();
   const { user } = useAuth();
   const { isGuest } = useGuestUser();
   const { data: conversations } = useConversations({
@@ -29,8 +27,6 @@ export default function TabLayout() {
       0
     );
   }, [conversations?.length, conversations?.map(c => c.user_unread_count).join(',')]);
-
-  const showHeaderAction = !!user && !isGuest;
 
   return (
     <>
@@ -63,46 +59,6 @@ export default function TabLayout() {
             borderBottomWidth: 0,
           },
           headerTintColor: '#D55004',
-          headerRight: () =>
-            showHeaderAction ? (
-              <TouchableOpacity
-                onPress={() =>
-                  router.push('/(home)/(user)/messages')
-                }
-                style={{ marginRight: 16, position: 'relative' }}
-              >
-                <Ionicons
-                  name="chatbubble-ellipses-outline"
-                  size={24}
-                  color={isDarkMode ? '#F8FAFC' : '#0F172A'}
-                />
-                {totalUnread > 0 && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -4,
-                      right: -4,
-                      minWidth: 18,
-                      paddingHorizontal: 4,
-                      paddingVertical: 1,
-                      borderRadius: 9,
-                      backgroundColor: '#D55004',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: '#FFFFFF',
-                        fontSize: 10,
-                        fontWeight: '700',
-                      }}
-                    >
-                      {totalUnread > 99 ? '99+' : totalUnread}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ) : null,
           headerShown: route.name !== 'index',
           tabBarIcon: ({ color, size, focused }) => {
             let iconName: keyof typeof Ionicons.glyphMap = 'home';
@@ -112,11 +68,10 @@ export default function TabLayout() {
             else if (route.name === 'autoclips') iconName = 'film';
             else if (route.name === 'dealerships')
               iconName = focused ? 'business' : 'business-outline';
+            else if (route.name === 'chat')
+              iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
             else if (route.name === 'MyListings')
               iconName = focused ? 'list' : 'list-outline';
-            else if (route.name === 'profile')
-              iconName = focused ? 'person' : 'person-outline';
-            // Removed chat tab mapping
 
             // Special styling for autoclips button
             if (route.name === 'autoclips') {
@@ -140,6 +95,56 @@ export default function TabLayout() {
                     transform: [{ translateY: -15 }],
                   }}>
                   <Ionicons name={iconName} size={32} color='white' />
+                </View>
+              );
+            }
+
+            // Chat tab with unread badge
+            if (route.name === 'chat') {
+              return (
+                <View
+                  style={{
+                    height: 55,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  <View style={{ position: 'relative' }}>
+                    <Ionicons
+                      name={iconName}
+                      size={28}
+                      color={color}
+                      style={{
+                        opacity: focused ? 1 : 0.9,
+                        transform: [{ scale: focused ? 1.1 : 1 }],
+                      }}
+                    />
+                    {totalUnread > 0 && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: -4,
+                          right: -8,
+                          minWidth: 18,
+                          height: 18,
+                          paddingHorizontal: 4,
+                          borderRadius: 9,
+                          backgroundColor: '#D55004',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 10,
+                            fontWeight: '700',
+                          }}
+                        >
+                          {totalUnread > 99 ? '99+' : totalUnread}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               );
             }
@@ -186,15 +191,23 @@ export default function TabLayout() {
             headerTitle: t('navbar.autoclips'),
             headerShown: false,
             tabBarStyle: { display: 'none' },
-            tabBarLabel: t('navbar.autoclips')
+            tabBarLabel: ''
+          }}
+        />
+        <Tabs.Screen
+          name='chat'
+          options={{ 
+            headerTitle: t('navbar.messages'),
+            headerShown: false,
+            tabBarLabel: t('navbar.messages')
           }}
         />
         <Tabs.Screen
           name='MyListings'
           options={{ 
-            headerTitle: 'My Listings', 
+            headerTitle: t('navbar.listings'), 
             headerShown: false,
-            tabBarLabel: 'My Listings'
+            tabBarLabel: t('navbar.listings')
           }}
         />
         <Tabs.Screen
@@ -202,10 +215,10 @@ export default function TabLayout() {
           options={{ 
             headerTitle: t('navbar.profile'), 
             headerShown: false,
-            tabBarLabel: t('navbar.profile')
+            tabBarLabel: t('navbar.profile'),
+            href: null  // Hide profile from tab bar - accessed via header icon
           }}
         />
-        {/* Chat tab removed. Global FAB now opens chat assistant. */}
       </Tabs>
 
       {/* ADDED: AI Chat Floating Action Button - Only appears in user tab screens */}
