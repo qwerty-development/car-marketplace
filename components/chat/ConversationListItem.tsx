@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { ConversationSummary } from '@/types/chat';
 import { useUserName } from '@/hooks/useUserName';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +18,13 @@ interface ConversationListItemProps {
 }
 
 const FALLBACK_COLORS = ['#D55004', '#2563EB', '#16A34A', '#9333EA', '#EA580C'];
+
+// Status badge colors (only show Inquiry, Sold, Deleted)
+const STATUS_COLORS: Record<string, string> = {
+  inquiry: '#D55004',
+  sold: '#16A34A',
+  deleted: '#EF4444',
+};
 
 function formatTimestamp(timestamp?: string | null) {
   if (!timestamp) return '';
@@ -54,6 +60,43 @@ function formatTimestamp(timestamp?: string | null) {
   });
 }
 
+function getStatusLabel(conversation: ConversationSummary): { label: string; color: string } {
+  const carInfo = conversation.car || conversation.carRent;
+  const plateInfo = conversation.numberPlate;
+
+  // Default to Inquiry for active conversations
+  if (carInfo) {
+    const status = carInfo.status;
+    if (status === 'sold') return { label: 'Sold', color: STATUS_COLORS.sold };
+    if (status === 'deleted') return { label: 'Deleted', color: STATUS_COLORS.deleted };
+    return { label: 'Inquiry', color: STATUS_COLORS.inquiry };
+  }
+
+  if (plateInfo) {
+    const status = plateInfo.status;
+    if (status === 'sold') return { label: 'Sold', color: STATUS_COLORS.sold };
+    if (status === 'deleted') return { label: 'Deleted', color: STATUS_COLORS.deleted };
+    return { label: 'Inquiry', color: STATUS_COLORS.inquiry };
+  }
+
+  return { label: 'Inquiry', color: STATUS_COLORS.inquiry };
+}
+
+function getProductImage(conversation: ConversationSummary): string | null {
+  const carInfo = conversation.car || conversation.carRent;
+  const plateInfo = conversation.numberPlate;
+
+  if (carInfo?.images && carInfo.images.length > 0) {
+    return carInfo.images[0];
+  }
+
+  if (plateInfo?.picture) {
+    return plateInfo.picture;
+  }
+
+  return null;
+}
+
 function getDisplayInfo(
   conversation: ConversationSummary,
   viewerRole: 'user' | 'dealer',
@@ -61,10 +104,10 @@ function getDisplayInfo(
 ) {
   const carInfo = conversation.car || conversation.carRent;
   const plateInfo = conversation.numberPlate;
-  
+
   // Check if the listing is deleted
   const isDeleted = carInfo?.status === 'deleted' || plateInfo?.status === 'deleted';
-  
+
   // Determine listing label
   let listingLabel = '';
   if (carInfo) {
@@ -153,17 +196,22 @@ export default function ConversationListItem({
       ? conversation.user_unread_count ?? 0
       : conversation.seller_unread_count ?? 0;
 
+  const hasUnread = unreadCount > 0;
+
   const preview =
     conversation.last_message_preview ||
     t('chat.no_messages_yet', 'No messages yet');
 
   const previewDisplay =
-    preview.length > 120 ? `${preview.slice(0, 117)}...` : preview;
+    preview.length > 60 ? `${preview.slice(0, 57)}...` : preview;
 
   const fallbackColor = useMemo(() => {
     const index = info.fallbackLetter.charCodeAt(0) % FALLBACK_COLORS.length;
     return FALLBACK_COLORS[index];
   }, [info.fallbackLetter]);
+
+  const productImage = getProductImage(conversation);
+  const statusInfo = getStatusLabel(conversation);
 
   return (
     <TouchableOpacity
@@ -171,24 +219,54 @@ export default function ConversationListItem({
       activeOpacity={0.7}
       style={[
         styles.container,
-        { backgroundColor: isDarkMode ? '#111' : '#fff' },
+        { backgroundColor: isDarkMode ? '#1A1A1A' : '#fff' },
         info.isDeleted && { opacity: 0.6 },
       ]}
     >
-      {info.avatarUrl ? (
-        <CachedImage source={{ uri: info.avatarUrl }} style={[styles.avatar, info.isDeleted && { opacity: 0.5 }]} cachePolicy="disk" />
-      ) : (
-        <View
-          style={[
-            styles.fallbackAvatar,
-            { backgroundColor: info.isDeleted ? '#666' : fallbackColor },
-          ]}
-        >
-          <Text style={styles.fallbackLetter}>{info.fallbackLetter}</Text>
-        </View>
-      )}
+      {/* Product Image with Status Badge and Avatar */}
+      <View style={styles.imageContainer}>
+        {productImage ? (
+          <CachedImage
+            source={{ uri: productImage }}
+            style={styles.productImage}
+            cachePolicy="disk"
+          />
+        ) : (
+          <View style={[styles.productImage, styles.productImagePlaceholder]}>
+            <Text style={styles.placeholderText}>No Image</Text>
+          </View>
+        )}
 
+        {/* Status Badge */}
+        <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
+          <Text style={styles.statusText}>{statusInfo.label}</Text>
+        </View>
+
+        {/* Avatar overlapping bottom-left */}
+        <View style={styles.avatarWrapper}>
+          {info.avatarUrl ? (
+            <CachedImage
+              source={{ uri: info.avatarUrl }}
+              style={styles.avatar}
+              cachePolicy="disk"
+            />
+          ) : (
+            <View
+              style={[
+                styles.avatar,
+                styles.fallbackAvatar,
+                { backgroundColor: info.isDeleted ? '#666' : fallbackColor },
+              ]}
+            >
+              <Text style={styles.fallbackLetter}>{info.fallbackLetter}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Content Section */}
       <View style={styles.content}>
+        {/* Header Row with Title and Timestamp */}
         <View style={styles.headerRow}>
           <Text
             style={[
@@ -199,7 +277,6 @@ export default function ConversationListItem({
           >
             {info.title}
           </Text>
-
           <Text
             style={[
               styles.timestamp,
@@ -210,85 +287,8 @@ export default function ConversationListItem({
           </Text>
         </View>
 
-        {info.subtitle ? (
-          <Text
-            style={[
-              styles.subtitle,
-              { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
-            ]}
-            numberOfLines={1}
-          >
-            {info.subtitle}
-          </Text>
-        ) : null}
-
-        {info.carInfo ? (
-          <View style={styles.carBadge}>
-            <Ionicons
-              name={conversation.carRent ? 'car-outline' : 'checkmark-circle'}
-              size={14}
-              color={conversation.carRent ? '#D55004' : '#666'}
-              style={{ marginRight: 4 }}
-            />
-            <Text
-              style={[
-                styles.carInfo,
-                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
-              ]}
-              numberOfLines={1}
-            >
-              {info.carInfo}
-            </Text>
-          </View>
-        ) : null}
-
-        {info.plateInfo ? (
-          <View style={styles.carBadge}>
-            <Ionicons
-              name="id-card-outline"
-              size={14}
-              color="#D55004"
-              style={{ marginRight: 4 }}
-            />
-            <Text
-              style={[
-                styles.carInfo,
-                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
-              ]}
-              numberOfLines={1}
-            >
-              {info.plateInfo}
-            </Text>
-          </View>
-        ) : null}
-
-        {info.conversationType === 'user_user' && viewerRole === 'user' ? (
-          <View style={styles.carBadge}>
-            <Ionicons
-              name="person-outline"
-              size={14}
-              color="#2563EB"
-              style={{ marginRight: 4 }}
-            />
-            <Text
-              style={[
-                styles.carInfo,
-                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
-              ]}
-              numberOfLines={1}
-            >
-              {t('chat.private_seller', 'Private Seller')}
-            </Text>
-          </View>
-        ) : null}
-
+        {/* Preview Row with Unread Dot */}
         <View style={styles.previewRow}>
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={16}
-            color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-            style={{ marginRight: 6 }}
-          />
           <Text
             style={[
               styles.preview,
@@ -298,16 +298,9 @@ export default function ConversationListItem({
           >
             {previewDisplay}
           </Text>
+          {hasUnread && <View style={styles.unreadDot} />}
         </View>
       </View>
-
-      {unreadCount > 0 ? (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Text>
-        </View>
-      ) : null}
     </TouchableOpacity>
   );
 }
@@ -315,90 +308,116 @@ export default function ConversationListItem({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderRadius: 20,
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 16,
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginVertical: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    marginRight: 16,
+  imageContainer: {
+    width: 100,
+    height: 75,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    marginRight: 12,
   },
-  fallbackAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  productImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  productImagePlaceholder: {
+    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+  },
+  placeholderText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+    textTransform: 'capitalize',
+  },
+  avatarWrapper: {
+    position: 'absolute',
+    bottom: -8,
+    left: -8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  fallbackAvatar: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fallbackLetter: {
-    fontSize: 22,
+    fontSize: 14,
     color: '#fff',
     fontWeight: '700',
   },
   content: {
     flex: 1,
+    paddingTop: 2,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 4,
   },
   title: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   timestamp: {
     fontSize: 12,
-  },
-  subtitle: {
-    fontSize: 13,
     marginTop: 2,
-  },
-  carBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  carInfo: {
-    fontSize: 12,
-    marginTop: 2,
-    flex: 1,
   },
   previewRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 6,
   },
   preview: {
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
   },
-  unreadBadge: {
-    marginLeft: 12,
-    minWidth: 24,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  unreadDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#D55004',
-    alignItems: 'center',
-  },
-  unreadText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fff',
+    marginLeft: 8,
+    marginTop: 4,
   },
 });
