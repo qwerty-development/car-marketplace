@@ -20,7 +20,6 @@ import {
   TextInput,
   Platform
 } from "react-native";
-import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
 import RentalCarCard from "@/components/RentalCarCard";
@@ -1200,43 +1199,59 @@ export default function BrowseCarsPage() {
         return null;
       }
 
-      const selectedIndex = carViewMode === 'sale' ? 0 : 1;
-
       return (
         <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
           <View style={styles.unifiedTabContainer}>
-            <SegmentedControl
-              values={[
-                i18n.t('home.buy'),
-                i18n.t('home.rent'),
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                carViewMode === 'sale' && styles.tabButtonSelected
               ]}
-              selectedIndex={selectedIndex}
-              onChange={(event) => {
-                const index = event.nativeEvent.selectedSegmentIndex;
-                const newMode = index === 0 ? 'sale' : 'rent';
-                if (carViewMode !== newMode) {
-                  setCarViewMode(newMode);
+              onPress={() => {
+                if (carViewMode !== 'sale') {
+                  setCarViewMode('sale');
                   setCurrentPage(1);
                   setSearchQuery('');
                   setFilters({});
-                  fetchCars(1, {}, sortOption, '', newMode, false, vehicleCategory);
+                  fetchCars(1, {}, sortOption, '', 'sale', false, vehicleCategory);
                 }
               }}
-              style={styles.unifiedSegmentedControl}
-              appearance={isDarkMode ? 'dark' : 'light'}
-              fontStyle={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: isDarkMode ? '#FFFFFF' : '#000000'
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.tabButtonText,
+                carViewMode === 'sale' && styles.tabButtonTextSelected,
+                carViewMode === 'sale' && isDarkMode && styles.tabButtonTextSelectedDark,
+                carViewMode !== 'sale' && isDarkMode && styles.tabButtonTextDark
+              ]}>
+                {i18n.t('home.buy')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                carViewMode === 'rent' && styles.tabButtonSelected
+              ]}
+              onPress={() => {
+                if (carViewMode !== 'rent') {
+                  setCarViewMode('rent');
+                  setCurrentPage(1);
+                  setSearchQuery('');
+                  setFilters({});
+                  fetchCars(1, {}, sortOption, '', 'rent', false, vehicleCategory);
+                }
               }}
-              activeFontStyle={{
-                fontSize: 14,
-                fontWeight: '700',
-                color: '#FFFFFF'
-              }}
-              tintColor="#D55004"
-              backgroundColor={isDarkMode ? '#1a1a1a' : '#f0f0f0'}
-            />
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.tabButtonText,
+                carViewMode === 'rent' && styles.tabButtonTextSelected,
+                carViewMode === 'rent' && isDarkMode && styles.tabButtonTextSelectedDark,
+                carViewMode !== 'rent' && isDarkMode && styles.tabButtonTextDark
+              ]}>
+                {i18n.t('home.rent')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       );
@@ -1427,19 +1442,17 @@ export default function BrowseCarsPage() {
                 <ByBrands />
               </View>
             )}
+            {!componentsLoaded || isInitialLoading ? (
+              <SkeletonCategorySelector />
+            ) : (
+              <View>
+                <CategorySelector
+                  selectedCategories={filters.categories || []}
+                  onCategoryPress={handleCategoryPress}
+                />
+              </View>
+            )}
             <Banner />
-            <View style={{ marginBottom: 12, marginTop: 12 }}>
-              {!componentsLoaded || isInitialLoading ? (
-                <SkeletonCategorySelector />
-              ) : (
-                <View>
-                  <CategorySelector
-                    selectedCategories={filters.categories || []}
-                    onCategoryPress={handleCategoryPress}
-                  />
-                </View>
-              )}
-            </View>
           </>
         )}
         {vehicleCategory === 'plates' && <Banner />}
@@ -1540,8 +1553,8 @@ export default function BrowseCarsPage() {
             data={
               [
                 { id: 'header', type: 'header' },
-                { id: 'tabs', type: 'tabs' },
                 { id: 'search', type: 'search' },
+                ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
                 { id: 'rest-header', type: 'rest-header' },
                 ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
                   ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
@@ -1550,8 +1563,8 @@ export default function BrowseCarsPage() {
             }
             renderItem={({ item, index }: any) => {
               if (item.type === 'header') return renderHeaderSection;
-              if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'search') return renderStickySearchBar;
+              if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'rest-header') return renderRestOfHeader;
               if (item.type === 'skeleton') return renderSkeletonItem();
 
@@ -1563,7 +1576,7 @@ export default function BrowseCarsPage() {
               }
             }}
             keyExtractor={(item: any) => item.id.toString()}
-            stickyHeaderIndices={[2]} // Search bar is now at index 2 (after header and tabs)
+            stickyHeaderIndices={[1]} // Search bar is at index 1 (after header, before tabs)
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} items in state)`);
@@ -1793,12 +1806,37 @@ const styles = StyleSheet.create({
   },
   // Unified Tab Styles - Clean, modern design
   unifiedTabContainer: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 0,
+    paddingBottom: 16,
+    width: '100%',
     alignItems: 'center',
   },
-  unifiedSegmentedControl: {
-    width: '100%',
-    height: 44,
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+  },
+  tabButtonSelected: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#D55004',
+  },
+  tabButtonText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: 'black',
+  },
+  tabButtonTextDark: {
+    color: '#999999',
+  },
+  tabButtonTextSelected: {
+    fontWeight: '500',
+    color: '#000000',
+  },
+  tabButtonTextSelectedDark: {
+    color: '#000000',
   },
 });

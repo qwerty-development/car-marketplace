@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { usePathname, useSegments } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -60,7 +60,7 @@ export default function FloatingChatFab() {
           width: 60,
           height: 60,
           borderRadius: 30,
-          backgroundColor: '#D55004',
+          backgroundColor: '#000000',
           justifyContent: 'center',
           alignItems: 'center',
           shadowColor: '#000',
@@ -71,7 +71,7 @@ export default function FloatingChatFab() {
           zIndex: 1000, // Ensure it appears above other content
         }}
       >
-        <Ionicons name="chatbubbles-outline" size={30} color="#fff" />
+        <FontAwesome5 name="robot" size={22} color="#fff" />
       </TouchableOpacity>
 
       {/* Chat Modal */}

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
-import { View, Platform, Text } from 'react-native';
+import { View, Platform, Text, TouchableOpacity } from 'react-native';
 import FloatingChatFab from '@/components/FloatingChatFab';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/utils/AuthContext';
@@ -46,13 +46,51 @@ export default function TabLayout() {
             shadowRadius: 12,
           },
           tabBarShowLabel: true,
-          tabBarActiveTintColor: '#D55004',
-          tabBarInactiveTintColor: isDarkMode
-            ? 'rgba(255, 255, 255, 0.6)'
-            : 'rgba(0, 0, 0, 0.6)',
+          tabBarActiveTintColor: '#000000',
+          tabBarInactiveTintColor: '#000000',
+          tabBarLabelStyle: {
+            color: '#000000',
+            fontSize: 12,
+            fontWeight: '500',
+          },
           tabBarItemStyle: {
             height: 55, // Fixed height for all tab items
             padding: 0, // Remove default padding
+          },
+          tabBarButton: (props) => {
+            // Skip custom button for autoclips (it has its own special styling)
+            if (route.name === 'autoclips') {
+              return <TouchableOpacity {...props} />;
+            }
+            
+            const isSelected = props.accessibilityState?.selected;
+            
+            return (
+              <TouchableOpacity
+                {...props}
+                style={[
+                  props.style,
+                  {
+                    position: 'relative',
+                  },
+                ]}
+              >
+                {props.children}
+                {isSelected && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: '20%',
+                      right: '20%',
+                      height: 3,
+                      backgroundColor: '#D55004',
+                      alignSelf: 'center',
+                    }}
+                  />
+                )}
+              </TouchableOpacity>
+            );
           },
           headerStyle: {
             backgroundColor: isDarkMode ? '#121212' : '#FFFFFF',
@@ -73,7 +111,7 @@ export default function TabLayout() {
             else if (route.name === 'MyListings')
               iconName = focused ? 'list' : 'list-outline';
 
-            // Special styling for autoclips button
+            // Special styling for autoclips button - no orange dot
             if (route.name === 'autoclips') {
               return (
                 <View
@@ -112,10 +150,9 @@ export default function TabLayout() {
                     <Ionicons
                       name={iconName}
                       size={28}
-                      color={color}
+                      color="#000000"
                       style={{
                         opacity: focused ? 1 : 0.9,
-                        transform: [{ scale: focused ? 1.1 : 1 }],
                       }}
                     />
                     {totalUnread > 0 && (
@@ -159,10 +196,9 @@ export default function TabLayout() {
                 <Ionicons
                   name={iconName}
                   size={28}
-                  color={color}
+                  color="#000000"
                   style={{
                     opacity: focused ? 1 : 0.9,
-                    transform: [{ scale: focused ? 1.1 : 1 }],
                   }}
                 />
               </View>

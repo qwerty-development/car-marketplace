@@ -10,7 +10,7 @@ import {
   Image,
   Platform
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
@@ -26,6 +26,8 @@ export default function NumberPlatesManager() {
   const { t } = useTranslation()
   const { language } = useLanguage()
   const router = useRouter()
+  const params = useLocalSearchParams()
+  const plateId = params.plateId ? parseInt(params.plateId as string) : null
   const isRTL = language === 'ar'
   const { user } = useAuth()
 
@@ -39,12 +41,45 @@ export default function NumberPlatesManager() {
   const [isSaving, setIsSaving] = useState(false)
   const [numberPlates, setNumberPlates] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isEditMode, setIsEditMode] = useState(false)
 
   useEffect(() => {
     if (user?.id) {
-      fetchNumberPlates()
+      if (plateId) {
+        loadPlateForEdit(plateId)
+      } else {
+        fetchNumberPlates()
+      }
     }
-  }, [user?.id])
+  }, [user?.id, plateId])
+
+  const loadPlateForEdit = async (id: number) => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('number_plates')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setFormData({
+          letter: data.letter,
+          digits: data.digits,
+          price: data.price.toString(),
+          picture: data.picture
+        })
+        setIsEditMode(true)
+      }
+    } catch (error) {
+      console.error('Error loading plate:', error)
+      Alert.alert('Error', 'Failed to load plate data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const fetchNumberPlates = async () => {
     if (!user?.id) return
@@ -194,31 +229,65 @@ export default function NumberPlatesManager() {
 
     setIsSaving(true)
     try {
-      const { error } = await supabase
-        .from('number_plates')
-        .insert({
-          letter: formData.letter.trim(),
-          digits: formData.digits.trim(),
-          price: parseFloat(formData.price),
-          picture: formData.picture,
-          user_id: user?.id,
-          dealership_id: null // Set to null for user-owned plates
-        })
+      if (isEditMode && plateId) {
+        // Update existing plate
+        const { error } = await supabase
+          .from('number_plates')
+          .update({
+            letter: formData.letter.trim(),
+            digits: formData.digits.trim(),
+            price: parseFloat(formData.price),
+            picture: formData.picture
+          })
+          .eq('id', plateId)
 
-      if (error) throw error
+        if (error) throw error
 
-      Alert.alert('Success', 'Number plate added successfully!')
+        Alert.alert('Success', 'Number plate updated successfully!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to MyListings
+              router.back()
+            }
+          }
+        ])
+      } else {
+        // Insert new plate
+        const { error } = await supabase
+          .from('number_plates')
+          .insert({
+            letter: formData.letter.trim(),
+            digits: formData.digits.trim(),
+            price: parseFloat(formData.price),
+            picture: formData.picture,
+            user_id: user?.id,
+            dealership_id: null // Set to null for user-owned plates
+          })
+
+        if (error) throw error
+
+        Alert.alert('Success', 'Number plate added successfully!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to MyListings
+              router.back()
+            }
+          }
+        ])
+      }
       
-      // Reset form
-      setFormData({
-        letter: '',
-        digits: '',
-        price: '',
-        picture: null
-      })
-
-      // Refresh list
-      fetchNumberPlates()
+      // Reset form if not in edit mode
+      if (!isEditMode) {
+        setFormData({
+          letter: '',
+          digits: '',
+          price: '',
+          picture: null
+        })
+        fetchNumberPlates()
+      }
     } catch (error) {
       console.error('Error saving number plate:', error)
       Alert.alert('Error', 'Failed to save number plate. Please try again.')
@@ -293,16 +362,16 @@ export default function NumberPlatesManager() {
             />
           </TouchableOpacity>
           <Text className="text-white text-2xl font-bold flex-1">
-            Number Plates Manager
+            {isEditMode ? 'Edit License Plate' : 'Number Plates Manager'}
           </Text>
         </View>
       </LinearGradient>
 
       <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
-        {/* Add New Plate Section */}
+        {/* Add/Edit Plate Section */}
         <View className={`${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} p-4 rounded-2xl mb-6`}>
           <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'} mb-4`}>
-            Add New Plate
+            {isEditMode ? 'Edit Plate Details' : 'Add New Plate'}
           </Text>
 
           {/* Image Upload */}
@@ -390,13 +459,16 @@ export default function NumberPlatesManager() {
             {isSaving ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-white font-bold text-lg">Add Plate</Text>
+              <Text className="text-white font-bold text-lg">
+                {isEditMode ? 'Update Plate' : 'Add Plate'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Existing Plates List */}
-        <View className="mb-6">
+        {/* Existing Plates List - Only show when not in edit mode */}
+        {!isEditMode && (
+          <View className="mb-6">
           <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'} mb-4`}>
             Your Number Plates
           </Text>
@@ -445,7 +517,8 @@ export default function NumberPlatesManager() {
               </View>
             ))
           )}
-        </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   )
