@@ -1220,8 +1220,9 @@ export default function BrowseCarsPage() {
             >
               <Text style={[
                 styles.tabButtonText,
-                isDarkMode && styles.tabButtonTextDark,
-                carViewMode === 'sale' && styles.tabButtonTextSelected
+                carViewMode === 'sale' && styles.tabButtonTextSelected,
+                carViewMode === 'sale' && isDarkMode && styles.tabButtonTextSelectedDark,
+                carViewMode !== 'sale' && isDarkMode && styles.tabButtonTextDark
               ]}>
                 {i18n.t('home.buy')}
               </Text>
@@ -1244,8 +1245,9 @@ export default function BrowseCarsPage() {
             >
               <Text style={[
                 styles.tabButtonText,
-                isDarkMode && styles.tabButtonTextDark,
-                carViewMode === 'rent' && styles.tabButtonTextSelected
+                carViewMode === 'rent' && styles.tabButtonTextSelected,
+                carViewMode === 'rent' && isDarkMode && styles.tabButtonTextSelectedDark,
+                carViewMode !== 'rent' && isDarkMode && styles.tabButtonTextDark
               ]}>
                 {i18n.t('home.rent')}
               </Text>
@@ -1806,7 +1808,8 @@ const styles = StyleSheet.create({
   unifiedTabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 0,
+    paddingBottom: 16,
     width: '100%',
     alignItems: 'center',
   },
@@ -1822,15 +1825,18 @@ const styles = StyleSheet.create({
     borderBottomColor: '#D55004',
   },
   tabButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666666',
+    fontSize: 22,
+    fontWeight: '500',
+    color: 'black',
   },
   tabButtonTextDark: {
     color: '#999999',
   },
   tabButtonTextSelected: {
-    fontWeight: '700',
-    color: '#D55004',
+    fontWeight: '500',
+    color: '#000000',
+  },
+  tabButtonTextSelectedDark: {
+    color: '#000000',
   },
 });
