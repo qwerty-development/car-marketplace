@@ -1,10 +1,13 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
   Text,
   View,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,12 +20,18 @@ import ConversationListItem from '@/components/chat/ConversationListItem';
 import { useConversations } from '@/hooks/useConversations';
 import { Ionicons } from '@expo/vector-icons';
 
+type FilterType = 'all' | 'unread';
+
 export default function ChatTabScreen() {
   const { isDarkMode } = useTheme();
   const { user, isLoaded } = useAuth();
   const { isGuest } = useGuestUser();
   const { t } = useTranslation();
   const router = useRouter();
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<TextInput>(null);
 
   const {
     data: conversations,
@@ -34,6 +43,40 @@ export default function ChatTabScreen() {
     userId: user?.id ?? null,
     enabled: !!user && !isGuest,
   });
+
+  // Filter conversations based on selected filter and search query
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+
+    const byUnread =
+      filter === 'unread'
+        ? conversations.filter((c) => (c.user_unread_count ?? 0) > 0)
+        : conversations;
+
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    if (!trimmedQuery) return byUnread;
+
+    return byUnread.filter((c) => {
+      const parts: string[] = [];
+      if (c.dealership?.name) parts.push(c.dealership.name);
+      if (c.dealership?.location) parts.push(c.dealership.location);
+      if (c.last_message_preview) parts.push(c.last_message_preview);
+
+      const carInfo = c.car || c.carRent;
+      if (carInfo) {
+        if (carInfo.make) parts.push(carInfo.make);
+        if (carInfo.model) parts.push(carInfo.model);
+        if (carInfo.year) parts.push(String(carInfo.year));
+      }
+
+      const plateInfo = c.numberPlate;
+      if (plateInfo) {
+        parts.push(`${plateInfo.letter ?? ''} ${plateInfo.digits ?? ''}`.trim());
+      }
+
+      return parts.some((p) => p.toLowerCase().includes(trimmedQuery));
+    });
+  }, [conversations, filter, searchQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,6 +95,23 @@ export default function ChatTabScreen() {
     },
     [router]
   );
+
+  const handleStartSearch = useCallback(() => {
+    setIsSearching(true);
+  }, []);
+
+  const handleCancelSearch = useCallback(() => {
+    setSearchQuery('');
+    setIsSearching(false);
+  }, []);
+
+  useEffect(() => {
+    if (isSearching) {
+      const timeout = setTimeout(() => searchInputRef.current?.focus(), 50);
+      return () => clearTimeout(timeout);
+    }
+    return undefined;
+  }, [isSearching]);
 
   if (!isLoaded) {
     return (
@@ -124,23 +184,113 @@ export default function ChatTabScreen() {
       }}
     >
       {/* Header */}
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: isDarkMode ? '#1F2937' : '#E5E7EB',
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: '700',
-            color: isDarkMode ? '#FFFFFF' : '#0F172A',
-          }}
-        >
-          {t('navbar.messages', 'Messages')}
-        </Text>
+      <View style={styles.header}>
+        {isSearching ? (
+          <View style={styles.searchBarRow}>
+            <View
+              style={[
+                styles.searchInputWrapper,
+                {
+                  backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6',
+                  borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+                },
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                style={{ marginRight: 8 }}
+              />
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('chat.search_placeholder', 'Search chats')}
+                placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+                style={[styles.searchInput, { color: isDarkMode ? '#E5E7EB' : '#0F172A' }]}
+                returnKeyType="search"
+              />
+            </View>
+            <TouchableOpacity onPress={handleCancelSearch} activeOpacity={0.7}>
+              <Text style={[styles.cancelSearchText, { color: isDarkMode ? '#E5E7EB' : '#0F172A' }]}>
+                {t('common.cancel', 'Cancel')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.headerTopRow}>
+            <Text
+              style={[
+                styles.headerTitle,
+                { color: isDarkMode ? '#FFFFFF' : '#0F172A' },
+              ]}
+            >
+              {t('chat.title', 'Chats')}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.searchButton,
+                { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
+              ]}
+              activeOpacity={0.7}
+              onPress={handleStartSearch}
+            >
+              <Ionicons
+                name="search"
+                size={20}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          <TouchableOpacity
+            onPress={() => setFilter('all')}
+            style={[
+              styles.filterTab,
+              filter === 'all'
+                ? styles.filterTabActive
+                : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                filter === 'all'
+                  ? styles.filterTabTextActive
+                  : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+              ]}
+            >
+              {t('chat.filter_all', 'All')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setFilter('unread')}
+            style={[
+              styles.filterTab,
+              filter === 'unread'
+                ? styles.filterTabActive
+                : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                filter === 'unread'
+                  ? styles.filterTabTextActive
+                  : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+              ]}
+            >
+              {t('chat.filter_unread', 'Unread')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {isLoading ? (
@@ -149,10 +299,10 @@ export default function ChatTabScreen() {
         </View>
       ) : (
         <FlatList
-          data={conversations ?? []}
+          data={filteredConversations}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={{
-            paddingVertical: 12,
+            paddingVertical: 8,
             paddingBottom: 100, // Extra padding for tab bar
           }}
           renderItem={({ item }) => (
@@ -194,7 +344,9 @@ export default function ChatTabScreen() {
                   marginBottom: 12,
                 }}
               >
-                {t('chat.no_conversations_title', 'No conversations yet')}
+                {filter === 'unread'
+                  ? t('chat.no_unread_title', 'No unread messages')
+                  : t('chat.no_conversations_title', 'No conversations yet')}
               </Text>
               <Text
                 style={{
@@ -204,10 +356,12 @@ export default function ChatTabScreen() {
                   lineHeight: 22,
                 }}
               >
-                {t(
-                  'chat.no_conversations_body',
-                  'Find a car you love and tap "Chat with dealer" to start a conversation.'
-                )}
+                {filter === 'unread'
+                  ? t('chat.no_unread_body', "You're all caught up!")
+                  : t(
+                      'chat.no_conversations_body',
+                      'Find a car you love and tap "Chat with dealer" to start a conversation.'
+                    )}
               </Text>
             </View>
           }
@@ -216,3 +370,78 @@ export default function ChatTabScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  searchBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+  },
+  cancelSearchText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  searchButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  filterTabActive: {
+    backgroundColor: '#111',
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterTabTextActive: {
+    color: '#fff',
+  },
+});
