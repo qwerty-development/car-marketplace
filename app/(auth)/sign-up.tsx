@@ -350,12 +350,16 @@ export default function SignUpScreen() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [code, setCode] = useState('');
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
   const [errors, setErrors] = useState({
     name: '',
     email: '',
     password: '',
     code: '',
     general: '',
+    phone: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -370,6 +374,7 @@ export default function SignUpScreen() {
       password: '',
       code: '',
       general: '',
+      phone: '',
     };
 
     if (!name.trim()) {
@@ -396,6 +401,98 @@ export default function SignUpScreen() {
     setErrors(newErrors);
     return isValid;
 };
+
+  // Phone OTP send handler
+  const handlePhoneSignUp = async () => {
+    if (!name.trim()) {
+      setErrors(prev => ({ ...prev, name: 'Name is required' }));
+      return;
+    }
+
+    if (!phoneNumber) {
+      setErrors(prev => ({ ...prev, phone: 'Phone number is required' }));
+      return;
+    }
+
+    if (!phoneNumber.startsWith('+')) {
+      setErrors(prev => ({ ...prev, phone: 'Phone number must include country code (e.g., +961...)' }));
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: phoneNumber,
+      });
+
+      if (error) {
+        setErrors(prev => ({ ...prev, phone: error.message || 'Failed to send OTP' }));
+        return;
+      }
+
+      setPendingPhoneVerification(true);
+      Alert.alert(
+        'OTP Sent',
+        'Please check your phone for the verification code.',
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      console.error('Phone OTP error:', err);
+      setErrors(prev => ({ ...prev, phone: err.message || 'Failed to send OTP' }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Phone OTP verify handler
+  const handlePhoneOtpVerify = async () => {
+    if (!code.trim()) {
+      setErrors(prev => ({ ...prev, code: 'Verification code is required' }));
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: phoneNumber,
+        token: code,
+        type: 'sms',
+      });
+
+      if (error) {
+        setErrors(prev => ({ ...prev, code: error.message || 'Invalid verification code' }));
+        return;
+      }
+
+      if (data.user) {
+        // Update profile with name
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ name: name })
+          .eq('id', data.user.id);
+
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+        }
+
+        Alert.alert(
+          'Success',
+          'Your account has been verified successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(home)'),
+            },
+          ]
+        );
+      }
+    } catch (err: any) {
+      console.error('Phone OTP verification error:', err);
+      setErrors(prev => ({ ...prev, code: err.message || 'Verification failed' }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onSignUpPress = async () => {
     if (!isLoaded) return;
@@ -531,10 +628,42 @@ export default function SignUpScreen() {
               marginBottom: 8,
             }}
       >
-            {pendingVerification ? 'Verify Email' : 'Create Account'}
+            {pendingVerification ? 'Verify Email' : pendingPhoneVerification ? 'Verify Phone' : 'Create Account'}
           </Text>
 
-          {!pendingVerification ? (
+          {!pendingVerification && !pendingPhoneVerification && (
+            <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1F2937' : '#F3F4F6', borderRadius: 12, padding: 4 }}>
+              <TouchableOpacity
+                onPress={() => setAuthMethod('email')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
+                }}
+              >
+                <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
+                  Email
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setAuthMethod('phone')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: authMethod === 'phone' ? '#D55004' : 'transparent',
+                }}
+              >
+                <Text style={{ color: authMethod === 'phone' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
+                  Phone
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!pendingVerification && !pendingPhoneVerification ? (
+            authMethod === 'email' ? (
             <>
               <View style={{ gap: 16 }}>
                 <View>
@@ -678,6 +807,168 @@ export default function SignUpScreen() {
           </View>
           </View>
             </>
+          ) : (
+            <>
+              <View style={{ gap: 16 }}>
+                <View>
+                  <TextInput
+                    style={{
+                      height: 48,
+                      paddingHorizontal: 16,
+                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                      color: isDark ? '#fff' : '#000',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? '#374151' : '#E5E7EB',
+                    }}
+                    value={name}
+                    placeholder="Full Name"
+                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                    onChangeText={setName}
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    editable={!isLoading}
+                  />
+                  {errors.name && (
+                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                      {errors.name}
+                    </Text>
+                  )}
+                </View>
+
+                <View>
+                  <TextInput
+                    style={{
+                      height: 48,
+                      paddingHorizontal: 16,
+                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                      color: isDark ? '#fff' : '#000',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? '#374151' : '#E5E7EB',
+                    }}
+                    value={phoneNumber}
+                    placeholder="Phone (+9613123456)"
+                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                    editable={!isLoading}
+                  />
+                  {errors.phone && (
+                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                      {errors.phone}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#D55004',
+                  paddingVertical: 12,
+                  borderRadius: 24,
+                  opacity: isLoading ? 0.7 : 1,
+                  marginTop: 8,
+                }}
+                onPress={handlePhoneSignUp}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
+                    Send Code
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={{ alignItems: 'center', marginTop: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                    Already have an account?{' '}
+            </Text>
+                  <TouchableOpacity onPress={() => router.push('/sign-in')}>
+                    <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
+                      Sign in
+            </Text>
+                  </TouchableOpacity>
+          </View>
+          </View>
+            </>
+          )
+          ) : pendingPhoneVerification ? (
+            <View style={{ gap: 16 }}>
+              <Text style={{
+                color: isDark ? '#E5E7EB' : '#4B5563',
+                textAlign: 'center',
+                marginBottom: 8
+              }}>
+                Enter the verification code sent to {phoneNumber}
+              </Text>
+
+              <View>
+                <TextInput
+                  style={{
+                    height: 48,
+                    paddingHorizontal: 16,
+                    backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                    color: isDark ? '#fff' : '#000',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#374151' : '#E5E7EB',
+                    fontSize: 16,
+                    letterSpacing: 2,
+                    textAlign: 'center',
+                  }}
+                  value={code}
+                  placeholder="Enter 6-digit code"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  editable={!isLoading}
+                />
+                {errors.code && (
+                  <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4, textAlign: 'center' }}>
+                    {errors.code}
+          </Text>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#D55004',
+                  paddingVertical: 12,
+                  borderRadius: 24,
+                  opacity: isLoading ? 0.7 : 1,
+                  marginTop: 8,
+                }}
+                onPress={handlePhoneOtpVerify}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
+                    Verify Phone
+          </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setPendingPhoneVerification(false);
+                  setCode('');
+                  setErrors(prev => ({ ...prev, code: '' }));
+                }}
+                style={{ alignSelf: 'center', marginTop: 8 }}
+              >
+                <Text style={{ color: '#D55004', fontWeight: '500' }}>
+                  Go Back
+            </Text>
+          </TouchableOpacity>
+            </View>
           ) : (
             <View style={{ gap: 16 }}>
               <Text style={{

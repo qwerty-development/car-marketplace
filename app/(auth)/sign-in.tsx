@@ -392,6 +392,12 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGuestLoading, setIsGuestLoading] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [otpError, setOtpError] = useState('');
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
@@ -469,6 +475,78 @@ export default function SignInPage() {
     }
   }, [isLoaded, signIn, emailAddress, password, supabase.auth]);
 
+  // Handle phone OTP send
+  const handlePhoneOtpSend = async () => {
+    if (!phoneNumber) {
+      setPhoneError('Phone number is required');
+      return;
+    }
+
+    // Validate phone number format (should start with + and country code)
+    if (!phoneNumber.startsWith('+')) {
+      setPhoneError('Phone number must include country code (e.g., +961...)');
+      return;
+    }
+
+    setIsLoading(true);
+    setPhoneError('');
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: phoneNumber,
+      });
+
+      if (error) {
+        setPhoneError(error.message || 'Failed to send OTP');
+        return;
+      }
+
+      setPendingPhoneVerification(true);
+      Alert.alert(
+        'OTP Sent',
+        'Please check your phone for the verification code.',
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      console.error('Phone OTP error:', err);
+      setPhoneError(err.message || 'Failed to send OTP');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle phone OTP verification
+  const handlePhoneOtpVerify = async () => {
+    if (!otpCode) {
+      setOtpError('Verification code is required');
+      return;
+    }
+
+    setIsLoading(true);
+    setOtpError('');
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: phoneNumber,
+        token: otpCode,
+        type: 'sms',
+      });
+
+      if (error) {
+        setOtpError(error.message || 'Invalid verification code');
+        return;
+      }
+
+      if (data.user) {
+        // Registration complete, navigation will be handled by auth context
+        console.log('[PHONE-AUTH] Verification successful');
+      }
+    } catch (err: any) {
+      console.error('Phone OTP verification error:', err);
+      setOtpError(err.message || 'Verification failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle guest login
   const handleGuestSignIn = async () => {
     setIsGuestLoading(true);
@@ -519,125 +597,303 @@ export default function SignInPage() {
           style={{
             fontSize: 32,
             fontWeight: "bold",
-            marginBottom: 32,
+            marginBottom: 24,
             color: "#D55004",
             textAlign: "center",
           }}
         >
-          Welcome Back! 👋
+          {pendingPhoneVerification ? 'Verify Phone' : 'Welcome Back! 👋'}
         </Text>
 
-        <View style={{ marginBottom: 16, gap: 16 }}>
-          <View>
-            <TextInput
+        {!pendingPhoneVerification && (
+          <View style={{ flexDirection: 'row', marginBottom: 24, backgroundColor: isDark ? '#1F2937' : '#F3F4F6', borderRadius: 12, padding: 4 }}>
+            <TouchableOpacity
+              onPress={() => setAuthMethod('email')}
               style={{
-                width: "100%",
-                height: 48,
-                paddingHorizontal: 16,
-                backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
-                color: isDark ? "#fff" : "#000",
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: isDark ? "#374151" : "#E5E7EB",
-              }}
-              autoCapitalize="none"
-              value={emailAddress}
-              placeholder="Email"
-              placeholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
-              onChangeText={setEmailAddress}
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!isLoading}
-            />
-            {emailError && (
-              <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>
-                {emailError}
-              </Text>
-            )}
-          </View>
-
-          <View>
-            <View style={{ position: "relative" }}>
-              <TextInput
-                style={{
-                  width: "100%",
-                  height: 48,
-                  paddingHorizontal: 16,
-                  paddingRight: 48,
-                  backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
-                  color: isDark ? "#fff" : "#000",
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: isDark ? "#374151" : "#E5E7EB",
-                }}
-                value={password}
-                placeholder="Password"
-                placeholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
-                secureTextEntry={!showPassword}
-                onChangeText={setPassword}
-                autoComplete="password"
-                editable={!isLoading}
-              />
-              <TouchableOpacity
-                style={{
-                  position: "absolute",
-                  right: 16,
-                  top: 12,
-                }}
-                onPress={togglePasswordVisibility}
-                disabled={isLoading}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={24}
-                  color={isDark ? "#6B7280" : "#9CA3AF"}
-                />
-              </TouchableOpacity>
-            </View>
-            {passwordError && (
-              <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>
-                {passwordError}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {error && (
-          <Text
-            style={{ color: "#D55004", textAlign: "center", marginBottom: 16 }}
-          >
-            {error}
-          </Text>
-        )}
-
-        <TouchableOpacity
-          style={{
-            backgroundColor: "#D55004",
-            paddingVertical: 12,
-            borderRadius: 24,
-            opacity: isLoading ? 0.7 : 1,
-            flexDirection: "row",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-          onPress={handleSubmit}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text
-              style={{
-                color: "white",
-                fontWeight: "bold",
-                fontSize: 18,
-                textAlign: "center",
+                flex: 1,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
               }}
             >
-              Sign In
+              <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
+                Email
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setAuthMethod('phone')}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: authMethod === 'phone' ? '#D55004' : 'transparent',
+              }}
+            >
+              <Text style={{ color: authMethod === 'phone' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
+                Phone
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!pendingPhoneVerification ? (
+          authMethod === 'email' ? (
+            <>
+              <View style={{ marginBottom: 16, gap: 16 }}>
+                <View>
+                  <TextInput
+                    style={{
+                      width: "100%",
+                      height: 48,
+                      paddingHorizontal: 16,
+                      backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
+                      color: isDark ? "#fff" : "#000",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? "#374151" : "#E5E7EB",
+                    }}
+                    autoCapitalize="none"
+                    value={emailAddress}
+                    placeholder="Email"
+                    placeholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
+                    onChangeText={setEmailAddress}
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    editable={!isLoading}
+                  />
+                  {emailError && (
+                    <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>
+                      {emailError}
+                    </Text>
+                  )}
+                </View>
+
+                <View>
+                  <View style={{ position: "relative" }}>
+                    <TextInput
+                      style={{
+                        width: "100%",
+                        height: 48,
+                        paddingHorizontal: 16,
+                        paddingRight: 48,
+                        backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
+                        color: isDark ? "#fff" : "#000",
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: isDark ? "#374151" : "#E5E7EB",
+                      }}
+                      value={password}
+                      placeholder="Password"
+                      placeholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
+                      secureTextEntry={!showPassword}
+                      onChangeText={setPassword}
+                      autoComplete="password"
+                      editable={!isLoading}
+                    />
+                    <TouchableOpacity
+                      style={{
+                        position: "absolute",
+                        right: 16,
+                        top: 12,
+                      }}
+                      onPress={togglePasswordVisibility}
+                      disabled={isLoading}
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={24}
+                        color={isDark ? "#6B7280" : "#9CA3AF"}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {passwordError && (
+                    <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>
+                      {passwordError}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {error && (
+                <Text
+                  style={{ color: "#D55004", textAlign: "center", marginBottom: 16 }}
+                >
+                  {error}
+                </Text>
+              )}
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#D55004",
+                  paddingVertical: 12,
+                  borderRadius: 24,
+                  opacity: isLoading ? 0.7 : 1,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+                onPress={handleSubmit}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text
+                    style={{
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: 18,
+                      textAlign: "center",
+                    }}
+                  >
+                    Sign In
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={{ marginBottom: 16, gap: 16 }}>
+                <View>
+                  <TextInput
+                    style={{
+                      width: "100%",
+                      height: 48,
+                      paddingHorizontal: 16,
+                      backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
+                      color: isDark ? "#fff" : "#000",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? "#374151" : "#E5E7EB",
+                    }}
+                    value={phoneNumber}
+                    placeholder="Phone (+9613123456)"
+                    placeholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                    editable={!isLoading}
+                  />
+                  {phoneError && (
+                    <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>
+                      {phoneError}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#D55004",
+                  paddingVertical: 12,
+                  borderRadius: 24,
+                  opacity: isLoading ? 0.7 : 1,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+                onPress={handlePhoneOtpSend}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text
+                    style={{
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: 18,
+                      textAlign: "center",
+                    }}
+                  >
+                    Send Code
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )
+        ) : (
+          <>
+            <Text style={{
+              color: isDark ? '#E5E7EB' : '#4B5563',
+              textAlign: 'center',
+              marginBottom: 16
+            }}>
+              Enter the verification code sent to {phoneNumber}
             </Text>
-          )}
-        </TouchableOpacity>
+
+            <View style={{ marginBottom: 16 }}>
+              <TextInput
+                style={{
+                  height: 48,
+                  paddingHorizontal: 16,
+                  backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                  color: isDark ? '#fff' : '#000',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#374151' : '#E5E7EB',
+                  fontSize: 16,
+                  letterSpacing: 2,
+                  textAlign: 'center',
+                }}
+                value={otpCode}
+                placeholder="Enter 6-digit code"
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, ''))}
+                keyboardType="number-pad"
+                maxLength={6}
+                editable={!isLoading}
+              />
+              {otpError && (
+                <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4, textAlign: 'center' }}>
+                  {otpError}
+                </Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#D55004",
+                paddingVertical: 12,
+                borderRadius: 24,
+                opacity: isLoading ? 0.7 : 1,
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+              onPress={handlePhoneOtpVerify}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text
+                  style={{
+                    color: "white",
+                    fontWeight: "bold",
+                    fontSize: 18,
+                    textAlign: "center",
+                  }}
+                >
+                  Verify
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setPendingPhoneVerification(false);
+                setOtpCode('');
+                setOtpError('');
+              }}
+              style={{ alignSelf: 'center', marginTop: 16 }}
+            >
+              <Text style={{ color: '#D55004', fontWeight: '500' }}>
+                Go Back
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <SignInWithOAuth />
 
