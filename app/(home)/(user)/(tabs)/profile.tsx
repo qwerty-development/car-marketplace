@@ -812,11 +812,11 @@ export default function UserProfileAndSupportPage() {
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
-                  "Feature Not Available",
-                  "Please sign in to view your transaction history.",
+                  t('profile.feature_not_available'),
+                  t('profile.please_sign_in_view_transaction_history'),
                   [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn },
+                    { text: t('common.cancel'), style: "cancel" },
+                    { text: t('profile.sign_in'), onPress: handleSignIn },
                   ]
                 );
               } else {
@@ -836,7 +836,7 @@ export default function UserProfileAndSupportPage() {
                 } font-semibold`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                Transaction History
+                {t('profile.transaction_history')}
               </Text>
               <Text
                 className={`${
@@ -845,56 +845,8 @@ export default function UserProfileAndSupportPage() {
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
                 {isGuest
-                  ? "Sign in to view transactions"
-                  : "View your credit transactions"}
-              </Text>
-            </View>
-            <Ionicons
-              name={isRTL ? "chevron-back" : "chevron-forward"}
-              size={24}
-              color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
-            />
-          </TouchableOpacity>
-
-          {/* Messages Button */}
-          <TouchableOpacity
-            onPress={() => {
-              if (isGuest) {
-                Alert.alert(
-                  "Feature Not Available",
-                  "Please sign in to view your messages",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn },
-                  ]
-                );
-              } else {
-                router.push('/(home)/(user)/conversations' as any);
-              }
-            }}
-            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
-          >
-            <View className="bg-orange-500/10 p-3 rounded-xl">
-              <Ionicons name="chatbubbles-outline" size={24} color="#D55004" />
-            </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
-              <Text
-                className={`${
-                  isDarkMode ? "text-white" : "text-black"
-                } font-semibold`}
-                style={{ textAlign: isRTL ? 'right' : 'left' }}
-              >
-                {t('profile.messages', 'Messages')}
-              </Text>
-              <Text
-                className={`${
-                  isDarkMode ? "text-white/60" : "text-gray-500"
-                } text-sm mt-1`}
-                style={{ textAlign: isRTL ? 'right' : 'left' }}
-              >
-                {isGuest ? "Sign in to view your messages" : "View your conversations with dealers"}
+                  ? t('profile.sign_in_to_view_transactions')
+                  : t('profile.view_credit_transactions')}
               </Text>
             </View>
             <Ionicons
@@ -909,11 +861,11 @@ export default function UserProfileAndSupportPage() {
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
-                  "Feature Not Available",
-                  "Please sign in to manage number plates",
+                  t('profile.feature_not_available'),
+                  t('profile.please_sign_in_manage_number_plates'),
                   [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn },
+                    { text: t('common.cancel'), style: "cancel" },
+                    { text: t('profile.sign_in'), onPress: handleSignIn },
                   ]
                 );
               } else {
@@ -933,7 +885,7 @@ export default function UserProfileAndSupportPage() {
                 } font-semibold`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                Number Plates Manager
+                {t('profile.number_plates_manager')}
               </Text>
               <Text
                 className={`${
@@ -941,7 +893,7 @@ export default function UserProfileAndSupportPage() {
                 } text-sm mt-1`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                {isGuest ? "Sign in to sell number plates" : "Manage your number plates for sale"}
+                {isGuest ? t('profile.sign_in_to_sell_number_plates') : t('profile.manage_number_plates')}
               </Text>
             </View>
             <Ionicons
@@ -956,11 +908,11 @@ export default function UserProfileAndSupportPage() {
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
-                  "Feature Not Available",
-                  "Please sign in to view your favorites",
+                  t('profile.feature_not_available'),
+                  t('profile.please_sign_in_view_favorites'),
                   [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Sign In", onPress: handleSignIn },
+                    { text: t('common.cancel'), style: "cancel" },
+                    { text: t('profile.sign_in'), onPress: handleSignIn },
                   ]
                 );
               } else {
@@ -980,7 +932,7 @@ export default function UserProfileAndSupportPage() {
                 } font-semibold`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                Favorite Cars
+                {t('profile.favorite_cars')}
               </Text>
               <Text
                 className={`${
@@ -988,7 +940,7 @@ export default function UserProfileAndSupportPage() {
                 } text-sm mt-1`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-                {isGuest ? "Sign in to view your favorites" : "View your saved favorite cars"}
+                {isGuest ? t('profile.sign_in_to_view_favorites') : t('profile.view_saved_favorites')}
               </Text>
             </View>
             <Ionicons
