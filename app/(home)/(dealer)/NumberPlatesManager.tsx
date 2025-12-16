@@ -187,10 +187,7 @@ export default function NumberPlatesManager() {
       Alert.alert('Validation Error', 'Please enter a valid price')
       return
     }
-    if (!formData.picture) {
-      Alert.alert('Validation Error', 'Please upload a picture of the plate')
-      return
-    }
+    // Picture is now optional - plate template will always be shown
 
     setIsSaving(true)
     try {
@@ -326,7 +323,7 @@ export default function NumberPlatesManager() {
                   <>
                     <Ionicons name="camera-outline" size={48} color={isDarkMode ? '#fff' : '#000'} />
                     <Text className={`mt-2 ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
-                      Tap to upload plate picture
+                      Tap to upload car/plate picture (optional)
                     </Text>
                   </>
                 )}

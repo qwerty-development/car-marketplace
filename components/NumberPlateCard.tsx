@@ -9,6 +9,7 @@ import {
   Platform,
   useWindowDimensions,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styled } from "nativewind";
@@ -28,25 +29,95 @@ const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledPressable = styled(Pressable);
 
-const OptimizedImage = ({ source, style, onLoad, fallbackColor = 'transparent' }: any) => {
-  const [loaded, setLoaded] = useState(false);
-  const { isDarkMode } = useTheme();
-
-  const handleLoad = useCallback(() => {
-    setLoaded(true);
-    onLoad?.();
-  }, [onLoad]);
-
+// Lebanese-style license plate component
+const LicensePlateTemplate = ({ letter, digits, width }: { letter: string; digits: string; width: number }) => {
+  const plateHeight = width * 0.28; // Aspect ratio matching real Lebanese plates
+  const blueStripWidth = width * 0.12; // Blue strip width
+  const fontSize = plateHeight * 0.55;
+  
   return (
-    <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
-      <CachedImage
-        source={source}
-        style={{ width: '100%', height: '100%', opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
-        contentFit="cover"
-        onLoad={handleLoad}
-        cachePolicy="disk"
-        transition={150}
-      />
+    <View
+      style={{
+        width: width,
+        height: plateHeight,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        flexDirection: 'row',
+        overflow: 'hidden',
+        borderWidth: 3,
+        borderColor: '#1a1a1a',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 6,
+      }}
+    >
+      {/* Blue strip on the left with Lebanese details */}
+      <View
+        style={{
+          width: blueStripWidth,
+          height: '100%',
+          backgroundColor: '#1e4a8d',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingVertical: 4,
+        }}
+      >
+        {/* لبنان (Lebanon) at top */}
+        <Text style={{ color: '#FFFFFF', fontSize: blueStripWidth * 0.35, fontWeight: '600' }}>لبنان</Text>
+        
+        {/* Cedar tree symbol */}
+        <View style={{ alignItems: 'center' }}>
+          <Image 
+            source={require('@/assets/cedar.png')} 
+            style={{ 
+              width: blueStripWidth * 0.7, 
+              height: blueStripWidth * 0.7,
+              tintColor: '#FFFFFF',
+            }} 
+            resizeMode="contain"
+          />
+        </View>
+        
+        {/* خصوصي (Private) at bottom */}
+        <Text style={{ color: '#FFFFFF', fontSize: blueStripWidth * 0.2, fontWeight: '500' }}>خصوصي</Text>
+      </View>
+      
+      {/* Plate content - Letter and Numbers */}
+      <View
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: fontSize,
+            fontWeight: '600',
+            color: '#1a1a1a',
+            letterSpacing: 2,
+            fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-condensed',
+          }}
+        >
+          {letter}
+        </Text>
+        <Text
+          style={{
+            fontSize: fontSize,
+            fontWeight: '600',
+            color: '#1a1a1a',
+            letterSpacing: 8,
+            marginLeft: 24,
+            fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-condensed',
+          }}
+        >
+          {digits}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -115,7 +186,6 @@ export default function NumberPlateCard({
 
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - 32;
-  const imageHeight = 260;
 
   const isDealer = plate.seller_type === 'dealer';
   
@@ -262,24 +332,22 @@ export default function NumberPlateCard({
           elevation: 8,
         }}
       >
-        <Pressable onPress={handleCardPress} className="bg-neutral-800">
-          <View className="relative bg-neutral-800">
-            {plate.picture ? (
-              <OptimizedImage
-                source={{ uri: plate.picture }}
-                style={{ width: cardWidth, height: imageHeight }}
-              />
-            ) : (
-              // Fallback design if no image
-              <View 
-                style={{ width: cardWidth, height: imageHeight }}
-                className="bg-gradient-to-br from-orange-500 to-red-600 items-center justify-center"
-              >
-                <StyledText className="text-white text-6xl font-bold tracking-widest">
-                  {plateDisplay}
-                </StyledText>
-              </View>
-            )}
+        <Pressable onPress={handleCardPress}>
+          {/* License Plate Template */}
+          <View
+            style={{
+              paddingVertical: 24,
+              paddingHorizontal: 20,
+              backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <LicensePlateTemplate
+              letter={plate.letter}
+              digits={plate.digits}
+              width={cardWidth - 40}
+            />
           </View>
         </Pressable>
 
@@ -287,42 +355,33 @@ export default function NumberPlateCard({
           onPress={handleCardPress}
           className="active:opacity-90"
         >
-          {/* Plate Info Section */}
-          <View className="px-4 py-4">
+          {/* Plate Info Section - Plate on left, Price on right */}
+          <View className="px-4 py-3">
             <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                {/* Price */}
-                <StyledText
-                  numberOfLines={1}
-                  style={{ 
-                    textAlign: 'left', 
-                    marginBottom: 6,
-                    fontSize: 24,
-                    fontWeight: '800',
-                    color: '#D55004',
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  ${plate.price.toLocaleString()}
-                </StyledText>
-                
-                {/* Plate Number */}
-                <StyledText
-                  className={`text-2xl font-bold ${
-                    isDarkMode ? "text-white" : "text-black"
-                  }`}
-                  numberOfLines={1}
-                  style={{ 
-                    textAlign: 'left',
-                    letterSpacing: 2,
-                    textShadowColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-                    textShadowOffset: { width: 1, height: 1 },
-                    textShadowRadius: 2
-                  }}
-                >
-                  {plateDisplay}
-                </StyledText>
-              </View>
+              {/* Plate Number */}
+              <StyledText
+                className={`text-xl font-bold ${
+                  isDarkMode ? "text-white" : "text-black"
+                }`}
+                numberOfLines={1}
+                style={{ 
+                  letterSpacing: 2,
+                }}
+              >
+                {plateDisplay}
+              </StyledText>
+              
+              {/* Price */}
+              <StyledText
+                numberOfLines={1}
+                style={{ 
+                  fontSize: 20,
+                  fontWeight: '800',
+                  color: '#D55004',
+                }}
+              >
+                ${plate.price.toLocaleString()}
+              </StyledText>
             </View>
           </View>
 
