@@ -443,6 +443,7 @@ export default function AddEditListing() {
     listingId?: string;
     userId?: string;
     mode?: 'sale' | 'rent';
+    vehicleCategory?: string;
   }>();
 
   const [dealership, setDealership] = useState<any>(null);
@@ -460,6 +461,7 @@ export default function AddEditListing() {
     trim: null,
     make: null,
     model: null,
+    category: params.vehicleCategory || null, // Pre-set category from modal selection
     // Mode-specific fields
     ...(viewMode === 'sale' && {
       bought_price: null,

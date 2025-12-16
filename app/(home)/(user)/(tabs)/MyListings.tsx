@@ -8,10 +8,12 @@ import {
 	Alert,
 	ActivityIndicator,
 	RefreshControl,
-	StyleSheet
+	StyleSheet,
+	TextInput,
+	Modal
 } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
-import { FontAwesome, Ionicons } from '@expo/vector-icons'
+import { FontAwesome, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
 
 import { LinearGradient } from 'expo-linear-gradient'
@@ -26,11 +28,15 @@ import { useAuth } from '@/utils/AuthContext'
 import { useGuestUser } from '@/utils/GuestUserContext'
 import { formatMileage } from '@/utils/formatMileage';
 import { BlurView } from 'expo-blur'
+import AddListingModal from '@/components/AddListingModal'
 /* CREDIT_DISABLED: Boost system temporarily disabled
 import { BoostListingModal } from '@/components/BoostListingModal'
 */
 
 const ITEMS_PER_PAGE = 10
+
+type ListingType = 'vehicle' | 'plate'
+type SortOption = 'newest' | 'price_low' | 'price_high'
 
 interface CarListing {
 	id: number
@@ -53,6 +59,20 @@ interface CarListing {
 	seller_type?: 'user' | 'dealer'
 	seller_name?: string
 	seller_phone?: string
+	listingType: 'vehicle'
+}
+
+interface PlateListing {
+	id: number
+	letter: string
+	digits: string
+	price: number
+	picture: string | null
+	status: 'available' | 'pending' | 'sold' | 'deleted'
+	created_at: string
+	user_id?: string
+	dealership_id?: number
+	listingType: 'plate'
 }
 
 export default function MyListings() {
@@ -61,12 +81,18 @@ export default function MyListings() {
 	const { isGuest, clearGuestMode } = useGuestUser()
 	const { t } = useTranslation()
 	const [initialLoading, setInitialLoading] = useState(true)
-	const [listings, setListings] = useState<CarListing[]>([])
+	const [allListings, setAllListings] = useState<(CarListing | PlateListing)[]>([])
 	const [currentPage, setCurrentPage] = useState(1)
 	const [isLoading, setIsLoading] = useState(false)
 	const [isRefreshing, setIsRefreshing] = useState(false)
 	const [hasMoreListings, setHasMoreListings] = useState(true)
 	const [totalListings, setTotalListings] = useState(0)
+	const [searchQuery, setSearchQuery] = useState('')
+	const [sortOption, setSortOption] = useState<SortOption>('newest')
+	const [filterType, setFilterType] = useState<'all' | 'vehicle' | 'plate'>('all')
+	const [showAddModal, setShowAddModal] = useState(false)
+	const [showFilterModal, setShowFilterModal] = useState(false)
+	const [showSortModal, setShowSortModal] = useState(false)
 	/* CREDIT_DISABLED: Boost state disabled
 	const [showBoostModal, setShowBoostModal] = useState(false)
 	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
@@ -97,59 +123,94 @@ export default function MyListings() {
 			}
 
 			try {
-				// Build query to fetch user's cars with user data
-				let query = supabase
-					.from('cars')
-					.select('*, users!cars_user_id_fkey(name, id)', { count: 'exact' })
-					.eq('user_id', user.id)
-					.neq('status', 'deleted')
-					.order('listed_at', { ascending: false })
+				// Fetch both vehicles and plates together
+				const [vehiclesData, platesData] = await Promise.all([
+					// Fetch vehicles
+					(async () => {
+						let vQuery = supabase
+							.from('cars')
+							.select('*, users!cars_user_id_fkey(name, id)')
+							.eq('user_id', user.id)
+							.neq('status', 'deleted')
 
-				// Get count first
-				const { count, error: countError } = await query
-				if (countError) throw countError
+						// Apply search filter
+						if (searchQuery.trim()) {
+							vQuery = vQuery.or(`make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`)
+						}
 
-				if (!count) {
-					setListings([])
-					setCurrentPage(1)
-					setHasMoreListings(false)
-					setTotalListings(0)
-					setIsLoading(false)
-					setInitialLoading(false)
-					return
+						// Apply sorting
+						if (sortOption === 'newest') {
+							vQuery = vQuery.order('listed_at', { ascending: false })
+						} else if (sortOption === 'price_low') {
+							vQuery = vQuery.order('price', { ascending: true })
+						} else if (sortOption === 'price_high') {
+							vQuery = vQuery.order('price', { ascending: false })
+						}
+
+						const { data, error } = await vQuery
+						if (error) throw error
+
+						// Map the data to include seller info and listing type
+						return (data || []).map((item: any) => ({
+							...item,
+							seller_type: 'user' as const,
+							seller_name: item.users?.name || 'Private Seller',
+							seller_phone: item.seller_phone || null,
+							listingType: 'vehicle' as const
+						}))
+					})(),
+					// Fetch plates
+					(async () => {
+						let pQuery = supabase
+							.from('number_plates')
+							.select('*')
+							.eq('user_id', user.id)
+							.neq('status', 'deleted')
+
+						// Apply search filter
+						if (searchQuery.trim()) {
+							pQuery = pQuery.or(`letter.ilike.%${searchQuery}%,digits.ilike.%${searchQuery}%`)
+						}
+
+						// Apply sorting
+						if (sortOption === 'newest') {
+							pQuery = pQuery.order('created_at', { ascending: false })
+						} else if (sortOption === 'price_low') {
+							pQuery = pQuery.order('price', { ascending: true })
+						} else if (sortOption === 'price_high') {
+							pQuery = pQuery.order('price', { ascending: false })
+						}
+
+						const { data, error } = await pQuery
+						if (error) throw error
+
+						// Add listing type marker
+						return (data || []).map((item: any) => ({
+							...item,
+							listingType: 'plate' as const
+						}))
+					})()
+				])
+
+				// Combine and sort all listings
+				let combined: any[] = [...vehiclesData, ...platesData]
+
+				// Apply global sort
+				if (sortOption === 'newest') {
+					combined.sort((a, b) => {
+						const dateA = new Date(a.listed_at || a.created_at).getTime()
+						const dateB = new Date(b.listed_at || b.created_at).getTime()
+						return dateB - dateA
+					})
+				} else if (sortOption === 'price_low') {
+					combined.sort((a, b) => parseFloat(a.price) - parseFloat(b.price))
+				} else if (sortOption === 'price_high') {
+					combined.sort((a, b) => parseFloat(b.price) - parseFloat(a.price))
 				}
 
-				const totalItems = count
-				const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
-				const safePageNumber = Math.min(page, totalPages)
-				const startRange = (safePageNumber - 1) * ITEMS_PER_PAGE
-				const endRange = Math.min(
-					safePageNumber * ITEMS_PER_PAGE - 1,
-					totalItems - 1
-				)
-
-				// Fetch data for current page
-				const { data, error } = await query.range(startRange, endRange)
-				if (error) throw error
-
-				// Map the data to include seller info
-				const mappedData = (data || []).map((item: any) => ({
-					...item,
-					seller_type: 'user' as const,
-					seller_name: item.users?.name || 'Private Seller',
-					seller_phone: item.seller_phone || null,
-				}))
-
-				const uniqueListings = Array.from(
-					new Set(mappedData.map(car => car.id))
-				).map(id => mappedData.find(car => car.id === id))
-
-				setListings(prev =>
-					refresh ? uniqueListings : [...prev, ...uniqueListings]
-				)
-				setTotalListings(totalItems)
-				setCurrentPage(safePageNumber)
-				setHasMoreListings(totalItems > safePageNumber * ITEMS_PER_PAGE)
+				setAllListings(combined)
+				setTotalListings(combined.length)
+				setHasMoreListings(false) // No pagination for now since we load all
 			} catch (error) {
 				console.error('Error fetching listings:', error)
 				Alert.alert('Error', 'Failed to fetch listings')
@@ -159,7 +220,7 @@ export default function MyListings() {
 				setInitialLoading(false)
 			}
 		},
-		[user?.id]
+		[user?.id, searchQuery, sortOption]
 	)
 
 	const handleRefresh = useCallback(() => {
@@ -194,6 +255,25 @@ export default function MyListings() {
 			fetchListings(1, true)
 		}
 	}, [user?.id])
+
+	// Debounced search effect
+	useEffect(() => {
+		if (!user?.id) return
+		
+		const timer = setTimeout(() => {
+			setCurrentPage(1)
+			fetchListings(1, true)
+		}, 500)
+
+		return () => clearTimeout(timer)
+	}, [searchQuery])
+
+	// Re-fetch when sort option changes
+	useEffect(() => {
+		if (!user?.id) return
+		setCurrentPage(1)
+		fetchListings(1, true)
+	}, [sortOption])
 
 	const SpecItem = ({ title, icon, value, isDarkMode }: any) => (
 		<View className='flex-1 items-center justify-center'>
@@ -232,6 +312,128 @@ export default function MyListings() {
 				return { color: '#6B7280', dotColor: '#9CA3AF' }
 		}
 	}
+
+	// Filter and search listings
+	const displayListings = useMemo(() => {
+		let filtered = [...allListings]
+		
+		// Filter by type
+		if (filterType !== 'all') {
+			filtered = filtered.filter(item => item.listingType === filterType)
+		}
+		
+		// Filter by search query
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase().trim()
+			filtered = filtered.filter(item => {
+				if (item.listingType === 'vehicle') {
+					const vehicle = item as CarListing
+					return (
+						vehicle.make?.toLowerCase().includes(query) ||
+						vehicle.model?.toLowerCase().includes(query) ||
+						`${vehicle.year}`.includes(query)
+					)
+				} else {
+					const plate = item as PlateListing
+					return (
+						plate.letter?.toLowerCase().includes(query) ||
+						plate.digits?.includes(query)
+					)
+				}
+			})
+		}
+		
+		return filtered
+	}, [allListings, filterType, searchQuery])
+
+	const PlateListingCard = useMemo(
+		() =>
+			React.memo(({ item }: { item: PlateListing }) => {
+				const statusConfig = getStatusConfig(item.status)
+
+				const handleCardPress = () => {
+					router.push({
+						pathname: '/(home)/(user)/NumberPlatesManager',
+						params: {
+							plateId: item.id
+						}
+					})
+				}
+
+				return (
+					<TouchableOpacity activeOpacity={0.9} onPress={handleCardPress}>
+						<Animated.View
+							entering={FadeInDown}
+							className={`m-4 mb-4 ${
+								isDarkMode ? 'bg-textgray' : 'bg-[#e1e1e1]'
+							} rounded-3xl overflow-hidden shadow-xl`}>
+							<View className='relative'>
+								{item.picture ? (
+									<Image
+										source={{ uri: item.picture }}
+										className='w-full aspect-[24/24]'
+										resizeMode='cover'
+									/>
+								) : (
+									<View className='w-full aspect-[24/24] bg-gray-300 items-center justify-center'>
+										<MaterialCommunityIcons
+											name='card-text-outline'
+											size={80}
+											color='#999'
+										/>
+									</View>
+								)}
+
+								<View className='absolute top-4 w-full px-4 flex-row justify-between items-center'>
+									<View
+										style={{ backgroundColor: statusConfig.color }}
+										className='rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
+										<View
+											style={{ backgroundColor: statusConfig.dotColor }}
+											className='w-2 h-2 rounded-full mr-2 animate-pulse'
+										/>
+										<Text className='text-white text-xs font-bold uppercase tracking-wider'>
+											{item.status}
+										</Text>
+									</View>
+								</View>
+
+								<View className='absolute bottom-0 w-full p-5'>
+									<View className='flex-row justify-between items-end'>
+										<View className='flex-1'>
+											<Text className='text-white text-2xl font-bold tracking-tight mb-1'>
+												{item.letter} {item.digits}
+											</Text>
+											<Text className='text-white text-3xl font-extrabold'>
+												${parseFloat(item.price.toString()).toLocaleString()}
+											</Text>
+										</View>
+									</View>
+								</View>
+							</View>
+
+							<View className='px-5 py-4'>
+								<View className='flex-row items-center'>
+									<MaterialCommunityIcons
+										name='card-text-outline'
+										size={24}
+										color={isDarkMode ? '#FFFFFF' : '#000000'}
+									/>
+									<Text
+										className={`ml-2 text-sm ${
+											isDarkMode ? 'text-white/60' : 'text-gray-600'
+										}`}>
+										License Plate • Added{' '}
+										{new Date(item.created_at).toLocaleDateString()}
+									</Text>
+								</View>
+							</View>
+						</Animated.View>
+					</TouchableOpacity>
+				)
+			}),
+		[isDarkMode, router]
+	)
 
 	const ListingCard = useMemo(
 		() =>
@@ -408,11 +610,13 @@ export default function MyListings() {
 				{/* Header */}
 				<View
 					style={{
+						paddingHorizontal: 16,
+						paddingTop: 16,
+						paddingBottom: 12,
+						backgroundColor: isDarkMode ? 'black' : 'white',
 						flexDirection: 'row',
 						alignItems: 'center',
-						paddingHorizontal: 16,
-						paddingVertical: 16,
-						backgroundColor: isDarkMode ? 'black' : 'white'
+						justifyContent: 'space-between'
 					}}>
 					<Text
 						style={{
@@ -422,50 +626,96 @@ export default function MyListings() {
 						}}>
 						My Listings
 					</Text>
-					{totalListings > 0 && (
-						<View
-							style={{
-								marginLeft: 'auto',
-								backgroundColor: '#D55004',
-								paddingHorizontal: 12,
-								paddingVertical: 4,
-								borderRadius: 12
-							}}>
-							<Text style={{ color: 'white', fontWeight: 'bold' }}>
-								{totalListings}
-							</Text>
-						</View>
-					)}
-				</View>
-
-				{/* Add New Car Button */}
-				<View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
 					<TouchableOpacity
-						onPress={() => {
-							router.push({
-								pathname: '/(home)/(dealer)/AddEditListing',
-								params: { userId: user?.id }
-							})
-						}}
+						onPress={() => setShowAddModal(true)}
 						style={{
 							backgroundColor: '#D55004',
-							padding: 16,
-							borderRadius: 16,
+							paddingVertical: 8,
+							paddingHorizontal: 16,
+							borderRadius: 20,
 							flexDirection: 'row',
-							alignItems: 'center',
-							justifyContent: 'center'
+							alignItems: 'center'
 						}}>
-						<Ionicons name='add-circle-outline' size={24} color='white' />
-						<Text
-							style={{
-								color: 'white',
-								fontSize: 16,
-								fontWeight: 'bold',
-								marginLeft: 8
-							}}>
-							Add New Car
+						<Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>
+							Add new +
 						</Text>
 					</TouchableOpacity>
+				</View>
+
+				{/* Search Bar with Filter and Sort Icons */}
+				<View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+					<View style={{ flexDirection: 'row', gap: 8 }}>
+						<View
+							style={{
+								flex: 1,
+								flexDirection: 'row',
+								alignItems: 'center',
+								backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+								borderRadius: 12,
+								paddingHorizontal: 12
+							}}>
+							<Ionicons
+								name='search'
+								size={20}
+								color={isDarkMode ? '#666' : '#999'}
+							/>
+							<TextInput
+								value={searchQuery}
+								onChangeText={setSearchQuery}
+								placeholder='Search'
+								placeholderTextColor={isDarkMode ? '#666' : '#999'}
+								style={{
+									flex: 1,
+									paddingVertical: 12,
+									paddingHorizontal: 8,
+									color: isDarkMode ? 'white' : 'black'
+								}}
+							/>
+							{searchQuery.length > 0 && (
+								<TouchableOpacity onPress={() => setSearchQuery('')}>
+									<Ionicons
+										name='close-circle'
+										size={20}
+										color={isDarkMode ? '#666' : '#999'}
+									/>
+								</TouchableOpacity>
+							)}
+						</View>
+
+						<TouchableOpacity
+							onPress={() => setShowFilterModal(true)}
+							style={{
+								backgroundColor: filterType !== 'all' ? '#D55004' : isDarkMode ? '#1a1a1a' : '#f5f5f5',
+								width: 44,
+								height: 44,
+								borderRadius: 22,
+								justifyContent: 'center',
+								alignItems: 'center'
+							}}>
+							<Ionicons
+								name='options'
+								size={20}
+								color={filterType !== 'all' ? 'white' : isDarkMode ? 'white' : 'black'}
+							/>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							onPress={() => setShowSortModal(true)}
+							style={{
+								backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+								width: 44,
+								height: 44,
+								borderRadius: 22,
+								justifyContent: 'center',
+								alignItems: 'center'
+							}}>
+							<Ionicons
+								name='swap-vertical'
+								size={20}
+								color={isDarkMode ? 'white' : 'black'}
+							/>
+						</TouchableOpacity>
+					</View>
 				</View>
 
 				{/* Listings */}
@@ -478,9 +728,16 @@ export default function MyListings() {
 				{!initialLoading && (
 					<FlatList
 						ref={scrollRef}
-						data={listings}
-						renderItem={({ item }) => <ListingCard item={item} />}
-						keyExtractor={item => item.id.toString()}
+						data={displayListings}
+						renderItem={({ item }) => {
+							// Detect if it's a vehicle or plate by checking listingType property
+							if (item.listingType === 'plate') {
+								return <PlateListingCard item={item} />
+							} else {
+								return <ListingCard item={item} />
+							}
+						}}
+						keyExtractor={item => `${item.listingType}-${item.id}`}
 						showsVerticalScrollIndicator={false}
 						onEndReached={handleLoadMore}
 						onEndReachedThreshold={0.3}
@@ -501,7 +758,7 @@ export default function MyListings() {
 									paddingVertical: 80
 								}}>
 								<Ionicons
-									name='car-sport-outline'
+									name='albums-outline'
 									size={64}
 									color={isDarkMode ? '#666' : '#ccc'}
 									style={{ marginBottom: 16 }}
@@ -512,7 +769,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										marginBottom: 8
 									}}>
-									No listings yet
+									{searchQuery ? 'No results found' : 'No listings yet'}
 								</Text>
 								<Text
 									style={{
@@ -521,7 +778,9 @@ export default function MyListings() {
 										textAlign: 'center',
 										paddingHorizontal: 32
 									}}>
-									Tap the button above to list your first car for sale
+									{searchQuery
+										? 'Try adjusting your search'
+										: 'Tap the "Add new +" button to create your first listing'}
 								</Text>
 							</View>
 						}
@@ -541,7 +800,7 @@ export default function MyListings() {
 						initialNumToRender={5}
 						contentContainerStyle={{
 							paddingBottom: 100,
-							flexGrow: listings.length === 0 ? 1 : undefined
+							flexGrow: displayListings.length === 0 ? 1 : undefined
 						}}
 					/>
 				)}
@@ -574,6 +833,275 @@ export default function MyListings() {
 					</View>
 				</View>
 			)}
+
+			{/* Add Listing Modal */}
+			<AddListingModal
+				visible={showAddModal}
+				onClose={() => setShowAddModal(false)}
+				userId={user?.id}
+			/>
+
+			{/* Sort Modal */}
+			<Modal
+				visible={showSortModal}
+				transparent
+				animationType='fade'
+				onRequestClose={() => setShowSortModal(false)}>
+				<BlurView
+					intensity={80}
+					tint={isDarkMode ? 'dark' : 'light'}
+					style={StyleSheet.absoluteFill}>
+					<TouchableOpacity
+						style={{
+							flex: 1,
+							justifyContent: 'center',
+							alignItems: 'center',
+							padding: 20
+						}}
+						activeOpacity={1}
+						onPress={() => setShowSortModal(false)}>
+						<TouchableOpacity
+							activeOpacity={1}
+							style={{
+								backgroundColor: isDarkMode ? '#1a1a1a' : '#fff',
+								borderRadius: 16,
+								padding: 20,
+								width: '100%',
+								maxWidth: 400
+							}}>
+							<Text
+								style={{
+									fontSize: 18,
+									fontWeight: 'bold',
+									marginBottom: 16,
+									color: isDarkMode ? 'white' : 'black'
+								}}>
+								Sort By
+							</Text>
+
+							<TouchableOpacity
+								onPress={() => {
+									setSortOption('newest')
+									setShowSortModal(false)
+								}}
+								style={{
+									padding: 16,
+									borderRadius: 12,
+									backgroundColor:
+										sortOption === 'newest'
+											? isDarkMode
+												? '#2a2a2a'
+												: '#f0f0f0'
+											: 'transparent',
+									marginBottom: 8
+								}}>
+								<Text
+									style={{
+										fontSize: 16,
+										color: isDarkMode ? 'white' : 'black',
+										fontWeight: sortOption === 'newest' ? 'bold' : 'normal'
+									}}>
+									Newest First
+								</Text>
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								onPress={() => {
+									setSortOption('price_low')
+									setShowSortModal(false)
+								}}
+								style={{
+									padding: 16,
+									borderRadius: 12,
+									backgroundColor:
+										sortOption === 'price_low'
+											? isDarkMode
+												? '#2a2a2a'
+												: '#f0f0f0'
+											: 'transparent',
+									marginBottom: 8
+								}}>
+								<Text
+									style={{
+										fontSize: 16,
+										color: isDarkMode ? 'white' : 'black',
+										fontWeight: sortOption === 'price_low' ? 'bold' : 'normal'
+									}}>
+									Price: Low to High
+								</Text>
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								onPress={() => {
+									setSortOption('price_high')
+									setShowSortModal(false)
+								}}
+								style={{
+									padding: 16,
+									borderRadius: 12,
+									backgroundColor:
+										sortOption === 'price_high'
+											? isDarkMode
+												? '#2a2a2a'
+												: '#f0f0f0'
+											: 'transparent'
+								}}>
+								<Text
+									style={{
+										fontSize: 16,
+										color: isDarkMode ? 'white' : 'black',
+										fontWeight: sortOption === 'price_high' ? 'bold' : 'normal'
+									}}>
+									Price: High to Low
+								</Text>
+							</TouchableOpacity>
+						</TouchableOpacity>
+					</TouchableOpacity>
+				</BlurView>
+			</Modal>
+
+			{/* Filter Modal */}
+			<Modal
+				visible={showFilterModal}
+				transparent
+				animationType='fade'
+				onRequestClose={() => setShowFilterModal(false)}>
+				<BlurView
+					intensity={80}
+					tint={isDarkMode ? 'dark' : 'light'}
+					style={StyleSheet.absoluteFill}>
+					<TouchableOpacity
+						style={{
+							flex: 1,
+							justifyContent: 'center',
+							alignItems: 'center',
+							padding: 20
+						}}
+						activeOpacity={1}
+						onPress={() => setShowFilterModal(false)}>
+						<TouchableOpacity
+							activeOpacity={1}
+							style={{
+								backgroundColor: isDarkMode ? '#1a1a1a' : '#fff',
+								borderRadius: 16,
+								padding: 20,
+								width: '100%',
+								maxWidth: 400
+							}}>
+							<Text
+								style={{
+									fontSize: 18,
+									fontWeight: 'bold',
+									marginBottom: 16,
+									color: isDarkMode ? 'white' : 'black'
+								}}>
+								Filter By Type
+							</Text>
+
+							<TouchableOpacity
+								onPress={() => {
+									setFilterType('all')
+									setShowFilterModal(false)
+								}}
+								style={{
+									padding: 16,
+									borderRadius: 12,
+									backgroundColor:
+										filterType === 'all'
+											? isDarkMode
+												? '#2a2a2a'
+												: '#f0f0f0'
+											: 'transparent',
+									marginBottom: 8,
+									flexDirection: 'row',
+									alignItems: 'center'
+								}}>
+								<Ionicons 
+									name='albums-outline' 
+									size={20} 
+									color={isDarkMode ? 'white' : 'black'} 
+									style={{ marginRight: 12 }}
+								/>
+								<Text
+									style={{
+										fontSize: 16,
+										color: isDarkMode ? 'white' : 'black',
+										fontWeight: filterType === 'all' ? 'bold' : 'normal'
+									}}>
+									All Listings
+								</Text>
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								onPress={() => {
+									setFilterType('vehicle')
+									setShowFilterModal(false)
+								}}
+								style={{
+									padding: 16,
+									borderRadius: 12,
+									backgroundColor:
+										filterType === 'vehicle'
+											? isDarkMode
+												? '#2a2a2a'
+												: '#f0f0f0'
+											: 'transparent',
+									marginBottom: 8,
+									flexDirection: 'row',
+									alignItems: 'center'
+								}}>
+								<Ionicons 
+									name='car-sport' 
+									size={20} 
+									color={isDarkMode ? 'white' : 'black'} 
+									style={{ marginRight: 12 }}
+								/>
+								<Text
+									style={{
+										fontSize: 16,
+										color: isDarkMode ? 'white' : 'black',
+										fontWeight: filterType === 'vehicle' ? 'bold' : 'normal'
+									}}>
+									Vehicles Only
+								</Text>
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								onPress={() => {
+									setFilterType('plate')
+									setShowFilterModal(false)
+								}}
+								style={{
+									padding: 16,
+									borderRadius: 12,
+									backgroundColor:
+										filterType === 'plate'
+											? isDarkMode
+												? '#2a2a2a'
+												: '#f0f0f0'
+											: 'transparent',
+									flexDirection: 'row',
+									alignItems: 'center'
+								}}>
+								<MaterialCommunityIcons 
+									name='card-text-outline' 
+									size={20} 
+									color={isDarkMode ? 'white' : 'black'} 
+									style={{ marginRight: 12 }}
+								/>
+								<Text
+									style={{
+										fontSize: 16,
+										color: isDarkMode ? 'white' : 'black',
+										fontWeight: filterType === 'plate' ? 'bold' : 'normal'
+									}}>
+									License Plates Only
+								</Text>
+							</TouchableOpacity>
+						</TouchableOpacity>
+					</TouchableOpacity>
+				</BlurView>
+			</Modal>
 
 			{/* CREDIT_DISABLED: Boost Listing Modal
 			{selectedCarForBoost && (

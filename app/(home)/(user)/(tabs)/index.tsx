@@ -1830,13 +1830,13 @@ const styles = StyleSheet.create({
     color: 'black',
   },
   tabButtonTextDark: {
-    color: '#999999',
+    color: '#666666',
   },
   tabButtonTextSelected: {
     fontWeight: '500',
     color: '#000000',
   },
   tabButtonTextSelectedDark: {
-    color: '#000000',
+    color: '#FFFFFF',
   },
 });

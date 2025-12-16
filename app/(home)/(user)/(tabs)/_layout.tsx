@@ -38,7 +38,8 @@ export default function TabLayout() {
             height: Platform.OS === 'ios' ? 90 : 65, // Increased height to accommodate labels
             paddingBottom: Platform.OS === 'ios' ? 15 : 5, // Lower bottom padding on Android
             paddingTop: 5,
-            borderTopWidth: 0,
+            borderTopWidth: isDarkMode ? 1 : 0,
+            borderTopColor: isDarkMode ? '#333' : 'transparent',
             // Modern glass effect shadow
             shadowColor: isDarkMode ? '#000' : '#666',
             shadowOffset: { width: 0, height: -3 },
@@ -46,10 +47,9 @@ export default function TabLayout() {
             shadowRadius: 12,
           },
           tabBarShowLabel: true,
-          tabBarActiveTintColor: '#000000',
-          tabBarInactiveTintColor: '#000000',
+          tabBarActiveTintColor: isDarkMode ? '#FFFFFF' : '#000000',
+          tabBarInactiveTintColor: isDarkMode ? '#888888' : '#666666',
           tabBarLabelStyle: {
-            color: '#000000',
             fontSize: 12,
             fontWeight: '500',
           },
@@ -150,7 +150,7 @@ export default function TabLayout() {
                     <Ionicons
                       name={iconName}
                       size={28}
-                      color="#000000"
+                      color={focused ? (isDarkMode ? '#FFFFFF' : '#000000') : (isDarkMode ? '#888888' : '#666666')}
                       style={{
                         opacity: focused ? 1 : 0.9,
                       }}
@@ -196,7 +196,7 @@ export default function TabLayout() {
                 <Ionicons
                   name={iconName}
                   size={28}
-                  color="#000000"
+                  color={focused ? (isDarkMode ? '#FFFFFF' : '#000000') : (isDarkMode ? '#888888' : '#666666')}
                   style={{
                     opacity: focused ? 1 : 0.9,
                   }}
@@ -233,9 +233,9 @@ export default function TabLayout() {
         <Tabs.Screen
           name='chat'
           options={{ 
-            headerTitle: t('navbar.messages'),
+            headerTitle: t('navbar.chat'),
             headerShown: false,
-            tabBarLabel: t('navbar.messages')
+            tabBarLabel: t('navbar.chat')
           }}
         />
         <Tabs.Screen
