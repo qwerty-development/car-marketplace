@@ -29,6 +29,8 @@ import { useGuestUser } from '@/utils/GuestUserContext'
 import { formatMileage } from '@/utils/formatMileage';
 import { BlurView } from 'expo-blur'
 import AddListingModal from '@/components/AddListingModal'
+import { LicensePlateTemplate } from '@/components/NumberPlateCard'
+import { useWindowDimensions } from 'react-native'
 /* CREDIT_DISABLED: Boost system temporarily disabled
 import { BoostListingModal } from '@/components/BoostListingModal'
 */
@@ -99,6 +101,8 @@ export default function MyListings() {
 	*/
 	const scrollRef = useRef(null)
 	const router = useRouter()
+	const { width: windowWidth } = useWindowDimensions()
+	const plateCardWidth = windowWidth - 72 // Account for padding (m-4 = 16px on each side + extra for card padding)
 
 	useScrollToTop(scrollRef)
 
@@ -365,32 +369,27 @@ export default function MyListings() {
 						<Animated.View
 							entering={FadeInDown}
 							className={`m-4 mb-4 ${
-								isDarkMode ? 'bg-textgray' : 'bg-[#e1e1e1]'
+								isDarkMode ? 'bg-[#242424]' : 'bg-[#e1e1e1]'
 							} rounded-3xl overflow-hidden shadow-xl`}>
-							<View className='relative'>
-								{item.picture ? (
-									<Image
-										source={{ uri: item.picture }}
-										className='w-full aspect-[24/24]'
-										resizeMode='cover'
-									/>
-								) : (
-									<View className='w-full aspect-[24/24] bg-gray-300 items-center justify-center'>
-										<MaterialCommunityIcons
-											name='card-text-outline'
-											size={80}
-											color='#999'
-										/>
-									</View>
-								)}
-
-								<View className='absolute top-4 w-full px-4 flex-row justify-between items-center'>
+							
+							{/* License Plate Template */}
+							<View
+								style={{
+									paddingVertical: 24,
+									paddingHorizontal: 20,
+									backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+									justifyContent: 'center',
+									alignItems: 'center',
+								}}
+							>
+								{/* Status Badge */}
+								<View style={{ position: 'absolute', top: 12, left: 12, zIndex: 10 }}>
 									<View
 										style={{ backgroundColor: statusConfig.color }}
-										className='rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
+										className='rounded-full px-3 py-1.5 flex-row items-center'>
 										<View
 											style={{ backgroundColor: statusConfig.dotColor }}
-											className='w-2 h-2 rounded-full mr-2 animate-pulse'
+											className='w-2 h-2 rounded-full mr-2'
 										/>
 										<Text className='text-white text-xs font-bold uppercase tracking-wider'>
 											{item.status}
@@ -398,25 +397,48 @@ export default function MyListings() {
 									</View>
 								</View>
 
-								<View className='absolute bottom-0 w-full p-5'>
-									<View className='flex-row justify-between items-end'>
-										<View className='flex-1'>
-											<Text className='text-white text-2xl font-bold tracking-tight mb-1'>
-												{item.letter} {item.digits}
-											</Text>
-											<Text className='text-white text-3xl font-extrabold'>
-												${parseFloat(item.price.toString()).toLocaleString()}
-											</Text>
-										</View>
-									</View>
+								<LicensePlateTemplate
+									letter={item.letter}
+									digits={item.digits}
+									width={plateCardWidth}
+								/>
+							</View>
+
+							{/* Info Section */}
+							<View className='px-4 py-3'>
+								<View className='flex-row items-center justify-between'>
+									{/* Plate Number */}
+									<Text
+										className={`text-xl font-bold ${
+											isDarkMode ? 'text-white' : 'text-black'
+										}`}
+										style={{ letterSpacing: 2 }}
+									>
+										{item.letter} {item.digits}
+									</Text>
+									
+									{/* Price */}
+									<Text
+										style={{ 
+											fontSize: 20,
+											fontWeight: '800',
+											color: '#D55004',
+										}}
+									>
+										${parseFloat(item.price.toString()).toLocaleString()}
+									</Text>
 								</View>
 							</View>
 
-							<View className='px-5 py-4'>
+							{/* Footer */}
+							<View 
+								className={`px-5 py-4 ${isDarkMode ? 'bg-[#2b2b2b]' : 'bg-[#d1d1d1]'} rounded-t-3xl`}
+								style={{ marginTop: 4 }}
+							>
 								<View className='flex-row items-center'>
 									<MaterialCommunityIcons
 										name='card-text-outline'
-										size={24}
+										size={20}
 										color={isDarkMode ? '#FFFFFF' : '#000000'}
 									/>
 									<Text
@@ -432,7 +454,7 @@ export default function MyListings() {
 					</TouchableOpacity>
 				)
 			}),
-		[isDarkMode, router]
+		[isDarkMode, router, plateCardWidth]
 	)
 
 	const ListingCard = useMemo(

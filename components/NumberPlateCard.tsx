@@ -29,11 +29,37 @@ const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledPressable = styled(Pressable);
 
-// Lebanese-style license plate component
-const LicensePlateTemplate = ({ letter, digits, width }: { letter: string; digits: string; width: number }) => {
+// Lebanese-style license plate component - exported for use in other components
+export const LicensePlateTemplate = ({ letter, digits, width }: { letter: string; digits: string; width: number }) => {
   const plateHeight = width * 0.28; // Aspect ratio matching real Lebanese plates
   const blueStripWidth = width * 0.12; // Blue strip width
-  const fontSize = plateHeight * 0.55;
+  
+  // Check if letter is "P" for public/red plate
+  const isPublicPlate = letter.toUpperCase() === 'P';
+  const stripColor = isPublicPlate ? '#C41E3A' : '#1e4a8d'; // Red for P, Blue for others
+  
+  // Dynamic font size and letter spacing based on digit count
+  const digitCount = digits.length;
+  const baseFontSize = plateHeight * 0.55;
+  
+  // Scale down font size for longer numbers
+  let fontSize = baseFontSize;
+  let digitLetterSpacing = 8;
+  let marginLeft = 24;
+  
+  if (digitCount >= 7) {
+    fontSize = baseFontSize * 0.7;
+    digitLetterSpacing = 2;
+    marginLeft = 16;
+  } else if (digitCount >= 6) {
+    fontSize = baseFontSize * 0.8;
+    digitLetterSpacing = 4;
+    marginLeft = 18;
+  } else if (digitCount >= 5) {
+    fontSize = baseFontSize * 0.9;
+    digitLetterSpacing = 6;
+    marginLeft = 20;
+  }
   
   return (
     <View
@@ -53,12 +79,12 @@ const LicensePlateTemplate = ({ letter, digits, width }: { letter: string; digit
         elevation: 6,
       }}
     >
-      {/* Blue strip on the left with Lebanese details */}
+      {/* Strip on the left with Lebanese details - Red for P, Blue for others */}
       <View
         style={{
           width: blueStripWidth,
           height: '100%',
-          backgroundColor: '#1e4a8d',
+          backgroundColor: stripColor,
           justifyContent: 'space-between',
           alignItems: 'center',
           paddingVertical: 4,
@@ -91,7 +117,7 @@ const LicensePlateTemplate = ({ letter, digits, width }: { letter: string; digit
           flexDirection: 'row',
           justifyContent: 'center',
           alignItems: 'center',
-          paddingHorizontal: 12,
+          paddingHorizontal: 8,
         }}
       >
         <Text
@@ -110,10 +136,12 @@ const LicensePlateTemplate = ({ letter, digits, width }: { letter: string; digit
             fontSize: fontSize,
             fontWeight: '600',
             color: '#1a1a1a',
-            letterSpacing: 8,
-            marginLeft: 24,
+            letterSpacing: digitLetterSpacing,
+            marginLeft: marginLeft,
             fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-condensed',
           }}
+          numberOfLines={1}
+          adjustsFontSizeToFit
         >
           {digits}
         </Text>

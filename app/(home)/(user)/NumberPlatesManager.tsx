@@ -20,6 +20,8 @@ import { useAuth } from '@/utils/AuthContext'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '@/utils/LanguageContext'
+import { LicensePlateTemplate } from '@/components/NumberPlateCard'
+import { useWindowDimensions } from 'react-native'
 
 export default function NumberPlatesManager() {
   const { isDarkMode } = useTheme()
@@ -30,6 +32,8 @@ export default function NumberPlatesManager() {
   const plateId = params.plateId ? parseInt(params.plateId as string) : null
   const isRTL = language === 'ar'
   const { user } = useAuth()
+  const { width: windowWidth } = useWindowDimensions()
+  const platePreviewWidth = windowWidth - 80 // Account for padding
 
   const [formData, setFormData] = useState({
     letter: '',
@@ -371,34 +375,27 @@ export default function NumberPlatesManager() {
             {isEditMode ? 'Edit Plate Details' : 'Add New Plate'}
           </Text>
 
-          {/* Image Upload */}
-          <TouchableOpacity
-            onPress={handleImagePick}
-            disabled={isUploading}
-            className={`${isDarkMode ? 'bg-neutral-800' : 'bg-gray-200'} rounded-xl p-4 mb-4 items-center justify-center`}
-            style={{ minHeight: 150 }}
+          {/* Live Plate Preview */}
+          <View
+            style={{
+              paddingVertical: 20,
+              paddingHorizontal: 12,
+              backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+              borderRadius: 16,
+              marginBottom: 16,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
           >
-            {formData.picture ? (
-              <Image
-                source={{ uri: formData.picture }}
-                className="w-full h-32 rounded-xl"
-                resizeMode="cover"
-              />
-            ) : (
-              <View className="items-center">
-                {isUploading ? (
-                  <ActivityIndicator size="large" color="#D55004" />
-                ) : (
-                  <>
-                    <Ionicons name="camera-outline" size={48} color={isDarkMode ? '#fff' : '#000'} />
-                    <Text className={`mt-2 ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
-                      Tap to upload car/plate picture (optional)
-                    </Text>
-                  </>
-                )}
-              </View>
-            )}
-          </TouchableOpacity>
+            <Text className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+              Plate Preview
+            </Text>
+            <LicensePlateTemplate
+              letter={formData.letter || 'B'}
+              digits={formData.digits || '123456'}
+              width={platePreviewWidth}
+            />
+          </View>
 
           {/* Letter Input */}
           <View className="mb-4">
@@ -407,12 +404,21 @@ export default function NumberPlatesManager() {
             </Text>
             <TextInput
               value={formData.letter}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, letter: text }))}
-              placeholder="e.g. A, B, C..."
+              onChangeText={(text) => {
+                // Only allow valid Lebanese plate letters: A, B, G, S, T, Z, M, Y, O, N, P
+                const validLetters = ['A', 'B', 'G', 'S', 'T', 'Z', 'M', 'Y', 'O', 'N', 'P']
+                const filtered = text.toUpperCase().split('').filter(char => validLetters.includes(char)).join('')
+                setFormData(prev => ({ ...prev, letter: filtered }))
+              }}
+              placeholder="A, B, G, S, T, Z, M, Y, O, N, P"
               placeholderTextColor={isDarkMode ? '#666' : '#999'}
               className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-white text-black'} p-4 rounded-xl`}
-              maxLength={10}
+              maxLength={1}
+              autoCapitalize="characters"
             />
+            <Text className={`text-xs mt-1 ${isDarkMode ? 'text-white/40' : 'text-gray-400'}`}>
+              Valid letters: A, B, G, S, T, Z, M, Y, O, N, P (P = Public/Red)
+            </Text>
           </View>
 
           {/* Digits Input */}
@@ -422,13 +428,20 @@ export default function NumberPlatesManager() {
             </Text>
             <TextInput
               value={formData.digits}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, digits: text }))}
-              placeholder="e.g. 123, 456..."
+              onChangeText={(text) => {
+                // Only allow numbers, max 7 digits
+                const filtered = text.replace(/[^0-9]/g, '')
+                setFormData(prev => ({ ...prev, digits: filtered }))
+              }}
+              placeholder="e.g. 12345"
               placeholderTextColor={isDarkMode ? '#666' : '#999'}
               className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-white text-black'} p-4 rounded-xl`}
               keyboardType="numeric"
-              maxLength={10}
+              maxLength={7}
             />
+            <Text className={`text-xs mt-1 ${isDarkMode ? 'text-white/40' : 'text-gray-400'}`}>
+              Maximum 7 digits
+            </Text>
           </View>
 
           {/* Price Input */}
@@ -483,33 +496,46 @@ export default function NumberPlatesManager() {
             numberPlates.map((plate) => (
               <View
                 key={plate.id}
-                className={`${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} p-4 rounded-2xl mb-3`}
+                className={`${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} rounded-2xl mb-3 overflow-hidden`}
               >
-                <View className="flex-row">
-                  {plate.picture && (
-                    <Image
-                      source={{ uri: plate.picture }}
-                      className="w-24 h-24 rounded-xl mr-3"
-                      resizeMode="cover"
-                    />
-                  )}
-                  <View className="flex-1">
-                    <Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                      {plate.letter} {plate.digits}
-                    </Text>
-                    <Text className={`text-lg text-orange-600 font-semibold mt-1`}>
-                      ${parseFloat(plate.price).toLocaleString()}
-                    </Text>
-                    <Text className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-400'} mt-2`}>
-                      Added {new Date(plate.created_at).toLocaleDateString()}
-                    </Text>
+                {/* Plate Template */}
+                <View
+                  style={{
+                    paddingVertical: 16,
+                    paddingHorizontal: 12,
+                    backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <LicensePlateTemplate
+                    letter={plate.letter}
+                    digits={plate.digits}
+                    width={platePreviewWidth}
+                  />
+                </View>
+                
+                {/* Info Section */}
+                <View className="p-4">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1">
+                      <Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ letterSpacing: 2 }}>
+                        {plate.letter} {plate.digits}
+                      </Text>
+                      <Text className={`text-lg text-orange-600 font-semibold mt-1`}>
+                        ${parseFloat(plate.price).toLocaleString()}
+                      </Text>
+                      <Text className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-400'} mt-2`}>
+                        Added {new Date(plate.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDelete(plate.id, plate.picture)}
+                      className="justify-center p-2"
+                    >
+                      <Ionicons name="trash-outline" size={24} color="#ef4444" />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => handleDelete(plate.id, plate.picture)}
-                    className="justify-center"
-                  >
-                    <Ionicons name="trash-outline" size={24} color="#ef4444" />
-                  </TouchableOpacity>
                 </View>
               </View>
             ))
