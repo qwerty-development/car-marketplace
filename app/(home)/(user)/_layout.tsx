@@ -52,6 +52,29 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="ChangeEmail"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="VerifyEmailOtp"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="VerifyCurrentEmailOtp"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
             name="EditProfile"
             options={{
               animation: "slide_from_right",

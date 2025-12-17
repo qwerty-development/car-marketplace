@@ -564,22 +564,32 @@ export default function EditProfileScreen() {
             <Text className="text-red text-xs mt-1">{validationErrors.lastName}</Text>
           ) : null}
           
+          {/* Email Address with Change Button */}
           <Text className={`text-sm font-medium ${isDarkMode ? "text-white/80" : "text-gray-700"}`}>
             {t('profile.email')}
           </Text>
-          <TextInput
-            className={`${
-              isDarkMode
-                ? "bg-neutral-800 text-white/70"
-                : "bg-neutral-100 text-black/70"
-            } p-4 rounded-xl`}
-            value={email}
-            editable={false}
-            placeholder={t('profile.email')}
-            placeholderTextColor={isDarkMode ? "#999" : "#666"}
-          />
+          <View className="flex-row items-center gap-2">
+            <TextInput
+              className={`${
+                isDarkMode
+                  ? "bg-neutral-800 text-white/70"
+                  : "bg-neutral-100 text-black/70"
+              } p-4 rounded-xl flex-1`}
+              value={email || t('email.not_added')}
+              editable={false}
+              placeholder={t('profile.email')}
+              placeholderTextColor={isDarkMode ? "#999" : "#666"}
+            />
+            <TouchableOpacity
+              className="bg-red p-4 rounded-xl"
+              onPress={() => router.push("/(home)/(user)/ChangeEmail")}
+              disabled={loading}
+            >
+              <Ionicons name="create-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
           <Text className={`text-xs ${isDarkMode ? "text-white/50" : "text-gray-500"}`}>
-            Email cannot be changed from this screen
+            {t('email.tap_to_change_email')}
           </Text>
         </View>
 
