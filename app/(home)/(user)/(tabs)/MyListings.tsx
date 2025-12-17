@@ -632,7 +632,7 @@ export default function MyListings() {
 				{/* Header */}
 				<View
 					style={{
-						paddingHorizontal: 16,
+						paddingHorizontal: 24,
 						paddingTop: 16,
 						paddingBottom: 12,
 						backgroundColor: isDarkMode ? 'black' : 'white',
@@ -665,7 +665,7 @@ export default function MyListings() {
 				</View>
 
 				{/* Search Bar with Filter and Sort Icons */}
-				<View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+				<View style={{ paddingHorizontal: 24, paddingBottom: 8 }}>
 					<View style={{ flexDirection: 'row', gap: 8 }}>
 						<View
 							style={{

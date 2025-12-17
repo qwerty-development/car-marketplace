@@ -1964,7 +1964,7 @@ features
     <SafeAreaView className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"}`}>
       <View className="px-6 py-4">
         {/* Top Bar with Back and Delete */}
-        <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-row items-center justify-between mb-1">
           <TouchableOpacity onPress={handleGoBack} className="p-2">
             <Ionicons
               name="arrow-back"
@@ -1992,7 +1992,7 @@ features
         </View>
 
         {/* Mode Indicator Badge */}
-        <View className="flex-row items-center justify-center mb-2">
+        <View className="flex-row items-center justify-center mb-1">
           <View 
             style={{ 
               backgroundColor: viewMode === 'rent' ? '#3B82F6' : '#EF4444',

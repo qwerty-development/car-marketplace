@@ -2002,13 +2002,15 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             <TouchableOpacity
               onPress={handleDealershipPress}
               disabled={!isDealershipCar}
+              style={{ flex: 1 }}
             >
-              <View style={{ flex: 1, marginLeft: 12, marginRight: 8 }}>
+              <View style={{ flex: 1, marginLeft: 12, marginRight: 8, alignItems: 'center' }}>
                 <Text
                   style={{
                     fontSize: 16,
                     fontWeight: "500",
                     color: isDarkMode ? "#fff" : "#000",
+                    textAlign: 'center'
                   }}
                   numberOfLines={2}
                   adjustsFontSizeToFit={true}
@@ -2022,6 +2024,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                     style={{
                       fontSize: 14,
                       color: isDarkMode ? "#fff" : "#000",
+                      textAlign: 'center'
                     }}
                     numberOfLines={2}
                     adjustsFontSizeToFit={true}

@@ -425,16 +425,16 @@ export default function Favorite() {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>
           {searchQuery
-            ? t('search.no_results')
+            ? t('search.no_results', 'No results found')
             : favorites.length > 0
-            ? t('favorites.all_favorite_cars_sold')
-            : t('favorites.no_cars_added_favorite')}
+            ? t('favorites.all_favorite_cars_sold', 'All your favorite cars have been sold')
+            : t('favorites.no_cars_added_favorite', 'No cars added as favorite')}
         </Text>
         {!searchQuery && (
           <Text style={styles.emptySubText}>
             {favorites.length > 0
-              ? t('favorites.sold_favorites_removed')
-              : t('favorites.favorite_cars_will_appear')}
+              ? t('favorites.sold_favorites_removed', 'Sold favorites are automatically removed after 15 days')
+              : t('favorites.favorite_cars_will_appear', 'Your favorite cars will appear here')}
           </Text>
         )}
       </View>

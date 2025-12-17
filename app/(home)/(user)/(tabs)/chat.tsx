@@ -226,7 +226,7 @@ export default function ChatTabScreen() {
                 { color: isDarkMode ? '#FFFFFF' : '#0F172A' },
               ]}
             >
-              {t('chat.title', 'Chats')}
+              {t('chat.title', 'My Chats')}
             </Text>
             <TouchableOpacity
               style={[
@@ -373,8 +373,8 @@ export default function ChatTabScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: 24,
+    paddingTop: 16,
     paddingBottom: 12,
   },
   searchBarRow: {
@@ -407,9 +407,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 12,
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   searchButton: {
     width: 38,
@@ -428,6 +427,7 @@ const styles = StyleSheet.create({
   filterContainer: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 12,
   },
   filterTab: {
     paddingHorizontal: 16,

@@ -1404,13 +1404,14 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                   </View>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDealershipPress}>
-                <View style={{ marginLeft: 12 }}>
+              <TouchableOpacity onPress={handleDealershipPress} style={{ flex: 1 }}>
+                <View style={{ marginLeft: 12, alignItems: 'center' }}>
                   <Text
                     style={{
                       fontSize: 16,
                       fontWeight: '500',
-                      color: isDarkMode ? "#fff" : "#000"
+                      color: isDarkMode ? "#fff" : "#000",
+                      textAlign: 'center'
                     }}
                     numberOfLines={1}
                   >
@@ -1421,7 +1422,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                     style={{
                       fontSize: 14,
                       color: isDarkMode ? "#fff" : "#000",
-                      marginRight: 28
+                      textAlign: 'center'
                     }}
                     numberOfLines={2}
                   >
