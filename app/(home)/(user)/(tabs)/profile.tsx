@@ -732,7 +732,7 @@ export default function UserProfileAndSupportPage() {
             <View className="bg-red/10 p-3 rounded-xl">
               <Ionicons name="person-outline" size={24} color="#D55004" />
             </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
@@ -754,7 +754,6 @@ export default function UserProfileAndSupportPage() {
               name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -779,7 +778,7 @@ export default function UserProfileAndSupportPage() {
             <View className="bg-purple-500/10 p-3 rounded-xl">
               <Ionicons name="shield-outline" size={24} color="#D55004" />
             </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
@@ -803,7 +802,6 @@ export default function UserProfileAndSupportPage() {
               name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -829,7 +827,7 @@ export default function UserProfileAndSupportPage() {
             <View className="bg-green-500/10 p-3 rounded-xl">
               <Ionicons name="receipt-outline" size={24} color="#10b981" />
             </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
@@ -853,7 +851,6 @@ export default function UserProfileAndSupportPage() {
               name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -878,7 +875,7 @@ export default function UserProfileAndSupportPage() {
             <View className="bg-green-500/10 p-3 rounded-xl">
               <Ionicons name="pricetag-outline" size={24} color="#D55004" />
             </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
@@ -900,7 +897,6 @@ export default function UserProfileAndSupportPage() {
               name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -925,7 +921,7 @@ export default function UserProfileAndSupportPage() {
             <View className="bg-red-500/10 p-3 rounded-xl">
               <Ionicons name="heart-outline" size={24} color="#D55004" />
             </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
@@ -947,7 +943,6 @@ export default function UserProfileAndSupportPage() {
               name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 
@@ -972,7 +967,7 @@ export default function UserProfileAndSupportPage() {
             <View className="bg-purple-500/10 p-3 rounded-xl">
               <Ionicons name="reader-outline" size={24} color="#D55004" />
             </View>
-            <View className={isRTL ? "mr-4" : "ml-4"}>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
               <Text
                 className={`${
                   isDarkMode ? "text-white" : "text-black"
@@ -994,7 +989,6 @@ export default function UserProfileAndSupportPage() {
               name={isRTL ? "chevron-back" : "chevron-forward"}
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
-              style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
           </TouchableOpacity>
 {/* 
