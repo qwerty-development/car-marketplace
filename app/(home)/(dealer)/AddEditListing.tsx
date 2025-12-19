@@ -1634,6 +1634,66 @@ features
     [initialData, dealership, isSubscriptionValid, soldInfo, isUserMode, params.userId, router]
   );
 
+  const handleUnmarkRented = useCallback(async () => {
+    if (!initialData) return;
+
+    // Check permissions
+    if (!isUserMode) {
+      if (!dealership || !isSubscriptionValid()) {
+        Alert.alert("Subscription Error", "Your subscription is not valid.");
+        return;
+      }
+    } else {
+      if (!params.userId) {
+        Alert.alert("Error", "User authentication required");
+        return;
+      }
+    }
+
+    Alert.alert(
+      "Unmark as Rented",
+      "Are you sure you want to mark this rental as available again?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Make Available",
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+
+              const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+
+              const updateQuery = supabase
+                .from(tableName)
+                .update({ status: 'available' })
+                .eq("id", initialData.id);
+
+              const finalQuery = (viewMode === 'rent' || !isUserMode)
+                ? updateQuery.eq("dealership_id", dealership.id)
+                : updateQuery.eq("user_id", params.userId);
+
+              const { error } = await finalQuery;
+
+              if (error) throw error;
+
+              Alert.alert("Success", "Listing is now available for rent again", [
+                { text: "OK", onPress: () => router.back() },
+              ]);
+            } catch (error) {
+              console.error("Error unmarking as rented:", error);
+              Alert.alert(
+                "Error",
+                "Failed to update listing status. Please try again."
+              );
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router, viewMode]);
+
   const SoldModal = () => {
     const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
     const [localBuyerName, setLocalBuyerName] = useState(
@@ -2650,21 +2710,25 @@ features
         {initialData ? ( // Edit Mode Buttons
           <View className="flex-row justify-between">
             <TouchableOpacity
-              onPress={() =>
-                initialData?.status === "available"
-                  ? setShowSoldModal(true)
-                  : null
-              }
-              disabled={initialData?.status === "sold" || initialData?.status === "rented"}
+              onPress={() => {
+                if (initialData?.status === "available") {
+                  setShowSoldModal(true);
+                } else if (viewMode === 'rent' && initialData?.status === "rented") {
+                  handleUnmarkRented();
+                }
+              }}
+              disabled={viewMode !== 'rent' && initialData?.status === "sold"}
               className={`flex-1 py-4 rounded-full items-center justify-center mr-2 ${
-                initialData?.status === "sold" || initialData?.status === "rented"
-                  ? "bg-orange-600 opacity-50"
-                  : "bg-green-600"
+                initialData?.status === "available"
+                  ? "bg-green-600"
+                  : viewMode === 'rent' && initialData?.status === "rented"
+                  ? "bg-blue-600"
+                  : "bg-orange-600 opacity-50"
               }`}
             >
               <Text className="text-white font-medium">
                 {viewMode === 'rent'
-                  ? (initialData?.status === "rented" ? "Rented" : "Mark as Rented")
+                  ? (initialData?.status === "rented" ? "Mark as Available" : "Mark as Rented")
                   : (initialData?.status === "sold" ? "Sold" : "Mark as Sold")
                 }
               </Text>
