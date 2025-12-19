@@ -1570,12 +1570,16 @@ features
         }
       }
 
-      if (!soldData.price || !soldData.date || !soldData.buyer_name) {
-        Alert.alert(
-          "Validation Error",
-          "Please fill in all the required fields."
-        );
-        return;
+      // For rent mode, we only need to update status (no buyer info in cars_rent table)
+      // For sale mode, require all fields
+      if (viewMode !== 'rent') {
+        if (!soldData.price || !soldData.date || !soldData.buyer_name) {
+          Alert.alert(
+            "Validation Error",
+            "Please fill in all the required fields."
+          );
+          return;
+        }
       }
 
       try {
@@ -1585,19 +1589,26 @@ features
         const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
         const statusValue = viewMode === 'rent' ? 'rented' : 'sold';
 
+        // Build update data based on mode
+        // cars_rent table doesn't have sold_price, date_sold, or buyer_name columns
+        const updateData = viewMode === 'rent'
+          ? { status: statusValue }
+          : {
+              status: statusValue,
+              sold_price: parseInt(soldData.price),
+              date_sold: soldData.date,
+              buyer_name: soldData.buyer_name,
+            };
+
         const updateQuery = supabase
           .from(tableName)
-          .update({
-            status: statusValue,
-            sold_price: parseInt(soldData.price),
-            date_sold: soldData.date,
-            buyer_name: soldData.buyer_name,
-          })
+          .update(updateData)
           .eq("id", initialData.id);
 
-        const finalQuery = isUserMode
-          ? updateQuery.eq("user_id", params.userId)
-          : updateQuery.eq("dealership_id", dealership.id);
+        // For cars_rent, always use dealership_id (no user_id column)
+        const finalQuery = (viewMode === 'rent' || !isUserMode)
+          ? updateQuery.eq("dealership_id", dealership.id)
+          : updateQuery.eq("user_id", params.userId);
 
         const { error } = await finalQuery;
 
@@ -1665,12 +1676,16 @@ features
     };
 
     const handleConfirm = () => {
-      if (!localPrice || !localBuyerName || !localDate) {
-        Alert.alert(
-          "Validation Error",
-          "Please fill in all the required fields."
-        );
-        return;
+      // For rent mode, no fields required - just mark as rented
+      // For sale mode, all fields required
+      if (viewMode !== 'rent') {
+        if (!localPrice || !localBuyerName || !localDate) {
+          Alert.alert(
+            "Validation Error",
+            "Please fill in all the required fields."
+          );
+          return;
+        }
       }
       // Pass local values directly to the mark-as-sold function
       handleMarkAsSold({
@@ -1763,7 +1778,8 @@ features
                   </TouchableOpacity>
                 </View>
 
-                {/* Selling/Rental Price */}
+                {/* Selling/Rental Price - Only show for sale mode */}
+                {viewMode !== 'rent' && (
                 <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
@@ -1801,8 +1817,10 @@ features
                     }}
                   />
                 </View>
+                )}
 
-                {/* Buyer/Renter Name */}
+                {/* Buyer/Renter Name - Only show for sale mode */}
+                {viewMode !== 'rent' && (
                 <View style={{ marginBottom: 16 }}>
                   <Text
                     style={{
@@ -1839,8 +1857,10 @@ features
                     }}
                   />
                 </View>
+                )}
 
-                {/* Sale Date */}
+                {/* Sale Date - Only show for sale mode */}
+                {viewMode !== 'rent' && (
                 <View style={{ marginBottom: 24 }}>
                   <Text
                     style={{
@@ -1890,6 +1910,23 @@ features
                     />
                   )}
                 </View>
+                )}
+
+                {/* Rent Mode Confirmation Message */}
+                {viewMode === 'rent' && (
+                  <View style={{ marginBottom: 24 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                        textAlign: 'center',
+                        lineHeight: 22,
+                      }}
+                    >
+                      Are you sure you want to mark this rental as rented? This will change the listing status to "Rented".
+                    </Text>
+                  </View>
+                )}
 
                 {/* Action Buttons */}
                 <View
@@ -2618,15 +2655,18 @@ features
                   ? setShowSoldModal(true)
                   : null
               }
-              disabled={initialData?.status === "sold"}
+              disabled={initialData?.status === "sold" || initialData?.status === "rented"}
               className={`flex-1 py-4 rounded-full items-center justify-center mr-2 ${
-                initialData?.status === "sold"
+                initialData?.status === "sold" || initialData?.status === "rented"
                   ? "bg-orange-600 opacity-50"
                   : "bg-green-600"
               }`}
             >
               <Text className="text-white font-medium">
-                {initialData?.status === "sold" ? "Sold" : "Mark as Sold"}
+                {viewMode === 'rent'
+                  ? (initialData?.status === "rented" ? "Rented" : "Mark as Rented")
+                  : (initialData?.status === "sold" ? "Sold" : "Mark as Sold")
+                }
               </Text>
             </TouchableOpacity>
 

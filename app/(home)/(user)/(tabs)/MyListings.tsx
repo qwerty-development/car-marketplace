@@ -632,7 +632,7 @@ export default function MyListings() {
 				{/* Header */}
 				<View
 					style={{
-						paddingHorizontal: 24,
+ 						paddingHorizontal: 24,
 						paddingTop: 16,
 						paddingBottom: 12,
 						backgroundColor: isDarkMode ? 'black' : 'white',
