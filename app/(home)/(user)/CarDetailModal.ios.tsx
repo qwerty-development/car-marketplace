@@ -680,7 +680,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       if (!carId || !userId) return;
 
       try {
-        const { data, error } = await supabase.rpc("track_car_view", {
+        // Use different RPC function based on whether this is a rental car
+        const rpcFunction = isRental ? "track_cars_view_rent" : "track_car_view";
+        const { data, error } = await supabase.rpc(rpcFunction, {
           car_id: carId,
           user_id: userId,
         });
@@ -691,10 +693,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
           onViewUpdate(carId, data);
         }
       } catch (error) {
-        console.error("Error tracking car view:", error);
+        console.error(`Error tracking ${isRental ? 'rental ' : ''}car view:`, error);
       }
     },
-    [onViewUpdate]
+    [onViewUpdate, isRental]
   );
 
   // Handle clip like with debouncing

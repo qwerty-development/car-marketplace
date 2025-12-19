@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import * as Haptics from 'expo-haptics';
+import { supabase } from "@/utils/supabase";
 import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
 import CachedImage from '@/utils/CachedImage';
@@ -207,6 +208,7 @@ export default function NumberPlateCard({
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const hasTrackedView = useRef(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -244,9 +246,39 @@ export default function NumberPlateCard({
     ]).start();
   }, []);
 
+  // Track number plate view - only once per card instance
+  const trackPlateView = useCallback(async () => {
+    // Skip if already tracked, no user, or user is guest
+    if (hasTrackedView.current || !user?.id || isGuest) return;
+    
+    // Skip if user owns this plate
+    if (user.id === plate.user_id) return;
+    
+    hasTrackedView.current = true;
+    
+    try {
+      const plateId = typeof plate.id === 'string' ? parseInt(plate.id, 10) : plate.id;
+      const { error } = await supabase.rpc("track_number_plate_view", {
+        plate_id: plateId,
+        user_id: user.id,
+      });
+
+      if (error) {
+        console.error("Error tracking plate view:", error);
+        hasTrackedView.current = false; // Allow retry on error
+      }
+    } catch (error) {
+      console.error("Error tracking plate view:", error);
+      hasTrackedView.current = false; // Allow retry on error
+    }
+  }, [plate.id, plate.user_id, user?.id, isGuest]);
+
   const handleCardPress = useCallback(async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      // Track the view when user taps on the card
+      trackPlateView();
       
       Animated.sequence([
         Animated.timing(scaleAnim, {
@@ -267,7 +299,7 @@ export default function NumberPlateCard({
     } catch (error) {
       console.error("Error handling card press:", error);
     }
-  }, [onPress, scaleAnim]);
+  }, [onPress, scaleAnim, trackPlateView]);
 
   const handleCall = useCallback(() => {
     if (plate.seller_phone) {
