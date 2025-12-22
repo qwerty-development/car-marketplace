@@ -114,6 +114,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const authSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const operationTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
+  const profileRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const profileRetryStateRef = useRef<{ userId: string; nextAttempt: number } | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
 
   // For OAuth redirects
   const redirectUri = makeRedirectUri({
@@ -547,6 +554,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
    */
   const fetchUserProfile = async (userId: string): Promise<void> => {
     try {
+      if (!userId) return;
+      if (isGuest) return;
+      if (isGlobalSigningOut || isSigningOutState) return;
+
       const result = await withTimeout(
         supabase
           .from('users')
@@ -566,25 +577,71 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData?.session) {
             const createdProfile = await processOAuthUser(sessionData.session);
-            if (createdProfile) {
+            if (createdProfile && activeUserIdRef.current === userId && !isGlobalSigningOut && !isSigningOutState) {
               setProfile(createdProfile);
               return;
             }
           }
         }
+
+        // Non-blocking, bounded retry for transient failures.
+        // This prevents cases where a slow network or brief backend hiccup leaves profile null until app restart.
+        scheduleProfileRetry(userId, 'profile fetch error');
         return;
       }
 
       if (data) {
-        setProfile(data as UserProfile);
+        if (activeUserIdRef.current === userId && !isGlobalSigningOut && !isSigningOutState) {
+          setProfile(data as UserProfile);
+        }
       }
     } catch (error: any) {
       if (error.message.includes('timed out')) {
         console.warn('[AUTH] Profile fetch timed out');
+        scheduleProfileRetry(userId, 'profile fetch timeout');
       } else {
         console.error('[AUTH] Error in fetchUserProfile:', error);
+        scheduleProfileRetry(userId, 'profile fetch exception');
       }
     }
+  };
+
+  const scheduleProfileRetry = (userId: string, reason: string) => {
+    if (!userId) return;
+    if (isGuest) return;
+    if (isGlobalSigningOut || isSigningOutState) return;
+    if (activeUserIdRef.current && activeUserIdRef.current !== userId) return;
+
+    // If we already have a profile for this user, no retry is needed.
+    if (profile?.id === userId) return;
+
+    const maxAttempts = 3;
+    const baseDelayMs = 600;
+
+    const current = profileRetryStateRef.current;
+    const nextAttempt = current?.userId === userId ? current.nextAttempt : 1;
+
+    if (nextAttempt > maxAttempts) {
+      console.warn(`[AUTH] Profile retry limit reached (${maxAttempts}). Last reason: ${reason}`);
+      return;
+    }
+
+    if (profileRetryTimerRef.current && current?.userId === userId) {
+      // A retry is already scheduled for this user.
+      return;
+    }
+
+    const delayMs = baseDelayMs * Math.pow(2, nextAttempt - 1);
+    console.log(`[AUTH] Scheduling profile retry ${nextAttempt}/${maxAttempts} in ${delayMs}ms (${reason})`);
+
+    profileRetryStateRef.current = { userId, nextAttempt: nextAttempt + 1 };
+
+    profileRetryTimerRef.current = setTimeout(() => {
+      profileRetryTimerRef.current = null;
+      if (isGlobalSigningOut || isSigningOutState) return;
+      if (activeUserIdRef.current && activeUserIdRef.current !== userId) return;
+      fetchUserProfile(userId);
+    }, delayMs);
   };
 
   /**
@@ -597,6 +654,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   
     try {
+      if (profileRetryTimerRef.current) {
+        clearTimeout(profileRetryTimerRef.current);
+        profileRetryTimerRef.current = null;
+      }
+      profileRetryStateRef.current = null;
+      activeUserIdRef.current = null;
+
       setIsSigningOutState(true);
       setIsSigningOut(true);
       setGlobalSigningOut(true);
@@ -1461,6 +1525,12 @@ const forceProfileRefresh = async () => {
       // Clear all timeouts
       operationTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
       operationTimeoutsRef.current.clear();
+
+      if (profileRetryTimerRef.current) {
+        clearTimeout(profileRetryTimerRef.current);
+        profileRetryTimerRef.current = null;
+      }
+      profileRetryStateRef.current = null;
       
       // Clear intervals
       if (tokenVerificationIntervalRef.current) {
