@@ -597,7 +597,7 @@ export default function DealershipProfilePage() {
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF", writingDirection: isRTL ? 'rtl' : 'ltr' }}>
       <ScrollView
         ref={scrollRef}
-        className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-10`}
+        className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"} mb-16`}
         contentContainerStyle={{ writingDirection: isRTL ? 'rtl' : 'ltr' }}
         showsVerticalScrollIndicator={false}
         refreshControl={
