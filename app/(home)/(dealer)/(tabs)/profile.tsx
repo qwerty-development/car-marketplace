@@ -751,27 +751,27 @@ export default function DealershipProfilePage() {
             />
           </TouchableOpacity>
 
-          {/* Messages Button */}
+          {/* Sales History Button */}
           <TouchableOpacity
-            onPress={() => router.push('/(home)/(dealer)/conversations' as any)}
+            onPress={() => router.push('/(home)/(dealer)/(tabs)/sales-history')}
             className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
               p-4 rounded-xl shadow-sm flex-row items-center ${
                 isRTL ? 'flex-row-reverse' : ''
               }`}
           >
             <View className="w-10 h-10 rounded-full bg-orange-500/10 items-center justify-center">
-              <Ionicons name="chatbubbles-outline" size={24} color="#D55004" />
+              <Ionicons name="receipt-outline" size={24} color="#D55004" />
             </View>
             <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
               <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
                 isRTL ? 'text-right' : 'text-left'
               }`}>
-                {t('profile.messages', 'Messages')}
+                {t('profile.sales.sales_history', t('navbar.sales_history'))}
               </Text>
               <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
                 isRTL ? 'text-right' : 'text-left'
               }`}>
-                {t('profile.customer_conversations', 'View customer conversations')}
+                {t('profile.sales.sales_overview', 'Sales Overview')}
               </Text>
             </View>
             <Ionicons

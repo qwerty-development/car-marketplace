@@ -27,6 +27,7 @@ import EnhancedSalesChart from '@/components/FuturisticSalesChart'
 import { useScrollToTop } from '@react-navigation/native'
 import ExportSalesModal from '@/components/ExportSalesModal'
 import { useAuth } from '@/utils/AuthContext'
+import { useRouter } from 'expo-router'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
@@ -52,14 +53,24 @@ interface SaleRecord {
 
 
 
-const CustomHeader = ({ title, dealership }: any) => {
+const CustomHeader = ({ title, dealership, onBackPress }: any) => {
   const { isDarkMode } = useTheme();
 
   return (
     <SafeAreaView style={[styles.headerContainer, { backgroundColor: isDarkMode ? 'black' : 'white' }]}>
-
-
       <View style={styles.titleContainer}>
+        <TouchableOpacity
+          onPress={onBackPress}
+          style={{ paddingRight: 12, paddingVertical: 6 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={isDarkMode ? '#FFFFFF' : '#000000'}
+          />
+        </TouchableOpacity>
+
         <Text style={[styles.titleText, { color: isDarkMode ? 'white' : 'black' }]}>
           {title}
         </Text>
@@ -677,6 +688,7 @@ export default function SalesHistoryPage() {
   const { isDarkMode } = useTheme()
   const { user } = useAuth()
   const { t } = useTranslation()
+  const router = useRouter()
   const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [isLoading, setIsLoading] = useState(true)
@@ -821,7 +833,11 @@ export default function SalesHistoryPage() {
       colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F5F5F5']}
       className='flex-1 mb-12'>
       {/* Header */}
-      <CustomHeader title={t('profile.sales.sales_history')} dealership={dealership} />
+      <CustomHeader
+        title={t('profile.sales.sales_history')}
+        dealership={dealership}
+        onBackPress={() => router.replace('/(home)/(dealer)/(tabs)/profile' as any)}
+      />
 
       {/* KPI Section */}
       <ScrollView

@@ -301,17 +301,26 @@ export default function TabsLayout() {
       />
       
       <Tabs.Screen
-        name='sales-history'
+        name='messages'
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon 
-              name="analytics-outline" 
+              name="chatbubbles-outline" 
               color={color} 
               focused={focused}
             />
           ),
-          headerTitle: t('navbar.analytics'),
-          tabBarLabel: t('navbar.analytics')
+          headerTitle: t('navbar.messages'),
+          tabBarLabel: t('navbar.messages')
+        }}
+      />
+
+      <Tabs.Screen
+        name='sales-history'
+        options={{
+          headerTitle: t('navbar.sales_history'),
+          tabBarLabel: t('navbar.sales_history'),
+          href: null,
         }}
       />
 

@@ -12,11 +12,13 @@ import { useConversations } from '@/hooks/useConversations';
 export default function TabLayout() {
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { isGuest } = useGuestUser();
+
+  const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const { data: conversations } = useConversations({
     userId: user?.id ?? null,
-    enabled: !!user && !isGuest,
+    enabled: !!user && !isGuest && !isDealer,
   });
 
   // Memoize with stable dependency to prevent unnecessary recalculations
@@ -58,16 +60,27 @@ export default function TabLayout() {
             padding: 0, // Remove default padding
           },
           tabBarButton: (props) => {
+            // Expo may pass null for some props (e.g., delayLongPress), which conflicts with TouchableOpacityProps types.
+            const { delayLongPress, disabled, ...rest } = props as typeof props & {
+              delayLongPress?: number | null;
+              disabled?: boolean | null;
+            };
+            const touchableProps = {
+              ...rest,
+              delayLongPress: delayLongPress ?? undefined,
+              disabled: disabled ?? undefined,
+            };
+
             // Skip custom button for autoclips (it has its own special styling)
             if (route.name === 'autoclips') {
-              return <TouchableOpacity {...props} />;
+              return <TouchableOpacity {...(touchableProps as any)} />;
             }
             
             const isSelected = props.accessibilityState?.selected;
             
             return (
               <TouchableOpacity
-                {...props}
+                {...(touchableProps as any)}
                 style={[
                   props.style,
                   {
@@ -108,8 +121,12 @@ export default function TabLayout() {
               iconName = focused ? 'business' : 'business-outline';
             else if (route.name === 'chat')
               iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+            else if (route.name === 'favorites')
+              iconName = focused ? 'heart' : 'heart-outline';
             else if (route.name === 'MyListings')
               iconName = focused ? 'list' : 'list-outline';
+            else if (route.name === 'profile')
+              iconName = focused ? 'person' : 'person-outline';
 
             // Special styling for autoclips button - no orange dot
             if (route.name === 'autoclips') {
@@ -232,18 +249,30 @@ export default function TabLayout() {
         />
         <Tabs.Screen
           name='chat'
-          options={{ 
+          options={{
             headerTitle: t('navbar.chat'),
             headerShown: false,
-            tabBarLabel: t('navbar.chat')
+            tabBarLabel: t('navbar.chat'),
+            href: isDealer ? null : undefined,
+          }}
+        />
+
+        <Tabs.Screen
+          name='favorites'
+          options={{
+            headerTitle: t('navbar.favorites'),
+            headerShown: false,
+            tabBarLabel: t('navbar.favorites'),
+            href: isDealer ? undefined : null,
           }}
         />
         <Tabs.Screen
           name='MyListings'
-          options={{ 
-            headerTitle: t('navbar.listings'), 
+          options={{
+            headerTitle: t('navbar.listings'),
             headerShown: false,
-            tabBarLabel: t('navbar.listings')
+            tabBarLabel: t('navbar.listings'),
+            href: isDealer ? null : undefined,
           }}
         />
         <Tabs.Screen
@@ -252,7 +281,7 @@ export default function TabLayout() {
             headerTitle: t('navbar.profile'), 
             headerShown: false,
             tabBarLabel: t('navbar.profile'),
-            href: null  // Hide profile from tab bar - accessed via header icon
+            href: isDealer ? undefined : null  // Show profile tab for dealers
           }}
         />
       </Tabs>

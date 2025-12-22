@@ -33,6 +33,7 @@ import AdBanner from "@/components/AdBanner";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/utils/ThemeContext";
+import { useAuth } from "@/utils/AuthContext";
 import CategorySelector from "@/components/Category";
 import SortPicker from "@/components/SortPicker";
 import { useLanguage } from "@/utils/LanguageContext";
@@ -107,8 +108,11 @@ interface Filters {
 
 export default function BrowseCarsPage() {
   const { isDarkMode } = useTheme();
+  const { user, profile } = useAuth();
   const { toggleFavorite, isFavorite } = useFavorites();
   const { language } = useLanguage();
+
+  const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const [cars, setCars] = useState<Car[]>([]);
   const [plates, setPlates] = useState<NumberPlate[]>([]);
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('cars');
@@ -1172,23 +1176,24 @@ export default function BrowseCarsPage() {
               />
             </TouchableOpacity>
 
-            {/* Profile Icon */}
-            <TouchableOpacity
-              style={[styles.profileButton, isDarkMode && styles.profileButtonDark]}
-              onPress={() => router.push('/(home)/(user)/(tabs)/profile')}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="person" 
-                size={22} 
-                color={isDarkMode ? '#000' : '#fff'} 
-              />
-            </TouchableOpacity>
+            {!isDealer && (
+              <TouchableOpacity
+                style={[styles.profileButton, isDarkMode && styles.profileButtonDark]}
+                onPress={() => router.push('/(home)/(user)/(tabs)/profile')}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name="person" 
+                  size={22} 
+                  color={isDarkMode ? '#000' : '#fff'} 
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       );
     },
-    [vehicleCategory, isDarkMode, language, router]
+    [vehicleCategory, isDarkMode, language, router, isDealer]
   );
 
   // Buy/Rent tabs section - only shown for vehicles (not plates)
