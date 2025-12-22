@@ -7,14 +7,20 @@
     "apk": {
       "android": {
         "buildType": "apk",
-        "image": "latest"
+        "image": "latest",
+        "env": {
+          "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        }
       }
     },
     "release": {
       "android": {
         "buildType": "app-bundle", 
         "gradleCommand": ":app:bundleRelease",
-        "image": "latest"
+        "image": "latest",
+        "env": {
+          "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+        }
       },
       "ios": {}
     },
@@ -24,7 +30,8 @@
       "channel": "development",
       "env": {
         "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
-        "SENTRY_AUTH_TOKEN":"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"
+        "SENTRY_AUTH_TOKEN":"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",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "ios-simulator": {
@@ -35,7 +42,8 @@
       "channel": "development",
       "env": {
         "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
-        "SENTRY_AUTH_TOKEN":"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"
+        "SENTRY_AUTH_TOKEN":"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",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "preview": {
@@ -43,7 +51,8 @@
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
-         "SENTRY_AUTH_TOKEN":"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"
+         "SENTRY_AUTH_TOKEN":"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",
+         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "production": {
@@ -51,7 +60,8 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_PROJECT_ID": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68",
-         "SENTRY_AUTH_TOKEN":"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"
+         "SENTRY_AUTH_TOKEN":"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",
+         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     }
   },
