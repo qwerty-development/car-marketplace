@@ -25,7 +25,7 @@ import { supabase } from "@/utils/supabase";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import * as Notifications from "expo-notifications";
-import CustomPhoneInput from "@/components/PhoneInput";
+import CustomPhoneInput, { ICountry, getCallingCode } from "@/components/PhoneInput";
 
 maybeCompleteAuthSession();
 
@@ -395,6 +395,7 @@ export default function SignInPage() {
   const [isGuestLoading, setIsGuestLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<ICountry | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
   const [phoneError, setPhoneError] = useState('');
@@ -483,17 +484,22 @@ export default function SignInPage() {
       return;
     }
 
-    // Validate phone number format (should start with + and country code)
-    if (!phoneNumber.startsWith('+')) {
-      setPhoneError('Phone number must include country code (e.g., +961...)');
-      return;
+    // Validate phone number format
+    if (!selectedCountry) {
+       setPhoneError('Please select a country');
+       return;
     }
+    
+    // Clean the phone number (remove spaces, etc)
+    const cleanedPhone = phoneNumber.replace(/\D/g, '');
+    const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
+    const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
 
     setIsLoading(true);
     setPhoneError('');
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        phone: phoneNumber,
+        phone: fullPhoneNumber,
       });
 
       if (error) {
@@ -525,8 +531,12 @@ export default function SignInPage() {
     setIsLoading(true);
     setOtpError('');
     try {
+      const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '') || '';
+      const cleanedPhone = phoneNumber.replace(/\D/g, '');
+      const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
+
       const { data, error } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
+        phone: fullPhoneNumber,
         token: otpCode,
         type: 'sms',
       });
@@ -758,13 +768,12 @@ export default function SignInPage() {
                 <View>
                   <CustomPhoneInput
                     value={phoneNumber}
-                    onChangeFormattedText={(text) => {
+                    onChangePhoneNumber={(text) => {
                       setPhoneNumber(text);
                       if (phoneError) setPhoneError('');
                     }}
-                    defaultCode="LB"
-                    layout="first"
-                    placeholder="Phone number"
+                    selectedCountry={selectedCountry}
+                    onChangeSelectedCountry={setSelectedCountry}
                   />
                   {phoneError && (
                     <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>

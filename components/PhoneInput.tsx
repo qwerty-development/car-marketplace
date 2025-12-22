@@ -1,82 +1,276 @@
-import React, { useState, useRef } from "react";
+import React from "react";
 import { View, Text, StyleSheet, useColorScheme } from "react-native";
-import PhoneInput from "react-native-phone-number-input";
+import PhoneInput, {
+  ICountry,
+  isValidPhoneNumber,
+} from "react-native-international-phone-number";
+import { ICountryCca2 } from "react-native-country-select";
 
-interface CustomPhoneInputProps {
+interface InternationalPhoneInputProps {
   value: string;
-  onChangeText?: (text: string) => void;
-  onChangeFormattedText: (text: string) => void;
-  defaultCode?: "LB" | string;
-  layout?: "first" | "second";
-  containerStyle?: object;
-  textContainerStyle?: object;
-  textInputStyle?: object;
-  placeholder?: string;
+  onChangePhoneNumber: (phoneNumber: string) => void;
+  selectedCountry: ICountry | null;
+  onChangeSelectedCountry: (country: ICountry) => void;
+  error?: string;
+  label?: string;
+  description?: string;
+  defaultCountry?: ICountryCca2;
   disabled?: boolean;
 }
 
-const CustomPhoneInput: React.FC<CustomPhoneInputProps> = ({
+const CustomPhoneInput: React.FC<InternationalPhoneInputProps> = ({
   value,
-  onChangeText,
-  onChangeFormattedText,
-  defaultCode = "LB",
-  layout = "second",
-  containerStyle,
-  textContainerStyle,
-  textInputStyle,
-  placeholder = "Phone number",
+  onChangePhoneNumber,
+  selectedCountry,
+  onChangeSelectedCountry,
+  error,
+  label = "Phone Number",
+  description,
+  defaultCountry = "LB", // Lebanon as default
   disabled = false,
 }) => {
-  const phoneInput = useRef<PhoneInput>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  // List of countries to hide (Israel)
+  const hiddenCountries: ICountryCca2[] = ["IL"];
+
+  // Popular countries to show at the top (Lebanon, UAE, Saudi Arabia, USA, UK, France)
+  const popularCountries: ICountryCca2[] = ["LB", "AE", "SA", "US", "GB", "FR"];
+
   return (
     <View style={styles.container}>
-      {/* @ts-ignore: Library type definition mismatch */}
+      {label && (
+        <Text style={[styles.label, { color: isDark ? "#fff" : "#000" }]}>
+          {label}
+        </Text>
+      )}
       <PhoneInput
-        ref={phoneInput}
-        defaultValue={value}
-        defaultCode={defaultCode}
-        layout={layout}
-        onChangeText={onChangeText}
-        onChangeFormattedText={onChangeFormattedText}
-        placeholder={placeholder}
-        disabled={disabled}
-        containerStyle={[
-          styles.inputContainer,
-          {
-            backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
-            borderColor: isDark ? "#374151" : "#E5E7EB",
+        value={value}
+        onChangePhoneNumber={onChangePhoneNumber}
+        selectedCountry={selectedCountry}
+        onChangeSelectedCountry={onChangeSelectedCountry}
+        defaultCountry={defaultCountry}
+        hiddenCountries={hiddenCountries}
+        popularCountries={popularCountries}
+        language="eng"
+        theme={isDark ? "dark" : "light"}
+        modalType="bottomSheet"
+        initialBottomsheetHeight="70%"
+        maxBottomsheetHeight="85%"
+        minBottomsheetHeight="60%"
+        phoneInputStyles={{
+          container: {
+            backgroundColor: isDark ? "#1f2937" : "#f3f4f6",
+            borderWidth: 1, // Changed to 1 to match existing design
+            borderColor: error ? "#ef4444" : isDark ? "#374151" : "#E5E7EB", // Matched previous colors
+            borderRadius: 12, // Matched previous radius
+            paddingHorizontal: 16,
+            height: 50, // Matched previous height
+            opacity: disabled ? 0.6 : 1,
           },
-          containerStyle,
-        ]}
-        textContainerStyle={[
-          styles.textContainer,
-          {
-            backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
+          flagContainer: {
+            paddingRight: 8,
+            backgroundColor: "transparent",
+            justifyContent: 'center', // Ensure flag is centered vertically
           },
-          textContainerStyle,
-        ]}
-        textInputStyle={[
-          styles.textInput,
-          {
-            color: isDark ? "#fff" : "#000",
+          flag: {
+            fontSize: 24,
+            width: 30, // Fixed width
+            textAlign: 'center',
           },
-          textInputStyle,
-        ]}
-        codeTextStyle={{
-          color: isDark ? "#fff" : "#000",
+          caret: {
+            color: disabled ? "transparent" : isDark ? "#D1D5DB" : "#6B7280",
+            fontSize: 14,
+          },
+          divider: {
+            backgroundColor: isDark ? "#4B5563" : "#D1D5DB",
+            width: 1,
+            marginHorizontal: 8,
+            height: '60%', // Adjusted divider height
+            alignSelf: 'center',
+          },
+          callingCode: {
+            color: isDark ? "#E5E7EB" : "#374151",
+            fontSize: 16,
+            fontWeight: "500",
+          },
+          input: {
+            color: isDark ? "#F9FAFB" : "#111827",
+            fontSize: 16,
+            flex: 1,
+          },
         }}
-        textInputProps={{
-          placeholderTextColor: isDark ? "#6B7280" : "#9CA3AF",
+        modalStyles={{
+          backdrop: {
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+          },
+          container: {
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            shadowColor: "#000",
+            shadowOffset: {
+              width: 0,
+              height: -2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 10,
+            elevation: 5,
+          },
+          content: {
+            paddingVertical: 20,
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          },
+          dragHandleContainer: {
+            paddingVertical: 8,
+            alignItems: "center",
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          },
+          dragHandleIndicator: {
+            width: 40,
+            height: 4,
+            backgroundColor: isDark ? "#6B7280" : "#D1D5DB",
+            borderRadius: 2,
+          },
+          searchContainer: {
+            paddingHorizontal: 16,
+            paddingBottom: 16,
+            paddingTop: 8,
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          },
+          searchInput: {
+            backgroundColor: isDark ? "#374151" : "#f3f4f6",
+            borderWidth: 1,
+            borderColor: isDark ? "#4B5563" : "#e5e7eb",
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            fontSize: 16,
+            color: isDark ? "#F9FAFB" : "#111827",
+          },
+          list: {
+            paddingHorizontal: 16,
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          },
+          countryItem: {
+            paddingVertical: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: isDark
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.05)",
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          },
+          flag: {
+            fontSize: 28,
+            marginRight: 12,
+          },
+          countryInfo: {
+            flex: 1,
+          },
+          callingCode: {
+            color: isDark ? "#D1D5DB" : "#4B5563",
+            fontSize: 14,
+            fontWeight: "600",
+          },
+          countryName: {
+            color: isDark ? "#F9FAFB" : "#111827",
+            fontSize: 16,
+            marginBottom: 2,
+          },
+          sectionTitle: {
+            color: isDark ? "#D1D5DB" : "#4B5563",
+            fontSize: 13,
+            fontWeight: "600",
+            letterSpacing: 0.5,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            backgroundColor: isDark ? "#111827" : "#f3f4f6",
+          },
+          closeButton: {
+            backgroundColor: "#792339",
+            marginHorizontal: 16,
+            marginTop: 12,
+            marginBottom: 20,
+            borderRadius: 12,
+            paddingVertical: 14,
+            shadowColor: "#792339",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          },
+          closeButtonText: {
+            color: "#ffffff",
+            fontSize: 16,
+            fontWeight: "700",
+            textAlign: "center",
+            letterSpacing: 0.5,
+          },
+          countryNotFoundContainer: {
+            padding: 24,
+            alignItems: "center",
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          },
+          countryNotFoundMessage: {
+            color: isDark ? "#9CA3AF" : "#6B7280",
+            fontSize: 16,
+            textAlign: "center",
+          },
+          alphabetContainer: {
+            backgroundColor: isDark ? "#374151" : "#f3f4f6",
+            borderRadius: 8,
+            marginRight: 4,
+            paddingVertical: 4,
+          },
+          alphabetLetter: {
+            paddingVertical: 2,
+            paddingHorizontal: 6,
+          },
+          alphabetLetterText: {
+            color: isDark ? "#E5E7EB" : "#374151",
+            fontSize: 11,
+            fontWeight: "600",
+          },
+          alphabetLetterActive: {
+            backgroundColor: isDark ? "#792339" : "#792339",
+            borderRadius: 4,
+          },
+          alphabetLetterDisabled: {
+            opacity: 0.3,
+          },
+          alphabetLetterTextActive: {
+            color: "#ffffff",
+            fontWeight: "700",
+          },
+          alphabetLetterTextDisabled: {
+            color: isDark ? "#6B7280" : "#9CA3AF",
+          },
         }}
-        countryPickerButtonStyle={{
-          backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
-        }}
-        withShadow={false}
-        autoFocus={false}
+        phoneInputPlaceholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
+        modalSearchInputPlaceholder="Search countries..."
+        modalSearchInputPlaceholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
+        modalSearchInputSelectionColor={isDark ? "#792339" : "#792339"}
+        modalNotFoundCountryMessage="No country found"
+        modalPopularCountriesTitle="Popular"
+        modalAllCountriesTitle="All Countries"
+        showModalScrollIndicator={false}
+        showModalAlphabetFilter={true}
+        allowFontScaling={true}
       />
+      {description && !error && (
+        <Text style={[styles.description, { color: isDark ? "#9CA3AF" : "#6B7280" }]}>
+          {description}
+        </Text>
+      )}
+      {error && (
+        <Text style={[styles.error, { color: isDark ? "#F87171" : "#EF4444" }]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 };
@@ -85,24 +279,27 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
   },
-  inputContainer: {
-    width: "100%",
-    borderRadius: 12,
-    borderWidth: 1,
-    height: 50,
-    overflow: "hidden",
+  label: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 8,
   },
-  textContainer: {
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
+  description: {
+    fontSize: 12,
+    marginTop: 4,
   },
-  textInput: {
-    fontSize: 16,
-    height: 50,
-    paddingVertical: 0,
+  error: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 
+export const getCallingCode = (country: ICountry | null) => {
+  if (!country || !country.idd) return "";
+  const { root, suffixes } = country.idd;
+  if (suffixes.length === 1) return `${root}${suffixes[0]}`;
+  return root;
+};
+
 export default CustomPhoneInput;
+export { isValidPhoneNumber, ICountry, ICountryCca2 };

@@ -23,7 +23,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import CustomPhoneInput from '@/components/PhoneInput';
+import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneInput';
 
 maybeCompleteAuthSession();
 
@@ -353,6 +353,7 @@ export default function SignUpScreen() {
   const [code, setCode] = useState('');
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<ICountry | null>(null);
   const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
   const [errors, setErrors] = useState({
     name: '',
@@ -415,15 +416,19 @@ export default function SignUpScreen() {
       return;
     }
 
-    if (!phoneNumber.startsWith('+')) {
-      setErrors(prev => ({ ...prev, phone: 'Phone number must include country code (e.g., +961...)' }));
-      return;
+    if (!selectedCountry) {
+        setErrors(prev => ({ ...prev, phone: 'Please select a country' }));
+        return;
     }
+
+    const cleanedPhone = phoneNumber.replace(/\D/g, '');
+    const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
+    const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
 
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        phone: phoneNumber,
+        phone: fullPhoneNumber,
       });
 
       if (error) {
@@ -454,8 +459,12 @@ export default function SignUpScreen() {
 
     setIsLoading(true);
     try {
+      const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '') || '';
+      const cleanedPhone = phoneNumber.replace(/\D/g, '');
+      const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
+
       const { data, error } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
+        phone: fullPhoneNumber,
         token: code,
         type: 'sms',
       });
@@ -840,13 +849,12 @@ export default function SignUpScreen() {
                 <View>
                   <CustomPhoneInput
                     value={phoneNumber}
-                    onChangeFormattedText={(text) => {
+                    onChangePhoneNumber={(text) => {
                       setPhoneNumber(text);
                       if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
                     }}
-                    defaultCode="LB"
-                    layout="first"
-                    placeholder="Phone number"
+                    selectedCountry={selectedCountry}
+                    onChangeSelectedCountry={setSelectedCountry}
                   />
                   {errors.phone && (
                     <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
