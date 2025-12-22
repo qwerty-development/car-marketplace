@@ -295,8 +295,10 @@ export default function TabsLayout() {
               focused={focused}
             />
           ),
-          headerTitle: t('navbar.create'),
-          tabBarLabel: t('navbar.create')
+          // Explicit href prevents accidental hiding and improves deep-linking stability
+          href: '/(home)/(dealer)/(tabs)/create-autoclip',
+          headerTitle: t('autoclips.create_autoclip'),
+          tabBarLabel: t('autoclips.create_autoclip')
         }}
       />
       
