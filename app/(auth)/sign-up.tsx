@@ -23,6 +23,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+import CustomPhoneInput from '@/components/PhoneInput';
 
 maybeCompleteAuthSession();
 
@@ -837,23 +838,15 @@ export default function SignUpScreen() {
                 </View>
 
                 <View>
-                  <TextInput
-                    style={{
-                      height: 48,
-                      paddingHorizontal: 16,
-                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                      color: isDark ? '#fff' : '#000',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? '#374151' : '#E5E7EB',
-                    }}
+                  <CustomPhoneInput
                     value={phoneNumber}
-                    placeholder="Phone (+9613123456)"
-                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                    onChangeText={setPhoneNumber}
-                    keyboardType="phone-pad"
-                    autoComplete="tel"
-                    editable={!isLoading}
+                    onChangeFormattedText={(text) => {
+                      setPhoneNumber(text);
+                      if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+                    }}
+                    defaultCode="LB"
+                    layout="first"
+                    placeholder="Phone number"
                   />
                   {errors.phone && (
                     <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>

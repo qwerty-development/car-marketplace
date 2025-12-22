@@ -292,7 +292,7 @@ const DeepLinkHandler = () => {
   const [initialUrl, setInitialUrl] = useState<string | null>(null);
   const initialUrlProcessed = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const initializationTimeoutRef = useRef<NodeJS.Timeout>();
+  const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   // FIXED: Enhanced navigation with better stack management
@@ -959,7 +959,7 @@ function NotificationsProvider() {
 }
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn, isSigningOut, isSigningIn } = useAuth();
+  const { isLoaded, isSignedIn, isSigningOut, isSigningIn, user, profile } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
@@ -971,6 +971,32 @@ function RootLayoutNav() {
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
+
+    // RULE: Enforce Profile Completion
+    if (isSignedIn && !isGuest && user) {
+      // Wait for profile to be loaded
+      if (profile === undefined) return;
+
+      const hasName = !!(profile?.name || user.user_metadata?.name);
+      const hasEmail = !!(profile?.email || user.email);
+      const hasPhone = !!(profile?.phone_number || user.phone);
+      
+      const isMissingFields = !hasName || !hasEmail || !hasPhone;
+      const isOnCompleteProfile = segments[0] === 'complete-profile';
+
+      if (isMissingFields) {
+        if (!isOnCompleteProfile) {
+          console.log('[RootLayout] Profile incomplete, redirecting to /complete-profile');
+          router.replace("/complete-profile");
+        }
+        return; // Stop other routing
+      } else if (isOnCompleteProfile) {
+        // If profile is complete but we are on that page, go home
+        console.log('[RootLayout] Profile complete, redirecting to home');
+        router.replace("/(home)");
+        return;
+      }
+    }
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = segments[0] === "(auth)";
@@ -989,6 +1015,8 @@ function RootLayoutNav() {
     router,
     isSigningOut,
     isSigningIn,
+    user,
+    profile
   ]);
 
   // Mark auth as ready when loaded

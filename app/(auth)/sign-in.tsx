@@ -25,6 +25,7 @@ import { supabase } from "@/utils/supabase";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import * as Notifications from "expo-notifications";
+import CustomPhoneInput from "@/components/PhoneInput";
 
 maybeCompleteAuthSession();
 
@@ -755,24 +756,15 @@ export default function SignInPage() {
             <>
               <View style={{ marginBottom: 16, gap: 16 }}>
                 <View>
-                  <TextInput
-                    style={{
-                      width: "100%",
-                      height: 48,
-                      paddingHorizontal: 16,
-                      backgroundColor: isDark ? "#1F2937" : "#F3F4F6",
-                      color: isDark ? "#fff" : "#000",
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? "#374151" : "#E5E7EB",
-                    }}
+                  <CustomPhoneInput
                     value={phoneNumber}
-                    placeholder="Phone (+9613123456)"
-                    placeholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
-                    onChangeText={setPhoneNumber}
-                    keyboardType="phone-pad"
-                    autoComplete="tel"
-                    editable={!isLoading}
+                    onChangeFormattedText={(text) => {
+                      setPhoneNumber(text);
+                      if (phoneError) setPhoneError('');
+                    }}
+                    defaultCode="LB"
+                    layout="first"
+                    placeholder="Phone number"
                   />
                   {phoneError && (
                     <Text style={{ color: "#D55004", fontSize: 14, marginTop: 4 }}>

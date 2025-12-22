@@ -53,6 +53,7 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
+  phone_number?: string;
   favorite: number[];
   last_active: string;
   timezone: string;
@@ -83,8 +84,8 @@ export const useAuth = () => {
 };
 
 // CRITICAL FIX 2: Timeout utility for async operations
-const withTimeout = <T>(
-  promise: Promise<T>,
+const withTimeout = <T,>(
+  promise: PromiseLike<T>,
   timeoutMs: number,
   operationName: string
 ): Promise<T> => {
@@ -872,7 +873,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 
                 setTimeout(async () => {
                   try {
-                    await registerPushTokenForUser(sessionData.session.user.id);
+                    if (sessionData.session?.user) {
+                      await registerPushTokenForUser(sessionData.session.user.id);
+                    }
                   } catch (tokenError) {
                     console.error('[AUTH] Token registration error during Google sign in:', tokenError);
                   }
@@ -1082,7 +1085,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           
           setTimeout(async () => {
             try {
-              await registerPushTokenForUser(data.user.id);
+              if (data.user) {
+                await registerPushTokenForUser(data.user.id);
+              }
             } catch (tokenError) {
               console.error('[AUTH] Token registration error during sign up:', tokenError);
             }
