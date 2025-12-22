@@ -36,6 +36,8 @@ import { useAuth } from '@/utils/AuthContext'
 import { formatMileage } from '@/utils/formatMileage';
 import { ListingSkeletonLoader } from '../Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
+import { LicensePlateTemplate } from '@/components/NumberPlateCard'
+import { useWindowDimensions } from 'react-native'
 /* CREDIT_DISABLED: Boost system temporarily disabled
 import { BoostListingModal } from '@/components/BoostListingModal'
 import { BoostInsightsWidget } from '@/components/BoostInsightsWidget'
@@ -45,6 +47,7 @@ const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
 
 type ViewMode = 'sale' | 'rent'
+type Category = 'cars' | 'plates' | 'bikes' | 'trucks' | 'license'
 
 interface SegmentedControlProps {
 	mode: ViewMode
@@ -53,23 +56,98 @@ interface SegmentedControlProps {
 	t: (key: string) => string
 }
 
+interface CategoryProps {
+    category: Category
+    onCategoryChange: (category: Category) => void
+    isDarkMode: boolean
+}
+
+const CategorySelector: React.FC<CategoryProps> = ({
+    category,
+    onCategoryChange,
+    isDarkMode
+}) => {
+    const categories: { id: Category; label: string; icon: any }[] = [
+        { id: 'cars', label: 'Cars', icon: 'car-sport' },
+        { id: 'bikes', label: 'Bikes', icon: 'bicycle' },
+        { id: 'trucks', label: 'Trucks', icon: 'bus' },
+        { id: 'license', label: 'License', icon: 'card' },
+    ]
+
+    return (
+        <View style={{ height: 48, marginBottom: 8 }}>
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ 
+                    paddingHorizontal: 16, 
+                    gap: 8, 
+                    alignItems: 'center',
+                    height: '100%'
+                }}
+            >
+            {categories.map((item) => {
+                const isSelected = category === item.id;
+                // Smaller rectangular pill style
+                const bgColor = isSelected 
+                    ? (isDarkMode ? '#FFFFFF' : '#000000') 
+                    : (isDarkMode ? '#1C1C1E' : '#FFFFFF');
+                
+                const textColor = isSelected
+                    ? (isDarkMode ? '#000000' : '#FFFFFF')
+                    : (isDarkMode ? '#FFFFFF' : '#000000');
+
+                return (
+                    <TouchableOpacity
+                        key={item.id}
+                        onPress={() => onCategoryChange(item.id)}
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingVertical: 8,
+                            paddingHorizontal: 12,
+                            borderRadius: 12, // Rectangular pill
+                            backgroundColor: bgColor,
+                            borderWidth: isSelected ? 0 : 1,
+                            borderColor: isDarkMode ? '#333' : '#E5E7EB',
+                            gap: 6
+                        }}
+                    >
+                        <Ionicons 
+                            name={item.icon} 
+                            size={14} // Smaller icon
+                            color={textColor} 
+                        />
+                        <Text style={{
+                            fontWeight: '600',
+                            fontSize: 13,
+                            color: textColor
+                        }}>
+                            {item.label}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            })}
+            </ScrollView>
+        </View>
+    )
+}
+
 const SegmentedControl: React.FC<SegmentedControlProps> = ({
 	mode,
 	onModeChange,
 	isDarkMode,
 	t
 }) => {
-	const screenWidth = Dimensions.get('window').width
-
 	return (
 		<View
 			style={{
 				flexDirection: 'row',
-				backgroundColor: isDarkMode ? '#1F1F1F' : '#F3F4F6',
+				backgroundColor: isDarkMode ? '#1C1C1E' : '#F3F4F6',
 				borderRadius: 12,
 				padding: 4,
 				marginHorizontal: 16,
-				marginVertical: 12
+				marginBottom: 16 // Adjusted margin
 			}}>
 			<TouchableOpacity
 				onPress={() => onModeChange('sale')}
@@ -111,7 +189,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({
 	)
 }
 
-const CustomHeader = ({ title, dealership }:any) => {
+const CustomHeader = ({ title, dealership, onAddPress, subscriptionExpired }:any) => {
   const { isDarkMode } = useTheme();
 
   const styles = StyleSheet.create({
@@ -123,20 +201,40 @@ const CustomHeader = ({ title, dealership }:any) => {
     titleContentWrapper: { // Wrapper for logo and title text
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 16, // Horizontal padding for the content
       paddingTop: Platform.OS === 'ios' ? 8 : 12, // Top padding for the content
     },
+    leftContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
     dealershipLogo: {
-      width: 28, // Slightly larger logo
-      height: 28,
-      borderRadius: 14, // Half of width/height
+      width: 32, // Slightly larger logo
+      height: 32,
+      borderRadius: 16, // Half of width/height
       marginRight: 10, // Space between logo and text
     },
     headerText: { // Style for the main display text (dealership name or fallback)
-      fontSize: 24, // Prominent font size
+      fontSize: 20, // Prominent font size
       fontWeight: 'bold',
       color: isDarkMode ? 'white' : 'black',
       flexShrink: 1, // Allow text to shrink if row is crowded
+    },
+    addButton: {
+        backgroundColor: '#D55004',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        opacity: subscriptionExpired ? 0.5 : 1
+    },
+    addButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14,
     }
   });
 
@@ -147,20 +245,89 @@ const CustomHeader = ({ title, dealership }:any) => {
     // Apply SafeAreaView to the top edge; styles.container handles background and bottom padding.
     <SafeAreaView edges={['top']} style={styles.container}>
       <View style={styles.titleContentWrapper}>
-        {dealership?.logo && ( // Conditionally render logo if available
-          <Image
-            source={{ uri: dealership.logo }}
-            style={styles.dealershipLogo}
-          />
-        )}
-        {/* Display the determined title text, allowing it to ellipsize if too long */}
-        <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">
-          {displayTitleText}
-        </Text>
+        <View style={styles.leftContent}>
+            {dealership?.logo && ( // Conditionally render logo if available
+            <Image
+                source={{ uri: dealership.logo }}
+                style={styles.dealershipLogo}
+            />
+            )}
+            {/* Display the determined title text, allowing it to ellipsize if too long */}
+            <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">
+            {displayTitleText}
+            </Text>
+        </View>
+        
+        <TouchableOpacity 
+            style={styles.addButton} 
+            onPress={onAddPress}
+            disabled={subscriptionExpired}
+        >
+            <Text style={styles.addButtonText}>Add new +</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
+
+// ... (intermediate code omitted)
+
+interface SearchBarProps {
+	searchQuery: string
+	onSearchChange: (query: string) => void
+	onFilterPress: () => void
+    onAddPress: () => void
+	isDarkMode: boolean
+    subscriptionExpired: boolean
+	t: (key: string) => string
+}
+
+// ... (Search bar impl omitted)
+
+// ...
+
+// ...
+
+// Inside the component return (around 1655+):
+
+        /*
+        onAddPress={() => {
+            if (subscriptionExpired) {
+            Alert.alert(
+                'Subscription Expired',
+                'Please renew your subscription to add new listings.'
+            );
+            return;
+            }
+            if (category === 'license') {
+                router.push('/(home)/(dealer)/NumberPlatesManager');
+                return;
+            }
+            
+            // Map category to specific vehicle category if applicable
+            let vehicleCategoryParam: string | undefined;
+            if (category === 'bikes') vehicleCategoryParam = 'Motorcycle';
+            if (category === 'trucks') vehicleCategoryParam = 'Truck';
+            // For 'cars', we don't pass a specific category to allow user to choose Sedan/SUV/etc
+            
+            router.push({
+            pathname: '/(home)/(dealer)/AddEditListing',
+            params: { 
+                dealershipId: dealership.id,
+                mode: viewMode,
+                // Pass the mapped category
+                vehicleCategory: vehicleCategoryParam
+            }
+            });
+        }}
+        */
+
+// ... (omitting intermediate code not relevant to this replacement chuck to stay focused, but need to be careful with range)
+// Actually, I need to update the parent component usage of onAddPress too.
+// I will start a separate chunk for the parent component logic to keep it clean if possible, or include it if range permits.
+// The file is huge, let's look at where CategorySelector is defined. It was around line 59 in previous edit.
+// I'll replace CategorySelector and SegmentedControl definitions first.
+
 
 interface SearchBarProps {
 	searchQuery: string
@@ -227,28 +394,27 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
       <View style={{
         flex: 1,
         flexDirection: 'row',
-        backgroundColor: isDarkMode ? '#505050' : '#e1e1e1',
+        backgroundColor: isDarkMode ? '#1F1F1F' : '#F3F4F6',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 0,
-        marginRight: 12,
-        borderRadius: 16,
-        height: 44
+        borderRadius: 9999, // Pill shape
+        height: 48 // Slightly taller
       }}>
         {/* Search Icon */}
         <Ionicons
-          name='search'
+          name='search-outline'
           size={20}
-          color={isDarkMode ? '#a3a3a3' : '#666666'}
+          color={isDarkMode ? '#a3a3a3' : '#9CA3AF'}
           style={{ marginRight: 8 }}
         />
 
         {/* Search Input */}
         <TextInput
-          placeholder={t('profile.inventory.search_inventory')}
+          placeholder="Search..."
           value={localSearchQuery}
           onChangeText={handleTextChange}
-          placeholderTextColor={isDarkMode ? '#a3a3a3' : '#666666'}
+          placeholderTextColor={isDarkMode ? '#a3a3a3' : '#9CA3AF'}
           style={[
             {
               flex: 1,
@@ -261,50 +427,30 @@ const ModernSearchBar: React.FC<SearchBarProps> = ({
           returnKeyType='search'
         />
 
-        {/* Clear Button - Only show when there's text */}
-        {localSearchQuery.length > 0 && (
-          <TouchableOpacity onPress={handleClearSearch} style={{ padding: 8 }}>
+        {/* Clear Button or Filter Button */}
+        {localSearchQuery.length > 0 ? (
+          <TouchableOpacity onPress={handleClearSearch} style={{ padding: 4 }}>
             <Ionicons
               name='close-circle'
               size={20}
-              color={isDarkMode ? '#a3a3a3' : '#666666'}
+              color={isDarkMode ? '#a3a3a3' : '#9CA3AF'}
             />
           </TouchableOpacity>
-        )}
-      </View>
+        ) : null}
 
-      {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {/* Filter Button */}
-        <TouchableOpacity
+        <View style={{ width: 1, height: 24, backgroundColor: isDarkMode ? '#333' : '#E5E7EB', marginHorizontal: 8 }} />
+
+         {/* Filter Button integrated */}
+         <TouchableOpacity
           onPress={onFilterPress}
           disabled={subscriptionExpired}
           style={{
-            padding: 8,
-            borderRadius: 12,
+            padding: 4,
             opacity: subscriptionExpired ? 0.5 : 1
           }}>
           <Ionicons
-            name='filter'
-            size={24}
-            color={isDarkMode ? '#FFFFFF' : '#000000'}
-          />
-        </TouchableOpacity>
-
-        {/* Add Button */}
-        <TouchableOpacity
-          onPress={onAddPress}
-          disabled={subscriptionExpired}
-          style={{
-            padding: 8,
-            borderRadius: 9999,
-            borderWidth: 1,
-            borderColor: '#10B981',
-            opacity: subscriptionExpired ? 0.5 : 1
-          }}>
-          <Ionicons
-            name='add'
-            size={24}
+            name='options-outline' // Or 'filter'
+            size={20}
             color={isDarkMode ? '#FFFFFF' : '#000000'}
           />
         </TouchableOpacity>
@@ -773,7 +919,10 @@ export default function DealerListings() {
 		null
 	)
 	const [viewMode, setViewMode] = useState<ViewMode>('sale')
-  const router=useRouter()
+    const [category, setCategory] = useState<Category>('cars')
+    const router=useRouter()
+    const { width: windowWidth } = useWindowDimensions()
+	const [plates, setPlates] = useState<any[]>([])
 	const [isListingModalVisible, setIsListingModalVisible] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -849,6 +998,7 @@ export default function DealerListings() {
 	const sortOrderRef = useRef(sortOrder)
 	const searchQueryRef = useRef(searchQuery)
 	const viewModeRef = useRef(viewMode)
+    const categoryRef = useRef(category)
 	const [fetchTrigger, setFetchTrigger] = useState(0)
 
 	const applyFiltersToQuery = (query: any, currentFilters: any) => {
@@ -881,6 +1031,35 @@ export default function DealerListings() {
 			async (page = 1, refresh = false) => {
 				if (!dealership) return
 				
+				const currentViewMode = viewModeRef.current
+                const currentCategory = categoryRef.current
+
+				if (currentCategory === 'license') { // Or 'plates' if you kept that value
+					setIsLoading(true)
+					try {
+						const { data, error } = await supabase
+							.from('number_plates')
+							.select('*')
+							.eq('dealership_id', dealership.id)
+							.neq('status', 'deleted')
+							.order('created_at', { ascending: false })
+
+						if (error) throw error
+						setPlates(data || [])
+						setListings([])
+						// Plates don't support pagination yet in this implementation
+						setHasMoreListings(false)
+					} catch (error) {
+						console.error('Error fetching plates:', error)
+						Alert.alert('Error', 'Failed to fetch number plates')
+					} finally {
+						setIsLoading(false)
+						setIsRefreshing(false)
+						setInitialLoading(false)
+					}
+					return
+				}
+
 				// Only set loading true for pagination, not for initial load
 				if (!refresh && page > 1) {
 					setIsLoading(true)
@@ -895,9 +1074,8 @@ export default function DealerListings() {
 				const currentSortBy = sortByRef.current
 				const currentSortOrder = sortOrderRef.current
 				const currentSearchQuery = searchQueryRef.current
-				const currentViewMode = viewModeRef.current
 
-				// Determine which table to query based on view mode
+				// Determine which table to query based on view mode (only for cars currently)
 				const tableName = currentViewMode === 'sale' ? 'cars' : 'cars_rent'
 
 				// Helper to build a fresh query with all conditions
@@ -1108,6 +1286,37 @@ export default function DealerListings() {
 		async (id: number) => {
 			if (!dealership || !isSubscriptionValid()) return
 			
+			if (category === 'license') {
+		        Alert.alert(
+		          'Delete Plate',
+		          'Are you sure you want to delete this number plate? It will be hidden from all users.',
+		          [
+		            { text: 'Cancel', style: 'cancel' },
+		            {
+		              text: 'Delete',
+		              style: 'destructive',
+		              onPress: async () => {
+		                try {
+		                  const { error: dbError } = await supabase
+		                    .from('number_plates')
+		                    .update({ status: 'deleted' })
+		                    .eq('id', id)
+
+		                  if (dbError) throw dbError
+
+		                  setPlates(prev => prev.filter(p => p.id !== id))
+		                  Alert.alert('Success', 'Number plate deleted successfully')
+		                } catch (error) {
+		                  console.error('Error deleting plate:', error)
+		                  Alert.alert('Error', 'Failed to delete number plate')
+		                }
+		              }
+		            }
+		          ]
+		        )
+				return
+			}
+
 			const tableName = viewMode === 'sale' ? 'cars' : 'cars_rent'
 			
 			Alert.alert(
@@ -1150,21 +1359,21 @@ export default function DealerListings() {
 
 	const SpecItem = ({ title, icon, value, isDarkMode }:any) => (
 		<View className='flex-1 items-center justify-center'>
-			<Text
-				className={`text-xs mb-3 ${
-					isDarkMode ? 'text-[#e6e6e6]' : 'text-textgray'
+            <Text
+				className={`text-[10px] uppercase font-bold text-center mb-1 ${
+					isDarkMode ? 'text-neutral-500' : 'text-neutral-400'
 				}`}
-				style={{ textAlign: 'center' }}>
-				{title}
-			</Text>
+            >
+                {title}
+            </Text>
 			<Ionicons
 				name={icon}
-				size={30}
+				size={20}
 				color={isDarkMode ? '#FFFFFF' : '#000000'}
-				style={{ marginVertical: 3 }}
+				style={{ marginVertical: 2 }}
 			/>
 			<Text
-				className={`text-sm font-bold mt-3 ${
+				className={`text-xs font-bold mt-1 ${
 					isDarkMode ? 'text-white' : 'text-black'
 				}`}
 				style={{ textAlign: 'center' }}>
@@ -1226,6 +1435,13 @@ export default function DealerListings() {
 		setCurrentPage(1)
 		setFetchTrigger(prev => prev + 1)
 	}, [])
+
+    const handleCategoryChange = useCallback((newCategory: Category) => {
+        categoryRef.current = newCategory
+        setCategory(newCategory)
+        setCurrentPage(1)
+        setFetchTrigger(prev => prev + 1)
+    }, [])
 
 	const getStatusConfig = (status: string) => {
 		switch (status.toLowerCase()) {
@@ -1292,14 +1508,26 @@ const ListingCard = useMemo(
           <Animated.View
             entering={FadeInDown}
             className={`m-4 mb-4 ${
-              isDarkMode ? 'bg-textgray' : 'bg-[#e1e1e1]'
-            } rounded-3xl overflow-hidden shadow-xl`}>
+              isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'
+            } rounded-3xl overflow-hidden shadow-sm border ${isDarkMode ? 'border-neutral-800' : 'border-gray-100'}`}>
             {/* Image and Overlays */}
             <View className='relative'>
               <Image
                 source={{ uri: item.images[0] }}
-                className='w-full aspect-[24/24]'
+                className='w-full aspect-[4/3]'
                 resizeMode='cover'
+              />
+
+            {/* Gradient Overlay for Text Readability */}
+              <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.8)']}
+                  style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: '50%',
+                  }}
               />
 
               {/* Top Actions Row */}
@@ -1308,63 +1536,54 @@ const ListingCard = useMemo(
                   {/* Enhanced Status Badge with dot indicator */}
                   <View
                     style={{ backgroundColor: statusConfig.color }}
-                    className='rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
+                    className='rounded-full px-3 py-1.5 flex-row items-center'>
                     <View
                       style={{ backgroundColor: statusConfig.dotColor }}
-                      className='w-2 h-2 rounded-full mr-2 animate-pulse'
+                      className='w-1.5 h-1.5 rounded-full mr-2'
                     />
-                    <Text className='text-white text-xs font-bold uppercase tracking-wider'>
-                      {t(`profile.inventory.${item.status.toLowerCase()}`)}
+                    <Text className='text-white text-[10px] font-bold uppercase tracking-wider'>
+                      {/* {t(`profile.inventory.${item.status.toLowerCase()}`)} */}
+                      AVAILABLE
                     </Text>
-                  </View>
-
-                  {/* Enhanced Stats Container */}
-                  <View className='flex-row space-x-2'>
-                    {/* Views Counter */}
-                    <View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
-                      <FontAwesome name='eye' size={12} color='#FFFFFF' />
-                      <Text className='text-white text-xs font-medium ml-1.5'>
-                        {item.views || 0}
-                      </Text>
-                    </View>
-
-                    {/* Likes Counter */}
-                    <View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
-                      <FontAwesome name='heart' size={12} color='#FFFFFF' />
-                      <Text className='text-white text-xs font-medium ml-1.5'>
-                        {item.likes || 0}
-                      </Text>
-                    </View>
                   </View>
                 </View>
 
-                {/* Remove ellipsis button here - intentionally deleted */}
+                 {/* Enhanced Stats Container */}
+                <View className='flex-row space-x-2'>
+                    <View className='flex-row items-center bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5'>
+                        <FontAwesome name='eye' size={10} color='#FFFFFF' style={{ marginRight: 4 }} />
+                        <Text className='text-white text-[10px] font-bold'>
+                            {item.views || 0}
+                        </Text>
+                        <Text className="text-white/50 mx-1">|</Text>
+                        <FontAwesome name='heart' size={10} color='#FFFFFF' style={{ marginRight: 4 }} />
+                        <Text className='text-white text-[10px] font-bold'>
+                            {item.likes || 0}
+                        </Text>
+                    </View>
+                </View>
               </View>
 
               {/* Enhanced Bottom Content */}
-              <View className='absolute bottom-0 w-full p-5'>
-                <View className='flex-row justify-between items-end'>
-                  <View className='flex-1'>
-                    <Text className='text-white text-2xl font-bold tracking-tight mb-1'>
+              <View className='absolute bottom-0 w-full p-4'>
+                    <Text className='text-white text-xl font-bold tracking-tight mb-0.5' numberOfLines={1}>
                       {item.make} {item.model}
                     </Text>
                     <View className='flex-row items-baseline'>
-                      <Text className='text-white text-3xl font-extrabold'>
+                      <Text className='text-white text-2xl font-extrabold'>
                         ${item.price.toLocaleString()}
                       </Text>
                       {viewMode === 'rent' && item.rental_period && (
-                        <Text className='text-white text-lg font-semibold ml-2'>
+                        <Text className='text-white/80 text-sm font-semibold ml-1'>
                           / {item.rental_period}
                         </Text>
                       )}
                     </View>
-                  </View>
-                </View>
               </View>
             </View>
 
             {/* Enhanced Car Specs Section */}
-            <View className='px-5 py-4'>
+            <View className={`px-4 py-4 ${isDarkMode ? 'bg-[#1a1a1a]' : 'bg-gray-50'}`}>
               <View className='flex-row justify-between'>
                 <SpecItem
                   title={t('profile.inventory.year')}
@@ -1391,7 +1610,7 @@ const ListingCard = useMemo(
                   />
                 )}
                 <SpecItem
-                  title={t('profile.inventory.transmission')}
+                  title='Transm.'
                   icon='cog-outline'
                   value={
                     item.transmission === 'Automatic'
@@ -1490,38 +1709,47 @@ const ListingCard = useMemo(
     style={{ flex: 1 }}>
     {/* Header */}
 	<CustomHeader 
-  title={`Hello ${dealership?.name || 'Dealer'}`} 
-  dealership={dealership} 
-/>
+        title={`Hello ${dealership?.name || 'Dealer'}`} 
+        dealership={dealership} 
+        subscriptionExpired={subscriptionExpired}
+        onAddPress={() => {
+            if (subscriptionExpired) {
+            Alert.alert(
+                'Subscription Expired',
+                'Please renew your subscription to add new listings.'
+            );
+            return;
+            }
+            if (category === 'license') {
+                router.push('/(home)/(dealer)/NumberPlatesManager');
+                return;
+            }
 
-    {/* Subscription Warning */}
-    {(subscriptionExpired || showWarning) && (
-      <BlurView
-        intensity={isDarkMode ? 30 : 50}
-        tint={isDarkMode ? 'dark' : 'light'}
-        style={{
-          marginHorizontal: 24,
-          marginBottom: 16,
-          borderRadius: 12,
-          overflow: 'hidden',
-          backgroundColor: subscriptionExpired ? 'rgba(244, 63, 94, 0.2)' : 'rgba(251, 146, 60, 1)'
-        }}>
-        <View style={{ padding: 16 }}>
-          <Text style={{
-            textAlign: 'center',
-            fontWeight: '800',
-            color: 'white',
-            textShadowColor: 'black',
-            textShadowOffset: { width: 0, height: 1 },
-            textShadowRadius: 1
-          }}>
-            {subscriptionExpired
-              ? 'Your subscription has expired. Please renew to manage listings.'
-              : `Your subscription will expire in ${daysUntilExpiration} days. Please renew soon.`}
-          </Text>
-        </View>
-      </BlurView>
-    )}
+            let vehicleCategoryParam: string | undefined;
+            if (category === 'bikes') vehicleCategoryParam = 'Motorcycle';
+            if (category === 'trucks') vehicleCategoryParam = 'Truck';
+
+            router.push({
+            pathname: '/(home)/(dealer)/AddEditListing',
+            params: { 
+                dealershipId: dealership.id,
+                mode: viewMode,
+                vehicleCategory: vehicleCategoryParam
+            }
+            });
+        }}
+    />
+
+    {/* Search and Filter Bar */}
+    <ModernSearchBar
+      searchQuery={searchQuery}
+      onSearchChange={handleSearchChange}
+      onFilterPress={() => setIsFilterModalVisible(true)}
+      onAddPress={() => {}} // Not used anymore but kept for prop interface
+      isDarkMode={isDarkMode}
+      subscriptionExpired={subscriptionExpired}
+      t={t}
+    />
 
     {/* Segmented Control for Sale/Rent */}
     <SegmentedControl
@@ -1530,51 +1758,73 @@ const ListingCard = useMemo(
       isDarkMode={isDarkMode}
       t={t}
     />
-
-    {/* CREDIT_DISABLED: Boost Performance Insights
-    {dealership?.id && (
-      <BoostInsightsWidget dealershipId={dealership.id} />
-    )}
-    */}
-
-    {/* Search and Filter Bar */}
-    <ModernSearchBar
-      searchQuery={searchQuery}
-      onSearchChange={handleSearchChange}
-      onFilterPress={() => setIsFilterModalVisible(true)}
-      onAddPress={() => {
-        if (subscriptionExpired) {
-      Alert.alert(
-        'Subscription Expired',
-        'Please renew your subscription to add new listings.'
-      );
-      return;
-    }
-    router.push({
-      pathname: '/(home)/(dealer)/AddEditListing',
-      params: { 
-        dealershipId: dealership.id,
-        mode: viewMode
-      }
-    });
-  }}
-      isDarkMode={isDarkMode}
-      subscriptionExpired={subscriptionExpired}
-      t={t}
+    
+    {/* Category Selector */}
+    <CategorySelector
+        category={category}
+        onCategoryChange={handleCategoryChange}
+        isDarkMode={isDarkMode}
     />
 			{/* Listings */}
 			{initialLoading && (
-	<ScrollView>
-		<ListingSkeletonLoader />
-	</ScrollView>
-)}
+                <ScrollView 
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                >
+                    <ListingSkeletonLoader />
+                </ScrollView>
+            )}
 
 {/* Listings - Show when not initially loading */}
 {!initialLoading && (
 	<FlatList
 		ref={scrollRef}
-		data={listings}
-		renderItem={({ item }) => <ListingCard item={item} />}
+		data={category === 'license' ? plates : listings}
+		renderItem={({ item }) => {
+			if (category === 'license') {
+				// Calculate width for consistency with NumberPlatesManager
+				const platePreviewWidth = windowWidth - 64; // Account for padding
+				
+				return (
+					<View className={`m-4 mb-2 ${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} rounded-2xl overflow-hidden`}>
+						<View
+							style={{
+								paddingVertical: 16,
+								paddingHorizontal: 12,
+								backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+								justifyContent: 'center',
+								alignItems: 'center',
+							}}
+						>
+							<LicensePlateTemplate
+								letter={item.letter}
+								digits={item.digits}
+								width={platePreviewWidth}
+							/>
+						</View>
+						<View className="p-4">
+							<View className="flex-row items-center justify-between">
+								<View className="flex-1">
+									<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ letterSpacing: 2 }}>
+										{item.letter} {item.digits}
+									</Text>
+									<Text className={`text-lg text-orange-600 font-semibold mt-1`}>
+										${parseFloat(item.price).toLocaleString()}
+									</Text>
+								</View>
+								<TouchableOpacity
+									onPress={() => handleDeleteListing(item.id)}
+									className="justify-center p-2"
+								>
+									<Ionicons name="trash-outline" size={24} color="#ef4444" />
+								</TouchableOpacity>
+							</View>
+						</View>
+					</View>
+				)
+			}
+			return <ListingCard item={item} />
+		}}
 		keyExtractor={item => item.id.toString()}
 		showsVerticalScrollIndicator={false}
 		onEndReached={handleLoadMore}
