@@ -6,7 +6,9 @@ buildscript {
         minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '24')
         compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
         targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '35')
-        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.25'
+        // Expo SDK 53 / RN 0.79 toolchain expects Kotlin 2.x + matching KSP.
+        // Keeping this pinned avoids KSP task NoSuchMethodError crashes during release builds.
+        kotlinVersion = findProperty('android.kotlinVersion') ?: '2.0.21'
 
         ndkVersion = "27.0.12077973"
     }
@@ -18,7 +20,7 @@ buildscript {
         classpath 'com.google.gms:google-services:4.4.1'
         classpath('com.android.tools.build:gradle:8.5.1')
         classpath('com.facebook.react:react-native-gradle-plugin')
-        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
 }
 
