@@ -98,7 +98,7 @@ export default function CompleteProfileScreen() {
     try {
       const { error } = await updateUserProfile({
         name,
-        email,
+        email: email.trim() ? email : null,
         phone_number: phone,
       });
 

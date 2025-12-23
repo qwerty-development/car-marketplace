@@ -978,10 +978,10 @@ function RootLayoutNav() {
       if (profile === undefined) return;
 
       const hasName = !!(profile?.name || user.user_metadata?.name);
-      const hasEmail = !!(profile?.email || user.email);
       const hasPhone = !!(profile?.phone_number || user.phone);
-      
-      const isMissingFields = !hasName || !hasEmail || !hasPhone;
+
+      // Email is optional in the new flow. Require only name and phone.
+      const isMissingFields = !hasName || !hasPhone;
       const isOnCompleteProfile = segments[0] === 'complete-profile';
 
       if (isMissingFields) {
