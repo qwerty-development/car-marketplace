@@ -18,7 +18,7 @@ export default function TabLayout() {
   const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const { data: conversations } = useConversations({
     userId: user?.id ?? null,
-    enabled: !!user && !isGuest && !isDealer,
+    enabled: !!user && !isGuest, // Enable for dealers too
   });
 
   // Memoize with stable dependency to prevent unnecessary recalculations
@@ -75,9 +75,9 @@ export default function TabLayout() {
             if (route.name === 'autoclips') {
               return <TouchableOpacity {...(touchableProps as any)} />;
             }
-            
+
             const isSelected = props.accessibilityState?.selected;
-            
+
             return (
               <TouchableOpacity
                 {...(touchableProps as any)}
@@ -222,17 +222,17 @@ export default function TabLayout() {
             );
           },
         })}>
-        <Tabs.Screen 
-          name='index' 
-          options={{ 
+        <Tabs.Screen
+          name='index'
+          options={{
             headerTitle: t('navbar.home'),
             tabBarLabel: t('navbar.home')
-          }} 
+          }}
         />
         <Tabs.Screen
           name='dealerships'
-          options={{ 
-            headerTitle: t('navbar.dealerships'), 
+          options={{
+            headerTitle: t('navbar.dealerships'),
             headerShown: false,
             tabBarLabel: t('navbar.dealerships')
           }}
@@ -253,7 +253,7 @@ export default function TabLayout() {
             headerTitle: t('navbar.chat'),
             headerShown: false,
             tabBarLabel: t('navbar.chat'),
-            href: isDealer ? null : undefined,
+            href: undefined, // Always visible
           }}
         />
 
@@ -263,7 +263,7 @@ export default function TabLayout() {
             headerTitle: t('navbar.favorites'),
             headerShown: false,
             tabBarLabel: t('navbar.favorites'),
-            href: isDealer ? undefined : null,
+            href: null, // Always hidden (replaced by chat for dealers, and users already had chat)
           }}
         />
         <Tabs.Screen
@@ -272,13 +272,37 @@ export default function TabLayout() {
             headerTitle: t('navbar.listings'),
             headerShown: false,
             tabBarLabel: t('navbar.listings'),
-            href: isDealer ? null : undefined,
+            href: isDealer ? null : undefined, // Assuming default logic for non-dealers? Wait, original had isDealer ? null : undefined. 
+            // Original logic:
+            // chat: isDealer ? null : undefined (Hidden for Dealer)
+            // favorites: isDealer ? undefined : null (Visible for Dealer)
+            // MyListings: isDealer ? null : undefined (Hidden for Dealer)
+
+            // User Request: "instead of favorites tab let's put a chat tab"
+            // So for Dealer: Chat=Visible, Favorites=Hidden
+            // For User: Chat=Visible, Favorites=Hidden (default behavior?)
+            // Actually, let's double check regular user behavior.
+            // Regular user has Chat. Did they have Favorites?
+            // Original code:
+            // chat: isDealer ? null : undefined (User sees Chat)
+            // favorites: isDealer ? undefined : null (User does NOT see Favorites)
+
+            // So originally:
+            // User: Chat [YES], Favorites [NO]
+            // Dealer: Chat [NO], Favorites [YES]
+
+            // New Request:
+            // Dealer: Chat [YES], Favorites [NO]
+            // User: Chat [YES], Favorites [NO] (No change for User)
+
+            // So Chat is ALWAYS visible (href: undefined)
+            // Favorites is ALWAYS hidden (href: null)
           }}
         />
         <Tabs.Screen
           name='profile'
-          options={{ 
-            headerTitle: t('navbar.profile'), 
+          options={{
+            headerTitle: t('navbar.profile'),
             headerShown: false,
             tabBarLabel: t('navbar.profile'),
             href: isDealer ? undefined : null  // Show profile tab for dealers
