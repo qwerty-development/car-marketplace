@@ -979,8 +979,8 @@ function RootLayoutNav() {
 
       const hasName = !!(profile?.name || user.user_metadata?.name);
       const hasPhone = !!(profile?.phone_number || user.phone);
-
-      // Email is optional in the new flow. Require only name and phone.
+      
+      // Only require name and phone - email is optional
       const isMissingFields = !hasName || !hasPhone;
       const isOnCompleteProfile = segments[0] === 'complete-profile';
 
