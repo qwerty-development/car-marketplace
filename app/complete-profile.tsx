@@ -73,10 +73,8 @@ export default function CompleteProfileScreen() {
       isValid = false;
     }
 
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-      isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
+    // Email is optional, but validate format if provided
+    if (email.trim() && !/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Invalid email format';
       isValid = false;
     }
@@ -217,7 +215,7 @@ export default function CompleteProfileScreen() {
                 marginBottom: 8,
                 fontWeight: '600'
               }}>
-                Email Address *
+                Email Address (Optional)
               </Text>
               <TextInput
                 style={{
