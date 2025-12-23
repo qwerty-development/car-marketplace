@@ -406,11 +406,6 @@ export default function SignUpScreen() {
 
   // Phone OTP send handler
   const handlePhoneSignUp = async () => {
-    if (!name.trim()) {
-      setErrors(prev => ({ ...prev, name: 'Name is required' }));
-      return;
-    }
-
     if (!phoneNumber) {
       setErrors(prev => ({ ...prev, phone: 'Phone number is required' }));
       return;
@@ -475,16 +470,6 @@ export default function SignUpScreen() {
       }
 
       if (data.user) {
-        // Update profile with name
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ name: name })
-          .eq('id', data.user.id);
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-        }
-
         Alert.alert(
           'Success',
           'Your account has been verified successfully.',
@@ -820,32 +805,6 @@ export default function SignUpScreen() {
           ) : (
             <>
               <View style={{ gap: 16 }}>
-                <View>
-                  <TextInput
-                    style={{
-                      height: 48,
-                      paddingHorizontal: 16,
-                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                      color: isDark ? '#fff' : '#000',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? '#374151' : '#E5E7EB',
-                    }}
-                    value={name}
-                    placeholder="Full Name"
-                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                    onChangeText={setName}
-                    autoCapitalize="words"
-                    autoComplete="name"
-                    editable={!isLoading}
-                  />
-                  {errors.name && (
-                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                      {errors.name}
-                    </Text>
-                  )}
-                </View>
-
                 <View>
                   <CustomPhoneInput
                     value={phoneNumber}
