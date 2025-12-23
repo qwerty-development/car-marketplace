@@ -974,26 +974,33 @@ function RootLayoutNav() {
 
     // RULE: Enforce Profile Completion
     if (isSignedIn && !isGuest && user) {
-      // Wait for profile to be loaded
-      if (profile === undefined) return;
-
       const hasName = !!(profile?.name || user.user_metadata?.name);
-      const hasPhone = !!(profile?.phone_number || user.phone);
       
-      // Only require name and phone - email is optional
-      const isMissingFields = !hasName || !hasPhone;
+      // Check if phone is verified (not just present)
+      // user.phone exists but user.phone_confirmed_at is null means phone is pending verification
+      const hasVerifiedPhone = !!(user.phone && user.phone_confirmed_at);
+      
+      // Only require name and verified phone - email is optional
+      const isMissingFields = !hasName || !hasVerifiedPhone;
       const isOnCompleteProfile = segments[0] === 'complete-profile';
 
       if (isMissingFields) {
+        // If profile is still loading but we can already see user needs phone verification,
+        // redirect immediately (don't wait for profile to fully load)
         if (!isOnCompleteProfile) {
-          console.log('[RootLayout] Profile incomplete, redirecting to /complete-profile');
+          console.log('[RootLayout] Profile incomplete (missing name or unverified phone), redirecting to /complete-profile');
           router.replace("/complete-profile");
         }
         return; // Stop other routing
       } else if (isOnCompleteProfile) {
-        // If profile is complete but we are on that page, go home
+        // Profile is complete but we are on that page, go home
         console.log('[RootLayout] Profile complete, redirecting to home');
         router.replace("/(home)");
+        return;
+      } else if (profile === undefined) {
+        // Profile looks complete based on user object, but profile hasn't loaded yet
+        // Wait for profile to load before allowing navigation
+        console.log('[RootLayout] Waiting for profile to load...');
         return;
       }
     }

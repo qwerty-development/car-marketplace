@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CustomPhoneInput from '@/components/PhoneInput';
+import { supabase } from '@/utils/supabase';
 
 export default function CompleteProfileScreen() {
   const { user, profile, updateUserProfile, signOut } = useAuth();
@@ -26,6 +27,7 @@ export default function CompleteProfileScreen() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [originalEmail, setOriginalEmail] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({
@@ -39,7 +41,9 @@ export default function CompleteProfileScreen() {
   useEffect(() => {
     if (user) {
       setName(profile?.name || user.user_metadata?.name || '');
-      setEmail(profile?.email || user.email || '');
+      const currentEmail = profile?.email || user.email || '';
+      setEmail(currentEmail);
+      setOriginalEmail(currentEmail || null);
       setPhone(profile?.phone_number || user.phone || '');
     }
   }, [user, profile]);
@@ -96,20 +100,120 @@ export default function CompleteProfileScreen() {
 
     setIsLoading(true);
     try {
+      const trimmedEmail = email.trim().toLowerCase();
+      const hasNewEmail = trimmedEmail && trimmedEmail !== originalEmail?.toLowerCase();
+      
+      // Check if user needs to add/verify phone number
+      // User signed up with email if they don't have a confirmed phone
+      const needsPhoneVerification = !user?.phone_confirmed_at && phone.trim();
+      
+      // First update the profile data (name, but NOT phone yet if it needs verification)
       const { error } = await updateUserProfile({
         name,
-        email: email.trim() ? email : null,
-        phone_number: phone,
+        email: hasNewEmail ? undefined : (trimmedEmail || undefined),
+        phone_number: needsPhoneVerification ? undefined : phone, // Only save phone if already verified
       });
 
       if (error) {
         throw error;
       }
       
+      // If user needs to add phone to Auth, trigger phone verification
+      if (needsPhoneVerification) {
+        try {
+          console.log('[CompleteProfile] Adding phone to Auth:', phone);
+          const { error: phoneError } = await supabase.auth.updateUser({
+            phone: phone.trim(),
+          });
+
+          if (phoneError) {
+            if (phoneError.message.includes('already registered') || 
+                phoneError.message.includes('already been registered')) {
+              throw new Error('This phone number is already in use by another account.');
+            } else if (phoneError.message.includes('rate limit')) {
+              throw new Error('Too many requests. Please wait a moment and try again.');
+            } else {
+              throw phoneError;
+            }
+          }
+
+          // Navigate to OTP verification screen
+          Alert.alert(
+            'Verify Your Phone Number',
+            'We\'ve sent a verification code to your phone. Please verify it to complete your profile.',
+            [
+              {
+                text: 'Continue',
+                onPress: () => {
+                  router.push({
+                    pathname: '/(home)/(user)/VerifyPhoneOtp',
+                    params: {
+                      phone: phone.trim(),
+                      fromCompleteProfile: 'true',
+                    },
+                  });
+                },
+              },
+            ]
+          );
+          return;
+        } catch (phoneError: any) {
+          console.error('Phone verification trigger failed:', phoneError);
+          throw phoneError;
+        }
+      }
+      
+      // If user is adding/changing email, trigger verification flow
+      if (hasNewEmail) {
+        try {
+          // Trigger email change verification
+          const { error: emailError } = await supabase.auth.updateUser({
+            email: trimmedEmail,
+          });
+
+          if (emailError) {
+            if (emailError.message.includes('already registered') || 
+                emailError.message.includes('already been registered')) {
+              throw new Error('This email is already in use by another account.');
+            } else if (emailError.message.includes('rate limit')) {
+              throw new Error('Too many requests. Please wait a moment and try again.');
+            } else {
+              throw emailError;
+            }
+          }
+
+          // Navigate to OTP verification screen
+          Alert.alert(
+            'Verify Your Email',
+            'We\'ve sent a verification code to your email address. Please verify it to complete your profile.',
+            [
+              {
+                text: 'Continue',
+                onPress: () => {
+                  router.push({
+                    pathname: '/(home)/(user)/VerifyEmailOtp',
+                    params: {
+                      email: trimmedEmail,
+                      isChange: 'false',
+                    },
+                  });
+                },
+              },
+            ]
+          );
+        } catch (emailError: any) {
+          console.error('Email verification trigger failed:', emailError);
+          // Profile was saved successfully, but email verification failed
+          // Show error but don't block the user - they can add email later
+          Alert.alert(
+            'Email Verification Failed',
+            emailError.message || 'Unable to send verification email. You can add your email later from your profile settings.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
       // Success is handled by the auth state listener in _layout which will unblock the user
-      // But we can also manually push if needed, though relying on the state change is better.
-      // For now, we will show success and let the main layout check proceed?
-      // Actually, if we update the profile, the context should update, and the layout enforcement will automatically let them through.
+      // If no verification needed, the profile update is complete
       
     } catch (error: any) {
       console.error('Profile completion failed:', error);
@@ -217,6 +321,15 @@ export default function CompleteProfileScreen() {
               }}>
                 Email Address (Optional)
               </Text>
+              {!originalEmail && (
+                <Text style={{ 
+                  color: isDark ? '#9CA3AF' : '#6B7280',
+                  marginBottom: 8,
+                  fontSize: 13,
+                }}>
+                  Adding an email will require verification
+                </Text>
+              )}
               <TextInput
                 style={{
                   height: 50,
@@ -236,7 +349,7 @@ export default function CompleteProfileScreen() {
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                editable={!isLoading && !user?.email} // Disable if email comes from auth? Maybe valid to change here.
+                editable={!isLoading}
               />
                {errors.email ? (
                 <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4 }}>
