@@ -62,18 +62,21 @@ interface CategoryProps {
     isDarkMode: boolean
 }
 
-const CategorySelector: React.FC<CategoryProps> = ({
-    category,
-    onCategoryChange,
-    isDarkMode
+const CategorySelector: React.FC<CategoryProps & { mode: ViewMode }> = ({
+	category,
+	onCategoryChange,
+	isDarkMode,
+	mode
 }) => {
-    const categories: { id: Category; label: string; icon: any }[] = [
-        { id: 'cars', label: 'Cars', icon: 'car-sport' },
-        { id: 'bikes', label: 'Bikes', icon: 'bicycle' },
-        { id: 'trucks', label: 'Trucks', icon: 'bus' },
-        { id: 'license', label: 'License', icon: 'card' },
-    ]
+	const allCategories: { id: Category; label: string; icon: any }[] = [
+		{ id: 'cars', label: 'Cars', icon: 'car-sport' },
+		{ id: 'bikes', label: 'Bikes', icon: 'bicycle' },
+		{ id: 'trucks', label: 'Trucks', icon: 'bus' },
+		{ id: 'license', label: 'License', icon: 'card' },
+	]
 
+	// Do not show the 'license' category when in rent mode (can't rent number plates)
+	const categories = mode === 'rent' ? allCategories.filter(c => c.id !== 'license') : allCategories
     return (
         <View style={{ height: 48, marginBottom: 8 }}>
             <ScrollView 
@@ -1432,6 +1435,13 @@ export default function DealerListings() {
 	const handleViewModeChange = useCallback((mode: ViewMode) => {
 		viewModeRef.current = mode
 		setViewMode(mode)
+
+		// If switching to rent mode, ensure we don't stay on the 'license' category
+		if (mode === 'rent' && categoryRef.current === 'license') {
+			categoryRef.current = 'cars'
+			setCategory('cars')
+		}
+
 		setCurrentPage(1)
 		setFetchTrigger(prev => prev + 1)
 	}, [])
@@ -1762,8 +1772,9 @@ const ListingCard = useMemo(
     {/* Category Selector */}
     <CategorySelector
         category={category}
-        onCategoryChange={handleCategoryChange}
-        isDarkMode={isDarkMode}
+				onCategoryChange={handleCategoryChange}
+				isDarkMode={isDarkMode}
+				mode={viewMode}
     />
 			{/* Listings */}
 			{initialLoading && (
