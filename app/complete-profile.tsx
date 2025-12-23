@@ -73,10 +73,8 @@ export default function CompleteProfileScreen() {
       isValid = false;
     }
 
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-      isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
+    // Email is optional. If provided, validate format.
+    if (email.trim() && !/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Invalid email format';
       isValid = false;
     }
@@ -213,12 +211,12 @@ export default function CompleteProfileScreen() {
             {/* Email Input */}
             <View>
               <Text style={{ 
-                color: isDark ? '#E5E7EB' : '#374151',
-                marginBottom: 8,
-                fontWeight: '600'
-              }}>
-                Email Address *
-              </Text>
+                  color: isDark ? '#E5E7EB' : '#374151',
+                  marginBottom: 8,
+                  fontWeight: '600'
+                }}>
+                  Email Address (optional)
+                </Text>
               <TextInput
                 style={{
                   height: 50,
