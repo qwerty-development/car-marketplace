@@ -543,6 +543,22 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
       {/* Header */}
       <View className={`px-4 py-4 border-b ${isDarkMode ? 'border-neutral-800 bg-black' : 'border-neutral-200 bg-neutral-50'}`}>
         <View className="flex-row items-center pr-14">{/* pr-14 reserves space for external close X */}
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            onPress={() => {
+              if (onClose) {
+                onClose();
+              } else {
+                router.back();
+              }
+            }}
+            className="w-9 h-9 rounded-full items-center justify-center mr-3"
+            activeOpacity={0.75}
+            style={{ marginRight: 6 }}
+          >
+            <Ionicons name="arrow-back" size={20} color={isDarkMode ? '#fff' : '#000'} />
+          </TouchableOpacity>
+
           <View className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-full items-center justify-center mr-3 shadow-lg">
             <MaterialCommunityIcons name="robot-outline" size={20} color="white" />
           </View>
