@@ -2347,8 +2347,8 @@ features
           </ScrollView>
         </View>
 
-        {/* Show Vehicle Source only for Sale mode */}
-        {viewMode === 'sale' && (
+        {/* Show Vehicle Source only for Sale mode AND Dealer mode */}
+        {viewMode === 'sale' && !isUserMode && (
           <View className="mb-8">
             <SectionHeader
               title={ready ? t('car.vehicle_source') : 'Vehicle Source'}
@@ -2574,8 +2574,8 @@ features
           />
         </View>
 
-        {/* Show Purchase Information only for Sale mode */}
-        {viewMode === 'sale' && (
+        {/* Show Purchase Information only for Sale mode AND Dealer mode */}
+        {viewMode === 'sale' && !isUserMode && (
           <View className="mb-8">
             <SectionHeader
               title={ready ? t('car.purchase_information') : 'Purchase Information'}
