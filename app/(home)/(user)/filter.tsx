@@ -101,8 +101,8 @@ export const VEHICLE_COLORS = [
   // 2. Black (22 %)
   { name: 'Black', nameKey: 'colors.Black', gradient: ['#000000', '#1a1a1a'] },
 
-  // 3. Neutral/Gray (20 %)
-  { name: 'Neutral', nameKey: 'colors.Neutral', gradient: ['#808080', '#666666'] },
+  // 3. Gray (20 %)
+  { name: 'Gray', nameKey: 'colors.Gray', gradient: ['#808080', '#666666'] },
 
   // 4. Silver (14 %)
   { name: 'Silver', nameKey: 'colors.Silver', gradient: ['#C0C0C0', '#A8A8A8'] },
