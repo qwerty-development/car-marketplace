@@ -7,6 +7,7 @@ import {
   Platform,
   Text,
   View,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
@@ -14,6 +15,7 @@ import { useQuery } from 'react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import { ChatService } from '@/services/ChatService';
@@ -80,6 +82,16 @@ export default function DealerConversationDetailScreen() {
 
     navigation.setOptions({
       title: customerLabel,
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ paddingHorizontal: 8, paddingVertical: 6 }}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+        >
+          <Ionicons name="chevron-back" size={22} color={isDarkMode ? '#fff' : '#000'} />
+        </TouchableOpacity>
+      ),
     });
   }, [conversation, navigation, t, fetchedUserName]);
 

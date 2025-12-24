@@ -660,7 +660,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   const sellerInfo = useMemo(() => ({
     name: isDealershipCar ? car.dealership_name : car.seller_name || car.users?.name || t('common.private_seller'),
     logo: isDealershipCar ? car.dealership_logo : null,
-    phone: isDealershipCar ? car.dealership_phone : car.seller_phone || car.phone,
+    phone: isDealershipCar ? car.dealership_phone : car.users?.phone_number || car.seller_phone || car.phone,
     location: isDealershipCar ? car.dealership_location : car.location || null,
     id: isDealershipCar ? car.dealership_id : car.user_id,
   }), [car, isDealershipCar, t]);
@@ -1766,66 +1766,70 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <TouchableOpacity
-                onPress={handleDealershipPress}
-                disabled={!isDealershipCar}
-              >
-                {isDealershipCar && sellerInfo.logo ? (
-                  <OptimizedImage
-                    source={{ uri: sellerInfo.logo }}
-                    style={{ width: 50, height: 50, borderRadius: 25 }}
-                    fallbackColor={isDarkMode ? '#333' : '#e0e0e0'}
+            <TouchableOpacity
+              onPress={handleDealershipPress}
+              disabled={!isDealershipCar}
+              style={{ width: 60 }} // Fixed width for avatar container
+            >
+              {isDealershipCar && sellerInfo.logo ? (
+                <OptimizedImage
+                  source={{ uri: sellerInfo.logo }}
+                  style={{ width: 50, height: 50, borderRadius: 25 }}
+                  fallbackColor={isDarkMode ? '#333' : '#e0e0e0'}
+                />
+              ) : (
+                <View style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  backgroundColor: isDarkMode ? '#333' : '#e0e0e0',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
+                  <Ionicons
+                    name={isDealershipCar ? "business-outline" : "person-outline"}
+                    size={24}
+                    color={isDarkMode ? '#999' : '#555'}
                   />
-                ) : (
-                  <View style={{
-                    width: 50,
-                    height: 50,
-                    borderRadius: 25,
-                    backgroundColor: isDarkMode ? '#333' : '#e0e0e0',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                    <Ionicons
-                      name={isDealershipCar ? "business-outline" : "person-outline"}
-                      size={24}
-                      color={isDarkMode ? '#999' : '#555'}
-                    />
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleDealershipPress}
-                disabled={!isDealershipCar}
-              >
-                <View style={{ marginLeft: 12 }}>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={handleDealershipPress}
+              disabled={!isDealershipCar}
+              style={{ flex: 1, paddingLeft: 8 }}
+            >
+              <View style={{ alignItems: 'flex-start' }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: isDarkMode ? "#fff" : "#000",
+                    textAlign: 'left'
+                  }}
+                  numberOfLines={2}
+                >
+                  {sellerInfo.name}
+                </Text>
+
+                {sellerInfo.location && (
                   <Text
                     style={{
-                      fontSize: 16,
-                      fontWeight: '500',
-                      color: isDarkMode ? "#fff" : "#000"
+                      fontSize: 13,
+                      color: isDarkMode ? "#aaa" : "#555",
+                      textAlign: 'left',
+                      marginTop: 2
                     }}
                     numberOfLines={1}
                   >
-                    {sellerInfo.name}
+                    <Ionicons name="location" size={12} color={isDarkMode ? "#aaa" : "#555"} /> {sellerInfo.location}
                   </Text>
+                )}
+              </View>
+            </TouchableOpacity>
 
-                  {sellerInfo.location && (
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: isDarkMode ? "#fff" : "#000",
-                        marginRight: 28
-                      }}
-                      numberOfLines={2}
-                    >
-                      <Ionicons name="location" size={12} /> {sellerInfo.location}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={{ flexDirection: 'row' }}>
+            <View style={{ width: 110, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
               <ActionButton
                 icon="call-outline"
                 onPress={handleCall}
@@ -1838,10 +1842,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
               />
               <TouchableOpacity 
                 onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (Platform.OS !== 'web') {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
                   handleShare();
                 }} 
-                className="items-center mx-2"
+                className="items-center mx-1"
               >
                 <Ionicons
                   name="share-social-outline"

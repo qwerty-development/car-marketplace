@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/utils/supabase";
+import * as Haptics from "expo-haptics";
 import { debounce } from "@/utils/debounce";
 import { useFavorites } from "@/utils/useFavorites";
 import { useRouter } from "expo-router";
@@ -439,21 +440,21 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   const sellerInfo = useMemo(() => ({
     name: isDealershipCar ? car.dealership_name : car.seller_name || car.users?.name || t('common.private_seller'),
     logo: isDealershipCar ? car.dealership_logo : null,
-    phone: isDealershipCar ? car.dealership_phone : car.seller_phone || car.phone,
+    phone: isDealershipCar ? car.dealership_phone : car.users?.phone_number || car.seller_phone || car.phone,
     location: isDealershipCar ? car.dealership_location : car.location || null,
     id: isDealershipCar ? car.dealership_id : car.user_id,
   }), [car, isDealershipCar, t]);
 
   // Split state into critical and non-critical groups
   const [criticalState, setCriticalState] = useState({
-    autoclips: [],
-    selectedClip: null,
+    autoclips: [] as any[],
+    selectedClip: null as any,
     showClipModal: false,
   });
 
   const [nonCriticalState, setNonCriticalState] = useState({
-    similarCars: [],
-    dealerCars: [],
+    similarCars: [] as any[],
+    dealerCars: [] as any[],
     isMapVisible: false,
   });
 
@@ -749,7 +750,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       const tableName = isRental ? 'cars_rent' : 'cars';
 
       // First, try to find cars with same make, model, and year
-      let { data: exactMatches, error: exactMatchError } = await supabase
+      let { data: exactMatches, error: exactMatchError } = (await supabase
         .from(tableName)
         .select(
           "id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo, phone, location, latitude, longitude)"
@@ -759,7 +760,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         .eq("year", car.year)
         .neq("id", car.id)
         .eq("status", "available")
-        .limit(5);
+        .limit(5)) as { data: any[] | null, error: any };
 
       if (exactMatchError) throw exactMatchError;
 
@@ -795,7 +796,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
 
       // If no exact matches, fall back to similarly priced cars
       if (car.price) {
-        const { data: priceMatches, error: priceMatchError } = await supabase
+        const { data: priceMatches, error: priceMatchError } = (await supabase
           .from(tableName)
           .select(
             "id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo, phone, location, latitude, longitude)"
@@ -804,7 +805,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
           .eq("status", "available")
           .gte("price", Math.floor(car.price * 0.8))
           .lte("price", Math.floor(car.price * 1.2))
-          .limit(5);
+          .limit(5)) as { data: any[] | null, error: any };
 
         if (priceMatchError) throw priceMatchError;
 
@@ -856,7 +857,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       // Determine which table to query based on whether this is a rental car
       const tableName = isRental ? 'cars_rent' : 'cars';
 
-      const { data, error } = await supabase
+      const { data, error } = (await supabase
         .from(tableName)
         .select(
           "id, make, model, year, price, images, dealership_id, dealerships:dealership_id (name, logo)"
@@ -864,7 +865,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         .eq("dealership_id", car.dealership_id)
         .eq("status", "available")
         .neq("id", car.id)
-        .limit(5);
+        .limit(5)) as { data: any[] | null, error: any };
 
       if (error) throw error;
 
@@ -1683,7 +1684,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   ]);
 
   // First, let's create a CarSectionSkeleton component that doesn't include titles
-  const CarSectionSkeleton = memo(({ isDarkMode }) => {
+  const CarSectionSkeleton = memo(({ isDarkMode }: { isDarkMode: boolean }) => {
     return (
       <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
         <FlatList
@@ -1970,10 +1971,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             width: "100%",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, justifyContent: 'space-between' }}>
             <TouchableOpacity
               onPress={handleDealershipPress}
               disabled={!isDealershipCar}
+              style={{ width: 60 }} // Fixed width for avatar container
             >
               {isDealershipCar && sellerInfo.logo ? (
                 <OptimizedImage
@@ -2000,19 +2002,19 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                 </View>
               )}
             </TouchableOpacity>
-
+            
             <TouchableOpacity
               onPress={handleDealershipPress}
               disabled={!isDealershipCar}
-              style={{ flex: 1 }}
+              style={{ flex: 1, paddingLeft: 8 }}
             >
-              <View style={{ flex: 1, marginLeft: 12, marginRight: 8, alignItems: 'center' }}>
+              <View style={{ alignItems: 'flex-start' }}>
                 <Text
                   style={{
                     fontSize: 16,
-                    fontWeight: "500",
+                    fontWeight: "600",
                     color: isDarkMode ? "#fff" : "#000",
-                    textAlign: 'center'
+                    textAlign: 'left'
                   }}
                   numberOfLines={2}
                   adjustsFontSizeToFit={true}
@@ -2024,38 +2026,47 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                 {sellerInfo.location && (
                   <Text
                     style={{
-                      fontSize: 14,
-                      color: isDarkMode ? "#fff" : "#000",
-                      textAlign: 'center'
+                      fontSize: 13,
+                      color: isDarkMode ? "#aaa" : "#555",
+                      textAlign: 'left',
+                      marginTop: 2
                     }}
-                    numberOfLines={2}
-                    adjustsFontSizeToFit={true}
-                    minimumFontScale={0.7}
+                    numberOfLines={1}
                   >
-                    <Ionicons name="location" size={12} />
+                    <Ionicons name="location" size={11} color={isDarkMode ? "#aaa" : "#555"} />
                     {sellerInfo.location}
                   </Text>
                 )}
               </View>
             </TouchableOpacity>
-          </View>
 
-          <View style={{ flexDirection: "row" }}>
-            <ActionButton
-              icon="call-outline"
-              onPress={handleCall}
-              isDarkMode={isDarkMode}
-            />
-            <ActionButton
-              icon="logo-whatsapp"
-              onPress={handleWhatsAppPress}
-              isDarkMode={isDarkMode}
-            />
-            <ActionButton
-              icon="share-outline"
-              onPress={handleShare}
-              isDarkMode={isDarkMode}
-            />
+            <View style={{ width: 110, flexDirection: "row", justifyContent: 'flex-end', alignItems: 'center' }}>
+              <ActionButton
+                icon="call-outline"
+                onPress={handleCall}
+                isDarkMode={isDarkMode}
+              />
+              <ActionButton
+                icon="logo-whatsapp"
+                onPress={handleWhatsAppPress}
+                isDarkMode={isDarkMode}
+              />
+              <TouchableOpacity 
+                onPress={async () => {
+                  if (Platform.OS !== 'web') {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  handleShare();
+                }} 
+                style={{ alignItems: 'center', marginHorizontal: 4 }}
+              >
+                <Ionicons
+                  name="share-social-outline"
+                  size={27}
+                  color={isDarkMode ? "#FFFFFF" : "#000000"}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -2191,7 +2202,6 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         animationType="fade"
         swipeToCloseEnabled={true}
         doubleTapToZoomEnabled={true}
-        enableSwipeDown={false}
       />
     </View>
   );
