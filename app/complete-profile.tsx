@@ -38,7 +38,11 @@ export default function CompleteProfileScreen() {
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [verifyingPhone, setVerifyingPhone] = useState('');
 
+  const isPhoneSignUp = user?.app_metadata?.provider === 'phone';
+
   const isInputVerified = React.useMemo(() => {
+    if (isPhoneSignUp) return true;
+
     let cleanPhoneInput = phone.replace(/\D/g, '');
     let fullInputPhone = cleanPhoneInput;
 
@@ -62,7 +66,7 @@ export default function CompleteProfileScreen() {
     if (user?.phone_confirmed_at && user.phone === fullInputPhone) return true;
 
     return false;
-  }, [user, phone, verifiedPhone, selectedCountry]);
+  }, [user, phone, verifiedPhone, selectedCountry, isPhoneSignUp]);
   const [errors, setErrors] = useState({
     name: '',
     email: '',
@@ -197,12 +201,14 @@ export default function CompleteProfileScreen() {
       isValid = false;
     }
 
-    if (!phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-      isValid = false;
-    } else if (phone.length < 8) { // Basic length check
-      newErrors.phone = 'Invalid phone number';
-      isValid = false;
+    if (!isPhoneSignUp) {
+      if (!phone.trim()) {
+        newErrors.phone = 'Phone number is required';
+        isValid = false;
+      } else if (phone.length < 8) { // Basic length check
+        newErrors.phone = 'Invalid phone number';
+        isValid = false;
+      }
     }
 
     setErrors(newErrors);
@@ -429,65 +435,67 @@ export default function CompleteProfileScreen() {
             </View>
 
             {/* Phone Input */}
-            <View>
-              <CustomPhoneInput
-                label="Phone Number *"
-                value={phone}
-                onChangePhoneNumber={(text) => {
-                  setPhone(text);
-                  if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
-                }}
-                selectedCountry={selectedCountry}
-                onChangeSelectedCountry={setSelectedCountry}
-              />
+            {!isPhoneSignUp && (
+              <View>
+                <CustomPhoneInput
+                  label="Phone Number *"
+                  value={phone}
+                  onChangePhoneNumber={(text) => {
+                    setPhone(text);
+                    if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+                  }}
+                  selectedCountry={selectedCountry}
+                  onChangeSelectedCountry={setSelectedCountry}
+                />
 
-              {/* Verify Button */}
-              {!isInputVerified && (
-                <TouchableOpacity
-                  style={{
+                {/* Verify Button */}
+                {!isInputVerified && (
+                  <TouchableOpacity
+                    style={{
+                      marginTop: 10,
+                      width: '100%',
+                      height: 50,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: '#D55004',
+                      borderRadius: 12,
+                      opacity: isLoading || !phone.trim() ? 0.6 : 1,
+                    }}
+                    onPress={handleSendOtp}
+                    disabled={isLoading || !phone.trim()}
+                  >
+                    {isVerifying ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                        Verify Phone Number
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                {isInputVerified && (
+                  <View style={{
                     marginTop: 10,
                     width: '100%',
                     height: 50,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    backgroundColor: '#D55004',
+                    backgroundColor: '#10B981',
                     borderRadius: 12,
-                    opacity: isLoading || !phone.trim() ? 0.6 : 1,
-                  }}
-                  onPress={handleSendOtp}
-                  disabled={isLoading || !phone.trim()}
-                >
-                  {isVerifying ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
+                  }}>
                     <Text style={{ color: 'white', fontWeight: 'bold' }}>
-                      Verify Phone Number
+                      Phone Verified
                     </Text>
-                  )}
-                </TouchableOpacity>
-              )}
-              {isInputVerified && (
-                <View style={{
-                  marginTop: 10,
-                  width: '100%',
-                  height: 50,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: '#10B981',
-                  borderRadius: 12,
-                }}>
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>
-                    Phone Verified
-                  </Text>
-                </View>
-              )}
+                  </View>
+                )}
 
-              {errors.phone ? (
-                <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4 }}>
-                  {errors.phone}
-                </Text>
-              ) : null}
-            </View>
+                {errors.phone ? (
+                  <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4 }}>
+                    {errors.phone}
+                  </Text>
+                ) : null}
+              </View>
+            )}
           </View>
 
           {errors.general ? (
