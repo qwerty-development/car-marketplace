@@ -8,7 +8,6 @@ import React, {
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   TextInput,
   SectionList,
@@ -20,6 +19,7 @@ import {
   Animated,
   I18nManager,
 } from "react-native";
+import { Image } from "expo-image";
 import { supabase } from "@/utils/supabase";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { router, useRouter } from "expo-router";
@@ -30,7 +30,7 @@ import { getLogoUrl } from "@/hooks/getLogoUrl";
 
 interface Brand {
   name: string;
-  logoUrl: string;
+  logoUrl: string | null;
 }
 
 // Skeleton component defined within the same file
@@ -235,9 +235,11 @@ export default function AllBrandsPage() {
         }`}>
           <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center`}>
             <Image
-              source={{ uri: item.logoUrl }}
+              source={item.logoUrl ? { uri: item.logoUrl } : require('@/assets/images/placeholder-logo.png')}
               style={{ width: 50, height: 50 }}
-              resizeMode="contain"
+              contentFit="contain"
+              placeholder={require('@/assets/images/placeholder-logo.png')}
+              transition={200}
             />
           </View>
           <View className={`flex-1 ${isRTL ? 'mr-4' : 'ml-4'}`}>

@@ -7,12 +7,12 @@ import React, {
 import {
 	View,
 	Text,
-	Image,
 	TouchableOpacity,
-	ScrollView,
 	Animated,
-	StyleSheet
+	StyleSheet,
+	I18nManager
 } from 'react-native'
+import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import { FontAwesome } from '@expo/vector-icons'
@@ -21,14 +21,11 @@ import SkeletonByBrands from '@/components/SkeletonByBrands'
 import { useLanguage } from '@/utils/LanguageContext'
 import i18n from '@/utils/i18n'
 import { getLogoUrl } from '@/hooks/getLogoUrl'
-import { I18nManager } from 'react-native'
 
 interface Brand {
 	name: string
-	logoUrl: string
+	logoUrl: string | null
 }
-
-
 
 const ByBrands = React.memo(() => {
 	const { language } = useLanguage();
@@ -134,9 +131,11 @@ const ByBrands = React.memo(() => {
 						onPress={() => handleBrandPress(brand.name)}
 						className='items-center mb-1 mt-1 mr-4'>
 						<Image
-							source={{ uri: brand.logoUrl }}
+							source={brand.logoUrl ? { uri: brand.logoUrl } : require('@/assets/images/placeholder-logo.png')}
 							style={{ width: 80, height: 80 }}
-							resizeMode='contain'
+							contentFit='contain'
+							placeholder={require('@/assets/images/placeholder-logo.png')}
+							transition={200}
 						/>
 						<Text
 							className={`${
