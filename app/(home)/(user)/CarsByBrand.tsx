@@ -8,9 +8,9 @@ import {
 	StatusBar,
 	RefreshControl,
 	Platform,
-	Image,
 	Animated
 } from 'react-native'
+import { Image } from 'expo-image'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
 import CarDetailModal from './CarDetailModal'
@@ -170,9 +170,11 @@ const CustomHeader = React.memo(
 						</TouchableOpacity>
 						{logoUrl && (
 							<Image
-								source={{ uri: logoUrl }}
+								source={logoUrl ? { uri: logoUrl } : require('@/assets/images/placeholder-logo.png')}
 								style={{ width: 40, height: 40, marginLeft: 12 }}
-								resizeMode="contain"
+								contentFit="contain"
+								placeholder={require('@/assets/images/placeholder-logo.png')}
+								transition={200}
 							/>
 						)}
 						<Text
@@ -484,11 +486,11 @@ export default function CarsByBrand() {
 					/>
 				}
 				// Optional: Add some performance optimizations for standard scrolling
-				removeClippedSubviews={true}
+				removeClippedSubviews={false}
 				maxToRenderPerBatch={10}
-				updateCellsBatchingPeriod={50}
-				initialNumToRender={5}
-				windowSize={10}
+				updateCellsBatchingPeriod={100}
+				initialNumToRender={10}
+				windowSize={11}
 			/>
 		)
 	}

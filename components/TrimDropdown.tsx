@@ -532,6 +532,7 @@ export const TrimDropdown: React.FC<TrimDropdownProps> = ({
                   className="flex-1 px-6"
                   contentContainerStyle={{ paddingBottom: 32 }}
                   showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                 >
                   {filteredTrims.length > 0 ? (
                     <View className="space-y-2">

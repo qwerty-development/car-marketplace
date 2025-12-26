@@ -93,8 +93,394 @@ const RENTAL_PERIODS = [
   { value: "hourly", label: "Hourly", icon: "clock-time-four" },
   { value: "daily", label: "Daily", icon: "calendar-today" },
   { value: "weekly", label: "Weekly", icon: "calendar-week" },
-  { value: "monthly", label: "Monthly", icon: "calendar-month" },
+  { value: "monthly", label: "Monthly", icon: "clock-time-four" },
 ];
+
+const FeatureItem = memo(({ feature, isSelected, onPress, isDarkMode, size = "normal" }: any) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className={`${size === "normal" ? "mr-3" : ""} ${
+      isSelected ? "scale-105" : ""
+    }`}
+  >
+    <BlurView
+      intensity={isDarkMode ? 20 : 40}
+      tint={isDarkMode ? "dark" : "light"}
+      className={`rounded-2xl p-4 ${
+        size === "normal"
+          ? "w-[110px] h-[110px]"
+          : "flex-row items-center p-4 mb-2"
+      } justify-between items-center`}
+    >
+      <View
+        className={`${
+          size === "normal" ? "w-[40px] h-[40px]" : "w-12 h-12"
+        } justify-center items-center mb-2`}
+      >
+        <MaterialCommunityIcons
+          name={feature.icon}
+          size={size === "normal" ? 30 : 24}
+          color={isSelected ? "#D55004" : isDarkMode ? "#fff" : "#000"}
+        />
+      </View>
+      <Text
+        className={`${
+          size === "normal" ? "text-center" : "flex-1 ml-3"
+        } text-sm font-medium
+        ${
+          isSelected
+            ? "text-red"
+            : isDarkMode
+            ? "text-white"
+            : "text-black"
+        }`}
+        numberOfLines={2}
+      >
+        {feature.label}
+      </Text>
+      {isSelected && (
+        <View
+          className={`absolute top-2 right-2 bg-red rounded-full p-1 ${
+            size === "normal" ? "" : "top-auto"
+          }`}
+        >
+          <Ionicons name="checkmark" size={12} color="white" />
+        </View>
+      )}
+    </BlurView>
+  </TouchableOpacity>
+));
+
+const SoldModal = memo(({ 
+  visible, 
+  onClose, 
+  isDarkMode, 
+  viewMode, 
+  ready, 
+  t, 
+  soldInfo, 
+  onConfirm 
+}: any) => {
+  const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
+  const [localBuyerName, setLocalBuyerName] = useState(
+    soldInfo.buyer_name || ""
+  );
+  const [localDate, setLocalDate] = useState(
+    soldInfo.date || new Date().toISOString().split("T")[0]
+  );
+  const [showInlinePicker, setShowInlinePicker] = useState(false);
+
+  // Sync local state with soldInfo when modal opens
+  useEffect(() => {
+    if (visible) {
+      setLocalPrice(soldInfo.price || "");
+      setLocalBuyerName(soldInfo.buyer_name || "");
+      setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
+    }
+  }, [visible, soldInfo]);
+
+  const handleDateChange = (
+    event: any,
+    selectedDate?: Date
+  ) => {
+    // Hide the picker first to prevent UI issues
+    setShowInlinePicker(false);
+
+    // Handle both Android and iOS patterns safely
+    if (selectedDate instanceof Date) {
+      try {
+        setLocalDate(selectedDate.toISOString().split("T")[0]);
+      } catch (error) {
+        console.warn("Date formatting error:", error);
+        setLocalDate(new Date().toISOString().split("T")[0]);
+      }
+    }
+  };
+
+  const handleConfirm = () => {
+    if (viewMode !== 'rent') {
+      if (!localPrice || !localBuyerName || !localDate) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all the required fields."
+        );
+        return;
+      }
+    }
+    onConfirm({
+      price: localPrice,
+      buyer_name: localBuyerName,
+      date: localDate,
+    });
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      statusBarTranslucent={true}
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ flex: 1 }}>
+          <BlurView
+            intensity={isDarkMode ? 30 : 20}
+            tint={isDarkMode ? "dark" : "light"}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: "90%",
+                maxWidth: 400,
+                borderRadius: 24,
+                padding: 24,
+                backgroundColor: isDarkMode ? "#171717" : "#ffffff",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowRadius: 10,
+                elevation: 5,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 20,
+                      fontWeight: "bold",
+                      color: isDarkMode ? "#ffffff" : "#000000",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {viewMode === 'rent' 
+                      ? (ready ? t('profile.inventory.mark_as_rented') : 'Mark as Rented')
+                      : (ready ? t('car.mark_as_sold') : 'Mark as Sold')
+                    }
+                  </Text>
+                  <View 
+                    style={{ 
+                      backgroundColor: viewMode === 'rent' ? '#3B82F6' : '#EF4444',
+                      paddingHorizontal: 12,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      alignSelf: 'flex-start'
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                      {viewMode === 'rent' 
+                        ? (ready ? t('profile.inventory.for_rent') : 'FOR RENT')
+                        : (ready ? t('profile.inventory.for_sale') : 'FOR SALE')
+                      }
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={onClose}>
+                  <Ionicons
+                    name="close-circle"
+                    size={24}
+                    color={isDarkMode ? "#FFFFFF" : "#000000"}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {viewMode !== 'rent' && (
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 8,
+                    color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                  }}
+                >
+                  {ready ? t('car.selling_price') : 'Selling Price'}
+                </Text>
+                <TextInput
+                  value={localPrice}
+                  onChangeText={setLocalPrice}
+                  placeholder={ready ? t('car.enter_selling_price') : 'Enter selling price'}
+                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                  keyboardType="numeric"
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                    borderRadius: 12,
+                    color: isDarkMode ? "#ffffff" : "#000000",
+                    fontSize: 16,
+                  }}
+                />
+              </View>
+              )}
+
+              {viewMode !== 'rent' && (
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 8,
+                    color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                  }}
+                >
+                  {ready ? t('profile.inventory.buyer_name') : 'Buyer Name'}
+                </Text>
+                <TextInput
+                  value={localBuyerName}
+                  onChangeText={setLocalBuyerName}
+                  placeholder={ready ? t('car.enter_buyer_name') : 'Enter buyer name'}
+                  placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                    borderRadius: 12,
+                    color: isDarkMode ? "#ffffff" : "#000000",
+                    fontSize: 16,
+                  }}
+                />
+              </View>
+              )}
+
+              {viewMode !== 'rent' && (
+              <View style={{ marginBottom: 24 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "500",
+                    marginBottom: 8,
+                    color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                  }}
+                >
+                  {ready ? t('car.sale_date') : 'Sale Date'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowInlinePicker(true)}
+                  style={{
+                    height: 50,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "#404040" : "#e5e7eb",
+                    backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: localDate
+                        ? isDarkMode ? "#ffffff" : "#000000"
+                        : isDarkMode ? "#9CA3AF" : "#6B7280",
+                      fontSize: 16,
+                    }}
+                  >
+                    {localDate || "Select date"}
+                  </Text>
+                </TouchableOpacity>
+                {showInlinePicker && (
+                  <DateTimePicker
+                    value={localDate ? new Date(localDate) : new Date()}
+                    mode="date"
+                    display="inline"
+                    onChange={handleDateChange}
+                    style={{ width: "100%" }}
+                  />
+                )}
+              </View>
+              )}
+
+              {viewMode === 'rent' && (
+                <View style={{ marginBottom: 24 }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
+                      textAlign: 'center',
+                      lineHeight: 22,
+                    }}
+                  >
+                    Are you sure you want to mark this rental as rented? This will change the listing status to "Rented".
+                  </Text>
+                </View>
+              )}
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={{
+                    flex: 1,
+                    marginRight: 8,
+                    height: 56,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isDarkMode ? "#ffffff" : "#000000",
+                      fontSize: 16,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirm}
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    height: 56,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#16a34a",
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#ffffff",
+                      fontSize: 16,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Confirm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </BlurView>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+});
 
 const FeatureSelector = memo(
   ({ selectedFeatures = [], onFeatureToggle, isDarkMode, ready, t }: any) => {
@@ -166,65 +552,6 @@ const FeatureSelector = memo(
       setHasMore(true);
     }, [searchQuery]);
 
-    // Render feature item component
-    const FeatureItem = useCallback(
-      ({ feature, isSelected, onPress, size = "normal" }: any) => (
-        <TouchableOpacity
-          onPress={onPress}
-          className={`${size === "normal" ? "mr-3" : ""} ${
-            isSelected ? "scale-105" : ""
-          }`}
-        >
-          <BlurView
-            intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? "dark" : "light"}
-            className={`rounded-2xl p-4 ${
-              size === "normal"
-                ? "w-[110px] h-[110px]"
-                : "flex-row items-center p-4 mb-2"
-            } justify-between items-center`}
-          >
-            <View
-              className={`${
-                size === "normal" ? "w-[40px] h-[40px]" : "w-12 h-12"
-              } justify-center items-center mb-2`}
-            >
-              <MaterialCommunityIcons
-                name={feature.icon}
-                size={size === "normal" ? 30 : 24}
-                color={isSelected ? "#D55004" : isDarkMode ? "#fff" : "#000"}
-              />
-            </View>
-            <Text
-              className={`${
-                size === "normal" ? "text-center" : "flex-1 ml-3"
-              } text-sm font-medium
-              ${
-                isSelected
-                  ? "text-red"
-                  : isDarkMode
-                  ? "text-white"
-                  : "text-black"
-              }`}
-              numberOfLines={2}
-            >
-              {feature.label}
-            </Text>
-            {isSelected && (
-              <View
-                className={`absolute top-2 right-2 bg-red rounded-full p-1 ${
-                  size === "normal" ? "" : "top-auto"
-                }`}
-              >
-                <Ionicons name="checkmark" size={12} color="white" />
-              </View>
-            )}
-          </BlurView>
-        </TouchableOpacity>
-      ),
-      [isDarkMode]
-    );
-
     return (
       <View>
         {/* Header */}
@@ -277,17 +604,18 @@ const FeatureSelector = memo(
           </View>
         )}
 
-        {/* Horizontal Scrollable List - Show selected features first, then others */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           className="mb-6"
           contentContainerStyle={{ paddingRight: 20 }}
+          keyboardShouldPersistTaps="handled"
         >
           {VEHICLE_FEATURES.map((feature) => (
             <FeatureItem
               key={feature.id}
               feature={feature}
+              isDarkMode={isDarkMode}
               isSelected={selectedFeatures.includes(feature.id)}
               onPress={() => onFeatureToggle(feature.id)}
             />
@@ -415,6 +743,7 @@ const FeatureSelector = memo(
                   keyExtractor={(item) => item.id}
                   onEndReached={loadMore}
                   onEndReachedThreshold={0.5}
+                  keyboardShouldPersistTaps="handled"
                   ListFooterComponent={() =>
                     hasMore ? (
                       <View className="py-4">
@@ -1694,360 +2023,6 @@ features
     );
   }, [initialData, dealership, isSubscriptionValid, isUserMode, params.userId, router, viewMode]);
 
-  const SoldModal = () => {
-    const [localPrice, setLocalPrice] = useState(soldInfo.price || "");
-    const [localBuyerName, setLocalBuyerName] = useState(
-      soldInfo.buyer_name || ""
-    );
-    const [localDate, setLocalDate] = useState(
-      soldInfo.date || new Date().toISOString().split("T")[0]
-    );
-    const [showInlinePicker, setShowInlinePicker] = useState(false);
-
-    // Sync local state with soldInfo when modal opens
-    useEffect(() => {
-      if (showSoldModal) {
-        setLocalPrice(soldInfo.price || "");
-        setLocalBuyerName(soldInfo.buyer_name || "");
-        setLocalDate(soldInfo.date || new Date().toISOString().split("T")[0]);
-      }
-    }, [showSoldModal, soldInfo]);
-
-    const handleDateChange = (
-      event: any,
-      selectedDate?: Date
-    ) => {
-      // Hide the picker first to prevent UI issues
-      setShowInlinePicker(false);
-
-      // Handle both Android and iOS patterns safely
-      // On Android, cancelled = undefined selectedDate
-      // On iOS, we get an event.type
-      if (selectedDate instanceof Date) {
-        try {
-          // Add safety checks before using date methods
-          setLocalDate(selectedDate.toISOString().split("T")[0]);
-        } catch (error) {
-          console.warn("Date formatting error:", error);
-          // Fallback to current date
-          setLocalDate(new Date().toISOString().split("T")[0]);
-        }
-      }
-    };
-
-    const handleConfirm = () => {
-      // For rent mode, no fields required - just mark as rented
-      // For sale mode, all fields required
-      if (viewMode !== 'rent') {
-        if (!localPrice || !localBuyerName || !localDate) {
-          Alert.alert(
-            "Validation Error",
-            "Please fill in all the required fields."
-          );
-          return;
-        }
-      }
-      // Pass local values directly to the mark-as-sold function
-      handleMarkAsSold({
-        price: localPrice,
-        buyer_name: localBuyerName,
-        date: localDate,
-      });
-    };
-
-    return (
-      <Modal
-        visible={showSoldModal}
-        transparent={true}
-        animationType="slide"
-        statusBarTranslucent={true}
-        onRequestClose={() => setShowSoldModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={{ flex: 1 }}>
-            <BlurView
-              intensity={isDarkMode ? 30 : 20}
-              tint={isDarkMode ? "dark" : "light"}
-              style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <View
-                style={{
-                  width: "90%",
-                  maxWidth: 400,
-                  borderRadius: 24,
-                  padding: 24,
-                  backgroundColor: isDarkMode ? "#171717" : "#ffffff",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-
-                  shadowRadius: 10,
-                  elevation: 5,
-                }}
-              >
-                {/* Header */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 16,
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontSize: 20,
-                        fontWeight: "bold",
-                        color: isDarkMode ? "#ffffff" : "#000000",
-                        marginBottom: 8,
-                      }}
-                    >
-                      {viewMode === 'rent' 
-                        ? (ready ? t('profile.inventory.mark_as_rented') : 'Mark as Rented')
-                        : (ready ? t('car.mark_as_sold') : 'Mark as Sold')
-                      }
-                    </Text>
-                    {/* Mode indicator badge */}
-                    <View 
-                      style={{ 
-                        backgroundColor: viewMode === 'rent' ? '#3B82F6' : '#EF4444',
-                        paddingHorizontal: 12,
-                        paddingVertical: 4,
-                        borderRadius: 12,
-                        alignSelf: 'flex-start'
-                      }}
-                    >
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' }}>
-                        {viewMode === 'rent' 
-                          ? (ready ? t('profile.inventory.for_rent') : 'FOR RENT')
-                          : (ready ? t('profile.inventory.for_sale') : 'FOR SALE')
-                        }
-                      </Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity onPress={() => setShowSoldModal(false)}>
-                    <Ionicons
-                      name="close-circle"
-                      size={24}
-                      color={isDarkMode ? "#FFFFFF" : "#000000"}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Selling/Rental Price - Only show for sale mode */}
-                {viewMode !== 'rent' && (
-                <View style={{ marginBottom: 16 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 8,
-                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                    }}
-                  >
-                    {viewMode === 'rent'
-                      ? (ready ? t('profile.inventory.rental_price') : 'Rental Price')
-                      : (ready ? t('car.selling_price') : 'Selling Price')
-                    }
-                  </Text>
-                  <TextInput
-                    value={localPrice}
-                    onChangeText={setLocalPrice}
-                    placeholder={
-                      viewMode === 'rent'
-                        ? (ready ? t('profile.inventory.enter_rental_price') : 'Enter rental price')
-                        : (ready ? t('car.enter_selling_price') : 'Enter selling price')
-                    }
-                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                    keyboardType="numeric"
-                    style={{
-                      height: 50,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                      borderRadius: 12,
-                      color: isDarkMode ? "#ffffff" : "#000000",
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-                )}
-
-                {/* Buyer/Renter Name - Only show for sale mode */}
-                {viewMode !== 'rent' && (
-                <View style={{ marginBottom: 16 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 8,
-                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                    }}
-                  >
-                    {viewMode === 'rent'
-                      ? (ready ? t('profile.inventory.renter_name') : 'Renter Name')
-                      : (ready ? t('profile.inventory.buyer_name') : 'Buyer Name')
-                    }
-                  </Text>
-                  <TextInput
-                    value={localBuyerName}
-                    onChangeText={setLocalBuyerName}
-                    placeholder={
-                      viewMode === 'rent'
-                        ? (ready ? t('profile.inventory.enter_renter_name') : 'Enter renter name')
-                        : (ready ? t('car.enter_buyer_name') : 'Enter buyer name')
-                    }
-                    placeholderTextColor={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                    style={{
-                      height: 50,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                      borderRadius: 12,
-                      color: isDarkMode ? "#ffffff" : "#000000",
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-                )}
-
-                {/* Sale Date - Only show for sale mode */}
-                {viewMode !== 'rent' && (
-                <View style={{ marginBottom: 24 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "500",
-                      marginBottom: 8,
-                      color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                    }}
-                  >
-                    {ready ? t('car.sale_date') : 'Sale Date'}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowInlinePicker(true)}
-                    style={{
-                      height: 50,
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      justifyContent: "center",
-                      borderWidth: 1,
-                      borderColor: isDarkMode ? "#404040" : "#e5e7eb",
-                      backgroundColor: isDarkMode ? "#262626" : "#f9fafb",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: localDate
-                          ? isDarkMode
-                            ? "#ffffff"
-                            : "#000000"
-                          : isDarkMode
-                          ? "#9CA3AF"
-                          : "#6B7280",
-                        fontSize: 16,
-                      }}
-                    >
-                      {localDate || "Select date"}
-                    </Text>
-                  </TouchableOpacity>
-                  {showInlinePicker && (
-                    <DateTimePicker
-                      value={localDate ? new Date(localDate) : new Date()}
-                      mode="date"
-                      display="inline"
-                      onChange={handleDateChange}
-                      style={{ width: "100%" }}
-                    />
-                  )}
-                </View>
-                )}
-
-                {/* Rent Mode Confirmation Message */}
-                {viewMode === 'rent' && (
-                  <View style={{ marginBottom: 24 }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: isDarkMode ? "#d4d4d4" : "#4b5563",
-                        textAlign: 'center',
-                        lineHeight: 22,
-                      }}
-                    >
-                      Are you sure you want to mark this rental as rented? This will change the listing status to "Rented".
-                    </Text>
-                  </View>
-                )}
-
-                {/* Action Buttons */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    marginTop: 8,
-                  }}
-                >
-                  <TouchableOpacity
-                    onPress={() => setShowSoldModal(false)}
-                    style={{
-                      flex: 1,
-                      marginRight: 8,
-                      height: 56,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: isDarkMode ? "#404040" : "#d1d5db",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: isDarkMode ? "#ffffff" : "#000000",
-                        fontSize: 16,
-                        fontWeight: "600",
-                      }}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleConfirm}
-                    style={{
-                      flex: 1,
-                      marginLeft: 8,
-                      height: 56,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "#16a34a",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "#ffffff",
-                        fontSize: 16,
-                        fontWeight: "600",
-                      }}
-                    >
-                      Confirm
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </BlurView>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    );
-  };
 
   if (isLoading || !ready) {
     return (
@@ -2108,7 +2083,11 @@ features
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        className="flex-1 px-6" 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="py-4">
           <SectionHeader
             title={ready ? t('car.vehicle_images') : 'Vehicle Images'}
@@ -2309,6 +2288,7 @@ features
             horizontal
             showsHorizontalScrollIndicator={false}
             className="mb-6"
+            keyboardShouldPersistTaps="handled"
           >
             {CATEGORIES.map((cat) => (
               <SelectionCard
@@ -2333,6 +2313,7 @@ features
             horizontal
             showsHorizontalScrollIndicator={false}
             className="mb-6"
+            keyboardShouldPersistTaps="handled"
           >
             {VEHICLE_TYPES.map((type) => (
               <SelectionCard
@@ -2366,7 +2347,8 @@ features
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="mb-6"
+              className="mb-3"
+              keyboardShouldPersistTaps="handled"
             >
               {SOURCE_OPTIONS.map((source) => (
                 <SelectionCard
@@ -2454,7 +2436,8 @@ features
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                className="mb-6"
+                className="mb-3"
+                keyboardShouldPersistTaps="handled"
               >
                 {RENTAL_PERIODS.map((period) => (
                   <SelectionCard
@@ -2501,6 +2484,7 @@ features
             horizontal
             showsHorizontalScrollIndicator={false}
             className="mb-6"
+            keyboardShouldPersistTaps="handled"
           >
             {DRIVE_TRAINS.map((drive) => (
               <SelectionCard
@@ -2769,7 +2753,16 @@ features
         )}
       </View>
 
-      <SoldModal />
+      <SoldModal
+        visible={showSoldModal}
+        onClose={() => setShowSoldModal(false)}
+        isDarkMode={isDarkMode}
+        viewMode={viewMode}
+        ready={ready}
+        t={t}
+        soldInfo={soldInfo}
+        onConfirm={handleMarkAsSold}
+      />
 
       {/* CREDIT_DISABLED: Purchase Credits Modal
       <PurchaseCreditsModal

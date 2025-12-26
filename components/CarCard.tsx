@@ -46,24 +46,16 @@ const StyledPressable = styled(Pressable);
 
 const MAX_IMAGES = 3;
 
-const OptimizedImage = ({ source, style, onLoad, fallbackColor = 'transparent' }: any) => {
-  const [loaded, setLoaded] = useState(false);
-  const { isDarkMode } = useTheme();
-
-  const handleLoad = useCallback(() => {
-    setLoaded(true);
-    onLoad?.();
-  }, [onLoad]);
-
+// Simplified Image component with proper caching and transition
+const OptimizedImage = ({ source, style, fallbackColor = 'transparent' }: any) => {
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
       <CachedImage
         source={source}
-        style={{ width: '100%', height: '100%', opacity: loaded ? 1 : 0, backgroundColor: fallbackColor }}
+        style={{ width: '100%', height: '100%' }}
         contentFit="cover"
-        onLoad={handleLoad}
         cachePolicy="disk"
-        transition={150}
+        transition={200}
         priority="normal"
       />
     </View>
@@ -635,7 +627,6 @@ export default function CarCard({
           initialNumToRender={3}
           maxToRenderPerBatch={3}
           windowSize={3}
-          removeClippedSubviews={true}
           decelerationRate="fast"
           snapToInterval={cardWidth}
           snapToAlignment="center"
@@ -717,7 +708,7 @@ export default function CarCard({
                   style={isRTL ? { marginRight: 16 } : { marginLeft: 16 }}
                 >
                   <OptimizedImage
-                    source={{ uri: getLogoUrl(car.make, isDarkMode) }}
+                    source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
                     style={{ width: 60, height: 40 }}
                     fallbackColor="transparent"
                   />

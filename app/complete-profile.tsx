@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,13 +18,18 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneInput';
+import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { DealerLogoPicker } from '@/components/DealerLogoPicker';
+import { useImageUpload } from './(home)/(dealer)/hooks/useImageUpload';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 export default function CompleteProfileScreen() {
-  const { user, profile, updateUserProfile, signOut } = useAuth();
+  const { user, profile, dealership, updateUserProfile, updateDealershipProfile, signOut } = useAuth();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const theme = useTheme();
+  const isDark = theme.isDarkMode;
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,6 +42,27 @@ export default function CompleteProfileScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [verifyingPhone, setVerifyingPhone] = useState('');
+
+  // Dealership specific state
+  const [logo, setLogo] = useState<string | null>(null);
+  const [locationName, setLocationName] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  
+  const { handleImageUpload, isUploading: isUploadingLogo } = useImageUpload(
+    dealership?.id?.toString(),
+    {
+      onUploadComplete: (url) => {
+        setLogo(url);
+        if (errors.logo) setErrors(prev => ({ ...prev, logo: '' }));
+      }
+    }
+  );
+
+  const onPickLogo = useCallback(async () => {
+    await handleImageUpload();
+  }, [handleImageUpload]);
 
   const isPhoneSignUp = user?.app_metadata?.provider === 'phone';
 
@@ -71,6 +97,8 @@ export default function CompleteProfileScreen() {
     name: '',
     email: '',
     phone: '',
+    logo: '',
+    location: '',
     general: '',
   });
 
@@ -82,8 +110,20 @@ export default function CompleteProfileScreen() {
       setEmail(currentEmail);
       setOriginalEmail(currentEmail || null);
       setPhone(profile?.phone_number || user.phone || '');
+      
+      if (profile?.role === 'dealer' && dealership) {
+        setLogo(dealership.logo);
+        setLocationName(dealership.location || '');
+        
+        // Convert to numbers and treat "0" or 0 as null to force re-selection if needed
+        const lat = dealership.latitude ? parseFloat(String(dealership.latitude)) : null;
+        const lng = dealership.longitude ? parseFloat(String(dealership.longitude)) : null;
+        
+        setLatitude(lat && lat !== 0 ? lat : null);
+        setLongitude(lng && lng !== 0 ? lng : null);
+      }
     }
-  }, [user, profile]);
+  }, [user, profile, dealership]);
 
   // Block hardware back button on Android
   useEffect(() => {
@@ -100,7 +140,7 @@ export default function CompleteProfileScreen() {
     return () => backHandler.remove();
   }, []);
 
-  const handleSendOtp = async () => {
+  const handleSendOtp = useCallback(async () => {
     if (!phone.trim() || phone.length < 6) {
       setErrors(prev => ({ ...prev, phone: 'Please enter a valid phone number' }));
       return;
@@ -144,9 +184,9 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [phone, selectedCountry]);
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = useCallback(async () => {
     if (!otp || otp.length < 6) {
       Alert.alert('Invalid Code', 'Please enter the 6-digit code sent to your phone.');
       return;
@@ -179,14 +219,16 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [otp, verifyingPhone]);
 
-  const validateInputs = () => {
+  const validateInputs = useCallback(() => {
     let isValid = true;
     const newErrors = {
       name: '',
       email: '',
       phone: '',
+      logo: '',
+      location: '',
       general: '',
     };
 
@@ -211,11 +253,28 @@ export default function CompleteProfileScreen() {
       }
     }
 
+    if (profile?.role === 'dealer') {
+      if (!logo) {
+        newErrors.logo = 'Logo is required';
+        isValid = false;
+      }
+      
+      // Strict check for non-zero coordinates
+      const isLocationValid = locationName && 
+                             latitude && latitude !== 0 && 
+                             longitude && longitude !== 0;
+                             
+      if (!isLocationValid) {
+        newErrors.location = 'Location is required';
+        isValid = false;
+      }
+    }
+
     setErrors(newErrors);
     return isValid;
-  };
+  }, [name, email, phone, isPhoneSignUp, profile?.role, logo, locationName, latitude, longitude]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!validateInputs()) return;
 
     if (!isInputVerified) {
@@ -237,6 +296,21 @@ export default function CompleteProfileScreen() {
 
       if (error) {
         throw error;
+      }
+
+      // Update dealership data if dealer
+      if (profile?.role === 'dealer') {
+        const { error: dealerError } = await updateDealershipProfile({
+          logo,
+          location: locationName,
+          latitude,
+          longitude,
+          first_login: false, // Mark onboarding as complete
+        });
+
+        if (dealerError) {
+          throw dealerError;
+        }
       }
 
       // If user is adding/changing email, trigger verification flow
@@ -300,16 +374,16 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [validateInputs, isInputVerified, email, originalEmail, updateUserProfile, name, phone, profile?.role, updateDealershipProfile, logo, locationName, latitude, longitude, router]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut();
       router.replace('/(auth)/sign-in');
     } catch (e) {
       console.error("Sign out failed", e);
     }
-  }
+  }, [signOut, router]);
 
   return (
     <SafeAreaView
@@ -328,6 +402,7 @@ export default function CompleteProfileScreen() {
             padding: 24,
             justifyContent: 'center'
           }}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: 'center', marginBottom: 32 }}>
             <Text
@@ -496,6 +571,73 @@ export default function CompleteProfileScreen() {
                 ) : null}
               </View>
             )}
+
+            {/* Dealership Specific Fields */}
+            {profile?.role === 'dealer' && (
+              <View style={{ gap: 20, marginTop: 10 }}>
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{
+                    color: isDark ? '#E5E7EB' : '#374151',
+                    marginBottom: 12,
+                    fontWeight: '600',
+                    alignSelf: 'flex-start'
+                  }}>
+                    Dealership Logo *
+                  </Text>
+                  <DealerLogoPicker
+                    logoUri={logo}
+                    onPick={onPickLogo}
+                    isUploading={isUploadingLogo}
+                  />
+                  {errors.logo ? (
+                    <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4, alignSelf: 'flex-start' }}>
+                      {errors.logo}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <View>
+                  <Text style={{
+                    color: isDark ? '#E5E7EB' : '#374151',
+                    marginBottom: 8,
+                    fontWeight: '600'
+                  }}>
+                    Dealership Location *
+                  </Text>
+                  <TouchableOpacity
+                    style={{
+                      height: 50,
+                      paddingHorizontal: 16,
+                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: errors.location ? '#EF4444' : (isDark ? '#374151' : '#E5E7EB'),
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                    onPress={() => setShowLocationModal(true)}
+                  >
+                    <Text 
+                      numberOfLines={1}
+                      style={{ 
+                        color: locationName ? (isDark ? '#fff' : '#000') : (isDark ? '#6B7280' : '#9CA3AF'),
+                        flex: 1,
+                        marginRight: 8
+                      }}
+                    >
+                      {locationName || 'Select dealership location'}
+                    </Text>
+                    <Ionicons name="map-outline" size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                  </TouchableOpacity>
+                  {errors.location ? (
+                    <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4 }}>
+                      {errors.location}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            )}
           </View>
 
           {errors.general ? (
@@ -661,6 +803,121 @@ export default function CompleteProfileScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+      {/* Location Picker Modal */}
+      <Modal
+        visible={showLocationModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#000' : '#fff' }}>
+          <View style={{ flex: 1 }}>
+            <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              padding: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? '#1F2937' : '#E5E7EB'
+            }}>
+              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+                <Ionicons name="close" size={24} color={isDark ? '#fff' : '#000'} />
+              </TouchableOpacity>
+              <Text style={{ 
+                flex: 1, 
+                textAlign: 'center', 
+                fontSize: 18, 
+                fontWeight: 'bold',
+                color: isDark ? '#fff' : '#000'
+              }}>
+                Select Location
+              </Text>
+              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
+                <Text style={{ color: '#D55004', fontWeight: 'bold' }}>Done</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 16 }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                height: 50
+              }}>
+                <Ionicons name="search-outline" size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                <TextInput
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    color: isDark ? '#fff' : '#000'
+                  }}
+                  placeholder="Enter address"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  value={locationName}
+                  onChangeText={(text) => {
+                    setLocationName(text);
+                    if (errors.location) setErrors(prev => ({ ...prev, location: '' }));
+                  }}
+                />
+              </View>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <MapView
+                style={{ flex: 1 }}
+                region={{
+                  latitude: latitude || 25.2048,
+                  longitude: longitude || 55.2708,
+                  latitudeDelta: 0.1,
+                  longitudeDelta: 0.1,
+                }}
+                onPress={(e) => {
+                  const { latitude: lat, longitude: lng } = e.nativeEvent.coordinate;
+                  setLatitude(lat);
+                  setLongitude(lng);
+                  if (errors.location) setErrors(prev => ({ ...prev, location: '' }));
+                }}
+              >
+                {latitude && longitude && (
+                  <Marker coordinate={{ latitude, longitude }} pinColor="#D55004" />
+                )}
+              </MapView>
+
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  bottom: 24,
+                  right: 24,
+                  backgroundColor: '#D55004',
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}
+                onPress={async () => {
+                  const { status } = await Location.requestForegroundPermissionsAsync();
+                  if (status !== 'granted') {
+                    Alert.alert('Permission Denied', 'Location access is required.');
+                    return;
+                  }
+                  const loc = await Location.getCurrentPositionAsync({});
+                  setLatitude(loc.coords.latitude);
+                  setLongitude(loc.coords.longitude);
+                }}
+              >
+                <Ionicons name="locate" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView >
   );
