@@ -19,9 +19,15 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
+  useWindowDimensions,
+  Platform,
 } from "react-native";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import * as FileSystem from "expo-file-system";
+import {
+  useSafeAreaInsets,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import { useTheme } from "@/utils/ThemeContext";
 import VideoControls from "@/components/VideoControls";
 import { supabase } from "@/utils/supabase";
@@ -42,9 +48,7 @@ import { useLocalSearchParams, useGlobalSearchParams } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 
 // --- Constants ---
-const { height, width } = Dimensions.get("window");
 const DOUBLE_TAP_DELAY = 300;
-const TAB_BAR_HEIGHT = 80;
 
 // Performance constants
 const CACHE_SIZE_LIMIT = 100 * 1024 * 1024; // 100MB cache limit
@@ -265,6 +269,8 @@ interface ClipItemProps {
   videoRefs: React.MutableRefObject<{ [key: number]: React.RefObject<Video> }>;
   videoQuality: 'high' | 'medium' | 'low';
   savedPosition?: number;
+  height: number;
+  width: number;
 }
 
 const ClipItem = React.memo<ClipItemProps>(({
@@ -285,6 +291,8 @@ const ClipItem = React.memo<ClipItemProps>(({
   allowPlayback,
   videoQuality,
   savedPosition = 0,
+  height,
+  width,
 }) => {
   const [iconVisible, setIconVisible] = useState(false);
   const [iconType, setIconType] = useState<"play" | "pause">("play");
@@ -537,6 +545,11 @@ export default function AutoClips() {
   const isFocused = useIsFocused();
   const { user } = useAuth();
   const { networkInfo, connectionSpeed } = useNetworkMonitor();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  
+  // Track actual height of the FlatList container
+  const [flatListHeight, setFlatListHeight] = useState(windowHeight);
   
   // Parameters handling
   const localParams = useLocalSearchParams<{ clipId?: string, fromDeepLink?: string }>();
@@ -1129,14 +1142,25 @@ export default function AutoClips() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? "black" : "white" }]}>
-      <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
+    <View 
+      style={[styles.container, { backgroundColor: isDarkMode ? "black" : "white" }]}
+      onLayout={(e) => {
+        const { height } = e.nativeEvent.layout;
+        if (height > 0) {
+          setFlatListHeight(height);
+        }
+      }}
+    >
+      <TouchableOpacity 
+        style={[styles.homeButton, { top: Math.max(insets.top, 20) }]} 
+        onPress={() => router.back()}
+      >
         <Ionicons name="home" size={24} color="white" />
       </TouchableOpacity>
 
       {/* Network quality indicator */}
       {networkInfo.isConnected && connectionSpeed !== 'fast' && (
-        <View style={styles.networkIndicator}>
+        <View style={[styles.networkIndicator, { top: Math.max(insets.top, 20) }]}>
           <Ionicons 
             name="wifi-outline" 
             size={16} 
@@ -1170,6 +1194,8 @@ export default function AutoClips() {
             allowPlayback={allowVideoPlayback}
             videoQuality={videoQuality}
             savedPosition={videoPositions[item.id] || 0}
+            height={flatListHeight}
+            width={windowWidth}
           />
         )}
         keyExtractor={item => item.id.toString()}
@@ -1184,15 +1210,15 @@ export default function AutoClips() {
             tintColor={isDarkMode ? "#FFFFFF" : "#D55004"}
           />
         }
-        contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT }}
-        removeClippedSubviews
+        contentContainerStyle={{ paddingBottom: 0 }}
+        removeClippedSubviews={Platform.OS === 'android'}
         maxToRenderPerBatch={2}
         windowSize={5}
         initialNumToRender={1}
         updateCellsBatchingPeriod={100}
         getItemLayout={(data, index) => ({
-          length: height,
-          offset: height * index,
+          length: flatListHeight,
+          offset: flatListHeight * index,
           index,
         })}
       />
