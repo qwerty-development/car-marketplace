@@ -743,6 +743,7 @@ const FeatureSelector = memo(
                   keyExtractor={(item) => item.id}
                   onEndReached={loadMore}
                   onEndReachedThreshold={0.5}
+                  keyboardShouldPersistTaps="handled"
                   ListFooterComponent={() =>
                     hasMore ? (
                       <View className="py-4">

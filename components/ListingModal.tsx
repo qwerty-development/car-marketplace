@@ -417,6 +417,7 @@ export const BrandSelector = memo(
                   keyExtractor={(item) => item.name}
                   onEndReached={loadMore}
                   onEndReachedThreshold={0.5}
+                  keyboardShouldPersistTaps="handled"
                   ListFooterComponent={() =>
                     hasMore ? (
                       <View className="py-4">
@@ -652,7 +653,7 @@ export const EnhancedColorSelector = memo(
               className="p-2 rounded-2xl"
             >
               <LinearGradient
-                colors={color.gradient}
+                colors={color.gradient as any}
                 className="w-16 h-16 rounded-xl mb-2"
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -60,9 +60,9 @@ export default function CompleteProfileScreen() {
     }
   );
 
-  const onPickLogo = async () => {
+  const onPickLogo = useCallback(async () => {
     await handleImageUpload();
-  };
+  }, [handleImageUpload]);
 
   const isPhoneSignUp = user?.app_metadata?.provider === 'phone';
 
@@ -140,7 +140,7 @@ export default function CompleteProfileScreen() {
     return () => backHandler.remove();
   }, []);
 
-  const handleSendOtp = async () => {
+  const handleSendOtp = useCallback(async () => {
     if (!phone.trim() || phone.length < 6) {
       setErrors(prev => ({ ...prev, phone: 'Please enter a valid phone number' }));
       return;
@@ -184,9 +184,9 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [phone, selectedCountry]);
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = useCallback(async () => {
     if (!otp || otp.length < 6) {
       Alert.alert('Invalid Code', 'Please enter the 6-digit code sent to your phone.');
       return;
@@ -219,9 +219,9 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [otp, verifyingPhone]);
 
-  const validateInputs = () => {
+  const validateInputs = useCallback(() => {
     let isValid = true;
     const newErrors = {
       name: '',
@@ -272,9 +272,9 @@ export default function CompleteProfileScreen() {
 
     setErrors(newErrors);
     return isValid;
-  };
+  }, [name, email, phone, isPhoneSignUp, profile?.role, logo, locationName, latitude, longitude]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!validateInputs()) return;
 
     if (!isInputVerified) {
@@ -374,16 +374,16 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [validateInputs, isInputVerified, email, originalEmail, updateUserProfile, name, phone, profile?.role, updateDealershipProfile, logo, locationName, latitude, longitude, router]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut();
       router.replace('/(auth)/sign-in');
     } catch (e) {
       console.error("Sign out failed", e);
     }
-  }
+  }, [signOut, router]);
 
   return (
     <SafeAreaView
@@ -402,6 +402,7 @@ export default function CompleteProfileScreen() {
             padding: 24,
             justifyContent: 'center'
           }}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: 'center', marginBottom: 32 }}>
             <Text
