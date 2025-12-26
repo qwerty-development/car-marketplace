@@ -854,7 +854,7 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
@@ -898,7 +898,7 @@ export default function UserProfileAndSupportPage() {
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
             onPress={() => {
@@ -946,7 +946,7 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
@@ -990,7 +990,7 @@ export default function UserProfileAndSupportPage() {
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 {/* 
           <TouchableOpacity
             onPress={() => {
@@ -1042,7 +1042,7 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity> */}
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => {
               if (isGuest) {
                 Alert.alert(
@@ -1087,7 +1087,8 @@ export default function UserProfileAndSupportPage() {
               color={isDarkMode ? "#fff" : "#000"}
               style={isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }}
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
+
         </View>
 
         {/* Language Section - under Legal */}

@@ -71,7 +71,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const { data, error } = await supabase.rpc('toggle_car_like', {
         car_id: carId,
-        user_id: user.id
+        p_user_id: user.id
       });
 
       if (error) {
