@@ -486,11 +486,11 @@ export default function CarsByBrand() {
 					/>
 				}
 				// Optional: Add some performance optimizations for standard scrolling
-				removeClippedSubviews={true}
+				removeClippedSubviews={false}
 				maxToRenderPerBatch={10}
-				updateCellsBatchingPeriod={50}
-				initialNumToRender={5}
-				windowSize={10}
+				updateCellsBatchingPeriod={100}
+				initialNumToRender={10}
+				windowSize={11}
 			/>
 		)
 	}
