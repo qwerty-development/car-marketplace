@@ -959,7 +959,7 @@ function NotificationsProvider() {
 }
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn, isSigningOut, isSigningIn, user, profile } = useAuth();
+  const { isLoaded, isSignedIn, isSigningOut, isSigningIn, user, profile, dealership } = useAuth();
   const { isGuest } = useGuestUser();
   const segments = useSegments();
   const router = useRouter();
@@ -981,7 +981,26 @@ function RootLayoutNav() {
       const hasVerifiedPhone = !!(user.phone && user.phone_confirmed_at);
       
       // Only require name and verified phone - email is optional
-      const isMissingFields = !hasName || !hasVerifiedPhone;
+      let isMissingFields = !hasName || !hasVerifiedPhone;
+
+      // RULE: For dealers, also require logo and location
+      if (profile?.role === 'dealer') {
+        const hasLogo = !!dealership?.logo;
+        // Treat "0" or 0 as missing location
+        const hasLat = !!dealership?.latitude && String(dealership.latitude) !== '0' && String(dealership.latitude) !== '0.0';
+        const hasLng = !!dealership?.longitude && String(dealership.longitude) !== '0' && String(dealership.longitude) !== '0.0';
+        const hasLocation = hasLat && hasLng;
+        
+        // If dealership data is still loading but profile is loaded, wait
+        // dealership === undefined means loading, null means loaded but not found
+        if (dealership === undefined && profile) {
+          console.log('[RootLayout] Waiting for dealership data...');
+          return;
+        }
+
+        isMissingFields = isMissingFields || !hasLogo || !hasLocation;
+      }
+
       const isOnCompleteProfile = segments[0] === 'complete-profile';
 
       if (isMissingFields) {
@@ -1023,7 +1042,8 @@ function RootLayoutNav() {
     isSigningOut,
     isSigningIn,
     user,
-    profile
+    profile,
+    dealership
   ]);
 
   // Mark auth as ready when loaded

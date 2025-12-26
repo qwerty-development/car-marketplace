@@ -31,6 +31,7 @@ interface AuthContextProps {
   session: Session | null;
   user: User | null;
   profile: UserProfile | null;
+  dealership: Dealership | null | undefined;
   isLoaded: boolean;
   isSignedIn: boolean;
   isSigningOut: boolean;
@@ -45,6 +46,7 @@ interface AuthContextProps {
   appleSignIn: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<{ error: Error | null }>;
+  updateDealershipProfile: (data: Partial<Dealership>) => Promise<{ error: Error | null }>;
   forceProfileRefresh: () => Promise<void>;
   updateUserRole: (userId: string, newRole: string) => Promise<{ error: Error | null }>;
 }
@@ -59,6 +61,20 @@ interface UserProfile {
   timezone: string;
   is_guest?: boolean;
   role?: string;
+}
+
+interface Dealership {
+  id: number;
+  created_at: string;
+  logo: string | null;
+  user_id: string;
+  subscription_end_date: string;
+  phone: string | null;
+  location: string | null;
+  name: string | null;
+  longitude: number | null;
+  latitude: number | null;
+  first_login: boolean | null;
 }
 
 interface SignInCredentials {
@@ -104,6 +120,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [dealership, setDealership] = useState<Dealership | null | undefined>(undefined);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSigningOutState, setIsSigningOutState] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -396,6 +413,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setSession(null);
             setUser(null);
             setProfile(null);
+            setDealership(undefined);
           }
 
           // Clear the session timeout since we got a response
@@ -579,6 +597,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             const createdProfile = await processOAuthUser(sessionData.session);
             if (createdProfile && activeUserIdRef.current === userId && !isGlobalSigningOut && !isSigningOutState) {
               setProfile(createdProfile);
+              if (createdProfile.role === 'dealer') {
+                await fetchDealershipProfile(userId);
+              }
               return;
             }
           }
@@ -592,17 +613,51 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       if (data) {
         if (activeUserIdRef.current === userId && !isGlobalSigningOut && !isSigningOutState) {
-          setProfile(data as UserProfile);
+          const userProfile = data as UserProfile;
+          setProfile(userProfile);
+          
+          if (userProfile.role === 'dealer') {
+            await fetchDealershipProfile(userId);
+          } else {
+            setDealership(null);
+          }
         }
       }
     } catch (error: any) {
-      if (error.message.includes('timed out')) {
-        console.warn('[AUTH] Profile fetch timed out');
-        scheduleProfileRetry(userId, 'profile fetch timeout');
+      console.error('[AUTH] Error in fetchUserProfile:', error);
+      setDealership(null); 
+      scheduleProfileRetry(userId, 'profile fetch error');
+    }
+  };
+
+  const fetchDealershipProfile = async (userId: string): Promise<void> => {
+    try {
+      if (!userId || isGuest || isGlobalSigningOut || isSigningOutState) return;
+
+      console.log('[AUTH] Fetching dealership profile for user:', userId);
+      const result = await withTimeout(
+        supabase
+          .from('dealerships')
+          .select('*')
+          .eq('user_id', userId)
+          .single(),
+        OPERATION_TIMEOUTS.PROFILE_FETCH,
+        'dealership fetch'
+      );
+
+      if (result.error) {
+        if (result.error.code !== 'PGRST116') {
+          console.error('[AUTH] Error fetching dealership profile:', result.error);
+        }
+        setDealership(null);
       } else {
-        console.error('[AUTH] Error in fetchUserProfile:', error);
-        scheduleProfileRetry(userId, 'profile fetch exception');
+        if (activeUserIdRef.current === userId && !isGlobalSigningOut && !isSigningOutState) {
+          setDealership(result.data as Dealership);
+        }
       }
+    } catch (error) {
+      console.error('[AUTH] Error in fetchDealershipProfile:', error);
+      setDealership(null); // Ensure state becomes defined (null) even on error
     }
   };
 
@@ -784,6 +839,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setSession(null);
       setUser(null);
       setProfile(null);
+      setDealership(null);
   
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -945,7 +1001,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                   }
                 }, 1000);
                 
-                return { success: true, user: sessionData.session.user };
+                return;
               }
             }
           } catch (extractError) {
@@ -970,21 +1026,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
           }, 1000);
           
-          return { success: true, user: currentSession.session.user };
+          return;
         }
       } catch (sessionCheckError) {
         console.error('[AUTH] Error checking session after Google auth:', sessionCheckError);
       }
 
       console.log('[AUTH] Google authentication failed');
-      return { success: false };
     } catch (error: any) {
       if (error.message.includes('timed out')) {
         console.warn('[AUTH] Google sign in timed out');
-        return { success: false, error: new Error('Google sign in timed out') };
       } else {
         console.error('[AUTH] Google sign in error:', error);
-        return { success: false, error };
       }
     } finally {
       setIsSigningIn(false);
@@ -1434,6 +1487,53 @@ const updateUserProfile = async (data: Partial<UserProfile>) => {
   }
 };
 
+const updateDealershipProfile = async (data: Partial<Dealership>) => {
+  console.log('[AUTH] Starting dealership profile upsert for user:', user?.id, 'with data:', data);
+  try {
+    if (!user) {
+      throw new Error('No user is signed in');
+    }
+
+    const originalDealership = dealership ? { ...dealership } : null;
+
+    // Optimistic update
+    if (dealership) {
+      setDealership({ ...dealership, ...data });
+    }
+
+    const updateResult = await withTimeout(
+      supabase
+        .from('dealerships')
+        .upsert({ 
+          ...data,
+          user_id: user.id 
+        }, { onConflict: 'user_id' })
+        .select()
+        .single(),
+      OPERATION_TIMEOUTS.PROFILE_FETCH,
+      'dealership database upsert'
+    );
+
+    if (updateResult.error) {
+      console.error('[AUTH] Dealership database upsert failed:', updateResult.error);
+      if (originalDealership) {
+        setDealership(originalDealership);
+      }
+      throw updateResult.error;
+    }
+
+    if (updateResult.data && activeUserIdRef.current === user.id) {
+       setDealership(updateResult.data as Dealership);
+    }
+
+    console.log('[AUTH] Dealership profile upsert completed successfully');
+    return { error: null };
+  } catch (error: any) {
+    console.error('[AUTH] Dealership upsert failed:', error);
+    return { error };
+  }
+};
+
 const forceProfileRefresh = async () => {
   if (!user?.id) {
     console.warn('[AUTH] Cannot refresh profile - no user ID');
@@ -1456,7 +1556,14 @@ const forceProfileRefresh = async () => {
 
     if (data) {
       console.log('[AUTH] Force refresh successful, updating profile state');
-      setProfile(data as UserProfile);
+      const refreshedProfile = data as UserProfile;
+      setProfile(refreshedProfile);
+      
+      if (refreshedProfile.role === 'dealer') {
+        await fetchDealershipProfile(user.id);
+      } else {
+        setDealership(null);
+      }
     }
   } catch (error) {
     console.error('[AUTH] Force refresh error:', error);
@@ -1549,6 +1656,7 @@ const forceProfileRefresh = async () => {
         session,
         user,
         profile,
+        dealership,
         isLoaded,
         isSignedIn: !!user || !!session,
         isSigningOut: isSigningOutState,
@@ -1563,6 +1671,7 @@ const forceProfileRefresh = async () => {
         appleSignIn,
         refreshSession,
         updateUserProfile,
+        updateDealershipProfile,
         forceProfileRefresh,
         updateUserRole
       }}
