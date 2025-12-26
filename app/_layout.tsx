@@ -9,7 +9,7 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "@/utils/AuthContext";
 import * as SplashScreen from "expo-splash-screen";
 import { FavoritesProvider } from "@/utils/useFavorites";
-import { ThemeProvider } from "@/utils/ThemeContext";
+import { ThemeProvider, useTheme } from "@/utils/ThemeContext";
 import { QueryClientProvider } from "react-query";
 import { queryClient } from "@/utils/queryClient";
 import {
@@ -1053,9 +1053,9 @@ function RootLayoutNav() {
     }, 150);
   }, [contentOpacity]);
 
-  // Get theme for background color
-  const colorScheme = useColorScheme();
-  const backgroundColor = colorScheme === "dark" ? "#000000" : "#FFFFFF";
+  // Get theme for background color from our context to use the 500ms delay
+  const { isDarkMode } = useTheme();
+  const backgroundColor = isDarkMode ? "#000000" : "#FFFFFF";
 
   return (
     <View style={{ flex: 1, backgroundColor }}>

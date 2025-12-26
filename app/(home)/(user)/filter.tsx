@@ -239,7 +239,7 @@ const SectionHeader = memo(({ title, subtitle, isDarkMode }: SectionHeaderProps)
 // --------------------
 interface Brand {
   name: string;
-  logoUrl: string;
+  logoUrl: string | null;
 }
 
 interface BrandSelectorProps {
@@ -376,10 +376,10 @@ const BrandSelector = memo(
           </Text>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {brands.map((brand, index) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {brands.map((brand) => (
             <TouchableOpacity
-              key={index}
+              key={brand.name}
               onPress={() => handleBrandPress(brand.name)}
               style={{ alignItems: "center", marginRight: isRTL ? 0 : 16, marginLeft: isRTL ? 16 : 0 }}
             >
@@ -393,7 +393,7 @@ const BrandSelector = memo(
                 }}
               >
                 <Image
-                  source={{ uri: brand.logoUrl }}
+                  source={{ uri: brand.logoUrl ?? undefined }}
                   style={{ width: 80, height: 80 }}
                   resizeMode="contain"
                 />
@@ -514,9 +514,9 @@ const BrandSelector = memo(
                 </View>
 
                 <ScrollView className="mb-24" showsVerticalScrollIndicator={false}>
-                  {filteredBrands.map((brand, index) => (
+                  {filteredBrands.map((brand) => (
                     <TouchableOpacity
-                      key={index}
+                      key={brand.name}
                       onPress={() => {
                         handleBrandPress(brand.name);
                         setShowAllBrands(false);
@@ -545,7 +545,7 @@ const BrandSelector = memo(
                         }}
                       >
                         <Image
-                          source={{ uri: brand.logoUrl }}
+                          source={{ uri: brand.logoUrl ?? undefined }}
                           style={{ width: 40, height: 40 }}
                           resizeMode="contain"
                         />
@@ -1925,23 +1925,14 @@ interface FilterProps {
   sortBy?: string;
 }
 
-const FilterPage = () => {
-const { isDarkMode } = useTheme();
-const { t } = useTranslation();
-const isRTL = I18nManager.isRTL;
-const router = useRouter();
-const params = useLocalSearchParams();
-const [dealerships, setDealerships] = useState<any[]>([]);
-const [filterCount, setFilterCount] = useState<number>(0);
-
 const defaultFilters: FilterProps = {
   dealership: [],
   dealershipName: [],
   make: [],
   model: [],
-  condition: [], // Added
-  source: [], // Added
-  fuelType: [], // Added
+  condition: [],
+  source: [],
+  fuelType: [],
   priceRange: [0, 1000000],
   mileageRange: [0, 500000],
   yearRange: [1900, new Date().getFullYear()],
@@ -1951,6 +1942,15 @@ const defaultFilters: FilterProps = {
   categories: [],
   quickFilter: null,
 };
+
+const FilterPage = () => {
+  const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
+  const isRTL = I18nManager.isRTL;
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const [dealerships, setDealerships] = useState<any[]>([]);
+  const [filterCount, setFilterCount] = useState<number>(0);
 
 const [filters, setFilters] = useState<FilterProps>(() => {
 if (!params.filters) return defaultFilters;
@@ -1975,31 +1975,31 @@ if (!error) setDealerships(data || []);
 fetchDealerships();
 }, []);
 
-const handleQuickFilterSelect = (quickFilter: any) => {
-if (filters.quickFilter?.id === quickFilter.id) {
-// Deselect if already selected
-setFilters((prev: FilterProps) => ({
-...defaultFilters,
-categories: prev.categories, // Preserve categories
-}));
-} else {
-setFilters((prev: FilterProps) => ({
-...defaultFilters,
-...quickFilter.filter,
-quickFilter,
-categories: prev.categories, // Preserve categories
-}));
-}
-};
+const handleQuickFilterSelect = useCallback((quickFilter: any) => {
+  if (filters.quickFilter?.id === quickFilter.id) {
+    // Deselect if already selected
+    setFilters((prev: FilterProps) => ({
+      ...defaultFilters,
+      categories: prev.categories, // Preserve categories
+    }));
+  } else {
+    setFilters((prev: FilterProps) => ({
+      ...defaultFilters,
+      ...quickFilter.filter,
+      quickFilter,
+      categories: prev.categories, // Preserve categories
+    }));
+  }
+}, [filters.quickFilter?.id]);
 
-const handleCategorySelect = (category: any) => {
-setFilters((prev: FilterProps) => ({
-...prev,
-categories: prev.categories.includes(category)
-? prev.categories.filter((c: any) => c !== category)
-: [...prev.categories, category],
-}));
-};
+const handleCategorySelect = useCallback((category: any) => {
+  setFilters((prev: FilterProps) => ({
+    ...prev,
+    categories: prev.categories.includes(category)
+      ? prev.categories.filter((c: any) => c !== category)
+      : [...prev.categories, category],
+  }));
+}, []);
 
 // Function to build the filter object for Supabase
 const buildSupabaseFilter = useCallback((filters: FilterProps) => {
@@ -2148,12 +2148,15 @@ return count > 0;
 }, [filters]);
 
 useEffect(() => {
-if (hasFiltersSelected) {
-countFilteredResults(filters)
-.then((count) => setFilterCount(count));
-} else {
-setFilterCount(0);
-}
+  if (hasFiltersSelected) {
+    const handler = setTimeout(() => {
+      countFilteredResults(filters)
+        .then((count) => setFilterCount(count));
+    }, 500); // 500ms debounce
+    return () => clearTimeout(handler);
+  } else {
+    setFilterCount(0);
+  }
 }, [filters, hasFiltersSelected, countFilteredResults]);
 
 return (
@@ -2207,7 +2210,10 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
     </TouchableOpacity>
   </View>
 
-  <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+  <ScrollView 
+    style={{ flex: 1, paddingHorizontal: 16 }}
+    keyboardShouldPersistTaps="handled"
+  >
     <View style={{ paddingVertical: 16 }}>
       {/* Quick Filters Section */}
       <SectionHeader
@@ -2215,7 +2221,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
         subtitle={t('filters.popular_filter_combinations')}
         isDarkMode={isDarkMode}
       />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {QUICK_FILTERS.map((filterItem) => (
           <QuickFilterCard
             key={filterItem.id}
@@ -2234,11 +2240,12 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={{ marginBottom: 24 }}
       >
-        {PRICE_RANGES.map((range, index) => (
+        {PRICE_RANGES.map((range) => (
           <SelectionCard
-            key={index}
+            key={range.labelKey}
             label={t(range.labelKey)}
             icon={range.icon}
             isSelected={
@@ -2399,6 +2406,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={{ marginBottom: 24 }}
       >
         {TRANSMISSION_OPTIONS.map((option) => (
@@ -2438,6 +2446,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={{ marginBottom: 24 }}
       >
 {DRIVETRAIN_OPTIONS.map((option) => (
@@ -2476,6 +2485,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 <ScrollView
   horizontal
   showsHorizontalScrollIndicator={false}
+  keyboardShouldPersistTaps="handled"
   style={{ marginBottom: 24 }}
 >
   {CONDITION_OPTIONS.map((option) => (
@@ -2515,6 +2525,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 <ScrollView
   horizontal
   showsHorizontalScrollIndicator={false}
+  keyboardShouldPersistTaps="handled"
   style={{ marginBottom: 24 }}
 >
   {SOURCE_OPTIONS.map((option) => (
@@ -2554,6 +2565,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
 <ScrollView
   horizontal
   showsHorizontalScrollIndicator={false}
+  keyboardShouldPersistTaps="handled"
   style={{ marginBottom: 24 }}
 >
   {FUEL_TYPE_OPTIONS.map((option) => (

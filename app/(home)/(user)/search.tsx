@@ -8,6 +8,7 @@ import {
   FlatList,
   Image,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useRouter, Stack, useLocalSearchParams } from "expo-router";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -43,7 +44,7 @@ export default function SearchScreen() {
       }
     }, [user?.id]);
 
-    const fetchRecentSearches = async () => {
+    const fetchRecentSearches = useCallback(async () => {
       if (!user?.id) return;
 
       try {
@@ -61,9 +62,9 @@ export default function SearchScreen() {
       } catch (err) {
         console.error("Error fetching recent searches:", err);
       }
-    };
+    }, [user?.id]);
 
-    const removeSearchQuery = async (queryToRemove: string) => {
+    const removeSearchQuery = useCallback(async (queryToRemove: string) => {
       if (!user?.id) return;
 
       const updatedSearches = recentSearches.filter(query => query !== queryToRemove);
@@ -79,9 +80,9 @@ export default function SearchScreen() {
       } catch (err) {
         console.error("Error removing search query:", err);
       }
-    };
+    }, [user?.id, recentSearches]);
 
-    const storeSearchQuery = async (newQuery: string) => {
+    const storeSearchQuery = useCallback(async (newQuery: string) => {
       if (!user?.id || !newQuery.trim()) return;
 
       const trimmedQuery = newQuery.trim();
@@ -99,7 +100,7 @@ export default function SearchScreen() {
       } catch (err) {
         console.error("Error updating recent searches:", err);
       }
-    };
+    }, [user?.id, recentSearches]);
 
     const fetchSuggestions = useCallback(async () => {
       const trimmedQuery = searchQuery.trim();
@@ -241,7 +242,7 @@ export default function SearchScreen() {
       return () => clearTimeout(delayDebounce);
     }, [searchQuery, fetchSuggestions]);
 
-    const handleSearchSubmit = async () => {
+    const handleSearchSubmit = useCallback(async () => {
         const trimmedQuery = searchQuery.trim();
         if (trimmedQuery) {
           await storeSearchQuery(trimmedQuery);
@@ -253,9 +254,9 @@ export default function SearchScreen() {
             }
           });
         }
-      };
+      }, [searchQuery, storeSearchQuery, router]);
 
-      const handleSuggestionPress = async (suggestion: string) => {
+      const handleSuggestionPress = useCallback(async (suggestion: string) => {
         const trimmedQuery = suggestion.trim();
         if (trimmedQuery) {
           await storeSearchQuery(trimmedQuery);
@@ -267,7 +268,7 @@ export default function SearchScreen() {
             }
           });
         }
-      };
+      }, [storeSearchQuery, router]);
 
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
@@ -315,56 +316,61 @@ export default function SearchScreen() {
           )}
         </View>
 
-        {!showSuggestions && recentSearches.length > 0 && (
-          <View style={styles.recentSearchesContainer}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
-              Recent Searches
-            </Text>
-            {recentSearches.map((search, index) => (
-              <TouchableOpacity
-                key={`recent-${index}`}
-                style={[styles.suggestionItem, isDarkMode && styles.darkSuggestionItem]}
-                onPress={() => handleSuggestionPress(search)}
-              >
-                <Ionicons
-                  name="time-outline"
-                  size={24}
-                  color={isDarkMode ? "#666" : "#999"}
-                  style={styles.recentSearchIcon}
-                />
-                <Text style={[styles.suggestionText, isDarkMode && styles.darkText]}>
-                  {search}
-                </Text>
+        <ScrollView 
+          style={{ flex: 1 }} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {!showSuggestions && recentSearches.length > 0 && (
+            <View style={styles.recentSearchesContainer}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
+                Recent Searches
+              </Text>
+              {recentSearches.map((search) => (
                 <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => removeSearchQuery(search)}
+                  key={`recent-${search}`}
+                  style={[styles.suggestionItem, isDarkMode && styles.darkSuggestionItem]}
+                  onPress={() => handleSuggestionPress(search)}
                 >
                   <Ionicons
-                    name="close"
-                    size={20}
+                    name="time-outline"
+                    size={24}
                     color={isDarkMode ? "#666" : "#999"}
+                    style={styles.recentSearchIcon}
                   />
+                  <Text style={[styles.suggestionText, isDarkMode && styles.darkText]}>
+                    {search}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => removeSearchQuery(search)}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={20}
+                      color={isDarkMode ? "#666" : "#999"}
+                    />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+              ))}
+            </View>
+          )}
 
-        {showSuggestions && (
-          <View style={styles.suggestionsContainer}>
+          {showSuggestions && (
+            <View style={styles.suggestionsContainer}>
             {suggestions.makes.length > 0 && (
               <>
                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText, styles.biggerSectionTitle]}>
                   Makes
                 </Text>
-                {suggestions.makes.map((make, index) => (
+                {suggestions.makes.map((make) => (
                   <TouchableOpacity
-                    key={`make-${index}`}
+                    key={`make-${make}`}
                     style={[styles.suggestionItem, isDarkMode && styles.darkSuggestionItem]}
                     onPress={() => handleSuggestionPress(make)}
                   >
                     <Image
-                      source={{ uri: getLogoUrl(make, !isDarkMode) }}
+                      source={{ uri: getLogoUrl(make, !isDarkMode) ?? undefined }}
                       style={styles.brandLogo}
                       resizeMode="contain"
                     />
@@ -392,9 +398,9 @@ export default function SearchScreen() {
                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText, styles.biggerSectionTitle]}>
                   Models
                 </Text>
-                {suggestions.models.map((model, index) => (
+                {suggestions.models.map((model) => (
                   <TouchableOpacity
-                    key={`model-${index}`}
+                    key={`model-${model}`}
                     style={[styles.suggestionItem, isDarkMode && styles.darkSuggestionItem]}
                     onPress={() => handleSuggestionPress(model)}
                   >
@@ -407,7 +413,8 @@ export default function SearchScreen() {
             )}
           </View>
         )}
-      </SafeAreaView>
+      </ScrollView>
+    </SafeAreaView>
     );
   }
 

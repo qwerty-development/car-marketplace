@@ -84,6 +84,50 @@ export const CONDITIONS = [
   { value: "Used", label: "Used", icon: "star-half" },
 ];
 
+// Move BrandItem outside to prevent re-creation
+const BrandItem = memo(({ brand, isSelected, onPress, isDarkMode, size = "normal" }: any) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className={`${size === "normal" ? "mr-3" : ""} ${
+      isSelected ? "scale-110" : ""
+    }`}
+  >
+    <BlurView
+      intensity={isDarkMode ? 20 : 40}
+      tint={isDarkMode ? "dark" : "light"}
+      className={`rounded-2xl p-4 ${
+        size === "normal"
+          ? "w-[110px] h-[150px]"
+          : "flex-row items-center p-4 mb-2"
+      } justify-between items-center`}
+    >
+      <View
+        className={`${
+          size === "normal" ? "w-[60px] h-[60px]" : "w-12 h-12"
+        } justify-center items-center`}
+      >
+        <Image
+          source={{ uri: brand.logoUrl }}
+          style={{
+            width: size === "normal" ? 60 : 40,
+            height: size === "normal" ? 60 : 40,
+          }}
+          contentFit="contain"
+        />
+      </View>
+      <Text
+        className={`${
+          size === "normal" ? "text-center" : "flex-1 ml-3"
+        } text-sm font-medium
+        ${isSelected ? "text-red" : isDarkMode ? "text-white" : "text-black"}`}
+        numberOfLines={2}
+      >
+        {brand.name}
+      </Text>
+    </BlurView>
+  </TouchableOpacity>
+));
+
 export const BrandSelector = memo(
   ({ selectedBrand, onSelectBrand, isDarkMode }: any) => {
     const { t, ready } = useTranslation();
@@ -201,53 +245,6 @@ export const BrandSelector = memo(
       setHasMore(true);
     }, [searchQuery]);
 
-    // Render brand item component
-    const BrandItem = useCallback(
-      ({ brand, isSelected, onPress, size = "normal" }: any) => (
-        <TouchableOpacity
-          onPress={onPress}
-          className={`${size === "normal" ? "mr-3" : ""} ${
-            isSelected ? "scale-110" : ""
-          }`}
-        >
-          <BlurView
-            intensity={isDarkMode ? 20 : 40}
-            tint={isDarkMode ? "dark" : "light"}
-            className={`rounded-2xl p-4 ${
-              size === "normal"
-                ? "w-[110px] h-[150px]"
-                : "flex-row items-center p-4 mb-2"
-            } justify-between items-center`}
-          >
-            <View
-              className={`${
-                size === "normal" ? "w-[60px] h-[60px]" : "w-12 h-12"
-              } justify-center items-center`}
-            >
-              <Image
-                source={{ uri: brand.logoUrl }}
-                style={{
-                  width: size === "normal" ? 60 : 40,
-                  height: size === "normal" ? 60 : 40,
-                }}
-                contentFit="contain"
-              />
-            </View>
-            <Text
-              className={`${
-                size === "normal" ? "text-center" : "flex-1 ml-3"
-              } text-sm font-medium
-			  ${isSelected ? "text-red" : isDarkMode ? "text-white" : "text-black"}`}
-              numberOfLines={2}
-            >
-              {brand.name}
-            </Text>
-          </BlurView>
-        </TouchableOpacity>
-      ),
-      [isDarkMode]
-    );
-
     if (isLoading) {
       return (
         <View className="flex-1 justify-center items-center">
@@ -299,11 +296,13 @@ export const BrandSelector = memo(
           showsHorizontalScrollIndicator={false}
           className="mb-6"
           contentContainerStyle={{ paddingRight: 20 }}
+          keyboardShouldPersistTaps="handled"
         >
           {brands.map((brand) => (
             <BrandItem
               key={brand.name}
               brand={brand}
+              isDarkMode={isDarkMode}
               isSelected={selectedBrand === brand.name}
               onPress={() =>
                 onSelectBrand(selectedBrand === brand.name ? "" : brand.name)
@@ -583,7 +582,10 @@ export const ModelDropdown = memo(
                   </Text>
                 </View>
 
-                <ScrollView className="max-h-96 p-4">
+                <ScrollView 
+                  className="max-h-96 p-4"
+                  keyboardShouldPersistTaps="handled"
+                >
                   {models.map((model) => (
                     <TouchableOpacity
                       key={model}
@@ -636,6 +638,7 @@ export const EnhancedColorSelector = memo(
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mb-6"
+        keyboardShouldPersistTaps="handled"
       >
         {VEHICLE_COLORS.map((color) => (
           <TouchableOpacity
