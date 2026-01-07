@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from 'react-query';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import { ChatService } from '@/services/ChatService';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useUserName } from '@/hooks/useUserName';
+import { useMarkConversationRead } from '@/hooks/useMarkConversationRead';
 import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
 import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
@@ -95,34 +96,41 @@ export default function DealerConversationDetailScreen() {
     });
   }, [conversation, navigation, t, fetchedUserName]);
 
-  // Mark as read when screen is focused (only once)
-  const hasMarkedReadRef = useRef(false);
-  
-  useFocusEffect(
-    useCallback(() => {
-      if (!conversationIdParam || !user || profile?.role !== 'dealer') {
-        return;
-      }
+  // MARK: - Read Status Management
+  const isFocused = useIsFocused();
+  const lastProcessedMessageIdRef = useRef<number | null>(null);
+  const markReadMutation = useMarkConversationRead();
 
-      // Check if already marked during this focus
-      if (hasMarkedReadRef.current) {
-        return;
-      }
+  useEffect(() => {
+    // 1. Basic checks
+    if (!conversationIdParam || !user || !conversation || !isFocused) return;
 
-      // Mark the flag to prevent re-marking
-      hasMarkedReadRef.current = true;
+    // 2. Check if we have messages to mark
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
 
-      // Mark conversation as read
-      ChatService.markConversationRead(conversationIdParam, 'dealer').catch((error) => {
-        console.warn('Failed to mark conversation read', error);
-      });
+    // 3. Avoid duplicate calls for the same latest message
+    if (lastProcessedMessageIdRef.current === lastMessage.id) return;
 
-      // Reset flag when screen loses focus
-      return () => {
-        hasMarkedReadRef.current = false;
-      };
-    }, [conversationIdParam, user, profile?.role])
-  );
+    // 4. Trigger mutation
+    console.log('[DealerConversationDetail] Auto-marking read', {
+      msgId: lastMessage.id,
+      role: 'dealer'
+    });
+
+    lastProcessedMessageIdRef.current = lastMessage.id;
+    markReadMutation.mutate({
+      conversationId: conversationIdParam,
+      viewerRole: 'dealer',
+    });
+  }, [
+    conversationIdParam,
+    user,
+    conversation,
+    isFocused,
+    messages,
+    markReadMutation
+  ]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -181,17 +189,15 @@ export default function DealerConversationDetailScreen() {
             <Text className="text-4xl">⚠️</Text>
           </View>
           <Text
-            className={`text-xl font-bold mb-3 ${
-              isDarkMode ? 'text-white' : 'text-black'
-            }`}
+            className={`text-xl font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-black'
+              }`}
             style={{ textAlign: 'center' }}
           >
             {t('chat.conversation_not_found', 'Conversation not found')}
           </Text>
           <Text
-            className={`text-base ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}
+            className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}
             style={{ textAlign: 'center', lineHeight: 22 }}
           >
             {t(
@@ -228,14 +234,14 @@ export default function DealerConversationDetailScreen() {
         ) : (
           <>
             {conversation && (conversation.car || conversation.carRent) && (
-              <ConversationCarHeader 
+              <ConversationCarHeader
                 conversation={conversation}
                 dealershipId={conversation.dealership_id ?? undefined}
                 isDealer={true}
               />
             )}
             {conversation && conversation.numberPlate && (
-              <ConversationPlateHeader 
+              <ConversationPlateHeader
                 conversation={conversation}
                 isDealer={true}
               />
@@ -291,17 +297,15 @@ export default function DealerConversationDetailScreen() {
                     }}
                   >
                     <Text
-                      className={`text-base ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`}
+                      className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}
                       style={{ textAlign: 'center' }}
                     >
                       {t('chat.no_messages_yet', 'No messages yet')}
                     </Text>
                     <Text
-                      className={`text-sm mt-2 ${
-                        isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                      }`}
+                      className={`text-sm mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                        }`}
                       style={{ textAlign: 'center' }}
                     >
                       {t('chat.start_conversation', 'Send a message to start the conversation')}

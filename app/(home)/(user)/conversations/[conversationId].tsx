@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from 'react-query';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,63 +106,46 @@ export default function ConversationDetailScreen() {
     });
   }, [conversation, navigation, t, user, isDarkMode]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const isUserLikeRole = profile?.role === 'user' || profile?.role === 'admin';
+  // MARK: - Read Status Management
+  const isFocused = useIsFocused();
+  const lastProcessedMessageIdRef = useRef<number | null>(null);
 
-      if (!conversationIdParam || !user || !isUserLikeRole || !conversation) {
-        console.log('[ConversationDetail] Skip markRead: missing data', {
-          conversationIdParam,
-          hasUser: !!user,
-          role: profile?.role,
-          hasConversation: !!conversation,
-          isUserLikeRole,
-        });
-        return;
-      }
+  useEffect(() => {
+    // 1. Basic checks
+    if (!conversationIdParam || !user || !conversation || !isFocused) return;
 
-      if (hasMarkedReadRef.current) {
-        console.log('[ConversationDetail] Skip markRead: already marked in this focus', {
-          conversationIdParam,
-        });
-        return;
-      }
+    // 2. Check if we have messages to mark
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
 
-      // Explicitly refetch messages when screen comes into focus
-      refetch();
+    // 3. Avoid duplicate calls for the same latest message
+    if (lastProcessedMessageIdRef.current === lastMessage.id) return;
 
-      // Determine the correct viewer role based on conversation type and user position
-      let viewerRole: 'user' | 'seller_user' = 'user';
-      if (conversation.conversation_type === 'user_user' && conversation.seller_user_id === user.id) {
-        viewerRole = 'seller_user';
-      }
+    // 4. Determine viewer role
+    let viewerRole: 'user' | 'seller_user' = 'user';
+    if (conversation.conversation_type === 'user_user' && conversation.seller_user_id === user.id) {
+      viewerRole = 'seller_user';
+    }
 
-      console.log('[ConversationDetail] Marking conversation read', {
-        conversationId: conversationIdParam,
-        viewerRole,
-      });
+    // 5. Trigger mutation
+    console.log('[ConversationDetail] Auto-marking read', {
+      msgId: lastMessage.id,
+      viewerRole
+    });
 
-      hasMarkedReadRef.current = true;
-
-      markReadMutation.mutate(
-        {
-          conversationId: conversationIdParam,
-          viewerRole,
-        },
-        {
-          onError: (error) => {
-            console.warn('Failed to mark conversation read', error);
-          },
-          onSuccess: () => {
-            console.log('[ConversationDetail] Mark read success', {
-              conversationId: conversationIdParam,
-              viewerRole,
-            });
-          },
-        }
-      );
-    }, [conversationIdParam, conversation, markReadMutation, profile?.role, refetch, user?.id])
-  );
+    lastProcessedMessageIdRef.current = lastMessage.id;
+    markReadMutation.mutate({
+      conversationId: conversationIdParam,
+      viewerRole,
+    });
+  }, [
+    conversationIdParam,
+    user,
+    conversation,
+    isFocused,
+    messages, // Re-run when new messages arrive
+    markReadMutation
+  ]);
 
   useEffect(() => {
     if (messages.length === 0) return;
