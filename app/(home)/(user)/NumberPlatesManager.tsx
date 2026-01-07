@@ -474,6 +474,21 @@ export default function NumberPlatesManager() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Delete Button - Only show in edit mode */}
+          {isEditMode && plateId && (
+            <TouchableOpacity
+              onPress={() => handleDelete(plateId, formData.picture || '')}
+              className={`mt-3 p-4 rounded-xl items-center flex-row justify-center ${
+                isDarkMode ? 'bg-red-900/30 border border-red-500/30' : 'bg-red-50 border border-red-200'
+              }`}
+            >
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              <Text className="ml-2 font-bold text-lg" style={{ color: '#EF4444' }}>
+                Delete Plate
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Existing Plates List - Only show when not in edit mode */}
