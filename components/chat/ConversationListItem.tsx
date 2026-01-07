@@ -9,6 +9,7 @@ import { ConversationSummary } from '@/types/chat';
 import { useUserName } from '@/hooks/useUserName';
 import { useTranslation } from 'react-i18next';
 import CachedImage from '@/utils/CachedImage';
+import { LicensePlateTemplate } from '@/components/NumberPlateCard';
 
 interface ConversationListItemProps {
   conversation: ConversationSummary;
@@ -111,9 +112,8 @@ function getDisplayInfo(
   // Determine listing label
   let listingLabel = '';
   if (carInfo) {
-    listingLabel = `${carInfo.make} ${carInfo.model} (${carInfo.year})${
-      conversation.carRent ? ' • For Rent' : ''
-    }${isDeleted ? ' • (Deleted)' : ''}`;
+    listingLabel = `${carInfo.make} ${carInfo.model} (${carInfo.year})${conversation.carRent ? ' • For Rent' : ''
+      }${isDeleted ? ' • (Deleted)' : ''}`;
   } else if (plateInfo) {
     listingLabel = `Plate: ${plateInfo.letter} ${plateInfo.digits}${isDeleted ? ' • (Deleted)' : ''}`;
   }
@@ -231,6 +231,14 @@ export default function ConversationListItem({
             style={styles.productImage}
             cachePolicy="disk"
           />
+        ) : conversation.numberPlate ? (
+          <View style={[styles.productImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }]}>
+            <LicensePlateTemplate
+              letter={conversation.numberPlate.letter}
+              digits={conversation.numberPlate.digits}
+              width={90}
+            />
+          </View>
         ) : (
           <View style={[styles.productImage, styles.productImagePlaceholder]}>
             <Text style={styles.placeholderText}>No Image</Text>

@@ -4,11 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { styled } from 'nativewind';
 import { ConversationSummary } from '@/types/chat';
 import { useTheme } from '@/utils/ThemeContext';
-import CachedImage from '@/utils/CachedImage';
+import { LicensePlateTemplate } from '@/components/NumberPlateCard';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
-const StyledCachedImage = styled(CachedImage);
 const StyledPressable = styled(Pressable);
 
 interface ConversationPlateHeaderProps {
@@ -26,62 +25,30 @@ export default function ConversationPlateHeader({
 
   if (!plateData) return null;
 
-  const plateDisplay = `${plateData.letter} ${plateData.digits}`;
+
   const statusColor = plateData.status === 'available' ? '#16A34A' : '#DC2626';
   const statusText = plateData.status === 'available' ? 'Available' : plateData.status === 'sold' ? 'Sold' : plateData.status;
 
   return (
     <StyledView
-      className={`px-4 py-3 border-b ${
-        isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'
-      }`}
+      className={`px-4 py-3 border-b ${isDarkMode ? ' border-slate-700' : 'bg-gray-50 border-gray-200'
+        }`}
     >
-      <StyledView className="flex-row items-center">
-        {/* Plate Image */}
-        {plateData.picture ? (
-          <StyledCachedImage
-            source={{ uri: plateData.picture }}
-            className="w-16 h-16 rounded-lg mr-3"
-            contentFit="cover"
-            cachePolicy="disk"
+      <StyledView className="flex-row items-center justify-between ">
+        {/* Plate Template Display */}
+        <View className="mr-3">
+          <LicensePlateTemplate
+            letter={plateData.letter}
+            digits={plateData.digits}
+            width={130}
           />
-        ) : (
-          <StyledView
-            className={`w-16 h-16 rounded-lg mr-3 items-center justify-center ${
-              isDarkMode ? 'bg-gray-800' : 'bg-gray-200'
-            }`}
-          >
-            <Ionicons
-              name="id-card"
-              size={28}
-              color={isDarkMode ? '#fff' : '#666'}
-            />
-          </StyledView>
-        )}
+        </View>
 
         {/* Plate Info */}
-        <StyledView className="flex-1">
-          <StyledView className="flex-row items-center justify-between">
-            <StyledText
-              className={`text-lg font-bold flex-1 ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}
-              style={{ letterSpacing: 1 }}
-              numberOfLines={1}
-            >
-              {plateDisplay}
-            </StyledText>
-            <StyledView className="bg-orange-500 px-2 py-1 rounded ml-2">
-              <StyledText className="text-xs font-semibold text-white">
-                Plate
-              </StyledText>
-            </StyledView>
-          </StyledView>
-
+        <StyledView className="w-fit items-end justify-center">
           <StyledText
-            className={`text-sm mt-1 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}
+            className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}
           >
             ${plateData.price.toLocaleString()}
           </StyledText>
@@ -90,11 +57,11 @@ export default function ConversationPlateHeader({
           <StyledView className="flex-row items-center mt-1">
             <Ionicons
               name={plateData.status === 'available' ? 'checkmark-circle' : 'close-circle'}
-              size={12}
+              size={14}
               color={statusColor}
             />
             <StyledText
-              className="text-xs ml-1"
+              className="text-sm ml-1 font-medium"
               style={{ color: statusColor }}
             >
               {statusText.charAt(0).toUpperCase() + statusText.slice(1)}
