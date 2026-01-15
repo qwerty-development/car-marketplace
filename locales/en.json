@@ -1207,6 +1207,22 @@
     "payment_redirect_message": "You will be redirected to Whish sandbox to complete the payment.",
     "open_payment_page": "Open Payment Page"
   },
+  "editProfile": "Edit Profile",
+  "basicInfo": "Basic Info",
+  "dealershipName": "Dealership Name",
+  "address": "Address",
+  "latitude": "Latitude",
+  "longitude": "Longitude",
+  "useCurrentLocation": "Use Current Location",
+  "tapMapOrEnterCoordinates": "Tap map to select location or enter coordinates manually",
+  "saveChanges": "Save Changes",
+  "permissionDenied": "Permission Denied",
+  "allowLocationAccess": "Please allow location access",
+  "failedToGetLocation": "Failed to get location",
+  "dealershipInfoNotFound": "Dealership info not found",
+  "profileUpdatedSuccess": "Profile updated successfully",
+  "failedToUpdateProfile": "Failed to update profile",
+  "recentSearches": "Recent Searches",
   "permissions": {
     "denied": "Permission Denied",
     "photo_access_required": "Please allow photo access."
