@@ -366,7 +366,7 @@
       "sales_history": "تاريخ المبيعات",
       "sales_overview": "نظرة عامة على المبيعات",
       "sales": "المبيعات",
-      "revenue": "الإيرادات", 
+      "revenue": "الإيرادات",
       "profit": "الربح",
       "monthly_average": "المتوسط الشهري",
       "current_month": "الشهر الحالي",
@@ -380,7 +380,7 @@
       "needs_attention": "يحتاج انتباه",
       "total_sold": "إجمالي المباع",
       "total_views": "إجمالي المشاهدات",
-      "total_revenue": "إجمالي الإيرادات", 
+      "total_revenue": "إجمالي الإيرادات",
       "total_profit": "إجمالي الربح",
       "export_sales_data": "تصدير بيانات المبيعات",
       "listed_price": "السعر المعروض",
@@ -765,6 +765,7 @@
     "no_dealerships_found": "لا يوجد وكلاء",
     "try_adjusting_search": "جرّب تعديل البحث",
     "vehicles_available": "{{count}} مركبة متاحة",
+    "no_listings": "لا توجد إعلانات",
     "search_cars_placeholder": "ابحث عن السيارات... (الحد الأدنى {{min}} أحرف)",
     "unable_to_load_map": "تعذر تحميل الخريطة",
     "location_not_available": "الموقع غير متاح",
@@ -1170,5 +1171,3 @@
     "photo_access_required": "يرجى السماح بالوصول إلى الصور."
   }
 }
-
-

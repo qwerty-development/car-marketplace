@@ -43,17 +43,16 @@ interface Dealership {
   id: number;
   name: string | null;
   logo: string | null;
-  total_cars?: number;
+  total_cars_sale?: number;
+  total_cars_rent?: number;
+  total_number_plates?: number;
   location?: string | null;
-  // latitude: number | null; // REMOVED
-  // longitude: number | null; // REMOVED
-  // distance?: number; // REMOVED
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const SORT_OPTIONS = {
-  ATOZ : "a-z",
+  ATOZ: "a-z",
   ZTOA: "z-a",
   RANDOMIZED: "random",
   // NEAREST: "nearest", // REMOVED
@@ -291,24 +290,54 @@ const DealershipCard = React.memo(
                   </Text>
                 </View>
 
-                {/* Cars */}
-                {item.total_cars !== undefined && (
-                  <View style={cardStyles.infoRow}>
-                    <Ionicons
-                      name="car-outline"
-                      size={14}
-                      color={isDarkMode ? "#CCC" : "#666"}
-                    />
-                    <Text
-                      style={[
-                        cardStyles.infoText,
-                        { color: isDarkMode ? "white" : "#444" },
-                      ]}
-                    >
-                      {i18n.t('dealership.vehicles_available', { count: item.total_cars })}
+                {/* Stats Row - Icon-based display */}
+                <View style={cardStyles.statsRow}>
+                  {/* Cars for Sale */}
+                  {(item.total_cars_sale ?? 0) > 0 && (
+                    <View style={[cardStyles.statBadge, { backgroundColor: isDarkMode ? 'rgba(213, 80, 4, 0.15)' : 'rgba(213, 80, 4, 0.1)' }]}>
+                      <Ionicons
+                        name="car-sport-outline"
+                        size={14}
+                        color="#D55004"
+                      />
+                      <Text style={[cardStyles.statText, { color: '#D55004' }]}>
+                        {item.total_cars_sale}
+                      </Text>
+                    </View>
+                  )}
+                  {/* Cars for Rent */}
+                  {(item.total_cars_rent ?? 0) > 0 && (
+                    <View style={[cardStyles.statBadge, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)' }]}>
+                      <Ionicons
+                        name="key-outline"
+                        size={14}
+                        color="#3B82F6"
+                      />
+                      <Text style={[cardStyles.statText, { color: '#3B82F6' }]}>
+                        {item.total_cars_rent}
+                      </Text>
+                    </View>
+                  )}
+                  {/* Number Plates */}
+                  {(item.total_number_plates ?? 0) > 0 && (
+                    <View style={[cardStyles.statBadge, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)' }]}>
+                      <Ionicons
+                        name="document-text-outline"
+                        size={14}
+                        color="#22C55E"
+                      />
+                      <Text style={[cardStyles.statText, { color: '#22C55E' }]}>
+                        {item.total_number_plates}
+                      </Text>
+                    </View>
+                  )}
+                  {/* Show 'No listings' if all counts are 0 */}
+                  {(item.total_cars_sale ?? 0) === 0 && (item.total_cars_rent ?? 0) === 0 && (item.total_number_plates ?? 0) === 0 && (
+                    <Text style={[cardStyles.infoText, { color: isDarkMode ? '#888' : '#999', fontStyle: 'italic' }]}>
+                      {i18n.t('dealership.no_listings')}
                     </Text>
-                  </View>
-                )}
+                  )}
+                </View>
               </View>
             </View>
           </LinearGradient>
@@ -360,6 +389,25 @@ const cardStyles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 4,
   },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  statBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 4,
+  },
+  statText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
 });
 
 // -------------------
@@ -384,25 +432,84 @@ export default function DealershipListPage() {
   const scrollRef = useRef<FlatList<Dealership> | null>(null);
   useScrollToTop(scrollRef);
 
- const fetchDealerships = useCallback(async () => {
+  const fetchDealerships = useCallback(async () => {
     if (!hasFetched) setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Step 1: Fetch all dealerships with active subscriptions
+      const { data: dealershipsData, error: dealershipsError } = await supabase
         .from("dealerships")
-        .select("*, cars!inner(count)") // Using !inner to ensure we count all cars
-        .eq('cars.status', 'available')
+        .select("id, name, logo, location")
         .gte("subscription_end_date", new Date().toISOString())
-          .order("name")
+        .order("name");
 
-      if (error) throw error;
+      if (dealershipsError) throw dealershipsError;
 
-      const rawDealers: any[] = data || [];
-      const formattedData: Dealership[] = rawDealers.map((dealer) => ({
-          id: dealer.id,
-          name: dealer.name ?? null,
-          logo: dealer.logo ?? null,
-          location: dealer.location ?? null,
-          total_cars: dealer.cars?.[0]?.count || 0,
+      if (!dealershipsData || dealershipsData.length === 0) {
+        setDealerships([]);
+        return;
+      }
+
+      const dealershipIds = dealershipsData.map(d => d.id);
+
+      // Step 2: Fetch counts for cars (sale)
+      const { data: carsData, error: carsError } = await supabase
+        .from("cars")
+        .select("dealership_id")
+        .eq('status', 'available')
+        .in('dealership_id', dealershipIds);
+
+      if (carsError) throw carsError;
+
+      // Step 3: Fetch counts for cars_rent
+      const { data: rentData, error: rentError } = await supabase
+        .from("cars_rent")
+        .select("dealership_id")
+        .eq('status', 'available')
+        .in('dealership_id', dealershipIds);
+
+      if (rentError) throw rentError;
+
+      // Step 4: Fetch counts for number_plates
+      const { data: platesData, error: platesError } = await supabase
+        .from("number_plates")
+        .select("dealership_id")
+        .eq('status', 'available')
+        .in('dealership_id', dealershipIds);
+
+      if (platesError) throw platesError;
+
+      // Aggregate counts by dealership_id
+      const carsCounts: Record<number, number> = {};
+      const rentCounts: Record<number, number> = {};
+      const platesCounts: Record<number, number> = {};
+
+      (carsData || []).forEach((car: any) => {
+        if (car.dealership_id) {
+          carsCounts[car.dealership_id] = (carsCounts[car.dealership_id] || 0) + 1;
+        }
+      });
+
+      (rentData || []).forEach((rent: any) => {
+        if (rent.dealership_id) {
+          rentCounts[rent.dealership_id] = (rentCounts[rent.dealership_id] || 0) + 1;
+        }
+      });
+
+      (platesData || []).forEach((plate: any) => {
+        if (plate.dealership_id) {
+          platesCounts[plate.dealership_id] = (platesCounts[plate.dealership_id] || 0) + 1;
+        }
+      });
+
+      // Combine all data
+      const formattedData: Dealership[] = dealershipsData.map((dealer) => ({
+        id: dealer.id,
+        name: dealer.name ?? null,
+        logo: dealer.logo ?? null,
+        location: dealer.location ?? null,
+        total_cars_sale: carsCounts[dealer.id] || 0,
+        total_cars_rent: rentCounts[dealer.id] || 0,
+        total_number_plates: platesCounts[dealer.id] || 0,
       }));
 
       setDealerships(formattedData);
@@ -504,7 +611,7 @@ export default function DealershipListPage() {
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
-    <CustomHeader title={i18n.t('dealership.dealerships')} />
+      <CustomHeader title={i18n.t('dealership.dealerships')} />
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View
@@ -557,32 +664,32 @@ export default function DealershipListPage() {
       </View>
       {/* Main Content: Loading or List */}
       {isLoading ? (
-  <DealershipSkeletonLoading isDarkMode={isDarkMode} count={6} />
-) : (
-  <FlatList
-    ref={scrollRef}
-    data={sortedAndFilteredDealerships}
-    renderItem={({ item, index }) => (
-      <DealershipCard
-        item={item}
-        onPress={handleDealershipPress}
-        isDarkMode={isDarkMode}
-        index={index}
-      />
-    )}
-    keyExtractor={(item) => `${item.id}`}
-    ListEmptyComponent={renderEmpty}
-    refreshControl={
-      <RefreshControl
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        colors={["#D55004"]}
-        tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
-      />
-    }
-    contentContainerStyle={styles.flatListContent}
-  />
-)}
+        <DealershipSkeletonLoading isDarkMode={isDarkMode} count={6} />
+      ) : (
+        <FlatList
+          ref={scrollRef}
+          data={sortedAndFilteredDealerships}
+          renderItem={({ item, index }) => (
+            <DealershipCard
+              item={item}
+              onPress={handleDealershipPress}
+              isDarkMode={isDarkMode}
+              index={index}
+            />
+          )}
+          keyExtractor={(item) => `${item.id}`}
+          ListEmptyComponent={renderEmpty}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#D55004"]}
+              tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
+            />
+          }
+          contentContainerStyle={styles.flatListContent}
+        />
+      )}
 
       {/* Sort Modal */}
       <SortModal

@@ -138,7 +138,7 @@
   },
   "car": {
     "price": "Price",
-    "color": "Color", 
+    "color": "Color",
     "category": "Category",
     "see_more_cta": "Click to see more",
     "no_cars": "No cars available.",
@@ -399,7 +399,7 @@
       "sales_history": "Sales History",
       "sales_overview": "Sales Overview",
       "sales": "Sales",
-      "revenue": "Revenue", 
+      "revenue": "Revenue",
       "profit": "Profit",
       "monthly_average": "Monthly Average",
       "current_month": "Current Month",
@@ -412,7 +412,7 @@
       "slight_decline": "Slight decline",
       "needs_attention": "Needs attention",
       "total_sold": "Total Sold",
-      "total_views": "Total Views", 
+      "total_views": "Total Views",
       "total_revenue": "Total Revenue",
       "total_profit": "Total Profit",
       "export_sales_data": "Export Sales Data",
@@ -822,6 +822,7 @@
     "no_dealerships_found": "No dealerships found",
     "try_adjusting_search": "Try adjusting your search",
     "vehicles_available": "{{count}} vehicles available",
+    "no_listings": "No listings",
     "search_cars_placeholder": "Search cars... (min {{min}} chars)",
     "unable_to_load_map": "Unable to load map",
     "location_not_available": "Location not available",
@@ -1228,5 +1229,3 @@
     "photo_access_required": "Please allow photo access."
   }
 }
-
-
