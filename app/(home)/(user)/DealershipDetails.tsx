@@ -15,6 +15,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/utils/supabase'
 import CarCard from '@/components/CarCard'
+import RentalCarCard from '@/components/RentalCarCard'
+import NumberPlateCard from '@/components/NumberPlateCard'
 import CarDetailModal from '@/app/(home)/(user)/CarDetailModal'
 import CarDetailModalIOS from './CarDetailModal.ios'
 import { useFavorites } from '@/utils/useFavorites'
@@ -36,11 +38,14 @@ const SEARCH_DEBOUNCE_MS = 500
 const MIN_SEARCH_LENGTH = 2
 
 // **TYPE DEFINITIONS**
+type CategoryType = 'cars' | 'rentals' | 'plates'
+
 interface FilterState {
 	searchQuery: string
 	sortOption: string
 	priceRange?: [number, number]
 	yearRange?: [number, number]
+	category: CategoryType
 }
 
 interface Dealership {
@@ -76,11 +81,55 @@ interface Car {
 	dealership_location?: string
 }
 
+interface RentalCar {
+	id: number
+	make: string
+	model: string
+	year: number
+	price: number
+	images: string[]
+	description: string
+	color: string
+	transmission: 'Manual' | 'Automatic'
+	drivetrain: 'FWD' | 'RWD' | 'AWD' | '4WD' | '4x4'
+	views?: number
+	likes?: number
+	listed_at: string
+	rental_period: 'daily' | 'weekly' | 'monthly'
+	dealership_name?: string
+	dealership_logo?: string
+	dealership_phone?: string
+	dealership_location?: string
+}
+
+interface NumberPlate {
+	id: number
+	letter: string
+	digits: string
+	price: number
+	picture?: string
+	views?: number
+	created_at: string
+	dealership_name?: string
+	dealership_logo?: string
+	dealership_phone?: string
+	seller_type?: 'user' | 'dealer'
+	seller_name?: string
+	seller_phone?: string
+	dealership_location?: string
+}
+
 interface LoadingState {
 	dealership: boolean
 	cars: boolean
 	search: boolean
 	refresh: boolean
+}
+
+interface CategoryCounts {
+	cars: number
+	rentals: number
+	plates: number
 }
 
 // **OPTIMIZED IMAGE COMPONENT**
@@ -106,6 +155,105 @@ const OptimizedImage = React.memo(({ source, style, className }: any) => {
 					setIsLoading(false)
 				}}
 			/>
+		</View>
+	)
+})
+
+// **CATEGORY SELECTOR COMPONENT**
+const CategorySelector = React.memo(({ 
+	selectedCategory,
+	onCategoryChange,
+	categoryCounts,
+	isDarkMode
+}: {
+	selectedCategory: CategoryType
+	onCategoryChange: (category: CategoryType) => void
+	categoryCounts: CategoryCounts
+	isDarkMode: boolean
+}) => {
+	const { t } = useTranslation()
+	const isRTL = I18nManager.isRTL
+
+	const categories: Array<{ id: CategoryType; label: string; icon: string; count: number }> = [
+		{ id: 'cars', label: t('dealership.cars_for_sale'), icon: 'car-sport', count: categoryCounts.cars },
+		{ id: 'rentals', label: t('dealership.cars_for_rent'), icon: 'key', count: categoryCounts.rentals },
+		{ id: 'plates', label: t('dealership.number_plates'), icon: 'reader', count: categoryCounts.plates },
+	]
+
+	// Only show categories with items
+	const visibleCategories = categories.filter(cat => cat.count > 0)
+
+	if (visibleCategories.length <= 1) return null // Don't show selector if only one category
+
+	return (
+		<View className='px-5 mb-6'>
+			<View 
+				className='flex-row rounded-2xl p-1.5'
+				style={{
+					backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+					borderWidth: 1,
+					borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
+				}}
+			>
+				{visibleCategories.map((category) => {
+					const isSelected = selectedCategory === category.id
+					return (
+						<TouchableOpacity
+							key={category.id}
+							onPress={() => onCategoryChange(category.id)}
+							className='flex-1'
+							activeOpacity={0.7}
+						>
+							<View 
+								className='py-3.5 px-3 rounded-xl items-center flex-row justify-center'
+								style={{
+									backgroundColor: isSelected 
+										? '#D55004'
+										: 'transparent',
+									shadowColor: isSelected ? '#D55004' : 'transparent',
+									shadowOffset: { width: 0, height: 2 },
+									shadowOpacity: 0.2,
+									shadowRadius: 4,
+									elevation: isSelected ? 2 : 0
+								}}
+							>
+								<Ionicons 
+									name={category.icon as any}
+									size={18} 
+									color={isSelected ? 'white' : (isDarkMode ? '#999' : '#666')}
+									style={{ marginRight: 6 }}
+								/>
+								<Text 
+									className='font-semibold text-sm'
+									style={{
+										color: isSelected ? 'white' : (isDarkMode ? '#999' : '#666')
+									}}
+									numberOfLines={1}
+								>
+									{category.label}
+								</Text>
+								<View 
+									className='ml-1.5 px-2 py-0.5 rounded-full'
+									style={{
+										backgroundColor: isSelected 
+											? 'rgba(255,255,255,0.25)'
+											: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
+									}}
+								>
+									<Text 
+										className='text-xs font-bold'
+										style={{
+											color: isSelected ? 'white' : (isDarkMode ? '#CCC' : '#666')
+										}}
+									>
+										{category.count}
+									</Text>
+								</View>
+							</View>
+						</TouchableOpacity>
+					)
+				})}
+			</View>
 		</View>
 	)
 })
@@ -355,8 +503,25 @@ export default function DealershipDetails() {
 
 	// **STATE MANAGEMENT - OPTIMIZED**
 	const [dealership, setDealership] = useState<Dealership | null>(null)
-	const [allCars, setAllCars] = useState<Car[]>([]) // **ALL FETCHED CARS**
-	const [filteredCars, setFilteredCars] = useState<Car[]>([]) // **DISPLAYED CARS**
+	const [selectedCategory, setSelectedCategory] = useState<CategoryType>('cars')
+	const [categoryCounts, setCategoryCounts] = useState<CategoryCounts>({
+		cars: 0,
+		rentals: 0,
+		plates: 0
+	})
+	
+	// Cars data
+	const [allCars, setAllCars] = useState<Car[]>([]) 
+	const [filteredCars, setFilteredCars] = useState<Car[]>([])
+	
+	// Rentals data
+	const [allRentals, setAllRentals] = useState<RentalCar[]>([])
+	const [filteredRentals, setFilteredRentals] = useState<RentalCar[]>([])
+	
+	// Number plates data
+	const [allPlates, setAllPlates] = useState<NumberPlate[]>([])
+	const [filteredPlates, setFilteredPlates] = useState<NumberPlate[]>([])
+	
 	const [loadingState, setLoadingState] = useState<LoadingState>({
 		dealership: true,
 		cars: true,
@@ -378,6 +543,48 @@ export default function DealershipDetails() {
 		isDarkMode ? ['#000000', '#1c1c1c'] : ['#FFFFFF', '#F0F0F0']
 	, [isDarkMode])
 
+	// **FETCH CATEGORY COUNTS - OPTIMIZED**
+	const fetchCategoryCounts = useCallback(async () => {
+		try {
+			const [carsResult, rentalsResult, platesResult] = await Promise.all([
+				supabase
+					.from('cars')
+					.select('id', { count: 'exact', head: true })
+					.eq('dealership_id', dealershipId)
+					.eq('status', 'available'),
+				supabase
+					.from('cars_rent')
+					.select('id', { count: 'exact', head: true })
+					.eq('dealership_id', dealershipId)
+					.eq('status', 'available'),
+				supabase
+					.from('number_plates')
+					.select('id', { count: 'exact', head: true })
+					.eq('dealership_id', dealershipId)
+					.eq('status', 'available')
+			])
+
+			const counts = {
+				cars: carsResult.count || 0,
+				rentals: rentalsResult.count || 0,
+				plates: platesResult.count || 0
+			}
+
+			setCategoryCounts(counts)
+
+			// Auto-select first available category
+			if (counts.cars > 0) {
+				setSelectedCategory('cars')
+			} else if (counts.rentals > 0) {
+				setSelectedCategory('rentals')
+			} else if (counts.plates > 0) {
+				setSelectedCategory('plates')
+			}
+		} catch (error) {
+			console.error('Error fetching category counts:', error)
+		}
+	}, [dealershipId])
+
 	// **DEALERSHIP DATA FETCHING - STABLE**
 	const fetchDealershipDetails = useCallback(async () => {
 		setLoadingState(prev => ({ ...prev, dealership: true }))
@@ -397,6 +604,145 @@ export default function DealershipDetails() {
 			setLoadingState(prev => ({ ...prev, dealership: false }))
 		}
 	}, [dealershipId])
+
+	// **RENTAL CARS DATA FETCHING**
+	const fetchAllRentals = useCallback(async (refresh = false) => {
+		setLoadingState(prev => ({ 
+			...prev, 
+			cars: !refresh, 
+			refresh: refresh 
+		}))
+
+		try {
+			let query = supabase
+				.from('cars_rent')
+				.select(
+					`*, dealerships (name,logo,phone,location,latitude,longitude)`,
+					{ count: 'exact' }
+				)
+				.eq('status', 'available')
+				.eq('dealership_id', dealershipId)
+
+			// Apply sorting
+			switch (sortOption) {
+				case 'price_asc':
+					query = query.order('price', { ascending: true })
+					break
+				case 'price_desc':
+					query = query.order('price', { ascending: false })
+					break
+				case 'year_asc':
+					query = query.order('year', { ascending: true })
+					break
+				case 'year_desc':
+					query = query.order('year', { ascending: false })
+					break
+				default:
+					query = query.order('listed_at', { ascending: false })
+			}
+
+			const { data, error, count } = await query
+
+			if (error) throw error
+
+			let processedRentals: RentalCar[] = data?.map(item => ({
+				...item,
+				dealership_name: item.dealerships.name,
+				dealership_logo: item.dealerships.logo,
+				dealership_phone: item.dealerships.phone,
+				dealership_location: item.dealerships.location,
+			})) || []
+
+			// Apply boost priority
+			const boostedRentals = processedRentals.filter(car => {
+				return car.is_boosted && car.boost_priority && car.boost_end_date &&
+					   new Date(car.boost_end_date) > new Date();
+			});
+			const nonBoostedRentals = processedRentals.filter(car => {
+				return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+					   new Date(car.boost_end_date) <= new Date();
+			});
+
+			boostedRentals.sort((a, b) => {
+				return (b.boost_priority || 0) - (a.boost_priority || 0);
+			});
+
+			processedRentals = [...boostedRentals, ...nonBoostedRentals];
+
+			setAllRentals(processedRentals)
+			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
+			
+		} catch (error) {
+			console.error('Error fetching rental cars:', error)
+			Alert.alert('Error', 'Failed to load rental cars')
+		} finally {
+			setLoadingState(prev => ({ 
+				...prev, 
+				cars: false, 
+				refresh: false 
+			}))
+		}
+	}, [dealershipId, sortOption])
+
+	// **NUMBER PLATES DATA FETCHING**
+	const fetchAllPlates = useCallback(async (refresh = false) => {
+		setLoadingState(prev => ({ 
+			...prev, 
+			cars: !refresh, 
+			refresh: refresh 
+		}))
+
+		try {
+			let query = supabase
+				.from('number_plates')
+				.select(
+					`*, dealerships (name,logo,phone,location)`,
+					{ count: 'exact' }
+				)
+				.eq('status', 'available')
+				.eq('dealership_id', dealershipId)
+
+			// Apply sorting
+			switch (sortOption) {
+				case 'price_asc':
+					query = query.order('price', { ascending: true })
+					break
+				case 'price_desc':
+					query = query.order('price', { ascending: false })
+					break
+				default:
+					query = query.order('created_at', { ascending: false })
+			}
+
+			const { data, error, count } = await query
+
+			if (error) throw error
+
+			const processedPlates: NumberPlate[] = data?.map(item => ({
+				...item,
+				seller_type: 'dealer',
+				seller_name: item.dealerships.name,
+				seller_phone: item.dealerships.phone,
+				dealership_name: item.dealerships.name,
+				dealership_logo: item.dealerships.logo,
+				dealership_phone: item.dealerships.phone,
+				dealership_location: item.dealerships.location,
+			})) || []
+
+			setAllPlates(processedPlates)
+			setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE))
+			
+		} catch (error) {
+			console.error('Error fetching number plates:', error)
+			Alert.alert('Error', 'Failed to load number plates')
+		} finally {
+			setLoadingState(prev => ({ 
+				...prev, 
+				cars: false, 
+				refresh: false 
+			}))
+		}
+	}, [dealershipId, sortOption])
 
 	// **CARS DATA FETCHING - OPTIMIZED**
 	const fetchAllCars = useCallback(async (refresh = false) => {
@@ -492,53 +838,121 @@ export default function DealershipDetails() {
 		setActiveSearchQuery(searchQuery)
 
 		setTimeout(() => {
-			let result = [...allCars]
+			if (selectedCategory === 'cars') {
+				let result = [...allCars]
 
-			if (searchQuery.trim()) {
-				const searchTerms = searchQuery.toLowerCase().split(' ')
-				result = result.filter(car => {
-					const searchableFields = [
-						car.make,
-						car.model,
-						car.year.toString(),
-						car.condition,
-						car.transmission,
-						car.color
-					]
-					return searchTerms.every(term =>
-						searchableFields.some(field =>
-							field.toLowerCase().includes(term)
+				if (searchQuery.trim()) {
+					const searchTerms = searchQuery.toLowerCase().split(' ')
+					result = result.filter(car => {
+						const searchableFields = [
+							car.make,
+							car.model,
+							car.year.toString(),
+							car.condition,
+							car.transmission,
+							car.color
+						]
+						return searchTerms.every(term =>
+							searchableFields.some(field =>
+								field.toLowerCase().includes(term)
+							)
 						)
-					)
-				})
+					})
+				}
+
+				// Prioritize boosted
+				const boostedResults = result.filter(car => {
+					return car.is_boosted && car.boost_priority && car.boost_end_date &&
+						   new Date(car.boost_end_date) > new Date();
+				});
+				const nonBoostedResults = result.filter(car => {
+					return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+						   new Date(car.boost_end_date) <= new Date();
+				});
+
+				boostedResults.sort((a, b) => (b.boost_priority || 0) - (a.boost_priority || 0));
+				result = [...boostedResults, ...nonBoostedResults];
+
+				setFilteredCars(result)
+			} else if (selectedCategory === 'rentals') {
+				let result = [...allRentals]
+
+				if (searchQuery.trim()) {
+					const searchTerms = searchQuery.toLowerCase().split(' ')
+					result = result.filter(car => {
+						const searchableFields = [
+							car.make,
+							car.model,
+							car.year.toString(),
+							car.transmission,
+							car.color,
+							car.rental_period
+						]
+						return searchTerms.every(term =>
+							searchableFields.some(field =>
+								field.toLowerCase().includes(term)
+							)
+						)
+					})
+				}
+
+				// Prioritize boosted rentals
+				const boostedResults = result.filter(car => {
+					return car.is_boosted && car.boost_priority && car.boost_end_date &&
+						   new Date(car.boost_end_date) > new Date();
+				});
+				const nonBoostedResults = result.filter(car => {
+					return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
+						   new Date(car.boost_end_date) <= new Date();
+				});
+
+				boostedResults.sort((a, b) => (b.boost_priority || 0) - (a.boost_priority || 0));
+				result = [...boostedResults, ...nonBoostedResults];
+
+				setFilteredRentals(result)
+			} else if (selectedCategory === 'plates') {
+				let result = [...allPlates]
+
+				if (searchQuery.trim()) {
+					const searchTerms = searchQuery.toLowerCase().split(' ')
+					result = result.filter(plate => {
+						const searchableFields = [
+							plate.letter,
+							plate.digits,
+							plate.price.toString()
+						]
+						return searchTerms.every(term =>
+							searchableFields.some(field =>
+								field.toLowerCase().includes(term)
+							)
+						)
+					})
+				}
+
+				setFilteredPlates(result)
 			}
 
-			// **PRIORITIZE BOOSTED CARS IN SEARCH RESULTS**
-			const boostedResults = result.filter(car => {
-				return car.is_boosted && car.boost_priority && car.boost_end_date &&
-					   new Date(car.boost_end_date) > new Date();
-			});
-			const nonBoostedResults = result.filter(car => {
-				return !car.is_boosted || !car.boost_priority || !car.boost_end_date ||
-					   new Date(car.boost_end_date) <= new Date();
-			});
-
-			// Sort boosted by priority
-			boostedResults.sort((a, b) => (b.boost_priority || 0) - (a.boost_priority || 0));
-
-			// Combine with boosted first
-			result = [...boostedResults, ...nonBoostedResults];
-
-			setFilteredCars(result)
 			setLoadingState(prev => ({ ...prev, search: false }))
-		}, 300) // **SIMULATE SEARCH PROCESSING**
-	}, [allCars])
+		}, 300)
+	}, [allCars, allRentals, allPlates, selectedCategory])
 
 	// **CLEAR SEARCH FUNCTION**
 	const clearSearch = useCallback(() => {
 		setActiveSearchQuery('')
-		setFilteredCars(allCars)
-	}, [allCars])
+		if (selectedCategory === 'cars') {
+			setFilteredCars(allCars)
+		} else if (selectedCategory === 'rentals') {
+			setFilteredRentals(allRentals)
+		} else if (selectedCategory === 'plates') {
+			setFilteredPlates(allPlates)
+		}
+	}, [allCars, allRentals, allPlates, selectedCategory])
+
+	// **CATEGORY CHANGE HANDLER**
+	const handleCategoryChange = useCallback((category: CategoryType) => {
+		setSelectedCategory(category)
+		setActiveSearchQuery('') // Clear search when changing category
+	}, [])
 
 	// **SORT CHANGE HANDLER**
 	const handleSortChange = useCallback((newSortOption: string) => {
@@ -548,21 +962,34 @@ export default function DealershipDetails() {
 	// **EFFECT: INITIALIZE DATA**
 	useEffect(() => {
 		fetchDealershipDetails()
-	}, [fetchDealershipDetails])
+		fetchCategoryCounts()
+	}, [fetchDealershipDetails, fetchCategoryCounts])
 
-	// **EFFECT: FETCH CARS WHEN SORT CHANGES**
+	// **EFFECT: FETCH DATA BASED ON SELECTED CATEGORY**
 	useEffect(() => {
-		fetchAllCars()
-	}, [fetchAllCars])
+		if (selectedCategory === 'cars') {
+			fetchAllCars()
+		} else if (selectedCategory === 'rentals') {
+			fetchAllRentals()
+		} else if (selectedCategory === 'plates') {
+			fetchAllPlates()
+		}
+	}, [selectedCategory, sortOption, fetchAllCars, fetchAllRentals, fetchAllPlates])
 
-	// **EFFECT: UPDATE FILTERED CARS WHEN ALL CARS CHANGE**
+	// **EFFECT: UPDATE FILTERED DATA WHEN SOURCE DATA CHANGES**
 	useEffect(() => {
 		if (activeSearchQuery) {
 			performSearch(activeSearchQuery)
 		} else {
-			setFilteredCars(allCars)
+			if (selectedCategory === 'cars') {
+				setFilteredCars(allCars)
+			} else if (selectedCategory === 'rentals') {
+				setFilteredRentals(allRentals)
+			} else if (selectedCategory === 'plates') {
+				setFilteredPlates(allPlates)
+			}
 		}
-	}, [allCars, activeSearchQuery, performSearch])
+	}, [allCars, allRentals, allPlates, selectedCategory, activeSearchQuery, performSearch])
 
 	// **EVENT HANDLERS - MEMOIZED**
 	const handleCarPress = useCallback((car: Car) => {
@@ -586,9 +1013,12 @@ export default function DealershipDetails() {
 	const handleRefresh = useCallback(() => {
 		Promise.all([
 			fetchDealershipDetails(),
-			fetchAllCars(true)
+			fetchCategoryCounts(),
+			selectedCategory === 'cars' ? fetchAllCars(true) : 
+			selectedCategory === 'rentals' ? fetchAllRentals(true) : 
+			fetchAllPlates(true)
 		])
-	}, [fetchDealershipDetails, fetchAllCars])
+	}, [fetchDealershipDetails, fetchCategoryCounts, fetchAllCars, fetchAllRentals, fetchAllPlates, selectedCategory])
 
 	const handleCall = useCallback(() => {
 		if (dealership?.phone) {
@@ -621,6 +1051,25 @@ export default function DealershipDetails() {
 			isFavorite={isFavorite(item.id)}
 		/>
 	), [handleCarPress, handleFavoritePress, isFavorite])
+
+	const renderRentalItem = useCallback(({ item }: { item: RentalCar }) => (
+		<RentalCarCard
+			car={item as any}
+			onFavoritePress={() => handleFavoritePress(item.id)}
+			isFavorite={isFavorite(item.id)}
+			isDealer={false}
+		/>
+	), [handleFavoritePress, isFavorite])
+
+	const renderPlateItem = useCallback(({ item, index }: { item: NumberPlate; index: number }) => (
+		<NumberPlateCard
+			plate={item as any}
+			index={index}
+			onPress={() => {
+				console.log('Plate pressed:', item.id)
+			}}
+		/>
+	), [])
 
 	const renderModal = useMemo(() => {
 		const ModalComponent = Platform.OS === 'ios' ? CarDetailModalIOS : CarDetailModal
@@ -720,10 +1169,10 @@ export default function DealershipDetails() {
 								>
 									<View className='items-center'>
 										<Text className={`text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
-											{t('dealership.inventory')}
+											{t('dealership.total_inventory')}
 										</Text>
 										<Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-											{filteredCars.length}
+											{categoryCounts.cars + categoryCounts.rentals + categoryCounts.plates}
 										</Text>
 									</View>
 
@@ -812,6 +1261,14 @@ export default function DealershipDetails() {
 				</View>
 			)}
 
+			{/* **CATEGORY SELECTOR** */}
+			<CategorySelector
+				selectedCategory={selectedCategory}
+				onCategoryChange={handleCategoryChange}
+				categoryCounts={categoryCounts}
+				isDarkMode={isDarkMode}
+			/>
+
 			{/* **SEARCH AND FILTER SECTION** */}
 			<View className='px-5 mb-4'>
 				<SearchBar
@@ -837,14 +1294,19 @@ export default function DealershipDetails() {
 			{/* **RESULTS HEADER** */}
 			<View className='px-6 mb-4 flex-row items-center justify-between'>
 				<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-					{activeSearchQuery ? t('dealership.search_results') : t('dealership.available_cars')}
+					{activeSearchQuery ? t('dealership.search_results') : 
+						selectedCategory === 'cars' ? t('dealership.available_cars') :
+						selectedCategory === 'rentals' ? t('dealership.available_rentals') :
+						t('dealership.available_plates')}
 				</Text>
 				<View className='flex-row items-center space-x-2'>
 					{loadingState.search && (
 						<ActivityIndicator size="small" color="#D55004" />
 					)}
 					<Text className={`${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>
-						{t('dealership.vehicles_count', { count: filteredCars.length })}
+						{selectedCategory === 'cars' ? filteredCars.length :
+						 selectedCategory === 'rentals' ? filteredRentals.length :
+						 filteredPlates.length} {t('dealership.items')}
 					</Text>
 				</View>
 			</View>
@@ -910,9 +1372,17 @@ export default function DealershipDetails() {
 		<LinearGradient colors={bgGradient} className='flex-1'>
 			<SafeAreaView className='flex-1'>
 				<Animated.FlatList
-					data={filteredCars}
-					renderItem={renderCarItem}
-					keyExtractor={(item) => `car-${item.id}`}
+					data={
+						selectedCategory === 'cars' ? filteredCars :
+						selectedCategory === 'rentals' ? filteredRentals :
+						filteredPlates
+					}
+					renderItem={
+						selectedCategory === 'cars' ? renderCarItem :
+						selectedCategory === 'rentals' ? renderRentalItem :
+						renderPlateItem
+					}
+					keyExtractor={(item) => `${selectedCategory}-${item.id}`}
 					ListHeaderComponent={renderHeader}
 					contentContainerStyle={{ paddingBottom: 20 }}
 					onScroll={Animated.event(
@@ -926,12 +1396,23 @@ export default function DealershipDetails() {
 					ListEmptyComponent={() => (
 						<View className='items-center justify-center py-12'>
 							<Ionicons 
-								name="car-outline" 
+								name={
+									selectedCategory === 'cars' ? 'car-outline' :
+									selectedCategory === 'rentals' ? 'key-outline' :
+									'reader-outline'
+								}
 								size={64} 
 								color={isDarkMode ? '#666' : '#999'} 
 							/>
 							<Text className={`mt-4 text-lg ${isDarkMode ? 'text-white/60' : 'text-black/60'}`}>
-								{activeSearchQuery ? t('dealership.no_cars_match_search') : t('dealership.no_cars_available')}
+								{activeSearchQuery 
+									? t('dealership.no_items_match_search') 
+									: selectedCategory === 'cars' 
+										? t('dealership.no_cars_available')
+										: selectedCategory === 'rentals'
+											? t('dealership.no_rentals_available')
+											: t('dealership.no_plates_available')
+								}
 							</Text>
 							{activeSearchQuery && (
 								<TouchableOpacity 
