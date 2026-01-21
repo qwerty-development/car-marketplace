@@ -255,7 +255,7 @@ export default function BrowseCarsPage() {
         // Use explicit FK hint for users since there are multiple relationships (user_id and deleted_by)
         const selectString = currentCarViewMode === 'rent'
           ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
-          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)`;
+          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`;
         
         let queryBuilder = supabase
           .from(tableName)

@@ -65,7 +65,7 @@ export function useCachedCars(options: UseCachedCarsOptions = {}) {
   const fetchCars = async () => {
     const selectString = table === 'cars_rent'
       ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
-      : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)`;
+      : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`;
 
     const cacheKey = `cars:${table}:page:${page}:${JSON.stringify(filters)}:${sortOption}:${searchQuery}`;
 

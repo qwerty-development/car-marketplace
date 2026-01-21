@@ -133,7 +133,7 @@ export default function MyListings() {
 					(async () => {
 						let vQuery = supabase
 							.from('cars')
-							.select('*, users!cars_user_id_fkey(name, id)')
+							.select('*, users!cars_user_id_fkey(name, id, phone_number)')
 							.eq('user_id', user.id)
 							.neq('status', 'deleted')
 

@@ -113,7 +113,7 @@ export async function prefetchCarDetails(carId: number, table: 'cars' | 'cars_re
       async () => {
         const selectString = table === 'cars_rent'
           ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
-          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)`;
+          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`;
         
         const { data, error } = await supabase
           .from(table)
@@ -169,7 +169,7 @@ export async function prefetchNextPage(
       async () => {
         const selectString = table === 'cars_rent'
           ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
-          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)`;
+          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`;
         
         let query = supabase
           .from(table)

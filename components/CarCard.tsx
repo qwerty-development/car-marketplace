@@ -198,7 +198,7 @@ export default function CarCard({
   const sellerInfo = useMemo(() => ({
     name: isDealershipCar ? car.dealership_name : car.seller_name || car.users?.name || t('common.private_seller'),
     logo: isDealershipCar ? car.dealership_logo : null,
-    phone: isDealershipCar ? car.dealership_phone : car.seller_phone,
+    phone: isDealershipCar ? car.dealership_phone : car.users?.phone_number || car.seller_phone,
     location: isDealershipCar ? car.dealership_location : null,
     id: isDealershipCar ? car.dealership_id : car.user_id,
   }), [car, isDealershipCar, t]);
@@ -576,16 +576,21 @@ export default function CarCard({
         trackWhatsAppClick(car.id);
       }
 
-      const cleanedPhoneNumber = sellerInfo.phone
+      let cleanedPhoneNumber = sellerInfo.phone
         .toString()
         .replace(/\D/g, "");
+      
+      // Only add country code if not already present (user phones are stored with +961, dealer phones without)
+      if (!cleanedPhoneNumber.startsWith('961')) {
+        cleanedPhoneNumber = `961${cleanedPhoneNumber}`;
+      }
 
       const fullMessage = `Hi, I'm interested in the ${car.year} ${car.make} ${
         car.model
       } listed for $${car.price.toLocaleString()} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
       const encodedMessage = encodeURIComponent(fullMessage);
 
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodedMessage}`;
+      const webURL = `https://wa.me/${cleanedPhoneNumber}?text=${encodedMessage}`;
 
       Linking.openURL(webURL).catch(() => {
         Alert.alert(
@@ -874,29 +879,7 @@ export default function CarCard({
                   </StyledText>
                 )}
 
-                {/* Contact info hint for user cars */}
-                {!isDealershipCar && (
-                  <View style={{
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                    alignItems: 'center',
-                    marginTop: 4,
-                    gap: 4
-                  }}>
-                    <Ionicons
-                      name="call-outline"
-                      size={12}
-                      color={isDarkMode ? "#9CA3AF" : "#6B7280"}
-                    />
-                    <StyledText
-                      className={`text-xs ${
-                        isDarkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                      style={{ textAlign: isRTL ? 'right' : 'left' }}
-                    >
-                      {t('car.contact_via_call_whatsapp', 'Contact via Call or WhatsApp')}
-                    </StyledText>
-                  </View>
-                )}
+
               </StyledView>
 
               <StyledView

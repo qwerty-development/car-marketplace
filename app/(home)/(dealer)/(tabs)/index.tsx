@@ -1087,7 +1087,7 @@ export default function DealerListings() {
 					// cars_rent only has dealerships, no users relationship
 					// Use explicit FK hint for users since there are multiple relationships (user_id and deleted_by)
 					const selectString = currentViewMode === 'sale'
-						? '*, dealerships!inner(name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey(name, id)'
+						? '*, dealerships!inner(name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey(name, id, phone_number)'
 						: '*, dealerships!inner(name,logo,phone,location,latitude,longitude)'
 					
 					let query = supabase

@@ -768,9 +768,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         trackWhatsAppClick(car.id);
       }
 
-      const cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+      let cleanedPhoneNumber = car.dealership_phone.toString().replace(/\D/g, '');
+      // Only add country code if not already present (user phones are stored with +961, dealer phones without)
+      if (!cleanedPhoneNumber.startsWith('961')) {
+        cleanedPhoneNumber = `961${cleanedPhoneNumber}`;
+      }
       const message = `Hi, I'm interested in the ${car.year} ${car.make} ${car.model} listed for $${car.price ? car.price.toLocaleString() : 'N/A'} on Fleet\n\nhttps://www.fleetapp.me/cars/${car.id}`;
-      const webURL = `https://wa.me/961${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
+      const webURL = `https://wa.me/${cleanedPhoneNumber}?text=${encodeURIComponent(message)}`;
 
       Linking.openURL(webURL).catch(() => {
         Alert.alert(

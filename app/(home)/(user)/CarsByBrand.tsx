@@ -215,7 +215,7 @@ export default function CarsByBrand() {
 		try {
 			let query = supabase
 				.from('cars')
-				.select(`*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id)`)
+				.select(`*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`)
 				.eq('status', 'available')
 				.eq('make', brandName)
 
