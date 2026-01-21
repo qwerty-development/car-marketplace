@@ -13,6 +13,7 @@ import {
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
 import { useTranslation } from 'react-i18next'
+import * as Sentry from '@sentry/react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
@@ -583,6 +584,22 @@ export default function AutoClipsScreen() {
       .eq('id', clip.id)
 
     if (error) {
+      // Capture error to Sentry with context
+      Sentry.captureException(error, {
+        tags: {
+          action: 'toggle_autoclip_status',
+        },
+        contexts: {
+          autoclip: {
+            clip_id: clip.id,
+            dealership_id: clip.dealership_id,
+            car_id: clip.car_id,
+            current_status: clip.status,
+            target_status: newStatus,
+          },
+        },
+      })
+      
       Alert.alert('Error', 'Failed to update clip status.')
     } else {
       Alert.alert('Success', `Clip ${newStatus === 'published' ? 'published' : 'archived'}.`)

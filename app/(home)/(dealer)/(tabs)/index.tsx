@@ -19,7 +19,7 @@ import {
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/utils/supabase'
-
+import * as Sentry from '@sentry/react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTheme } from '@/utils/ThemeContext'
 
@@ -1347,6 +1347,22 @@ export default function DealerListings() {
 								Alert.alert('Success', 'Listing deleted successfully')
 							} catch (error) {
 								console.error('Error in handleDeleteListing:', error)
+								
+								// Capture error to Sentry with context
+								Sentry.captureException(error, {
+									tags: {
+										action: 'delete_listing',
+										view_mode: viewMode,
+									},
+									contexts: {
+										listing: {
+											listing_id: id,
+											table_name: tableName,
+											dealership_id: dealership?.id,
+										},
+									},
+								})
+								
 								Alert.alert('Error', 'Failed to delete listing')
 							}
 						},
@@ -1418,6 +1434,30 @@ export default function DealerListings() {
 				Alert.alert('Success', `Listing marked as ${statusValue} successfully`)
 			} catch (error) {
 				console.error('Error marking as sold/rented:', error)
+				
+				// Capture error to Sentry with context for debugging client-specific issues
+				Sentry.captureException(error, {
+					tags: {
+						action: 'mark_as_sold_from_listing',
+						view_mode: viewMode,
+						status_value: statusValue,
+					},
+					contexts: {
+						listing: {
+							listing_id: selectedListing?.id,
+							table_name: tableName,
+							dealership_id: dealership?.id,
+							make: selectedListing?.make,
+							model: selectedListing?.model,
+						},
+						sold_info: {
+							price: soldInfo?.price,
+							date: soldInfo?.date,
+							buyer_name: soldInfo?.buyer_name,
+						},
+					},
+				})
+				
 				Alert.alert('Error', `Failed to mark listing as ${statusValue}`)
 			}
 		},

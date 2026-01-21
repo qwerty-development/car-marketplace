@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
+import * as Sentry from '@sentry/react-native'
 import { useDealershipProfile } from './hooks/useDealershipProfile'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useTranslation } from 'react-i18next'
@@ -267,6 +268,20 @@ export default function NumberPlatesManager() {
               fetchNumberPlates()
             } catch (error) {
               console.error('Error deleting plate:', error)
+              
+              // Capture error to Sentry with context
+              Sentry.captureException(error, {
+                tags: {
+                  action: 'delete_number_plate',
+                },
+                contexts: {
+                  plate: {
+                    plate_id: plateId,
+                    dealership_id: dealership?.id,
+                  },
+                },
+              })
+              
               Alert.alert('Error', 'Failed to delete number plate')
             }
           }

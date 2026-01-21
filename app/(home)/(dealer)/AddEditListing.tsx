@@ -30,6 +30,7 @@ import * as FileSystem from "expo-file-system";
 import { supabase } from "@/utils/supabase";
 import { useTheme } from "@/utils/ThemeContext";
 import { processImageToWebP, getWebPFileInfo } from "@/utils/imageProcessor";
+import * as Sentry from '@sentry/react-native';
 import { BlurView } from "expo-blur";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -1863,6 +1864,24 @@ features
               ]);
             } catch (error: any) {
               console.error("Error deleting listing:", error);
+              
+              // Capture error to Sentry with context
+              Sentry.captureException(error, {
+                tags: {
+                  action: 'delete_listing',
+                  view_mode: viewMode,
+                  user_mode: isUserMode ? 'user' : 'dealer',
+                },
+                contexts: {
+                  listing: {
+                    listing_id: initialData?.id,
+                    table_name: tableName,
+                    dealership_id: dealership?.id,
+                    user_id: params?.userId,
+                  },
+                },
+              });
+              
               Alert.alert(
                 "Error",
                 `Failed to delete listing. Please try again. (${error.message})`
@@ -1952,6 +1971,30 @@ features
         ]);
       } catch (error) {
         console.error("Error marking as sold:", error);
+        
+        // Capture error to Sentry with context for debugging client-specific issues
+        Sentry.captureException(error, {
+          tags: {
+            action: 'mark_as_sold',
+            view_mode: viewMode,
+            user_mode: isUserMode ? 'user' : 'dealer',
+          },
+          contexts: {
+            listing: {
+              listing_id: initialData?.id,
+              table_name: viewMode === 'rent' ? 'cars_rent' : 'cars',
+              status_to_set: viewMode === 'rent' ? 'rented' : 'sold',
+              dealership_id: dealership?.id,
+              user_id: params?.userId,
+            },
+            sold_info: {
+              has_price: !!soldData?.price,
+              has_date: !!soldData?.date,
+              has_buyer_name: !!soldData?.buyer_name,
+            },
+          },
+        });
+        
         Alert.alert(
           "Error",
           "Failed to mark listing as sold. Please try again."
@@ -2010,6 +2053,26 @@ features
               ]);
             } catch (error) {
               console.error("Error unmarking as rented:", error);
+              
+              // Capture error to Sentry with context
+              Sentry.captureException(error, {
+                tags: {
+                  action: 'unmark_rented',
+                  view_mode: viewMode,
+                  user_mode: isUserMode ? 'user' : 'dealer',
+                },
+                contexts: {
+                  listing: {
+                    listing_id: initialData?.id,
+                    table_name: tableName,
+                    current_status: initialData?.status,
+                    target_status: 'available',
+                    dealership_id: dealership?.id,
+                    user_id: params?.userId,
+                  },
+                },
+              });
+              
               Alert.alert(
                 "Error",
                 "Failed to update listing status. Please try again."
