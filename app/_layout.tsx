@@ -295,205 +295,138 @@ const DeepLinkHandler = () => {
   const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
+  // Ref to track latest segments value to avoid stale closures
+  const segmentsRef = useRef(segments);
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
+
   // FIXED: Enhanced navigation with better stack management
   const navigateToDeepLink = useCallback(
     async (type: "car" | "clip" | "conversation", id: string, isInitialLink: boolean) => {
+      // Use ref for fresh segments value to avoid stale closure issues
+      const currentSegments = segmentsRef.current;
+
       console.log(
-        `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}`
+        `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}, segments: ${currentSegments.join("/")}`
       );
 
       const isEffectivelySignedIn = isSignedIn || isGuest;
 
-    const currentPath = segments.join("/");
-    const isAlreadyOnCarDetails =
-      currentPath.includes("CarDetails") && type === "car";
-    const isAlreadyOnAutoclips =
-      currentPath.includes("autoclips") && type === "clip";
-    const isAlreadyOnConversation =
-      currentPath.includes("messages") && type === "conversation";
+      const currentPath = currentSegments.join("/");
+      const isAlreadyOnCarDetails =
+        currentPath.includes("CarDetails") && type === "car";
+      const isAlreadyOnAutoclips =
+        currentPath.includes("autoclips") && type === "clip";
+      const isAlreadyOnConversation =
+        currentPath.includes("messages") && type === "conversation";
 
-    if (isAlreadyOnCarDetails || isAlreadyOnAutoclips || isAlreadyOnConversation) {
-      console.log("[DeepLink] Already on target page, navigating to new instance");
+      if (isAlreadyOnCarDetails || isAlreadyOnAutoclips || isAlreadyOnConversation) {
+        console.log("[DeepLink] Already on target page, navigating to new instance");
 
-      // FIXED: Use replace navigation to force a reload with new params
-      if (type === "car") {
-        // Force navigation to the same route with new params
-        router.replace({
-          pathname: "/(home)/(user)/CarDetails",
-          params: {
-            carId: id,
-            isDealerView: "false",
-            fromDeepLink: "true",
-          },
-        });
-      } else if (type === "clip") {
-        // Force navigation to the same route with new params
-        router.replace({
-          pathname: "/(home)/(user)/(tabs)/autoclips",
-          params: {
-            clipId: id,
-            fromDeepLink: "true",
-          },
-        });
-      } else if (type === "conversation") {
-        // Force navigation to conversation with new params
-        router.replace({
-          pathname: "/(home)/(user)/conversations/[conversationId]",
-          params: {
-            conversationId: id,
-            fromDeepLink: "true",
-          },
-        });
+        // FIXED: Use replace navigation to force a reload with new params
+        if (type === "car") {
+          // Force navigation to the same route with new params
+          router.replace({
+            pathname: "/(home)/(user)/CarDetails",
+            params: {
+              carId: id,
+              isDealerView: "false",
+              fromDeepLink: "true",
+            },
+          });
+        } else if (type === "clip") {
+          // Force navigation to the same route with new params
+          router.replace({
+            pathname: "/(home)/(user)/(tabs)/autoclips",
+            params: {
+              clipId: id,
+              fromDeepLink: "true",
+            },
+          });
+        } else if (type === "conversation") {
+          // Force navigation to conversation with new params
+          router.replace({
+            pathname: "/(home)/(user)/conversations/[conversationId]",
+            params: {
+              conversationId: id,
+              fromDeepLink: "true",
+            },
+          });
+        }
+        return;
       }
-      return;
-    }
+
+      // Helper to check if navigation stack needs to be established
+      const needsStackSetup = isInitialLink || !currentSegments.includes("(home)");
 
       // FIXED: Unified navigation approach for both platforms and states
       try {
         if (type === "car") {
-          // For car deep links
-          if (Platform.OS === "android") {
-            // Android: Always establish proper stack
-            if (isInitialLink || !segments.includes("(home)")) {
-              // Need to establish full stack
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
-            }
-
-            // Navigate to car details
-            router.push({
-              pathname: "/(home)/(user)/CarDetails",
-              params: {
-                carId: id,
-                isDealerView: "false",
-                fromDeepLink: "true",
-              },
-            });
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/CarDetails",
-                  params: {
-                    carId: id,
-                    isDealerView: "false",
-                    fromDeepLink: "true",
-                  },
-                });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/CarDetails",
-                params: {
-                  carId: id,
-                  isDealerView: "false",
-                  fromDeepLink: "true",
-                },
-              });
-            }
+          // For car deep links - FIXED: Use same logic for both platforms
+          if (needsStackSetup) {
+            // Need to establish full stack for both initial and runtime links
+            console.log(`[DeepLink - ${Platform.OS}] Establishing navigation stack before navigating to car`);
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            router.replace("/(home)/(user)");
+            await new Promise((resolve) => setTimeout(resolve, 200));
           }
+
+          // Navigate to car details
+          router.push({
+            pathname: "/(home)/(user)/CarDetails",
+            params: {
+              carId: id,
+              isDealerView: "false",
+              fromDeepLink: "true",
+            },
+          });
         } else if (type === "clip") {
-          // For clip deep links
+          // For clip deep links - FIXED: Use same logic for both platforms
+          if (needsStackSetup) {
+            // Need to establish full stack for both initial and runtime links
+            console.log(`[DeepLink - ${Platform.OS}] Establishing navigation stack before navigating to clip`);
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            router.replace("/(home)/(user)");
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+
+          // Navigate to autoclips
+          router.push({
+            pathname: "/(home)/(user)/(tabs)/autoclips",
+            params: {
+              clipId: id,
+              fromDeepLink: "true",
+            },
+          });
+
+          // Ensure params are set (especially for Android)
           if (Platform.OS === "android") {
-            // Android: Always establish proper stack
-            if (isInitialLink || !segments.includes("(home)")) {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
-            }
-
-            // Navigate to autoclips
-            router.push({
-              pathname: "/(home)/(user)/(tabs)/autoclips",
-              params: {
-                clipId: id,
-                fromDeepLink: "true",
-              },
-            });
-
-            // Ensure params are set
             setTimeout(() => {
               router.setParams({
                 clipId: id,
                 fromDeepLink: "true",
               });
             }, 200);
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/(tabs)/autoclips",
-                  params: {
-                    clipId: id,
-                    fromDeepLink: "true",
-                  },
-                });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/(tabs)/autoclips",
-                params: {
-                  clipId: id,
-                  fromDeepLink: "true",
-                },
-              });
-            }
           }
         } else if (type === "conversation") {
-          // For conversation deep links
-          if (Platform.OS === "android") {
-            // Android: Always establish proper stack
-            if (isInitialLink || !segments.includes("(home)")) {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              router.replace("/(home)/(user)");
-              await new Promise((resolve) => setTimeout(resolve, 200));
-            }
-
-            // Navigate to conversation
-            router.push({
-              pathname: "/(home)/(user)/conversations/[conversationId]",
-              params: {
-                conversationId: id,
-                fromDeepLink: "true",
-              },
-            });
-          } else {
-            // iOS: Direct navigation if stack exists, otherwise build it
-            if (!segments.includes("(home)") && isInitialLink) {
-              // Build stack for iOS initial link
-              router.replace("/(home)/(user)");
-              // Wait for navigation to settle
-              setTimeout(() => {
-                router.push({
-                  pathname: "/(home)/(user)/conversations/[conversationId]",
-                  params: {
-                    conversationId: id,
-                    fromDeepLink: "true",
-                  },
-                });
-              }, 300);
-            } else {
-              // Direct navigation for runtime links
-              router.push({
-                pathname: "/(home)/(user)/conversations/[conversationId]",
-                params: {
-                  conversationId: id,
-                  fromDeepLink: "true",
-                },
-              });
-            }
+          // For conversation deep links - FIXED: Use same logic for both platforms
+          if (needsStackSetup) {
+            // Need to establish full stack for both initial and runtime links
+            console.log(`[DeepLink - ${Platform.OS}] Establishing navigation stack before navigating to conversation`);
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            router.replace("/(home)/(user)");
+            await new Promise((resolve) => setTimeout(resolve, 200));
           }
+
+          // Navigate to conversation
+          router.push({
+            pathname: "/(home)/(user)/conversations/[conversationId]",
+            params: {
+              conversationId: id,
+              fromDeepLink: "true",
+            },
+          });
         }
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
@@ -501,7 +434,7 @@ const DeepLinkHandler = () => {
         router.replace("/(home)/(user)");
       }
     },
-    [router, segments, isSignedIn, isGuest]
+    [router, isSignedIn, isGuest]
   );
 
   const processDeepLink = useCallback(
