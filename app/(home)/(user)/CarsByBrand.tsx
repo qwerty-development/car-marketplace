@@ -13,6 +13,7 @@ import {
 import { Image } from 'expo-image'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
 import CarCard from '@/components/CarCard'
+import RentalCarCard from '@/components/RentalCarCard'
 import CarDetailModal from './CarDetailModal'
 import CarDetailModalIOS from './CarDetailModal.ios'
 import { supabase } from '@/utils/supabase'
@@ -201,7 +202,8 @@ const CustomHeader = React.memo(
 export default function CarsByBrand() {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
-	const { brand } = useLocalSearchParams<{ brand: string }>()
+	const { brand, mode } = useLocalSearchParams<{ brand: string; mode?: string }>()
+	const viewMode = (mode === 'rent' ? 'rent' : 'sale') as 'sale' | 'rent'
 	const [cars, setCars] = useState<any[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const { isFavorite, toggleFavorite } = useFavorites()
@@ -213,14 +215,22 @@ export default function CarsByBrand() {
 	const fetchCarsByBrand = useCallback(async (brandName: string, sortBy: string = 'random') => {
 		if (!refreshing) setIsLoading(true)
 		try {
+			// Query the appropriate table based on mode
+			const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars'
+			// cars_rent doesn't have users relationship, only dealerships
+			const selectString = viewMode === 'rent'
+				? '*, dealerships (name,logo,phone,location,latitude,longitude)'
+				: '*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)'
+			
 			let query = supabase
-				.from('cars')
-				.select(`*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`)
+				.from(tableName)
+				.select(selectString)
 				.eq('status', 'available')
 				.eq('make', brandName)
 
 			// Apply sorting based on the selected option
 			// Only apply database sorting if a specific sort is selected
+			// Note: mileage sorting only applies to sale mode (cars table has mileage)
 			switch (sortBy) {
 				case 'date_listed_desc':
 					query = query.order('listed_at', { ascending: false })
@@ -238,10 +248,14 @@ export default function CarsByBrand() {
 					query = query.order('year', { ascending: true })
 					break
 				case 'mileage_asc':
-					query = query.order('mileage', { ascending: true })
+					if (viewMode === 'sale') {
+						query = query.order('mileage', { ascending: true })
+					}
 					break
 				case 'mileage_desc':
-					query = query.order('mileage', { ascending: false })
+					if (viewMode === 'sale') {
+						query = query.order('mileage', { ascending: false })
+					}
 					break
 				case 'random':
 					// No sorting applied - we'll randomize after fetching
@@ -257,8 +271,8 @@ export default function CarsByBrand() {
 
 			let carsData =
 				data?.map(item => {
-					// Check if this is a dealer car or user car
-					const isDealer = !!item.dealership_id
+					// For rent mode, all cars are dealer cars. For sale mode, check dealership_id
+					const isDealer = viewMode === 'rent' ? true : !!item.dealership_id
 					return {
 						...item,
 						// Set seller info based on whether it's a dealer or user car
@@ -326,7 +340,7 @@ export default function CarsByBrand() {
 		} finally {
 			setIsLoading(false)
 		}
-	}, [])
+	}, [viewMode])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
@@ -377,19 +391,29 @@ export default function CarsByBrand() {
 		[]
 	)
 
-	// Updated renderCarItem without cardHeight prop - let CarCard use natural height
+	// Updated renderCarItem - use RentalCarCard for rent mode
 	const renderCarItem = useCallback(
 		({ item, index }: { item: any; index: number }) => (
-			<CarCard
-				car={item}
-				index={index} // Add index for potential animations
-				onPress={() => handleCarPress(item)}
-				onFavoritePress={() => handleFavoritePress(item.id)}
-				isFavorite={isFavorite(item.id)}
-				isDealer={false} // Specify this is not dealer view
-			/>
+			viewMode === 'rent' ? (
+				<RentalCarCard
+					car={item}
+					index={index}
+					onFavoritePress={() => handleFavoritePress(item.id)}
+					isFavorite={isFavorite(item.id)}
+					isDealer={false}
+				/>
+			) : (
+				<CarCard
+					car={item}
+					index={index}
+					onPress={() => handleCarPress(item)}
+					onFavoritePress={() => handleFavoritePress(item.id)}
+					isFavorite={isFavorite(item.id)}
+					isDealer={false}
+				/>
+			)
 		),
-		[handleCarPress, handleFavoritePress, isFavorite]
+		[handleCarPress, handleFavoritePress, isFavorite, viewMode]
 	)
 
 	const renderModal = useMemo(() => {
@@ -453,7 +477,10 @@ export default function CarsByBrand() {
 					/>
 					<Text
 						className={`${isDarkMode ? 'text-white' : 'text-black'} text-lg text-center`}>
-						No cars found for {brand}.
+						{viewMode === 'rent' 
+							? `No ${brand} cars available for rent.`
+							: `No cars found for ${brand}.`
+						}
 					</Text>
 					<Text
 						className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-sm text-center mt-2`}>
@@ -498,7 +525,7 @@ export default function CarsByBrand() {
 	return (
 		<View className={`flex-1 ${isDarkMode ? 'bg-night' : 'bg-white'}`}>
 			<CustomHeader
-				title={brand ? `${brand}` : 'Cars by Brand'}
+				title={brand ? (viewMode === 'rent' ? `${brand} for Rent` : `${brand}`) : 'Cars by Brand'}
 				onBack={() => router.back()}
 				brandName={brand}
 				onSortChange={handleSortChange}

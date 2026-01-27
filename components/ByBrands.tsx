@@ -27,7 +27,11 @@ interface Brand {
 	logoUrl: string | null
 }
 
-const ByBrands = React.memo(() => {
+interface ByBrandsProps {
+	mode?: 'sale' | 'rent'
+}
+
+const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 	const { language } = useLanguage();
 	const [brands, setBrands] = useState<Brand[]>([])
 	const [isLoading, setIsLoading] = useState(true)
@@ -38,8 +42,10 @@ const ByBrands = React.memo(() => {
 
 	const fetchBrands = useCallback(async () => {
 		try {
+			// Query the appropriate table based on mode
+			const tableName = mode === 'rent' ? 'cars_rent' : 'cars'
 			const { data, error } = await supabase
-				.from('cars')
+				.from(tableName)
 				.select('make')
 				.eq("status","available")
 				.order('make')
@@ -60,7 +66,7 @@ const ByBrands = React.memo(() => {
 		} finally {
 			setIsLoading(false)
 		}
-	}, [isDarkMode])
+	}, [isDarkMode, mode])
 
 	useEffect(() => {
 		fetchBrands()
@@ -82,12 +88,15 @@ const ByBrands = React.memo(() => {
 	const handleBrandPress = (brand: string) => {
 		router.push({
 			pathname: '/(home)/(user)/CarsByBrand',
-			params: { brand }
+			params: { brand, mode }
 		})
 	}
 
 	const handleSeeAllBrands = () => {
-		router.push('/(home)/(user)/AllBrandsPage')
+		router.push({
+			pathname: '/(home)/(user)/AllBrandsPage',
+			params: { mode }
+		})
 	}
 
 	if (isLoading) {

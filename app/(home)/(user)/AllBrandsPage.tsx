@@ -22,7 +22,7 @@ import {
 import { Image } from "expo-image";
 import { supabase } from "@/utils/supabase";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import { router, useRouter } from "expo-router";
+import { router, useRouter, useLocalSearchParams } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
@@ -141,6 +141,8 @@ const CustomHeader = React.memo(
 
 
 export default function AllBrandsPage() {
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const viewMode = (mode === 'rent' ? 'rent' : 'sale') as 'sale' | 'rent';
   const [brands, setBrands] = useState<Brand[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -158,8 +160,10 @@ export default function AllBrandsPage() {
   const fetchBrands = useCallback(async () => {
     if (!refreshing) setIsLoading(true);
     try {
+      // Query the appropriate table based on mode
+      const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
       const { data, error } = await supabase
-        .from("cars")
+        .from(tableName)
         .select("make")
         .eq("status","available")
         .order("make");
@@ -181,7 +185,7 @@ export default function AllBrandsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isDarkMode, refreshing]);
+  }, [isDarkMode, refreshing, viewMode]);
 
   useEffect(() => {
     fetchBrands();
@@ -218,10 +222,10 @@ export default function AllBrandsPage() {
     (brand: string) => {
       router.push({
         pathname: "/(home)/(user)/CarsByBrand",
-        params: { brand },
+        params: { brand, mode: viewMode },
       });
     },
-    [router]
+    [router, viewMode]
   );
 
   const renderBrandItem = useCallback(

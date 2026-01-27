@@ -1323,7 +1323,7 @@ export default function BrowseCarsPage() {
               <SkeletonByBrands />
             ) : (
               <View>
-                <ByBrands />
+                <ByBrands mode={carViewMode} />
               </View>
             )}
             {!componentsLoaded || isInitialLoading ? (
@@ -1342,7 +1342,7 @@ export default function BrowseCarsPage() {
         {vehicleCategory === 'plates' && <Banner />}
       </>
     ),
-    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress, vehicleCategory]
+    [componentsLoaded, isInitialLoading, filters.categories, handleCategoryPress, vehicleCategory, carViewMode]
   );
 
   const renderListEmpty = useCallback(
