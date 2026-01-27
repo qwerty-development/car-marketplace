@@ -325,35 +325,55 @@ const DeepLinkHandler = () => {
       if (isAlreadyOnCarDetails || isAlreadyOnAutoclips || isAlreadyOnConversation) {
         console.log("[DeepLink] Already on target page, navigating to new instance");
 
-        // FIXED: Use replace navigation to force a reload with new params
+        // FIXED: Use setParams to update params on current route, then push new instance
         if (type === "car") {
-          // Force navigation to the same route with new params
-          router.replace({
-            pathname: "/(home)/(user)/CarDetails",
-            params: {
-              carId: id,
-              isDealerView: "false",
-              fromDeepLink: "true",
-            },
+          // Update params first, then push new instance
+          router.setParams({
+            carId: id,
+            isDealerView: "false",
+            fromDeepLink: "true",
           });
+          // Small delay then push new instance to ensure fresh load
+          setTimeout(() => {
+            router.push({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId: id,
+                isDealerView: "false",
+                fromDeepLink: "true",
+              },
+            });
+          }, 100);
         } else if (type === "clip") {
-          // Force navigation to the same route with new params
-          router.replace({
-            pathname: "/(home)/(user)/(tabs)/autoclips",
-            params: {
-              clipId: id,
-              fromDeepLink: "true",
-            },
+          // Update params first, then push new instance
+          router.setParams({
+            clipId: id,
+            fromDeepLink: "true",
           });
+          setTimeout(() => {
+            router.push({
+              pathname: "/(home)/(user)/(tabs)/autoclips",
+              params: {
+                clipId: id,
+                fromDeepLink: "true",
+              },
+            });
+          }, 100);
         } else if (type === "conversation") {
-          // Force navigation to conversation with new params
-          router.replace({
-            pathname: "/(home)/(user)/conversations/[conversationId]",
-            params: {
-              conversationId: id,
-              fromDeepLink: "true",
-            },
+          // Update params first, then push new instance
+          router.setParams({
+            conversationId: id,
+            fromDeepLink: "true",
           });
+          setTimeout(() => {
+            router.push({
+              pathname: "/(home)/(user)/conversations/[conversationId]",
+              params: {
+                conversationId: id,
+                fromDeepLink: "true",
+              },
+            });
+          }, 100);
         }
         return;
       }
@@ -383,19 +403,30 @@ const DeepLinkHandler = () => {
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to car`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)");
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            
+            // Navigate directly to CarDetails with replace to ensure clean navigation
+            console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via replace after stack reset`);
+            router.replace({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId: id,
+                isDealerView: "false",
+                fromDeepLink: "true",
+              },
+            });
+          } else {
+            // Direct navigation when already on correct stack
+            console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via push (same stack)`);
+            router.push({
+              pathname: "/(home)/(user)/CarDetails",
+              params: {
+                carId: id,
+                isDealerView: "false",
+                fromDeepLink: "true",
+              },
+            });
           }
-
-          // Navigate to car details - always use push after stack is established
-          console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via push`);
-          router.push({
-            pathname: "/(home)/(user)/CarDetails",
-            params: {
-              carId: id,
-              isDealerView: "false",
-              fromDeepLink: "true",
-            },
-          });
         } else if (type === "clip") {
           // For clip deep links
           if (needsStackSetup || needsUserStackReset) {
@@ -403,18 +434,28 @@ const DeepLinkHandler = () => {
             console.log(`[DeepLink - ${Platform.OS}] ${needsUserStackReset ? 'Resetting from dealer to user stack' : 'Establishing navigation stack'} before navigating to clip`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)");
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            
+            // Navigate to autoclips with replace after stack reset
+            console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via replace after stack reset`);
+            router.replace({
+              pathname: "/(home)/(user)/(tabs)/autoclips",
+              params: {
+                clipId: id,
+                fromDeepLink: "true",
+              },
+            });
+          } else {
+            // Direct navigation when already on correct stack
+            console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via push (same stack)`);
+            router.push({
+              pathname: "/(home)/(user)/(tabs)/autoclips",
+              params: {
+                clipId: id,
+                fromDeepLink: "true",
+              },
+            });
           }
-
-          // Navigate to autoclips - use push after stack is established
-          console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via push`);
-          router.push({
-            pathname: "/(home)/(user)/(tabs)/autoclips",
-            params: {
-              clipId: id,
-              fromDeepLink: "true",
-            },
-          });
 
           // Ensure params are set (especially for Android)
           if (Platform.OS === "android") {
@@ -423,7 +464,7 @@ const DeepLinkHandler = () => {
                 clipId: id,
                 fromDeepLink: "true",
               });
-            }, 200);
+            }, 400);
           }
         } else if (type === "conversation") {
           // For conversation deep links
@@ -435,18 +476,28 @@ const DeepLinkHandler = () => {
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to conversation`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)");
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            
+            // Navigate to conversation with replace after stack reset
+            console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via replace after stack reset`);
+            router.replace({
+              pathname: "/(home)/(user)/conversations/[conversationId]",
+              params: {
+                conversationId: id,
+                fromDeepLink: "true",
+              },
+            });
+          } else {
+            // Direct navigation when already on correct stack
+            console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via push (same stack)`);
+            router.push({
+              pathname: "/(home)/(user)/conversations/[conversationId]",
+              params: {
+                conversationId: id,
+                fromDeepLink: "true",
+              },
+            });
           }
-
-          // Navigate to conversation - use push after stack is established
-          console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via push`);
-          router.push({
-            pathname: "/(home)/(user)/conversations/[conversationId]",
-            params: {
-              conversationId: id,
-              fromDeepLink: "true",
-            },
-          });
         }
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
