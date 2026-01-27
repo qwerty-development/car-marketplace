@@ -289,6 +289,7 @@ const DeepLinkHandler = () => {
   const { prefetchCarDetails } = useCarDetails();
 
   const [isProcessingDeepLink, setIsProcessingDeepLink] = useState(false);
+  const isProcessingDeepLinkRef = useRef(false); // Ref to avoid stale closures
   const [initialUrl, setInitialUrl] = useState<string | null>(null);
   const initialUrlProcessed = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -359,20 +360,34 @@ const DeepLinkHandler = () => {
 
       // Helper to check if navigation stack needs to be established
       const needsStackSetup = isInitialLink || !currentSegments.includes("(home)");
+      
+      // Check if we're currently inside tabs - need special handling
+      const isInsideTabs = currentSegments.includes("(tabs)");
+      
+      // Check if we're crossing from dealer to user sections - need to reset
+      const isOnDealerSide = currentSegments.includes("(dealer)");
+      const needsUserStackReset = isOnDealerSide && (type === "car" || type === "clip" || type === "conversation");
+      
+      // Check if we need to exit tabs to navigate to screens outside tabs (like CarDetails)
+      const needsTabsExit = isInsideTabs && (type === "car" || type === "conversation");
 
       // FIXED: Unified navigation approach for both platforms and states
       try {
         if (type === "car") {
-          // For car deep links - FIXED: Use same logic for both platforms
-          if (needsStackSetup) {
-            // Need to establish full stack for both initial and runtime links
-            console.log(`[DeepLink - ${Platform.OS}] Establishing navigation stack before navigating to car`);
+          // For car deep links
+          if (needsStackSetup || needsUserStackReset || needsTabsExit) {
+            // Need to establish/reset stack for various scenarios
+            const reason = needsUserStackReset ? 'Resetting from dealer to user stack' : 
+                          needsTabsExit ? 'Exiting tabs to access CarDetails' : 
+                          'Establishing navigation stack';
+            console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to car`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)");
             await new Promise((resolve) => setTimeout(resolve, 200));
           }
 
-          // Navigate to car details
+          // Navigate to car details - always use push after stack is established
+          console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via push`);
           router.push({
             pathname: "/(home)/(user)/CarDetails",
             params: {
@@ -382,16 +397,17 @@ const DeepLinkHandler = () => {
             },
           });
         } else if (type === "clip") {
-          // For clip deep links - FIXED: Use same logic for both platforms
-          if (needsStackSetup) {
-            // Need to establish full stack for both initial and runtime links
-            console.log(`[DeepLink - ${Platform.OS}] Establishing navigation stack before navigating to clip`);
+          // For clip deep links
+          if (needsStackSetup || needsUserStackReset) {
+            // Need to establish/reset stack for initial links OR when crossing dealer->user
+            console.log(`[DeepLink - ${Platform.OS}] ${needsUserStackReset ? 'Resetting from dealer to user stack' : 'Establishing navigation stack'} before navigating to clip`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)");
             await new Promise((resolve) => setTimeout(resolve, 200));
           }
 
-          // Navigate to autoclips
+          // Navigate to autoclips - use push after stack is established
+          console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via push`);
           router.push({
             pathname: "/(home)/(user)/(tabs)/autoclips",
             params: {
@@ -410,16 +426,20 @@ const DeepLinkHandler = () => {
             }, 200);
           }
         } else if (type === "conversation") {
-          // For conversation deep links - FIXED: Use same logic for both platforms
-          if (needsStackSetup) {
-            // Need to establish full stack for both initial and runtime links
-            console.log(`[DeepLink - ${Platform.OS}] Establishing navigation stack before navigating to conversation`);
+          // For conversation deep links
+          if (needsStackSetup || needsUserStackReset || needsTabsExit) {
+            // Need to establish/reset stack for various scenarios
+            const reason = needsUserStackReset ? 'Resetting from dealer to user stack' : 
+                          needsTabsExit ? 'Exiting tabs to access conversations' : 
+                          'Establishing navigation stack';
+            console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to conversation`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)");
             await new Promise((resolve) => setTimeout(resolve, 200));
           }
 
-          // Navigate to conversation
+          // Navigate to conversation - use push after stack is established
+          console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via push`);
           router.push({
             pathname: "/(home)/(user)/conversations/[conversationId]",
             params: {
@@ -439,14 +459,20 @@ const DeepLinkHandler = () => {
 
   const processDeepLink = useCallback(
     async (url: string, isInitialLink = false) => {
-      if (!url || isProcessingDeepLink) return;
+      // Use ref to check processing state to avoid stale closure issues
+      if (!url || isProcessingDeepLinkRef.current) {
+        console.log(`[DeepLink - ${Platform.OS}] Skipping - url empty: ${!url}, already processing: ${isProcessingDeepLinkRef.current}`);
+        return;
+      }
 
       console.log(
         `[DeepLink] Processing ${isInitialLink ? "initial" : "runtime"} link:`,
         url,
         `Platform: ${Platform.OS}`
       );
+      // Set both state and ref
       setIsProcessingDeepLink(true);
+      isProcessingDeepLinkRef.current = true;
 
       try {
         const parsedUrl = Linking.parse(url);
@@ -472,6 +498,9 @@ const DeepLinkHandler = () => {
               console.log("[DeepLink] Auth session set successfully");
             }
           }
+          // FIXED: Reset flag before returning
+          setIsProcessingDeepLink(false);
+          isProcessingDeepLinkRef.current = false;
           return;
         }
 
@@ -479,6 +508,9 @@ const DeepLinkHandler = () => {
         if (!isLoaded) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
+          // FIXED: Reset flag before returning
+          setIsProcessingDeepLink(false);
+          isProcessingDeepLinkRef.current = false;
           return;
         }
 
@@ -487,6 +519,9 @@ const DeepLinkHandler = () => {
           console.log(
             "[DeepLink] Navigation not ready for initial link, waiting..."
           );
+          // FIXED: Reset flag before scheduling retry
+          setIsProcessingDeepLink(false);
+          isProcessingDeepLinkRef.current = false;
           // Queue it to be processed when navigation is ready
           setTimeout(() => {
             processDeepLink(url, isInitialLink);
@@ -497,16 +532,26 @@ const DeepLinkHandler = () => {
         // Parse the path based on platform-specific URL formats
         let pathToProcess = "";
 
-        if (Platform.OS === "android") {
-          // Android: Handle fleet://cars/123 format where hostname='cars' and path='123'
+        // FIXED: Handle URL parsing differently based on URL type
+        console.log(`[DeepLink - ${Platform.OS}] Raw parsed values - hostname: "${hostname}", path: "${path}"`);
+        
+        // Check if this is an HTTPS/HTTP URL (universal link) vs custom scheme
+        const isUniversalLink = url.startsWith('https://') || url.startsWith('http://');
+        
+        if (isUniversalLink) {
+          // For universal links (https://www.fleetapp.me/cars/406), just use the path directly
+          pathToProcess = path || "";
+          console.log(`[DeepLink - ${Platform.OS}] Universal link - using path directly: "${pathToProcess}"`);
+        } else {
+          // For custom scheme URLs (fleet://cars/406), combine hostname and path
+          // because hostname='cars' and path='406'
           if (hostname && !path?.includes(hostname)) {
             pathToProcess = hostname + (path ? "/" + path : "");
+            console.log(`[DeepLink - ${Platform.OS}] Custom scheme - combined hostname+path: "${pathToProcess}"`);
           } else {
             pathToProcess = path || hostname || "";
+            console.log(`[DeepLink - ${Platform.OS}] Custom scheme - using path/hostname directly: "${pathToProcess}"`);
           }
-        } else {
-          // iOS: Standard path parsing
-          pathToProcess = path || "";
         }
 
         if (pathToProcess) {
@@ -531,12 +576,19 @@ const DeepLinkHandler = () => {
           );
           const conversationMatch = normalizedPath.match(/^(?:\/)?(?:conversation|messages?)\/(\d+)$/);
 
+          console.log(`[DeepLink - ${Platform.OS}] Pattern matching results - carMatch: ${JSON.stringify(carMatch)}, clipMatch: ${JSON.stringify(clipMatch)}, conversationMatch: ${JSON.stringify(conversationMatch)}`);
+
           if (carMatch) {
             carId = carMatch[1];
+            console.log(`[DeepLink - ${Platform.OS}] Matched car ID: ${carId}`);
           } else if (clipMatch) {
             clipId = clipMatch[1];
+            console.log(`[DeepLink - ${Platform.OS}] Matched clip ID: ${clipId}`);
           } else if (conversationMatch) {
             conversationId = conversationMatch[1];
+            console.log(`[DeepLink - ${Platform.OS}] Matched conversation ID: ${conversationId}`);
+          } else {
+            console.log(`[DeepLink - ${Platform.OS}] No pattern matched for: "${normalizedPath}"`);
           }
 
           const isEffectivelySignedIn = isSignedIn || isGuest;
@@ -613,6 +665,7 @@ const DeepLinkHandler = () => {
         }
       } finally {
         setIsProcessingDeepLink(false);
+        isProcessingDeepLinkRef.current = false;
         // Mark deep links as ready after processing
         if (isInitialLink) {
           initManager.setReady("deepLinks");
@@ -720,13 +773,17 @@ const DeepLinkHandler = () => {
 
   // Listen for runtime deep links
   useEffect(() => {
+    console.log(`[DeepLink - ${Platform.OS}] Setting up runtime deep link listener. isInitialized: ${isInitialized}, isNavigationReady: ${isNavigationReady}`);
+    
     const subscription = Linking.addEventListener("url", ({ url }) => {
       console.log(
         `[DeepLink - ${Platform.OS}] Runtime deep link received:`,
         url
       );
+      console.log(`[DeepLink - ${Platform.OS}] Current state - isInitialized: ${isInitialized}, isNavigationReady: ${isNavigationReady}, isProcessingDeepLinkRef: ${isProcessingDeepLinkRef.current}`);
 
       if (isInitialized && isNavigationReady) {
+        console.log(`[DeepLink - ${Platform.OS}] Conditions met, calling processDeepLink...`);
         processDeepLink(url);
       } else {
         console.log(
