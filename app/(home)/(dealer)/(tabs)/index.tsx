@@ -1592,8 +1592,7 @@ const ListingCard = useMemo(
                       className='w-1.5 h-1.5 rounded-full mr-2'
                     />
                     <Text className='text-white text-[10px] font-bold uppercase tracking-wider'>
-                      {/* {t(`profile.inventory.${item.status.toLowerCase()}`)} */}
-                      AVAILABLE
+                      {item.status.toUpperCase()}
                     </Text>
                   </View>
                 </View>
