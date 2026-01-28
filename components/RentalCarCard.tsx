@@ -502,40 +502,62 @@ export default function RentalCarCard({
           isDarkMode ? "bg-[#242424]" : "bg-[#e1e1e1]"
         } rounded-3xl overflow-hidden shadow-xl`}
       >
-        <FlatList
-          ref={flatListRef}
-          data={displayImages}
-          renderItem={renderImageItem}
-          keyExtractor={(_, index) => `image-${index}`}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewConfigRef.current}
-          scrollEventThrottle={16}
-          decelerationRate="fast"
-          snapToInterval={cardWidth}
-          snapToAlignment="center"
-          bounces={false}
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
-          windowSize={3}
-          removeClippedSubviews={true}
-        />
+        {/* Image carousel with overlay elements */}
+        <View>
+          <FlatList
+            ref={flatListRef}
+            data={displayImages}
+            renderItem={renderImageItem}
+            keyExtractor={(_, index) => `image-${index}`}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewConfigRef.current}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={cardWidth}
+            snapToAlignment="center"
+            bounces={false}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            windowSize={3}
+            removeClippedSubviews={true}
+          />
 
-        {/* Rented Banner */}
-        {showRentedBanner && (
-          <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
-            <View className="bg-gray-900/90 px-6 py-3 rounded-xl border-2 border-gray-400">
-              <StyledText className="text-white text-lg font-bold text-center">
-                RENTED
-              </StyledText>
-              <StyledText className="text-gray-300 text-sm text-center mt-1">
-                No longer available
-              </StyledText>
+          {/* Rented Banner */}
+          {showRentedBanner && (
+            <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
+              <View className="bg-gray-900/90 px-6 py-3 rounded-xl border-2 border-gray-400">
+                <StyledText className="text-white text-lg font-bold text-center">
+                  RENTED
+                </StyledText>
+                <StyledText className="text-gray-300 text-sm text-center mt-1">
+                  No longer available
+                </StyledText>
+              </View>
             </View>
-          </View>
-        )}
+          )}
+
+          {/* Pagination Dots - Bottom Center of Image */}
+          {renderPaginationDots}
+
+          {/* Favorite Button - Top Right */}
+          {!disableActions && (
+            <StyledPressable
+              onPress={handleFavoritePress}
+              className="absolute top-4 right-4 active:opacity-70"
+            >
+              <Ionicons
+                name={isFavorite ? "heart-sharp" : "heart-outline"}
+                size={30}
+                color={
+                  isFavorite ? "#D55004" : isDarkMode ? "#9d174d" : "#f43f5e"
+                }
+              />
+            </StyledPressable>
+          )}
+        </View>
 
         <StyledPressable
           onPress={handleCardPress}
@@ -752,25 +774,6 @@ export default function RentalCarCard({
             </StyledView>
           </StyledView>
         </StyledPressable>
-
-        {/* Favorite Button - Top Right - Positioned absolutely over the image */}
-        {!disableActions && (
-          <StyledPressable
-            onPress={handleFavoritePress}
-            className="absolute top-4 right-4 active:opacity-70"
-          >
-            <Ionicons
-              name={isFavorite ? "heart-sharp" : "heart-outline"}
-              size={30}
-              color={
-                isFavorite ? "#D55004" : isDarkMode ? "#9d174d" : "#f43f5e"
-              }
-            />
-          </StyledPressable>
-        )}
-
-        {/* Pagination Dots - Bottom Center of Image */}
-        {renderPaginationDots}
       </StyledView>
     </Animated.View>
     <AuthRequiredModal
