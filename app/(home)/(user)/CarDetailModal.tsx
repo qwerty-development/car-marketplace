@@ -29,6 +29,8 @@ import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "react-native";
 import AutoclipModal from "@/components/AutoclipModal";
 import { useAuth } from "@/utils/AuthContext";
+import { useGuestUser } from "@/utils/GuestUserContext";
+import AuthRequiredModal from '@/components/AuthRequiredModal';
 
 import ErrorBoundary from "react-native-error-boundary";
 import ImageViewing from "react-native-image-viewing";
@@ -274,6 +276,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isMapSectionVisible, setIsMapSectionVisible] = useState(false);
   const [mapLoadAttempted, setMapLoadAttempted] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { isGuest } = useGuestUser();
 
   // Delayed loading of heavy components
   useEffect(() => {
@@ -793,39 +797,27 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     if (!car) return;
 
     // Check if this is a user-listed car or dealer car
-    if (car.user_id && !car.dealership_id) {
-      // User-to-user chat
-      await startUserChat({
-        sellerUserId: car.user_id,
-        userId: user?.id,
-        isGuest: !user,
-        router,
-        t,
-        onAuthRequired: () => {
-          Alert.alert(
-            t('auth.sign_in_required', 'Sign in required'),
-            t('auth.sign_in_to_chat', 'Please sign in to chat with sellers')
-          );
-        },
-        carId: isRental ? null : car.id,
-        carRentId: isRental ? car.id : null,
-      });
-    } else if (car.dealership_id) {
+    if (car.dealership_id) {
       // User-to-dealer chat
       await startDealerChat({
         dealershipId: car.dealership_id,
-        userId: user?.id,
-        isGuest: !user,
+        userId: user?.id ?? null,
+        isGuest: isGuest,
         router,
         t,
-        onAuthRequired: () => {
-          Alert.alert(
-            t('auth.sign_in_required', 'Sign in required'),
-            t('auth.sign_in_to_chat', 'Please sign in to chat with dealers')
-          );
-        },
-        carId: isRental ? null : car.id,
-        carRentId: isRental ? car.id : null,
+        onAuthRequired: () => setShowAuthModal(true),
+        ...(isRental ? { carRentId: car.id ?? null } : { carId: car.id ?? null }),
+      });
+    } else if (car.user_id) {
+      // User-to-user chat (private seller)
+      await startUserChat({
+        sellerUserId: car.user_id,
+        userId: user?.id ?? null,
+        isGuest: isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        ...(isRental ? { carRentId: car.id ?? null } : { carId: car.id ?? null }),
       });
     } else {
       Alert.alert(
@@ -833,7 +825,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         t('chat.no_seller_info', 'Seller information is not available for this listing')
       );
     }
-  }, [car, user, router, t, isRental]);
+  }, [car, user, isGuest, router, t, isRental]);
 
   // Safer image modal for Android
   const renderImageModal = () => {
@@ -1504,6 +1496,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
           clip={selectedClip}
           onLikePress={() => selectedClip && handleClipLike(selectedClip.id)}
           isLiked={selectedClip?.liked_users?.includes(user?.id)}
+        />
+
+        {/* Auth Required Modal */}
+        <AuthRequiredModal
+          isVisible={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          featureName={t('chat.feature_name', 'chat with sellers')}
         />
 
         {/* Image Modal - Simplified for Android */}

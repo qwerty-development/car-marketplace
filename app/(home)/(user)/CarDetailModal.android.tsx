@@ -26,6 +26,9 @@ import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "react-native";
 import AutoclipModal from "@/components/AutoclipModal";
 import { useAuth } from "@/utils/AuthContext";
+import { useGuestUser } from "@/utils/GuestUserContext";
+import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
+import AuthRequiredModal from '@/components/AuthRequiredModal';
 import ErrorBoundary from "react-native-error-boundary";
 import ImageViewing from "react-native-image-viewing";
 
@@ -652,6 +655,9 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isMapSectionVisible, setIsMapSectionVisible] = useState(false);
   const [mapLoadAttempted, setMapLoadAttempted] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { isGuest } = useGuestUser();
 
   // Determine if this is a dealership car or user car
   const isDealershipCar = useMemo(() => !!car.dealership_id, [car.dealership_id]);
@@ -1043,6 +1049,40 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       Alert.alert('Error', 'Failed to share car details');
     }
   }, [car]);
+
+  const handleChat = useCallback(async () => {
+    // Support chat for both user and dealership cars
+    if (isDealershipCar) {
+      // Chat with dealership
+      await startDealerChat({
+        dealershipId: car?.dealership_id,
+        userId: user?.id ?? null,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        setLoading: setIsStartingChat,
+        ...(isRental ? { carRentId: car?.id ?? null } : { carId: car?.id ?? null }),
+      });
+    } else if (car?.user_id) {
+      // Chat with private seller
+      await startUserChat({
+        sellerUserId: car.user_id,
+        userId: user?.id ?? null,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setShowAuthModal(true),
+        setLoading: setIsStartingChat,
+        ...(isRental ? { carRentId: car?.id ?? null } : { carId: car?.id ?? null }),
+      });
+    } else {
+      Alert.alert(
+        t('chat.unavailable', 'Chat unavailable'),
+        t('chat.no_seller_info', 'Seller information is not available for this listing')
+      );
+    }
+  }, [car?.dealership_id, car?.id, car?.user_id, isDealershipCar, isGuest, isRental, router, t, user?.id]);
 
   // Improved maps handling for Android
   const handleOpenInMaps = useCallback(() => {
@@ -1833,7 +1873,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
               </View>
             </TouchableOpacity>
 
-            <View style={{ width: 110, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+            <View style={{ width: 155, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
               <ActionButton
                 icon="call-outline"
                 onPress={handleCall}
@@ -1844,6 +1884,27 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                 onPress={handleWhatsAppPress}
                 isDarkMode={isDarkMode}
               />
+              <TouchableOpacity 
+                onPress={async () => {
+                  if (Platform.OS !== 'web') {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  handleChat();
+                }} 
+                className="items-center mx-2"
+                disabled={isStartingChat}
+                style={{ opacity: isStartingChat ? 0.5 : 1 }}
+              >
+                {isStartingChat ? (
+                  <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                ) : (
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={27}
+                    color={isDarkMode ? "#FFFFFF" : "#000000"}
+                  />
+                )}
+              </TouchableOpacity>
               <TouchableOpacity 
                 onPress={async () => {
                   if (Platform.OS !== 'web') {
@@ -1890,6 +1951,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Auth Required Modal */}
+        <AuthRequiredModal
+          isVisible={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          featureName={t('chat.feature_name', 'chat with dealers')}
+        />
 
         {/* Autoclip Modal */}
         <AutoclipModal

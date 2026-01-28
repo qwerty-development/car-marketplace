@@ -34,6 +34,9 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { Image } from "expo-image";
 import { useAuth } from "@/utils/AuthContext";
+import { useGuestUser } from "@/utils/GuestUserContext";
+import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
+import AuthRequiredModal from '@/components/AuthRequiredModal';
 import { getLogoUrl } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
@@ -450,7 +453,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     autoclips: [] as any[],
     selectedClip: null as any,
     showClipModal: false,
+    isStartingChat: false,
+    showAuthModal: false,
   });
+  const { isGuest } = useGuestUser();
 
   const [nonCriticalState, setNonCriticalState] = useState({
     similarCars: [] as any[],
@@ -1002,6 +1008,40 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       Alert.alert("Error", "Failed to share car details");
     }
   }, [car]);
+
+  const handleChat = useCallback(async () => {
+    // Support chat for both user and dealership cars
+    if (isDealershipCar) {
+      // Chat with dealership
+      await startDealerChat({
+        dealershipId: car?.dealership_id,
+        userId: user?.id ?? null,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setCriticalState((prev) => ({ ...prev, showAuthModal: true })),
+        setLoading: (loading) => setCriticalState((prev) => ({ ...prev, isStartingChat: loading })),
+        ...(isRental ? { carRentId: car?.id ?? null } : { carId: car?.id ?? null }),
+      });
+    } else if (car?.user_id) {
+      // Chat with private seller
+      await startUserChat({
+        sellerUserId: car.user_id,
+        userId: user?.id ?? null,
+        isGuest,
+        router,
+        t,
+        onAuthRequired: () => setCriticalState((prev) => ({ ...prev, showAuthModal: true })),
+        setLoading: (loading) => setCriticalState((prev) => ({ ...prev, isStartingChat: loading })),
+        ...(isRental ? { carRentId: car?.id ?? null } : { carId: car?.id ?? null }),
+      });
+    } else {
+      Alert.alert(
+        t('chat.unavailable', 'Chat unavailable'),
+        t('chat.no_seller_info', 'Seller information is not available for this listing')
+      );
+    }
+  }, [car?.dealership_id, car?.id, car?.user_id, isDealershipCar, isGuest, isRental, router, t, user?.id]);
 
   const handleOpenInMaps = useCallback(() => {
     if (!car) return;
@@ -1975,102 +2015,120 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             width: "100%",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, justifyContent: 'space-between' }}>
-            <TouchableOpacity
-              onPress={handleDealershipPress}
-              disabled={!isDealershipCar}
-              style={{ width: 60 }} // Fixed width for avatar container
-            >
-              {isDealershipCar && sellerInfo.logo ? (
-                <OptimizedImage
-                  source={{ uri: sellerInfo.logo }}
-                  style={{ width: 50, height: 50, borderRadius: 25 }}
-                  contentFit="cover"
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 50,
-                    height: 50,
-                    borderRadius: 25,
-                    backgroundColor: isDarkMode ? '#333' : '#e0e0e0',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Ionicons
-                    name={isDealershipCar ? "business-outline" : "person-outline"}
-                    size={24}
-                    color={isDarkMode ? '#999' : '#555'}
-                  />
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={handleDealershipPress}
-              disabled={!isDealershipCar}
-              style={{ flex: 1, paddingLeft: 8 }}
-            >
-              <View style={{ alignItems: 'flex-start' }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "600",
-                    color: isDarkMode ? "#fff" : "#000",
-                    textAlign: 'left'
-                  }}
-                  numberOfLines={2}
-                  adjustsFontSizeToFit={true}
-                  minimumFontScale={0.8}
-                >
-                  {sellerInfo.name}
-                </Text>
-
-                {sellerInfo.location && (
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: isDarkMode ? "#aaa" : "#555",
-                      textAlign: 'left',
-                      marginTop: 2
-                    }}
-                    numberOfLines={1}
-                  >
-                    <Ionicons name="location" size={11} color={isDarkMode ? "#aaa" : "#555"} />
-                    {sellerInfo.location}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-
-            <View style={{ width: 110, flexDirection: "row", justifyContent: 'flex-end', alignItems: 'center' }}>
-              <ActionButton
-                icon="call-outline"
-                onPress={handleCall}
-                isDarkMode={isDarkMode}
+          <TouchableOpacity
+            onPress={handleDealershipPress}
+            disabled={!isDealershipCar}
+            style={{ width: 60 }} // Fixed width for avatar container
+          >
+            {isDealershipCar && sellerInfo.logo ? (
+              <OptimizedImage
+                source={{ uri: sellerInfo.logo }}
+                style={{ width: 50, height: 50, borderRadius: 25 }}
+                contentFit="cover"
               />
-              <ActionButton
-                icon="logo-whatsapp"
-                onPress={handleWhatsAppPress}
-                isDarkMode={isDarkMode}
-              />
-              <TouchableOpacity 
-                onPress={async () => {
-                  if (Platform.OS !== 'web') {
-                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                  handleShare();
-                }} 
-                style={{ alignItems: 'center', marginHorizontal: 4 }}
+            ) : (
+              <View
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  backgroundColor: isDarkMode ? '#333' : '#e0e0e0',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
               >
                 <Ionicons
-                  name="share-social-outline"
+                  name={isDealershipCar ? "business-outline" : "person-outline"}
+                  size={24}
+                  color={isDarkMode ? '#999' : '#555'}
+                />
+              </View>
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={handleDealershipPress}
+            disabled={!isDealershipCar}
+            style={{ flex: 1, paddingLeft: 8, paddingRight: 8 }}
+          >
+            <View style={{ alignItems: 'flex-start' }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: isDarkMode ? "#fff" : "#000",
+                  textAlign: 'left',
+                  flexWrap: 'wrap'
+                }}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {sellerInfo.name}
+              </Text>
+
+              {sellerInfo.location && (
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: isDarkMode ? "#aaa" : "#555",
+                    textAlign: 'left',
+                    marginTop: 2
+                  }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  <Ionicons name="location" size={12} color={isDarkMode ? "#aaa" : "#555"} /> {sellerInfo.location}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <View style={{ width: 140, flexDirection: "row", justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
+            <ActionButton
+              icon="call-outline"
+              onPress={handleCall}
+              isDarkMode={isDarkMode}
+            />
+            <ActionButton
+              icon="logo-whatsapp"
+              onPress={handleWhatsAppPress}
+              isDarkMode={isDarkMode}
+            />
+            <TouchableOpacity 
+              onPress={async () => {
+                if (Platform.OS !== 'web') {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                handleChat();
+              }} 
+              style={{ alignItems: 'center', marginHorizontal: 4, opacity: criticalState.isStartingChat ? 0.5 : 1 }}
+              disabled={criticalState.isStartingChat}
+            >
+              {criticalState.isStartingChat ? (
+                <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
+              ) : (
+                <Ionicons
+                  name="chatbubbles-outline"
                   size={27}
                   color={isDarkMode ? "#FFFFFF" : "#000000"}
                 />
-              </TouchableOpacity>
-            </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={async () => {
+                if (Platform.OS !== 'web') {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                handleShare();
+              }} 
+              style={{ alignItems: 'center', marginHorizontal: 2 }}
+            >
+              <Ionicons
+                name="share-social-outline"
+                size={27}
+                color={isDarkMode ? "#FFFFFF" : "#000000"}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -2206,6 +2264,13 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         animationType="fade"
         swipeToCloseEnabled={true}
         doubleTapToZoomEnabled={true}
+      />
+
+      {/* Auth Required Modal */}
+      <AuthRequiredModal
+        isVisible={criticalState.showAuthModal}
+        onClose={() => setCriticalState((prev) => ({ ...prev, showAuthModal: false }))}
+        featureName={t('chat.feature_name', 'chat with dealers')}
       />
     </View>
   );
