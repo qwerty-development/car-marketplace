@@ -111,10 +111,10 @@ const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#33
 
 // Action button component
 const ActionButton = ({ icon, onPress, text, isDarkMode }: any) => (
-  <TouchableOpacity onPress={onPress} className="items-center mx-2">
+  <TouchableOpacity onPress={onPress} className="items-center mx-1">
     <Ionicons
       name={icon}
-      size={27}
+      size={24}
       color={isDarkMode ? "#FFFFFF" : "#000000"}
     />
   </TouchableOpacity>

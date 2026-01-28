@@ -238,12 +238,12 @@ const CarItemSkeleton = memo(({ isDarkMode }: any) => {
 const ActionButton = memo(({ icon, onPress, text, isDarkMode }: any) => (
   <TouchableOpacity
     onPress={onPress}
-    style={{ alignItems: "center", marginHorizontal: 8 }}
+    style={{ alignItems: "center", marginHorizontal: 4 }}
     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
   >
     <Ionicons
       name={icon}
-      size={27}
+      size={24}
       color={isDarkMode ? "#FFFFFF" : "#000000"}
     />
   </TouchableOpacity>
@@ -2051,14 +2051,15 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             disabled={!isDealershipCar}
             style={{ flex: 1, paddingLeft: 8, paddingRight: 8 }}
           >
-            <View style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'center' }}>
               <Text
                 style={{
                   fontSize: 16,
                   fontWeight: "600",
                   color: isDarkMode ? "#fff" : "#000",
                   textAlign: 'left',
-                  flexWrap: 'wrap'
+                  flexWrap: 'wrap',
+                  flexShrink: 1
                 }}
                 numberOfLines={2}
                 ellipsizeMode="tail"
@@ -2082,8 +2083,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
               )}
             </View>
           </TouchableOpacity>
-
-          <View style={{ width: 140, flexDirection: "row", justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
+          <View style={{ width: 130, flexDirection: "row", justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
             <ActionButton
               icon="call-outline"
               onPress={handleCall}
@@ -2109,7 +2109,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
               ) : (
                 <Ionicons
                   name="chatbubbles-outline"
-                  size={27}
+                  size={24}
                   color={isDarkMode ? "#FFFFFF" : "#000000"}
                 />
               )}
@@ -2125,7 +2125,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             >
               <Ionicons
                 name="share-social-outline"
-                size={27}
+                size={24}
                 color={isDarkMode ? "#FFFFFF" : "#000000"}
               />
             </TouchableOpacity>
