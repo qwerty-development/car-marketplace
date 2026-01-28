@@ -183,56 +183,51 @@ export default function SearchScreen() {
 
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons
-              name="close"
-              size={24}
-              color={isDarkMode ? "#fff" : "#000"}
+        <View style={[styles.headerContainer, isRTL && styles.rtlHeaderContainer]}>
+          <View style={[
+            styles.searchBox,
+            isDarkMode && styles.darkSearchBox,
+            isRTL && styles.rtlSearchBox
+          ]}>
+            <FontAwesome
+              name="search"
+              size={20}
+              color={isDarkMode ? "#ccc" : "#666"}
+              style={[styles.searchIcon, isRTL && styles.rtlSearchIcon]}
             />
+            <TextInput
+              style={[
+                styles.searchInput,
+                isDarkMode && styles.darkSearchInput,
+                isRTL && styles.rtlTextInput
+              ]}
+              placeholder={t('common.search')}
+              placeholderTextColor={isDarkMode ? "#666" : "#999"}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
+              autoFocus
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                style={[styles.clearButton, isRTL && styles.rtlClearButton]}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={isDarkMode ? "#666" : "#999"}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={[styles.cancelButton, isRTL && styles.rtlCancelButton]}
+          >
+            <Text style={[styles.cancelText, isDarkMode && styles.darkText]}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, isDarkMode && styles.darkText]}>
-            {t('common.search')}
-          </Text>
-        </View>
-
-        <View style={[
-          styles.searchBox,
-          isDarkMode && styles.darkSearchBox,
-          isRTL && styles.rtlSearchBox
-        ]}>
-          <FontAwesome
-            name="search"
-            size={20}
-            color={isDarkMode ? "#ccc" : "#666"}
-            style={[styles.searchIcon, isRTL && styles.rtlSearchIcon]}
-          />
-          <TextInput
-            style={[
-              styles.searchInput,
-              isDarkMode && styles.darkSearchInput,
-              isRTL && styles.rtlTextInput
-            ]}
-            placeholder={t('common.search')}
-            placeholderTextColor={isDarkMode ? "#666" : "#999"}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearchSubmit}
-            returnKeyType="search"
-            autoFocus
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              style={[styles.clearButton, isRTL && styles.rtlClearButton]}
-            >
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color={isDarkMode ? "#666" : "#999"}
-              />
-            </TouchableOpacity>
-          )}
         </View>
 
         {!showSuggestions && recentSearches.length > 0 && (
@@ -340,34 +335,44 @@ const styles = StyleSheet.create({
   darkContainer: {
     backgroundColor: '#000',
   },
-  header: {
+  headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: 20, // Bigger title
-    fontWeight: '700', // Stronger weight
-    marginLeft: 8,
-    color: '#000',
+  rtlHeaderContainer: {
+    flexDirection: 'row-reverse',
   },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginRight: 12,
     paddingHorizontal: 12,
-    height: 52, // Slightly taller search box
-    borderRadius: 26, // More rounded corners
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#f5f5f5',
     borderWidth: 1,
     borderColor: '#eee',
+  },
+  rtlSearchBox: {
+    flexDirection: 'row-reverse',
+    marginRight: 0,
+    marginLeft: 12,
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  rtlCancelButton: {},
+  cancelText: {
+    fontSize: 17,
+    color: '#D55004',
+    fontWeight: '500',
   },
   darkSearchBox: {
     backgroundColor: '#222',
