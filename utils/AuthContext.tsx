@@ -15,6 +15,7 @@ const OPERATION_TIMEOUTS = {
   SIGN_IN: 10000, // 10 seconds
   SIGN_OUT: 8000, // 8 seconds
   PROFILE_FETCH: 5000, // 5 seconds
+  PROFILE_UPDATE: 15000, // 15 seconds - higher for database writes
   TOKEN_REGISTRATION: 8000, // 8 seconds
   SESSION_LOAD: 10000, // 10 seconds
   OAUTH_PROCESS: 15000, // 15 seconds
@@ -1404,7 +1405,7 @@ const updateUserProfile = async (data: Partial<UserProfile>) => {
           supabase.auth.updateUser({
             data: { name: data.name }
           }),
-          OPERATION_TIMEOUTS.PROFILE_FETCH,
+          OPERATION_TIMEOUTS.PROFILE_UPDATE,
           'auth metadata update'
         );
 
@@ -1429,7 +1430,7 @@ const updateUserProfile = async (data: Partial<UserProfile>) => {
         .eq('id', user.id)
         .select()
         .single(),
-      OPERATION_TIMEOUTS.PROFILE_FETCH,
+      OPERATION_TIMEOUTS.PROFILE_UPDATE,
       'profile database update'
     );
 
