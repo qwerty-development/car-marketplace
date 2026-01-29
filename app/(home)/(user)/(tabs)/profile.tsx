@@ -805,7 +805,7 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity>
 
-          {/* Transaction History Button */}
+          {/* Transaction History Button
           <TouchableOpacity
             onPress={() => {
               if (isGuest) {
@@ -852,7 +852,7 @@ export default function UserProfileAndSupportPage() {
               size={24}
               color={isDarkMode ? "#fff" : "#000"}
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* <TouchableOpacity
             onPress={() => {
