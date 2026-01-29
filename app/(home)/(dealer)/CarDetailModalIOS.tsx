@@ -32,7 +32,7 @@ import { useAuth } from '@/utils/AuthContext'
 
 import { shareCar } from '@/utils/centralizedSharing'
 import { formatMileage } from '@/utils/formatMileage';
-import { getLogoUrl } from '@/hooks/getLogoUrl'
+import { getLogoSource } from '@/hooks/getLogoUrl'
 
 const { width, height } = Dimensions.get('window')
 
@@ -353,7 +353,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 					<View className='flex-row items-center flex-1'>
 						<View className='justify-center items-center mt-2' style={{ width: 50 }}>
 							<OptimizedImage
-								source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
+								source={getLogoSource(car.make, isDarkMode)}
 								style={{ width: 50, height: 30 }}
 								contentFit='contain'
 							/>

@@ -32,7 +32,7 @@ import { useCarDetails } from "@/hooks/useCarDetails";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
 import { shareCar } from "@/utils/centralizedSharing";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 import * as Haptics from 'expo-haptics';
 import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 import { useGuestUser } from '@/utils/GuestUserContext';
@@ -606,7 +606,7 @@ export default function RentalCarCard({
               {car.make && (
                 <View style={{ marginLeft: 16 }}>
                   <OptimizedImage
-                    source={{ uri: getLogoUrl(car.make, isDarkMode) }}
+                    source={getLogoSource(car.make, isDarkMode)}
                     style={{ width: 60, height: 40 }}
                     fallbackColor="transparent"
                   />

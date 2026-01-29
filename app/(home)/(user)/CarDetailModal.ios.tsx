@@ -37,7 +37,7 @@ import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import { startDealerChat, startUserChat } from '@/utils/chatHelpers';
 import AuthRequiredModal from '@/components/AuthRequiredModal';
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
 import { useTranslation } from 'react-i18next';
@@ -1899,7 +1899,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                   }}
                 >
                   <OptimizedImage
-                    source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
+                    source={getLogoSource(car.make, isDarkMode)}
                     style={{ width: 60, height: 40 }}
                     contentFit="contain"
                   />

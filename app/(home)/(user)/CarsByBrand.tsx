@@ -21,7 +21,7 @@ import { useFavorites } from '@/utils/useFavorites'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { getLogoUrl } from '@/hooks/getLogoUrl'
+import { getLogoSource } from '@/hooks/getLogoUrl'
 import SortPicker from '@/components/SortPicker'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
@@ -157,7 +157,7 @@ const CustomHeader = React.memo(
 	}) => {
 		const { isDarkMode } = useTheme()
 		const iconColor = isDarkMode ? '#D55004' : '#FF8C00'
-		const logoUrl = brandName ? getLogoUrl(brandName, !isDarkMode) : null;
+		const logoSource = brandName ? getLogoSource(brandName, isDarkMode) : null;
 
 		return (
 			<SafeAreaView
@@ -169,9 +169,9 @@ const CustomHeader = React.memo(
 						<TouchableOpacity onPress={onBack}>
 							<Ionicons name='arrow-back' size={24} color={iconColor} />
 						</TouchableOpacity>
-						{logoUrl && (
+						{logoSource && (
 							<Image
-								source={logoUrl ? { uri: logoUrl } : require('@/assets/images/placeholder-logo.png')}
+								source={logoSource}
 								style={{ width: 40, height: 40, marginLeft: 12 }}
 								contentFit="contain"
 								placeholder={require('@/assets/images/placeholder-logo.png')}

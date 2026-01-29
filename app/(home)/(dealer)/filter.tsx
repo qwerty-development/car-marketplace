@@ -30,7 +30,8 @@ import { Image } from "expo-image";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { supabase } from "@/utils/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
+import { ImageSourcePropType } from "react-native";
 import { useTranslation } from 'react-i18next';
 import { I18nManager } from 'react-native';
 
@@ -217,7 +218,7 @@ const BrandSelector = memo(
         );
         const brandsData = uniqueBrands.map((make: string) => ({
           name: make,
-          logoUrl: getLogoUrl(make, !isDarkMode),
+          logoSource: getLogoSource(make, isDarkMode),
         }));
 
         setBrands(brandsData);
@@ -320,7 +321,7 @@ const BrandSelector = memo(
                 }}
               >
                 <Image
-                  source={{ uri: brand.logoUrl }}
+                  source={brand.logoSource}
                   style={{ width: 80, height: 80 }}
                   resizeMode="contain"
                 />

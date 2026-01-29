@@ -26,7 +26,7 @@ import { Image } from "expo-image";
 import AutoclipModal from "@/components/AutoclipModal";
 import openWhatsApp from "@/utils/openWhatsapp";
 import { useAuth } from "@/utils/AuthContext";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import ImageViewing from "react-native-image-viewing";
 import { useTranslation } from 'react-i18next';
@@ -748,7 +748,7 @@ const handleWhatsAppPress = useCallback(() => {
               style={{ width: 50 }}
             >
               <OptimizedImage
-                source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
+                source={getLogoSource(car.make, isDarkMode)}
                 style={{ width: 70, height: 50 }}
                 contentFit="contain"
               />

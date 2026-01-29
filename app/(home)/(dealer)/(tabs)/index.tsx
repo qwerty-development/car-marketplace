@@ -1834,9 +1834,91 @@ const ListingCard = useMemo(
 			if (category === 'license') {
 				// Calculate width for consistency with NumberPlatesManager
 				const platePreviewWidth = windowWidth - 64; // Account for padding
+				const plateStatusConfig = getStatusConfig(item.status || 'available');
+				
+				const handleMarkPlateSold = () => {
+					if (!isSubscriptionValid()) {
+						Alert.alert(
+							'Subscription Expired',
+							'Please renew your subscription to manage listings.'
+						);
+						return;
+					}
+					
+					Alert.alert(
+						'Mark as Sold',
+						'Are you sure you want to mark this number plate as sold?',
+						[
+							{ text: 'Cancel', style: 'cancel' },
+							{
+								text: 'Mark as Sold',
+								onPress: async () => {
+									try {
+										const { error } = await supabase
+											.from('number_plates')
+											.update({ status: 'sold' })
+											.eq('id', item.id)
+											.eq('dealership_id', dealership?.id);
+
+										if (error) throw error;
+
+										setPlates(prev => prev.map(p => 
+											p.id === item.id ? { ...p, status: 'sold' } : p
+										));
+										Alert.alert('Success', 'Number plate marked as sold');
+									} catch (error) {
+										console.error('Error marking plate as sold:', error);
+										Alert.alert('Error', 'Failed to update plate status');
+									}
+								}
+							}
+						]
+					);
+				};
+
+				const handleMarkPlateAvailable = () => {
+					if (!isSubscriptionValid()) {
+						Alert.alert(
+							'Subscription Expired',
+							'Please renew your subscription to manage listings.'
+						);
+						return;
+					}
+					
+					Alert.alert(
+						'Mark as Available',
+						'Are you sure you want to mark this number plate as available again?',
+						[
+							{ text: 'Cancel', style: 'cancel' },
+							{
+								text: 'Mark as Available',
+								onPress: async () => {
+									try {
+										const { error } = await supabase
+											.from('number_plates')
+											.update({ status: 'available' })
+											.eq('id', item.id)
+											.eq('dealership_id', dealership?.id);
+
+										if (error) throw error;
+
+										setPlates(prev => prev.map(p => 
+											p.id === item.id ? { ...p, status: 'available' } : p
+										));
+										Alert.alert('Success', 'Number plate marked as available');
+									} catch (error) {
+										console.error('Error marking plate as available:', error);
+										Alert.alert('Error', 'Failed to update plate status');
+									}
+								}
+							}
+						]
+					);
+				};
 				
 				return (
-					<View className={`m-4 mb-2 ${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} rounded-2xl overflow-hidden`}>
+					<View className={`m-4 mb-2 ${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} rounded-2xl overflow-hidden border ${isDarkMode ? 'border-neutral-800' : 'border-gray-100'}`}>
+						{/* Plate Image Section with Status Badge */}
 						<View
 							style={{
 								paddingVertical: 16,
@@ -1844,16 +1926,54 @@ const ListingCard = useMemo(
 								backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
 								justifyContent: 'center',
 								alignItems: 'center',
+								position: 'relative',
 							}}
 						>
+							{/* Status Badge - Top Left */}
+							<View style={{
+								position: 'absolute',
+								top: 12,
+								left: 12,
+								zIndex: 10,
+							}}>
+								<View
+									style={{ backgroundColor: plateStatusConfig.color }}
+									className='rounded-full px-3 py-1.5 flex-row items-center'>
+									<View
+										style={{ backgroundColor: plateStatusConfig.dotColor }}
+										className='w-1.5 h-1.5 rounded-full mr-2'
+									/>
+									<Text className='text-white text-[10px] font-bold uppercase tracking-wider'>
+										{(item.status || 'available').toUpperCase()}
+									</Text>
+								</View>
+							</View>
+
+							{/* Views Badge - Top Right */}
+							<View style={{
+								position: 'absolute',
+								top: 12,
+								right: 12,
+								zIndex: 10,
+							}}>
+								<View className='flex-row items-center bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5'>
+									<FontAwesome name='eye' size={10} color='#FFFFFF' style={{ marginRight: 4 }} />
+									<Text className='text-white text-[10px] font-bold'>
+										{item.views || 0}
+									</Text>
+								</View>
+							</View>
+
 							<LicensePlateTemplate
 								letter={item.letter}
 								digits={item.digits}
 								width={platePreviewWidth}
 							/>
 						</View>
+						
+						{/* Info Section */}
 						<View className="p-4">
-							<View className="flex-row items-center justify-between">
+							<View className="flex-row items-center justify-between mb-3">
 								<View className="flex-1">
 									<Text className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`} style={{ letterSpacing: 2 }}>
 										{item.letter} {item.digits}
@@ -1862,11 +1982,45 @@ const ListingCard = useMemo(
 										${parseFloat(item.price).toLocaleString()}
 									</Text>
 								</View>
+							</View>
+							
+							{/* Action Buttons Row */}
+							<View className="flex-row items-center mt-2" style={{ gap: 12 }}>
+								{/* Mark as Sold / Available Button */}
+								{item.status === 'sold' ? (
+									<TouchableOpacity
+										onPress={handleMarkPlateAvailable}
+										className={`flex-1 flex-row items-center justify-center rounded-xl py-3 ${isDarkMode ? 'bg-green-900/40' : 'bg-green-50'}`}
+										disabled={subscriptionExpired}
+										style={{ opacity: subscriptionExpired ? 0.5 : 1 }}
+									>
+										<Ionicons name="refresh-outline" size={20} color={isDarkMode ? '#4ade80' : '#16a34a'} />
+										<Text className={`font-bold ml-2 text-base ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}>
+											Relist
+										</Text>
+									</TouchableOpacity>
+								) : (
+									<TouchableOpacity
+										onPress={handleMarkPlateSold}
+										className={`flex-1 flex-row items-center justify-center rounded-xl py-3 ${isDarkMode ? 'bg-blue-900/40' : 'bg-blue-50'}`}
+										disabled={subscriptionExpired}
+										style={{ opacity: subscriptionExpired ? 0.5 : 1 }}
+									>
+										<Ionicons name="checkmark-circle-outline" size={20} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
+										<Text className={`font-bold ml-2 text-base ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+											Mark Sold
+										</Text>
+									</TouchableOpacity>
+								)}
+								
+								{/* Delete Button */}
 								<TouchableOpacity
 									onPress={() => handleDeleteListing(item.id)}
-									className="justify-center p-2"
+									className={`items-center justify-center rounded-xl w-12 h-12 ${isDarkMode ? 'bg-red-900/40' : 'bg-red-50'}`}
+									disabled={subscriptionExpired}
+									style={{ opacity: subscriptionExpired ? 0.5 : 1 }}
 								>
-									<Ionicons name="trash-outline" size={24} color="#ef4444" />
+									<Ionicons name="trash-outline" size={22} color={isDarkMode ? '#f87171' : '#dc2626'} />
 								</TouchableOpacity>
 							</View>
 						</View>

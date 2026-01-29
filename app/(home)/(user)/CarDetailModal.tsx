@@ -37,7 +37,7 @@ import ImageViewing from "react-native-image-viewing";
 
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 import { shareCar } from "@/utils/centralizedSharing";
 import { formatMileage } from '@/utils/formatMileage';
 import { useTranslation } from 'react-i18next';
@@ -1112,7 +1112,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
               {car.make && (
                 <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 8, width: 50 }}>
                   <OptimizedImage
-                    source={{ uri: getLogoUrl(car.make, !isDarkMode) }}
+                    source={getLogoSource(car.make, isDarkMode)}
                     style={{ width: 60, height: 40 }}
                     fallbackColor="transparent"
                   />

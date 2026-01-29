@@ -26,11 +26,12 @@ import { router, useRouter, useLocalSearchParams } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
+import { ImageSourcePropType } from "react-native";
 
 interface Brand {
   name: string;
-  logoUrl: string | null;
+  logoSource: { uri: string } | ImageSourcePropType | null;
 }
 
 // Skeleton component defined within the same file
@@ -176,7 +177,7 @@ export default function AllBrandsPage() {
       );
       const brandsData = uniqueBrands.map((make: string) => ({
         name: make,
-        logoUrl: getLogoUrl(make, !isDarkMode),
+        logoSource: getLogoSource(make, isDarkMode),
       }));
 
       setBrands(brandsData);
@@ -239,7 +240,7 @@ export default function AllBrandsPage() {
         }`}>
           <View className={`w-[60px] h-[60px] rounded-xl justify-center items-center`}>
             <Image
-              source={item.logoUrl ? { uri: item.logoUrl } : require('@/assets/images/placeholder-logo.png')}
+              source={item.logoSource || require('@/assets/images/placeholder-logo.png')}
               style={{ width: 50, height: 50 }}
               contentFit="contain"
               placeholder={require('@/assets/images/placeholder-logo.png')}

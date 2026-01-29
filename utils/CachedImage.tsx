@@ -97,8 +97,11 @@ const CachedImage = memo<CachedImageProps>(({
   ...rest
 }) => {
   // Normalize source to ImageSource format
+  // Handle: string (uri), number (require()), or object ({ uri: string })
   const normalizedSource = typeof source === 'string' 
-    ? { uri: source } 
+    ? { uri: source }
+    : typeof source === 'number'
+    ? source  // Local require() asset - pass as-is to expo-image
     : source;
 
   // Normalize placeholder

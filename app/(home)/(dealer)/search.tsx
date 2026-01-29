@@ -17,7 +17,7 @@ import { useLanguage } from "@/utils/LanguageContext";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/utils/AuthContext";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 
 interface Suggestions {
   makes: string[];
@@ -291,7 +291,7 @@ export default function SearchScreen() {
                     onPress={() => handleSuggestionPress(make)}
                   >
                     <Image
-                      source={{ uri: getLogoUrl(make, !isDarkMode) }}
+                      source={getLogoSource(make, isDarkMode) ?? require('@/assets/images/placeholder-logo.png')}
                       style={styles.brandLogo}
                       resizeMode="contain"
                     />

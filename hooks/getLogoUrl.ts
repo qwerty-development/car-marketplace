@@ -1,3 +1,64 @@
+import { ImageSourcePropType } from 'react-native';
+
+// Local dark mode logo assets for brands with black logos that disappear in dark mode
+const DARK_MODE_LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
+  'hummer': require('@/assets/brands/dark-mode/hummer-logo.jpeg'),
+  'cadillac': require('@/assets/brands/dark-mode/cadillac-logo.png'),
+  'maserati': require('@/assets/brands/dark-mode/maserati-logo.png'),
+  'mclaren': require('@/assets/brands/dark-mode/mclaren-logo.png'),
+};
+
+// Brands with dark/black logos that need special handling in dark mode
+const DARK_LOGO_BRANDS = [
+  'hummer',
+  'cadillac', 
+  'maserati',
+  'mclaren',
+  'lincoln',
+  'genesis',
+  'peugeot',
+  'ds',
+  'ds-automobiles',
+  'citroen',
+  'bentley',
+  'bugatti',
+  'pagani',
+  'koenigsegg',
+  'rimac',
+  'lucid',
+  'rivian',
+  'karma',
+  'fisker',
+];
+
+/**
+ * Check if a brand has a dark logo that needs contrast styling in dark mode
+ */
+export const isDarkLogoBrand = (make: string | null | undefined): boolean => {
+  if (!make) return false;
+  const formattedMake = make.toLowerCase().trim().replace(/\s+/g, "-");
+  return DARK_LOGO_BRANDS.includes(formattedMake);
+};
+
+/**
+ * Get the local dark mode logo asset for a brand (if available)
+ * Returns null if no local asset exists for this brand
+ */
+export const getDarkModeLogo = (make: string | null | undefined): ImageSourcePropType | null => {
+  if (!make) return null;
+  const formattedMake = make.toLowerCase().trim().replace(/\s+/g, "-");
+  return DARK_MODE_LOCAL_LOGOS[formattedMake] || null;
+};
+
+/**
+ * Check if a brand has a local dark mode logo available
+ */
+export const hasLocalDarkModeLogo = (make: string | null | undefined): boolean => {
+  if (!make) return false;
+  const formattedMake = make.toLowerCase().trim().replace(/\s+/g, "-");
+  return formattedMake in DARK_MODE_LOCAL_LOGOS;
+};
+
 export const getLogoUrl = (
   make: string | null | undefined,
   isLightMode: boolean,
@@ -49,6 +110,20 @@ export const getLogoUrl = (
       return "https://www.carlogos.org/car-logos/ferrari-logo.png";
     case "mclaren":
       return "https://www.carlogos.org/car-logos/mclaren-logo.png";
+    case "cadillac":
+      return "https://www.carlogos.org/car-logos/cadillac-logo.png";
+    case "maserati":
+      return "https://www.carlogos.org/car-logos/maserati-logo.png";
+    case "hummer":
+      return "https://www.carlogos.org/car-logos/hummer-logo.png";
+    case "lincoln":
+      return "https://www.carlogos.org/car-logos/lincoln-logo.png";
+    case "genesis":
+      return "https://www.carlogos.org/car-logos/genesis-logo.png";
+    case "peugeot":
+      return "https://www.carlogos.org/car-logos/peugeot-logo.png";
+    case "bentley":
+      return "https://www.carlogos.org/car-logos/bentley-logo.png";
     case "byd":
       return "https://www.carlogos.org/car-logos/byd-logo.png";
     case "mg":
@@ -91,4 +166,24 @@ export const getLogoUrl = (
     default:
       return `https://www.carlogos.org/car-logos/${formattedMake}-logo.png`;
   }
+};
+
+/**
+ * Get the appropriate logo source based on brand and theme
+ * Returns either a local asset (for dark mode logos) or a URI object
+ */
+export const getLogoSource = (
+  make: string | null | undefined,
+  isDarkMode: boolean,
+): { uri: string } | ImageSourcePropType | null => {
+  if (!make) return null;
+  
+  // In dark mode, check if we have a local dark mode logo
+  if (isDarkMode && hasLocalDarkModeLogo(make)) {
+    return getDarkModeLogo(make);
+  }
+  
+  // Otherwise return the URL
+  const url = getLogoUrl(make, !isDarkMode);
+  return url ? { uri: url } : null;
 };

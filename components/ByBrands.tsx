@@ -20,11 +20,12 @@ import { useTheme } from '@/utils/ThemeContext'
 import SkeletonByBrands from '@/components/SkeletonByBrands'
 import { useLanguage } from '@/utils/LanguageContext'
 import i18n from '@/utils/i18n'
-import { getLogoUrl } from '@/hooks/getLogoUrl'
+import { getLogoSource } from '@/hooks/getLogoUrl'
+import { ImageSourcePropType } from 'react-native'
 
 interface Brand {
 	name: string
-	logoUrl: string | null
+	logoSource: { uri: string } | ImageSourcePropType | null
 }
 
 interface ByBrandsProps {
@@ -57,7 +58,7 @@ const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 			)
 			const brandsData = uniqueBrands.map((make: string) => ({
 				name: make,
-				logoUrl: getLogoUrl(make, !isDarkMode)
+				logoSource: getLogoSource(make, isDarkMode)
 			}))
 
 			setBrands(brandsData)
@@ -140,7 +141,7 @@ const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 						onPress={() => handleBrandPress(brand.name)}
 						className='items-center mb-1 mt-1 mr-4'>
 						<Image
-							source={brand.logoUrl ? { uri: brand.logoUrl } : require('@/assets/images/placeholder-logo.png')}
+							source={brand.logoSource || require('@/assets/images/placeholder-logo.png')}
 							style={{ width: 80, height: 80 }}
 							contentFit='contain'
 							placeholder={require('@/assets/images/placeholder-logo.png')}
