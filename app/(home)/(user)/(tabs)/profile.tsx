@@ -646,6 +646,21 @@ export default function UserProfileAndSupportPage() {
           />
         }
       >
+        {/* Back Button - Only for non-dealer users */}
+        {!isGuest && profile?.role !== "dealer" && (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className={`absolute top-4 ${isRTL ? 'right-4' : 'left-4'} z-10 ${isDarkMode ? 'bg-neutral-800/80' : 'bg-white/80'} p-3 rounded-full shadow-lg`}
+            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 }}
+          >
+            <Ionicons
+              name={isRTL ? "chevron-forward" : "chevron-back"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+        )}
+
         {/* Header Section */}
         <View className="relative">
           <LinearGradient
