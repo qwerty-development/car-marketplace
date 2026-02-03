@@ -143,22 +143,8 @@ export default function VerifyPhoneOtpScreen() {
         return;
       }
 
-      // After successful phone verification, update the profile with phone_number
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .update({ phone_number: phone })
-            .eq("id", user.id);
-
-          if (profileError) {
-            console.error("[VerifyPhoneOtp] Error updating profile:", profileError);
-          }
-        }
-      } catch (profileErr) {
-        console.error("[VerifyPhoneOtp] Error updating profile:", profileErr);
-      }
+      // NOTE: phone_number in public.users is synced automatically via database trigger
+      // when auth.users.phone is updated through verifyOtp - no manual update needed
 
       // Success!
       Alert.alert(t("common.success"), t("phone.phone_added_success"), [

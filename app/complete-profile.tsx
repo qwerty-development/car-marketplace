@@ -288,10 +288,11 @@ export default function CompleteProfileScreen() {
       const hasNewEmail = trimmedEmail && trimmedEmail !== originalEmail?.toLowerCase();
 
       // Update profile data
+      // NOTE: phone_number is NOT updated here - it's synced automatically via trigger
+      // when auth.users.phone is updated through the OTP verification flow
       const { error } = await updateUserProfile({
         name,
         email: hasNewEmail ? undefined : (trimmedEmail || undefined),
-        phone_number: phone.trim(),
       });
 
       if (error) {
