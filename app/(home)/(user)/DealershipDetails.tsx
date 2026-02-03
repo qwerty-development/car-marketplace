@@ -1371,6 +1371,36 @@ export default function DealershipDetails() {
 	return (
 		<LinearGradient colors={bgGradient} className='flex-1'>
 			<SafeAreaView className='flex-1'>
+				{/* **CUSTOM BACK BUTTON HEADER** */}
+				<View 
+					className='flex-row items-center px-4 py-3'
+					style={{
+						backgroundColor: isDarkMode ? '#000000' : '#FFFFFF',
+					}}
+				>
+					<TouchableOpacity
+						onPress={() => router.back()}
+						className='mr-3'
+						hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+					>
+						<ChevronLeft
+							size={28}
+							color={isDarkMode ? '#FFFFFF' : '#000000'}
+							style={{
+								transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }]
+							}}
+						/>
+					</TouchableOpacity>
+					<Text
+						className={`text-xl font-bold flex-1 ${
+							isDarkMode ? 'text-white' : 'text-neutral-800'
+						}`}
+						numberOfLines={1}
+					>
+						{dealership?.name || t('dealership.dealership_details')}
+					</Text>
+				</View>
+
 				<Animated.FlatList
 					data={
 						selectedCategory === 'cars' ? filteredCars :
