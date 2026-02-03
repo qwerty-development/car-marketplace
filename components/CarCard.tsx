@@ -887,14 +887,6 @@ export default function CarCard({
               >
                 {!disableActions ? (
                   <>
-                    {/* Show chat for all cars (both dealership and user-listed) */}
-                    <ActionButton
-                      icon="chatbubble-ellipses-outline"
-                      onPress={handleChat}
-                      isDarkMode={isDarkMode}
-                      disabled={isStartingChat}
-                      loading={isStartingChat}
-                    />
                     {sellerInfo.phone && (
                       <>
                         <ActionButton
@@ -909,6 +901,14 @@ export default function CarCard({
                         />
                       </>
                     )}
+                    {/* Show chat for all cars (both dealership and user-listed) */}
+                    <ActionButton
+                      icon="chatbubbles-outline"
+                      onPress={handleChat}
+                      isDarkMode={isDarkMode}
+                      disabled={isStartingChat}
+                      loading={isStartingChat}
+                    />
                     {Platform.OS === 'android' ? (
                       <StyledPressable
                         onPress={async () => {

@@ -720,13 +720,6 @@ export default function RentalCarCard({
                 {!disableActions ? (
                   <>
                     <ActionButton
-                      icon="chatbubble-ellipses-outline"
-                      onPress={handleChat}
-                      isDarkMode={isDarkMode}
-                      disabled={isStartingChat}
-                      loading={isStartingChat}
-                    />
-                    <ActionButton
                       icon="call-outline"
                       onPress={handleCall}
                       isDarkMode={isDarkMode}
@@ -735,6 +728,13 @@ export default function RentalCarCard({
                       icon="logo-whatsapp"
                       onPress={handleWhatsAppPress}
                       isDarkMode={isDarkMode}
+                    />
+                    <ActionButton
+                      icon="chatbubbles-outline"
+                      onPress={handleChat}
+                      isDarkMode={isDarkMode}
+                      disabled={isStartingChat}
+                      loading={isStartingChat}
                     />
                     {Platform.OS === 'android' ? (
                       <StyledPressable
