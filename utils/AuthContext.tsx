@@ -1489,7 +1489,7 @@ const updateUserProfile = async (data: Partial<UserProfile>) => {
 };
 
 const updateDealershipProfile = async (data: Partial<Dealership>) => {
-  console.log('[AUTH] Starting dealership profile upsert for user:', user?.id, 'with data:', data);
+  console.log('[AUTH] Starting dealership profile update for user:', user?.id, 'with data:', data);
   try {
     if (!user) {
       throw new Error('No user is signed in');
@@ -1502,21 +1502,21 @@ const updateDealershipProfile = async (data: Partial<Dealership>) => {
       setDealership({ ...dealership, ...data });
     }
 
+    // Use UPDATE instead of UPSERT - dealership records are created during sign-up
+    // This avoids RLS issues since there's no INSERT policy for dealers
     const updateResult = await withTimeout(
       supabase
         .from('dealerships')
-        .upsert({ 
-          ...data,
-          user_id: user.id 
-        }, { onConflict: 'user_id' })
+        .update(data)
+        .eq('user_id', user.id)
         .select()
         .single(),
-      OPERATION_TIMEOUTS.PROFILE_FETCH,
-      'dealership database upsert'
+      OPERATION_TIMEOUTS.PROFILE_UPDATE,
+      'dealership database update'
     );
 
     if (updateResult.error) {
-      console.error('[AUTH] Dealership database upsert failed:', updateResult.error);
+      console.error('[AUTH] Dealership database update failed:', updateResult.error);
       if (originalDealership) {
         setDealership(originalDealership);
       }
@@ -1527,10 +1527,10 @@ const updateDealershipProfile = async (data: Partial<Dealership>) => {
        setDealership(updateResult.data as Dealership);
     }
 
-    console.log('[AUTH] Dealership profile upsert completed successfully');
+    console.log('[AUTH] Dealership profile update completed successfully');
     return { error: null };
   } catch (error: any) {
-    console.error('[AUTH] Dealership upsert failed:', error);
+    console.error('[AUTH] Dealership update failed:', error);
     return { error };
   }
 };
