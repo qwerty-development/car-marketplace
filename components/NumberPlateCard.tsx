@@ -151,6 +151,10 @@ export const LicensePlateTemplate = ({ letter, digits, width }: { letter: string
   );
 };
 
+const ACTION_BTN_SIZE = Platform.OS === 'android' ? 30 : 36;
+const ACTION_ICON_SIZE = Platform.OS === 'android' ? 18 : 20;
+const ACTION_GAP = Platform.OS === 'android' ? 2 : 4;
+
 const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
   <StyledPressable
     onPress={async () => {
@@ -159,14 +163,14 @@ const ActionButton = ({ icon, text, onPress, isDarkMode }: any) => (
     }}
     className="items-center justify-center active:opacity-70"
     style={{
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: ACTION_BTN_SIZE,
+      height: ACTION_BTN_SIZE,
+      borderRadius: ACTION_BTN_SIZE / 2,
     }}
   >
     <Ionicons
       name={icon}
-      size={24}
+      size={ACTION_ICON_SIZE}
       color={isDarkMode ? "#FFFFFF" : "#000000"}
     />
   </StyledPressable>
@@ -490,11 +494,11 @@ export default function NumberPlateCard({
 
                 <StyledView 
                   className="flex-row items-center"
-                  style={{ gap: 8 }}
+                  style={{ gap: ACTION_GAP }}
                 >
                   {!isOwnListing && (
                     isChatLoading ? (
-                      <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                      <View style={{ width: ACTION_BTN_SIZE, height: ACTION_BTN_SIZE, justifyContent: 'center', alignItems: 'center' }}>
                         <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
                       </View>
                     ) : (
@@ -539,11 +543,11 @@ export default function NumberPlateCard({
 
                 <StyledView 
                   className="flex-row items-center"
-                  style={{ gap: 8 }}
+                  style={{ gap: ACTION_GAP }}
                 >
                   {!isOwnListing && (
                     isChatLoading ? (
-                      <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                      <View style={{ width: ACTION_BTN_SIZE, height: ACTION_BTN_SIZE, justifyContent: 'center', alignItems: 'center' }}>
                         <ActivityIndicator size="small" color={isDarkMode ? "#FFFFFF" : "#000000"} />
                       </View>
                     ) : (

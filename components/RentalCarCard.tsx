@@ -133,6 +133,10 @@ const SpecItem = ({
   </StyledView>
 );
 
+const ACTION_BTN_SIZE = Platform.OS === 'android' ? 30 : 36;
+const ACTION_ICON_SIZE = Platform.OS === 'android' ? 18 : 20;
+const ACTION_GAP = Platform.OS === 'android' ? 2 : 4;
+
 const ActionButton = ({ icon, text, onPress, isDarkMode, disabled = false, loading = false }: any) => (
   <StyledPressable
     onPress={async () => {
@@ -142,9 +146,9 @@ const ActionButton = ({ icon, text, onPress, isDarkMode, disabled = false, loadi
     }}
     className="items-center justify-center active:opacity-70"
     style={{
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: ACTION_BTN_SIZE,
+      height: ACTION_BTN_SIZE,
+      borderRadius: ACTION_BTN_SIZE / 2,
     }}
     disabled={disabled || loading}
   >
@@ -153,7 +157,7 @@ const ActionButton = ({ icon, text, onPress, isDarkMode, disabled = false, loadi
     ) : (
       <Ionicons
         name={icon}
-        size={24}
+        size={ACTION_ICON_SIZE}
         color={isDarkMode ? "#FFFFFF" : "#000000"}
       />
     )}
@@ -716,7 +720,7 @@ export default function RentalCarCard({
                 )}
               </StyledView>
 
-              <StyledView style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <StyledView style={{ flexDirection: 'row', alignItems: 'center', gap: ACTION_GAP }}>
                 {!disableActions ? (
                   <>
                     <ActionButton
@@ -744,14 +748,14 @@ export default function RentalCarCard({
                         }}
                         className="items-center justify-center active:opacity-70"
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 22,
+                          width: ACTION_BTN_SIZE,
+                          height: ACTION_BTN_SIZE,
+                          borderRadius: ACTION_BTN_SIZE / 2,
                         }}
                       >
                         <Ionicons
                           name="share-social-outline"
-                          size={24}
+                          size={ACTION_ICON_SIZE}
                           color={isDarkMode ? "#FFFFFF" : "#000000"}
                         />
                       </StyledPressable>
