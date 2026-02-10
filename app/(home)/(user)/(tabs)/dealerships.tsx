@@ -225,12 +225,13 @@ const DealershipCard = React.memo(
           },
         ]}
       >
-        <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.9}>
-          <LinearGradient
-            colors={isDarkMode ? ["#000", "#1A1A1A"] : ["#fff", "#E0E0E0"]}
-            style={cardStyles.gradient}
-          >
-            <View style={cardStyles.row}>
+        <View style={cardStyles.innerContainer}>
+          <TouchableOpacity onPress={() => onPress(item)} activeOpacity={0.9}>
+            <LinearGradient
+              colors={isDarkMode ? ["#222", "#2A2A2A"] : ["#fff", "#f8f8f8"]}
+              style={cardStyles.gradient}
+            >
+              <View style={cardStyles.row}>
               <Image source={logo} style={cardStyles.logo} />
               <View style={cardStyles.content}>
                 <Text
@@ -310,7 +311,8 @@ const DealershipCard = React.memo(
               </View>
             </View>
           </LinearGradient>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     );
   }
@@ -321,12 +323,16 @@ const cardStyles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 16,
-    overflow: "hidden",
+    // overflow: "hidden", // Removed to allow elevation shadow on Android
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+  },
+  innerContainer: {
+    borderRadius: 16,
+    overflow: "hidden",
   },
   gradient: {
     padding: 16,
@@ -579,7 +585,8 @@ export default function DealershipListPage() {
   // Render
   // -------------------
   return (
-    <View
+    <SafeAreaView
+      edges={['top']}
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
       <View style={{ paddingHorizontal: 24, paddingBottom: 12, paddingTop: 16 }}>
@@ -743,7 +750,7 @@ export default function DealershipListPage() {
         currentSort={sortBy}
         isDarkMode={isDarkMode}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
