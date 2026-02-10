@@ -481,17 +481,16 @@ export default function HomeLayout() {
           name="(user)" 
           options={{ 
             headerShown: false,
-            // ANDROID FIX: Ensure proper stack management for deep links
-            presentation: Platform.OS === 'android' ? 'card' : 'modal',
-            freezeOnBlur: Platform.OS === 'android' ? false : true,
+            presentation: 'card',
+            freezeOnBlur: false,
           }} 
         />
         <Stack.Screen 
           name="(dealer)" 
           options={{ 
             headerShown: false,
-            presentation: Platform.OS === 'android' ? 'card' : 'modal',
-            freezeOnBlur: Platform.OS === 'android' ? false : true,
+            presentation: 'card',
+            freezeOnBlur: false,
           }} 
         />
       </Stack>

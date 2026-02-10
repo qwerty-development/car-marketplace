@@ -169,38 +169,7 @@ const SortModal = ({
   );
 };
 
-// -------------------
-// Custom Header Component
-// -------------------
-const CustomHeader = React.memo(({ title }: { title: string }) => {
-  const { isDarkMode } = useTheme();
 
-  return (
-    <SafeAreaView style={{ backgroundColor: isDarkMode ? "black" : "white" }}>
-
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between", // Changed from marginLeft to proper justification
-          alignItems: "center", // Added alignment
-          paddingHorizontal: 24, // Changed from marginLeft to paddingHorizontal
-          marginBottom: Platform.OS === "ios" ? -10 : 8,
-        }}
-      >
-        <Text
-          style={[
-            { fontSize: 24, fontWeight: "bold" },
-            { color: isDarkMode ? "white" : "black" },
-          ]}
-        >
-          {title}
-        </Text>
-        {/* Right side placeholder to maintain consistency with Favorites */}
-        <View style={{ width: 24 }} />
-      </View>
-    </SafeAreaView>
-  );
-});
 
 // -------------------
 // Dealership Card Component (With Animation)
@@ -419,6 +388,8 @@ export default function DealershipListPage() {
 
   const [dealerships, setDealerships] = useState<Dealership[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -611,57 +582,130 @@ export default function DealershipListPage() {
     <View
       style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}
     >
-      <CustomHeader title={i18n.t('dealership.dealerships')} />
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <View
-            style={[
-              {
+      <View style={{ paddingHorizontal: 24, paddingBottom: 12, paddingTop: 16 }}>
+        {isSearching ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View
+              style={{
                 flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
+                flexDirection: 'row',
+                alignItems: 'center',
                 borderWidth: 1,
-                borderRadius: 999,
-                paddingVertical: 4,
-                paddingHorizontal: 8,
-              },
-              { borderColor: isDarkMode ? "#555" : "#ccc" },
-            ]}
-          >
-            <FontAwesome
-              name="search"
-              size={20}
-              color={isDarkMode ? "white" : "black"}
-              style={{ marginLeft: 12 }}
-            />
-            <TextInput
-              style={[
-                { flex: 1, padding: 12, color: isDarkMode ? "white" : "black" },
-              ]}
-              placeholder={i18n.t('dealership.search_dealerships')}
-              placeholderTextColor={isDarkMode ? "lightgray" : "gray"}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              textAlignVertical="center"
-            />
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+                backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+              }}
+            >
+              <Ionicons
+                name="search"
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                style={{ marginRight: 8 }}
+              />
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={i18n.t('dealership.search_dealerships')}
+                placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+                style={{
+                  flex: 1,
+                  fontSize: 15,
+                  color: isDarkMode ? '#E5E7EB' : '#0F172A',
+                }}
+                returnKeyType="search"
+              />
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setIsSearching(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: isDarkMode ? '#E5E7EB' : '#0F172A',
+                }}
+              >
+                {i18n.t('common.cancel', 'Cancel')}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={() => setShowSortModal(true)}
-            style={[
-              {
-                padding: 12,
-                borderRadius: 999,
-              },
-            ]}
-          >
-            <FontAwesome
-              name="sort"
-              size={20}
-              color={isDarkMode ? "white" : "black"}
-            />
-          </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: 'bold',
+                color: isDarkMode ? '#FFFFFF' : '#0F172A',
+              }}
+            >
+              {i18n.t('dealership.dealerships')}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <TouchableOpacity
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+                  backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 3,
+                  elevation: 3,
+                }}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setIsSearching(true);
+                  setTimeout(() => searchInputRef.current?.focus(), 100);
+                }}
+              >
+                <Ionicons
+                  name="search"
+                  size={20}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+                  backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 3,
+                  elevation: 3,
+                }}
+                activeOpacity={0.7}
+                onPress={() => setShowSortModal(true)}
+              >
+                <Ionicons
+                  name="swap-vertical"
+                  size={20}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
+
       {/* Main Content: Loading or List */}
       {isLoading ? (
         <DealershipSkeletonLoading isDarkMode={isDarkMode} count={6} />
