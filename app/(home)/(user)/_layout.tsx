@@ -104,7 +104,7 @@ export default function RootLayout() {
           />
 
           <Stack.Screen
-            name="CarDetailModalIOS"
+            name="CarDetailModal"
             options={{
               headerShown: true,
             }}
@@ -115,13 +115,6 @@ export default function RootLayout() {
             options={{
               animation: "slide_from_right",
               headerShown: false,
-            }}
-          />
-
-          <Stack.Screen
-            name="CarDetailModalAndroid"
-            options={{
-              headerShown: true,
             }}
           />
 
@@ -139,18 +132,6 @@ export default function RootLayout() {
               headerShown: false,
               contentStyle: {
                 backgroundColor: isDarkMode ? "black" : "white",
-              },
-            }}
-          />
-
-          <Stack.Screen
-            name="CarDetailsModal"
-            options={{
-              presentation: "modal",
-              animation: "slide_from_bottom",
-              headerShown: false,
-              contentStyle: {
-                backgroundColor: "transparent",
               },
             }}
           />

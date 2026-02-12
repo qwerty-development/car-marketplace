@@ -402,7 +402,7 @@ const DeepLinkHandler = () => {
                           'Establishing navigation stack';
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to car`);
             await new Promise((resolve) => setTimeout(resolve, 300));
-            router.replace("/(home)/(user)");
+            router.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
             
             // Navigate directly to CarDetails with replace to ensure clean navigation
@@ -433,7 +433,7 @@ const DeepLinkHandler = () => {
             // Need to establish/reset stack for initial links OR when crossing dealer->user
             console.log(`[DeepLink - ${Platform.OS}] ${needsUserStackReset ? 'Resetting from dealer to user stack' : 'Establishing navigation stack'} before navigating to clip`);
             await new Promise((resolve) => setTimeout(resolve, 300));
-            router.replace("/(home)/(user)");
+            router.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
             
             // Navigate to autoclips with replace after stack reset
@@ -475,7 +475,7 @@ const DeepLinkHandler = () => {
                           'Establishing navigation stack';
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to conversation`);
             await new Promise((resolve) => setTimeout(resolve, 300));
-            router.replace("/(home)/(user)");
+            router.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
             
             // Navigate to conversation with replace after stack reset
@@ -502,7 +502,7 @@ const DeepLinkHandler = () => {
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
         // Fallback to home
-        router.replace("/(home)/(user)");
+        router.replace("/(home)/(user)/(tabs)");
       }
     },
     [router, isSignedIn, isGuest]
@@ -689,7 +689,7 @@ const DeepLinkHandler = () => {
 
             // Navigate to appropriate home screen
             if (isEffectivelySignedIn) {
-              router.replace("/(home)/(user)");
+              router.replace("/(home)/(user)/(tabs)");
             } else {
               router.replace("/(auth)/sign-in");
             }
@@ -699,7 +699,7 @@ const DeepLinkHandler = () => {
           console.log("[DeepLink] No specific path found, navigating to home");
           const isEffectivelySignedIn = isSignedIn || isGuest;
           if (isEffectivelySignedIn) {
-            router.replace("/(home)/(user)");
+            router.replace("/(home)/(user)/(tabs)");
           } else {
             router.replace("/(auth)/sign-in");
           }
@@ -710,7 +710,7 @@ const DeepLinkHandler = () => {
         // Error recovery
         const isEffectivelySignedIn = isSignedIn || isGuest;
         if (isEffectivelySignedIn) {
-          router.replace("/(home)/(user)");
+          router.replace("/(home)/(user)/(tabs)");
         } else {
           router.replace("/(auth)/sign-in");
         }
