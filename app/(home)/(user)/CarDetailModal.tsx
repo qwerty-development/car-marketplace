@@ -1058,6 +1058,30 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                 </View>
               )}
 
+              {/* Favorite Heart Button - Top Right */}
+              <Pressable
+                onPress={() => {
+                  if (onFavoritePress) {
+                    onFavoritePress(car.id);
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 20,
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  borderRadius: 20,
+                  padding: 8,
+                }}
+              >
+                <Ionicons
+                  name={isFavorite(Number(car.id)) ? "heart-sharp" : "heart-outline"}
+                  size={28}
+                  color={isFavorite(Number(car.id)) ? "#D55004" : "#FFFFFF"}
+                />
+              </Pressable>
+
               {/* Pagination Dots */}
               {car.images && car.images.length > 1 && (
                 <View style={{
