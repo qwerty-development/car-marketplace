@@ -489,7 +489,15 @@ export default function DealershipListPage() {
         total_number_plates: platesCounts[dealer.id] || 0,
       }));
 
-      setDealerships(formattedData);
+      // Filter to only include dealerships with at least one listing
+      const dealershipsWithListings = formattedData.filter(
+        (dealer) =>
+          (dealer.total_cars_sale ?? 0) > 0 ||
+          (dealer.total_cars_rent ?? 0) > 0 ||
+          (dealer.total_number_plates ?? 0) > 0
+      );
+
+      setDealerships(dealershipsWithListings);
     } catch (error) {
       console.error("Error fetching dealerships:", error);
       Alert.alert("Error", "Failed to fetch dealerships");
