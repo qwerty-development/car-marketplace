@@ -439,7 +439,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
       >
         {!isUser && (
           <View className="mr-3 mb-1">
-            <View className="w-8 h-8 bg-red rounded-full items-center justify-center shadow-sm">
+            <View className="w-8 h-8 bg-orange-500 rounded-full items-center justify-center shadow-sm">
               <MaterialCommunityIcons name="robot-outline" size={16} color="white" />
             </View>
           </View>
@@ -460,7 +460,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
             {message.cars && message.cars.length > 0 && (
               <View className="mt-4 pt-3 border-t border-neutral-200/30 dark:border-neutral-600/30">
                 <View className="flex-row items-center mb-3">
-                  <View className="w-6 h-6 bg-red rounded-full items-center justify-center mr-2">
+                  <View className="w-6 h-6 bg-orange-500 rounded-full items-center justify-center mr-2">
                     <Ionicons name="car-sport" size={12} color="white" />
                   </View>
                   <Text className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
@@ -559,7 +559,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
             <Ionicons name="arrow-back" size={20} color={isDarkMode ? '#fff' : '#000'} />
           </TouchableOpacity>
 
-          <View className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-full items-center justify-center mr-3 shadow-lg">
+          <View className="w-10 h-10 bg-orange-500 rounded-full items-center justify-center mr-3 shadow-lg">
             <MaterialCommunityIcons name="robot-outline" size={20} color="white" />
           </View>
           <View className="flex-1 mr-3">
@@ -605,7 +605,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
           {isLoading && (
             <View className="flex-row mb-4 items-end justify-start">
               <View className="mr-3 mb-1">
-                <View className="w-8 h-8 bg-red-500 rounded-full items-center justify-center shadow-sm">
+                <View className="w-8 h-8 bg-orange-500 rounded-full items-center justify-center shadow-sm">
                   <ActivityIndicator color="white" size="small" />
                 </View>
               </View>
@@ -700,7 +700,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
             <TouchableOpacity
               className={`w-9 h-9 rounded-2xl items-center justify-center ${
                 (inputText.trim() && !isLoading) 
-                  ? 'bg-red shadow-red-500/20 shadow-md' 
+                  ? 'bg-orange-500 shadow-orange-500/20 shadow-md' 
                   : isDarkMode ? 'bg-neutral-700' : 'bg-neutral-200'
               }`}
               onPress={sendMessage}
@@ -731,7 +731,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
           onPress={scrollToBottom}
             accessibilityLabel="Scroll to latest messages"
           activeOpacity={0.85}
-          className="absolute bottom-28 right-5 w-11 h-11 rounded-full bg-red items-center justify-center shadow-lg"
+          className="absolute bottom-28 right-5 w-11 h-11 rounded-full bg-orange-500 items-center justify-center shadow-lg"
         >
           <Ionicons name="arrow-down" size={20} color="#fff" />
         </TouchableOpacity>
