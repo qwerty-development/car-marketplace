@@ -22,6 +22,7 @@ import { useTheme } from "@/utils/ThemeContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { setIsSigningOut } from "@/app/(home)/_layout";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScrollToTop, useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import type { NotificationSettings } from "../types/type";
@@ -57,6 +58,7 @@ export default function UserProfileAndSupportPage() {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const isRTL = language === 'ar';
+  const insets = useSafeAreaInsets();
   const {
     user,
     profile,
@@ -650,8 +652,15 @@ export default function UserProfileAndSupportPage() {
         {!isGuest && profile?.role !== "dealer" && (
           <TouchableOpacity
             onPress={() => router.back()}
-            className={`absolute top-4 ${isRTL ? 'right-4' : 'left-4'} z-10 ${isDarkMode ? 'bg-neutral-800/80' : 'bg-white/80'} p-3 rounded-full shadow-lg`}
-            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 }}
+            className={`absolute ${isRTL ? 'right-4' : 'left-4'} z-10 ${isDarkMode ? 'bg-neutral-800/80' : 'bg-white/80'} p-3 rounded-full shadow-lg`}
+            style={{ 
+              top: insets.top + 8,
+              shadowColor: '#000', 
+              shadowOffset: { width: 0, height: 2 }, 
+              shadowOpacity: 0.25, 
+              shadowRadius: 3.84, 
+              elevation: 5 
+            }}
           >
             <Ionicons
               name={isRTL ? "chevron-forward" : "chevron-back"}
