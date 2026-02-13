@@ -14,7 +14,7 @@ import { NotificationService } from '@/services/NotificationService';
 const OPERATION_TIMEOUTS = {
   SIGN_IN: 10000, // 10 seconds
   SIGN_OUT: 8000, // 8 seconds
-  PROFILE_FETCH: 5000, // 5 seconds
+  PROFILE_FETCH: 8000, // 8 seconds - increased from 5s to handle poor network conditions
   PROFILE_UPDATE: 15000, // 15 seconds - higher for database writes
   TOKEN_REGISTRATION: 8000, // 8 seconds
   SESSION_LOAD: 10000, // 10 seconds
@@ -577,6 +577,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (isGuest) return;
       if (isGlobalSigningOut || isSigningOutState) return;
 
+      console.log('[AUTH] Fetching user profile for:', userId);
+      const startTime = Date.now();
       const result = await withTimeout(
         supabase
           .from('users')
@@ -586,6 +588,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         OPERATION_TIMEOUTS.PROFILE_FETCH,
         'profile fetch'
       );
+      const duration = Date.now() - startTime;
+      console.log(`[AUTH] Profile fetch completed in ${duration}ms`);
 
       const { data, error } = result;
 
@@ -625,9 +629,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
     } catch (error: any) {
+      const isTimeout = error?.message?.includes('timed out');
       console.error('[AUTH] Error in fetchUserProfile:', error);
+      console.log(`[AUTH] Error type: ${isTimeout ? 'TIMEOUT' : 'OTHER'}, Message: ${error?.message}`);
       setDealership(null); 
-      scheduleProfileRetry(userId, 'profile fetch error');
+      scheduleProfileRetry(userId, isTimeout ? 'network timeout' : 'profile fetch error');
     }
   };
 
@@ -672,7 +678,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     if (profile?.id === userId) return;
 
     const maxAttempts = 3;
-    const baseDelayMs = 600;
+    // Longer delays for network timeouts to allow network to recover
+    const baseDelayMs = reason.includes('timeout') ? 1000 : 600;
 
     const current = profileRetryStateRef.current;
     const nextAttempt = current?.userId === userId ? current.nextAttempt : 1;
