@@ -20,7 +20,7 @@ import ConversationListItem from '@/components/chat/ConversationListItem';
 import { useConversations } from '@/hooks/useConversations';
 import { Ionicons } from '@expo/vector-icons';
 
-type FilterType = 'all' | 'unread';
+type FilterType = 'sent' | 'received';
 
 export default function ChatTabScreen() {
   const { isDarkMode } = useTheme();
@@ -28,7 +28,7 @@ export default function ChatTabScreen() {
   const { isGuest } = useGuestUser();
   const { t } = useTranslation();
   const router = useRouter();
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filter, setFilter] = useState<FilterType>('sent');
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<TextInput>(null);
@@ -48,15 +48,17 @@ export default function ChatTabScreen() {
   const filteredConversations = useMemo(() => {
     if (!conversations) return [];
 
-    const byUnread =
-      filter === 'unread'
-        ? conversations.filter((c) => (c.user_unread_count ?? 0) > 0)
-        : conversations;
+    // Filter by sent/received
+    const byFilter =
+      filter === 'sent'
+        ? conversations.filter((c) => c.user_id === user?.id)
+        : conversations.filter((c) => c.seller_user_id === user?.id);
 
+    // Apply search filter
     const trimmedQuery = searchQuery.trim().toLowerCase();
-    if (!trimmedQuery) return byUnread;
+    if (!trimmedQuery) return byFilter;
 
-    return byUnread.filter((c) => {
+    return byFilter.filter((c) => {
       const parts: string[] = [];
       if (c.dealership?.name) parts.push(c.dealership.name);
       if (c.dealership?.location) parts.push(c.dealership.location);
@@ -74,9 +76,13 @@ export default function ChatTabScreen() {
         parts.push(`${plateInfo.letter ?? ''} ${plateInfo.digits ?? ''}`.trim());
       }
 
+      // Also search in seller_user name if it exists
+      if (c.seller_user?.name) parts.push(c.seller_user.name);
+      if (c.user?.name) parts.push(c.user.name);
+
       return parts.some((p) => p.toLowerCase().includes(trimmedQuery));
     });
-  }, [conversations, filter, searchQuery]);
+  }, [conversations, filter, searchQuery, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -248,10 +254,10 @@ export default function ChatTabScreen() {
         {/* Filter Tabs */}
         <View style={styles.filterContainer}>
           <TouchableOpacity
-            onPress={() => setFilter('all')}
+            onPress={() => setFilter('sent')}
             style={[
               styles.filterTab,
-              filter === 'all'
+              filter === 'sent'
                 ? styles.filterTabActive
                 : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
             ]}
@@ -260,20 +266,20 @@ export default function ChatTabScreen() {
             <Text
               style={[
                 styles.filterTabText,
-                filter === 'all'
+                filter === 'sent'
                   ? styles.filterTabTextActive
                   : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
               ]}
             >
-              {t('chat.filter_all', 'All')}
+              {t('chat.filter_sent', 'Sent')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setFilter('unread')}
+            onPress={() => setFilter('received')}
             style={[
               styles.filterTab,
-              filter === 'unread'
+              filter === 'received'
                 ? styles.filterTabActive
                 : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
             ]}
@@ -282,12 +288,12 @@ export default function ChatTabScreen() {
             <Text
               style={[
                 styles.filterTabText,
-                filter === 'unread'
+                filter === 'received'
                   ? styles.filterTabTextActive
                   : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
               ]}
             >
-              {t('chat.filter_unread', 'Unread')}
+              {t('chat.filter_received', 'Received')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -344,9 +350,9 @@ export default function ChatTabScreen() {
                   marginBottom: 12,
                 }}
               >
-                {filter === 'unread'
-                  ? t('chat.no_unread_title', 'No unread messages')
-                  : t('chat.no_conversations_title', 'No conversations yet')}
+                {filter === 'sent'
+                  ? t('chat.no_sent_title', 'No sent messages')
+                  : t('chat.no_received_title', 'No received messages')}
               </Text>
               <Text
                 style={{
@@ -356,11 +362,14 @@ export default function ChatTabScreen() {
                   lineHeight: 22,
                 }}
               >
-                {filter === 'unread'
-                  ? t('chat.no_unread_body', "You're all caught up!")
-                  : t(
-                      'chat.no_conversations_body',
+                {filter === 'sent'
+                  ? t(
+                      'chat.no_sent_body',
                       'Find a car you love and tap "Chat with dealer" to start a conversation.'
+                    )
+                  : t(
+                      'chat.no_received_body',
+                      'When someone messages you about your listings, conversations will appear here.'
                     )}
               </Text>
             </View>

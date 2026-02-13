@@ -115,7 +115,13 @@
     "unread": "unread",
     "loading_conversations": "Loading conversations...",
     "loading_messages": "Loading messages...",
-    "start_conversation": "Send a message to start the conversation"
+    "start_conversation": "Send a message to start the conversation",
+    "filter_sent": "Sent",
+    "filter_received": "Received",
+    "no_sent_title": "No sent messages",
+    "no_sent_body": "Find a car you love and tap \\\"Chat with dealer\\\" to start a conversation.",
+    "no_received_title": "No received messages",
+    "no_received_body": "When someone messages you about your listings, conversations will appear here."
   },
   "brands": {
     "explore_by_brands": "Explore by Brands",
