@@ -19,7 +19,9 @@
       "mcp__supabase__list_edge_functions",
       "Bash(tail:*)",
       "Bash(head:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "mcp__supabase__list_tables",
+      "mcp__plugin_supabase_supabase__execute_sql"
     ],
     "deny": [],
     "ask": []
