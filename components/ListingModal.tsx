@@ -1197,9 +1197,10 @@ const ListingModal = ({
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.8,
+      legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {

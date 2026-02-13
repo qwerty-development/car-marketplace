@@ -28,10 +28,11 @@ export const useImageUpload = (
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 1
+        quality: 1,
+        legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
       })
 
       if (!result.canceled && result.assets?.[0]) {

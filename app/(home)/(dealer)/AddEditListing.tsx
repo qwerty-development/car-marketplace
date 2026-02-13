@@ -1654,7 +1654,7 @@ features
 
       // Step 4: Launch image picker with optimized configuration
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: maxSelection > 1,
         // Android can now handle up to 10 images with proper memory management
         selectionLimit: maxSelection,
@@ -1662,6 +1662,7 @@ features
         exif: false, // Skip EXIF data to reduce memory usage
         base64: false, // Skip base64 encoding in picker
         allowsEditing: false, // Disable editing to prevent memory issues
+        legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
       });
 
       // Step 5: Handle selection result
