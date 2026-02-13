@@ -15,6 +15,9 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { useAuth } from '@/utils/AuthContext';
+import { useGuestUser } from '@/utils/GuestUserContext';
+import { getViewerInfo, trackBannerEvent } from '@/utils/bannerAnalytics';
 import { FontAwesome } from '@expo/vector-icons';
 
 interface Banner {
@@ -31,8 +34,11 @@ const Banner: React.FC = () => {
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { guestId } = useGuestUser();
   const scrollViewRef = useRef<ScrollView>(null);
   const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
+  const trackedImpressions = useRef<Set<string>>(new Set());
   const { width: screenWidth } = Dimensions.get('window');
   const isRTL = I18nManager.isRTL;
   // Account for horizontal margins (mx-3 => 12px left + 12px right)
@@ -61,6 +67,22 @@ const Banner: React.FC = () => {
     fetchBanners();
   }, [fetchBanners]);
 
+  // Track impression for a specific banner slide
+  const trackImpression = useCallback((bannerId: string) => {
+    if (trackedImpressions.current.has(bannerId)) return;
+    const viewer = getViewerInfo(user?.id, guestId);
+    if (!viewer) return;
+    trackedImpressions.current.add(bannerId);
+    setTimeout(() => trackBannerEvent(bannerId, viewer, 'impression'), 500);
+  }, [user?.id, guestId]);
+
+  // Track the first visible banner after data loads
+  useEffect(() => {
+    if (banners.length > 0) {
+      trackImpression(banners[0].id);
+    }
+  }, [banners, trackImpression]);
+
   // Auto-scroll functionality
   useEffect(() => {
     if (banners.length > 1) {
@@ -72,6 +94,10 @@ const Banner: React.FC = () => {
               x: nextIndex * screenWidth,
               animated: true,
             });
+            // Track impression for auto-scrolled banner
+            if (banners[nextIndex]) {
+              trackImpression(banners[nextIndex].id);
+            }
             return nextIndex;
           });
         }, 3000); // Auto-scroll every 3 seconds
@@ -91,69 +117,51 @@ const Banner: React.FC = () => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffsetX / screenWidth);
     setCurrentIndex(index);
+    // Track impression for the newly visible banner slide
+    if (banners[index]) {
+      trackImpression(banners[index].id);
+    }
   };
 
-  const handleBannerPress = async (redirectTo: string | null) => {
-    try {
-      // If no redirect URL, do nothing
-      if (!redirectTo || redirectTo.trim() === '') {
-        console.log('Banner has no redirect URL');
-        return;
-      }
+  const handleInternalNavigation = (redirectTo: string): boolean => {
+    if (redirectTo.startsWith('fleet://dealership/')) {
+      const dealershipId = redirectTo.replace('fleet://dealership/', '');
+      router.push({ pathname: '/(home)/(user)/DealershipDetails', params: { dealershipId } });
+      return true;
+    }
+    if (redirectTo.startsWith('fleet://car/')) {
+      const carId = redirectTo.replace('fleet://car/', '');
+      router.push({ pathname: '/(home)/(user)/CarDetails', params: { carId, isDealerView: 'false' } });
+      return true;
+    }
+    if (redirectTo.startsWith('fleet://category/')) {
+      const category = redirectTo.replace('fleet://category/', '');
+      router.push({ pathname: '/(home)/(user)/(tabs)', params: { category } });
+      return true;
+    }
+    if (redirectTo.startsWith('fleet://brand/')) {
+      const brand = redirectTo.replace('fleet://brand/', '');
+      router.push({ pathname: '/(home)/(user)/CarsByBrand', params: { brand } });
+      return true;
+    }
+    return false;
+  };
 
-      // Check if it's a dealership redirect (internal app navigation)
-      if (redirectTo.startsWith('fleet://dealership/')) {
-        const dealershipId = redirectTo.replace('fleet://dealership/', '');
-        router.push({
-          pathname: '/(home)/(user)/DealershipDetails',
-          params: { dealershipId },
-        });
-        return;
-      }
-      
-      // Check if it's a car redirect (internal app navigation)
-      if (redirectTo.startsWith('fleet://car/')) {
-        const carId = redirectTo.replace('fleet://car/', '');
-        router.push({
-          pathname: '/(home)/(user)/CarDetails',
-          params: { 
-            carId,
-            isDealerView: 'false',
-          },
-        });
-        return;
-      }
-      
-      // Check if it's a category redirect (internal app navigation)
-      if (redirectTo.startsWith('fleet://category/')) {
-        const category = redirectTo.replace('fleet://category/', '');
-        // Navigate to home with category filter
-        router.push({
-          pathname: '/(home)/(user)/(tabs)',
-          params: { category },
-        });
-        return;
-      }
-      
-      // Check if it's a brand redirect (internal app navigation)
-      if (redirectTo.startsWith('fleet://brand/')) {
-        const brand = redirectTo.replace('fleet://brand/', '');
-        router.push({
-          pathname: '/(home)/(user)/CarsByBrand',
-          params: { brand },
-        });
-        return;
-      }
-      
+  const handleBannerPress = async (bannerId: string, redirectTo: string | null) => {
+    // Track click (fire-and-forget, before processing redirect)
+    const viewer = getViewerInfo(user?.id, guestId);
+    if (viewer) {
+      trackBannerEvent(bannerId, viewer, 'click');
+    }
+
+    if (!redirectTo?.trim()) return;
+
+    try {
+      if (handleInternalNavigation(redirectTo)) return;
+
       // For external URLs, open in browser
       const url = redirectTo.startsWith('http') ? redirectTo : `https://${redirectTo}`;
-      const supported = await Linking.canOpenURL(url);
-      
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        console.error('Cannot open URL:', url);
-      }
+      await Linking.openURL(url);
     } catch (error) {
       console.error('Error handling banner press:', error);
     }
@@ -197,10 +205,9 @@ const Banner: React.FC = () => {
         {banners.map((banner, index) => (
           <TouchableOpacity
             key={banner.id}
-            onPress={() => handleBannerPress(banner.redirect_to)}
+            onPress={() => handleBannerPress(banner.id, banner.redirect_to)}
             style={{ width: contentWidth }}
             activeOpacity={banner.redirect_to ? 0.8 : 1}
-            disabled={!banner.redirect_to}
           >
             <Image
               source={{ uri: banner.image_url }}

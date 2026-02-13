@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Image,
@@ -10,6 +10,9 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { useAuth } from '@/utils/AuthContext';
+import { useGuestUser } from '@/utils/GuestUserContext';
+import { getViewerInfo, trackAdBannerEvent } from '@/utils/bannerAnalytics';
 
 interface AdBannerData {
   id: number;
@@ -24,6 +27,9 @@ const AdBanner: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { isDarkMode } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
+  const { guestId } = useGuestUser();
+  const hasTrackedImpression = useRef(false);
   const { width: screenWidth } = Dimensions.get('window');
   // Account for horizontal margins (mx-3 => 12px left + 12px right)
   const contentWidth = screenWidth - 24;
@@ -33,6 +39,17 @@ const AdBanner: React.FC = () => {
   useEffect(() => {
     fetchRandomAd();
   }, []);
+
+  // Track impression when an ad is displayed
+  useEffect(() => {
+    if (ad && !hasTrackedImpression.current) {
+      hasTrackedImpression.current = true;
+      const viewer = getViewerInfo(user?.id, guestId);
+      if (viewer) {
+        setTimeout(() => trackAdBannerEvent(ad.id, viewer, 'impression'), 500);
+      }
+    }
+  }, [ad, user?.id, guestId]);
 
   const fetchRandomAd = async () => {
     try {
@@ -105,7 +122,13 @@ const AdBanner: React.FC = () => {
     return false;
   };
 
-  const handleAdPress = async (redirectTo: string | null) => {
+  const handleAdPress = async (adId: number, redirectTo: string | null) => {
+    // Track click (fire-and-forget, before processing redirect)
+    const viewer = getViewerInfo(user?.id, guestId);
+    if (viewer) {
+      trackAdBannerEvent(adId, viewer, 'click');
+    }
+
     try {
       if (!redirectTo || redirectTo.trim() === '') {
         console.log('Ad has no redirect URL');
@@ -149,9 +172,8 @@ const AdBanner: React.FC = () => {
   return (
     <View className={`mx-3 my-4 ${isDarkMode ? 'bg-[#1c1c1c]' : 'bg-[#f5f5f5]'} rounded-2xl overflow-hidden`}>
       <TouchableOpacity
-        onPress={() => handleAdPress(ad.redirect_to)}
+        onPress={() => handleAdPress(ad.id, ad.redirect_to)}
         activeOpacity={ad.redirect_to ? 0.8 : 1}
-        disabled={!ad.redirect_to}
       >
         <Image
           source={{ uri: ad.image_url }}
