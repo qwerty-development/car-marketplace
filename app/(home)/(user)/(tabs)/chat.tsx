@@ -44,15 +44,31 @@ export default function ChatTabScreen() {
     enabled: !!user && !isGuest,
   });
 
+  // Check if user has both sent and received messages
+  const { hasSent, hasReceived } = useMemo(() => {
+    if (!conversations) return { hasSent: false, hasReceived: false };
+    
+    const sent = conversations.some((c) => c.user_id === user?.id);
+    const received = conversations.some((c) => c.seller_user_id === user?.id);
+    
+    return { hasSent: sent, hasReceived: received };
+  }, [conversations, user?.id]);
+
+  // Determine if we should show filters
+  const showFilters = hasSent && hasReceived;
+
   // Filter conversations based on selected filter and search query
   const filteredConversations = useMemo(() => {
     if (!conversations) return [];
 
-    // Filter by sent/received
-    const byFilter =
-      filter === 'sent'
-        ? conversations.filter((c) => c.user_id === user?.id)
-        : conversations.filter((c) => c.seller_user_id === user?.id);
+    // Filter by sent/received only if both types exist
+    let byFilter = conversations;
+    if (showFilters) {
+      byFilter =
+        filter === 'sent'
+          ? conversations.filter((c) => c.user_id === user?.id)
+          : conversations.filter((c) => c.seller_user_id === user?.id);
+    }
 
     // Apply search filter
     const trimmedQuery = searchQuery.trim().toLowerCase();
@@ -82,7 +98,7 @@ export default function ChatTabScreen() {
 
       return parts.some((p) => p.toLowerCase().includes(trimmedQuery));
     });
-  }, [conversations, filter, searchQuery, user?.id]);
+  }, [conversations, filter, searchQuery, user?.id, showFilters]);
 
   useFocusEffect(
     useCallback(() => {
@@ -251,52 +267,54 @@ export default function ChatTabScreen() {
           </View>
         )}
 
-        {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            onPress={() => setFilter('sent')}
-            style={[
-              styles.filterTab,
-              filter === 'sent'
-                ? styles.filterTabActive
-                : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Text
+        {/* Filter Tabs - Only show if user has both sent and received messages */}
+        {showFilters && (
+          <View style={styles.filterContainer}>
+            <TouchableOpacity
+              onPress={() => setFilter('sent')}
               style={[
-                styles.filterTabText,
+                styles.filterTab,
                 filter === 'sent'
-                  ? styles.filterTabTextActive
-                  : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+                  ? styles.filterTabActive
+                  : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
               ]}
+              activeOpacity={0.7}
             >
-              {t('chat.filter_sent', 'Sent')}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.filterTabText,
+                  filter === 'sent'
+                    ? styles.filterTabTextActive
+                    : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+                ]}
+              >
+                {t('chat.filter_sent', 'Sent')}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => setFilter('received')}
-            style={[
-              styles.filterTab,
-              filter === 'received'
-                ? styles.filterTabActive
-                : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Text
+            <TouchableOpacity
+              onPress={() => setFilter('received')}
               style={[
-                styles.filterTabText,
+                styles.filterTab,
                 filter === 'received'
-                  ? styles.filterTabTextActive
-                  : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+                  ? styles.filterTabActive
+                  : { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' },
               ]}
+              activeOpacity={0.7}
             >
-              {t('chat.filter_received', 'Received')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.filterTabText,
+                  filter === 'received'
+                    ? styles.filterTabTextActive
+                    : { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+                ]}
+              >
+                {t('chat.filter_received', 'Received')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {isLoading ? (
@@ -350,9 +368,11 @@ export default function ChatTabScreen() {
                   marginBottom: 12,
                 }}
               >
-                {filter === 'sent'
-                  ? t('chat.no_sent_title', 'No sent messages')
-                  : t('chat.no_received_title', 'No received messages')}
+                {showFilters
+                  ? filter === 'sent'
+                    ? t('chat.no_sent_title', 'No sent messages')
+                    : t('chat.no_received_title', 'No received messages')
+                  : t('chat.no_messages_title', 'No messages yet')}
               </Text>
               <Text
                 style={{
@@ -362,14 +382,19 @@ export default function ChatTabScreen() {
                   lineHeight: 22,
                 }}
               >
-                {filter === 'sent'
-                  ? t(
-                      'chat.no_sent_body',
-                      'Find a car you love and tap "Chat with dealer" to start a conversation.'
-                    )
+                {showFilters
+                  ? filter === 'sent'
+                    ? t(
+                        'chat.no_sent_body',
+                        'Find a car you love and tap "Chat with dealer" to start a conversation.'
+                      )
+                    : t(
+                        'chat.no_received_body',
+                        'When someone messages you about your listings, conversations will appear here.'
+                      )
                   : t(
-                      'chat.no_received_body',
-                      'When someone messages you about your listings, conversations will appear here.'
+                      'chat.no_messages_body',
+                      'Start a conversation with a dealer or wait for messages about your listings.'
                     )}
               </Text>
             </View>
