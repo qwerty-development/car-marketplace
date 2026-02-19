@@ -1,5 +1,6 @@
 // supabase/functions/credit-purchase-callback/index.ts
 // Handles Whish payment callbacks for credit purchases
+// Creates credit_batches with expiry dates (2month or 1year)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -31,12 +32,7 @@ async function verifyHmacIfPresent(query: URLSearchParams, secret: string): Prom
   if (!sig) return true; // No signature to verify
 
   const params = new URLSearchParams();
-  const requiredParams = ['eid', 'userId', 'creditAmount'];
-  const optionalParams = ['state'];
-
-  // Build canonical query string (sorted by key)
-  const allParams = [...requiredParams, ...optionalParams];
-  allParams.sort();
+  const allParams = ['creditAmount', 'creditType', 'dealerId', 'eid', 'state', 'userId'];
 
   for (const param of allParams) {
     const value = query.get(param);
@@ -140,6 +136,8 @@ Deno.serve(async (req: Request) => {
     const eid = url.searchParams.get('eid');
     const userId = url.searchParams.get('userId');
     const creditAmountStr = url.searchParams.get('creditAmount');
+    const creditType = url.searchParams.get('creditType') || '2month';
+    const dealerIdStr = url.searchParams.get('dealerId');
 
     if (!eid || !userId || !creditAmountStr) {
       console.warn(`[${correlationId}] Missing parameters`);
@@ -150,16 +148,24 @@ Deno.serve(async (req: Request) => {
 
     const externalId = parseInt(eid, 10);
     const creditAmount = parseFloat(creditAmountStr);
+    const dealerId = dealerIdStr ? parseInt(dealerIdStr, 10) : null;
 
     if (isNaN(externalId) || isNaN(creditAmount) || creditAmount <= 0) {
       console.warn(`[${correlationId}] Invalid parameters`);
       return json({ error: 'Invalid externalId or creditAmount' }, 400);
     }
 
+    if (!['2month', '1year'].includes(creditType)) {
+      console.warn(`[${correlationId}] Invalid creditType: ${creditType}`);
+      return json({ error: 'Invalid creditType' }, 400);
+    }
+
     console.log(`[${correlationId}] Validated params:`, {
       externalId,
       userId,
-      creditAmount
+      creditAmount,
+      creditType,
+      dealerId
     });
 
     // Verify HMAC if present
@@ -177,20 +183,20 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check for idempotency (already processed)
-    const { data: existingTransaction } = await supabase
-      .from('credit_transactions')
-      .select('id, payment_status')
+    // Check for idempotency (already processed) — check credit_batches
+    const { data: existingBatch } = await supabase
+      .from('credit_batches')
+      .select('id')
       .eq('whish_external_id', externalId)
-      .eq('payment_status', 'success')
       .single();
 
-    if (existingTransaction) {
-      console.log(`[${correlationId}] Payment already processed`);
+    if (existingBatch) {
+      console.log(`[${correlationId}] Payment already processed (batch #${existingBatch.id})`);
       return json({
         eid: externalId,
         userId,
         creditAmount,
+        creditType,
         status: 'already_processed',
         message: 'Payment already processed',
         processedAt: new Date().toISOString()
@@ -252,27 +258,57 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'User not found' }, 404);
     }
 
-    const currentBalance = user.credit_balance || 0;
-    const newBalance = currentBalance + creditAmount;
-
-    console.log(`[${correlationId}] Updating credit balance:`, {
-      currentBalance,
-      creditAmount,
-      newBalance
-    });
-
-    // Update user's credit balance
-    const { error: updateUserError } = await supabase
-      .from('users')
-      .update({ credit_balance: newBalance })
-      .eq('id', userId);
-
-    if (updateUserError) {
-      console.error(`[${correlationId}] Error updating user balance:`, updateUserError);
-      throw updateUserError;
+    // Compute expiry date based on credit type
+    const now = new Date();
+    let expiresAt: Date;
+    if (creditType === '1year') {
+      expiresAt = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate(), 23, 59, 59);
+    } else {
+      expiresAt = new Date(now.getFullYear(), now.getMonth() + 2, now.getDate(), 23, 59, 59);
     }
 
-    // Log successful transaction
+    console.log(`[${correlationId}] Creating credit batch:`, {
+      creditType,
+      expiresAt: expiresAt.toISOString(),
+      dealerId
+    });
+
+    // Create credit batch
+    const { data: newBatch, error: batchError } = await supabase
+      .from('credit_batches')
+      .insert({
+        user_id: userId,
+        dealer_id: dealerId,
+        purchased_credits: creditAmount,
+        remaining_credits: creditAmount,
+        credit_type: creditType,
+        expires_at: expiresAt.toISOString(),
+        status: 'active',
+        source: 'purchase',
+        whish_external_id: externalId,
+        metadata: {
+          price_usd: creditAmount,
+          payment_method: 'whish'
+        }
+      })
+      .select('id')
+      .single();
+
+    if (batchError) {
+      console.error(`[${correlationId}] Error creating credit batch:`, batchError);
+      throw batchError;
+    }
+
+    // Sync the cached balance on users table
+    const { data: syncResult } = await supabase.rpc('sync_credit_balance', {
+      p_user_id: userId
+    });
+
+    const newBalance = syncResult ?? (user.credit_balance || 0) + creditAmount;
+
+    console.log(`[${correlationId}] Balance synced:`, { newBalance });
+
+    // Log transaction in audit trail
     await supabase
       .from('credit_transactions')
       .insert({
@@ -281,12 +317,15 @@ Deno.serve(async (req: Request) => {
         balance_after: newBalance,
         transaction_type: 'purchase',
         purpose: 'credit_purchase',
-        description: `Purchased ${creditAmount} credits via Whish`,
+        description: `Purchased ${creditAmount} ${creditType} credits via Whish`,
         whish_external_id: externalId,
         payment_status: 'success',
+        batch_id: newBatch.id,
         metadata: {
-          price_usd: creditAmount, // 1:1 ratio
-          payment_method: 'whish'
+          price_usd: creditAmount,
+          payment_method: 'whish',
+          credit_type: creditType,
+          expires_at: expiresAt.toISOString()
         }
       });
 
@@ -299,9 +338,11 @@ Deno.serve(async (req: Request) => {
       eid: externalId,
       userId,
       creditAmount,
+      creditType,
       status: 'success',
       message: 'Credits added successfully',
       newBalance,
+      expiresAt: expiresAt.toISOString(),
       processedAt: new Date().toISOString()
     });
 

@@ -113,54 +113,42 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      // Check balance
-      const currentBalance = user.credit_balance || 0;
-      if (currentBalance < PRICING.POST_LISTING_COST) {
+      // Deduct credits via FIFO RPC (atomic, handles balance check + deduction + audit log)
+      const { data: deductResult, error: deductError } = await supabase.rpc('deduct_credits_fifo', {
+        p_user_id: userId,
+        p_amount: PRICING.POST_LISTING_COST,
+        p_purpose: 'post_listing',
+        p_reference_id: carId ? String(carId) : null
+      });
+
+      if (deductError) {
+        console.error(`[${requestId}] FIFO deduction error:`, deductError);
+        throw deductError;
+      }
+
+      const result = deductResult?.[0] || deductResult;
+
+      if (!result?.success) {
         console.warn(`[${requestId}] Insufficient credits:`, {
           required: PRICING.POST_LISTING_COST,
-          available: currentBalance
+          available: result?.new_balance
         });
         return json({
           error: 'Insufficient credits',
           required: PRICING.POST_LISTING_COST,
-          available: currentBalance
-        }, 402); // Payment Required
+          available: result?.new_balance ?? 0
+        }, 402);
       }
-
-      // Deduct credits
-      const newBalance = currentBalance - PRICING.POST_LISTING_COST;
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ credit_balance: newBalance })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error(`[${requestId}] Error updating balance:`, updateError);
-        throw updateError;
-      }
-
-      // Log transaction
-      await supabase.from('credit_transactions').insert({
-        user_id: userId,
-        amount: -PRICING.POST_LISTING_COST,
-        balance_after: newBalance,
-        transaction_type: 'deduction',
-        description: `Posted car listing #${carId}`,
-        metadata: {
-          car_id: carId
-        }
-      });
 
       console.log(`[${requestId}] POST_LISTING_SUCCESS:`, {
         charged: PRICING.POST_LISTING_COST,
-        newBalance
+        newBalance: result.new_balance
       });
 
       return json({
         success: true,
         charged: PRICING.POST_LISTING_COST,
-        balance: newBalance,
+        balance: result.new_balance,
         message: `Posted listing - ${PRICING.POST_LISTING_COST} credits deducted`
       });
     }
@@ -223,31 +211,46 @@ Deno.serve(async (req: Request) => {
       }
 
       if (existingCar.is_boosted && existingCar.boost_end_date) {
-        const endDate = new Date(existingCar.boost_end_date);
-        if (endDate > new Date()) {
+        const boostEnd = new Date(existingCar.boost_end_date);
+        if (boostEnd > new Date()) {
           console.warn(`[${requestId}] Car already has active boost`);
           return json({
             error: 'Car already has an active boost',
             existingBoostEndDate: existingCar.boost_end_date,
             existingPriority: existingCar.boost_priority
-          }, 409); // Conflict
+          }, 409);
         }
       }
 
-      // Deduct credits and create boost
-      const newBalance = currentBalance - totalCost;
-      const endDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+      // Deduct credits via FIFO RPC (atomic)
+      const { data: deductResult, error: deductError } = await supabase.rpc('deduct_credits_fifo', {
+        p_user_id: userId,
+        p_amount: totalCost,
+        p_purpose: 'boost_listing',
+        p_reference_id: carId ? String(carId) : null
+      });
 
-      // Update balance
-      const { error: updateBalanceError } = await supabase
-        .from('users')
-        .update({ credit_balance: newBalance })
-        .eq('id', userId);
-
-      if (updateBalanceError) {
-        console.error(`[${requestId}] Error updating balance:`, updateBalanceError);
-        throw updateBalanceError;
+      if (deductError) {
+        console.error(`[${requestId}] FIFO deduction error:`, deductError);
+        throw deductError;
       }
+
+      const deductionResult = deductResult?.[0] || deductResult;
+
+      if (!deductionResult?.success) {
+        console.warn(`[${requestId}] Insufficient credits for boost (FIFO):`, {
+          required: totalCost,
+          available: deductionResult?.new_balance
+        });
+        return json({
+          error: 'Insufficient credits',
+          required: totalCost,
+          available: deductionResult?.new_balance ?? 0
+        }, 402);
+      }
+
+      const newBalance = deductionResult.new_balance;
+      const endDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
 
       // Update car with boost info
       const { error: carUpdateError } = await supabase
@@ -261,30 +264,10 @@ Deno.serve(async (req: Request) => {
 
       if (carUpdateError) {
         console.error(`[${requestId}] Error updating car:`, carUpdateError);
-        // Rollback balance update
-        await supabase
-          .from('users')
-          .update({ credit_balance: currentBalance })
-          .eq('id', userId);
         throw carUpdateError;
       }
 
-      // Log transaction
-      await supabase.from('credit_transactions').insert({
-        user_id: userId,
-        amount: -totalCost,
-        balance_after: newBalance,
-        transaction_type: 'deduction',
-        description: `Boosted car #${carId} (priority ${priority}, ${durationDays} days)`,
-        metadata: {
-          car_id: carId,
-          boost_priority: priority,
-          duration_days: durationDays,
-          end_date: endDate.toISOString()
-        }
-      });
-
-      // Log boost history for analytics
+      // Log boost history for analytics (credit_transactions already logged by FIFO RPC)
       const { data: carData } = await supabase
         .from('cars')
         .select('dealership_id')

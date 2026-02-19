@@ -1,14 +1,24 @@
 // utils/CreditContext.tsx
-// Credit system context provider
+// Credit system context provider with batch-based expiring credits
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import { useAuth } from './AuthContext';
 
+interface CreditBatch {
+  batch_id: number;
+  remaining_credits: number;
+  credit_type: '2month' | '1year';
+  expires_at: string;
+  purchased_at: string;
+}
+
 interface CreditContextProps {
   creditBalance: number;
+  creditBatches: CreditBatch[];
   isLoading: boolean;
   refreshBalance: () => Promise<void>;
+  fetchBatches: () => Promise<void>;
   deductCredits: (amount: number, purpose: string, carId?: number) => Promise<boolean>;
 }
 
@@ -25,9 +35,10 @@ export const useCredits = () => {
 export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isSignedIn } = useAuth();
   const [creditBalance, setCreditBalance] = useState(0);
+  const [creditBatches, setCreditBatches] = useState<CreditBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch credit balance
+  // Fetch credit balance (cached value from users table)
   const refreshBalance = useCallback(async () => {
     if (!user?.id || !isSignedIn) {
       setCreditBalance(0);
@@ -57,7 +68,31 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [user?.id, isSignedIn]);
 
-  // Deduct credits (optimistic update)
+  // Fetch active credit batches with expiry info
+  const fetchBatches = useCallback(async () => {
+    if (!user?.id || !isSignedIn) {
+      setCreditBatches([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('get_credit_batches_summary', {
+        p_user_id: user.id
+      });
+
+      if (error) {
+        console.error('Error fetching credit batches:', error);
+        setCreditBatches([]);
+      } else {
+        setCreditBatches(data || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchBatches:', error);
+      setCreditBatches([]);
+    }
+  }, [user?.id, isSignedIn]);
+
+  // Deduct credits (optimistic update — actual deduction via edge function)
   const deductCredits = useCallback(async (amount: number, purpose: string, carId?: number): Promise<boolean> => {
     if (!user?.id) return false;
 
@@ -66,9 +101,6 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // Optimistic update
       setCreditBalance(prev => Math.max(0, prev - amount));
-
-      // Actual update will happen via edge function
-      // This is just for UI responsiveness
       return true;
     } catch (error) {
       // Rollback on error
@@ -81,7 +113,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Initial load
   useEffect(() => {
     refreshBalance();
-  }, [refreshBalance]);
+    fetchBatches();
+  }, [refreshBalance, fetchBatches]);
 
   // Subscribe to balance changes (realtime)
   useEffect(() => {
@@ -100,6 +133,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         (payload) => {
           if (payload.new && 'credit_balance' in payload.new) {
             setCreditBalance(payload.new.credit_balance || 0);
+            // Also refresh batches when balance changes
+            fetchBatches();
           }
         }
       )
@@ -108,14 +143,16 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, isSignedIn]);
+  }, [user?.id, isSignedIn, fetchBatches]);
 
   return (
     <CreditContext.Provider
       value={{
         creditBalance,
+        creditBatches,
         isLoading,
         refreshBalance,
+        fetchBatches,
         deductCredits
       }}
     >

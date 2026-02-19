@@ -1,8 +1,14 @@
 // supabase/functions/credit-purchase/index.ts
 // Handles credit purchases via Whish payment gateway
+// Supports creditType: '2month' (users + dealers) and '1year' (dealers only)
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUCCESS_REDIRECT_URL = 'https://fleetapp.me/success';
 const FAILURE_REDIRECT_URL = 'https://fleetapp.me/failure';
+
+const VALID_CREDIT_TYPES = ['2month', '1year'] as const;
+type CreditType = typeof VALID_CREDIT_TYPES[number];
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,7 +103,8 @@ Deno.serve(async (req: Request) => {
       console.log(`[${requestId}] BODY_PARSED:`, {
         keys: Object.keys(body || {}),
         userId: body?.userId,
-        creditAmount: body?.creditAmount
+        creditAmount: body?.creditAmount,
+        creditType: body?.creditType
       });
     } catch (parseError: any) {
       console.error(`[${requestId}] BODY_PARSE_ERROR:`, { error: parseError.message });
@@ -107,6 +114,7 @@ Deno.serve(async (req: Request) => {
     // Validate input
     const userId = String(body?.userId);
     const creditAmount = Number(body?.creditAmount);
+    const creditType: CreditType = VALID_CREDIT_TYPES.includes(body?.creditType) ? body.creditType : '2month';
 
     if (!userId) {
       return json({ error: 'Invalid userId' }, 400);
@@ -114,6 +122,27 @@ Deno.serve(async (req: Request) => {
 
     if (!Number.isFinite(creditAmount) || creditAmount <= 0) {
       return json({ error: 'Invalid creditAmount - must be positive number' }, 400);
+    }
+
+    // For '1year' credits, verify the user is a dealer
+    let dealerId: number | null = null;
+    if (creditType === '1year') {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data: dealership } = await supabase
+        .from('dealerships')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      if (!dealership) {
+        console.warn(`[${requestId}] NON_DEALER_1YEAR:`, { userId });
+        return json({ error: 'Only dealers can purchase 1-year credits' }, 403);
+      }
+      dealerId = dealership.id;
+      console.log(`[${requestId}] DEALER_VERIFIED:`, { dealerId });
     }
 
     // Calculate price (1 credit = $1 USD)
@@ -125,16 +154,20 @@ Deno.serve(async (req: Request) => {
     console.log(`[${requestId}] TRANSACTION_DETAILS:`, {
       userId,
       creditAmount,
+      creditType,
+      dealerId,
       amount,
       externalId
     });
 
     // Build callback URLs with HMAC signature
     const baseParams: Record<string, string> = {
-      eid: String(externalId),
-      userId: userId,
       creditAmount: String(creditAmount),
-      state
+      creditType,
+      ...(dealerId ? { dealerId: String(dealerId) } : {}),
+      eid: String(externalId),
+      state,
+      userId: userId,
     };
 
     const canonical = canonicalizeQuery(baseParams);
