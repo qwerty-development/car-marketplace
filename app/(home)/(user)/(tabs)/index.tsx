@@ -405,59 +405,58 @@ export default function BrowseCarsPage() {
             .lte("mileage", currentFilters.mileageRange[1]);
         }
 
-        // Enhanced search query implementation with improved keyword matching
+        // ============================================================
+        // FULL-TEXT SEARCH: Uses Postgres tsvector with weighted tokens
+        // Make (A) > Model (B) > Category (C) > Description (D)
+        // Falls back to ilike for edge cases (partial words, numbers)
+        // ============================================================
         if (query) {
           const cleanQuery = query.trim().toLowerCase();
-          const queryTerms = cleanQuery
-            .split(/\s+/)
-            .filter((term) => term.length > 0);
+          
+          // Try full-text search first
+          const ftsCountQuery = supabase
+            .from(tableName)
+            .select('id', { count: 'exact', head: true })
+            .eq("status", "available")
+            .textSearch('search_vector', cleanQuery, {
+              type: 'websearch',
+              config: 'english'
+            });
+          
+          const { count: ftsCount } = await ftsCountQuery;
 
-          // General search across multiple fields
-          let searchConditions = [
-            `make.ilike.%${cleanQuery}%`,
-            `model.ilike.%${cleanQuery}%`,
-            `description.ilike.%${cleanQuery}%`,
-            `color.ilike.%${cleanQuery}%`,
-            `category.ilike.%${cleanQuery}%`,
-          ];
-
-          // Add view-mode specific fields
-          if (currentCarViewMode === 'sale') {
-            searchConditions.push(
-              `condition.ilike.%${cleanQuery}%`,
-              `source.ilike.%${cleanQuery}%`
-            );
+          if (ftsCount && ftsCount > 0) {
+            // FTS found matches - use it with relevance ranking
+            queryBuilder = queryBuilder
+              .textSearch('search_vector', cleanQuery, {
+                type: 'websearch',
+                config: 'english'
+              });
+            console.log(`[Search] ✅ FTS: ${ftsCount} results for "${query}"`);
           } else {
-            // For rental or other modes
-            searchConditions.push(`transmission.ilike.%${cleanQuery}%`);
-          }
-
-          // Add term-based combinations for multi-word queries (e.g., "Ford F150")
-          if (queryTerms.length >= 2) {
-            const [term1, term2] = queryTerms;
-            searchConditions.push(
-              `and(make.ilike.%${term1}%,model.ilike.%${term2}%)`,
-              `and(make.ilike.%${term2}%,model.ilike.%${term1}%)`
-            );
+            // Fallback to ilike for edge cases (partial words, typos, numbers)
+            const queryTerms = cleanQuery.split(/\s+/).filter(t => t.length >= 2);
+            const fallbackConditions = [];
             
-            // Also check individual strong terms in make/model
             queryTerms.forEach(term => {
-              if (term.length > 2) {
-                searchConditions.push(`make.ilike.%${term}%`, `model.ilike.%${term}%`);
+              fallbackConditions.push(
+                `make.ilike.%${term}%`,
+                `model.ilike.%${term}%`,
+                `category.ilike.%${term}%`
+              );
+            });
+            
+            // Year detection
+            queryTerms.forEach(term => {
+              if (!isNaN(Number(term)) && term.length === 4) {
+                fallbackConditions.push(`year::text.ilike.%${term}%`);
               }
             });
+
+            queryBuilder = queryBuilder.or([...new Set(fallbackConditions)].join(","));
+            console.log(`[Search] ⚠️ FTS fallback (ilike): 0 FTS results for "${query}"`);
           }
-
-          // Numeric search for Year
-          queryTerms.forEach(term => {
-            if (!isNaN(Number(term)) && term.length === 4) {
-              searchConditions.push(`year::text.ilike.%${term}%`);
-            }
-          });
-
-          queryBuilder = queryBuilder.or(searchConditions.join(","));
         }
-        
 
         // Sorting
         if (currentSortOption) {
@@ -563,10 +562,10 @@ export default function BrowseCarsPage() {
         console.log(`[FetchCars] 📄 Page ${safePageNumber}/${totalPages} | Current state: ${cars.length} cars`);
         console.log(`[FetchCars] ========================================\n`);
 
-        // Apply randomization to ensure all cars get visibility
+        // Apply relevance-based sorting for search results
         if (!currentSortOption && data) {
           if (query) {
-            // For search results: maintain relevance but add randomization within relevance groups
+            // Relevance scoring: exact make+model matches first, then make-only, then other
             const cleanQueryLocal = query.trim().toLowerCase();
             const terms = cleanQueryLocal.split(/\s+/).filter(Boolean);
             const scoreEntry = (entry: any) => {
@@ -575,56 +574,56 @@ export default function BrowseCarsPage() {
               const concat = `${make} ${model}`.trim();
               let score = 0;
 
-              // PRIORITY 1: Boost priority gets highest weight (10000 points per priority level)
-              // This ensures boosted cars ALWAYS appear before non-boosted cars
+              // TIER 1: Boost priority (active boosts always on top)
               if (entry.is_boosted && entry.boost_priority && entry.boost_end_date) {
                 const now = new Date();
                 const boostEnd = new Date(entry.boost_end_date);
                 if (boostEnd > now) {
-                  // Active boost: priority 5 = 50000 points, priority 1 = 10000 points
                   score += entry.boost_priority * 10000;
                 }
               }
 
-              // PRIORITY 2: Relevance scoring (max ~2000 points)
-              // Highest priority: make + model combos
+              // TIER 2: Exact make+model combination (highest relevance)
               if (terms.length >= 2) {
-                if ((make.includes(terms[0]) && model.includes(terms[1])) || (make.includes(terms[1]) && model.includes(terms[0]))) {
-                  score += 1000;
+                // Check if ALL terms match across make+model
+                const allTermsMatch = terms.every(t => 
+                  make.includes(t) || model.includes(t)
+                );
+                if (allTermsMatch) {
+                  // Both make and model are matched by different terms
+                  const makeTerms = terms.filter(t => make.includes(t));
+                  const modelTerms = terms.filter(t => model.includes(t));
+                  if (makeTerms.length > 0 && modelTerms.length > 0) {
+                    score += 5000; // Exact make+model combo
+                  } else {
+                    score += 3000; // All terms match but in same field
+                  }
                 }
               }
 
-              // Exact phrase match in make+model
-              if (concat.includes(cleanQueryLocal)) score += 800;
+              // TIER 3: Full query phrase match in make+model
+              if (concat.includes(cleanQueryLocal)) score += 2000;
+              if (make === cleanQueryLocal || model === cleanQueryLocal) score += 1500;
 
-              // Strong matches on model / make
-              if (model.includes(cleanQueryLocal)) score += 500;
-              if (make.includes(cleanQueryLocal)) score += 400;
+              // TIER 4: Partial matches in make/model
+              if (model.includes(cleanQueryLocal)) score += 800;
+              if (make.includes(cleanQueryLocal)) score += 700;
 
-              // Partial term matches in make/model
+              // Individual term matches
               terms.forEach(t => {
-                if (make.includes(t)) score += 120;
-                if (model.includes(t)) score += 150;
+                if (make.includes(t)) score += 200;
+                if (model.includes(t)) score += 250;
               });
 
-              // Lower weight for other textual fields (if present)
-              const otherFields = [
-                (entry.category || ""),
-                (entry.color || ""),
-                (entry.transmission || ""),
-                (entry.drivetrain || ""),
-                (entry.type || ""),
-                (entry.condition || ""),
-                (entry.source || ""),
-                (entry.description || "")
-              ].map(v => v.toString().toLowerCase());
-              if (otherFields.some(v => v.includes(cleanQueryLocal))) score += 80;
+              // TIER 5: Description/other field matches (lowest priority)
+              const description = (entry.description || "").toString().toLowerCase();
+              if (description.includes(cleanQueryLocal)) score += 50;
               terms.forEach(t => {
-                if (otherFields.some(v => v.includes(t))) score += 30;
+                if (description.includes(t)) score += 20;
               });
 
-              // Add small random factor to break ties and add variety
-              score += Math.random() * 10;
+              // Small random factor to break ties
+              score += Math.random() * 5;
 
               return score;
             };
@@ -1433,6 +1432,8 @@ export default function BrowseCarsPage() {
                 },
               }
             )}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
             scrollEventThrottle={16}
             data={
               [
