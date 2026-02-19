@@ -31,9 +31,7 @@ import { BlurView } from 'expo-blur'
 import AddListingModal from '@/components/AddListingModal'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
-/* CREDIT_DISABLED: Boost system temporarily disabled
 import { BoostListingModal } from '@/components/BoostListingModal'
-*/
 
 const ITEMS_PER_PAGE = 10
 
@@ -95,10 +93,8 @@ export default function MyListings() {
 	const [showAddModal, setShowAddModal] = useState(false)
 	const [showFilterModal, setShowFilterModal] = useState(false)
 	const [showSortModal, setShowSortModal] = useState(false)
-	/* CREDIT_DISABLED: Boost state disabled
 	const [showBoostModal, setShowBoostModal] = useState(false)
 	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
-	*/
 	const scrollRef = useRef(null)
 	const router = useRouter()
 	const { width: windowWidth } = useWindowDimensions()
@@ -247,12 +243,10 @@ export default function MyListings() {
 		}
 	}, [currentPage, isLoading, hasMoreListings, isRefreshing, fetchListings])
 
-	/* CREDIT_DISABLED: Boost handler disabled
 	const handleBoostPress = useCallback((carId: number) => {
 		setSelectedCarForBoost(carId);
 		setShowBoostModal(true);
 	}, []);
-	*/
 
 	useEffect(() => {
 		if (user?.id) {
@@ -576,7 +570,7 @@ export default function MyListings() {
 							</View>
 						</View>
 
-						{/* CREDIT_DISABLED: Boost Button Section - Only for available listings
+						{/* Boost Button Section - Only for available listings */}
 						{item.status === 'available' && (
 							<View className='px-5 pb-4'>
 								{item.is_boosted && item.boost_end_date && new Date(item.boost_end_date) > new Date() ? (
@@ -616,7 +610,6 @@ export default function MyListings() {
 								)}
 							</View>
 						)}
-						*/}
 					</Animated.View>
 				</TouchableOpacity>
 			)
@@ -1125,7 +1118,6 @@ export default function MyListings() {
 				</BlurView>
 			</Modal>
 
-			{/* CREDIT_DISABLED: Boost Listing Modal
 			{selectedCarForBoost && (
 				<BoostListingModal
 					visible={showBoostModal}
@@ -1143,7 +1135,6 @@ export default function MyListings() {
 					}}
 				/>
 			)}
-			*/}
 		</LinearGradient>
 	)
 }

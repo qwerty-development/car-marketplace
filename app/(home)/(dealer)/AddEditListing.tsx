@@ -55,8 +55,8 @@ import {
 import { ModelDropdown } from "@/components/ModelDropdown";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-// CREDIT_DISABLED: import { useCredits } from "@/utils/CreditContext";
-// CREDIT_DISABLED: import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
+import { useCredits } from "@/utils/CreditContext";
+import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
 
 export const SOURCE_OPTIONS = [
   { value: "Company", label: "Company Source", icon: "🏢" }, // office
@@ -782,9 +782,8 @@ export default function AddEditListing() {
   const [initialData, setInitialData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // CREDIT_DISABLED: Credit system
-  // const { creditBalance, deductCredits } = useCredits();
-  // const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const { creditBalance, deductCredits } = useCredits();
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [formData, setFormData] = useState<any>({
     // Common fields
     features: [],
@@ -950,7 +949,6 @@ export default function AddEditListing() {
         return;
       }
 
-      /* CREDIT_DISABLED: Credit check for new listings
       // Only check for sale mode (not rent mode)
       if (!initialData && viewMode === 'sale') {
         const POST_LISTING_COST = 10;
@@ -969,7 +967,6 @@ export default function AddEditListing() {
           return;
         }
       }
-      */
     }
 
     const submitListing = async () => {
@@ -1169,7 +1166,6 @@ features
 
           if (error) throw error;
 
-          /* CREDIT_DISABLED: Deduct credits for user mode posts
           if (isUserMode && viewMode === 'sale' && data?.id) {
             try {
               const response = await fetch(
@@ -1200,7 +1196,6 @@ features
               // Don't throw - listing is already created
             }
           }
-          */
 
           Alert.alert(ready ? t('common.success') : 'Success', ready ? t('car.listing_created_successfully') : 'New listing created successfully', [
             { text: ready ? t('common.ok') : 'OK', onPress: () => router.back() },
@@ -2828,7 +2823,6 @@ features
         onConfirm={handleMarkAsSold}
       />
 
-      {/* CREDIT_DISABLED: Purchase Credits Modal
       <PurchaseCreditsModal
         visible={showPurchaseModal}
         onClose={() => setShowPurchaseModal(false)}
@@ -2838,7 +2832,6 @@ features
           // Optionally refresh balance or show a message
         }}
       />
-      */}
     </SafeAreaView>
   );
 }

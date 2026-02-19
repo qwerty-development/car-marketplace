@@ -38,11 +38,9 @@ import { useNavigation } from "@react-navigation/native";
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '@/utils/LanguageContext';
 import { I18nManager } from 'react-native';
-/* CREDIT_DISABLED: Credit system temporarily disabled
 import { CreditBalance } from "@/components/CreditBalance";
 import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
 import { useCredits } from "@/utils/CreditContext";
-*/
 
 const WHATSAPP_NUMBER = "70786818";
 const SUPPORT_EMAIL = "info@fleetapp.com";
@@ -72,11 +70,11 @@ export default function UserProfileAndSupportPage() {
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
-  /* CREDIT_DISABLED: const { refreshBalance } = useCredits(); */
+  const { refreshBalance } = useCredits();
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
-  /* CREDIT_DISABLED: const [showPurchaseModal, setShowPurchaseModal] = useState(false); */
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   // CRITICAL FIX: Simplified state management without aggressive refresh mechanisms
   const [firstName, setFirstName] = useState("");
@@ -141,15 +139,15 @@ export default function UserProfileAndSupportPage() {
               // The profile will be updated through normal AuthContext flow
             }
           }
-        })()
-        /* CREDIT_DISABLED: , refreshBalance() // Refresh credit balance */
+        })(),
+        refreshBalance() // Refresh credit balance
       ]);
     } catch (error) {
       console.error("[Profile] Refresh error:", error);
     } finally {
       setRefreshing(false);
     }
-  }, [user?.id, isGuest, refreshing, forceProfileRefresh]); /* CREDIT_DISABLED: removed refreshBalance from deps */
+  }, [user?.id, isGuest, refreshing, forceProfileRefresh, refreshBalance]);
 
   // CRITICAL FIX: Optimized profile state synchronization with change detection
   const syncProfileState = useCallback(() => {
@@ -722,7 +720,6 @@ export default function UserProfileAndSupportPage() {
           </LinearGradient>
         </View>
 
-        {/* CREDIT_DISABLED: Credit Balance Widget
         {!isGuest && (
           <View className="px-6 -mt-12 mb-4">
             <CreditBalance
@@ -732,7 +729,6 @@ export default function UserProfileAndSupportPage() {
             />
           </View>
         )}
-        */}
 
         {/* Quick Actions */}
         <View className={`space-y-4 px-6 ${isGuest ? '-mt-12' : ''}`}>
@@ -1559,7 +1555,6 @@ export default function UserProfileAndSupportPage() {
           </TouchableOpacity>
         )}
 
-        {/* CREDIT_DISABLED: Purchase Credits Modal
         <PurchaseCreditsModal
           visible={showPurchaseModal}
           onClose={() => setShowPurchaseModal(false)}
@@ -1569,7 +1564,6 @@ export default function UserProfileAndSupportPage() {
             setShowPurchaseModal(false);
           }}
         />
-        */}
       </ScrollView>
     </View>
   );

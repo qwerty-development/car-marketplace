@@ -38,10 +38,8 @@ import { ListingSkeletonLoader } from '../Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
-/* CREDIT_DISABLED: Boost system temporarily disabled
 import { BoostListingModal } from '@/components/BoostListingModal'
 import { BoostInsightsWidget } from '@/components/BoostInsightsWidget'
-*/
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -934,10 +932,8 @@ export default function DealerListings() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [totalListings, setTotalListings] = useState(0)
 	const [showOnboardingModal, setShowOnboardingModal] = useState(false)
-	/* CREDIT_DISABLED: Boost state disabled
 	const [showBoostModal, setShowBoostModal] = useState(false)
 	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
-	*/
 	const [filters, setFilters] = useState({
 		status: '',
 		condition: '',
@@ -1508,7 +1504,6 @@ export default function DealerListings() {
 		}
 	}
 
-	/* CREDIT_DISABLED: Boost handler disabled
 	const handleBoostPress = useCallback((carId: number) => {
 		if (!isSubscriptionValid()) {
 			Alert.alert(
@@ -1520,7 +1515,6 @@ export default function DealerListings() {
 		setSelectedCarForBoost(carId);
 		setShowBoostModal(true);
 	}, [isSubscriptionValid]);
-	*/
 
 const ListingCard = useMemo(
   () =>
@@ -1682,7 +1676,7 @@ const ListingCard = useMemo(
               </View>
             </View>
 
-            {/* CREDIT_DISABLED: Boost Button Section - Only for available listings in sale mode
+            {/* Boost Button Section - Only for available listings in sale mode */}
             {item.status === 'available' && viewMode === 'sale' && (
               <View className='px-5 pb-4'>
                 {item.is_boosted && item.boost_end_date && new Date(item.boost_end_date) > new Date() ? (
@@ -1722,7 +1716,6 @@ const ListingCard = useMemo(
                 )}
               </View>
             )}
-            */}
           </Animated.View>
         </TouchableOpacity>
       );
@@ -1732,8 +1725,8 @@ const ListingCard = useMemo(
     router,
     dealership,
     isSubscriptionValid,
-    viewMode
-    /* CREDIT_DISABLED: , handleBoostPress */
+    viewMode,
+    handleBoostPress
   ]
 );
 
@@ -2109,7 +2102,6 @@ const ListingCard = useMemo(
 				/>
 			)}
 
-			{/* CREDIT_DISABLED: Boost Listing Modal
 			{selectedCarForBoost && (
 				<BoostListingModal
 					visible={showBoostModal}
@@ -2127,7 +2119,6 @@ const ListingCard = useMemo(
 					}}
 				/>
 			)}
-			*/}
 		</LinearGradient>
 	)
 }
