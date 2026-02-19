@@ -191,6 +191,7 @@ export default function CarCard({
   const { prefetchCarDetails } = useCarDetails();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isStartingChat, setIsStartingChat] = useState(false);
+  const isNavigatingRef = useRef(false);
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const cardWidth = windowWidth - 32;
@@ -305,7 +306,13 @@ export default function CarCard({
   );
 
   const handleCardPress = useCallback(async () => {
+    // Prevent multiple rapid taps from triggering navigation multiple times
+    if (isNavigatingRef.current) {
+      return;
+    }
+    
     try {
+      isNavigatingRef.current = true;
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Track boost click analytics (fire and forget)
@@ -361,6 +368,11 @@ export default function CarCard({
           isDealerView: isDealer,
         },
       });
+    } finally {
+      // Reset navigation lock after a short delay to allow navigation to complete
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 1000);
     }
   }, [router, car, isDealer, prefetchCarDetails, scaleAnim, user]);
 
