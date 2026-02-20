@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 import { useAuth } from '@/utils/AuthContext';
 import { useRouter } from 'expo-router';
 import {
@@ -47,7 +48,7 @@ const AnimatedBlob: React.FC<BlobProps> = ({ position, size, delay, duration }) 
     Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
-    Animated.parallel([
+        Animated.parallel([
           Animated.sequence([
             Animated.timing(translateY, {
               toValue: 20,
@@ -68,13 +69,13 @@ const AnimatedBlob: React.FC<BlobProps> = ({ position, size, delay, duration }) 
               duration: duration * 1.2,
               easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
-      }),
+            }),
             Animated.timing(scale, {
               toValue: 1,
               duration: duration * 1.2,
               easing: Easing.inOut(Easing.sin),
-        useNativeDriver: true,
-      }),
+              useNativeDriver: true,
+            }),
           ]),
         ]),
       ])
@@ -121,7 +122,7 @@ const SignUpWithOAuth = () => {
         console.log('Apple Authentication not available on this device');
         setAppleAuthAvailable(false);
       }
-  };
+    };
 
     checkAppleAuthAvailability();
   }, []);
@@ -137,10 +138,14 @@ const SignUpWithOAuth = () => {
       // Step 2: Evaluate success and navigate accordingly
       if (result && result.success === true) {
         console.log("Google authentication successful, navigating to home");
+        // Track registration event for Meta ad attribution
+        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'google',
+        });
         router.replace("/(home)");
       } else {
         console.log("Google authentication unsuccessful:",
-                   result ? `Result received but success=${result.success}` : "No result returned");
+          result ? `Result received but success=${result.success}` : "No result returned");
 
         // Step 3: Fallback session check
         const { data: sessionData } = await supabase.auth.getSession();
@@ -151,7 +156,7 @@ const SignUpWithOAuth = () => {
       }
     } catch (err) {
       console.error("Google OAuth error:", err);
-     
+
     } finally {
       setIsLoading(prev => ({ ...prev, google: false }));
     }
@@ -159,29 +164,33 @@ const SignUpWithOAuth = () => {
   const handleAppleAuth = async () => {
     try {
       setIsLoading(prev => ({ ...prev, apple: true }));
-  
+
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-  
+
       // Sign in via Supabase Auth
       if (credential.identityToken) {
         const { error, data } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
         });
-  
+
         if (error) {
           throw error;
         }
-  
+
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
+          // Track registration event for Meta ad attribution
+          AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+            fb_registration_method: 'apple',
+          });
           console.log("[APPLE-AUTH] Sign-in successful, registering push token");
-          
+
           // Wait briefly for auth session to stabilize (important)
           setTimeout(async () => {
             try {
@@ -189,10 +198,10 @@ const SignUpWithOAuth = () => {
               const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
               const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
               const token = tokenResponse.data;
-              
+
               // 1. Save to storage
               await SecureStore.setItemAsync('expoPushToken', token);
-              
+
               // 2. Check if token exists for this user
               const { data: existingToken } = await supabase
                 .from('user_push_tokens')
@@ -200,7 +209,7 @@ const SignUpWithOAuth = () => {
                 .eq('user_id', data.user.id)
                 .eq('token', token)
                 .maybeSingle();
-                
+
               if (existingToken) {
                 // 3a. Update if exists
                 await supabase
@@ -211,7 +220,7 @@ const SignUpWithOAuth = () => {
                     last_updated: new Date().toISOString()
                   })
                   .eq('id', existingToken.id);
-                  
+
                 console.log("[APPLE-AUTH] Updated existing token");
               } else {
                 // 3b. Insert if doesn't exist
@@ -225,7 +234,7 @@ const SignUpWithOAuth = () => {
                     active: true,
                     last_updated: new Date().toISOString()
                   });
-                  
+
                 if (insertError) {
                   console.error("[APPLE-AUTH] Token insert error:", insertError);
                 } else {
@@ -255,7 +264,7 @@ const SignUpWithOAuth = () => {
     <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
       <View style={{ flexDirection: 'row', gap: 16 }}>
         {/* Google Authentication Button */}
-      <TouchableOpacity
+        <TouchableOpacity
           onPress={handleGoogleAuth}
           disabled={isLoading.google}
           style={{
@@ -268,7 +277,7 @@ const SignUpWithOAuth = () => {
             height: 56,
             borderRadius: 28,
           }}
-      >
+        >
           {isLoading.google ? (
             <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
           ) : (
@@ -293,7 +302,7 @@ const SignUpWithOAuth = () => {
                 borderColor: isDark ? '#374151' : '#E5E7EB',
               }}
               onPress={handleAppleAuth}
-          />
+            />
             {isLoading.apple && (
               <View style={{
                 position: 'absolute',
@@ -332,9 +341,9 @@ const SignUpWithOAuth = () => {
             ) : (
               <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
             )}
-      </TouchableOpacity>
+          </TouchableOpacity>
         )}
-        </View>
+      </View>
     </View>
   );
 };
@@ -402,7 +411,7 @@ export default function SignUpScreen() {
 
     setErrors(newErrors);
     return isValid;
-};
+  };
 
   // Phone OTP send handler
   const handlePhoneSignUp = async () => {
@@ -412,8 +421,8 @@ export default function SignUpScreen() {
     }
 
     if (!selectedCountry) {
-        setErrors(prev => ({ ...prev, phone: 'Please select a country' }));
-        return;
+      setErrors(prev => ({ ...prev, phone: 'Please select a country' }));
+      return;
     }
 
     const cleanedPhone = phoneNumber.replace(/\D/g, '');
@@ -470,6 +479,10 @@ export default function SignUpScreen() {
       }
 
       if (data.user) {
+        // Track registration event for Meta ad attribution
+        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'phone',
+        });
         Alert.alert(
           'Success',
           'Your account has been verified successfully.',
@@ -499,13 +512,13 @@ export default function SignUpScreen() {
         email: emailAddress,
         password,
         name,
-  });
+      });
 
       if (error) {
         // Check for specific email-exists errors and display them in the email field
         if (error.message.includes('already exists') ||
-            error.message.includes('already registered') ||
-            error.message.includes('already in use')) {
+          error.message.includes('already registered') ||
+          error.message.includes('already in use')) {
           setErrors(prev => ({
             ...prev,
             email: error.message || 'This email is already registered. Please try signing in.',
@@ -522,6 +535,10 @@ export default function SignUpScreen() {
       }
 
       if (needsEmailVerification) {
+        // Track registration event for Meta ad attribution
+        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'email',
+        });
         setVerificationEmail(email || emailAddress);
         setPendingVerification(true);
         Alert.alert(
@@ -592,7 +609,7 @@ export default function SignUpScreen() {
           flexGrow: 1,
           paddingBottom: 24
         }}
-        >
+      >
 
         <AnimatedBlob
           position={{ x: width * 0.1, y: height * 0.1 }}
@@ -622,7 +639,7 @@ export default function SignUpScreen() {
               textAlign: 'center',
               marginBottom: 8,
             }}
-      >
+          >
             {pendingVerification ? 'Verify Email' : pendingPhoneVerification ? 'Verify Phone' : 'Create Account'}
           </Text>
 
@@ -659,113 +676,170 @@ export default function SignUpScreen() {
 
           {!pendingVerification && !pendingPhoneVerification ? (
             authMethod === 'email' ? (
-            <>
-              <View style={{ gap: 16 }}>
-                <View>
-                  <TextInput
-                    style={{
-                      height: 48,
-                      paddingHorizontal: 16,
-                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                      color: isDark ? '#fff' : '#000',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? '#374151' : '#E5E7EB',
-                    }}
-                    value={name}
-                    placeholder="Full Name"
-                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                    onChangeText={setName}
-                    autoCapitalize="words"
-                    autoComplete="name"
-                    editable={!isLoading}
-                  />
-                  {errors.name && (
-                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                      {errors.name}
-                    </Text>
-        )}
-        </View>
-
-                <View>
-                  <TextInput
-                    style={{
-                      height: 48,
-                      paddingHorizontal: 16,
-                      backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                      color: isDark ? '#fff' : '#000',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? '#374151' : '#E5E7EB',
-                    }}
-                    autoCapitalize="none"
-                    value={emailAddress}
-                    placeholder="Email"
-                    placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                    onChangeText={setEmailAddress}
-                    keyboardType="email-address"
-                    autoComplete="email"
-                    editable={!isLoading}
-                  />
-                  {errors.email && (
-                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                      {errors.email}
-          </Text>
-                  )}
-        </View>
-
-                <View>
-                  <View style={{ position: 'relative' }}>
+              <>
+                <View style={{ gap: 16 }}>
+                  <View>
                     <TextInput
                       style={{
                         height: 48,
                         paddingHorizontal: 16,
-                        paddingRight: 48,
                         backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
                         color: isDark ? '#fff' : '#000',
                         borderRadius: 12,
                         borderWidth: 1,
                         borderColor: isDark ? '#374151' : '#E5E7EB',
                       }}
-                      value={password}
-                      placeholder="Password"
+                      value={name}
+                      placeholder="Full Name"
                       placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                      secureTextEntry={!showPassword}
-                      onChangeText={setPassword}
-                      autoComplete="password"
+                      onChangeText={setName}
+                      autoCapitalize="words"
+                      autoComplete="name"
                       editable={!isLoading}
                     />
-                    <TouchableOpacity
+                    {errors.name && (
+                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                        {errors.name}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View>
+                    <TextInput
                       style={{
-                        position: 'absolute',
-                        right: 16,
-                        top: 12,
+                        height: 48,
+                        paddingHorizontal: 16,
+                        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                        color: isDark ? '#fff' : '#000',
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: isDark ? '#374151' : '#E5E7EB',
                       }}
-                      onPress={togglePasswordVisibility}
-                      disabled={isLoading}
-                    >
-                      <Ionicons
-                        name={showPassword ? 'eye-off' : 'eye'}
-                        size={24}
-                        color={isDark ? '#6B7280' : '#9CA3AF'}
+                      autoCapitalize="none"
+                      value={emailAddress}
+                      placeholder="Email"
+                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                      onChangeText={setEmailAddress}
+                      keyboardType="email-address"
+                      autoComplete="email"
+                      editable={!isLoading}
+                    />
+                    {errors.email && (
+                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                        {errors.email}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View>
+                    <View style={{ position: 'relative' }}>
+                      <TextInput
+                        style={{
+                          height: 48,
+                          paddingHorizontal: 16,
+                          paddingRight: 48,
+                          backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                          color: isDark ? '#fff' : '#000',
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: isDark ? '#374151' : '#E5E7EB',
+                        }}
+                        value={password}
+                        placeholder="Password"
+                        placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                        secureTextEntry={!showPassword}
+                        onChangeText={setPassword}
+                        autoComplete="password"
+                        editable={!isLoading}
                       />
+                      <TouchableOpacity
+                        style={{
+                          position: 'absolute',
+                          right: 16,
+                          top: 12,
+                        }}
+                        onPress={togglePasswordVisibility}
+                        disabled={isLoading}
+                      >
+                        <Ionicons
+                          name={showPassword ? 'eye-off' : 'eye'}
+                          size={24}
+                          color={isDark ? '#6B7280' : '#9CA3AF'}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {errors.password && (
+                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                        {errors.password}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {errors.general && (
+                  <Text style={{ color: '#D55004', textAlign: 'center' }}>
+                    {errors.general}
+                  </Text>
+                )}
+
+                <View style={{ gap: 16 }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#D55004',
+                      paddingVertical: 12,
+                      borderRadius: 24,
+                      opacity: isLoading ? 0.7 : 1,
+                      marginTop: 8,
+                    }}
+                    onPress={onSignUpPress}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
+                        Sign Up
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <SignUpWithOAuth />
+                </View>
+
+                <View style={{ alignItems: 'center', marginTop: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                      Already have an account?{' '}
+                    </Text>
+                    <TouchableOpacity onPress={() => router.push('/sign-in')}>
+                      <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
+                        Sign in
+                      </Text>
                     </TouchableOpacity>
                   </View>
-                  {errors.password && (
-                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                      {errors.password}
-            </Text>
-                  )}
-          </View>
-          </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={{ gap: 16 }}>
+                  <View>
+                    <CustomPhoneInput
+                      value={phoneNumber}
+                      onChangePhoneNumber={(text) => {
+                        setPhoneNumber(text);
+                        if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+                      }}
+                      selectedCountry={selectedCountry}
+                      onChangeSelectedCountry={setSelectedCountry}
+                    />
+                    {errors.phone && (
+                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                        {errors.phone}
+                      </Text>
+                    )}
+                  </View>
+                </View>
 
-              {errors.general && (
-                <Text style={{ color: '#D55004', textAlign: 'center' }}>
-                  {errors.general}
-            </Text>
-              )}
-
-              <View style={{ gap: 16 }}>
                 <TouchableOpacity
                   style={{
                     backgroundColor: '#D55004',
@@ -774,89 +848,32 @@ export default function SignUpScreen() {
                     opacity: isLoading ? 0.7 : 1,
                     marginTop: 8,
                   }}
-                  onPress={onSignUpPress}
+                  onPress={handlePhoneSignUp}
                   disabled={isLoading}
                 >
                   {isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
-                      Sign Up
-            </Text>
+                      Send Code
+                    </Text>
                   )}
                 </TouchableOpacity>
 
-                <SignUpWithOAuth />
-          </View>
-
-              <View style={{ alignItems: 'center', marginTop: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                    Already have an account?{' '}
-            </Text>
-                  <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                    <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
-                      Sign in
-            </Text>
-                  </TouchableOpacity>
-          </View>
-          </View>
-            </>
-          ) : (
-            <>
-              <View style={{ gap: 16 }}>
-                <View>
-                  <CustomPhoneInput
-                    value={phoneNumber}
-                    onChangePhoneNumber={(text) => {
-                      setPhoneNumber(text);
-                      if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
-                    }}
-                    selectedCountry={selectedCountry}
-                    onChangeSelectedCountry={setSelectedCountry}
-                  />
-                  {errors.phone && (
-                    <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                      {errors.phone}
+                <View style={{ alignItems: 'center', marginTop: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                      Already have an account?{' '}
                     </Text>
-                  )}
+                    <TouchableOpacity onPress={() => router.push('/sign-in')}>
+                      <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
+                        Sign in
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#D55004',
-                  paddingVertical: 12,
-                  borderRadius: 24,
-                  opacity: isLoading ? 0.7 : 1,
-                  marginTop: 8,
-                }}
-                onPress={handlePhoneSignUp}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
-                    Send Code
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <View style={{ alignItems: 'center', marginTop: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                    Already have an account?{' '}
-            </Text>
-                  <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                    <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
-                      Sign in
-            </Text>
-                  </TouchableOpacity>
-          </View>
-          </View>
-            </>
-          )
+              </>
+            )
           ) : pendingPhoneVerification ? (
             <View style={{ gap: 16 }}>
               <Text style={{
@@ -892,7 +909,7 @@ export default function SignUpScreen() {
                 {errors.code && (
                   <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4, textAlign: 'center' }}>
                     {errors.code}
-          </Text>
+                  </Text>
                 )}
               </View>
 
@@ -912,7 +929,7 @@ export default function SignUpScreen() {
                 ) : (
                   <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
                     Verify Phone
-          </Text>
+                  </Text>
                 )}
               </TouchableOpacity>
 
@@ -926,8 +943,8 @@ export default function SignUpScreen() {
               >
                 <Text style={{ color: '#D55004', fontWeight: '500' }}>
                   Go Back
-            </Text>
-          </TouchableOpacity>
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={{ gap: 16 }}>
@@ -938,7 +955,7 @@ export default function SignUpScreen() {
               }}>
                 We've sent a verification code to {verificationEmail}.
                 Please enter it below to complete your registration.
-          </Text>
+              </Text>
 
               <View>
                 <TextInput
@@ -964,14 +981,14 @@ export default function SignUpScreen() {
                 {errors.code && (
                   <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
                     {errors.code}
-          </Text>
+                  </Text>
                 )}
               </View>
 
               {errors.general && (
                 <Text style={{ color: '#D55004', textAlign: 'center' }}>
                   {errors.general}
-          </Text>
+                </Text>
               )}
 
               <TouchableOpacity
@@ -990,7 +1007,7 @@ export default function SignUpScreen() {
                 ) : (
                   <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
                     Verify Email
-          </Text>
+                  </Text>
                 )}
               </TouchableOpacity>
 
@@ -1000,8 +1017,8 @@ export default function SignUpScreen() {
               >
                 <Text style={{ color: '#D55004', fontWeight: '500' }}>
                   Go Back
-            </Text>
-          </TouchableOpacity>
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
