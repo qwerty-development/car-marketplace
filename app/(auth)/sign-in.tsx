@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 import { useAuth } from "@/utils/AuthContext";
 import { Link, useRouter, useSegments } from "expo-router";
 
@@ -156,6 +157,10 @@ const SignInWithOAuth = () => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         console.log("[GOOGLE] Supabase session ready → navigating home");
+        // Track login event for Meta ad attribution
+        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'google',
+        });
         router.replace("/(home)"); // adjust to your real “home” route
       }
     });
@@ -187,6 +192,10 @@ const SignInWithOAuth = () => {
 
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
+          // Track login event for Meta ad attribution
+          AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+            fb_registration_method: 'apple',
+          });
           console.log(
             "[APPLE-AUTH] Sign-in successful, registering push token"
           );
@@ -463,6 +472,10 @@ export default function SignInPage() {
       // Only if authentication is successful, use the auth context's signIn
       // which might handle additional logic like setting up the user session
       if (data.user) {
+        // Track login event for Meta ad attribution
+        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'email',
+        });
         await signIn({
           email: emailAddress,
           password,
@@ -486,10 +499,10 @@ export default function SignInPage() {
 
     // Validate phone number format
     if (!selectedCountry) {
-       setPhoneError('Please select a country');
-       return;
+      setPhoneError('Please select a country');
+      return;
     }
-    
+
     // Clean the phone number (remove spaces, etc)
     const cleanedPhone = phoneNumber.replace(/\D/g, '');
     const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
@@ -547,6 +560,10 @@ export default function SignInPage() {
       }
 
       if (data.user) {
+        // Track login event for Meta ad attribution
+        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'phone',
+        });
         // Registration complete, navigation will be handled by auth context
         console.log('[PHONE-AUTH] Verification successful');
       }

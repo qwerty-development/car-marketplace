@@ -57,6 +57,10 @@ import { LanguageProvider } from "@/utils/LanguageContext";
 import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
 import { CreditProvider } from "@/utils/CreditContext";
+import { Settings as FacebookSettings } from 'react-native-fbsdk-next';
+
+// Initialize Facebook SDK for Meta ad tracking
+FacebookSettings.initializeSDK();
 
 Sentry.init({
   dsn: 'https://785ae89de27dd58c218eb6dd0544d7a7@o4509672135065600.ingest.de.sentry.io/4509689676693584',
@@ -380,14 +384,14 @@ const DeepLinkHandler = () => {
 
       // Helper to check if navigation stack needs to be established
       const needsStackSetup = isInitialLink || !currentSegments.includes("(home)");
-      
+
       // Check if we're currently inside tabs - need special handling
       const isInsideTabs = currentSegments.includes("(tabs)");
-      
+
       // Check if we're crossing from dealer to user sections - need to reset
       const isOnDealerSide = currentSegments.includes("(dealer)");
       const needsUserStackReset = isOnDealerSide && (type === "car" || type === "clip" || type === "conversation");
-      
+
       // Check if we need to exit tabs to navigate to screens outside tabs (like CarDetails)
       const needsTabsExit = isInsideTabs && (type === "car" || type === "conversation");
 
@@ -397,14 +401,14 @@ const DeepLinkHandler = () => {
           // For car deep links
           if (needsStackSetup || needsUserStackReset || needsTabsExit) {
             // Need to establish/reset stack for various scenarios
-            const reason = needsUserStackReset ? 'Resetting from dealer to user stack' : 
-                          needsTabsExit ? 'Exiting tabs to access CarDetails' : 
-                          'Establishing navigation stack';
+            const reason = needsUserStackReset ? 'Resetting from dealer to user stack' :
+              needsTabsExit ? 'Exiting tabs to access CarDetails' :
+                'Establishing navigation stack';
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to car`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
-            
+
             // Navigate directly to CarDetails with replace to ensure clean navigation
             console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via replace after stack reset`);
             router.replace({
@@ -435,7 +439,7 @@ const DeepLinkHandler = () => {
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
-            
+
             // Navigate to autoclips with replace after stack reset
             console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via replace after stack reset`);
             router.replace({
@@ -470,14 +474,14 @@ const DeepLinkHandler = () => {
           // For conversation deep links
           if (needsStackSetup || needsUserStackReset || needsTabsExit) {
             // Need to establish/reset stack for various scenarios
-            const reason = needsUserStackReset ? 'Resetting from dealer to user stack' : 
-                          needsTabsExit ? 'Exiting tabs to access conversations' : 
-                          'Establishing navigation stack';
+            const reason = needsUserStackReset ? 'Resetting from dealer to user stack' :
+              needsTabsExit ? 'Exiting tabs to access conversations' :
+                'Establishing navigation stack';
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to conversation`);
             await new Promise((resolve) => setTimeout(resolve, 300));
             router.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
-            
+
             // Navigate to conversation with replace after stack reset
             console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via replace after stack reset`);
             router.replace({
@@ -585,10 +589,10 @@ const DeepLinkHandler = () => {
 
         // FIXED: Handle URL parsing differently based on URL type
         console.log(`[DeepLink - ${Platform.OS}] Raw parsed values - hostname: "${hostname}", path: "${path}"`);
-        
+
         // Check if this is an HTTPS/HTTP URL (universal link) vs custom scheme
         const isUniversalLink = url.startsWith('https://') || url.startsWith('http://');
-        
+
         if (isUniversalLink) {
           // For universal links (https://www.fleetapp.me/cars/406), just use the path directly
           pathToProcess = path || "";
@@ -825,7 +829,7 @@ const DeepLinkHandler = () => {
   // Listen for runtime deep links
   useEffect(() => {
     console.log(`[DeepLink - ${Platform.OS}] Setting up runtime deep link listener. isInitialized: ${isInitialized}, isNavigationReady: ${isNavigationReady}`);
-    
+
     const subscription = Linking.addEventListener("url", ({ url }) => {
       console.log(
         `[DeepLink - ${Platform.OS}] Runtime deep link received:`,
@@ -1016,11 +1020,11 @@ function RootLayoutNav() {
     // RULE: Enforce Profile Completion
     if (isSignedIn && !isGuest && user) {
       const hasName = !!(profile?.name || user.user_metadata?.name);
-      
+
       // Check if phone is verified (not just present)
       // user.phone exists but user.phone_confirmed_at is null means phone is pending verification
       const hasVerifiedPhone = !!(user.phone && user.phone_confirmed_at);
-      
+
       // Only require name and verified phone - email is optional
       let isMissingFields = !hasName || !hasVerifiedPhone;
 
@@ -1031,7 +1035,7 @@ function RootLayoutNav() {
         const hasLat = !!dealership?.latitude && String(dealership.latitude) !== '0' && String(dealership.latitude) !== '0.0';
         const hasLng = !!dealership?.longitude && String(dealership.longitude) !== '0' && String(dealership.longitude) !== '0.0';
         const hasLocation = hasLat && hasLng;
-        
+
         // If dealership data is still loading but profile is loaded, wait
         // dealership === undefined means loading, null means loaded but not found
         if (dealership === undefined && profile) {
@@ -1217,7 +1221,7 @@ export default Sentry.wrap(function RootLayout() {
         // RULE: Android splash failsafe
         if (Platform.OS === "android") {
           setTimeout(() => {
-            SplashScreen.hideAsync().catch(() => {});
+            SplashScreen.hideAsync().catch(() => { });
           }, 2000);
         }
         // Configure i18n early and wait for it to complete
@@ -1261,33 +1265,33 @@ export default Sentry.wrap(function RootLayout() {
     ),
   };
 
-useSlowConnectionToast();     
+  useSlowConnectionToast();
 
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-        <GuestUserProvider>
-          <AuthProvider>
-            <DeepLinkHandler />
-            <QueryClientProvider client={queryClient}>
-              <ThemeProvider>
-                <StatusBarManager />
-                <LanguageProvider>
-                  <CreditProvider>
-                    <FavoritesProvider>
-                      <NotificationsProvider />
-                      <RootLayoutNav />
-                      <Toast config={toastConfig} />
-                    </FavoritesProvider>
-                  </CreditProvider>
-                </LanguageProvider>
-              </ThemeProvider>
-            </QueryClientProvider>
-          </AuthProvider>
-        </GuestUserProvider>
-          </SafeAreaProvider>
+          <GuestUserProvider>
+            <AuthProvider>
+              <DeepLinkHandler />
+              <QueryClientProvider client={queryClient}>
+                <ThemeProvider>
+                  <StatusBarManager />
+                  <LanguageProvider>
+                    <CreditProvider>
+                      <FavoritesProvider>
+                        <NotificationsProvider />
+                        <RootLayoutNav />
+                        <Toast config={toastConfig} />
+                      </FavoritesProvider>
+                    </CreditProvider>
+                  </LanguageProvider>
+                </ThemeProvider>
+              </QueryClientProvider>
+            </AuthProvider>
+          </GuestUserProvider>
+        </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

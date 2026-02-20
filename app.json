@@ -196,7 +196,19 @@
           "organization": "qwerty-5v"
         }
       ],
-      "react-native-compressor"
+      "react-native-compressor",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "2281205505618431",
+          "clientToken": "cc1b2f7ed1daaea453442d5259d27079",
+          "displayName": "Fleet",
+          "scheme": "fb2281205505618431",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
