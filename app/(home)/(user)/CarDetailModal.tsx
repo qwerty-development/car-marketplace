@@ -34,6 +34,7 @@ import AuthRequiredModal from '@/components/AuthRequiredModal';
 
 import ErrorBoundary from "react-native-error-boundary";
 import ImageViewing from "react-native-image-viewing";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Dynamically import MapView to prevent it from blocking the main thread
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -266,6 +267,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   const { t } = useTranslation();
   const isRTL = I18nManager.isRTL;
   const { isFavorite } = useFavorites();
+  const insets = useSafeAreaInsets();
   const [similarCars, setSimilarCars] = useState<any>([]);
   const [dealerCars, setDealerCars] = useState<any>([]);
   const scrollViewRef = useRef<any>(null);
@@ -1067,7 +1069,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                 }}
                 style={{
                   position: 'absolute',
-                  top: 16,
+                  top: insets.top > 0 ? insets.top + 8 : 48,
                   right: 16,
                   zIndex: 20,
                   backgroundColor: 'rgba(0, 0, 0, 0.3)',

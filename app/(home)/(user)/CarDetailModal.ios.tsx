@@ -43,6 +43,7 @@ import ImageViewing from "react-native-image-viewing";
 import { useTranslation } from 'react-i18next';
 import { I18nManager } from 'react-native';
 import { formatMileage } from '@/utils/formatMileage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   isRentalCar,
   formatCarPrice,
@@ -430,6 +431,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   const { isFavorite } = useFavorites();
   const { t } = useTranslation();
   const isRTL = I18nManager.isRTL;
+  const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<FlatList>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
@@ -1352,7 +1354,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
             }}
             style={{
               position: "absolute",
-              top: 16,
+              top: insets.top > 0 ? insets.top + 8 : 48,
               right: isRTL ? undefined : 16,
               left: isRTL ? 16 : undefined,
               zIndex: 20,
