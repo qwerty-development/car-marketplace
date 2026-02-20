@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { AppEventsLogger } from 'react-native-fbsdk-next';
+import { META_EVENTS } from '@/utils/metaEvents';
 import { useAuth } from '@/utils/AuthContext';
 import { useRouter } from 'expo-router';
 import {
@@ -186,7 +187,7 @@ const SignUpWithOAuth = () => {
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
           // Track registration event for Meta ad attribution
-          AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          AppEventsLogger.logEvent(META_EVENTS.COMPLETE_REGISTRATION, {
             fb_registration_method: 'apple',
           });
           console.log("[APPLE-AUTH] Sign-in successful, registering push token");

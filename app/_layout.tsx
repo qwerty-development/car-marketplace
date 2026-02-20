@@ -57,13 +57,33 @@ import { LanguageProvider } from "@/utils/LanguageContext";
 import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
 import { CreditProvider } from "@/utils/CreditContext";
-import { Settings as FacebookSettings } from 'react-native-fbsdk-next';
+import { Settings as FacebookSettings, AppEventsLogger } from 'react-native-fbsdk-next';
+import { META_EVENTS } from "@/utils/metaEvents";
 
-// Initialize Facebook SDK for Meta ad tracking (wrapped in try-catch for safety)
+// Initialize Facebook SDK for Meta ad tracking with diagnostics
 try {
   FacebookSettings.initializeSDK();
+  console.log('[Facebook SDK] initializeSDK() called successfully');
+
+  // Explicitly enable tracking (required for events to flow to Meta)
+  FacebookSettings.setAdvertiserTrackingEnabled(true);
+  FacebookSettings.setAdvertiserIDCollectionEnabled(true);
+  console.log('[Facebook SDK] Advertiser tracking and ID collection enabled');
+
+  // Log SDK configuration for debugging
+  FacebookSettings.getAdvertiserTrackingEnabled().then((enabled: boolean) => {
+    console.log('[Facebook SDK] Advertiser Tracking Enabled:', enabled);
+  }).catch((e: any) => console.warn('[Facebook SDK] Could not get tracking status:', e));
+
+  // Fire a test event immediately to verify the pipeline
+  AppEventsLogger.logEvent(META_EVENTS.APP_ACTIVATE);
+  console.log('[Facebook SDK] Test event', META_EVENTS.APP_ACTIVATE, 'fired');
+
+  // Also flush events to force sending
+  AppEventsLogger.flush();
+  console.log('[Facebook SDK] Events flushed');
 } catch (e) {
-  console.warn('[Facebook SDK] Initialization error:', e);
+  console.error('[Facebook SDK] Initialization error:', e);
 }
 
 Sentry.init({
