@@ -59,8 +59,12 @@ import * as Sentry from '@sentry/react-native';
 import { CreditProvider } from "@/utils/CreditContext";
 import { Settings as FacebookSettings } from 'react-native-fbsdk-next';
 
-// Initialize Facebook SDK for Meta ad tracking
-FacebookSettings.initializeSDK();
+// Initialize Facebook SDK for Meta ad tracking (wrapped in try-catch for safety)
+try {
+  FacebookSettings.initializeSDK();
+} catch (e) {
+  console.warn('[Facebook SDK] Initialization error:', e);
+}
 
 Sentry.init({
   dsn: 'https://785ae89de27dd58c218eb6dd0544d7a7@o4509672135065600.ingest.de.sentry.io/4509689676693584',
