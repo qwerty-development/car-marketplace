@@ -57,33 +57,42 @@ import { LanguageProvider } from "@/utils/LanguageContext";
 import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
 import { CreditProvider } from "@/utils/CreditContext";
-import { Settings as FacebookSettings, AppEventsLogger } from 'react-native-fbsdk-next';
 import { META_EVENTS } from "@/utils/metaEvents";
+
+// Lazy-load Facebook SDK to prevent NativeEventEmitter crash during import
+let FacebookSettings: any = null;
+let AppEventsLogger: any = null;
+try {
+  const fbsdk = require('react-native-fbsdk-next');
+  FacebookSettings = fbsdk.Settings;
+  AppEventsLogger = fbsdk.AppEventsLogger;
+} catch (e) {
+  console.warn('[Facebook SDK] Module load failed:', e);
+}
 
 // Initialize Facebook SDK for Meta ad tracking with diagnostics
 try {
-  FacebookSettings.initializeSDK();
-  console.log('[Facebook SDK] initializeSDK() called successfully');
+  if (FacebookSettings) {
+    FacebookSettings.initializeSDK();
+    console.log('[Facebook SDK] initializeSDK() called successfully');
 
-  // Explicitly enable tracking (required for events to flow to Meta)
-  FacebookSettings.setAdvertiserTrackingEnabled(true);
-  FacebookSettings.setAdvertiserIDCollectionEnabled(true);
-  console.log('[Facebook SDK] Advertiser tracking and ID collection enabled');
+    FacebookSettings.setAdvertiserTrackingEnabled(true);
+    FacebookSettings.setAdvertiserIDCollectionEnabled(true);
+    console.log('[Facebook SDK] Advertiser tracking and ID collection enabled');
 
-  // Log SDK configuration for debugging
-  FacebookSettings.getAdvertiserTrackingEnabled().then((enabled: boolean) => {
-    console.log('[Facebook SDK] Advertiser Tracking Enabled:', enabled);
-  }).catch((e: any) => console.warn('[Facebook SDK] Could not get tracking status:', e));
+    FacebookSettings.getAdvertiserTrackingEnabled().then((enabled: boolean) => {
+      console.log('[Facebook SDK] Advertiser Tracking Enabled:', enabled);
+    }).catch((e: any) => console.warn('[Facebook SDK] Could not get tracking status:', e));
+  }
 
-  // Fire a test event immediately to verify the pipeline
-  AppEventsLogger.logEvent(META_EVENTS.APP_ACTIVATE);
-  console.log('[Facebook SDK] Test event', META_EVENTS.APP_ACTIVATE, 'fired');
-
-  // Also flush events to force sending
-  AppEventsLogger.flush();
-  console.log('[Facebook SDK] Events flushed');
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent(META_EVENTS.APP_ACTIVATE);
+    console.log('[Facebook SDK] Test event', META_EVENTS.APP_ACTIVATE, 'fired');
+    AppEventsLogger.flush();
+    console.log('[Facebook SDK] Events flushed');
+  }
 } catch (e) {
-  console.error('[Facebook SDK] Initialization error:', e);
+  console.warn('[Facebook SDK] Initialization error:', e);
 }
 
 Sentry.init({
@@ -132,6 +141,7 @@ LogBox.ignoreLogs([
   "Network request failed",
   "FontAwesome Icons",
   "EventEmitter.removeListener",
+  "`new NativeEventEmitter()` requires a non-null argument.",
   "expo-linking requires a build-time setting `scheme` in your app config",
   "Remote debugger is in a background tab",
   "Setting a timer for a long period of time",
@@ -1190,7 +1200,7 @@ function ErrorFallback({ error, resetError }: any) {
 }
 
 // MAIN COMPONENT: Root Layout with initialization coordination
-export default Sentry.wrap(function RootLayout() {
+function RootLayout() {
   const badgeClearingRef = useRef(false);
 
   // EFFECT: Initialize app systems - OPTIMIZED
@@ -1319,4 +1329,6 @@ export default Sentry.wrap(function RootLayout() {
       </GestureHandlerRootView>
     </ErrorBoundary>
   );
-});
+}
+
+export default Sentry.wrap(RootLayout);

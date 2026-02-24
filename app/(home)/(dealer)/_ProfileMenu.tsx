@@ -2,9 +2,9 @@ import React from 'react'
 import { View, TouchableOpacity, Text } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { MenuItem } from './MenuItem'
-import { SubscriptionStatus } from './SubscriptionStatus'
-import { ExpandableSupport } from './ExpandableSupport'
+import { MenuItem } from './_MenuItem'
+import { SubscriptionStatus } from './_SubscriptionStatus'
+import { ExpandableSupport } from './_ExpandableSupport'
 
 interface ProfileMenuProps {
   isDarkMode: boolean

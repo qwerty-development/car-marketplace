@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { AppEventsLogger } from 'react-native-fbsdk-next';
+import { safeLogEvent } from '@/utils/safeMetaLogger';
 import { META_EVENTS } from '@/utils/metaEvents';
 import { useAuth } from "@/utils/AuthContext";
 import { Link, useRouter, useSegments } from "expo-router";
@@ -159,7 +159,7 @@ const SignInWithOAuth = () => {
       if (session?.user) {
         console.log("[GOOGLE] Supabase session ready → navigating home");
         // Track sign-in event for Meta ad attribution
-        AppEventsLogger.logEvent(META_EVENTS.SIGN_IN, {
+        safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'google',
         });
         router.replace("/(home)"); // adjust to your real “home” route
@@ -194,7 +194,7 @@ const SignInWithOAuth = () => {
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
           // Track sign-in event for Meta ad attribution
-          AppEventsLogger.logEvent(META_EVENTS.SIGN_IN, {
+          safeLogEvent(META_EVENTS.SIGN_IN, {
             fb_registration_method: 'apple',
           });
           console.log(
@@ -474,7 +474,7 @@ export default function SignInPage() {
       // which might handle additional logic like setting up the user session
       if (data.user) {
         // Track sign-in event for Meta ad attribution
-        AppEventsLogger.logEvent(META_EVENTS.SIGN_IN, {
+        safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'email',
         });
         await signIn({
@@ -562,7 +562,7 @@ export default function SignInPage() {
 
       if (data.user) {
         // Track sign-in event for Meta ad attribution
-        AppEventsLogger.logEvent(META_EVENTS.SIGN_IN, {
+        safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'phone',
         });
         // Registration complete, navigation will be handled by auth context

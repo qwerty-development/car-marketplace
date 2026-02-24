@@ -1,7 +1,7 @@
 import React from 'react'
 import { View, Text, Modal, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import type { SecuritySettingsModalProps } from './types/type'
+import type { SecuritySettingsModalProps } from './_types/type'
 
 export const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({
   visible,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { View, Text, Modal, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import type { NotificationSettingsModalProps, NotificationSettings } from './types/type'
+import type { NotificationSettingsModalProps, NotificationSettings } from './_types/type'
 import { supabase } from '@/utils/supabase'
 import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '@/utils/AuthContext'

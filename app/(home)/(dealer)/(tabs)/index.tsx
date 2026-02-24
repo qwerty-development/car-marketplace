@@ -34,7 +34,7 @@ import { useRouter } from 'expo-router'
   import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/utils/AuthContext'
 import { formatMileage } from '@/utils/formatMileage';
-import { ListingSkeletonLoader } from '../Skeleton'
+import { ListingSkeletonLoader } from '../_Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
