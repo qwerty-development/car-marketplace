@@ -48,6 +48,7 @@
         "UIBackgroundModes": [
           "remote-notification"
         ],
+        "NSUserTrackingUsageDescription": "We use this to show you relevant car ads and measure ad performance.",
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
         "LSApplicationQueriesSchemes": [
           "whatsapp",
