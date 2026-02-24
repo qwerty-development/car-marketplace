@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, AppState } from 'react-native';
 import { supabase } from '@/utils/supabase';
-import { isSigningOut } from '../app/(home)/_layout';
+import { isSigningOut } from '@/utils/signOutState';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { isGlobalSigningOut } from '@/utils/AuthContext';

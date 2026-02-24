@@ -1,7 +1,7 @@
 import React from 'react'
 import { View, Text, Modal, TextInput, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import type { EditProfileModalProps } from './types/type'
+import type { EditProfileModalProps } from './_types/type'
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   visible,

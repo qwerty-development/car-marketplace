@@ -8,9 +8,8 @@ import { useTheme } from "@/utils/ThemeContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import LogoLoader from "@/components/LogoLoader";
 
-// CRITICAL SYSTEM: Global sign-out flag management
-let isSigningOut = false;
-export { isSigningOut };
+import { isSigningOut, setIsSigningOut, coordinateSignOut } from '@/utils/signOutState';
+export { isSigningOut, setIsSigningOut, coordinateSignOut };
 
 // REDUCED TIMEOUT CONSTANTS: For better performance
 const OPERATION_TIMEOUTS = {
@@ -27,52 +26,6 @@ interface OperationState {
   userCheck: 'idle' | 'running' | 'completed' | 'failed';
   profileFetch: 'idle' | 'running' | 'completed' | 'failed';
   routing: 'idle' | 'running' | 'completed';
-}
-
-// METHOD: Set global sign-out state
-export function setIsSigningOut(value: boolean) {
-  const previous = isSigningOut;
-  isSigningOut = value;
-
-  if (previous !== value) {
-    console.log(`[HomeLayout] Sign out state changed: ${previous} -> ${value}`);
-
-    if (value === true) {
-      console.log("[HomeLayout] Cancelling pending operations due to sign out");
-    }
-  }
-}
-
-// METHOD: Coordinate sign out process
-export async function coordinateSignOut(
-  router: any,
-  authSignOut: () => Promise<void>
-) {
-  // RULE: Prevent duplicate sign out attempts
-  if (isSigningOut) {
-    console.log("[HomeLayout] Sign out already in progress");
-    return;
-  }
-
-  setIsSigningOut(true);
-
-  try {
-    console.log("[HomeLayout] Navigating to sign-in screen");
-    router.replace("/(auth)/sign-in");
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    console.log("[HomeLayout] Executing auth sign out");
-    await authSignOut();
-
-    console.log("[HomeLayout] Sign out coordination completed successfully");
-    return true;
-  } catch (error) {
-    console.error("[HomeLayout] Error during coordinated sign out:", error);
-    router.replace("/(auth)/sign-in");
-    setIsSigningOut(false);
-    return false;
-  }
 }
 
 // UTILITY: Timeout wrapper for database operations

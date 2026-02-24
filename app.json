@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "2.1.16",
+    "version": "2.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
@@ -48,6 +48,7 @@
         "UIBackgroundModes": [
           "remote-notification"
         ],
+        "NSUserTrackingUsageDescription": "We use this to show you relevant car ads and measure ad performance.",
         "NSLocationWhenInUseUsageDescription": "We need your location to find nearby dealerships.",
         "LSApplicationQueriesSchemes": [
           "whatsapp",
@@ -221,7 +222,7 @@
         "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "2.2.0",
     "updates": {
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },

@@ -20,9 +20,9 @@ import { useAuth } from '@/utils/AuthContext';
 import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 import { DealerLogoPicker } from '@/components/DealerLogoPicker';
-import { LocationModal } from './LocationModal';
-import { useImageUpload } from './hooks/useImageUpload';
-import { notifyDealershipProfileUpdated } from './hooks/dealershipProfileEvents';
+import { LocationModal } from './_LocationModal';
+import { useImageUpload } from './_hooks/useImageUpload';
+import { notifyDealershipProfileUpdated } from './_hooks/dealershipProfileEvents';
 
 interface DealerOnboardingModalProps {
   visible: boolean;

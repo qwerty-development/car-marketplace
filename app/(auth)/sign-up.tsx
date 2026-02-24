@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useState } from 'react';
-import { AppEventsLogger } from 'react-native-fbsdk-next';
+import { safeLogEvent } from '@/utils/safeMetaLogger';
+import { META_EVENTS } from '@/utils/metaEvents';
 import { useAuth } from '@/utils/AuthContext';
 import { useRouter } from 'expo-router';
 import {
@@ -139,7 +140,7 @@ const SignUpWithOAuth = () => {
       if (result && result.success === true) {
         console.log("Google authentication successful, navigating to home");
         // Track registration event for Meta ad attribution
-        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+        safeLogEvent('fb_mobile_complete_registration', {
           fb_registration_method: 'google',
         });
         router.replace("/(home)");
@@ -186,7 +187,7 @@ const SignUpWithOAuth = () => {
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
           // Track registration event for Meta ad attribution
-          AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          safeLogEvent(META_EVENTS.COMPLETE_REGISTRATION, {
             fb_registration_method: 'apple',
           });
           console.log("[APPLE-AUTH] Sign-in successful, registering push token");
@@ -480,7 +481,7 @@ export default function SignUpScreen() {
 
       if (data.user) {
         // Track registration event for Meta ad attribution
-        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+        safeLogEvent('fb_mobile_complete_registration', {
           fb_registration_method: 'phone',
         });
         Alert.alert(
@@ -536,7 +537,7 @@ export default function SignUpScreen() {
 
       if (needsEmailVerification) {
         // Track registration event for Meta ad attribution
-        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+        safeLogEvent('fb_mobile_complete_registration', {
           fb_registration_method: 'email',
         });
         setVerificationEmail(email || emailAddress);

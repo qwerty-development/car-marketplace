@@ -21,7 +21,7 @@ import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneIn
 import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { DealerLogoPicker } from '@/components/DealerLogoPicker';
-import { useImageUpload } from './(home)/(dealer)/hooks/useImageUpload';
+import { useImageUpload } from './(home)/(dealer)/_hooks/useImageUpload';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 

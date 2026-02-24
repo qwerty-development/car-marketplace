@@ -6,7 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useGuestUser } from './GuestUserContext';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
-import { isSigningOut, setIsSigningOut } from '../app/(home)/_layout';
+import { isSigningOut, setIsSigningOut } from './signOutState';
 import { router } from 'expo-router';
 import { NotificationService } from '@/services/NotificationService';
 
@@ -92,10 +92,37 @@ interface SignUpCredentials {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
+// Safe defaults returned when AuthProvider hasn't mounted yet
+// (e.g. during Expo Router's initial render)
+const AUTH_DEFAULTS: AuthContextProps = {
+  session: null,
+  user: null,
+  profile: null,
+  dealership: undefined,
+  isLoaded: false,
+  isSignedIn: false,
+  isSigningOut: false,
+  isSigningIn: false,
+  signIn: async () => ({ error: new Error('AuthProvider not mounted') }),
+  signUp: async () => ({ error: new Error('AuthProvider not mounted'), needsEmailVerification: false }),
+  signOut: async () => {},
+  resetPassword: async () => ({ error: new Error('AuthProvider not mounted') }),
+  updatePassword: async () => ({ error: new Error('AuthProvider not mounted') }),
+  verifyOtp: async () => ({ error: new Error('AuthProvider not mounted') }),
+  googleSignIn: async () => {},
+  appleSignIn: async () => {},
+  refreshSession: async () => {},
+  updateUserProfile: async () => ({ error: new Error('AuthProvider not mounted') }),
+  updateDealershipProfile: async () => ({ error: new Error('AuthProvider not mounted') }),
+  forceProfileRefresh: async () => {},
+  updateUserRole: async () => ({ error: new Error('AuthProvider not mounted') }),
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Return safe defaults instead of throwing during Expo Router's initial render
+    return AUTH_DEFAULTS;
   }
   return context;
 };

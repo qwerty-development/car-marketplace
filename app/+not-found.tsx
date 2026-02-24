@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from "@/utils/ThemeContext";
 import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
-import { coordinateSignOut } from "@/app/(home)/_layout";
+import { coordinateSignOut } from "@/utils/signOutState";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState, useRef } from "react";
 

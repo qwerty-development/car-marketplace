@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { useAuth } from '@/utils/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
-import { isSigningOut } from '@/app/(home)/_layout';
+import { isSigningOut } from '@/utils/signOutState';
 import NetInfo from '@react-native-community/netinfo';
 import { isGlobalSigningOut } from '../utils/AuthContext';
 import { notificationCache, NotificationCacheManager } from '@/utils/NotificationCacheManager';

@@ -76,7 +76,8 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 export const useGuestUser = () => {
   const context = useContext(GuestUserContext);
   if (context === undefined) {
-    throw new Error('useGuestUser must be used within a GuestUserProvider');
+    // Return safe defaults instead of throwing during Expo Router's initial render
+    return { isGuest: false, guestId: null, setGuestMode: async () => {}, clearGuestMode: async () => {} } as GuestUserContextType;
   }
   return context;
 };

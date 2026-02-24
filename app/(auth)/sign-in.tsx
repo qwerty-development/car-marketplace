@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { AppEventsLogger } from 'react-native-fbsdk-next';
+import { safeLogEvent } from '@/utils/safeMetaLogger';
+import { META_EVENTS } from '@/utils/metaEvents';
 import { useAuth } from "@/utils/AuthContext";
 import { Link, useRouter, useSegments } from "expo-router";
 
@@ -157,8 +158,8 @@ const SignInWithOAuth = () => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         console.log("[GOOGLE] Supabase session ready → navigating home");
-        // Track login event for Meta ad attribution
-        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+        // Track sign-in event for Meta ad attribution
+        safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'google',
         });
         router.replace("/(home)"); // adjust to your real “home” route
@@ -192,8 +193,8 @@ const SignInWithOAuth = () => {
 
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
-          // Track login event for Meta ad attribution
-          AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+          // Track sign-in event for Meta ad attribution
+          safeLogEvent(META_EVENTS.SIGN_IN, {
             fb_registration_method: 'apple',
           });
           console.log(
@@ -472,8 +473,8 @@ export default function SignInPage() {
       // Only if authentication is successful, use the auth context's signIn
       // which might handle additional logic like setting up the user session
       if (data.user) {
-        // Track login event for Meta ad attribution
-        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+        // Track sign-in event for Meta ad attribution
+        safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'email',
         });
         await signIn({
@@ -560,8 +561,8 @@ export default function SignInPage() {
       }
 
       if (data.user) {
-        // Track login event for Meta ad attribution
-        AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+        // Track sign-in event for Meta ad attribution
+        safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'phone',
         });
         // Registration complete, navigation will be handled by auth context
