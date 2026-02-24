@@ -1436,10 +1436,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     [
       car.images,
       car.price,
+      car.id,
       width,
       activeImageIndex,
       isDarkMode,
       handleFirstImageLoaded,
+      isFavorite,
     ]
   );
 
