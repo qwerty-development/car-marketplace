@@ -8,7 +8,7 @@
  * - Reduced Supabase egress
  */
 
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { cachedSelect } from '@/utils/supabaseCache';
 import { supabase } from '@/utils/supabase';
 import { CACHE_CONFIG } from '@/utils/supabaseCache';
@@ -154,18 +154,16 @@ export function useCachedCars(options: UseCachedCarsOptions = {}) {
   };
 
   // Use React Query with aggressive caching
-  const query = useQuery(
+  const query = useQuery({
     queryKey,
-    fetchCars,
-    {
-      enabled,
-      staleTime: CACHE_CONFIG.DEFAULT_TTL,
-      cacheTime: CACHE_CONFIG.LONG_TTL,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+    queryFn: fetchCars,
+    enabled,
+    staleTime: CACHE_CONFIG.DEFAULT_TTL,
+    gcTime: CACHE_CONFIG.LONG_TTL,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
   // Prefetch images when data is loaded
   if (shouldPrefetchImages && query.data && query.data.length > 0) {

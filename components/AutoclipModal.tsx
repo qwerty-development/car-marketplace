@@ -1,6 +1,6 @@
 import { useTheme } from '@/utils/ThemeContext'
 import { Ionicons } from '@expo/vector-icons'
-import { Video, ResizeMode } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {
 	Modal,
@@ -15,12 +15,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import VideoControls from '@/components/VideoControls'
 import Animated, {
-	useAnimatedGestureHandler,
 	useAnimatedStyle,
 	withSpring,
 	runOnJS,
 	useSharedValue
 } from 'react-native-reanimated'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { FontAwesome } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { Play, Pause } from 'lucide-react-native'
@@ -38,7 +38,11 @@ const AutoclipModal = ({
 	const [duration, setDuration] = useState(0)
 	const [position, setPosition] = useState(0)
 	const [showPlayPauseIcon, setShowPlayPauseIcon] = useState(false)
-	const videoRef = useRef<any>(null)
+
+	const player = useVideoPlayer(clip?.video_url ?? null, player => {
+		player.muted = true
+		player.loop = true
+	})
 
 	// UI state management
 	const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
@@ -51,14 +55,33 @@ const AutoclipModal = ({
 	const [isLiked, setIsLiked] = useState(isLikedInitial)
 	const [localLikeCount, setLocalLikeCount] = useState(clip?.likes || 0)
 
-	// Cleanup on unmount
+	// Sync muted state with player
 	useEffect(() => {
-		return () => {
-			if (videoRef.current) {
-				videoRef.current.unloadAsync()
+		player.muted = isMuted
+	}, [isMuted, player])
+
+	// Poll position/duration for progress tracking
+	useEffect(() => {
+		if (!isVisible) return
+		const interval = setInterval(() => {
+			if (player.status === 'readyToPlay') {
+				setPosition(player.currentTime)
+				setDuration(player.duration)
 			}
+		}, 250)
+		return () => clearInterval(interval)
+	}, [isVisible, player])
+
+	// Auto-play when visible
+	useEffect(() => {
+		if (isVisible && clip?.video_url) {
+			player.play()
+			setIsPlaying(true)
+		} else {
+			player.pause()
+			setIsPlaying(false)
 		}
-	}, [])
+	}, [isVisible, clip?.video_url, player])
 
 	// Reset states when clip changes
 	useEffect(() => {
@@ -66,40 +89,16 @@ const AutoclipModal = ({
 		setLocalLikeCount(clip?.likes || 0)
 	}, [isLikedInitial, clip])
 
-	const handlePlaybackStatusUpdate = useCallback(
-		(status: {
-			isLoaded: any
-			positionMillis: number
-			durationMillis: number
-			didJustFinish: any
-			isLooping: any
-		}) => {
-			if (status.isLoaded) {
-				setPosition(status.positionMillis / 1000)
-				setDuration(status.durationMillis / 1000)
-
-				// Handle video completion
-				if (status.didJustFinish && !status.isLooping) {
-					// The video will automatically loop due to isLooping prop
-					setPosition(0)
-				}
-			}
-		},
-		[]
-	)
-
 	// Video play/pause logic
 	const handleVideoPress = useCallback(async () => {
 		try {
-			if (!videoRef.current) return
-
 			const newPlayingState = !isPlaying
 			setIsPlaying(newPlayingState)
 
 			if (newPlayingState) {
-				await videoRef.current.playAsync()
+				player.play()
 			} else {
-				await videoRef.current.pauseAsync()
+				player.pause()
 			}
 
 			// Show play/pause icon
@@ -110,7 +109,7 @@ const AutoclipModal = ({
 		} catch (error) {
 			console.error('Error handling video playback:', error)
 		}
-	}, [isPlaying])
+	}, [isPlaying, player])
 
 	// Enhanced like button handler
 	const onLikePress = useCallback(async () => {
@@ -136,19 +135,18 @@ const AutoclipModal = ({
 	}, [isLiked, clip?.id, onLikePressParent])
 
 	// Gesture handling for modal dismissal
-	const panGestureEvent = useAnimatedGestureHandler({
-		onActive: event => {
+	const panGesture = Gesture.Pan()
+		.onUpdate(event => {
 			if (event.translationY > 0) {
 				translateY.value = event.translationY
 			}
-		},
-		onEnd: event => {
+		})
+		.onEnd(event => {
 			if (event.translationY > 100) {
 				runOnJS(onClose)()
 			}
 			translateY.value = withSpring(0)
-		}
-	})
+		})
 
 	// Animated styles
 	const animatedStyle = useAnimatedStyle(() => ({
@@ -169,21 +167,18 @@ const AutoclipModal = ({
 			<LinearGradient
 				colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
 				className='flex-1'>
+			<GestureDetector gesture={panGesture}>
 				<Animated.View
 					style={[{ flex: 1 }, animatedStyle]}
 					className={isDarkMode ? 'bg-black' : 'bg-white'}>
 					<StatusBar hidden />
 
 					<Pressable onPress={handleVideoPress} style={StyleSheet.absoluteFill}>
-						<Video
-							ref={videoRef}
-							source={{ uri: clip?.video_url }}
+						<VideoView
+							player={player}
 							style={StyleSheet.absoluteFill}
-							resizeMode={ResizeMode.COVER}
-							shouldPlay={isPlaying}
-							isLooping={true}
-							isMuted={isMuted}
-							onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+							contentFit="cover"
+							nativeControls={false}
 						/>
 
 						{/* Play/Pause Icon Overlay */}
@@ -211,10 +206,10 @@ const AutoclipModal = ({
 						isPlaying={isPlaying}
 						globalMute={isMuted}
 						onMutePress={() => setIsMuted(!isMuted)}
-						onScrub={(_: any, time: number) =>
-							videoRef.current?.setPositionAsync(time * 1000)
-						}
-						videoRef={videoRef}
+						onScrub={(_: any, time: number) => {
+							player.currentTime = time
+						}}
+
 						likes={localLikeCount}
 						isLiked={isLiked}
 						onLikePress={onLikePress}
@@ -240,6 +235,7 @@ const AutoclipModal = ({
 						</View>
 					</LinearGradient>
 				</Animated.View>
+			</GestureDetector>
 			</LinearGradient>
 		</Modal>
 	)

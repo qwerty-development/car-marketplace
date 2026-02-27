@@ -32,9 +32,8 @@ import Animated, {
 	useAnimatedStyle,
 	withTiming,
 	runOnJS,
-	useAnimatedGestureHandler
 } from 'react-native-reanimated'
-import { PanGestureHandler } from 'react-native-gesture-handler'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useAuth } from '@/utils/AuthContext'
 
 const { width, height } = Dimensions.get('window')
@@ -275,21 +274,21 @@ const CarDetailModalIOS = memo(
 			transform: [{ translateY: translateY.value }]
 		}))
 
-		const gestureHandler = useAnimatedGestureHandler({
-			onStart: (_, context) => {
-				context.startY = translateY.value
-			},
-			onActive: (event, context: any) => {
-				translateY.value = Math.max(0, context.startY + event.translationY)
-			},
-			onEnd: event => {
+		const startY = useSharedValue(0)
+		const panGesture = Gesture.Pan()
+			.onStart(() => {
+				startY.value = translateY.value
+			})
+			.onUpdate((event) => {
+				translateY.value = Math.max(0, startY.value + event.translationY)
+			})
+			.onEnd((event) => {
 				if (event.velocityY > 500 || translateY.value > height * 0.2) {
 					runOnJS(closeModal)()
 				} else {
 					translateY.value = withTiming(0)
 				}
-			}
-		})
+			})
 
 		const renderImageItem = useCallback(
 			({ item, index }: any) => (
@@ -339,7 +338,7 @@ const CarDetailModalIOS = memo(
 		}, [car.dealership_latitude, car.dealership_longitude]);
 
 		return (
-			<PanGestureHandler onGestureEvent={gestureHandler}>
+			<GestureDetector gesture={panGesture}>
 				<Animated.View
 					className={`${isDarkMode ? 'bg-black' : 'bg-white'}`}
 					style={[styles.modalOverlay, animatedStyle]}>
@@ -630,7 +629,7 @@ const CarDetailModalIOS = memo(
 
 				</LinearGradient>
 			</Animated.View>
-			</PanGestureHandler>
+			</GestureDetector>
 		)
 	}
 )

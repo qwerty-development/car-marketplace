@@ -29,7 +29,7 @@ interface OperationState {
 }
 
 // UTILITY: Timeout wrapper for database operations
-const withTimeout = <T>(
+const withTimeout = <T,>(
   promise: Promise<T>,
   timeoutMs: number,
   operationName: string

@@ -1,7 +1,7 @@
 // components/CustomSplashScreen.tsx - UPDATED WITH FADE-IN
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Animated, Image, Platform } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
@@ -17,6 +17,11 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
   // 2. Use state to control when the video should start playing.
   const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
 
+  const player = useVideoPlayer(require('../assets/splash.mp4'), player => {
+    player.muted = true;
+    player.loop = false;
+  });
+
   // Ensure we complete at most once (handles errors/timeouts)
   const completeOnce = useCallback(() => {
     if (hasCompletedRef.current) return;
@@ -30,6 +35,22 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
       onAnimationComplete();
     });
   }, [fadeAnim, onAnimationComplete]);
+
+  // Listen for video end to trigger completion
+  useEffect(() => {
+    const subscription = player.addListener('playToEnd', () => {
+      console.log('[CustomSplashScreen] Video finished, completing splash screen');
+      completeOnce();
+    });
+    return () => subscription.remove();
+  }, [player, completeOnce]);
+
+  // Play/pause based on shouldPlayVideo state
+  useEffect(() => {
+    if (shouldPlayVideo) {
+      player.play();
+    }
+  }, [shouldPlayVideo, player]);
 
   // 3. This useEffect handles the initial fade-in animation.
   useEffect(() => {
@@ -58,22 +79,6 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
     return () => clearTimeout(timeoutId);
   }, [completeOnce]);
 
-  // 4. This function handles the fade-out after the video finishes.
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      console.log('[CustomSplashScreen] Video not loaded yet');
-      return;
-    }
-
-    console.log('[CustomSplashScreen] Video status:', status);
-    
-    // When the video finishes, trigger the fade-out animation.
-    if (status.didJustFinish) {
-      console.log('[CustomSplashScreen] Video finished, completing splash screen');
-      completeOnce();
-    }
-  };
-
   // For Android, use a more reliable approach with image fallback
   if (Platform.OS === 'android') {
     return (
@@ -87,24 +92,11 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
         
         {/* Optional: Try to play video in background, but don't rely on it */}
         {shouldPlayVideo && (
-          <Video
+          <VideoView
+            player={player}
             style={[StyleSheet.absoluteFill, { opacity: 0.3 }]}
-            source={require('../assets/splash.mp4')}
-            resizeMode={ResizeMode.COVER} 
-            isMuted={true}
-            isLooping={false}
-            shouldPlay={true}
-            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-            onError={(error) => {
-              console.log('[CustomSplashScreen] Video error on Android (expected):', error);
-              // Video failed, but we have the logo, so just continue
-            }}
-            onLoadStart={() => console.log('[CustomSplashScreen] Video load started on Android')}
-            onLoad={() => console.log('[CustomSplashScreen] Video loaded on Android')}
-            // Android-specific props for better compatibility
-            useNativeControls={false}
-            shouldCorrectPitch={false}
-            progressUpdateInterval={1000}
+            contentFit="cover"
+            nativeControls={false}
           />
         )}
       </Animated.View>
@@ -113,21 +105,11 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <Video
+      <VideoView
+        player={player}
         style={StyleSheet.absoluteFill}
-        source={require('../assets/splash.mp4')}
-        resizeMode={ResizeMode.COVER} 
-        isMuted={true}
-        isLooping={false}
-        // 5. The video only starts playing AFTER the fade-in is complete.
-        shouldPlay={shouldPlayVideo}
-        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-        onError={(error) => {
-          console.log('[CustomSplashScreen] Video error:', error);
-          completeOnce();
-        }}
-        onLoadStart={() => console.log('[CustomSplashScreen] Video load started')}
-        onLoad={() => console.log('[CustomSplashScreen] Video loaded')}
+        contentFit="cover"
+        nativeControls={false}
       />
     </Animated.View>
   );

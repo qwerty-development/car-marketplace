@@ -4,7 +4,7 @@ import { useAuth } from '@/utils/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { Ionicons } from '@expo/vector-icons'
 import { formatDistanceToNow } from 'date-fns'
-import { VideoState, Video, ResizeMode } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { useLocalSearchParams } from 'expo-router'
 import { Play, Pause, Heart, Volume2, VolumeX } from 'lucide-react-native'
 import { useState, useRef, useCallback, useEffect } from 'react'
@@ -60,7 +60,6 @@ const VideoControls = ({
 	globalMute,
 	onMutePress,
 	onScrub,
-	videoRef,
 	likes,
 	isLiked,
 	onLikePress
@@ -187,7 +186,6 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 	const [isModalVisible, setIsModalVisible] = useState(false)
 	const { isDarkMode } = useTheme()
 	const [isPlaying, setIsPlaying] = useState<{ [key: number]: boolean }>({})
-	const videoRefs = useRef<{ [key: number]: any }>({})
 	const isFocused = useLocalSearchParams()
 	const [globalMute, setGlobalMute] = useState(false)
 	const { user } = useAuth()
@@ -202,28 +200,29 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 	const playPauseAnimations = useRef<{ [key: number]: Animated.Value }>({})
 	const heartAnimations = useRef<{ [key: number]: Animated.Value }>({})
 
+	const player = useVideoPlayer(selectedClip?.video_url ?? null, player => {
+		player.loop = true
+		player.muted = globalMute
+	})
 	const initializeClipAnimations = (clipId: number) => {
 		heartAnimations.current[clipId] = new Animated.Value(0)
 		playPauseAnimations.current[clipId] = new Animated.Value(0)
 	}
 
 	const handleVideoPress = async (clipId: number) => {
-		const videoRef = videoRefs.current[clipId]
-		if (!videoRef) return
-
 		const newPlayingState = !isPlaying[clipId]
 		setIsPlaying(prev => ({ ...prev, [clipId]: newPlayingState }))
 
 		try {
 			if (newPlayingState) {
-				await videoRef.playAsync()
+				player.play()
 			} else {
-				await videoRef.pauseAsync()
+				player.pause()
 			}
 
 			// Animate play/pause icon
 			const animation = playPauseAnimations.current[clipId]
-			setShowPlayPauseIcon((prev: VideoState) => ({ ...prev, [clipId]: true }))
+			setShowPlayPauseIcon((prev: any) => ({ ...prev, [clipId]: true }))
 
 			Animated.sequence([
 				Animated.timing(animation, {
@@ -305,37 +304,32 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 		event.stopPropagation()
 		const newMuteState = !globalMute
 		setGlobalMute(newMuteState)
-
-		// Update all videos' mute state
-		Object.values(videoRefs.current).forEach(ref => {
-			ref?.setIsMutedAsync(newMuteState)
-		})
+		player.muted = newMuteState
 	}
 	const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
-		const videoRef = videoRefs.current[clipId]
-		if (videoRef) {
-			try {
-				await videoRef.setPositionAsync(time * 1000)
-			} catch (error) {
-				console.error('Error scrubbing video:', error)
-			}
+		try {
+			player.currentTime = time
+		} catch (error) {
+			console.error('Error scrubbing video:', error)
 		}
-	}, [])
-	const handlePlaybackStatusUpdate = useCallback(
-		(status: any, clipId: number) => {
-			if (status.isLoaded) {
+	}, [player])
+	// Poll player position/duration for progress tracking
+	useEffect(() => {
+		if (!isModalVisible || !selectedClip) return
+		const interval = setInterval(() => {
+			if (player.status === 'readyToPlay') {
 				setVideoProgress(prev => ({
 					...prev,
-					[clipId]: status.positionMillis / 1000
+					[selectedClip.id]: player.currentTime
 				}))
 				setVideoDuration(prev => ({
 					...prev,
-					[clipId]: status.durationMillis / 1000
+					[selectedClip.id]: player.duration
 				}))
 			}
-		},
-		[]
-	)
+		}, 250)
+		return () => clearInterval(interval)
+	}, [isModalVisible, selectedClip, player])
 	const renderVideoControls = useCallback(
 		(clipId: number) => {
 			const clip = autoClips.find(c => c.id === clipId)
@@ -350,7 +344,6 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 					globalMute={globalMute}
 					onMutePress={handleMutePress}
 					onScrub={handleVideoScrub}
-					videoRef={videoRefs}
 					likes={clip?.likes || 0}
 					isLiked={isLiked}
 					onLikePress={handleLikePress}
@@ -409,17 +402,11 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 	}, [dealershipId])
 
 	useEffect(() => {
-		// Pause all videos when the screen is not focused
+		// Pause video when the screen is not focused
 		if (!isFocused) {
-			Object.values(videoRefs.current).forEach(async ref => {
-				try {
-					await ref?.pauseAsync()
-				} catch (error) {
-					console.error('Error pausing video:', error)
-				}
-			})
+			player.pause()
 		}
-	}, [isFocused])
+	}, [isFocused, player])
 
 	// Add effect to handle playback when modal visibility changes
 	useEffect(() => {
@@ -427,34 +414,18 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 			// Set the clip to play when modal opens
 			setIsPlaying(prev => ({ ...prev, [selectedClip.id]: true }))
 			
-			// Small delay to ensure video ref is established
+			// Small delay to ensure player is ready
 			const timer = setTimeout(() => {
-				const videoRef = videoRefs.current[selectedClip.id]
-				if (videoRef) {
-					videoRef.playAsync().catch(error => {
-						console.error('Error auto-playing video in modal:', error)
-					})
-				}
+				player.play()
 			}, 300)
 			
 			return () => clearTimeout(timer)
 		} else if (!isModalVisible) {
-			// Pause all videos when modal closes
-			Object.entries(isPlaying).forEach(async ([clipId, playing]) => {
-				if (playing) {
-					const videoRef = videoRefs.current[parseInt(clipId)]
-					if (videoRef) {
-						try {
-							await videoRef.pauseAsync()
-							setIsPlaying(prev => ({ ...prev, [parseInt(clipId)]: false }))
-						} catch (error) {
-							console.error('Error pausing video on modal close:', error)
-						}
-					}
-				}
-			})
+			// Pause when modal closes
+			player.pause()
+			setIsPlaying({})
 		}
-	}, [isModalVisible, selectedClip])
+	}, [isModalVisible, selectedClip, player])
 
 	const handleClipPress = (clip: AutoClip) => {
 		setSelectedClip(clip)
@@ -504,17 +475,11 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 				activeOpacity={1}
 				onPress={() => handleVideoPress(item.id)}
 				style={{ flex: 1 }}>
-				<Video
-					ref={ref => (videoRefs.current[item.id] = ref)}
-					source={{ uri: item.video_url }}
+				<VideoView
+					player={player}
 					style={{ flex: 1 }}
-					resizeMode={ResizeMode.COVER}
-					shouldPlay={isPlaying[item.id]}
-					isLooping
-					isMuted={globalMute}
-					onPlaybackStatusUpdate={status =>
-						handlePlaybackStatusUpdate(status, item.id)
-					}
+					contentFit="cover"
+					nativeControls={false}
 				/>
 				{/* Play/Pause Icon Animation */}
 				{showPlayPauseIcon[item.id] && (

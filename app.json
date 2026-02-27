@@ -19,7 +19,6 @@
     },
     "androidStatusBar": {
       "backgroundColor": "#00000000",
-      "translucent": true,
       "barStyle": "light-content",
       "hidden": false
     },
@@ -209,7 +208,11 @@
           "autoLogAppEventsEnabled": true,
           "isAutoInitEnabled": true
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "@sentry/react-native",
+      "expo-web-browser",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

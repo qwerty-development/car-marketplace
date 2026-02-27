@@ -9,7 +9,7 @@
  * Note: This works with both react-query v3 and @tanstack/react-query v5
  */
 
-import { QueryClient } from 'react-query';
+import { QueryClient } from '@tanstack/react-query';
 
 // Aggressive cache configuration
 export const CACHE_TIMES = {
@@ -33,7 +33,7 @@ export const queryClient = new QueryClient({
       // Aggressive stale time - data is fresh for 24 hours
       staleTime: CACHE_TIMES.STALE_TIME,
       // Keep data in cache for 7 days
-      cacheTime: CACHE_TIMES.CACHE_TIME,
+      gcTime: CACHE_TIMES.CACHE_TIME,
       // Don't refetch on window focus (saves bandwidth)
       refetchOnWindowFocus: false,
       // Don't refetch on mount if data is fresh
@@ -78,13 +78,11 @@ export async function prefetchQuery<T>(
     staleTime?: number;
   }
 ) {
-  await queryClient.prefetchQuery(
+  await queryClient.prefetchQuery({
     queryKey,
     queryFn,
-    {
-      staleTime: options?.staleTime || CACHE_TIMES.STALE_TIME,
-    }
-  );
+    staleTime: options?.staleTime || CACHE_TIMES.STALE_TIME,
+  });
 }
 
 /**

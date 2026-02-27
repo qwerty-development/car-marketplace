@@ -19,7 +19,6 @@ const VideoControls = ({
   globalMute,
   onMutePress,
   onScrub,
-  videoRef,
   likes,
   isLiked,
   onLikePress,

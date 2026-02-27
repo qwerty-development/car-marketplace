@@ -12,7 +12,7 @@ import {
   StatusBar,
   BackHandler,
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useTheme } from '@/utils/ThemeContext';
 import VideoControls from '@/components/VideoControls';
 import { supabase } from '@/utils/supabase';
@@ -78,9 +78,40 @@ export default function SingleAutoClipPage() {
   const [isLiked, setIsLiked] = useState(false);
   
   // Refs
-  const videoRef = useRef<Video>(null);
   const viewTrackingRef = useRef<NodeJS.Timeout | null>(null);
   const hasTrackedView = useRef(false);
+
+  const player = useVideoPlayer(clip?.video_url ?? null, player => {
+    player.loop = true
+    player.muted = globalMute
+  })
+
+  // Track loading state
+  useEffect(() => {
+    const sub = player.addListener('statusChange', ({ status }) => {
+      setVideoLoading(status === 'loading')
+    })
+    return () => sub.remove()
+  }, [player])
+
+  // Poll position/duration
+  useEffect(() => {
+    if (!clip) return
+    const interval = setInterval(() => {
+      if (player.status === 'readyToPlay') {
+        setVideoProgress(player.currentTime)
+        setVideoDuration(player.duration)
+      }
+    }, 250)
+    return () => clearInterval(interval)
+  }, [clip, player])
+
+  // Auto-play when clip loads
+  useEffect(() => {
+    if (clip?.video_url && isPlaying) {
+      player.play()
+    }
+  }, [clip?.video_url])
 
   // Fetch clip data
   useEffect(() => {
@@ -161,35 +192,26 @@ export default function SingleAutoClipPage() {
         return true;
       };
 
-      BackHandler.addEventListener('hardwareBackPress', onBackPress);
-      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
     }, [])
   );
 
   // Video event handlers
-  const handlePlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setVideoProgress(status.positionMillis / 1000);
-      setVideoDuration(status.durationMillis / 1000);
-    }
-  };
-
   const handleVideoScrub = async (time: number) => {
     try {
-      await videoRef.current?.setPositionAsync(time * 1000);
+      player.currentTime = time;
     } catch (err) {
       console.error('Error scrubbing video:', err);
     }
   };
 
   const handleVideoPress = async () => {
-    if (!videoRef.current) return;
-    
     try {
       if (isPlaying) {
-        await videoRef.current.pauseAsync();
+        player.pause();
       } else {
-        await videoRef.current.playAsync();
+        player.play();
       }
       setIsPlaying(!isPlaying);
     } catch (err) {
@@ -201,7 +223,7 @@ export default function SingleAutoClipPage() {
     event.stopPropagation();
     const newMuteState = !globalMute;
     setGlobalMute(newMuteState);
-    await videoRef.current?.setIsMutedAsync(newMuteState);
+    player.muted = newMuteState;
   };
 
   const handleLikePress = async () => {
@@ -294,19 +316,11 @@ export default function SingleAutoClipPage() {
         onPress={handleVideoPress}
         style={styles.videoContainer}
       >
-        <Video
-          ref={videoRef}
-          source={{ uri: clip.video_url }}
+        <VideoView
+          player={player}
           style={styles.video}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={isPlaying}
-          isLooping
-          isMuted={globalMute}
-          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onLoadStart={() => setVideoLoading(true)}
-          onLoad={() => setVideoLoading(false)}
-          rate={1.0}
-          volume={1.0}
+          contentFit="cover"
+          nativeControls={false}
         />
 
         {videoLoading && (
@@ -330,7 +344,6 @@ export default function SingleAutoClipPage() {
           globalMute={globalMute}
           onMutePress={handleMutePress}
           onScrub={handleVideoScrub}
-          videoRef={{ current: { [clip.id]: videoRef } }}
           likes={clip.likes || 0}
           isLiked={isLiked}
           onLikePress={handleLikePress}

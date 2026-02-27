@@ -1,5 +1,5 @@
 // VideoPickerButton.tsx - Fixed version to prevent crashes
-import React, { useCallback, useState, useRef } from 'react'
+import React, { useCallback, useState, useRef, useEffect } from 'react'
 import {
 	TouchableOpacity,
 	Text,
@@ -10,13 +10,12 @@ import {
 } from 'react-native'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
-import { Video as ExpoVideo, AVPlaybackStatus } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { useTheme } from '@/utils/ThemeContext'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import { Video as CompressorVideo, getRealPath } from 'react-native-compressor'
-import type { Video as ExpoVideoType } from 'expo-av'
 
 interface VideoAsset {
 	uri: string
@@ -56,9 +55,12 @@ export default function VideoPickerButton({
 	const [isCompressing, setIsCompressing] = useState(false)
 	const [compressionProgress, setCompressionProgress] = useState(0)
 	const [isPlaying, setIsPlaying] = useState(false)
-	const [videoRef, setVideoRef] = useState<ExpoVideoType | null>(null)
 	const [videoError, setVideoError] = useState<string | null>(null)
-	const cleanupTimeoutRef = useRef<NodeJS.Timeout>()
+	const cleanupTimeoutRef = useRef<NodeJS.Timeout>(undefined)
+
+	const player = useVideoPlayer(videoUri ?? null, player => {
+		player.loop = true
+	})
 
 	// Enhanced video validation with better error handling
 	const validateVideo = useCallback(
@@ -84,7 +86,7 @@ export default function VideoPickerButton({
 				let actualFileSize = fileSize
 				if (!actualFileSize || actualFileSize <= 0) {
 					try {
-						const fileInfo = await FileSystem.getInfoAsync(uri, { size: true })
+						const fileInfo = await FileSystem.getInfoAsync(uri)
 						if (fileInfo.exists && 'size' in fileInfo) {
 							actualFileSize = fileInfo.size
 						}
@@ -145,7 +147,7 @@ export default function VideoPickerButton({
 				let knownOriginalSize = originalSize
 				if (knownOriginalSize <= 0) {
 					try {
-						const originalInfo = await FileSystem.getInfoAsync(uri, { size: true })
+						const originalInfo = await FileSystem.getInfoAsync(uri)
 						if (originalInfo.exists && typeof originalInfo.size === 'number') {
 							knownOriginalSize = originalInfo.size
 						}
@@ -215,7 +217,7 @@ export default function VideoPickerButton({
 				}
 				let compressedSize = originalSize
 				try {
-					const fileInfo = await FileSystem.getInfoAsync(normalizedUri, { size: true })
+					const fileInfo = await FileSystem.getInfoAsync(normalizedUri)
 					if (fileInfo.exists && typeof fileInfo.size === 'number') {
 						compressedSize = fileInfo.size
 					}
@@ -237,7 +239,7 @@ export default function VideoPickerButton({
 				console.error('Video compression failed, using original file:', error)
 				let fallbackSize = originalSize
 				try {
-					const fileInfo = await FileSystem.getInfoAsync(uri, { size: true })
+					const fileInfo = await FileSystem.getInfoAsync(uri)
 					if (fileInfo.exists && typeof fileInfo.size === 'number') {
 						fallbackSize = fileInfo.size
 					}
@@ -395,38 +397,26 @@ export default function VideoPickerButton({
 		}
 	}
 
-	// Enhanced playback status handler with error recovery
-	const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-		try {
-			if (!status.isLoaded) {
-				if ('error' in status && status.error) {
-					console.error('Video playback error:', status.error)
-					setVideoError('Video preview unavailable')
-				}
-				return
-			}
-			setIsPlaying(status.isPlaying ?? false)
-		} catch (error) {
-			console.error('Playback status error:', error)
-			setVideoError('Video preview error')
-		}
-	}, [])
+	// Sync playing state with player
+	useEffect(() => {
+		const sub = player.addListener('playingChange', ({ isPlaying: playing }) => {
+			setIsPlaying(playing)
+		})
+		return () => sub.remove()
+	}, [player])
 
 	// Enhanced video playback toggle with error handling
 	const togglePlayback = async () => {
-		if (!videoRef) return
-
 		try {
-			const status = await videoRef.getStatusAsync()
-			if (!status.isLoaded) {
+			if (player.status === 'error') {
 				setVideoError('Video not loaded')
 				return
 			}
 
 			if (isPlaying) {
-				await videoRef.pauseAsync()
+				player.pause()
 			} else {
-				await videoRef.playAsync()
+				player.play()
 			}
 
 			try {
@@ -440,23 +430,13 @@ export default function VideoPickerButton({
 		}
 	}
 
-	// Cleanup function
-	const cleanup = useCallback(() => {
-		try {
-			if (videoRef) {
-				videoRef.unloadAsync().catch(console.warn)
-			}
+	// Cleanup on unmount
+	useEffect(() => {
+		return () => {
 			setIsPlaying(false)
 			setVideoError(null)
-		} catch (error) {
-			console.warn('Cleanup error:', error)
 		}
-	}, [videoRef])
-
-	// Cleanup on unmount
-	React.useEffect(() => {
-		return cleanup
-	}, [cleanup])
+	}, [])
 
 	return (
 		<BlurView
@@ -525,18 +505,11 @@ export default function VideoPickerButton({
 				{/* Enhanced video preview with error boundaries */}
 				{videoUri && !videoError && (
 					<View className='mt-4 rounded-xl overflow-hidden relative'>
-						<ExpoVideo
-							ref={setVideoRef}
-							source={{ uri: videoUri }}
+						<VideoView
+							player={player}
 							className='w-full h-48 rounded-xl'
-							useNativeControls={false}
-							isLooping
-							onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-							shouldPlay={false} // Don't auto-play to save memory
-							onError={(error) => {
-								console.error('Video component error:', error)
-								setVideoError('Video preview unavailable')
-							}}
+							nativeControls={false}
+							contentFit="cover"
 						/>
 						<TouchableOpacity
 							onPress={togglePlayback}

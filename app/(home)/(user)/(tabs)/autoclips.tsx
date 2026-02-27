@@ -22,8 +22,8 @@ import {
   useWindowDimensions,
   Platform,
 } from "react-native";
-import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
-import * as FileSystem from "expo-file-system";
+import { useVideoPlayer, VideoView } from "expo-video";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   useSafeAreaInsets,
   SafeAreaView,
@@ -56,7 +56,6 @@ const VIDEO_PRELOAD_BUFFER = 2; // Number of videos to preload
 
 // FIXED: Add debounce constants
 const VIDEO_STATE_DEBOUNCE = 100; // ms
-const POSITION_SET_DELAY = 300; // ms
 
 // --- Interfaces ---
 interface Car {
@@ -263,10 +262,10 @@ interface ClipItemProps {
   setVideoLoading: React.Dispatch<React.SetStateAction<{ [key: number]: boolean }>>;
   renderVideoControls: (clipId: number) => JSX.Element;
   renderClipInfo: (item: AutoClip) => JSX.Element;
-  handlePlaybackStatusUpdate: (status: any, clipId: number) => void;
   allowPlayback: boolean;
   isDarkMode: boolean;
-  videoRefs: React.MutableRefObject<{ [key: number]: React.RefObject<Video> }>;
+  onPositionUpdate: (clipId: number, position: number, duration: number) => void;
+  playerActionsRef: React.MutableRefObject<{ [key: number]: { scrub: (time: number) => void; setMuted: (muted: boolean) => void } }>;
   videoQuality: 'high' | 'medium' | 'low';
   savedPosition?: number;
   height: number;
@@ -285,9 +284,9 @@ const ClipItem = React.memo<ClipItemProps>(({
   setVideoLoading,
   renderVideoControls,
   renderClipInfo,
-  handlePlaybackStatusUpdate,
   isDarkMode,
-  videoRefs,
+  onPositionUpdate,
+  playerActionsRef,
   allowPlayback,
   videoQuality,
   savedPosition = 0,
@@ -297,22 +296,16 @@ const ClipItem = React.memo<ClipItemProps>(({
   const [iconVisible, setIconVisible] = useState(false);
   const [iconType, setIconType] = useState<"play" | "pause">("play");
   const [videoUri, setVideoUri] = useState<string>('');
-  const [isBuffering, setIsBuffering] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const cacheManager = VideoCacheManager.getInstance();
-  
-  // FIXED: Better refs management
   const initialPositionSet = useRef(false);
-  const videoLoadedRef = useRef(false);
-  const positionSetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // FIXED: Memoized shouldPlay calculation to prevent unnecessary changes
+  // Memoized shouldPlay calculation
   const isCurrentlyVisible = index === currentVideoIndex;
   const shouldPlay = useMemo(() => {
     return isPlaying[item.id] === true && isCurrentlyVisible && allowPlayback;
   }, [isPlaying, item.id, isCurrentlyVisible, allowPlayback]);
   
-  // FIXED: Debounce shouldPlay to prevent rapid changes
   const debouncedShouldPlay = useDebounce(shouldPlay, VIDEO_STATE_DEBOUNCE);
   
   // Get the appropriate video URL based on quality
@@ -337,44 +330,95 @@ const ClipItem = React.memo<ClipItemProps>(({
       
       try {
         const cachedUri = await cacheManager.getCachedVideoUri(url, videoQuality);
-        
-        if (isMounted) {
-          setVideoUri(cachedUri);
-        }
+        if (isMounted) setVideoUri(cachedUri);
       } catch (err) {
         console.error('Error loading video:', err);
-        if (isMounted) {
-          setVideoUri(url); // Fallback to streaming
-        }
+        if (isMounted) setVideoUri(url);
       }
     };
     
-    // Only load if close to current index
     if (Math.abs(index - currentVideoIndex) <= VIDEO_PRELOAD_BUFFER) {
       loadVideo();
     }
     
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [item, videoQuality, index, currentVideoIndex]);
 
-  // FIXED: Reset refs when video changes or becomes invisible
+  // Create video player
+  const player = useVideoPlayer(videoUri || null, (p) => {
+    p.loop = true;
+    p.muted = globalMute;
+  });
+
+  // Register player actions for parent scrub/mute control
+  useEffect(() => {
+    if (player) {
+      playerActionsRef.current[item.id] = {
+        scrub: (time: number) => { player.currentTime = time; },
+        setMuted: (muted: boolean) => { player.muted = muted; },
+      };
+    }
+    return () => { delete playerActionsRef.current[item.id]; };
+  }, [player, item.id]);
+
+  // Control play/pause based on shouldPlay
+  useEffect(() => {
+    if (!player) return;
+    try {
+      if (debouncedShouldPlay) {
+        if (!initialPositionSet.current && savedPosition > 0) {
+          player.currentTime = savedPosition;
+          initialPositionSet.current = true;
+        }
+        player.play();
+      } else {
+        player.pause();
+      }
+    } catch (err) {
+      console.error('Error controlling playback:', err);
+    }
+  }, [debouncedShouldPlay, player]);
+
+  // Sync mute state
+  useEffect(() => {
+    if (player) player.muted = globalMute;
+  }, [globalMute, player]);
+
+  // Position polling - only for visible item
+  useEffect(() => {
+    if (!isCurrentlyVisible || !player) return;
+    const interval = setInterval(() => {
+      try {
+        const pos = player.currentTime;
+        const dur = player.duration;
+        if (pos >= 0 && dur > 0) {
+          onPositionUpdate(item.id, pos, dur);
+        }
+      } catch {}
+    }, 250);
+    return () => clearInterval(interval);
+  }, [isCurrentlyVisible, player, item.id, onPositionUpdate]);
+
+  // Track loading state via player status
+  useEffect(() => {
+    if (!player) return;
+    const sub = player.addListener('statusChange', (event) => {
+      if (event.status === 'readyToPlay') {
+        setVideoLoading(prev => ({ ...prev, [item.id]: false }));
+        setHasLoaded(true);
+      } else if (event.status === 'loading') {
+        if (!hasLoaded) {
+          setVideoLoading(prev => ({ ...prev, [item.id]: true }));
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [player, item.id, hasLoaded]);
+
+  // Reset position tracking on item change
   useEffect(() => {
     initialPositionSet.current = false;
-    videoLoadedRef.current = false;
-    
-    // Clear position timeout if video changes
-    if (positionSetTimeoutRef.current) {
-      clearTimeout(positionSetTimeoutRef.current);
-      positionSetTimeoutRef.current = null;
-    }
   }, [item.id, isCurrentlyVisible]);
-
-  // Ensure ref exists
-  if (!videoRefs.current[item.id]) {
-    videoRefs.current[item.id] = React.createRef();
-  }
 
   const handlePress = () => {
     handleVideoPress(item.id);
@@ -382,59 +426,6 @@ const ClipItem = React.memo<ClipItemProps>(({
     setIconType(isPlaying[item.id] ? "play" : "pause");
     setTimeout(() => setIconVisible(false), 500);
   };
-
-  // FIXED: Improved status update handler
-  const handleStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setIsBuffering(status.isBuffering);
-      
-      // FIXED: Only set position when video is loaded, should be playing, and position hasn't been set yet
-      if (!initialPositionSet.current && 
-          savedPosition > 0 && 
-          status.durationMillis && 
-          debouncedShouldPlay && 
-          videoLoadedRef.current) {
-        
-        // Clear any existing timeout
-        if (positionSetTimeoutRef.current) {
-          clearTimeout(positionSetTimeoutRef.current);
-        }
-        
-        // Set position with delay to ensure video is ready
-        positionSetTimeoutRef.current = setTimeout(() => {
-          const videoRef = videoRefs.current[item.id]?.current;
-          if (videoRef && !initialPositionSet.current) {
-            videoRef.setPositionAsync(savedPosition * 1000)
-              .then(() => {
-                initialPositionSet.current = true;
-              })
-              .catch(console.error);
-          }
-        }, POSITION_SET_DELAY);
-      }
-    }
-    
-    // Always call the parent handler
-    handlePlaybackStatusUpdate(status, item.id);
-  }, [handlePlaybackStatusUpdate, item.id, savedPosition, debouncedShouldPlay]);
-
-  // FIXED: Simplified load handler
-  const handleLoad = useCallback(() => {
-    setVideoLoading(prev => ({ ...prev, [item.id]: false }));
-    setHasLoaded(true);
-    videoLoadedRef.current = true;
-    
-    // No manual playback control - let shouldPlay handle everything
-  }, [item.id]);
-
-  // FIXED: Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (positionSetTimeoutRef.current) {
-        clearTimeout(positionSetTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return (
     <View style={{ height, width }}>
@@ -445,30 +436,11 @@ const ClipItem = React.memo<ClipItemProps>(({
         style={{ flex: 1 }}
       >
         {videoUri ? (
-          <Video
-            ref={videoRefs.current[item.id]}
-            source={{ uri: videoUri }}
+          <VideoView
+            player={player}
             style={{ flex: 1 }}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay={debouncedShouldPlay}
-            isLooping
-            isMuted={globalMute}
-            onPlaybackStatusUpdate={handleStatusUpdate}
-            progressUpdateIntervalMillis={250}
-            onLoadStart={() => {
-              if (!hasLoaded) {
-                setVideoLoading(prev => ({ ...prev, [item.id]: true }));
-              }
-            }}
-            onLoad={handleLoad}
-            onError={(error) => {
-              console.error("Video error:", error);
-              setVideoLoading(prev => ({ ...prev, [item.id]: false }));
-            }}
-            rate={1.0}
-            volume={1.0}
-            shouldCorrectPitch={true}
-            useNativeControls={false}
+            contentFit="cover"
+            nativeControls={false}
           />
         ) : (
           <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -590,7 +562,7 @@ export default function AutoClips() {
   
   // Refs
   const flatListRef = useRef<FlatList>(null);
-  const videoRefs = useRef<{ [key: number]: React.RefObject<Video> }>({});
+  const playerActionsRef = useRef<{ [key: number]: { scrub: (time: number) => void; setMuted: (muted: boolean) => void } }>({});
   const viewTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
   const lastTap = useRef<{ [key: number]: number }>({});
   const viewedClips = useRef<Set<number>>(new Set());
@@ -782,23 +754,10 @@ export default function AutoClips() {
     setRefreshing(false);
   }, [fetchData]);
 
-  // Video playback handlers
-  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus, clipId: number) => {
-    if (status.isLoaded) {
-      // Update position
-      setVideoPositions(prev => ({
-        ...prev,
-        [clipId]: status.positionMillis / 1000,
-      }));
-      
-      // Update duration
-      if (status.durationMillis) {
-        setVideoDurations(prev => ({
-          ...prev,
-          [clipId]: status.durationMillis / 1000,
-        }));
-      }
-    }
+  // Video position update from ClipItem polling
+  const handlePositionUpdate = useCallback((clipId: number, position: number, duration: number) => {
+    setVideoPositions(prev => ({ ...prev, [clipId]: position }));
+    setVideoDurations(prev => ({ ...prev, [clipId]: duration }));
   }, []);
 
   // FIXED: Debounced video press handler
@@ -860,16 +819,14 @@ export default function AutoClips() {
     }
   }, [user]);
 
-  const handleMutePress = useCallback(async (clipId: number, event: any) => {
+  const handleMutePress = useCallback((clipId: number, event: any) => {
     event.stopPropagation();
     const newMuteState = !globalMute;
     setGlobalMute(newMuteState);
     
-    // Apply to all videos
-    await Promise.all(
-      Object.values(videoRefs.current).map(ref =>
-        ref?.current?.setIsMutedAsync(newMuteState).catch(() => {})
-      )
+    // Apply to all players
+    Object.values(playerActionsRef.current).forEach(actions =>
+      actions.setMuted(newMuteState)
     );
   }, [globalMute]);
 
@@ -887,16 +844,12 @@ export default function AutoClips() {
     lastTap.current[clipId] = now;
   }, [autoClips, handleLikePress, user?.id]);
 
-  const handleVideoScrub = useCallback(async (clipId: number, time: number) => {
-    const videoRef = videoRefs.current[clipId]?.current;
-    if (videoRef) {
-      try {
-        await videoRef.setPositionAsync(time * 1000);
-        // Update position state immediately for smooth UI
-        setVideoPositions(prev => ({ ...prev, [clipId]: time }));
-      } catch (err) {
-        console.error("Error scrubbing video:", err);
-      }
+  const handleVideoScrub = useCallback((clipId: number, time: number) => {
+    try {
+      playerActionsRef.current[clipId]?.scrub(time);
+      setVideoPositions(prev => ({ ...prev, [clipId]: time }));
+    } catch (err) {
+      console.error("Error scrubbing video:", err);
     }
   }, []);
 
@@ -914,7 +867,6 @@ export default function AutoClips() {
         globalMute={globalMute}
         onMutePress={handleMutePress}
         onScrub={handleVideoScrub}
-        videoRef={videoRefs}
         likes={clip?.likes || 0}
         isLiked={isLiked}
         onLikePress={handleLikePress}
@@ -1188,9 +1140,9 @@ export default function AutoClips() {
             setVideoLoading={setVideoLoading}
             renderVideoControls={renderVideoControls}
             renderClipInfo={renderClipInfo}
-            handlePlaybackStatusUpdate={handlePlaybackStatusUpdate}
             isDarkMode={isDarkMode}
-            videoRefs={videoRefs}
+            onPositionUpdate={handlePositionUpdate}
+            playerActionsRef={playerActionsRef}
             allowPlayback={allowVideoPlayback}
             videoQuality={videoQuality}
             savedPosition={videoPositions[item.id] || 0}
