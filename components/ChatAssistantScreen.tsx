@@ -16,7 +16,7 @@ import {
   AppStateStatus,
   LayoutAnimation,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { ChatbotService } from '@/services/ChatbotService';
 import { useCarDetails } from '@/hooks/useCarDetails';
@@ -440,7 +440,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
         {!isUser && (
           <View className="mr-3 mb-1">
             <View className="w-8 h-8 bg-orange-500 rounded-full items-center justify-center shadow-sm">
-              <MaterialCommunityIcons name="robot-outline" size={16} color="white" />
+              <FontAwesome5 name="robot" size={14} color="white" />
             </View>
           </View>
         )}
@@ -560,14 +560,14 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
           </TouchableOpacity>
 
           <View className="w-10 h-10 bg-orange-500 rounded-full items-center justify-center mr-3 shadow-lg">
-            <MaterialCommunityIcons name="robot-outline" size={20} color="white" />
+            <FontAwesome5 name="robot" size={18} color="white" />
           </View>
           <View className="flex-1 mr-3">
             <Text className={`text-lg font-bold ${isDarkMode ? 'text-orange-400' : 'text-red-600'}`}>
-              Car Finder AI
+              Fleet AI
             </Text>
             <Text className={`text-sm ${isDarkMode ? 'text-neutral-400' : 'text-neutral-500'}`}>
-              Your intelligent car assistant
+              Your AI car assistant
             </Text>
           </View>
           <TouchableOpacity
