@@ -230,14 +230,8 @@ export const ModelDropdown: React.FC<ModelDropdownProps> = React.memo(({
     
     // ANIMATE MODAL ENTRANCE
     modalOpacity.value = withTiming(1, { duration: 200 });
-    modalScale.value = withSpring(1, { 
-      damping: 15, 
-      stiffness: 100 
-    });
-    slideY.value = withSpring(0, { 
-      damping: 20, 
-      stiffness: 90 
-    });
+    modalScale.value = withTiming(1, { duration: 200 });
+    slideY.value = withTiming(0, { duration: 250 });
 
     // FOCUS SEARCH INPUT AFTER ANIMATION
     setTimeout(() => {

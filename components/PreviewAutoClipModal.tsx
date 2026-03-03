@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, Alert, Modal, StyleSheet, Dimensions, StatusBar } from 'react-native'
 import {
 	GestureHandlerRootView,
-	PanGestureHandler,
-	PanGestureHandlerGestureEvent
+	Gesture,
+	GestureDetector
 } from 'react-native-gesture-handler'
 import Animated, {
-	useAnimatedGestureHandler,
 	useAnimatedStyle,
 	withSpring,
 	runOnJS,
@@ -14,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { LinearGradient } from 'expo-linear-gradient'
 import { FontAwesome } from '@expo/vector-icons'
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { useTheme } from '@/utils/ThemeContext'
 import { supabase } from '@/utils/supabase'
 import EditAutoClipModal from './EditAutoClipModal'
@@ -55,12 +54,15 @@ export default function PreviewAutoClipModal({
 	onEdit
 }: PreviewAutoClipModalProps) {
 	const { isDarkMode } = useTheme()
-	const [videoRef, setVideoRef] = useState<Video | null>(null)
 	const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
 	const [isStatusLoading, setIsStatusLoading] = useState(false)
 	const [currentClip, setCurrentClip] = useState<AutoClip | null>(null)
 	const [showEditModal, setShowEditModal] = useState(false)
 	const translateY = useSharedValue(0)
+
+	const player = useVideoPlayer(clip?.video_url ?? null, player => {
+		player.loop = true
+	})
 
 	const styles = getStyles(isDarkMode)
 
@@ -72,34 +74,29 @@ export default function PreviewAutoClipModal({
 	}, [clip])
 
 	useEffect(() => {
-		if (!isVisible && videoRef) {
-			videoRef.stopAsync()
+		if (!isVisible) {
+			player.pause()
+		} else if (isVisible && clip?.video_url) {
+			player.play()
 		}
-	}, [isVisible, videoRef])
+	}, [isVisible, clip?.video_url, player])
 
-
-	
-	const panGestureEvent = useAnimatedGestureHandler<PanGestureHandlerGestureEvent>({
-		onActive: (event) => {
+	const panGesture = Gesture.Pan()
+		.onUpdate(event => {
 			if (event.translationY > 0) {
 				translateY.value = event.translationY
 			}
-		},
-		onEnd: (event) => {
+		})
+		.onEnd(event => {
 			if (event.translationY > 100) {
 				runOnJS(onClose)()
 			}
 			translateY.value = withSpring(0)
-		}
-	})
+		})
 
 	const animatedStyle = useAnimatedStyle(() => ({
 		transform: [{ translateY: translateY.value }]
 	}))
-
-	const handleVideoRef = (ref: Video | null) => {
-		setVideoRef(ref)
-	}
 
 
 	if (!currentClip) return null
@@ -125,15 +122,11 @@ export default function PreviewAutoClipModal({
 
 	const renderPreviewMode = () => (
 		<>
-			<Video
-				ref={handleVideoRef}
-				source={{ uri: currentClip.video_url }}
+			<VideoView
+				player={player}
 				style={styles.video}
-				resizeMode={ResizeMode.COVER}
-				useNativeControls
-				isLooping
-				shouldPlay={isVisible}
-
+				contentFit="cover"
+				nativeControls
 			/>
 
 			<TouchableOpacity
@@ -227,12 +220,12 @@ export default function PreviewAutoClipModal({
 				<LinearGradient
 					colors={isDarkMode ? ['#000000', '#1A1A1A'] : ['#FFFFFF', '#F0F0F0']}
 					style={styles.container}>
-					<PanGestureHandler onGestureEvent={panGestureEvent}>
+					<GestureDetector gesture={panGesture}>
 						<Animated.View
 							style={[styles.container, animatedStyle, isDarkMode ? styles.darkBackground : styles.lightBackground]}>
 							{renderPreviewMode()}
 						</Animated.View>
-					</PanGestureHandler>
+					</GestureDetector>
 				</LinearGradient>
 			</GestureHandlerRootView>
 

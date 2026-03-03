@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from "@/utils/AuthContext";
 import * as SplashScreen from "expo-splash-screen";
 import { FavoritesProvider } from "@/utils/useFavorites";
 import { ThemeProvider, useTheme } from "@/utils/ThemeContext";
-import { QueryClientProvider } from "react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/utils/queryClient";
 import {
   LogBox,

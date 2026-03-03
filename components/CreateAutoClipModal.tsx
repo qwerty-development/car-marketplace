@@ -19,10 +19,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import VideoPickerButton from './VideoPickerComponent'
 import CarSelector from './CarSelector'
 import { useTranslation } from 'react-i18next'
-import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 
 import Animated, {
 	FadeIn,
@@ -267,11 +267,36 @@ const VideoPreview = React.memo(
 		onPress,
 		isDarkMode,
 		isPlaying,
-		onPlaybackStatusUpdate,
-		videoRef
+	}: {
+		videoUri: string
+		onPress: () => void
+		isDarkMode: boolean
+		isPlaying: boolean
 	}) => {
 		const scale = useSharedValue(1)
 		const [previewError, setPreviewError] = useState<string | null>(null)
+
+		const player = useVideoPlayer(videoUri, player => {
+			player.loop = true
+			player.muted = true
+		})
+
+		useEffect(() => {
+			if (isPlaying) {
+				player.play()
+			} else {
+				player.pause()
+			}
+		}, [isPlaying, player])
+
+		useEffect(() => {
+			const sub = player.addListener('statusChange', ({ status }) => {
+				if (status === 'error') {
+					setPreviewError('Preview unavailable')
+				}
+			})
+			return () => sub.remove()
+		}, [player])
 
 		const handlePress = useCallback(() => {
 			try {
@@ -282,11 +307,6 @@ const VideoPreview = React.memo(
 				console.error('Video preview press error:', pressError)
 			}
 		}, [onPress])
-
-		const handleVideoError = useCallback((error: any) => {
-			console.error('Video preview error:', error)
-			setPreviewError('Preview unavailable')
-		}, [])
 
 		const animatedStyle = useAnimatedStyle(() => ({
 			transform: [{ scale: scale.value }]
@@ -321,17 +341,11 @@ const VideoPreview = React.memo(
 					tint={isDarkMode ? 'dark' : 'light'}
 					className='rounded-2xl overflow-hidden'>
 					<TouchableOpacity onPress={handlePress} className='relative'>
-						<Video
-							ref={videoRef}
-							source={{ uri: videoUri }}
+						<VideoView
+							player={player}
 							style={{ width: '100%', height: 200 }}
-							resizeMode={ResizeMode.COVER}
-							isLooping
-							onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-							shouldPlay={isPlaying}
-							onError={handleVideoError}
-							useNativeControls={false}
-							isMuted={true}
+							contentFit="cover"
+							nativeControls={false}
 						/>
 
 						<LinearGradient
@@ -421,7 +435,6 @@ export default function CreateAutoClipModal({
 	const [uploadProgress, setUploadProgress] = useState(0)
 	const [cars, setCars] = useState([])
 	const [isVideoPlaying, setIsVideoPlaying] = useState(false)
-	const videoRef = useRef(null)
 	const modalScale = useSharedValue(1)
 
 	// Animation setup for modal entrance
@@ -450,9 +463,6 @@ export default function CreateAutoClipModal({
 		})
 		setUploadProgress(0)
 		setCompressionProgress(0)
-		if (videoRef.current) {
-			videoRef.current.unloadAsync()
-		}
 		setIsVideoPlaying(false)
 	}, [])
 
@@ -768,7 +778,7 @@ const fetchCars = async () => {
 
 			// Verify file exists and get size
 			console.log('Reading video file from:', fileUri)
-			const fileInfo = await FileSystem.getInfoAsync(fileUri, { size: true })
+			const fileInfo = await FileSystem.getInfoAsync(fileUri)
 			
 			if (!fileInfo.exists) {
 				throw new Error('Video file not found')
@@ -988,11 +998,6 @@ const fetchCars = async () => {
 											onPress={() => setIsVideoPlaying(!isVideoPlaying)}
 											isDarkMode={isDarkMode}
 											isPlaying={isVideoPlaying}
-											onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-												if (!status.isLoaded) return
-												setIsVideoPlaying(status.isPlaying)
-											}}
-											videoRef={videoRef}
 										/>
 									) : (
 										<VideoPickerButton

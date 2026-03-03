@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { ChatService } from '@/services/ChatService';
 import { ConversationSummary } from '@/types/chat';
@@ -32,17 +32,15 @@ export function useConversations({
 
   const isEnabled = enabled && !!userId;
 
-  const result = useQuery<ConversationSummary[]>(
-    queryKey(userId),
-    fetcher,
-    {
-      enabled: isEnabled,
-      staleTime: 0, // Always consider data stale
-      cacheTime: 0, // Don't cache - always fetch fresh
-      refetchOnMount: 'always', // Always refetch when component mounts
-      refetchOnWindowFocus: true, // Refetch when window gains focus
-    }
-  );
+  const result = useQuery<ConversationSummary[]>({
+    queryKey: queryKey(userId),
+    queryFn: fetcher,
+    enabled: isEnabled,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
 
   useEffect(() => {
     if (!isEnabled) return;
@@ -63,7 +61,7 @@ export function useConversations({
             (payload.eventType === 'UPDATE' && 
              payload.new?.last_message_preview !== payload.old?.last_message_preview)) {
           console.log('[useConversations] Meaningful change detected, invalidating:', payload.eventType);
-          queryClient.invalidateQueries(queryKey(userId));
+          queryClient.invalidateQueries({ queryKey: queryKey(userId) });
         }
       }, 300);
     };

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
@@ -45,13 +45,11 @@ export default function ConversationDetailScreen() {
     data: conversation,
     isLoading: isConversationLoading,
     error: conversationError,
-  } = useQuery(
-    ['conversation', conversationIdParam],
-    () => ChatService.fetchConversationById(conversationIdParam!),
-    {
-      enabled: !!conversationIdParam,
-    }
-  );
+  } = useQuery({
+    queryKey: ['conversation', conversationIdParam],
+    queryFn: () => ChatService.fetchConversationById(conversationIdParam!),
+    enabled: !!conversationIdParam,
+  });
 
   const {
     messages,
@@ -298,7 +296,7 @@ export default function ConversationDetailScreen() {
             />
             <MessageComposer
               onSend={handleSendMessage}
-              isSending={sendMessageMutation.isLoading}
+              isSending={sendMessageMutation.isPending}
               isDarkMode={isDarkMode}
               placeholder={t('chat.message_placeholder', 'Type a message…')}
             />

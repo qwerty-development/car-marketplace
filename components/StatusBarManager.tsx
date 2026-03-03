@@ -15,11 +15,9 @@ export default function StatusBarManager() {
   useEffect(() => {
     // Set Android-specific status bar properties
     if (Platform.OS === 'android') {
-      // Set background color based on theme
-      StatusBar.setBackgroundColor(
-        effectiveDarkMode ? '#000000' : '#FFFFFF',
-        true
-      )
+      // Transparent background for edge-to-edge mode (SDK 54+)
+      StatusBar.setBackgroundColor('transparent', true)
+      StatusBar.setTranslucent(true)
       
       // Set status bar text/icon color based on theme
       StatusBar.setBarStyle(
@@ -32,8 +30,8 @@ export default function StatusBarManager() {
   return (
     <StatusBar
       barStyle={effectiveDarkMode ? 'light-content' : 'dark-content'}
-      backgroundColor={effectiveDarkMode ? '#000000' : '#FFFFFF'}
-      translucent={false}
+      backgroundColor="transparent"
+      translucent={true}
     />
   )
 }

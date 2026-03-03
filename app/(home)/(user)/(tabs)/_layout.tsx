@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { View, Platform, Text, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FloatingChatFab from '@/components/FloatingChatFab';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/utils/AuthContext';
@@ -14,6 +15,7 @@ export default function TabLayout() {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
   const { isGuest } = useGuestUser();
+  const insets = useSafeAreaInsets();
 
   const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const { data: conversations } = useConversations({
@@ -37,8 +39,14 @@ export default function TabLayout() {
           tabBarStyle: {
             position: 'absolute',
             backgroundColor: isDarkMode ? '#000' : 'rgba(255, 255, 255, 0.98)',
-            height: Platform.OS === 'ios' ? 90 : 65, // Increased height to accommodate labels
-            paddingBottom: Platform.OS === 'ios' ? 15 : 5, // Lower bottom padding on Android
+            // Dynamically size the bar so it always clears the system nav bar
+            // (gesture bar, 3-button nav, home indicator) on every device.
+            height: Platform.OS === 'ios'
+              ? Math.max(90, 65 + insets.bottom)
+              : 65 + insets.bottom,
+            paddingBottom: Platform.OS === 'ios'
+              ? Math.max(insets.bottom, 15)
+              : insets.bottom + 5,
             paddingTop: 5,
             borderTopWidth: isDarkMode ? 1 : 0,
             borderTopColor: isDarkMode ? '#333' : 'transparent',

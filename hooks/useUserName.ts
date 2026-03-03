@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 
 /**
@@ -6,25 +6,22 @@ import { supabase } from '@/utils/supabase';
  * Uses react-query for caching and avoids RLS issues on public.users.
  */
 export function useUserName(userId?: string, enabled: boolean = !!userId) {
-  return useQuery(
-    ['user-name', userId],
-    async () => {
+  return useQuery({
+    queryKey: ['user-name', userId],
+    queryFn: async () => {
       if (!userId) return null as string | null;
       const { data, error } = await supabase.rpc('get_user_name_by_id', {
         user_id_input: userId,
       });
       if (error) {
-        // Swallow errors to keep UI resilient; caller can fallback
         console.warn('[useUserName] RPC failed', { userId, error });
         return null as string | null;
       }
       return (data as string) || null;
     },
-    {
-      enabled,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 30 * 60 * 1000, // 30 minutes
-    }
-  );
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 }
 

@@ -15,7 +15,7 @@ import {
 import { supabase } from '@/utils/supabase'
 import { BlurView } from 'expo-blur'
 import { useTheme } from '@/utils/ThemeContext'
-import { Video } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import { Ionicons } from '@expo/vector-icons'
 
 interface Car {
@@ -64,6 +64,11 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 	const [dealershipCars, setDealershipCars] = useState<Car[]>([])
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [loadingCars, setLoadingCars] = useState(false)
+
+	const player = useVideoPlayer(clip?.video_url ?? null, player => {
+		player.muted = true
+		player.loop = false
+	})
 
 	useEffect(() => {
 		if (clip) {
@@ -307,11 +312,11 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 								{/* Video Preview */}
 								{clip?.video_url && (
 									<View className='mb-6 rounded-xl overflow-hidden shadow-lg'>
-										<Video
-											source={{ uri: clip.video_url }}
+										<VideoView
+											player={player}
 											style={{ height: 200 }}
-											shouldPlay={false}
-											isMuted={true}
+											nativeControls={false}
+											contentFit="cover"
 										/>
 									</View>
 								)}
@@ -350,7 +355,6 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 										Description
 									</Text>
 									<TextInput
-                   textAlignVertical="center"
 										value={description}
 										onChangeText={setDescription}
 										placeholder='Enter description'

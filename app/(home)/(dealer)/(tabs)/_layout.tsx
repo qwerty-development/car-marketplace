@@ -222,14 +222,16 @@ export default function TabsLayout() {
   const { t } = useTranslation()
   const isRTL = language === 'ar'
 
-  // Calculate tab bar height based on platform and safe area
+  // Calculate tab bar height based on platform and safe area.
+  // On Android SDK 54+, edge-to-edge is enabled by default, so insets.bottom
+  // reflects the real gesture/button bar height and must be added.
   const tabBarHeight = Platform.OS === 'ios'
-    ? 100 + (insets.bottom > 0 ? 0 : 15) // Increased height to accommodate labels
-    : 85
+    ? Math.max(100, 75 + insets.bottom)
+    : 65 + insets.bottom
 
   const paddingBottom = Platform.OS === 'ios'
     ? Math.max(insets.bottom, 25)
-    : 15
+    : insets.bottom + 5
 
   return (
     <Tabs

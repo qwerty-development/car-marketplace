@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import ConversationListItem from '@/components/chat/ConversationListItem';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/utils/supabase';
 import { ConversationSummary } from '@/types/chat';
 
@@ -26,9 +26,9 @@ export default function DealerConversationsScreen() {
   const queryClient = useQueryClient();
 
   // Fetch dealership ID for current user
-  const { data: dealership } = useQuery(
-    ['dealership', user?.id],
-    async () => {
+  const { data: dealership } = useQuery({
+    queryKey: ['dealership', user?.id],
+    queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('dealerships')
@@ -39,10 +39,8 @@ export default function DealerConversationsScreen() {
       if (error) throw error;
       return data;
     },
-    {
-      enabled: !!user?.id && profile?.role === 'dealer',
-    }
-  );
+    enabled: !!user?.id && profile?.role === 'dealer',
+  });
 
   // Fetch dealer conversations
   const {
@@ -50,9 +48,9 @@ export default function DealerConversationsScreen() {
     isLoading,
     refetch,
     isRefetching,
-  } = useQuery(
-    ['dealer-conversations', dealership?.id],
-    async () => {
+  } = useQuery({
+    queryKey: ['dealer-conversations', dealership?.id],
+    queryFn: async () => {
       if (!dealership?.id) return [];
       
       const { data, error } = await supabase
@@ -137,12 +135,10 @@ export default function DealerConversationsScreen() {
         numberPlate: Array.isArray(conv.numberPlate) ? conv.numberPlate[0] : conv.numberPlate,
       })) as ConversationSummary[];
     },
-    {
-      enabled: !!dealership?.id,
-      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-      cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    }
-  );
+    enabled: !!dealership?.id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
 
   // Set up Realtime subscription for live updates
   useEffect(() => {
@@ -161,7 +157,7 @@ export default function DealerConversationsScreen() {
         },
         () => {
           // Invalidate query to refetch when conversations change
-          queryClient.invalidateQueries(['dealer-conversations', dealership.id]);
+          queryClient.invalidateQueries({ queryKey: ['dealer-conversations', dealership.id] });
         }
       )
       .subscribe();

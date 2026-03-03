@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -42,6 +42,7 @@ export default function CompleteProfileScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [verifyingPhone, setVerifyingPhone] = useState('');
+  const hasInitializedRef = useRef(false);
 
   // Dealership specific state
   const [logo, setLogo] = useState<string | null>(null);
@@ -65,6 +66,25 @@ export default function CompleteProfileScreen() {
   }, [handleImageUpload]);
 
   const isPhoneSignUp = user?.app_metadata?.provider === 'phone';
+
+  // Strip known calling code prefix from a full international phone number
+  // so the PhoneInput component receives only the local number.
+  // e.g. "+96176543210" → "76543210", "+1234567890" → "234567890"
+  const stripCallingCode = useCallback((fullPhone: string): string => {
+    if (!fullPhone) return '';
+    // Remove the leading '+'
+    let digits = fullPhone.replace(/^\+/, '');
+    // Common calling codes sorted longest-first to match correctly
+    const knownCodes = ['971', '966', '961', '974', '973', '968', '965', '962', '964', '963',
+                        '44', '33', '49', '39', '34', '31', '46', '47', '45',
+                        '1', '7', '86', '91', '81', '82', '61', '64', '55', '52', '20', '27'];
+    for (const code of knownCodes) {
+      if (digits.startsWith(code)) {
+        return digits.slice(code.length);
+      }
+    }
+    return digits;
+  }, []);
 
   const isInputVerified = React.useMemo(() => {
     if (isPhoneSignUp) return true;
@@ -102,26 +122,42 @@ export default function CompleteProfileScreen() {
     general: '',
   });
 
-  // Pre-fill data
+  // Pre-fill data — only on first load to prevent USER_UPDATED events from
+  // overwriting values the user has already typed (critical for Apple sign-in
+  // where user_metadata.name is empty on subsequent logins).
   useEffect(() => {
-    if (user) {
-      setName(profile?.name || user.user_metadata?.name || '');
-      const currentEmail = profile?.email || user.email || '';
-      setEmail(currentEmail);
-      setOriginalEmail(currentEmail || null);
-      setPhone(profile?.phone_number || user.phone || '');
-      
-      if (profile?.role === 'dealer' && dealership) {
-        setLogo(dealership.logo);
-        setLocationName(dealership.location || '');
-        
-        // Convert to numbers and treat "0" or 0 as null to force re-selection if needed
-        const lat = dealership.latitude ? parseFloat(String(dealership.latitude)) : null;
-        const lng = dealership.longitude ? parseFloat(String(dealership.longitude)) : null;
-        
-        setLatitude(lat && lat !== 0 ? lat : null);
-        setLongitude(lng && lng !== 0 ? lng : null);
-      }
+    if (!user || hasInitializedRef.current) return;
+
+    hasInitializedRef.current = true;
+
+    setName(profile?.name || user.user_metadata?.name || '');
+    const currentEmail = profile?.email || user.email || '';
+    setEmail(currentEmail);
+    setOriginalEmail(currentEmail || null);
+
+    // If phone is already verified, don't populate the editable field — just
+    // mark it as verified so the UI shows "Phone Verified" immediately.
+    const existingPhone = user.phone || '';
+    if (user.phone_confirmed_at && existingPhone) {
+      setVerifiedPhone(existingPhone);
+      // Extract just the local number (strip calling code) so the PhoneInput
+      // component doesn't double-prefix it with the country code.
+      const localNumber = stripCallingCode(existingPhone);
+      setPhone(localNumber);
+    }
+    // No else — if phone isn't verified, leave phone field empty for the user
+    // to enter fresh. This avoids loading a partially-formatted number from
+    // the database that causes the 961-961 double-prefix bug.
+
+    if (profile?.role === 'dealer' && dealership) {
+      setLogo(dealership.logo);
+      setLocationName(dealership.location || '');
+
+      const lat = dealership.latitude ? parseFloat(String(dealership.latitude)) : null;
+      const lng = dealership.longitude ? parseFloat(String(dealership.longitude)) : null;
+
+      setLatitude(lat && lat !== 0 ? lat : null);
+      setLongitude(lng && lng !== 0 ? lng : null);
     }
   }, [user, profile, dealership]);
 
@@ -156,7 +192,13 @@ export default function CompleteProfileScreen() {
 
     try {
       const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
-      const cleanedPhone = phone.replace(/\D/g, '');
+      let cleanedPhone = phone.replace(/\D/g, '');
+      // Guard against double-prefix: if the cleaned phone already starts
+      // with the calling code (e.g. user.phone was loaded as "96176543210"),
+      // strip it to avoid producing "+96196176543210".
+      if (callingCode && cleanedPhone.startsWith(callingCode)) {
+        cleanedPhone = cleanedPhone.slice(callingCode.length);
+      }
       const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
 
       console.log('[CompleteProfile] Sending OTP to:', fullPhoneNumber);
