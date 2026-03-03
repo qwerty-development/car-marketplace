@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Platform, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { usePathname, useSegments } from 'expo-router';
@@ -14,6 +14,13 @@ export default function FloatingChatFab() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const pathname = usePathname();
   const segments = useSegments();
+  const insets = useSafeAreaInsets();
+
+  // FAB must float above the tab bar. Tab bar height = 65 + insets.bottom (Android)
+  // or Math.max(90, 65 + insets.bottom) (iOS). Add 12px breathing room on top.
+  const bottomOffset = Platform.OS === 'ios'
+    ? Math.max(90, 65 + insets.bottom) + 12
+    : 65 + insets.bottom + 12;
 
   // Since we're now only in user tabs, we only need to check for autoclips
   useFocusEffect(
@@ -37,9 +44,6 @@ export default function FloatingChatFab() {
     console.log('Hiding chat button for autoclips page');
     return null;
   }
-
-  // Dimensions: adjust vertical offset so the FAB floats above the tab bar
-  const bottomOffset = Platform.OS === 'ios' ? 100 : 70;
 
   const handleOpenModal = () => {
     setIsOpen(true);
