@@ -488,7 +488,9 @@
       "enter_sold_price": "Enter sold price",
       "date_sold": "Date Sold",
       "buyer_name": "Buyer Name",
-      "enter_buyer_name": "Enter buyer name"
+      "enter_buyer_name": "Enter buyer name",
+      "rental_price": "Rental Price",
+      "enter_rental_price": "Enter rental rate"
     },
     "autoclips": {
       "all": "All",

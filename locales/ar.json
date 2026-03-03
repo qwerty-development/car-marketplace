@@ -442,7 +442,9 @@
       "enter_sold_price": "أدخل سعر البيع",
       "date_sold": "تاريخ البيع",
       "buyer_name": "اسم المشتري",
-      "enter_buyer_name": "أدخل اسم المشتري"
+      "enter_buyer_name": "أدخل اسم المشتري",
+      "rental_price": "سعر الإيجار",
+      "enter_rental_price": "أدخل سعر الإيجار"
     },
     "autoclips": {
       "all": "الكل",
