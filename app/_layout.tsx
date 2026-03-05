@@ -1170,9 +1170,16 @@ function RootLayoutNav() {
   // but a joined string compares by value so React correctly skips unchanged deps.
   const segmentsKey = segments.join('/');
 
-  // FIXED: safeReplace is now fully stable (empty deps). It reads segments and
-  // router from refs, so it never needs to be recreated and never triggers the
-  // routing effect to re-fire.
+  // Guard: only one navigation can be in-flight at a time.  Cleared when
+  // segments actually change (confirming the navigator processed it).
+  const navigationPendingRef = useRef(false);
+
+  // FIXED: safeReplace is fully stable (empty deps) and DEFERS the actual
+  // router.replace() to the next tick via setTimeout(0).  This is critical
+  // on iOS (Fabric / new architecture) because router.replace() triggers a
+  // synchronous navigator state update.  If it runs inside the React commit
+  // phase it counts towards the nested-update limit.  Deferring it breaks
+  // the synchronous chain and prevents "Maximum update depth exceeded".
   const safeReplace = useCallback((target: string) => {
     if (isAlreadyOnRoute(segmentsRef.current, target)) {
       return;
@@ -1191,16 +1198,49 @@ function RootLayoutNav() {
     }
 
     lastRouteCommandRef.current = { target, at: now };
-    routerRef.current.replace(target as any);
+    navigationPendingRef.current = true;
+    // Defer to next tick so the navigator state update doesn't count as a
+    // nested update inside the current React commit phase.
+    setTimeout(() => {
+      routerRef.current.replace(target as any);
+    }, 0);
   }, []);
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
 
+  // Derive PRIMITIVE values from auth objects for the routing effect deps.
+  // Using primitives instead of full objects prevents the effect from re-firing
+  // when object references change but the actual data hasn't (which happens
+  // repeatedly during cold start when both loadSession and onAuthStateChange
+  // set the same user/profile/dealership data with new object refs).
+  const hasUser = !!user;
+  const userPhone = user?.phone ?? null;
+  const userPhoneConfirmed = user?.phone_confirmed_at ?? null;
+  const userMetaName = user?.user_metadata?.name ?? null;
+  const profileName = profile?.name ?? null;
+  const profileRole = profile?.role ?? null;
+  const profileIsNull = profile === null;
+  const profileIsUndefined = profile === undefined;
+  const dealershipIsUndefined = dealership === undefined;
+  const dealershipLogo = dealership?.logo ?? null;
+  const dealershipLat = dealership?.latitude ?? null;
+  const dealershipLng = dealership?.longitude ?? null;
+
+  // Clear the navigation-pending flag when segments actually change,
+  // confirming the navigator has processed our last replace().
+  useEffect(() => {
+    navigationPendingRef.current = false;
+  }, [segmentsKey]);
+
   // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
+
+    // If we already issued a replace() and the navigator hasn't caught up
+    // yet (segments unchanged), skip to avoid piling up state updates.
+    if (navigationPendingRef.current) return;
 
     // Read segments from ref — the ref is always current and avoids putting
     // the unstable array reference in the dependency list.
@@ -1208,27 +1248,27 @@ function RootLayoutNav() {
     let targetRoute: string | null = null;
 
     // RULE: Enforce Profile Completion
-    if (isSignedIn && !isGuest && user) {
-      const hasName = !!(profile?.name || user.user_metadata?.name);
+    if (isSignedIn && !isGuest && hasUser) {
+      const hasName = !!(profileName || userMetaName);
 
       // Check if phone is verified (not just present)
       // user.phone exists but user.phone_confirmed_at is null means phone is pending verification
-      const hasVerifiedPhone = !!(user.phone && user.phone_confirmed_at);
+      const hasVerifiedPhone = !!(userPhone && userPhoneConfirmed);
 
       // Only require name and verified phone - email is optional
       let isMissingFields = !hasName || !hasVerifiedPhone;
 
       // RULE: For dealers, also require logo and location
-      if (profile?.role === 'dealer') {
-        const hasLogo = !!dealership?.logo;
+      if (profileRole === 'dealer') {
+        const hasLogo = !!dealershipLogo;
         // Treat "0" or 0 as missing location
-        const hasLat = !!dealership?.latitude && String(dealership.latitude) !== '0' && String(dealership.latitude) !== '0.0';
-        const hasLng = !!dealership?.longitude && String(dealership.longitude) !== '0' && String(dealership.longitude) !== '0.0';
+        const hasLat = !!dealershipLat && String(dealershipLat) !== '0' && String(dealershipLat) !== '0.0';
+        const hasLng = !!dealershipLng && String(dealershipLng) !== '0' && String(dealershipLng) !== '0.0';
         const hasLocation = hasLat && hasLng;
 
         // If dealership data is still loading but profile is loaded, wait
         // dealership === undefined means loading, null means loaded but not found
-        if (dealership === undefined && profile) {
+        if (dealershipIsUndefined && !profileIsNull && !profileIsUndefined) {
           console.log('[RootLayout] Waiting for dealership data...');
           return;
         }
@@ -1251,7 +1291,7 @@ function RootLayoutNav() {
         console.log('[RootLayout] Profile complete, redirecting to home');
         safeReplace("/(home)");
         return;
-      } else if (profile === undefined) {
+      } else if (profileIsUndefined) {
         // Profile looks complete based on user object, but profile hasn't loaded yet
         // Wait for profile to load before allowing navigation
         console.log('[RootLayout] Waiting for profile to load...');
@@ -1276,17 +1316,23 @@ function RootLayoutNav() {
     isLoaded,
     isSignedIn,
     isGuest,
-    segmentsKey, // stable string instead of unstable array reference
-    // router intentionally omitted — routerRef.current used inside to avoid SDK 54
-    // infinite loop (useRouter() returns a new object on every render in Expo Router v6,
-    // so listing it causes the effect to re-fire on every router.replace() call).
+    segmentsKey,
     isSigningOut,
     isSigningIn,
-    user,
-    profile,
-    dealership,
-    // safeReplace intentionally omitted — it's now a stable ref-based callback
-    // (empty deps), so listing it would be harmless but is unnecessary.
+    // Primitives derived from user/profile/dealership objects — these only
+    // change when the actual data changes, not when object refs change.
+    hasUser,
+    userPhone,
+    userPhoneConfirmed,
+    userMetaName,
+    profileName,
+    profileRole,
+    profileIsNull,
+    profileIsUndefined,
+    dealershipIsUndefined,
+    dealershipLogo,
+    dealershipLat,
+    dealershipLng,
   ]);
 
   // Mark auth as ready when loaded
@@ -1330,7 +1376,6 @@ function RootLayoutNav() {
 
       {!splashAnimationComplete ? (
         <View style={StyleSheet.absoluteFillObject}>
-          {console.log('[RootLayout] Rendering CustomSplashScreen')}
           <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
         </View>
       ) : null}
