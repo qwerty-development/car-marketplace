@@ -18,6 +18,18 @@ export default function NotFoundScreen() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const redirectTimeoutRef = useRef<NodeJS.Timeout>();
   const hasAttemptedRedirect = useRef(false);
+  const lastRedirectRef = useRef<{ target: string; at: number } | null>(null);
+
+  const safeReplace = (target: '/(home)/(user)' | '/(auth)/sign-in') => {
+    const now = Date.now();
+    const lastRedirect = lastRedirectRef.current;
+    if (lastRedirect && lastRedirect.target === target && now - lastRedirect.at < 800) {
+      return;
+    }
+
+    lastRedirectRef.current = { target, at: now };
+    router.replace(target);
+  };
 
   // FIXED: Enhanced redirect handling for deep links
   useEffect(() => {
@@ -49,10 +61,10 @@ export default function NotFoundScreen() {
       redirectTimeoutRef.current = setTimeout(() => {
         if (isEffectivelySignedIn) {
           console.log('[NotFound - iOS] Redirecting to home after deep link timeout');
-          router.replace('/(home)/(user)');
+          safeReplace('/(home)/(user)');
         } else {
           console.log('[NotFound - iOS] Redirecting to sign-in after deep link timeout');
-          router.replace('/(auth)/sign-in');
+          safeReplace('/(auth)/sign-in');
         }
       }, 1500); // Give deep link handler time to process
       
@@ -73,7 +85,7 @@ export default function NotFoundScreen() {
         // Android-specific redirect strategy
         redirectTimeoutRef.current = setTimeout(() => {
           try {
-            router.replace('/(home)/(user)');
+            safeReplace('/(home)/(user)');
           } catch (error) {
             console.error('[NotFound - Android] Redirect failed:', error);
           }
@@ -84,7 +96,7 @@ export default function NotFoundScreen() {
       // iOS sign-in redirect
       if (Platform.OS === 'ios' && !isEffectivelySignedIn) {
         console.log('[NotFound - iOS] User not authenticated - redirecting to sign-in');
-        router.replace('/(auth)/sign-in');
+        safeReplace('/(auth)/sign-in');
       }
     }
     
@@ -95,7 +107,7 @@ export default function NotFoundScreen() {
         redirectTimeoutRef.current = undefined;
       }
     };
-  }, [isLoaded, isSignedIn, isGuest, router, params, isRedirecting]);
+  }, [isLoaded, isSignedIn, isGuest, params.unmatched, isRedirecting]);
 
   // Manual navigation handler
   const handleGoHome = () => {
@@ -104,9 +116,9 @@ export default function NotFoundScreen() {
     const isEffectivelySignedIn = isSignedIn || isGuest;
     
     if (isEffectivelySignedIn) {
-      router.replace('/(home)/(user)');
+      safeReplace('/(home)/(user)');
     } else {
-      router.replace('/(auth)/sign-in');
+      safeReplace('/(auth)/sign-in');
     }
   };
 
@@ -132,7 +144,7 @@ export default function NotFoundScreen() {
             }
           } catch (error) {
             console.error("Error during sign out:", error);
-            router.replace("/(auth)/sign-in");
+            safeReplace('/(auth)/sign-in');
             Alert.alert(
               "Sign Out Issue",
               "There was a problem signing out, but we've redirected you to the sign-in screen."
