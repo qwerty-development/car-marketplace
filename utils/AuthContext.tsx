@@ -1696,6 +1696,26 @@ const forceProfileRefresh = async () => {
   // Memoize the context value to prevent unnecessary re-renders of consumers.
   // Without this, every AuthProvider render creates a new object reference,
   // causing ALL useAuth() consumers to re-render even when values haven't changed.
+  // SDK 54 FIX: Functions are NOT in useMemo deps because they are recreated every
+  // render (not wrapped in useCallback). Including them defeats memoization entirely,
+  // causing ALL consumers to re-render on every AuthProvider render. This was the
+  // primary amplifier behind the "Maximum update depth exceeded" error on iOS cold start.
+  //
+  // Safety: functions are only recreated when state changes. When useMemo recalculates
+  // (because a DATA dep changed), it picks up the latest function closures. When only
+  // the render itself recreates functions (no data change), the old closures are still
+  // valid because they close over the same state values.
+  const fnsRef = useRef({
+    signIn, signUp, signOut, resetPassword, updatePassword, verifyOtp,
+    googleSignIn, appleSignIn, refreshSession, updateUserProfile,
+    updateDealershipProfile, forceProfileRefresh, updateUserRole,
+  });
+  fnsRef.current = {
+    signIn, signUp, signOut, resetPassword, updatePassword, verifyOtp,
+    googleSignIn, appleSignIn, refreshSession, updateUserProfile,
+    updateDealershipProfile, forceProfileRefresh, updateUserRole,
+  };
+
   const contextValue = useMemo(() => ({
     session,
     user,
@@ -1705,19 +1725,19 @@ const forceProfileRefresh = async () => {
     isSignedIn: !!user || !!session,
     isSigningOut: isSigningOutState,
     isSigningIn,
-    signIn,
-    signUp,
-    signOut,
-    resetPassword,
-    updatePassword,
-    verifyOtp,
-    googleSignIn,
-    appleSignIn,
-    refreshSession,
-    updateUserProfile,
-    updateDealershipProfile,
-    forceProfileRefresh,
-    updateUserRole
+    signIn: ((...args: any[]) => fnsRef.current.signIn(...args)) as typeof signIn,
+    signUp: ((...args: any[]) => fnsRef.current.signUp(...args)) as typeof signUp,
+    signOut: (() => fnsRef.current.signOut()) as typeof signOut,
+    resetPassword: ((...args: any[]) => fnsRef.current.resetPassword(...args)) as typeof resetPassword,
+    updatePassword: ((...args: any[]) => fnsRef.current.updatePassword(...args)) as typeof updatePassword,
+    verifyOtp: ((...args: any[]) => fnsRef.current.verifyOtp(...args)) as typeof verifyOtp,
+    googleSignIn: (() => fnsRef.current.googleSignIn()) as typeof googleSignIn,
+    appleSignIn: (() => fnsRef.current.appleSignIn()) as typeof appleSignIn,
+    refreshSession: (() => fnsRef.current.refreshSession()) as typeof refreshSession,
+    updateUserProfile: ((...args: any[]) => fnsRef.current.updateUserProfile(...args)) as typeof updateUserProfile,
+    updateDealershipProfile: ((...args: any[]) => fnsRef.current.updateDealershipProfile(...args)) as typeof updateDealershipProfile,
+    forceProfileRefresh: (() => fnsRef.current.forceProfileRefresh()) as typeof forceProfileRefresh,
+    updateUserRole: ((...args: any[]) => fnsRef.current.updateUserRole(...args)) as typeof updateUserRole,
   }), [
     session,
     user,
@@ -1726,19 +1746,7 @@ const forceProfileRefresh = async () => {
     isLoaded,
     isSigningOutState,
     isSigningIn,
-    signIn,
-    signUp,
-    signOut,
-    resetPassword,
-    updatePassword,
-    verifyOtp,
-    googleSignIn,
-    appleSignIn,
-    refreshSession,
-    updateUserProfile,
-    updateDealershipProfile,
-    forceProfileRefresh,
-    updateUserRole
+    // Functions intentionally excluded — stable wrappers via fnsRef used instead.
   ]);
 
   return (

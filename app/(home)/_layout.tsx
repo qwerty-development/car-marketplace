@@ -51,7 +51,15 @@ export default function HomeLayout() {
   const segments = useSegments();
   const { isDarkMode } = useTheme();
   const { isGuest, guestId } = useGuestUser();
-  
+
+  // SDK 54 FIX: Derive primitive values from auth objects for effect deps.
+  // Using full objects in deps causes effects to re-fire when references change
+  // (which happens repeatedly during cold start auth initialization cascade).
+  const hasUser = !!user;
+  const hasProfile = !!profile;
+  const profileRole = profile?.role ?? null;
+  const profileName = profile?.name ?? null;
+
   // STATE MANAGEMENT: Enhanced operation tracking
   const [operationState, setOperationState] = useState<OperationState>({
     userCheck: 'idle',
@@ -294,11 +302,11 @@ export default function HomeLayout() {
     }
   }, [
     isSignedIn,
-    user,
+    hasUser,
     isGuest,
     guestId,
-    profile,
-    registerForPushNotifications,
+    profileName,
+    // registerForPushNotifications intentionally omitted — called via closure, ref guard prevents re-entry
     // operationState.userCheck intentionally omitted — ref guard prevents re-entry
     forceComplete,
   ]);
@@ -330,7 +338,10 @@ export default function HomeLayout() {
 
     // STEP 2: Handle unauthenticated users
     if (!isEffectivelySignedIn) {
-      routerRef.current.replace("/(auth)/sign-in");
+      // SDK 54 FIX: Defer router.replace() to next tick. On iOS Fabric, calling
+      // replace() during the React commit phase is a nested state update on the
+      // navigator. Deferring prevents accumulation toward the 50-update limit.
+      setTimeout(() => { routerRef.current.replace("/(auth)/sign-in"); }, 0);
       setOperationState(prev => ({ ...prev, routing: 'completed' }));
       return;
     }
@@ -339,7 +350,7 @@ export default function HomeLayout() {
     if (isGuest) {
       const correctRouteSegment = "(user)";
       if (segmentsRef.current[1] !== correctRouteSegment) {
-        routerRef.current.replace(`/(home)/${correctRouteSegment}`);
+        setTimeout(() => { routerRef.current.replace(`/(home)/${correctRouteSegment}`); }, 0);
       }
       setOperationState(prev => ({ ...prev, routing: 'completed' }));
       return;
@@ -352,13 +363,13 @@ export default function HomeLayout() {
         console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role');
         const defaultRole = "user";
         const correctRouteSegment = `(${defaultRole})`;
-        
+
         if (segmentsRef.current[1] !== correctRouteSegment) {
           routerRef.current.replace(`/(home)/${correctRouteSegment}`);
         }
         setOperationState(prev => ({ ...prev, routing: 'completed' }));
       }, OPERATION_TIMEOUTS.PROFILE_FETCH);
-      
+
       operationTimeouts.current.set('profile', profileTimeout);
       return;
     }
@@ -375,16 +386,23 @@ export default function HomeLayout() {
     const correctRouteSegment = `(${role})`;
 
     if (segmentsRef.current[1] !== correctRouteSegment) {
-      routerRef.current.replace(`/(home)/${correctRouteSegment}`);
+      setTimeout(() => { routerRef.current.replace(`/(home)/${correctRouteSegment}`); }, 0);
     }
-    
+
     setOperationState(prev => ({ ...prev, routing: 'completed' }));
   }, [
     isLoaded,
     isSignedIn,
     isGuest,
-    user,
-    profile,
+    hasUser,
+    hasProfile,
+    profileRole,
+    // SDK 54 FIX: operationState.userCheck is needed so the routing effect re-fires
+    // when user check transitions from 'running' → 'completed'. Previously, unstable
+    // user/profile object refs provided this re-triggering accidentally. With primitive
+    // deps, we need this explicit dep. It's safe: transitions are linear (idle → running
+    // → completed), and routingStartedRef prevents the routing logic from executing twice.
+    operationState.userCheck,
     // router and segments intentionally omitted — refs used inside to avoid SDK 54
     // unstable reference loop (useRouter()/useSegments() return new objects every render).
     // operationState.routing intentionally omitted — routingStartedRef guards re-entry.

@@ -916,8 +916,13 @@ const DeepLinkHandler = () => {
   }, []);
 
   // FIXED: Mark navigation as ready when we have proper routing
+  // SDK 54 FIX: Use a stable boolean instead of `segments` (which is a new array ref
+  // every render in Expo Router v6). Using `segments` directly caused this effect to
+  // re-fire on every render, repeatedly resetting the 500ms timer and preventing
+  // isNavigationReady from ever becoming true during the initial state update cascade.
+  const hasSegments = segments.length > 0;
   useEffect(() => {
-    if (isLoaded && segments.length > 0) {
+    if (isLoaded && hasSegments) {
       // Give navigation a moment to stabilize
       const timeout = setTimeout(() => {
         setIsNavigationReady(true);
@@ -925,7 +930,7 @@ const DeepLinkHandler = () => {
 
       return () => clearTimeout(timeout);
     }
-  }, [isLoaded, segments]);
+  }, [isLoaded, hasSegments]);
 
   // Process initial URL when auth and navigation are ready
   useEffect(() => {
@@ -1209,6 +1214,21 @@ function RootLayoutNav() {
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
 
+  // SDK 54 FIX: Defer <Slot /> mounting by one frame after isLoaded becomes true.
+  // On iOS Fabric, mounting the navigator during the initial auth state update cascade
+  // (loadSession + onAuthStateChange both firing) causes navigator setState to count
+  // as nested updates, pushing past React's 50-update limit. Deferring by one frame
+  // lets all provider state settle before the navigator initializes.
+  const [slotReady, setSlotReady] = useState(false);
+  useEffect(() => {
+    if (isLoaded && !slotReady) {
+      const frameId = requestAnimationFrame(() => {
+        setSlotReady(true);
+      });
+      return () => cancelAnimationFrame(frameId);
+    }
+  }, [isLoaded, slotReady]);
+
   // Derive PRIMITIVE values from auth objects for the routing effect deps.
   // Using primitives instead of full objects prevents the effect from re-firing
   // when object references change but the actual data hasn't (which happens
@@ -1371,7 +1391,7 @@ function RootLayoutNav() {
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {isLoaded ? <Slot /> : null}
+        {slotReady ? <Slot /> : null}
       </Animated.View>
 
       {!splashAnimationComplete ? (

@@ -24,7 +24,11 @@ export const useDealershipProfile = () => {
       setDealership(data)
     } catch (error: any) {
       setError(error.message)
-      Alert.alert('Error', error.message)
+      // Only show alert for actual errors, not "no rows found" (PGRST116)
+      // which happens when a non-dealer user's page loads momentarily
+      if (error?.code !== 'PGRST116') {
+        Alert.alert('Error', error.message)
+      }
     } finally {
       setIsLoading(false)
     }
