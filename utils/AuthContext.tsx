@@ -162,6 +162,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const profileRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const profileRetryStateRef = useRef<{ userId: string; nextAttempt: number } | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
+  // Guard to prevent resetting isLoaded on the very first mount (SDK 54 fix)
+  const authInitializedRef = useRef(false);
 
   useEffect(() => {
     activeUserIdRef.current = user?.id ?? null;
@@ -417,7 +419,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   
   // CRITICAL FIX 11: Enhanced auth state management with timeout protection
   useEffect(() => {
-    setIsLoaded(false);
+    // Only reset isLoaded on genuine isGuest changes after the first initialization.
+    // Calling setIsLoaded(false) unconditionally on mount causes a double-init cycle
+    // in React 19 concurrent mode (Expo SDK 54 fix).
+    if (authInitializedRef.current) {
+      setIsLoaded(false);
+    }
+    authInitializedRef.current = true;
 
     // Set timeout for session loading
     const sessionTimeout = setOperationTimeout('sessionLoad', OPERATION_TIMEOUTS.SESSION_LOAD, () => {

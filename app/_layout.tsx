@@ -340,6 +340,25 @@ const DeepLinkHandler = () => {
     segmentsRef.current = segments;
   }, [segments]);
 
+  // SDK 54 FIX: useRouter() returns a new object reference on every render in Expo
+  // Router v6. Refs give stable access inside useCallback/useEffect without needing
+  // the hook result in dependency arrays (which would re-create callbacks and
+  // re-fire effects after every router.replace(), causing infinite loops).
+  const routerRef = useRef(router);
+  // Auth state refs so processDeepLink doesn't need auth values in its deps.
+  const isLoadedRef = useRef(isLoaded);
+  const isSignedInRef = useRef(isSignedIn);
+  const isGuestRef = useRef(isGuest);
+  const isNavigationReadyRef = useRef(isNavigationReady);
+  // No deps: runs after every render to keep all refs current.
+  useEffect(() => {
+    routerRef.current = router;
+    isLoadedRef.current = isLoaded;
+    isSignedInRef.current = isSignedIn;
+    isGuestRef.current = isGuest;
+    isNavigationReadyRef.current = isNavigationReady;
+  });
+
   // FIXED: Enhanced navigation with better stack management
   const navigateToDeepLink = useCallback(
     async (type: "car" | "clip" | "conversation", id: string, isInitialLink: boolean) => {
@@ -350,7 +369,7 @@ const DeepLinkHandler = () => {
         `[DeepLink] Navigating to ${type} with ID: ${id}, initial: ${isInitialLink}, segments: ${currentSegments.join("/")}`
       );
 
-      const isEffectivelySignedIn = isSignedIn || isGuest;
+      const isEffectivelySignedIn = isSignedInRef.current || isGuestRef.current;
 
       const currentPath = currentSegments.join("/");
       const isAlreadyOnCarDetails =
@@ -366,14 +385,14 @@ const DeepLinkHandler = () => {
         // FIXED: Use setParams to update params on current route, then push new instance
         if (type === "car") {
           // Update params first, then push new instance
-          router.setParams({
+          routerRef.current.setParams({
             carId: id,
             isDealerView: "false",
             fromDeepLink: "true",
           });
           // Small delay then push new instance to ensure fresh load
           setTimeout(() => {
-            router.push({
+            routerRef.current.push({
               pathname: "/(home)/(user)/CarDetails",
               params: {
                 carId: id,
@@ -384,12 +403,12 @@ const DeepLinkHandler = () => {
           }, 100);
         } else if (type === "clip") {
           // Update params first, then push new instance
-          router.setParams({
+          routerRef.current.setParams({
             clipId: id,
             fromDeepLink: "true",
           });
           setTimeout(() => {
-            router.push({
+            routerRef.current.push({
               pathname: "/(home)/(user)/(tabs)/autoclips",
               params: {
                 clipId: id,
@@ -399,12 +418,12 @@ const DeepLinkHandler = () => {
           }, 100);
         } else if (type === "conversation") {
           // Update params first, then push new instance
-          router.setParams({
+          routerRef.current.setParams({
             conversationId: id,
             fromDeepLink: "true",
           });
           setTimeout(() => {
-            router.push({
+            routerRef.current.push({
               pathname: "/(home)/(user)/conversations/[conversationId]",
               params: {
                 conversationId: id,
@@ -440,12 +459,12 @@ const DeepLinkHandler = () => {
                 'Establishing navigation stack';
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to car`);
             await new Promise((resolve) => setTimeout(resolve, 300));
-            router.replace("/(home)/(user)/(tabs)");
+            routerRef.current.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
 
             // Navigate directly to CarDetails with replace to ensure clean navigation
             console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via replace after stack reset`);
-            router.replace({
+            routerRef.current.replace({
               pathname: "/(home)/(user)/CarDetails",
               params: {
                 carId: id,
@@ -456,7 +475,7 @@ const DeepLinkHandler = () => {
           } else {
             // Direct navigation when already on correct stack
             console.log(`[DeepLink - ${Platform.OS}] Navigating to CarDetails via push (same stack)`);
-            router.push({
+            routerRef.current.push({
               pathname: "/(home)/(user)/CarDetails",
               params: {
                 carId: id,
@@ -471,12 +490,12 @@ const DeepLinkHandler = () => {
             // Need to establish/reset stack for initial links OR when crossing dealer->user
             console.log(`[DeepLink - ${Platform.OS}] ${needsUserStackReset ? 'Resetting from dealer to user stack' : 'Establishing navigation stack'} before navigating to clip`);
             await new Promise((resolve) => setTimeout(resolve, 300));
-            router.replace("/(home)/(user)/(tabs)");
+            routerRef.current.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
 
             // Navigate to autoclips with replace after stack reset
             console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via replace after stack reset`);
-            router.replace({
+            routerRef.current.replace({
               pathname: "/(home)/(user)/(tabs)/autoclips",
               params: {
                 clipId: id,
@@ -486,7 +505,7 @@ const DeepLinkHandler = () => {
           } else {
             // Direct navigation when already on correct stack
             console.log(`[DeepLink - ${Platform.OS}] Navigating to autoclips via push (same stack)`);
-            router.push({
+            routerRef.current.push({
               pathname: "/(home)/(user)/(tabs)/autoclips",
               params: {
                 clipId: id,
@@ -498,7 +517,7 @@ const DeepLinkHandler = () => {
           // Ensure params are set (especially for Android)
           if (Platform.OS === "android") {
             setTimeout(() => {
-              router.setParams({
+              routerRef.current.setParams({
                 clipId: id,
                 fromDeepLink: "true",
               });
@@ -513,12 +532,12 @@ const DeepLinkHandler = () => {
                 'Establishing navigation stack';
             console.log(`[DeepLink - ${Platform.OS}] ${reason} before navigating to conversation`);
             await new Promise((resolve) => setTimeout(resolve, 300));
-            router.replace("/(home)/(user)/(tabs)");
+            routerRef.current.replace("/(home)/(user)/(tabs)");
             await new Promise((resolve) => setTimeout(resolve, 300));
 
             // Navigate to conversation with replace after stack reset
             console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via replace after stack reset`);
-            router.replace({
+            routerRef.current.replace({
               pathname: "/(home)/(user)/conversations/[conversationId]",
               params: {
                 conversationId: id,
@@ -528,7 +547,7 @@ const DeepLinkHandler = () => {
           } else {
             // Direct navigation when already on correct stack
             console.log(`[DeepLink - ${Platform.OS}] Navigating to conversation via push (same stack)`);
-            router.push({
+            routerRef.current.push({
               pathname: "/(home)/(user)/conversations/[conversationId]",
               params: {
                 conversationId: id,
@@ -540,10 +559,14 @@ const DeepLinkHandler = () => {
       } catch (error) {
         console.error("[DeepLink] Navigation error:", error);
         // Fallback to home
-        router.replace("/(home)/(user)/(tabs)");
+        routerRef.current.replace("/(home)/(user)/(tabs)");
       }
     },
-    [router, isSignedIn, isGuest]
+    // Stable callback: all mutable values accessed via refs (routerRef, isSignedInRef,
+    // isGuestRef). Empty deps prevent recreation on every auth state change, which
+    // previously caused processDeepLink to also rebuild and re-fire its effects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const processDeepLink = useCallback(
@@ -594,7 +617,7 @@ const DeepLinkHandler = () => {
         }
 
         // Wait for auth to be loaded
-        if (!isLoaded) {
+        if (!isLoadedRef.current) {
           console.log("[DeepLink] Auth not loaded, queueing deep link");
           deepLinkQueue.enqueue(url);
           // FIXED: Reset flag before returning
@@ -604,7 +627,7 @@ const DeepLinkHandler = () => {
         }
 
         // FIXED: Wait for navigation to be ready for initial links
-        if (isInitialLink && !isNavigationReady) {
+        if (isInitialLink && !isNavigationReadyRef.current) {
           console.log(
             "[DeepLink] Navigation not ready for initial link, waiting..."
           );
@@ -680,7 +703,7 @@ const DeepLinkHandler = () => {
             console.log(`[DeepLink - ${Platform.OS}] No pattern matched for: "${normalizedPath}"`);
           }
 
-          const isEffectivelySignedIn = isSignedIn || isGuest;
+          const isEffectivelySignedIn = isSignedInRef.current || isGuestRef.current;
 
           // Handle car deep links
           if (carId && !isNaN(Number(carId))) {
@@ -689,7 +712,7 @@ const DeepLinkHandler = () => {
                 "[DeepLink] User not signed in, redirecting to sign-in first"
               );
               global.pendingDeepLink = { type: "car", id: carId };
-              router.replace("/(auth)/sign-in");
+              routerRef.current.replace("/(auth)/sign-in");
               return;
             }
 
@@ -699,7 +722,7 @@ const DeepLinkHandler = () => {
           else if (clipId && !isNaN(Number(clipId))) {
             if (!isEffectivelySignedIn) {
               global.pendingDeepLink = { type: "autoclip", id: clipId };
-              router.replace("/(auth)/sign-in");
+              routerRef.current.replace("/(auth)/sign-in");
               return;
             }
 
@@ -712,7 +735,7 @@ const DeepLinkHandler = () => {
                 "[DeepLink] User not signed in, redirecting to sign-in first"
               );
               global.pendingDeepLink = { type: "conversation", id: conversationId };
-              router.replace("/(auth)/sign-in");
+              routerRef.current.replace("/(auth)/sign-in");
               return;
             }
 
@@ -727,30 +750,30 @@ const DeepLinkHandler = () => {
 
             // Navigate to appropriate home screen
             if (isEffectivelySignedIn) {
-              router.replace("/(home)/(user)/(tabs)");
+              routerRef.current.replace("/(home)/(user)/(tabs)");
             } else {
-              router.replace("/(auth)/sign-in");
+              routerRef.current.replace("/(auth)/sign-in");
             }
           }
         } else {
           // No path to process - go to home
           console.log("[DeepLink] No specific path found, navigating to home");
-          const isEffectivelySignedIn = isSignedIn || isGuest;
+          const isEffectivelySignedIn = isSignedInRef.current || isGuestRef.current;
           if (isEffectivelySignedIn) {
-            router.replace("/(home)/(user)/(tabs)");
+            routerRef.current.replace("/(home)/(user)/(tabs)");
           } else {
-            router.replace("/(auth)/sign-in");
+            routerRef.current.replace("/(auth)/sign-in");
           }
         }
       } catch (err) {
         console.error("[DeepLink] Processing error:", err);
 
         // Error recovery
-        const isEffectivelySignedIn = isSignedIn || isGuest;
+        const isEffectivelySignedIn = isSignedInRef.current || isGuestRef.current;
         if (isEffectivelySignedIn) {
-          router.replace("/(home)/(user)/(tabs)");
+          routerRef.current.replace("/(home)/(user)/(tabs)");
         } else {
-          router.replace("/(auth)/sign-in");
+          routerRef.current.replace("/(auth)/sign-in");
         }
       } finally {
         setIsProcessingDeepLink(false);
@@ -761,14 +784,11 @@ const DeepLinkHandler = () => {
         }
       }
     },
-    [
-      router,
-      isLoaded,
-      isSignedIn,
-      isGuest,
-      navigateToDeepLink,
-      isNavigationReady,
-    ]
+    // navigateToDeepLink is now stable (empty deps + refs inside).
+    // All other mutable values (isLoaded, isSignedIn, isGuest, isNavigationReady, router)
+    // are read via refs, so they don't need to be listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigateToDeepLink]
   );
 
   // Hide splash screen
@@ -1043,6 +1063,12 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
+  // SDK 54 FIX: useRouter() returns a new object on every render in Expo Router v6.
+  // Listing it in useEffect deps causes the routing effect to re-fire after every
+  // router.replace() call before segments update, producing an infinite loop.
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; });
+
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
 
@@ -1087,13 +1113,13 @@ function RootLayoutNav() {
         // redirect immediately (don't wait for profile to fully load)
         if (!isOnCompleteProfile) {
           console.log('[RootLayout] Profile incomplete (missing name or unverified phone), redirecting to /complete-profile');
-          router.replace("/complete-profile");
+          routerRef.current.replace("/complete-profile");
         }
         return; // Stop other routing
       } else if (isOnCompleteProfile) {
         // Profile is complete but we are on that page, go home
         console.log('[RootLayout] Profile complete, redirecting to home');
-        router.replace("/(home)");
+        routerRef.current.replace("/(home)");
         return;
       } else if (profile === undefined) {
         // Profile looks complete based on user object, but profile hasn't loaded yet
@@ -1108,16 +1134,18 @@ function RootLayoutNav() {
 
     // Basic routing logic
     if (isEffectivelySignedIn && inAuthGroup) {
-      router.replace("/(home)");
+      routerRef.current.replace("/(home)");
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
-      router.replace("/(auth)/sign-in");
+      routerRef.current.replace("/(auth)/sign-in");
     }
   }, [
     isLoaded,
     isSignedIn,
     isGuest,
     segments,
-    router,
+    // router intentionally omitted — routerRef.current used inside to avoid SDK 54
+    // infinite loop (useRouter() returns a new object on every render in Expo Router v6,
+    // so listing it causes the effect to re-fire on every router.replace() call).
     isSigningOut,
     isSigningIn,
     user,
