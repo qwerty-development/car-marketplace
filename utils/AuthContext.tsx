@@ -1,5 +1,5 @@
 // utils/AuthContext.tsx - FIXED VERSION
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import * as SecureStore from 'expo-secure-store';
@@ -1693,32 +1693,56 @@ const forceProfileRefresh = async () => {
     };
   }, []);
 
+  // Memoize the context value to prevent unnecessary re-renders of consumers.
+  // Without this, every AuthProvider render creates a new object reference,
+  // causing ALL useAuth() consumers to re-render even when values haven't changed.
+  const contextValue = useMemo(() => ({
+    session,
+    user,
+    profile,
+    dealership,
+    isLoaded,
+    isSignedIn: !!user || !!session,
+    isSigningOut: isSigningOutState,
+    isSigningIn,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    updatePassword,
+    verifyOtp,
+    googleSignIn,
+    appleSignIn,
+    refreshSession,
+    updateUserProfile,
+    updateDealershipProfile,
+    forceProfileRefresh,
+    updateUserRole
+  }), [
+    session,
+    user,
+    profile,
+    dealership,
+    isLoaded,
+    isSigningOutState,
+    isSigningIn,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    updatePassword,
+    verifyOtp,
+    googleSignIn,
+    appleSignIn,
+    refreshSession,
+    updateUserProfile,
+    updateDealershipProfile,
+    forceProfileRefresh,
+    updateUserRole
+  ]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user,
-        profile,
-        dealership,
-        isLoaded,
-        isSignedIn: !!user || !!session,
-        isSigningOut: isSigningOutState,
-        isSigningIn,
-        signIn,
-        signUp,
-        signOut,
-        resetPassword,
-        updatePassword,
-        verifyOtp,
-        googleSignIn,
-        appleSignIn,
-        refreshSession,
-        updateUserProfile,
-        updateDealershipProfile,
-        forceProfileRefresh,
-        updateUserRole
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

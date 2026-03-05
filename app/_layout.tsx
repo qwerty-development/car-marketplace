@@ -1155,14 +1155,26 @@ function RootLayoutNav() {
     null
   );
 
-  // SDK 54 FIX: useRouter() returns a new object on every render in Expo Router v6.
-  // Listing it in useEffect deps causes the routing effect to re-fire after every
-  // router.replace() call before segments update, producing an infinite loop.
+  // SDK 54 FIX: useRouter() and useSegments() return new object/array references
+  // on every render in Expo Router v6. Using them directly in useEffect/useCallback
+  // deps causes the routing effect to re-fire after every router.replace() call,
+  // producing an infinite loop. Refs give stable access without dependency churn.
   const routerRef = useRef(router);
-  useEffect(() => { routerRef.current = router; });
+  const segmentsRef = useRef(segments);
+  useEffect(() => {
+    routerRef.current = router;
+    segmentsRef.current = segments;
+  });
 
+  // Stable string key for segments — arrays create new refs every render in SDK 54,
+  // but a joined string compares by value so React correctly skips unchanged deps.
+  const segmentsKey = segments.join('/');
+
+  // FIXED: safeReplace is now fully stable (empty deps). It reads segments and
+  // router from refs, so it never needs to be recreated and never triggers the
+  // routing effect to re-fire.
   const safeReplace = useCallback((target: string) => {
-    if (isAlreadyOnRoute(segments, target)) {
+    if (isAlreadyOnRoute(segmentsRef.current, target)) {
       return;
     }
 
@@ -1180,7 +1192,7 @@ function RootLayoutNav() {
 
     lastRouteCommandRef.current = { target, at: now };
     routerRef.current.replace(target as any);
-  }, [segments]);
+  }, []);
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
@@ -1190,6 +1202,9 @@ function RootLayoutNav() {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) return;
 
+    // Read segments from ref — the ref is always current and avoids putting
+    // the unstable array reference in the dependency list.
+    const currentSegments = segmentsRef.current;
     let targetRoute: string | null = null;
 
     // RULE: Enforce Profile Completion
@@ -1221,7 +1236,7 @@ function RootLayoutNav() {
         isMissingFields = isMissingFields || !hasLogo || !hasLocation;
       }
 
-      const isOnCompleteProfile = segments[0] === 'complete-profile';
+      const isOnCompleteProfile = currentSegments[0] === 'complete-profile';
 
       if (isMissingFields) {
         // If profile is still loading but we can already see user needs phone verification,
@@ -1245,7 +1260,7 @@ function RootLayoutNav() {
     }
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
-    const inAuthGroup = segments[0] === "(auth)";
+    const inAuthGroup = currentSegments[0] === "(auth)";
 
     // Basic routing logic
     if (isEffectivelySignedIn && inAuthGroup) {
@@ -1261,7 +1276,7 @@ function RootLayoutNav() {
     isLoaded,
     isSignedIn,
     isGuest,
-    segments,
+    segmentsKey, // stable string instead of unstable array reference
     // router intentionally omitted — routerRef.current used inside to avoid SDK 54
     // infinite loop (useRouter() returns a new object on every render in Expo Router v6,
     // so listing it causes the effect to re-fire on every router.replace() call).
@@ -1270,7 +1285,8 @@ function RootLayoutNav() {
     user,
     profile,
     dealership,
-    safeReplace
+    // safeReplace intentionally omitted — it's now a stable ref-based callback
+    // (empty deps), so listing it would be harmless but is unnecessary.
   ]);
 
   // Mark auth as ready when loaded

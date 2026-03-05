@@ -21,7 +21,10 @@
       "Bash(head:*)",
       "Bash(wc:*)",
       "mcp__supabase__list_tables",
-      "mcp__plugin_supabase_supabase__execute_sql"
+      "mcp__plugin_supabase_supabase__execute_sql",
+      "mcp__expo-mcp__search_documentation",
+      "mcp__expo-mcp__read_documentation",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
