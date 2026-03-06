@@ -111,7 +111,7 @@ export default function HomeLayout() {
       const isDeepRoute = currentSegments.length > 2 && !currentSegments.includes('(tabs)');
 
       if (isDeepRoute) {
-        console.log('[HomeLayout] Android deep route detected, ensuring proper stack:', currentSegments);
+  
 
         // Additional Android-specific deep link handling
         const isAutoclipDeepLink = currentSegments.some(segment =>
@@ -123,12 +123,12 @@ export default function HomeLayout() {
         );
 
         if (isAutoclipDeepLink) {
-          console.log('[HomeLayout] Android autoclip deep link detected');
+
           // Ensure proper navigation stack for autoclips
         }
 
         if (isCarDeepLink) {
-          console.log('[HomeLayout] Android car deep link detected');
+
           // Ensure proper navigation stack for car details
         }
       }
@@ -330,18 +330,15 @@ export default function HomeLayout() {
   useEffect(() => {
     // RULE: Skip if conditions not met
     if (isSigningOut || !isLoaded || forceComplete) {
-      console.log(`[HomeLayout] Routing: SKIPPING (isSigningOut=${isSigningOut}, isLoaded=${isLoaded}, forceComplete=${forceComplete})`);
       return;
     }
     // SDK 54 FIX: Use ref guard instead of operationState.routing in deps.
     if (routingStartedRef.current) {
-      console.log('[HomeLayout] Routing: SKIPPING — routingStartedRef is true');
       return;
     }
 
     // RULE: Don't proceed until user check is done (read via ref, not state dep)
     if (userCheckRunningRef.current) {
-      console.log('[HomeLayout] Routing: WAITING — userCheck still running');
       const routingTimeout = setTimeout(() => {
         console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway');
         // Trigger re-evaluation by nudging forceComplete via master timeout (already set)
@@ -360,7 +357,6 @@ export default function HomeLayout() {
     }
 
     routingStartedRef.current = true;
-    console.log(`[HomeLayout] Routing: STARTED. isSignedIn=${isSignedIn}, isGuest=${isGuest}, hasProfile=${hasProfile}, profileRole=${profileRole}, segments=${segmentsRef.current.join('/')}`);
     // Skip setting routing:'running' state — nothing renders differently for it
     // and the extra setState was one of the calls accumulating toward React's
     // nested-update limit. Jump straight to 'completed' at the end.
@@ -417,17 +413,11 @@ export default function HomeLayout() {
     const role = profile?.role || "user";
     const correctRouteSegment = `(${role})`;
 
-    console.log(`[HomeLayout] Routing: role=${role}, correctSegment=${correctRouteSegment}, currentSegment=${segmentsRef.current[1]}`);
-
     if (segmentsRef.current[1] !== correctRouteSegment) {
-      console.log(`[HomeLayout] Routing: NAVIGATING to /(home)/${correctRouteSegment}`);
       setTimeout(() => { routerRef.current.replace(`/(home)/${correctRouteSegment}`); }, 0);
-    } else {
-      console.log('[HomeLayout] Routing: already on correct route segment');
     }
 
     setOperationState(prev => ({ ...prev, routing: 'completed' }));
-    console.log('[HomeLayout] Routing: COMPLETED');
   }, [
     isLoaded,
     isSignedIn,
@@ -452,7 +442,6 @@ export default function HomeLayout() {
     const checkIfReady = () => {
       // RULE: Force complete overrides everything
       if (forceComplete) {
-        console.log('[HomeLayout] Loader: hiding — forceComplete');
         setShowLoader(false);
         return;
       }
@@ -462,11 +451,8 @@ export default function HomeLayout() {
       const isRoutingDone = operationState.routing === 'completed';
       const isBasicLoadingDone = isLoaded;
 
-      console.log(`[HomeLayout] Loader check: userCheck=${operationState.userCheck}, routing=${operationState.routing}, isLoaded=${isLoaded}, showLoader=${showLoader}`);
-
       // RULE: Show app as soon as routing is done
       if (isRoutingDone && isBasicLoadingDone) {
-        console.log('[HomeLayout] Loader: hiding — routing completed and auth loaded');
         setShowLoader(false);
       }
     };
@@ -488,15 +474,12 @@ export default function HomeLayout() {
 
   // CONDITIONAL RENDERING: Show loader only when necessary
   if (showLoader && !forceComplete) {
-    console.log('[HomeLayout] Rendering LogoLoader (showLoader=true)');
     return (
       <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
         <LogoLoader />
       </View>
     );
   }
-
-  console.log('[HomeLayout] Rendering main Stack layout');
 
   // MAIN RENDER: Home layout container with enhanced Android navigation
   return (

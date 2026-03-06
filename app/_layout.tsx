@@ -1188,7 +1188,6 @@ function RootLayoutNav() {
   // the synchronous chain and prevents "Maximum update depth exceeded".
   const safeReplace = useCallback((target: string) => {
     if (isAlreadyOnRoute(segmentsRef.current, target)) {
-      console.log('[RootLayoutNav] safeReplace: already on route', target, '— skipping. segments:', segmentsRef.current.join('/'));
       return;
     }
 
@@ -1200,13 +1199,11 @@ function RootLayoutNav() {
       lastCommand.target === target &&
       now - lastCommand.at < NAV_COMMAND_COOLDOWN_MS
     ) {
-      console.log("[RootLayoutNav] Skipping duplicate replace:", target);
       return;
     }
 
     lastRouteCommandRef.current = { target, at: now };
     navigationPendingRef.current = true;
-    console.log('[RootLayoutNav] safeReplace: NAVIGATING to', target, 'from segments:', segmentsRef.current.join('/'));
     // Defer to next tick so the navigator state update doesn't count as a
     // nested update inside the current React commit phase.
     setTimeout(() => {
@@ -1245,21 +1242,18 @@ function RootLayoutNav() {
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
     if (!isLoaded || isSigningOut || isSigningIn) {
-      console.log(`[RootLayoutNav] Routing effect: SKIPPING (isLoaded=${isLoaded}, isSigningOut=${isSigningOut}, isSigningIn=${isSigningIn})`);
       return;
     }
 
     // If we already issued a replace() and the navigator hasn't caught up
     // yet (segments unchanged), skip to avoid piling up state updates.
     if (navigationPendingRef.current) {
-      console.log('[RootLayoutNav] Routing effect: SKIPPING — navigation pending, segments:', segmentsRef.current.join('/'));
       return;
     }
 
     // Read segments from ref — the ref is always current and avoids putting
     // the unstable array reference in the dependency list.
     const currentSegments = segmentsRef.current;
-    console.log(`[RootLayoutNav] Routing effect: RUNNING. segments=${currentSegments.join('/')}, isSignedIn=${isSignedIn}, isGuest=${isGuest}, hasUser=${hasUser}, profileRole=${profileRole}, profileIsUndefined=${profileIsUndefined}, profileIsNull=${profileIsNull}, dealershipIsUndefined=${dealershipIsUndefined}`);
     let targetRoute: string | null = null;
 
     // RULE: Enforce Profile Completion
@@ -1330,12 +1324,8 @@ function RootLayoutNav() {
       targetRoute = "/(auth)/sign-in";
     }
 
-    console.log(`[RootLayoutNav] Routing decision: isEffectivelySignedIn=${isEffectivelySignedIn}, inAuthGroup=${inAuthGroup}, targetRoute=${targetRoute}`);
-
     if (targetRoute) {
       safeReplace(targetRoute);
-    } else {
-      console.log('[RootLayoutNav] No navigation needed — already on correct route');
     }
   }, [
     isLoaded,

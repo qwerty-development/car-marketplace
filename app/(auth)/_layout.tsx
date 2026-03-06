@@ -22,7 +22,6 @@ export default function UnAuthenticatedLayout() {
 
   // Wait until auth is fully initialized
   if (!isLoaded) {
-    console.log('[AuthLayout] Rendering null — auth not loaded yet');
     return null
   }
 
@@ -32,11 +31,8 @@ export default function UnAuthenticatedLayout() {
   // commit phase, which cascaded into Maximum update depth and forced
   // the entire tree to remount (double splash).
   if (isSignedIn || isGuest) {
-    console.log(`[AuthLayout] Rendering null — user authenticated (isSignedIn=${isSignedIn}, isGuest=${isGuest}), waiting for RootLayoutNav to navigate away`);
     return null
   }
-
-  console.log('[AuthLayout] Rendering auth Stack (user is not signed in)');
 
   return (
     <Stack
