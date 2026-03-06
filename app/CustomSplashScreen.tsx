@@ -140,4 +140,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CustomSplashScreen;
+// SDK 54 FIX: Memoize to prevent re-renders from parent (RootLayoutNav) cascade.
+// The only prop is onAnimationComplete which is already stable via useCallback.
+export default React.memo(CustomSplashScreen);

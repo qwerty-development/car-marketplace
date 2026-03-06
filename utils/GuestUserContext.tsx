@@ -1,5 +1,5 @@
 // utils/GuestUserContext.tsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,7 +36,9 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     initializeGuestState();
   }, []);
 
-  const setGuestMode = async (isActive: boolean) => {
+  // SDK 54 FIX: Wrap functions in useCallback and memoize provider value to prevent
+  // unnecessary re-renders of all consumers (AuthProvider, DeepLinkHandler, etc.)
+  const setGuestMode = useCallback(async (isActive: boolean) => {
     try {
       const id = isActive ? (guestId || uuidv4()) : null;
 
@@ -53,9 +55,9 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (error) {
       console.error('Error setting guest mode:', error);
     }
-  };
+  }, [guestId]);
 
-  const clearGuestMode = async () => {
+  const clearGuestMode = useCallback(async () => {
     try {
       await AsyncStorage.removeItem('isGuestUser');
       await AsyncStorage.removeItem('guestUserId');
@@ -64,10 +66,14 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (error) {
       console.error('Error clearing guest mode:', error);
     }
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    isGuest, guestId, setGuestMode, clearGuestMode
+  }), [isGuest, guestId, setGuestMode, clearGuestMode]);
 
   return (
-    <GuestUserContext.Provider value={{ isGuest, guestId, setGuestMode, clearGuestMode }}>
+    <GuestUserContext.Provider value={value}>
       {children}
     </GuestUserContext.Provider>
   );

@@ -520,6 +520,8 @@ export default function BrowseCarsPage() {
             sortOption: currentSortOption,
             query: query,
             range: { start: startRange, end: endRange },
+            vehicleCategory: currentVehicleCategory,
+            carViewMode: currentCarViewMode,
           },
           selectString
         );

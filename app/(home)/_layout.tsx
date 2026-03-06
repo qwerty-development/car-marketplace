@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useAuth } from "@/utils/AuthContext";
 import { supabase } from "@/utils/supabase";
-import { Alert, View, useColorScheme, Platform } from "react-native";
+import { View, Platform } from "react-native";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/utils/ThemeContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
@@ -51,7 +51,15 @@ export default function HomeLayout() {
   const segments = useSegments();
   const { isDarkMode } = useTheme();
   const { isGuest, guestId } = useGuestUser();
-  
+
+  // SDK 54 FIX: Derive primitive values from auth objects for effect deps.
+  // Using full objects in deps causes effects to re-fire when references change
+  // (which happens repeatedly during cold start auth initialization cascade).
+  const hasUser = !!user;
+  const hasProfile = !!profile;
+  const profileRole = profile?.role ?? null;
+  const profileName = profile?.name ?? null;
+
   // STATE MANAGEMENT: Enhanced operation tracking
   const [operationState, setOperationState] = useState<OperationState>({
     userCheck: 'idle',
@@ -69,6 +77,23 @@ export default function HomeLayout() {
   const registrationAttempted = useRef(false);
   const operationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const backgroundOperationsRef = useRef<Set<Promise<any>>>(new Set());
+
+  // SDK 54 FIX: useRouter() and useSegments() return new object/array references on every
+  // render in Expo Router v6. Putting them in useEffect deps causes routing effects to
+  // re-fire after every router.replace() call, creating an infinite update loop.
+  // Store stable refs and read them inside effects instead.
+  const routerRef = useRef(router);
+  const segmentsRef = useRef(segments);
+  // One-shot guards: prevent concurrent-mode re-entry into these effects.
+  const userCheckStartedRef = useRef(false);
+  const routingStartedRef = useRef(false);
+  // Mirror operationState in a ref so the routing effect can read userCheck state
+  // without listing operationState as a dep (which would cause loops).
+  const operationStateRef = useRef(operationState);
+  // Keep refs current on every render (no deps = runs after every render)
+  useEffect(() => { routerRef.current = router; });
+  useEffect(() => { segmentsRef.current = segments; }, [segments]);
+  useEffect(() => { operationStateRef.current = operationState; }, [operationState]);
 
   // ANDROID FIX: Enhanced navigation stack management for deep links
   useEffect(() => {
@@ -134,7 +159,10 @@ export default function HomeLayout() {
     const checkAndCreateUser = async () => {
       // RULE: Skip if conditions not met
       if ((!user && !isGuest) || isSigningOut || forceComplete) return;
-      if (operationState.userCheck !== 'idle') return;
+      // SDK 54 FIX: Use ref guard instead of operationState in deps to avoid
+      // concurrent-mode re-entry (state change commits can race effect re-fires).
+      if (userCheckStartedRef.current) return;
+      userCheckStartedRef.current = true;
 
       try {
         setOperationState(prev => ({ ...prev, userCheck: 'running' }));
@@ -274,12 +302,12 @@ export default function HomeLayout() {
     }
   }, [
     isSignedIn,
-    user,
+    hasUser,
     isGuest,
     guestId,
-    profile,
-    registerForPushNotifications,
-    operationState.userCheck,
+    profileName,
+    // registerForPushNotifications intentionally omitted — called via closure, ref guard prevents re-entry
+    // operationState.userCheck intentionally omitted — ref guard prevents re-entry
     forceComplete,
   ]);
 
@@ -287,19 +315,22 @@ export default function HomeLayout() {
   useEffect(() => {
     // RULE: Skip if conditions not met
     if (isSigningOut || !isLoaded || forceComplete) return;
-    if (operationState.routing !== 'idle') return;
+    // SDK 54 FIX: Use ref guard instead of operationState.routing in deps.
+    if (routingStartedRef.current) return;
 
-    // RULE: Don't wait too long for user check
-    if (operationState.userCheck === 'running') {
+    // RULE: Don't proceed until user check is done (read via ref, not state dep)
+    if (operationStateRef.current.userCheck === 'running') {
       const routingTimeout = setTimeout(() => {
         console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway');
-        setOperationState(prev => ({ ...prev, routing: 'running' }));
+        // Trigger re-evaluation by nudging forceComplete via master timeout (already set)
+        routingStartedRef.current = false; // allow retry
       }, OPERATION_TIMEOUTS.ROUTING_OPERATION);
       
       operationTimeouts.current.set('routing', routingTimeout);
       return;
     }
 
+    routingStartedRef.current = true;
     setOperationState(prev => ({ ...prev, routing: 'running' }));
 
     // STEP 1: Determine effective sign-in state
@@ -307,7 +338,10 @@ export default function HomeLayout() {
 
     // STEP 2: Handle unauthenticated users
     if (!isEffectivelySignedIn) {
-      router.replace("/(auth)/sign-in");
+      // SDK 54 FIX: Defer router.replace() to next tick. On iOS Fabric, calling
+      // replace() during the React commit phase is a nested state update on the
+      // navigator. Deferring prevents accumulation toward the 50-update limit.
+      setTimeout(() => { routerRef.current.replace("/(auth)/sign-in"); }, 0);
       setOperationState(prev => ({ ...prev, routing: 'completed' }));
       return;
     }
@@ -315,8 +349,8 @@ export default function HomeLayout() {
     // STEP 3: Handle guests (skip profile check)
     if (isGuest) {
       const correctRouteSegment = "(user)";
-      if (segments[1] !== correctRouteSegment) {
-        router.replace(`/(home)/${correctRouteSegment}`);
+      if (segmentsRef.current[1] !== correctRouteSegment) {
+        setTimeout(() => { routerRef.current.replace(`/(home)/${correctRouteSegment}`); }, 0);
       }
       setOperationState(prev => ({ ...prev, routing: 'completed' }));
       return;
@@ -329,13 +363,13 @@ export default function HomeLayout() {
         console.warn('[HomeLayout] Profile loading TIMEOUT: Using default role');
         const defaultRole = "user";
         const correctRouteSegment = `(${defaultRole})`;
-        
-        if (segments[1] !== correctRouteSegment) {
-          router.replace(`/(home)/${correctRouteSegment}`);
+
+        if (segmentsRef.current[1] !== correctRouteSegment) {
+          routerRef.current.replace(`/(home)/${correctRouteSegment}`);
         }
         setOperationState(prev => ({ ...prev, routing: 'completed' }));
       }, OPERATION_TIMEOUTS.PROFILE_FETCH);
-      
+
       operationTimeouts.current.set('profile', profileTimeout);
       return;
     }
@@ -351,21 +385,27 @@ export default function HomeLayout() {
     const role = profile?.role || "user";
     const correctRouteSegment = `(${role})`;
 
-    if (segments[1] !== correctRouteSegment) {
-      router.replace(`/(home)/${correctRouteSegment}`);
+    if (segmentsRef.current[1] !== correctRouteSegment) {
+      setTimeout(() => { routerRef.current.replace(`/(home)/${correctRouteSegment}`); }, 0);
     }
-    
+
     setOperationState(prev => ({ ...prev, routing: 'completed' }));
   }, [
     isLoaded,
     isSignedIn,
     isGuest,
-    user,
-    profile,
-    segments,
-    router,
+    hasUser,
+    hasProfile,
+    profileRole,
+    // SDK 54 FIX: operationState.userCheck is needed so the routing effect re-fires
+    // when user check transitions from 'running' → 'completed'. Previously, unstable
+    // user/profile object refs provided this re-triggering accidentally. With primitive
+    // deps, we need this explicit dep. It's safe: transitions are linear (idle → running
+    // → completed), and routingStartedRef prevents the routing logic from executing twice.
     operationState.userCheck,
-    operationState.routing,
+    // router and segments intentionally omitted — refs used inside to avoid SDK 54
+    // unstable reference loop (useRouter()/useSegments() return new objects every render).
+    // operationState.routing intentionally omitted — routingStartedRef guards re-entry.
     forceComplete,
   ]);
 

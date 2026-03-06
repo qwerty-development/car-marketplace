@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { StatusBar, Platform, useColorScheme } from 'react-native'
+import { StatusBar, Platform } from 'react-native'
 import { useTheme } from '@/utils/ThemeContext'
 
 /**
@@ -8,9 +8,8 @@ import { useTheme } from '@/utils/ThemeContext'
  */
 export default function StatusBarManager() {
   const { isDarkMode } = useTheme()
-  // Fallback to system theme if ThemeContext is not available
-  const systemColorScheme = useColorScheme()
-  const effectiveDarkMode = isDarkMode ?? (systemColorScheme === 'dark')
+  // Use ThemeContext as the single source of truth (avoids dual Appearance subscriptions on iOS SDK 54)
+  const effectiveDarkMode = isDarkMode ?? false
   
   useEffect(() => {
     // Set Android-specific status bar properties
