@@ -1215,21 +1215,6 @@ function RootLayoutNav() {
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
 
-  // SDK 54 FIX: Defer <Slot /> mounting by one frame after isLoaded becomes true.
-  // On iOS Fabric, mounting the navigator during the initial auth state update cascade
-  // (loadSession + onAuthStateChange both firing) causes navigator setState to count
-  // as nested updates, pushing past React's 50-update limit. Deferring by one frame
-  // lets all provider state settle before the navigator initializes.
-  const [slotReady, setSlotReady] = useState(false);
-  useEffect(() => {
-    if (isLoaded && !slotReady) {
-      const frameId = requestAnimationFrame(() => {
-        setSlotReady(true);
-      });
-      return () => cancelAnimationFrame(frameId);
-    }
-  }, [isLoaded, slotReady]);
-
   // Derive PRIMITIVE values from auth objects for the routing effect deps.
   // Using primitives instead of full objects prevents the effect from re-firing
   // when object references change but the actual data hasn't (which happens
@@ -1392,7 +1377,7 @@ function RootLayoutNav() {
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {slotReady ? <Slot /> : null}
+        <Slot />
       </Animated.View>
 
       {!splashAnimationComplete ? (
