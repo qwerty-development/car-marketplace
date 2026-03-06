@@ -18,6 +18,7 @@ const categories = [
 	{ name: 'Coupe', key: 'coupe' },
 	{ name: 'Convertible', key: 'convertible' },
 	{ name: 'Wagon', key: 'wagon' },
+	{ name: 'Pickup', key: 'pickup' },
 	{ name: 'Classic', key: 'classic' },
 ]
 
