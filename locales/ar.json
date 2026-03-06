@@ -76,6 +76,7 @@
   },
   "home": {
     "categories": {
+      "all": "الكل",
       "cars": "سيارات",
       "bikes": "دراجات",
       "trucks": "شاحنات",

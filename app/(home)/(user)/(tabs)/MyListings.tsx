@@ -445,7 +445,7 @@ export default function MyListings() {
 										className={`ml-2 text-sm ${
 											isDarkMode ? 'text-white/60' : 'text-gray-600'
 										}`}>
-										License Plate • Added{' '}
+										Number Plate • Added{' '}
 										{new Date(item.created_at).toLocaleDateString()}
 									</Text>
 								</View>
@@ -1117,7 +1117,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: filterType === 'plate' ? 'bold' : 'normal'
 									}}>
-									License Plates Only
+									Number Plates Only
 								</Text>
 							</TouchableOpacity>
 						</TouchableOpacity>

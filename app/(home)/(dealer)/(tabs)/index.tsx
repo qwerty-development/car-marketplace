@@ -47,7 +47,7 @@ const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
 
 type ViewMode = 'sale' | 'rent'
-type Category = 'cars' | 'plates' | 'bikes' | 'trucks' | 'license'
+type Category = 'cars' | 'plates' | 'bikes' | 'trucks'
 
 interface SegmentedControlProps {
 	mode: ViewMode
@@ -72,11 +72,11 @@ const CategorySelector: React.FC<CategoryProps & { mode: ViewMode }> = ({
 		{ id: 'cars', label: 'Cars', icon: 'car-sport' },
 		{ id: 'bikes', label: 'Bikes', icon: 'bicycle' },
 		{ id: 'trucks', label: 'Trucks', icon: 'bus' },
-		{ id: 'license', label: 'License', icon: 'card' },
+		{ id: 'plates', label: 'Number Plates', icon: 'card' },
 	]
 
-	// Do not show the 'license' category when in rent mode (can't rent number plates)
-	const categories = mode === 'rent' ? allCategories.filter(c => c.id !== 'license') : allCategories
+	// Do not show the 'plates' category when in rent mode (can't rent number plates)
+	const categories = mode === 'rent' ? allCategories.filter(c => c.id !== 'plates') : allCategories
     return (
         <View style={{ height: 48, marginBottom: 8 }}>
             <ScrollView 
@@ -302,7 +302,7 @@ interface SearchBarProps {
             );
             return;
             }
-            if (category === 'license') {
+            if (category === 'plates') {
                 router.push('/(home)/(dealer)/NumberPlatesManager');
                 return;
             }
@@ -1037,7 +1037,7 @@ export default function DealerListings() {
 				const currentViewMode = viewModeRef.current
                 const currentCategory = categoryRef.current
 
-				if (currentCategory === 'license') { // Or 'plates' if you kept that value
+				if (currentCategory === 'plates') {
 					setIsLoading(true)
 					try {
 						const { data, error } = await supabase
@@ -1096,6 +1096,15 @@ export default function DealerListings() {
 						.eq('dealership_id', dealership.id)
 						.neq('status', 'deleted')
 						.order(currentSortBy, { ascending: currentSortOrder === 'asc' })
+
+					// Filter by vehicle type based on selected category
+					if (currentCategory === 'bikes') {
+						query = query.eq('category', 'Motorcycle')
+					} else if (currentCategory === 'trucks') {
+						query = query.eq('category', 'Truck')
+					} else if (currentCategory === 'cars') {
+						query = query.not('category', 'in', '(Motorcycle,Truck)')
+					}
 
 					if (currentSearchQuery) {
 						const cleanQuery = currentSearchQuery.trim().toLowerCase()
@@ -1289,7 +1298,7 @@ export default function DealerListings() {
 		async (id: number) => {
 			if (!dealership || !isSubscriptionValid()) return
 			
-			if (category === 'license') {
+			if (category === 'plates') {
 		        Alert.alert(
 		          'Delete Plate',
 		          'Are you sure you want to delete this number plate? It will be hidden from all users.',
@@ -1476,8 +1485,8 @@ export default function DealerListings() {
 		viewModeRef.current = mode
 		setViewMode(mode)
 
-		// If switching to rent mode, ensure we don't stay on the 'license' category
-		if (mode === 'rent' && categoryRef.current === 'license') {
+		// If switching to rent mode, ensure we don't stay on the 'plates' category
+		if (mode === 'rent' && categoryRef.current === 'plates') {
 			categoryRef.current = 'cars'
 			setCategory('cars')
 		}
@@ -1769,7 +1778,7 @@ const ListingCard = useMemo(
             );
             return;
             }
-            if (category === 'license') {
+            if (category === 'plates') {
                 router.push('/(home)/(dealer)/NumberPlatesManager');
                 return;
             }
@@ -1829,9 +1838,9 @@ const ListingCard = useMemo(
 {!initialLoading && (
 	<FlatList
 		ref={scrollRef}
-		data={category === 'license' ? plates : listings}
+		data={category === 'plates' ? plates : listings}
 		renderItem={({ item }) => {
-			if (category === 'license') {
+			if (category === 'plates') {
 				// Calculate width for consistency with NumberPlatesManager
 				const platePreviewWidth = windowWidth - 64; // Account for padding
 				const plateStatusConfig = getStatusConfig(item.status || 'available');

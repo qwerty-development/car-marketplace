@@ -13,7 +13,7 @@ import { useTheme } from '@/utils/ThemeContext';
 import { useLanguage } from '@/utils/LanguageContext';
 import i18n from '@/utils/i18n';
 
-export type VehicleCategory = 'cars' | 'bikes' | 'trucks' | 'plates';
+export type VehicleCategory = 'all' | 'cars' | 'bikes' | 'trucks' | 'plates';
 
 interface CategoryOption {
   id: VehicleCategory;
@@ -39,6 +39,11 @@ const CategorySelectorModal: React.FC<CategorySelectorModalProps> = ({
   const isRTL = language === 'ar';
 
   const categories: CategoryOption[] = [
+    {
+      id: 'all',
+      labelKey: 'home.categories.all',
+      icon: <Ionicons name="grid-outline" size={22} color={isDarkMode ? '#fff' : '#000'} />,
+    },
     {
       id: 'cars',
       labelKey: 'home.categories.cars',

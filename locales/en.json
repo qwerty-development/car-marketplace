@@ -76,10 +76,11 @@
   },
   "home": {
     "categories": {
+      "all": "All",
       "cars": "Cars",
       "bikes": "Bikes",
       "trucks": "Trucks",
-      "plates": "License Plates"
+      "plates": "Number Plates"
     },
     "buy": "Buy",
     "rent": "Rent",

@@ -115,7 +115,7 @@ export default function BrowseCarsPage() {
   const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const [cars, setCars] = useState<Car[]>([]);
   const [plates, setPlates] = useState<NumberPlate[]>([]);
-  const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('cars');
+  const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('all');
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [carViewMode, setCarViewMode] = useState<'sale' | 'rent'>('sale');
   const [currentPage, setCurrentPage] = useState(1);
@@ -262,7 +262,7 @@ export default function BrowseCarsPage() {
           .select(selectString, { count: "exact" })
           .eq("status", "available");
 
-        // Vehicle category filter (bikes = Motorcycle, trucks = Truck, cars = exclude Motorcycle/Truck)
+        // Vehicle category filter (all = no filter, bikes = Motorcycle, trucks = Truck, cars = exclude Motorcycle/Truck)
         // Bypass this filter when a search query is present to allow global search across all types
         if (!query) {
           if (currentVehicleCategory === 'bikes') {
@@ -273,6 +273,7 @@ export default function BrowseCarsPage() {
             // For cars, exclude motorcycles and trucks
             queryBuilder = queryBuilder.not("category", "in", "(Motorcycle,Truck)");
           }
+          // 'all' applies no category filter — all vehicle types are shown
         }
 
         // Special Filters
@@ -1000,6 +1001,8 @@ export default function BrowseCarsPage() {
   // Get category icon based on selected category
   const getCategoryIcon = (category: VehicleCategory) => {
     switch (category) {
+      case 'all':
+        return <Ionicons name="grid-outline" size={20} color={isDarkMode ? '#fff' : '#000'} />;
       case 'cars':
         return <Ionicons name="car" size={20} color={isDarkMode ? '#fff' : '#000'} />;
       case 'bikes':
@@ -1327,15 +1330,17 @@ export default function BrowseCarsPage() {
                 <ByBrands mode={carViewMode} />
               </View>
             )}
-            {!componentsLoaded || isInitialLoading ? (
-              <SkeletonCategorySelector />
-            ) : (
-              <View>
-                <CategorySelector
-                  selectedCategories={filters.categories || []}
-                  onCategoryPress={handleCategoryPress}
-                />
-              </View>
+            {(vehicleCategory === 'cars' || vehicleCategory === 'all') && (
+              !componentsLoaded || isInitialLoading ? (
+                <SkeletonCategorySelector />
+              ) : (
+                <View>
+                  <CategorySelector
+                    selectedCategories={filters.categories || []}
+                    onCategoryPress={handleCategoryPress}
+                  />
+                </View>
+              )
             )}
             <Banner />
           </>
@@ -1352,13 +1357,15 @@ export default function BrowseCarsPage() {
       ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0)) && (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
-            {vehicleCategory !== 'plates' 
+            {vehicleCategory !== 'plates'
               ? (filters.categories && filters.categories.length > 0
-                  ? `No ${vehicleCategory} available for the selected ${
-                      filters.categories.length === 1 ? "category" : "categories"
-                    }:\n${filters.categories.join(", ")}`
-                  : `No ${vehicleCategory} available.`)
-              : "No number plates available."}
+                  ? `No vehicles available for the selected ${
+                      filters.categories.length === 1 ? 'category' : 'categories'
+                    }:\n${filters.categories.join(', ')}`
+                  : vehicleCategory === 'all'
+                    ? 'No vehicles available.'
+                    : `No ${vehicleCategory} available.`)
+              : 'No number plates available.'}
           </Text>
           {((vehicleCategory !== 'plates' && Object.keys(filters).length > 0) || 
             (vehicleCategory === 'plates' && Object.keys(plateFilters).length > 0) || 
