@@ -1,5 +1,5 @@
 // app/(auth)/_layout.tsx
-import { Redirect, Stack } from 'expo-router'
+import { Stack } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
 import { useGuestUser } from '@/utils/GuestUserContext'
 
@@ -7,20 +7,36 @@ import { useGuestUser } from '@/utils/GuestUserContext'
  * Authentication Layout
  *
  * This layout handles the routing logic for unauthenticated screens.
- * It prevents authenticated or guest users from accessing auth screens
- * by redirecting them to the home screen.
+ * It prevents authenticated or guest users from seeing auth screens
+ * by returning null. Actual navigation away from (auth) is handled
+ * by RootLayoutNav's routing effect — using <Redirect> here caused
+ * a synchronous navigation during render that triggered Maximum
+ * update depth errors and a double-splash remount.
  */
 export default function UnAuthenticatedLayout() {
   // Get authentication state from Supabase Auth context
-  const { isSignedIn } = useAuth()
+  const { isSignedIn, isLoaded } = useAuth()
 
   // Get guest user state
   const { isGuest } = useGuestUser()
 
-  // Redirect authenticated or guest users to home
-  if (isSignedIn || isGuest) {
-    return <Redirect href={'/'} />
+  // Wait until auth is fully initialized
+  if (!isLoaded) {
+    console.log('[AuthLayout] Rendering null — auth not loaded yet');
+    return null
   }
+
+  // Signed-in / guest users: render nothing while RootLayoutNav
+  // navigates away via its deferred safeReplace(). Using <Redirect>
+  // here caused a synchronous navigator state update during the React
+  // commit phase, which cascaded into Maximum update depth and forced
+  // the entire tree to remount (double splash).
+  if (isSignedIn || isGuest) {
+    console.log(`[AuthLayout] Rendering null — user authenticated (isSignedIn=${isSignedIn}, isGuest=${isGuest}), waiting for RootLayoutNav to navigate away`);
+    return null
+  }
+
+  console.log('[AuthLayout] Rendering auth Stack (user is not signed in)');
 
   return (
     <Stack

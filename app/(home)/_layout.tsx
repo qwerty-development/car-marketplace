@@ -87,6 +87,10 @@ export default function HomeLayout() {
   // One-shot guards: prevent concurrent-mode re-entry into these effects.
   const userCheckStartedRef = useRef(false);
   const routingStartedRef = useRef(false);
+  // Tracks whether userCheck async work is still in-flight. Using a ref (not state)
+  // avoids a re-render for the transient 'running' state, which was one of the
+  // setState calls that accumulated toward React's nested-update limit.
+  const userCheckRunningRef = useRef(false);
   // Mirror operationState in a ref so the routing effect can read userCheck state
   // without listing operationState as a dep (which would cause loops).
   const operationStateRef = useRef(operationState);
@@ -134,6 +138,8 @@ export default function HomeLayout() {
   // CRITICAL SYSTEM: Master timeout to prevent infinite loading
   useEffect(() => {
     const masterTimeout = setTimeout(() => {
+      // Only act if routing hasn't already completed normally.
+      if (operationStateRef.current.routing === 'completed') return;
       console.warn('[HomeLayout] MASTER TIMEOUT: Forcing app to load after 8 seconds');
       setForceComplete(true);
       setShowLoader(false);
@@ -170,11 +176,13 @@ export default function HomeLayout() {
       userCheckStartedRef.current = true;
 
       try {
-        setOperationState(prev => ({ ...prev, userCheck: 'running' }));
+        // Mark running via ref (not state) to avoid a cascading re-render
+        userCheckRunningRef.current = true;
         
         // TIMEOUT PROTECTION: User check operation timeout
         const userCheckTimeout = setTimeout(() => {
           console.warn('[HomeLayout] User check TIMEOUT: Completing anyway');
+          userCheckRunningRef.current = false;
           setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
         }, OPERATION_TIMEOUTS.USER_CHECK);
         
@@ -251,6 +259,7 @@ export default function HomeLayout() {
         // STEP 4: Clear timeout and mark as completed immediately
         clearTimeout(userCheckTimeout);
         operationTimeouts.current.delete('userCheck');
+        userCheckRunningRef.current = false;
         setOperationState(prev => ({ ...prev, userCheck: 'completed' }));
 
         // STEP 5: Background operations (non-blocking)
@@ -290,6 +299,7 @@ export default function HomeLayout() {
         
       } catch (error: any) {
         console.error("[HomeLayout] Error in user sync:", error);
+        userCheckRunningRef.current = false;
         setOperationState(prev => ({ ...prev, userCheck: 'failed' }));
         
         // RULE: Don't block app for user sync errors
@@ -319,12 +329,19 @@ export default function HomeLayout() {
   // OPTIMIZED: Fast routing logic
   useEffect(() => {
     // RULE: Skip if conditions not met
-    if (isSigningOut || !isLoaded || forceComplete) return;
+    if (isSigningOut || !isLoaded || forceComplete) {
+      console.log(`[HomeLayout] Routing: SKIPPING (isSigningOut=${isSigningOut}, isLoaded=${isLoaded}, forceComplete=${forceComplete})`);
+      return;
+    }
     // SDK 54 FIX: Use ref guard instead of operationState.routing in deps.
-    if (routingStartedRef.current) return;
+    if (routingStartedRef.current) {
+      console.log('[HomeLayout] Routing: SKIPPING — routingStartedRef is true');
+      return;
+    }
 
     // RULE: Don't proceed until user check is done (read via ref, not state dep)
-    if (operationStateRef.current.userCheck === 'running') {
+    if (userCheckRunningRef.current) {
+      console.log('[HomeLayout] Routing: WAITING — userCheck still running');
       const routingTimeout = setTimeout(() => {
         console.warn('[HomeLayout] Routing TIMEOUT: Proceeding anyway');
         // Trigger re-evaluation by nudging forceComplete via master timeout (already set)
@@ -335,8 +352,18 @@ export default function HomeLayout() {
       return;
     }
 
+    // Clear any stale routing timeout from a previous early-return above.
+    const staleRoutingTimeout = operationTimeouts.current.get('routing');
+    if (staleRoutingTimeout) {
+      clearTimeout(staleRoutingTimeout);
+      operationTimeouts.current.delete('routing');
+    }
+
     routingStartedRef.current = true;
-    setOperationState(prev => ({ ...prev, routing: 'running' }));
+    console.log(`[HomeLayout] Routing: STARTED. isSignedIn=${isSignedIn}, isGuest=${isGuest}, hasProfile=${hasProfile}, profileRole=${profileRole}, segments=${segmentsRef.current.join('/')}`);
+    // Skip setting routing:'running' state — nothing renders differently for it
+    // and the extra setState was one of the calls accumulating toward React's
+    // nested-update limit. Jump straight to 'completed' at the end.
 
     // STEP 1: Determine effective sign-in state
     const isEffectivelySignedIn = isSignedIn || isGuest;
@@ -390,11 +417,17 @@ export default function HomeLayout() {
     const role = profile?.role || "user";
     const correctRouteSegment = `(${role})`;
 
+    console.log(`[HomeLayout] Routing: role=${role}, correctSegment=${correctRouteSegment}, currentSegment=${segmentsRef.current[1]}`);
+
     if (segmentsRef.current[1] !== correctRouteSegment) {
+      console.log(`[HomeLayout] Routing: NAVIGATING to /(home)/${correctRouteSegment}`);
       setTimeout(() => { routerRef.current.replace(`/(home)/${correctRouteSegment}`); }, 0);
+    } else {
+      console.log('[HomeLayout] Routing: already on correct route segment');
     }
 
     setOperationState(prev => ({ ...prev, routing: 'completed' }));
+    console.log('[HomeLayout] Routing: COMPLETED');
   }, [
     isLoaded,
     isSignedIn,
@@ -419,6 +452,7 @@ export default function HomeLayout() {
     const checkIfReady = () => {
       // RULE: Force complete overrides everything
       if (forceComplete) {
+        console.log('[HomeLayout] Loader: hiding — forceComplete');
         setShowLoader(false);
         return;
       }
@@ -428,8 +462,11 @@ export default function HomeLayout() {
       const isRoutingDone = operationState.routing === 'completed';
       const isBasicLoadingDone = isLoaded;
 
+      console.log(`[HomeLayout] Loader check: userCheck=${operationState.userCheck}, routing=${operationState.routing}, isLoaded=${isLoaded}, showLoader=${showLoader}`);
+
       // RULE: Show app as soon as routing is done
       if (isRoutingDone && isBasicLoadingDone) {
+        console.log('[HomeLayout] Loader: hiding — routing completed and auth loaded');
         setShowLoader(false);
       }
     };
@@ -440,6 +477,8 @@ export default function HomeLayout() {
   // SAFETY SYSTEM: Emergency loader timeout
   useEffect(() => {
     const loaderTimeout = setTimeout(() => {
+      // Only act if routing hasn't already completed normally.
+      if (operationStateRef.current.routing === 'completed') return;
       console.warn('[HomeLayout] EMERGENCY TIMEOUT: Showing app after 6 seconds');
       setShowLoader(false);
     }, 6000); // Reduced from 12 seconds
@@ -449,12 +488,15 @@ export default function HomeLayout() {
 
   // CONDITIONAL RENDERING: Show loader only when necessary
   if (showLoader && !forceComplete) {
+    console.log('[HomeLayout] Rendering LogoLoader (showLoader=true)');
     return (
       <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
         <LogoLoader />
       </View>
     );
   }
+
+  console.log('[HomeLayout] Rendering main Stack layout');
 
   // MAIN RENDER: Home layout container with enhanced Android navigation
   return (
