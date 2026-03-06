@@ -14,7 +14,7 @@ import { NotificationService } from '@/services/NotificationService';
 const OPERATION_TIMEOUTS = {
   SIGN_IN: 10000, // 10 seconds
   SIGN_OUT: 8000, // 8 seconds
-  PROFILE_FETCH: 8000, // 8 seconds - increased from 5s to handle poor network conditions
+  PROFILE_FETCH: 15000, // 15 seconds - covers Supabase cold-start latency (was 8s)
   PROFILE_UPDATE: 15000, // 15 seconds - higher for database writes
   TOKEN_REGISTRATION: 8000, // 8 seconds
   SESSION_LOAD: 10000, // 10 seconds
@@ -162,6 +162,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const profileRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const profileRetryStateRef = useRef<{ userId: string; nextAttempt: number } | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
+  // Dedup guard: prevents loadSession and onAuthStateChange from running
+  // fetchUserProfile concurrently for the same userId (race condition on cold start).
+  const profileFetchActiveForRef = useRef<string | null>(null);
+  // Guard: Supabase SDK can fire INITIAL_SESSION twice (once from subscription
+  // setup and once triggered by the getSession() call in loadSession).
+  // We must only process it once to avoid double profile fetches and the
+  // setState cascade that causes Maximum update depth.
+  const initialSessionHandledRef = useRef(false);
   // Guard to prevent resetting isLoaded on the very first mount (SDK 54 fix)
   const authInitializedRef = useRef(false);
 
@@ -439,6 +447,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           console.log('[AUTH] Auth state change event:', event);
 
           if (currentSession) {
+            // DEDUP: INITIAL_SESSION can fire twice (from subscription setup and
+            // from the getSession() call). Only process it once.
+            if (event === 'INITIAL_SESSION') {
+              if (initialSessionHandledRef.current) {
+                console.log('[AUTH] INITIAL_SESSION already handled — skipping duplicate');
+                return;
+              }
+              initialSessionHandledRef.current = true;
+            }
+
             setSession(currentSession);
             setUser(currentSession.user);
 
@@ -450,6 +468,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setUser(null);
             setProfile(null);
             setDealership(undefined);
+          } else if (event === 'INITIAL_SESSION') {
+            // INITIAL_SESSION with no session = not logged in.
+            // Mark initial session as handled so any late duplicate is also skipped.
+            initialSessionHandledRef.current = true;
           }
 
           // Clear the session timeout since we got a response
@@ -466,30 +488,29 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     authSubscriptionRef.current = subscription;
 
-    // Check for existing session on startup with timeout
+    // Warm up the Supabase SDK connection so the INITIAL_SESSION event fires
+    // promptly. We do NOT set any React state here — onAuthStateChange is the
+    // sole owner of session/user/isLoaded. Setting state in both places created
+    // a race where RootLayoutNav and UnAuthenticatedLayout both fired redirects
+    // simultaneously, causing Maximum update depth and the double-splash screen.
+    // The session timeout above is the only fallback if onAuthStateChange never fires.
     const loadSession = async () => {
       try {
-        const sessionResult = await withTimeout(
+        await withTimeout(
           supabase.auth.getSession(),
           OPERATION_TIMEOUTS.SESSION_LOAD,
           'session load'
         );
-
-        if (sessionResult?.data?.session) {
-          setSession(sessionResult.data.session);
-          setUser(sessionResult.data.session.user);
-
-          if (sessionResult.data.session.user && !isGuest) {
-            await fetchUserProfile(sessionResult.data.session.user.id);
-          }
-        }
+        // onAuthStateChange (INITIAL_SESSION) fired as a side-effect of getSession().
+        // No state to set here.
       } catch (error: any) {
         if (error.message.includes('timed out')) {
-          console.warn('[AUTH] Session load timed out');
+          console.warn('[AUTH] Session load timed out — waiting for session timeout fallback');
         } else {
           console.error('[AUTH] Error loading session:', error);
         }
-      } finally {
+        // Ensure isLoaded is set even if getSession() hard-fails and
+        // onAuthStateChange never fires.
         cleanupOperation('sessionLoad');
         setIsLoaded(true);
       }
@@ -503,6 +524,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         authSubscriptionRef.current = null;
       }
       cleanupOperation('sessionLoad');
+      // Reset so the next effect run (e.g. isGuest change) handles INITIAL_SESSION fresh.
+      initialSessionHandledRef.current = false;
     };
   }, [isGuest]);
 
@@ -612,6 +635,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (isGuest) return;
       if (isGlobalSigningOut || isSigningOutState) return;
 
+      // DEDUP GUARD: if a fetch is already in flight for this userId, skip.
+      // This prevents loadSession and onAuthStateChange (INITIAL_SESSION) from
+      // running two concurrent fetches on cold start, which causes a state
+      // cascade and the Maximum update depth warning.
+      if (profileFetchActiveForRef.current === userId) {
+        console.log('[AUTH] Profile fetch already in progress for:', userId, '— skipping duplicate');
+        return;
+      }
+      profileFetchActiveForRef.current = userId;
+
       console.log('[AUTH] Fetching user profile for:', userId);
       const startTime = Date.now();
       const result = await withTimeout(
@@ -669,6 +702,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       console.log(`[AUTH] Error type: ${isTimeout ? 'TIMEOUT' : 'OTHER'}, Message: ${error?.message}`);
       setDealership(null); 
       scheduleProfileRetry(userId, isTimeout ? 'network timeout' : 'profile fetch error');
+    } finally {
+      // Always release the dedup guard so retries can proceed.
+      if (profileFetchActiveForRef.current === userId) {
+        profileFetchActiveForRef.current = null;
+      }
     }
   };
 

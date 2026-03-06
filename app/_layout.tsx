@@ -374,10 +374,11 @@ const DeepLinkHandler = () => {
   const recentlyProcessedUrlsRef = useRef<Map<string, number>>(new Map());
 
   // Ref to track latest segments value to avoid stale closures
+  // SDK 54 FIX: No deps — segments is a new array ref every render anyway.
   const segmentsRef = useRef(segments);
   useEffect(() => {
     segmentsRef.current = segments;
-  }, [segments]);
+  });
 
   // SDK 54 FIX: useRouter() returns a new object reference on every render in Expo
   // Router v6. Refs give stable access inside useCallback/useEffect without needing
@@ -1198,7 +1199,6 @@ function RootLayoutNav() {
       lastCommand.target === target &&
       now - lastCommand.at < NAV_COMMAND_COOLDOWN_MS
     ) {
-      console.log("[RootLayoutNav] Skipping duplicate replace:", target);
       return;
     }
 
@@ -1213,21 +1213,6 @@ function RootLayoutNav() {
 
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
-
-  // SDK 54 FIX: Defer <Slot /> mounting by one frame after isLoaded becomes true.
-  // On iOS Fabric, mounting the navigator during the initial auth state update cascade
-  // (loadSession + onAuthStateChange both firing) causes navigator setState to count
-  // as nested updates, pushing past React's 50-update limit. Deferring by one frame
-  // lets all provider state settle before the navigator initializes.
-  const [slotReady, setSlotReady] = useState(false);
-  useEffect(() => {
-    if (isLoaded && !slotReady) {
-      const frameId = requestAnimationFrame(() => {
-        setSlotReady(true);
-      });
-      return () => cancelAnimationFrame(frameId);
-    }
-  }, [isLoaded, slotReady]);
 
   // Derive PRIMITIVE values from auth objects for the routing effect deps.
   // Using primitives instead of full objects prevents the effect from re-firing
@@ -1256,11 +1241,15 @@ function RootLayoutNav() {
   // This effect correctly handles routing only when auth is loaded.
   useEffect(() => {
     // RULE: Only route when auth is loaded and no sign-in/out is in progress.
-    if (!isLoaded || isSigningOut || isSigningIn) return;
+    if (!isLoaded || isSigningOut || isSigningIn) {
+      return;
+    }
 
     // If we already issued a replace() and the navigator hasn't caught up
     // yet (segments unchanged), skip to avoid piling up state updates.
-    if (navigationPendingRef.current) return;
+    if (navigationPendingRef.current) {
+      return;
+    }
 
     // Read segments from ref — the ref is always current and avoids putting
     // the unstable array reference in the dependency list.
@@ -1321,10 +1310,16 @@ function RootLayoutNav() {
 
     const isEffectivelySignedIn = isSignedIn || isGuest;
     const inAuthGroup = currentSegments[0] === "(auth)";
+    const inHomeGroup = currentSegments[0] === "(home)";
 
     // Basic routing logic
-    if (isEffectivelySignedIn && inAuthGroup) {
-      targetRoute = "/(home)";
+    if (isEffectivelySignedIn && !inHomeGroup) {
+      // Signed in but not in (home) — could be in (auth), at root (empty segments),
+      // or on complete-profile. Navigate to home.
+      const isOnCompleteProfile = currentSegments[0] === 'complete-profile';
+      if (!isOnCompleteProfile) {
+        targetRoute = "/(home)";
+      }
     } else if (!isEffectivelySignedIn && !inAuthGroup) {
       targetRoute = "/(auth)/sign-in";
     }
@@ -1391,7 +1386,7 @@ function RootLayoutNav() {
       <Animated.View
         style={[styles.contentContainer, { opacity: contentOpacity }]}
       >
-        {slotReady ? <Slot /> : null}
+        <Slot />
       </Animated.View>
 
       {!splashAnimationComplete ? (

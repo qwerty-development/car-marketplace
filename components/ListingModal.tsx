@@ -61,9 +61,11 @@ export const CATEGORIES = [
   { value: "Convertible", label: "Convertible", icon: "car-convertible" },
   { value: "Hatchback", label: "Hatchback", icon: "car-hatchback" },
   { value: "Sports", label: "Sports", icon: "car-sports" },
+  { value: "Wagon", label: "Wagon", icon: "car-estate" },
+  { value: "Truck", label: "Truck", icon: "truck" },
+  { value: "Pickup", label: "Pickup", icon: "truck-flatbed" },
   { value: "Classic", label: "Classic", icon: "car-convertible" },
   { value: "Motorcycle", label: "Motorcycle", icon: "motorbike" },
-  { value: "Truck", label: "Truck", icon: "truck" },
 ];
 
 export const TRANSMISSIONS = [

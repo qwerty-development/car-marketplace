@@ -76,6 +76,7 @@
   },
   "home": {
     "categories": {
+      "all": "الكل",
       "cars": "سيارات",
       "bikes": "دراجات",
       "trucks": "شاحنات",
@@ -97,9 +98,11 @@
     "hatchback": "هاتشباك",
     "coupe": "كوبيه",
     "convertible": "كابريوليه",
+    "wagon": "ستيشن واغن",
+    "truck": "شاحنة",
+    "pickup": "بيك أب",
     "classic": "كلاسيكية",
-    "motorcycle": "دراجة نارية",
-    "truck": "شاحنة"
+    "motorcycle": "دراجة نارية"
   },
   "banner": {
     "loading": "جاري تحميل البنرات..."

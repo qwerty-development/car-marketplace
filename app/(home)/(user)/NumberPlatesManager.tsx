@@ -364,7 +364,7 @@ export default function NumberPlatesManager() {
             />
           </TouchableOpacity>
           <Text className="text-white text-2xl font-bold flex-1">
-            {isEditMode ? 'Edit License Plate' : 'Number Plates Manager'}
+            {isEditMode ? 'Edit Number Plate' : 'Number Plates Manager'}
           </Text>
         </View>
       </LinearGradient>
