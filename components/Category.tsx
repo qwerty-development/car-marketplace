@@ -17,9 +17,10 @@ const categories = [
 	{ name: 'Hatchback', key: 'hatchback' },
 	{ name: 'Coupe', key: 'coupe' },
 	{ name: 'Convertible', key: 'convertible' },
+	{ name: 'Wagon', key: 'wagon' },
+	{ name: 'Pickup', key: 'pickup' },
 	{ name: 'Classic', key: 'classic' },
 	{ name: 'Motorcycle', key: 'motorcycle' },
-	{ name: 'Truck', key: 'truck' },
 ]
 
 interface CategorySelectorProps {

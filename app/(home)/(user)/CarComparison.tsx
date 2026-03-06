@@ -808,7 +808,11 @@ export default function CarComparison() {
                 car1.category.toLowerCase() === "coupe" ? t("category.coupe") : 
                 car1.category.toLowerCase() === "convertible" ? t("category.convertible") : 
                 car1.category.toLowerCase() === "sports" || car1.category.toLowerCase() === "sport" ? t("category.sports") :
+                car1.category.toLowerCase() === "wagon" ? t("category.wagon") :
+                car1.category.toLowerCase() === "truck" ? t("category.truck") :
+                car1.category.toLowerCase() === "pickup" ? t("category.pickup") :
                 car1.category.toLowerCase() === "classic" ? t("category.classic") :
+                car1.category.toLowerCase() === "motorcycle" ? t("category.motorcycle") :
                 car1.category,
         value2: car2.category.toLowerCase() === "sedan" ? t("category.sedan") : 
                 car2.category.toLowerCase() === "suv" ? t("category.suv") : 
@@ -816,7 +820,11 @@ export default function CarComparison() {
                 car2.category.toLowerCase() === "coupe" ? t("category.coupe") : 
                 car2.category.toLowerCase() === "convertible" ? t("category.convertible") : 
                 car2.category.toLowerCase() === "sports" || car2.category.toLowerCase() === "sport" ? t("category.sports") :
+                car2.category.toLowerCase() === "wagon" ? t("category.wagon") :
+                car2.category.toLowerCase() === "truck" ? t("category.truck") :
+                car2.category.toLowerCase() === "pickup" ? t("category.pickup") :
                 car2.category.toLowerCase() === "classic" ? t("category.classic") :
+                car2.category.toLowerCase() === "motorcycle" ? t("category.motorcycle") :
                 car2.category,
         better: 0, // Depends on needs
         icon: "car-estate",
