@@ -92,39 +92,44 @@ export default function HomeLayout() {
   const operationStateRef = useRef(operationState);
   // Keep refs current on every render (no deps = runs after every render)
   useEffect(() => { routerRef.current = router; });
-  useEffect(() => { segmentsRef.current = segments; }, [segments]);
+  // SDK 54 FIX: No dep array — runs after every render to keep ref current.
+  // Using [segments] would fire on every render anyway (new array ref each time).
+  useEffect(() => { segmentsRef.current = segments; });
   useEffect(() => { operationStateRef.current = operationState; }, [operationState]);
 
   // ANDROID FIX: Enhanced navigation stack management for deep links
+  // SDK 54 FIX: Use segmentsKey (stable string) instead of segments (new array ref every render)
+  const segmentsKey = segments.join('/');
   useEffect(() => {
     if (Platform.OS === 'android') {
+      const currentSegments = segmentsRef.current;
       // Check if we're in a deep navigation state without proper stack
-      const isDeepRoute = segments.length > 2 && !segments.includes('(tabs)');
-      
+      const isDeepRoute = currentSegments.length > 2 && !currentSegments.includes('(tabs)');
+
       if (isDeepRoute) {
-        console.log('[HomeLayout] Android deep route detected, ensuring proper stack:', segments);
-        
+        console.log('[HomeLayout] Android deep route detected, ensuring proper stack:', currentSegments);
+
         // Additional Android-specific deep link handling
-        const isAutoclipDeepLink = segments.some(segment => 
+        const isAutoclipDeepLink = currentSegments.some(segment =>
           segment.includes('autoclips') || segment.includes('clips')
         );
-        
-        const isCarDeepLink = segments.some(segment => 
+
+        const isCarDeepLink = currentSegments.some(segment =>
           segment.includes('CarDetails') || segment.includes('cars')
         );
-        
+
         if (isAutoclipDeepLink) {
           console.log('[HomeLayout] Android autoclip deep link detected');
           // Ensure proper navigation stack for autoclips
         }
-        
+
         if (isCarDeepLink) {
           console.log('[HomeLayout] Android car deep link detected');
           // Ensure proper navigation stack for car details
         }
       }
     }
-  }, [segments]);
+  }, [segmentsKey]);
 
   // CRITICAL SYSTEM: Master timeout to prevent infinite loading
   useEffect(() => {

@@ -374,10 +374,11 @@ const DeepLinkHandler = () => {
   const recentlyProcessedUrlsRef = useRef<Map<string, number>>(new Map());
 
   // Ref to track latest segments value to avoid stale closures
+  // SDK 54 FIX: No deps — segments is a new array ref every render anyway.
   const segmentsRef = useRef(segments);
   useEffect(() => {
     segmentsRef.current = segments;
-  }, [segments]);
+  });
 
   // SDK 54 FIX: useRouter() returns a new object reference on every render in Expo
   // Router v6. Refs give stable access inside useCallback/useEffect without needing
