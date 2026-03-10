@@ -1,5 +1,11 @@
 import { ImageSourcePropType } from 'react-native';
 
+// Local logo assets for brands (used for all themes)
+const LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
+  'land-rover': require('@/assets/brands/land-rover-logo.png'),
+  'range-rover': require('@/assets/brands/land-rover-logo.png'),
+};
+
 // Local dark mode logo assets for brands with black logos that disappear in dark mode
 const DARK_MODE_LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
   'hummer': require('@/assets/brands/dark-mode/hummer-logo.jpeg'),
@@ -71,9 +77,7 @@ export const getLogoUrl = (
   switch (formattedMake) {
     case "range-rover":
     case "land-rover":
-      return isLightMode
-        ? "https://www.carlogos.org/car-logos/land-rover-logo-2020-green.png"
-        : "https://www.carlogos.org/car-logos/land-rover-logo.png";
+      return "https://www.carlogos.org/car-logos/land-rover-logo.png";
     case "infiniti":
       return "https://www.carlogos.org/car-logos/infiniti-logo.png";
     case "jetour":
@@ -177,12 +181,19 @@ export const getLogoSource = (
   isDarkMode: boolean,
 ): { uri: string } | ImageSourcePropType | null => {
   if (!make) return null;
-  
+
+  const formattedMake = make.toLowerCase().trim().replace(/\s+/g, "-");
+
+  // Check for a local asset first (takes priority over remote URLs)
+  if (formattedMake in LOCAL_LOGOS) {
+    return LOCAL_LOGOS[formattedMake];
+  }
+
   // In dark mode, check if we have a local dark mode logo
   if (isDarkMode && hasLocalDarkModeLogo(make)) {
     return getDarkModeLogo(make);
   }
-  
+
   // Otherwise return the URL
   const url = getLogoUrl(make, !isDarkMode);
   return url ? { uri: url } : null;
