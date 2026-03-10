@@ -31,10 +31,9 @@ export default function MessageComposer({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    if (Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
     return () => {
       show.remove();
       hide.remove();
@@ -61,7 +60,7 @@ export default function MessageComposer({
           backgroundColor: isDarkMode ? '#0F172A' : '#F9FAFB',
           paddingBottom: keyboardVisible
             ? styles.container.paddingVertical
-            : styles.container.paddingVertical + bottom,
+            : styles.container.paddingVertical + (Platform.OS === 'ios' ? bottom : 0),
         },
       ]}
     >
