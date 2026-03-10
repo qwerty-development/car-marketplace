@@ -1,12 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MessageComposerProps {
   onSend: (message: string) => Promise<void> | void;
@@ -24,6 +27,19 @@ export default function MessageComposer({
   placeholder = 'Type a message…',
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
+  const { bottom } = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const handleSend = useCallback(async () => {
     const trimmed = message.trim();
@@ -41,7 +57,12 @@ export default function MessageComposer({
     <View
       style={[
         styles.container,
-        { backgroundColor: isDarkMode ? '#0F172A' : '#F9FAFB' },
+        {
+          backgroundColor: isDarkMode ? '#0F172A' : '#F9FAFB',
+          paddingBottom: keyboardVisible
+            ? styles.container.paddingVertical
+            : styles.container.paddingVertical + bottom,
+        },
       ]}
     >
       {onAttachPress ? (
