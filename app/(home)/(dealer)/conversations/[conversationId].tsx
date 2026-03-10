@@ -16,6 +16,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import { ChatService } from '@/services/ChatService';
@@ -40,6 +41,7 @@ export default function DealerConversationDetailScreen() {
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
   const { t } = useTranslation();
+  const headerHeight = useHeaderHeight();
 
   const {
     data: conversation,
@@ -209,7 +211,7 @@ export default function DealerConversationDetailScreen() {
   }
 
   return (
-    <SafeAreaView
+    <View
       style={{
         flex: 1,
         backgroundColor: isDarkMode ? '#000000' : '#F8FAFC',
@@ -217,8 +219,8 @@ export default function DealerConversationDetailScreen() {
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={headerHeight}
       >
         {isConversationLoading && isMessagesLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -321,6 +323,6 @@ export default function DealerConversationDetailScreen() {
           </>
         )}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
