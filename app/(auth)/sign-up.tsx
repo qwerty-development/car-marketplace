@@ -361,7 +361,7 @@ export default function SignUpScreen() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [code, setCode] = useState('');
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<ICountry | null>(null);
   const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
@@ -647,19 +647,6 @@ export default function SignUpScreen() {
           {!pendingVerification && !pendingPhoneVerification && (
             <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1F2937' : '#F3F4F6', borderRadius: 12, padding: 4 }}>
               <TouchableOpacity
-                onPress={() => setAuthMethod('email')}
-                style={{
-                  flex: 1,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
-                }}
-              >
-                <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
-                  Email
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
                 onPress={() => setAuthMethod('phone')}
                 style={{
                   flex: 1,
@@ -670,6 +657,19 @@ export default function SignUpScreen() {
               >
                 <Text style={{ color: authMethod === 'phone' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
                   Phone
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setAuthMethod('email')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
+                }}
+              >
+                <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
+                  Email
                 </Text>
               </TouchableOpacity>
             </View>

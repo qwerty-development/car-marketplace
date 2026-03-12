@@ -24,7 +24,7 @@ const CustomPhoneInput: React.FC<InternationalPhoneInputProps> = ({
   selectedCountry,
   onChangeSelectedCountry,
   error,
-  label = "Phone Number",
+  label = "",
   description,
   defaultCountry = "LB", // Lebanon as default
   disabled = false,
@@ -250,6 +250,7 @@ const CustomPhoneInput: React.FC<InternationalPhoneInputProps> = ({
             color: isDark ? "#6B7280" : "#9CA3AF",
           },
         }}
+        placeholder="Number"
         phoneInputPlaceholderTextColor={isDark ? "#6B7280" : "#9CA3AF"}
         modalSearchInputPlaceholder="Search countries..."
         modalSearchInputPlaceholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}

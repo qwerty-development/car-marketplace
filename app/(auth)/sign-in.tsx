@@ -403,7 +403,7 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGuestLoading, setIsGuestLoading] = useState(false);
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<ICountry | null>(null);
   const [otpCode, setOtpCode] = useState('');
@@ -637,19 +637,6 @@ export default function SignInPage() {
         {!pendingPhoneVerification && (
           <View style={{ flexDirection: 'row', marginBottom: 24, backgroundColor: isDark ? '#1F2937' : '#F3F4F6', borderRadius: 12, padding: 4 }}>
             <TouchableOpacity
-              onPress={() => setAuthMethod('email')}
-              style={{
-                flex: 1,
-                paddingVertical: 8,
-                borderRadius: 8,
-                backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
-              }}
-            >
-              <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
-                Email
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               onPress={() => setAuthMethod('phone')}
               style={{
                 flex: 1,
@@ -660,6 +647,19 @@ export default function SignInPage() {
             >
               <Text style={{ color: authMethod === 'phone' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
                 Phone
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setAuthMethod('email')}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
+              }}
+            >
+              <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
+                Email
               </Text>
             </TouchableOpacity>
           </View>
