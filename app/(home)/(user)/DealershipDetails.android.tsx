@@ -390,12 +390,12 @@ const AdvancedSearchBar = React.memo(({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: isInputFocused ? 2 : 1,
+        borderWidth: 1,
         borderColor: isInputFocused ? '#D55004' : (isDarkMode ? '#555' : '#ccc'),
         borderRadius: 999,
         paddingHorizontal: 16,
         backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-        elevation: isInputFocused ? 2 : 0
+        elevation: 2
       }}>
         <FontAwesome
           name="search"
@@ -427,7 +427,7 @@ const AdvancedSearchBar = React.memo(({
           // Android-specific optimizations
           underlineColorAndroid="transparent"
           selectTextOnFocus={true}
-          blurOnSubmit={true}
+          blurOnSubmit={false}
         />
 
         {/* **SEARCH ACTIONS** */}
@@ -2105,6 +2105,8 @@ const DealershipDetails = () => {
           refreshing={loadingState.refresh}
           onRefresh={handleRefresh}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
           // **ANDROID PERFORMANCE OPTIMIZATIONS**
           windowSize={ANDROID_PERFORMANCE_MODE ? 3 : 10}
           maxToRenderPerBatch={ANDROID_PERFORMANCE_MODE ? 3 : 10}
