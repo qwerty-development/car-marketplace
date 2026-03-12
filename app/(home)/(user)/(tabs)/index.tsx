@@ -1327,7 +1327,7 @@ export default function BrowseCarsPage() {
               <SkeletonByBrands />
             ) : (
               <View>
-                <ByBrands mode={carViewMode} />
+                <ByBrands mode={carViewMode} vehicleCategory={vehicleCategory} />
               </View>
             )}
             {(vehicleCategory === 'cars' || vehicleCategory === 'all') && (

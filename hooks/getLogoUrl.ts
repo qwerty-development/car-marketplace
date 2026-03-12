@@ -4,6 +4,7 @@ import { ImageSourcePropType } from 'react-native';
 const LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
   'land-rover': require('@/assets/brands/land-rover-logo.png'),
   'range-rover': require('@/assets/brands/land-rover-logo.png'),
+  'dominar': require('@/assets/brands/Dominar.jpg'),
 };
 
 // Local dark mode logo assets for brands with black logos that disappear in dark mode

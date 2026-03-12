@@ -22,17 +22,20 @@ import { useLanguage } from '@/utils/LanguageContext'
 import i18n from '@/utils/i18n'
 import { getLogoSource } from '@/hooks/getLogoUrl'
 import { ImageSourcePropType } from 'react-native'
+import { VehicleCategory } from '@/components/CategorySelectorModal'
 
 interface Brand {
 	name: string
 	logoSource: { uri: string } | ImageSourcePropType | null
+	listingCount: number
 }
 
 interface ByBrandsProps {
 	mode?: 'sale' | 'rent'
+	vehicleCategory?: VehicleCategory
 }
 
-const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
+const ByBrands = React.memo(({ mode = 'sale', vehicleCategory = 'all' }: ByBrandsProps) => {
 	const { language } = useLanguage();
 	const [brands, setBrands] = useState<Brand[]>([])
 	const [isLoading, setIsLoading] = useState(true)
@@ -42,23 +45,21 @@ const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 	const isRTL = I18nManager.isRTL
 
 	const fetchBrands = useCallback(async () => {
+		setIsLoading(true)
+		setBrands([])
 		try {
-			// Query the appropriate table based on mode
-			const tableName = mode === 'rent' ? 'cars_rent' : 'cars'
 			const { data, error } = await supabase
-				.from(tableName)
-				.select('make')
-				.eq("status","available")
-				.order('make')
+				.rpc('get_brands_by_vehicle_category', {
+					p_vehicle_category: vehicleCategory === 'plates' ? 'all' : vehicleCategory,
+					p_mode: mode,
+				})
 
 			if (error) throw error
 
-			const uniqueBrands = Array.from(
-				new Set(data.map((item: { make: string }) => item.make))
-			)
-			const brandsData = uniqueBrands.map((make: string) => ({
-				name: make,
-				logoSource: getLogoSource(make, isDarkMode)
+			const brandsData = (data || []).map((item: { make: string; listing_count: number }) => ({
+				name: item.make,
+				logoSource: getLogoSource(item.make, isDarkMode),
+				listingCount: item.listing_count,
 			}))
 
 			setBrands(brandsData)
@@ -67,7 +68,7 @@ const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 		} finally {
 			setIsLoading(false)
 		}
-	}, [isDarkMode, mode])
+	}, [isDarkMode, mode, vehicleCategory])
 
 	useEffect(() => {
 		fetchBrands()
@@ -89,14 +90,14 @@ const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 	const handleBrandPress = (brand: string) => {
 		router.push({
 			pathname: '/(home)/(user)/CarsByBrand',
-			params: { brand, mode }
+			params: { brand, mode, vehicleCategory }
 		})
 	}
 
 	const handleSeeAllBrands = () => {
 		router.push({
 			pathname: '/(home)/(user)/AllBrandsPage',
-			params: { mode }
+			params: { mode, vehicleCategory }
 		})
 	}
 
@@ -106,7 +107,7 @@ const ByBrands = React.memo(({ mode = 'sale' }: ByBrandsProps) => {
 
 	return (
 		<View
-			className={`mt-3  px-3  mb-4 ${isDarkMode ? '' : 'bg-[#FFFFFF]'}`}>
+			className={`mt-3  px-3 pb-3 mb-4 ${isDarkMode ? '' : 'bg-[]'}`}>
 			<View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
 				<Text
 					className={`text-xl font-bold ${

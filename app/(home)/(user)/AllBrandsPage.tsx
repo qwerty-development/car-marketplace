@@ -28,10 +28,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronLeft } from "lucide-react-native";
 import { getLogoSource } from "@/hooks/getLogoUrl";
 import { ImageSourcePropType } from "react-native";
+import { VehicleCategory } from "@/components/CategorySelectorModal";
 
 interface Brand {
   name: string;
   logoSource: { uri: string } | ImageSourcePropType | null;
+  listingCount: number;
 }
 
 // Skeleton component defined within the same file
@@ -142,8 +144,9 @@ const CustomHeader = React.memo(
 
 
 export default function AllBrandsPage() {
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode, vehicleCategory: vcParam } = useLocalSearchParams<{ mode?: string; vehicleCategory?: string }>();
   const viewMode = (mode === 'rent' ? 'rent' : 'sale') as 'sale' | 'rent';
+  const vehicleCategory = (vcParam || 'all') as VehicleCategory;
   const [brands, setBrands] = useState<Brand[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -161,23 +164,18 @@ export default function AllBrandsPage() {
   const fetchBrands = useCallback(async () => {
     if (!refreshing) setIsLoading(true);
     try {
-      // Query the appropriate table based on mode
-      const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
       const { data, error } = await supabase
-        .from(tableName)
-        .select("make")
-        .eq("status","available")
-        .order("make");
-        
+        .rpc('get_brands_by_vehicle_category', {
+          p_vehicle_category: vehicleCategory === 'plates' ? 'all' : vehicleCategory,
+          p_mode: viewMode,
+        });
 
       if (error) throw error;
 
-      const uniqueBrands = Array.from(
-        new Set(data.map((item: { make: string }) => item.make))
-      );
-      const brandsData = uniqueBrands.map((make: string) => ({
-        name: make,
-        logoSource: getLogoSource(make, isDarkMode),
+      const brandsData = (data || []).map((item: { make: string; listing_count: number }) => ({
+        name: item.make,
+        logoSource: getLogoSource(item.make, isDarkMode),
+        listingCount: item.listing_count,
       }));
 
       setBrands(brandsData);
@@ -186,7 +184,7 @@ export default function AllBrandsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isDarkMode, refreshing, viewMode]);
+  }, [isDarkMode, refreshing, viewMode, vehicleCategory]);
 
   useEffect(() => {
     fetchBrands();
@@ -223,10 +221,10 @@ export default function AllBrandsPage() {
     (brand: string) => {
       router.push({
         pathname: "/(home)/(user)/CarsByBrand",
-        params: { brand, mode: viewMode },
+        params: { brand, mode: viewMode, vehicleCategory },
       });
     },
-    [router, viewMode]
+    [router, viewMode, vehicleCategory]
   );
 
   const renderBrandItem = useCallback(

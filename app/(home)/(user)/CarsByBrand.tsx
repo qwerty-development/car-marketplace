@@ -23,6 +23,7 @@ import { useTheme } from '@/utils/ThemeContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getLogoSource } from '@/hooks/getLogoUrl'
 import SortPicker from '@/components/SortPicker'
+import { VehicleCategory } from '@/components/CategorySelectorModal'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 
@@ -202,8 +203,9 @@ const CustomHeader = React.memo(
 export default function CarsByBrand() {
 	const { isDarkMode } = useTheme()
 	const router = useRouter()
-	const { brand, mode } = useLocalSearchParams<{ brand: string; mode?: string }>()
+	const { brand, mode, vehicleCategory: vcParam } = useLocalSearchParams<{ brand: string; mode?: string; vehicleCategory?: string }>()
 	const viewMode = (mode === 'rent' ? 'rent' : 'sale') as 'sale' | 'rent'
+	const vehicleCategory = (vcParam || 'all') as VehicleCategory
 	const [cars, setCars] = useState<any[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const { isFavorite, toggleFavorite } = useFavorites()
@@ -227,6 +229,15 @@ export default function CarsByBrand() {
 				.select(selectString)
 				.eq('status', 'available')
 				.eq('make', brandName)
+
+			// Apply vehicle category filter
+			if (vehicleCategory === 'bikes') {
+				query = query.eq('category', 'Motorcycle')
+			} else if (vehicleCategory === 'trucks') {
+				query = query.eq('category', 'Truck')
+			} else if (vehicleCategory === 'cars') {
+				query = query.not('category', 'in', '(Motorcycle,Truck)')
+			}
 
 			// Apply sorting based on the selected option
 			// Only apply database sorting if a specific sort is selected
@@ -340,7 +351,7 @@ export default function CarsByBrand() {
 		} finally {
 			setIsLoading(false)
 		}
-	}, [viewMode])
+	}, [viewMode, vehicleCategory])
 
 	const onRefresh = useCallback(() => {
 		setRefreshing(true)
@@ -478,8 +489,12 @@ export default function CarsByBrand() {
 					<Text
 						className={`${isDarkMode ? 'text-white' : 'text-black'} text-lg text-center`}>
 						{viewMode === 'rent' 
-							? `No ${brand} cars available for rent.`
-							: `No cars found for ${brand}.`
+							? `No ${brand} vehicles available for rent.`
+							: vehicleCategory === 'bikes'
+								? `No ${brand} motorcycles found.`
+								: vehicleCategory === 'trucks'
+									? `No ${brand} trucks found.`
+									: `No ${brand} vehicles found.`
 						}
 					</Text>
 					<Text
