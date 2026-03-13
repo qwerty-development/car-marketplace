@@ -61,6 +61,7 @@ const ByBrands = React.memo(({ mode = 'sale', vehicleCategory = 'all' }: ByBrand
 				logoSource: getLogoSource(item.make, isDarkMode),
 				listingCount: item.listing_count,
 			}))
+				.sort((a: Brand, b: Brand) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
 			setBrands(brandsData)
 		} catch (error) {

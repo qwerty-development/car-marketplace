@@ -176,7 +176,8 @@ export default function AllBrandsPage() {
         name: item.make,
         logoSource: getLogoSource(item.make, isDarkMode),
         listingCount: item.listing_count,
-      }));
+      }))
+      .sort((a: Brand, b: Brand) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
       setBrands(brandsData);
     } catch (error) {
@@ -306,7 +307,7 @@ export default function AllBrandsPage() {
           sections={groupedBrands}
           renderItem={renderBrandItem}
           renderSectionHeader={renderSectionHeader}
-          keyExtractor={(item) => `${item.name}-${item.logoUrl}`}
+          keyExtractor={(item) => item.name}
           stickySectionHeadersEnabled={true}
           className="mt-2"
           refreshControl={
