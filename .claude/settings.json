@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Bash(npm start)",
+      "Bash(npm run *)",
+      "Bash(npm test*)",
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Bash(npx tsc *)",
+      "Bash(npx prettier *)",
+      "Bash(npx eslint *)",
+      "Bash(npx jest *)",
+      "Bash(eas *)",
+      "Bash(git log*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git stash*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(cat *)",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__list_edge_functions",
+      "mcp__supabase__list_tables",
+      "mcp__plugin_supabase_supabase__execute_sql"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Write(.env*)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)"
+    ]
+  },
+  "worktree": {
+    "symlinkDirectories": ["node_modules", "android", "ios", ".expo"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write $CLAUDE_FILE_PATH 2>/dev/null || true",
+            "timeout": 15000,
+            "statusMessage": "Formatting..."
+          }
+        ]
+      }
+    ]
+  }
+}
