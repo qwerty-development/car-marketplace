@@ -123,6 +123,15 @@ eas build --profile release  # Production build
 - **RTL layout broken** — Language change requires app reload via `I18nManager.forceRTL()`
 - **~780 pre-existing TS errors** — Mostly in auth, deep link, dealer files; don't try to fix all at once
 
+## Tool Usage
+- **context7 MCP:** Verify API calls against current docs (`resolve-library-id` then `query-docs`) when using Expo, Supabase, React Query, NativeWind, i18next — training data may be stale
+- **database-optimizer agent:** Dispatch for new tables, slow queries, schema changes, or RLS policy reviews
+- **api-tester agent:** Dispatch after changing auth logic, Edge Functions, or payment webhooks — verify before deploying
+- **react-performance-optimizer agent:** Dispatch when investigating re-renders, jank, memory leaks, or slow startup
+- **coderabbit:code-review:** Verify completed features and fixes meet quality standards before merging
+- **impeccable skills:** /audit for accessibility, /polish before committing UI, /harden for edge cases
+- **superpowers skills:** brainstorming before features, systematic-debugging before fixing bugs, verification-before-completion before claiming done
+
 ## External Docs
 - `MAXIMUM_UPDATE_DEPTH_FIX.md` — SDK 54 re-render cascade fix report
 - `STARTUP_FIXES.md` — Startup issue solutions

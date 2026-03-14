@@ -31,4 +31,8 @@ globs: ["supabase/functions/**"]
 - Test locally: `supabase functions serve <function-name> --env-file .env`
 - See `SUPABASE_ENV_VARIABLES.md` for required env vars per function
 
-## Use `context7` MCP to check Supabase Edge Functions docs when unsure about Deno APIs
+## Tool Dispatch
+- **context7 MCP:** Verify Supabase Edge Functions / Deno API usage against current docs — runtime differences from Node.js are subtle
+- **api-tester agent:** Dispatch after building or modifying Edge Functions — verify functional, security, and performance before deploying
+- **database-optimizer agent:** Dispatch if the Edge Function runs complex SQL queries — optimize before deploying
+- **coderabbit:code-review:** Verify completed Edge Functions meet quality standards before deployment

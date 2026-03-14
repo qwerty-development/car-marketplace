@@ -32,3 +32,8 @@ globs: ["app/**", "components/**", "hooks/**"]
 ## Bundle
 - Use dynamic imports (`React.lazy`) for heavy screens not in the initial route
 - Keep component files focused — split 1000+ line components into sub-components
+
+## Tool Dispatch
+- **react-performance-optimizer agent:** Dispatch for performance investigations — re-renders, jank, memory leaks, slow startup, large bundle
+- **impeccable /optimize:** Verify loading speed, rendering, animations, images, bundle size on completed features
+- **context7 MCP:** Verify React Native performance patterns and expo-image API against current docs before implementing optimizations

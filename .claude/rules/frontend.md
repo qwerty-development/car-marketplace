@@ -33,4 +33,11 @@ globs: ["app/**", "components/**", "hooks/**"]
 - All user-visible text must use `t('key')` from `react-i18next`
 - Translation keys in `locales/en.json` and `locales/ar.json`
 - RTL support: language change triggers app reload via `I18nManager.forceRTL()`
-- Use `context7` MCP to check react-i18next API when unsure
+
+## Tool Dispatch
+- **context7 MCP:** Verify API usage against current docs for Expo Router, NativeWind, React Query, react-i18next, expo-image — these evolve rapidly
+- **react-performance-optimizer agent:** Dispatch for re-render cascades, FlatList jank, or "Maximum update depth exceeded" errors
+- **impeccable /audit:** Verify completed UI components for accessibility, responsive design, theming
+- **impeccable /polish:** Verify alignment, spacing, consistency before committing UI work
+- **superpowers:brainstorming:** Use before building new components or features
+- **superpowers:systematic-debugging:** Use when a component behaves unexpectedly — diagnose before fixing

@@ -32,3 +32,9 @@ globs: ["utils/Auth*", "supabase/functions/**", "app/(auth)/**"]
 - Sanitize user input in chat messages before storage
 - Validate image uploads: check MIME type, enforce size limits via `react-native-compressor`
 - Phone numbers validated via `react-native-phone-number-input` before Supabase auth
+
+## Tool Dispatch
+- **semgrep:** Fires automatically on every edit — review its findings before proceeding
+- **api-tester agent:** Dispatch after changes to auth logic, RLS policies, Edge Functions, or payment webhooks
+- **coderabbit:code-review:** Verify all security-sensitive changes (auth, payments, data access) before merging
+- **context7 MCP:** Verify Supabase Auth API usage against current docs before modifying auth flows

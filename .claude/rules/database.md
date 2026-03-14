@@ -34,4 +34,8 @@ globs: ["utils/supabase*", "utils/*Context*", "supabase/**", "services/**"]
 - Message delivery notifications
 - Use `supabase.channel()` — clean up subscriptions in useEffect cleanup
 
-## Use `context7` MCP to check Supabase JS client API when unsure about methods
+## Tool Dispatch
+- **context7 MCP:** Verify Supabase JS client API usage against current docs — methods and signatures change between versions
+- **database-optimizer agent:** Dispatch for new tables, schema changes, slow queries, RLS policy reviews, or index optimization
+- **api-tester agent:** Dispatch after changing auth logic, RPC functions, or credit/payment operations — verify before deploying
+- **coderabbit:code-review:** Verify database-related changes meet quality standards before merging

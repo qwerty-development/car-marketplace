@@ -12,7 +12,12 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.claudepluginhub.com)",
       "Bash(claude -p \"Run /plugin marketplace add expo/skills and then /plugin install expo\" --no-input 2>&1 | head -30)",
-      "Bash(echo \"=== CLAUDE.md ===\" && wc -l /Users/asif/Desktop/Work/car-marketplace/CLAUDE.md && echo \"\" && echo \"=== Guide ===\" && wc -l /Users/asif/Desktop/Work/claude-code-setup-guide.md && echo \"\" && echo \"=== Project Rules ===\" && ls /Users/asif/Desktop/Work/car-marketplace/.claude/rules/ && echo \"\" && echo \"=== Global Rules ===\" && ls /Users/asif/.claude/rules/ && echo \"\" && echo \"=== Global Agents ===\" && ls /Users/asif/.claude/agents/ && echo \"\" && echo \"=== Memory ===\" && ls /Users/asif/.claude/projects/-Users-asif-Desktop-Work-car-marketplace/memory/ && echo \"\" && echo \"=== JSON Validation ===\" && python3 -c \"import json; json.load\\(open\\('/Users/asif/Desktop/Work/car-marketplace/.claude/settings.json'\\)\\); print\\('settings.json: VALID'\\)\" && python3 -c \"import json; json.load\\(open\\('/Users/asif/Desktop/Work/car-marketplace/.claude/settings.local.json'\\)\\); print\\('settings.local.json: VALID'\\)\")"
+      "Bash(echo \"=== CLAUDE.md ===\" && wc -l /Users/asif/Desktop/Work/car-marketplace/CLAUDE.md && echo \"\" && echo \"=== Guide ===\" && wc -l /Users/asif/Desktop/Work/claude-code-setup-guide.md && echo \"\" && echo \"=== Project Rules ===\" && ls /Users/asif/Desktop/Work/car-marketplace/.claude/rules/ && echo \"\" && echo \"=== Global Rules ===\" && ls /Users/asif/.claude/rules/ && echo \"\" && echo \"=== Global Agents ===\" && ls /Users/asif/.claude/agents/ && echo \"\" && echo \"=== Memory ===\" && ls /Users/asif/.claude/projects/-Users-asif-Desktop-Work-car-marketplace/memory/ && echo \"\" && echo \"=== JSON Validation ===\" && python3 -c \"import json; json.load\\(open\\('/Users/asif/Desktop/Work/car-marketplace/.claude/settings.json'\\)\\); print\\('settings.json: VALID'\\)\" && python3 -c \"import json; json.load\\(open\\('/Users/asif/Desktop/Work/car-marketplace/.claude/settings.local.json'\\)\\); print\\('settings.local.json: VALID'\\)\")",
+      "WebFetch(domain:impeccable.style)",
+      "WebFetch(domain:claude.com)",
+      "WebFetch(domain:buildwithclaude.com)",
+      "Bash(find ~/.claude/plugins -type f -name \"*.md\" 2>/dev/null | head -20)",
+      "Bash(grep -n \"frontend-design\\\\|security-guidance\\\\|agents-design-experience\\\\|agents-development-architecture\" /Users/asif/.claude/projects/-Users-asif-Desktop-Work-car-marketplace/memory/*.md)"
     ],
     "deny": []
   },
