@@ -24,6 +24,7 @@ import { maybeCompleteAuthSession } from "expo-web-browser";
 import { useGuestUser } from "@/utils/GuestUserContext";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "@/utils/supabase";
+import { logAuthEvent } from "@/utils/analytics";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import * as Notifications from "expo-notifications";
@@ -565,6 +566,8 @@ export default function SignInPage() {
         safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'phone',
         });
+        // Log analytics event
+        logAuthEvent('sign_in', 'phone');
         // Registration complete, navigation will be handled by auth context
         console.log('[PHONE-AUTH] Verification successful');
       }

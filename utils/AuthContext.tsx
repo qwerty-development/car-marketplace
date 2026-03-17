@@ -1,5 +1,5 @@
 // utils/AuthContext.tsx - FIXED VERSION
-import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import * as SecureStore from 'expo-secure-store';
@@ -9,12 +9,13 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { isSigningOut, setIsSigningOut } from './signOutState';
 import { router } from 'expo-router';
 import { NotificationService } from '@/services/NotificationService';
+import { logAuthEvent } from './analytics';
 
 // CRITICAL FIX 1: Enhanced timeout configurations
 const OPERATION_TIMEOUTS = {
   SIGN_IN: 10000, // 10 seconds
   SIGN_OUT: 8000, // 8 seconds
-  PROFILE_FETCH: 15000, // 15 seconds - covers Supabase cold-start latency (was 8s)
+  PROFILE_FETCH: 8000, // 8 seconds - increased from 5s to handle poor network conditions
   PROFILE_UPDATE: 15000, // 15 seconds - higher for database writes
   TOKEN_REGISTRATION: 8000, // 8 seconds
   SESSION_LOAD: 10000, // 10 seconds
@@ -162,16 +163,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const profileRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const profileRetryStateRef = useRef<{ userId: string; nextAttempt: number } | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
-  // Dedup guard: prevents loadSession and onAuthStateChange from running
-  // fetchUserProfile concurrently for the same userId (race condition on cold start).
-  const profileFetchActiveForRef = useRef<string | null>(null);
-  // Guard: Supabase SDK can fire INITIAL_SESSION twice (once from subscription
-  // setup and once triggered by the getSession() call in loadSession).
-  // We must only process it once to avoid double profile fetches and the
-  // setState cascade that causes Maximum update depth.
-  const initialSessionHandledRef = useRef(false);
-  // Guard to prevent resetting isLoaded on the very first mount (SDK 54 fix)
-  const authInitializedRef = useRef(false);
 
   useEffect(() => {
     activeUserIdRef.current = user?.id ?? null;
@@ -427,13 +418,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   
   // CRITICAL FIX 11: Enhanced auth state management with timeout protection
   useEffect(() => {
-    // Only reset isLoaded on genuine isGuest changes after the first initialization.
-    // Calling setIsLoaded(false) unconditionally on mount causes a double-init cycle
-    // in React 19 concurrent mode (Expo SDK 54 fix).
-    if (authInitializedRef.current) {
-      setIsLoaded(false);
-    }
-    authInitializedRef.current = true;
+    setIsLoaded(false);
 
     // Set timeout for session loading
     const sessionTimeout = setOperationTimeout('sessionLoad', OPERATION_TIMEOUTS.SESSION_LOAD, () => {
@@ -447,16 +432,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           console.log('[AUTH] Auth state change event:', event);
 
           if (currentSession) {
-            // DEDUP: INITIAL_SESSION can fire twice (from subscription setup and
-            // from the getSession() call). Only process it once.
-            if (event === 'INITIAL_SESSION') {
-              if (initialSessionHandledRef.current) {
-                console.log('[AUTH] INITIAL_SESSION already handled — skipping duplicate');
-                return;
-              }
-              initialSessionHandledRef.current = true;
-            }
-
             setSession(currentSession);
             setUser(currentSession.user);
 
@@ -468,10 +443,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             setUser(null);
             setProfile(null);
             setDealership(undefined);
-          } else if (event === 'INITIAL_SESSION') {
-            // INITIAL_SESSION with no session = not logged in.
-            // Mark initial session as handled so any late duplicate is also skipped.
-            initialSessionHandledRef.current = true;
           }
 
           // Clear the session timeout since we got a response
@@ -488,29 +459,30 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     authSubscriptionRef.current = subscription;
 
-    // Warm up the Supabase SDK connection so the INITIAL_SESSION event fires
-    // promptly. We do NOT set any React state here — onAuthStateChange is the
-    // sole owner of session/user/isLoaded. Setting state in both places created
-    // a race where RootLayoutNav and UnAuthenticatedLayout both fired redirects
-    // simultaneously, causing Maximum update depth and the double-splash screen.
-    // The session timeout above is the only fallback if onAuthStateChange never fires.
+    // Check for existing session on startup with timeout
     const loadSession = async () => {
       try {
-        await withTimeout(
+        const sessionResult = await withTimeout(
           supabase.auth.getSession(),
           OPERATION_TIMEOUTS.SESSION_LOAD,
           'session load'
         );
-        // onAuthStateChange (INITIAL_SESSION) fired as a side-effect of getSession().
-        // No state to set here.
+
+        if (sessionResult?.data?.session) {
+          setSession(sessionResult.data.session);
+          setUser(sessionResult.data.session.user);
+
+          if (sessionResult.data.session.user && !isGuest) {
+            await fetchUserProfile(sessionResult.data.session.user.id);
+          }
+        }
       } catch (error: any) {
         if (error.message.includes('timed out')) {
-          console.warn('[AUTH] Session load timed out — waiting for session timeout fallback');
+          console.warn('[AUTH] Session load timed out');
         } else {
           console.error('[AUTH] Error loading session:', error);
         }
-        // Ensure isLoaded is set even if getSession() hard-fails and
-        // onAuthStateChange never fires.
+      } finally {
         cleanupOperation('sessionLoad');
         setIsLoaded(true);
       }
@@ -524,8 +496,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         authSubscriptionRef.current = null;
       }
       cleanupOperation('sessionLoad');
-      // Reset so the next effect run (e.g. isGuest change) handles INITIAL_SESSION fresh.
-      initialSessionHandledRef.current = false;
     };
   }, [isGuest]);
 
@@ -635,16 +605,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       if (isGuest) return;
       if (isGlobalSigningOut || isSigningOutState) return;
 
-      // DEDUP GUARD: if a fetch is already in flight for this userId, skip.
-      // This prevents loadSession and onAuthStateChange (INITIAL_SESSION) from
-      // running two concurrent fetches on cold start, which causes a state
-      // cascade and the Maximum update depth warning.
-      if (profileFetchActiveForRef.current === userId) {
-        console.log('[AUTH] Profile fetch already in progress for:', userId, '— skipping duplicate');
-        return;
-      }
-      profileFetchActiveForRef.current = userId;
-
       console.log('[AUTH] Fetching user profile for:', userId);
       const startTime = Date.now();
       const result = await withTimeout(
@@ -702,11 +662,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       console.log(`[AUTH] Error type: ${isTimeout ? 'TIMEOUT' : 'OTHER'}, Message: ${error?.message}`);
       setDealership(null); 
       scheduleProfileRetry(userId, isTimeout ? 'network timeout' : 'profile fetch error');
-    } finally {
-      // Always release the dedup guard so retries can proceed.
-      if (profileFetchActiveForRef.current === userId) {
-        profileFetchActiveForRef.current = null;
-      }
     }
   };
 
@@ -790,6 +745,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   
     try {
+      logAuthEvent('sign_out', 'unknown');
       if (profileRetryTimerRef.current) {
         clearTimeout(profileRetryTimerRef.current);
         profileRetryTimerRef.current = null;
@@ -973,6 +929,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await fetchUserProfile(data.user.id);
         
         console.log('[AUTH] Sign in successful, scheduling token registration');
+        logAuthEvent('sign_in', 'email');
         
         // Schedule background token registration
         setTimeout(async () => {
@@ -1071,6 +1028,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                 }
 
                 console.log('[AUTH] Google sign in successful, scheduling token registration');
+                logAuthEvent('sign_in', 'google');
                 
                 setTimeout(async () => {
                   try {
@@ -1096,6 +1054,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         const { data: currentSession } = await supabase.auth.getSession();
         if (currentSession?.session?.user) {
           console.log('[AUTH] Google sign in fallback path successful');
+          logAuthEvent('sign_in', 'google');
           setSession(currentSession.session);
           setUser(currentSession.session.user);
           
@@ -1164,6 +1123,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
 
             console.log('[AUTH] Apple sign in successful, scheduling token registration');
+            logAuthEvent('sign_in', 'apple');
             
             setTimeout(async () => {
               try {
@@ -1280,6 +1240,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
         if (data.session) {
           console.log('[AUTH] Sign up successful with session, scheduling token registration');
+          logAuthEvent('sign_up', 'email');
           
           setTimeout(async () => {
             try {
@@ -1290,6 +1251,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
               console.error('[AUTH] Token registration error during sign up:', tokenError);
             }
           }, 1000);
+        } else {
+          // Sign-up with email verification pending
+          logAuthEvent('sign_up', 'email');
         }
       }
 
@@ -1731,64 +1695,32 @@ const forceProfileRefresh = async () => {
     };
   }, []);
 
-  // Memoize the context value to prevent unnecessary re-renders of consumers.
-  // Without this, every AuthProvider render creates a new object reference,
-  // causing ALL useAuth() consumers to re-render even when values haven't changed.
-  // SDK 54 FIX: Functions are NOT in useMemo deps because they are recreated every
-  // render (not wrapped in useCallback). Including them defeats memoization entirely,
-  // causing ALL consumers to re-render on every AuthProvider render. This was the
-  // primary amplifier behind the "Maximum update depth exceeded" error on iOS cold start.
-  //
-  // Safety: functions are only recreated when state changes. When useMemo recalculates
-  // (because a DATA dep changed), it picks up the latest function closures. When only
-  // the render itself recreates functions (no data change), the old closures are still
-  // valid because they close over the same state values.
-  const fnsRef = useRef({
-    signIn, signUp, signOut, resetPassword, updatePassword, verifyOtp,
-    googleSignIn, appleSignIn, refreshSession, updateUserProfile,
-    updateDealershipProfile, forceProfileRefresh, updateUserRole,
-  });
-  fnsRef.current = {
-    signIn, signUp, signOut, resetPassword, updatePassword, verifyOtp,
-    googleSignIn, appleSignIn, refreshSession, updateUserProfile,
-    updateDealershipProfile, forceProfileRefresh, updateUserRole,
-  };
-
-  const contextValue = useMemo(() => ({
-    session,
-    user,
-    profile,
-    dealership,
-    isLoaded,
-    isSignedIn: !!user || !!session,
-    isSigningOut: isSigningOutState,
-    isSigningIn,
-    signIn: ((...args: any[]) => fnsRef.current.signIn(...args)) as typeof signIn,
-    signUp: ((...args: any[]) => fnsRef.current.signUp(...args)) as typeof signUp,
-    signOut: (() => fnsRef.current.signOut()) as typeof signOut,
-    resetPassword: ((...args: any[]) => fnsRef.current.resetPassword(...args)) as typeof resetPassword,
-    updatePassword: ((...args: any[]) => fnsRef.current.updatePassword(...args)) as typeof updatePassword,
-    verifyOtp: ((...args: any[]) => fnsRef.current.verifyOtp(...args)) as typeof verifyOtp,
-    googleSignIn: (() => fnsRef.current.googleSignIn()) as typeof googleSignIn,
-    appleSignIn: (() => fnsRef.current.appleSignIn()) as typeof appleSignIn,
-    refreshSession: (() => fnsRef.current.refreshSession()) as typeof refreshSession,
-    updateUserProfile: ((...args: any[]) => fnsRef.current.updateUserProfile(...args)) as typeof updateUserProfile,
-    updateDealershipProfile: ((...args: any[]) => fnsRef.current.updateDealershipProfile(...args)) as typeof updateDealershipProfile,
-    forceProfileRefresh: (() => fnsRef.current.forceProfileRefresh()) as typeof forceProfileRefresh,
-    updateUserRole: ((...args: any[]) => fnsRef.current.updateUserRole(...args)) as typeof updateUserRole,
-  }), [
-    session,
-    user,
-    profile,
-    dealership,
-    isLoaded,
-    isSigningOutState,
-    isSigningIn,
-    // Functions intentionally excluded — stable wrappers via fnsRef used instead.
-  ]);
-
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={{
+        session,
+        user,
+        profile,
+        dealership,
+        isLoaded,
+        isSignedIn: !!user || !!session,
+        isSigningOut: isSigningOutState,
+        isSigningIn,
+        signIn,
+        signUp,
+        signOut,
+        resetPassword,
+        updatePassword,
+        verifyOtp,
+        googleSignIn,
+        appleSignIn,
+        refreshSession,
+        updateUserProfile,
+        updateDealershipProfile,
+        forceProfileRefresh,
+        updateUserRole
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

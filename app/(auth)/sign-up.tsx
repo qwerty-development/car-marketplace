@@ -26,6 +26,7 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneInput';
+import { logAuthEvent } from '@/utils/analytics';
 
 maybeCompleteAuthSession();
 
@@ -484,6 +485,8 @@ export default function SignUpScreen() {
         safeLogEvent('fb_mobile_complete_registration', {
           fb_registration_method: 'phone',
         });
+        // Log analytics event
+        logAuthEvent('sign_up', 'phone');
         Alert.alert(
           'Success',
           'Your account has been verified successfully.',
