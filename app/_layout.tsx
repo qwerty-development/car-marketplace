@@ -58,6 +58,7 @@ import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
 import { CreditProvider } from "@/utils/CreditContext";
 import { META_EVENTS } from "@/utils/metaEvents";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 
 // Lazy-load Facebook SDK to prevent NativeEventEmitter crash during import
 let FacebookSettings: any = null;
@@ -1231,6 +1232,10 @@ function RootLayoutNav() {
   const dealershipLogo = dealership?.logo ?? null;
   const dealershipLat = dealership?.latitude ?? null;
   const dealershipLng = dealership?.longitude ?? null;
+
+  useActivityTracker({
+    enabled: isLoaded && isSignedIn && !isGuest && !isSigningOut && !isSigningIn && hasUser,
+  });
 
   // Clear the navigation-pending flag when segments actually change,
   // confirming the navigator has processed our last replace().
