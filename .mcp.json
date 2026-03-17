@@ -1,5 +1,5 @@
 {
-  "servers": {
+  "mcpServers": {
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=momhdxlmwzdikxmwittx&read_only=true"
