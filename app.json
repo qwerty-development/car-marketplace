@@ -161,6 +161,7 @@
       "./plugins/withCustomSplashScreen",
       "./plugins/withCopySplashAssets",
       "./plugins/withSplashScreenColors",
+      "./plugins/withPinnedFacebookSdkVersion",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
