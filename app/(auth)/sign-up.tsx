@@ -366,6 +366,7 @@ export default function SignUpScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<ICountry | null>(null);
   const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
+  const [phoneName, setPhoneName] = useState('');
   const [errors, setErrors] = useState({
     name: '',
     email: '',
@@ -373,6 +374,7 @@ export default function SignUpScreen() {
     code: '',
     general: '',
     phone: '',
+    phoneName: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -388,6 +390,7 @@ export default function SignUpScreen() {
       code: '',
       general: '',
       phone: '',
+      phoneName: '',
     };
 
     if (!name.trim()) {
@@ -417,15 +420,28 @@ export default function SignUpScreen() {
 
   // Phone OTP send handler
   const handlePhoneSignUp = async () => {
+    let hasError = false;
+
+    if (!phoneName.trim() || phoneName.trim().length < 2) {
+      setErrors(prev => ({ ...prev, phoneName: 'Full name must be at least 2 characters' }));
+      hasError = true;
+    } else {
+      setErrors(prev => ({ ...prev, phoneName: '' }));
+    }
+
     if (!phoneNumber) {
       setErrors(prev => ({ ...prev, phone: 'Phone number is required' }));
-      return;
+      hasError = true;
+    } else {
+      setErrors(prev => ({ ...prev, phone: '' }));
     }
 
     if (!selectedCountry) {
       setErrors(prev => ({ ...prev, phone: 'Please select a country' }));
-      return;
+      hasError = true;
     }
+
+    if (hasError) return;
 
     const cleanedPhone = phoneNumber.replace(/\D/g, '');
     const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
@@ -435,6 +451,13 @@ export default function SignUpScreen() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         phone: fullPhoneNumber,
+        options: {
+          shouldCreateUser: true,
+          data: {
+            full_name: phoneName.trim(),
+            name: phoneName.trim(),
+          },
+        },
       });
 
       if (error) {
@@ -443,11 +466,6 @@ export default function SignUpScreen() {
       }
 
       setPendingPhoneVerification(true);
-      Alert.alert(
-        'OTP Sent',
-        'Please check your phone for the verification code.',
-        [{ text: 'OK' }]
-      );
     } catch (err: any) {
       console.error('Phone OTP error:', err);
       setErrors(prev => ({ ...prev, phone: err.message || 'Failed to send OTP' }));
@@ -481,22 +499,21 @@ export default function SignUpScreen() {
       }
 
       if (data.user) {
+        // Stamp name and signup_completed so sign-in flow can identify this as a legitimate account
+        await supabase.auth.updateUser({
+          data: {
+            full_name: phoneName.trim(),
+            name: phoneName.trim(),
+            signup_completed: true,
+          },
+        });
+
         // Track registration event for Meta ad attribution
         safeLogEvent('fb_mobile_complete_registration', {
           fb_registration_method: 'phone',
         });
-        // Log analytics event
         logAuthEvent('sign_up', 'phone');
-        Alert.alert(
-          'Success',
-          'Your account has been verified successfully.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/(home)'),
-            },
-          ]
-        );
+        // Auth context handles navigation
       }
     } catch (err: any) {
       console.error('Phone OTP verification error:', err);
@@ -826,6 +843,34 @@ export default function SignUpScreen() {
             ) : (
               <>
                 <View style={{ gap: 16 }}>
+                  <View>
+                    <TextInput
+                      style={{
+                        height: 48,
+                        paddingHorizontal: 16,
+                        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                        color: isDark ? '#fff' : '#000',
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: isDark ? '#374151' : '#E5E7EB',
+                      }}
+                      value={phoneName}
+                      placeholder="Full Name"
+                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                      onChangeText={(text) => {
+                        setPhoneName(text);
+                        if (errors.phoneName) setErrors(prev => ({ ...prev, phoneName: '' }));
+                      }}
+                      autoCapitalize="words"
+                      autoComplete="name"
+                      editable={!isLoading}
+                    />
+                    {errors.phoneName && (
+                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
+                        {errors.phoneName}
+                      </Text>
+                    )}
+                  </View>
                   <View>
                     <CustomPhoneInput
                       value={phoneNumber}

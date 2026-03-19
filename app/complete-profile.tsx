@@ -341,6 +341,12 @@ export default function CompleteProfileScreen() {
         throw error;
       }
 
+      // For phone sign-up users, stamp signup_completed so the sign-in flow
+      // recognises them as legitimate accounts on future logins.
+      if (isPhoneSignUp) {
+        await supabase.auth.updateUser({ data: { signup_completed: true } });
+      }
+
       // Update dealership data if dealer
       if (profile?.role === 'dealer') {
         const { error: dealerError } = await updateDealershipProfile({

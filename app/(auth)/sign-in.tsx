@@ -515,22 +515,18 @@ export default function SignInPage() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         phone: fullPhoneNumber,
+        options: { shouldCreateUser: false },
       });
 
       if (error) {
-        setPhoneError(error.message || 'Failed to send OTP');
+        setPhoneError('No account found with this number. Please sign up first.');
         return;
       }
 
       setPendingPhoneVerification(true);
-      Alert.alert(
-        'OTP Sent',
-        'Please check your phone for the verification code.',
-        [{ text: 'OK' }]
-      );
     } catch (err: any) {
       console.error('Phone OTP error:', err);
-      setPhoneError(err.message || 'Failed to send OTP');
+      setPhoneError('No account found with this number. Please sign up first.');
     } finally {
       setIsLoading(false);
     }
@@ -566,10 +562,28 @@ export default function SignInPage() {
         safeLogEvent(META_EVENTS.SIGN_IN, {
           fb_registration_method: 'phone',
         });
-        // Log analytics event
         logAuthEvent('sign_in', 'phone');
-        // Registration complete, navigation will be handled by auth context
-        console.log('[PHONE-AUTH] Verification successful');
+
+        const signupCompleted = data.user.user_metadata?.signup_completed;
+        const accountAgeMs = Date.now() - new Date(data.user.created_at).getTime();
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+
+        if (signupCompleted) {
+          // Normal returning user — auth context handles navigation
+          console.log('[PHONE-AUTH] Returning user, signup_completed=true');
+        } else if (accountAgeMs > ONE_HOUR_MS) {
+          // Pre-existing user (signed up before this logic was added) — stamp flag
+          console.log('[PHONE-AUTH] Pre-existing user, stamping signup_completed');
+          await supabase.auth.updateUser({ data: { signup_completed: true } });
+          // Auth context handles navigation
+        } else {
+          // Account was recently pre-created (attack scenario) — clear attacker name
+          console.log('[PHONE-AUTH] Possible hijack attempt detected, clearing name');
+          await supabase.auth.updateUser({ data: { name: null, full_name: null } });
+          setTimeout(() => {
+            router.replace('/complete-profile');
+          }, 0);
+        }
       }
     } catch (err: any) {
       console.error('Phone OTP verification error:', err);
