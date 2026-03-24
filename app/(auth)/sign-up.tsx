@@ -140,19 +140,25 @@ const SignUpWithOAuth = () => {
       // Step 2: Evaluate success and navigate accordingly
       if (result && result.success === true) {
         console.log("Google authentication successful, navigating to home");
-        // Track registration event for Meta ad attribution
-        safeLogEvent('fb_mobile_complete_registration', {
-          fb_registration_method: 'google',
-        });
         router.replace("/(home)");
       } else {
         console.log("Google authentication unsuccessful:",
           result ? `Result received but success=${result.success}` : "No result returned");
 
-        // Step 3: Fallback session check
+        // Step 3: Fallback session check — googleSignIn() returns void so all successful
+        // sign-ins land here. This is where we fire COMPLETE_REGISTRATION.
         const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData?.session?.user) {
           console.log("Session found despite unsuccessful result, navigating to home");
+          // Only fire COMPLETE_REGISTRATION for genuinely new accounts (created in the last 30s).
+          // signInWithOAuth is used for both sign-in and sign-up so we use created_at proximity.
+          const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
+          const isNewUser = (Date.now() - new Date(sessionData.session.user.created_at).getTime()) < NEW_ACCOUNT_THRESHOLD_MS;
+          if (isNewUser) {
+            safeLogEvent('fb_mobile_complete_registration', {
+              fb_registration_method: 'google',
+            });
+          }
           router.replace("/(home)");
         }
       }
@@ -187,10 +193,15 @@ const SignUpWithOAuth = () => {
 
         // CRITICAL: Force token registration AFTER successful sign-in
         if (data?.user) {
-          // Track registration event for Meta ad attribution
-          safeLogEvent(META_EVENTS.COMPLETE_REGISTRATION, {
-            fb_registration_method: 'apple',
-          });
+          // Only fire COMPLETE_REGISTRATION for genuinely new accounts (created in the last 30s).
+          // signInWithIdToken is used for both sign-in and sign-up so we use created_at proximity.
+          const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
+          const isNewUser = (Date.now() - new Date(data.user.created_at).getTime()) < NEW_ACCOUNT_THRESHOLD_MS;
+          if (isNewUser) {
+            safeLogEvent(META_EVENTS.COMPLETE_REGISTRATION, {
+              fb_registration_method: 'apple',
+            });
+          }
           console.log("[APPLE-AUTH] Sign-in successful, registering push token");
 
           // Wait briefly for auth session to stabilize (important)
@@ -498,7 +509,8 @@ export default function SignUpScreen() {
         return;
       }
 
-      if (data.user) {
+      const verifiedUser = data.user ?? data.session?.user;
+      if (verifiedUser) {
         // Stamp name and signup_completed so sign-in flow can identify this as a legitimate account
         await supabase.auth.updateUser({
           data: {
