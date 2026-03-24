@@ -12,13 +12,9 @@ import {
   StyleSheet,
   Text,
   Keyboard,
-  StatusBar,
-  ActivityIndicator,
   Animated,
   RefreshControl,
-  Button,
   TextInput,
-  Platform
 } from "react-native";
 import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
@@ -50,6 +46,7 @@ import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
 import { cacheLogger } from "@/utils/cacheLogger";
 import { cachedQuery, generateCacheKey } from "@/utils/supabaseCache";
 const ITEMS_PER_PAGE = 7;
+const PAGINATION_SKELETON_COUNT = 3;
 
 interface Car {
   id: string;
@@ -565,8 +562,8 @@ export default function BrowseCarsPage() {
         console.log(`[FetchCars] 📄 Page ${safePageNumber}/${totalPages} | Current state: ${cars.length} cars`);
         console.log(`[FetchCars] ========================================\n`);
 
-        // Apply relevance-based sorting for search results
-        if (!currentSortOption && data) {
+        // Apply relevance-based sorting for search results (first page only to avoid jank while paginating)
+        if (!currentSortOption && data && safePageNumber === 1) {
           if (query) {
             // Relevance scoring: exact make+model matches first, then make-only, then other
             const cleanQueryLocal = query.trim().toLowerCase();
@@ -1423,6 +1420,7 @@ export default function BrowseCarsPage() {
           ]}
         >
           <FlatList
+            {...LAZY_FLATLIST_PROPS}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1452,7 +1450,12 @@ export default function BrowseCarsPage() {
                 { id: 'rest-header', type: 'rest-header' },
                 ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
                   ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
-                  : (vehicleCategory !== 'plates' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item })))
+                  : (vehicleCategory !== 'plates' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item }))),
+                ...(loadingMore && !isInitialLoading
+                  ? Array(PAGINATION_SKELETON_COUNT)
+                      .fill(null)
+                      .map((_, i) => ({ id: `loading-skeleton-${i}`, type: 'skeleton' }))
+                  : [])
               ]
             }
             renderItem={({ item, index }: any) => {
@@ -1483,22 +1486,9 @@ export default function BrowseCarsPage() {
             }}
             onEndReachedThreshold={0.5}
             ListEmptyComponent={renderListEmpty}
-            ListFooterComponent={
-              loadingMore ? (
-                <ActivityIndicator
-                  style={{ margin: 16 }}
-                  color={isDarkMode ? "#FFFFFF" : "#000000"}
-                />
-              ) : (
-                <View style={{ paddingBottom: 50 }} />
-              )
-            }
+            ListFooterComponent={<View style={{ paddingBottom: 50 }} />}
             // Aggressive lazy loading for minimal egress and memory usage
             removeClippedSubviews={true}
-            maxToRenderPerBatch={5}
-            updateCellsBatchingPeriod={50}
-            initialNumToRender={5}
-            windowSize={5} // Reduced from 10 to save memory
             getItemLayout={undefined} // Let FlatList handle this automatically
           />
         </SafeAreaView>

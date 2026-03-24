@@ -42,3 +42,4 @@ NOTIFICATION_SYSTEM_COMPLETE_GUIDE.md
 APPLE_SIGNIN_FIX_REPORT.md
 WEB_FEATURES_IMPLEMENTATION_GUIDE.md
 supabase/migrations/20260312_get_brands_by_vehicle_category.sql
+.claude/settings.local.json
