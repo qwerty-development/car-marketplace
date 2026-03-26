@@ -108,11 +108,26 @@ const SignUpWithOAuth = () => {
     google: boolean;
     apple: boolean;
   }>({ google: false, apple: false });
-  const { googleSignIn, appleSignIn } = useAuth();
+  const { googleSignIn } = useAuth();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+
+  const waitForSession = async (attempts = 6, delayMs = 500) => {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user) {
+        return data.session;
+      }
+
+      if (attempt < attempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+
+    return null;
+  };
 
   // Check if Apple Authentication is available
   useEffect(() => {
@@ -133,35 +148,25 @@ const SignUpWithOAuth = () => {
     try {
       setIsLoading(prev => ({ ...prev, google: true }));
 
-      // Step 1: Call googleSignIn and capture the result
-      const result = await googleSignIn();
-      console.log("Google sign-in result:", JSON.stringify(result));
+      await googleSignIn();
 
-      // Step 2: Evaluate success and navigate accordingly
-      if (result && result.success === true) {
-        console.log("Google authentication successful, navigating to home");
-        router.replace("/(home)");
-      } else {
-        console.log("Google authentication unsuccessful:",
-          result ? `Result received but success=${result.success}` : "No result returned");
-
-        // Step 3: Fallback session check — googleSignIn() returns void so all successful
-        // sign-ins land here. This is where we fire COMPLETE_REGISTRATION.
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user) {
-          console.log("Session found despite unsuccessful result, navigating to home");
-          // Only fire COMPLETE_REGISTRATION for genuinely new accounts (created in the last 30s).
-          // signInWithOAuth is used for both sign-in and sign-up so we use created_at proximity.
-          const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
-          const isNewUser = (Date.now() - new Date(sessionData.session.user.created_at).getTime()) < NEW_ACCOUNT_THRESHOLD_MS;
-          if (isNewUser) {
-            safeLogEvent('fb_mobile_complete_registration', {
-              fb_registration_method: 'google',
-            });
-          }
-          router.replace("/(home)");
+      const session = await waitForSession();
+      if (session?.user) {
+        // Only fire COMPLETE_REGISTRATION for genuinely new accounts (created in the last 30s).
+        // signInWithOAuth is used for both sign-in and sign-up so we use created_at proximity.
+        const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
+        const isNewUser = (Date.now() - new Date(session.user.created_at).getTime()) < NEW_ACCOUNT_THRESHOLD_MS;
+        if (isNewUser) {
+          safeLogEvent('fb_mobile_complete_registration', {
+            fb_registration_method: 'google',
+          });
         }
+
+        router.replace('/(home)' as never);
+        return;
       }
+
+      console.warn('Google authentication completed but no active session was found yet');
     } catch (err) {
       console.error("Google OAuth error:", err);
 
@@ -203,6 +208,11 @@ const SignUpWithOAuth = () => {
             });
           }
           console.log("[APPLE-AUTH] Sign-in successful, registering push token");
+
+          const session = data.session ?? (await waitForSession());
+          if (session?.user) {
+            router.replace('/(home)' as never);
+          }
 
           // Wait briefly for auth session to stabilize (important)
           setTimeout(async () => {
@@ -581,7 +591,7 @@ export default function SignUpScreen() {
         );
       } else {
         // If email verification not required, registration is complete
-        router.replace('/(home)');
+        router.replace('/(home)' as never);
       }
     } catch (error: any) {
       console.error(JSON.stringify(error, null, 2));
@@ -615,7 +625,7 @@ export default function SignUpScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.replace('/(home)'),
+            onPress: () => router.replace('/(home)' as never),
           },
         ]
       );
