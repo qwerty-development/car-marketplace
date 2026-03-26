@@ -1,5 +1,5 @@
 
-import { Link, Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { Link, Stack, useRouter, useLocalSearchParams, usePathname } from "expo-router";
 import { StyleSheet, View, Text, TouchableOpacity, Alert, useColorScheme, ActivityIndicator, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from "@/utils/ThemeContext";
@@ -15,10 +15,21 @@ export default function NotFoundScreen() {
   const { isGuest, clearGuestMode } = useGuestUser();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const pathname = usePathname();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const redirectTimeoutRef = useRef<NodeJS.Timeout>();
   const hasAttemptedRedirect = useRef(false);
   const lastRedirectRef = useRef<{ target: string; at: number } | null>(null);
+
+  // Auth callback deep links hit +not-found because /auth/callback has no route file.
+  // Render nothing while WebBrowser.openAuthSessionAsync processes the redirect.
+  const isAuthCallback = pathname === '/auth/callback' || pathname?.includes('auth/callback');
+
+  useEffect(() => {
+    if (isAuthCallback) {
+      console.log('[NotFound] Suppressing 404 for auth callback — WebBrowser is handling it');
+    }
+  }, [isAuthCallback]);
 
   const safeReplace = (target: '/(home)/(user)' | '/(auth)/sign-in') => {
     const now = Date.now();
@@ -154,6 +165,11 @@ export default function NotFoundScreen() {
       },
     ]);
   };
+
+  // Auth callback deep links: render nothing while WebBrowser handles the redirect
+  if (isAuthCallback) {
+    return <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }} />;
+  }
 
   // Show loading state while checking auth
   if (!isLoaded) {

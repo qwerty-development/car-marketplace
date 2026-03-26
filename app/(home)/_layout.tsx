@@ -410,7 +410,8 @@ export default function HomeLayout() {
     }
 
     // STEP 6: Route based on user role
-    const role = profile?.role || "user";
+    // Only 'dealer' and 'user' are valid route groups — any unknown role (e.g. 'admin') defaults to 'user'
+    const role = profile?.role === 'dealer' ? 'dealer' : 'user';
     const correctRouteSegment = `(${role})`;
 
     if (segmentsRef.current[1] !== correctRouteSegment) {
