@@ -131,9 +131,13 @@ eas build --profile release  # Production build
 - **coderabbit:code-review:** Verify completed features and fixes meet quality standards before merging
 - **impeccable skills:** /audit for accessibility, /polish before committing UI, /harden for edge cases
 - **superpowers skills:** brainstorming before features, systematic-debugging before fixing bugs, verification-before-completion before claiming done
-
+   
 ## External Docs
 - `MAXIMUM_UPDATE_DEPTH_FIX.md` — SDK 54 re-render cascade fix report
 - `STARTUP_FIXES.md` — Startup issue solutions
 - `SUPABASE_ENV_VARIABLES.md` — Backend env var setup
 - `.mcp.json` — Supabase MCP server config (read-only)
+
+## Rules
+- ALWAYS before making any change, Search on the web for the newest documentation. And only implement if you are 100% sure it will work.
+- use subagents when you see fit. 
