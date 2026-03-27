@@ -19,7 +19,8 @@
       "Bash(find ~/.claude/plugins -type f -name \"*.md\" 2>/dev/null | head -20)",
       "Bash(grep -n \"frontend-design\\\\|security-guidance\\\\|agents-design-experience\\\\|agents-development-architecture\" /Users/asif/.claude/projects/-Users-asif-Desktop-Work-car-marketplace/memory/*.md)",
       "WebFetch(domain:supabase.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep -r \"targetSdk\\\\|compileSdk\\\\|pageSize\\\\|expo-build-properties\" /Users/asif/Desktop/Work/car-marketplace --include=*.js --include=*.json --exclude-dir=node_modules)"
     ],
     "deny": []
   },

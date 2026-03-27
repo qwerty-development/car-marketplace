@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "2.3.6",
+    "version": "2.3.7",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
@@ -169,6 +169,17 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "useLegacyPackaging": false
+          }
+        }
+      ],
       "./plugins/withCustomProguardRules",
       "./plugins/withCustomSplashScreen",
       "./plugins/withCopySplashAssets",
@@ -225,7 +236,8 @@
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
       "expo-web-browser",
-      "expo-video"
+      "expo-video",
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true
@@ -238,7 +250,7 @@
         "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
       }
     },
-    "runtimeVersion": "2.3.0",
+    "runtimeVersion": "2.3.1",
     "updates": {
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },
