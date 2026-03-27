@@ -29,6 +29,7 @@ import { useGuestUser } from '@/utils/GuestUserContext'
 import { formatMileage } from '@/utils/formatMileage';
 import { BlurView } from 'expo-blur'
 import AddListingModal from '@/components/AddListingModal'
+import PhoneVerificationBottomSheet from '@/components/PhoneVerificationBottomSheet'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
 /* CREDIT_DISABLED: Boost system temporarily disabled
@@ -93,6 +94,8 @@ export default function MyListings() {
 	const [sortOption, setSortOption] = useState<SortOption>('newest')
 	const [filterType, setFilterType] = useState<'all' | 'vehicle' | 'plate'>('all')
 	const [showAddModal, setShowAddModal] = useState(false)
+	const [showPhoneRequiredModal, setShowPhoneRequiredModal] = useState(false)
+	const [showPhoneSheet, setShowPhoneSheet] = useState(false)
 	const [showFilterModal, setShowFilterModal] = useState(false)
 	const [showSortModal, setShowSortModal] = useState(false)
 	/* CREDIT_DISABLED: Boost state disabled
@@ -649,7 +652,13 @@ export default function MyListings() {
 						My Listings
 					</Text>
 					<TouchableOpacity
-						onPress={() => setShowAddModal(true)}
+						onPress={() => {
+							if (!user?.phone_confirmed_at) {
+								setShowPhoneRequiredModal(true);
+							} else {
+								setShowAddModal(true);
+							}
+						}}
 						style={{
 							backgroundColor: '#D55004',
 							paddingVertical: 8,
@@ -863,7 +872,76 @@ export default function MyListings() {
 				userId={user?.id}
 			/>
 
-			{/* Sort Modal */}
+			{/* Phone Required Modal */}
+		<Modal
+			visible={showPhoneRequiredModal}
+			transparent
+			animationType="fade"
+			onRequestClose={() => setShowPhoneRequiredModal(false)}
+		>
+			<View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+				<View style={{
+					width: '100%',
+					backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF',
+					borderRadius: 20,
+					padding: 24,
+					alignItems: 'center',
+				}}>
+					<View style={{
+						width: 56,
+						height: 56,
+						borderRadius: 28,
+						backgroundColor: '#FFF3F0',
+						justifyContent: 'center',
+						alignItems: 'center',
+						marginBottom: 16,
+					}}>
+						<Ionicons name="phone-portrait-outline" size={28} color="#D55004" />
+					</View>
+					<Text style={{ fontSize: 18, fontWeight: '700', color: isDarkMode ? '#FFFFFF' : '#111827', marginBottom: 8, textAlign: 'center' }}>
+						Phone Verification Required
+					</Text>
+					<Text style={{ fontSize: 14, color: isDarkMode ? '#9CA3AF' : '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+						You need a verified phone number to post car listings. This helps keep the marketplace safe and trustworthy.
+					</Text>
+					<TouchableOpacity
+						onPress={() => {
+							setShowPhoneRequiredModal(false);
+							setShowPhoneSheet(true);
+						}}
+						style={{
+							width: '100%',
+							height: 50,
+							backgroundColor: '#D55004',
+							borderRadius: 14,
+							justifyContent: 'center',
+							alignItems: 'center',
+							marginBottom: 12,
+						}}
+					>
+						<Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>Verify Now</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						onPress={() => setShowPhoneRequiredModal(false)}
+						style={{ paddingVertical: 8 }}
+					>
+						<Text style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 15 }}>Maybe Later</Text>
+					</TouchableOpacity>
+				</View>
+			</View>
+		</Modal>
+
+		{/* Phone Verification Bottom Sheet */}
+		<PhoneVerificationBottomSheet
+			visible={showPhoneSheet}
+			onClose={() => setShowPhoneSheet(false)}
+			onSuccess={() => {
+				setShowPhoneSheet(false);
+				setShowAddModal(true);
+			}}
+		/>
+
+		{/* Sort Modal */}
 			<Modal
 				visible={showSortModal}
 				transparent

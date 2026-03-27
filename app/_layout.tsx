@@ -1269,8 +1269,9 @@ function RootLayoutNav() {
       // user.phone exists but user.phone_confirmed_at is null means phone is pending verification
       const hasVerifiedPhone = !!(userPhone && userPhoneConfirmed);
 
-      // Only require name and verified phone - email is optional
-      let isMissingFields = !hasName || !hasVerifiedPhone;
+      // Dealers must verify phone; regular users only need a name
+      const isDealer = profileRole === 'dealer';
+      let isMissingFields = isDealer ? (!hasName || !hasVerifiedPhone) : !hasName;
 
       // RULE: For dealers, also require logo and location
       if (profileRole === 'dealer') {

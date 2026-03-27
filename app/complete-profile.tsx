@@ -66,6 +66,7 @@ export default function CompleteProfileScreen() {
   }, [handleImageUpload]);
 
   const isPhoneSignUp = user?.app_metadata?.provider === 'phone';
+  const isDealer = profile?.role === 'dealer';
 
   // Strip known calling code prefix from a full international phone number
   // so the PhoneInput component receives only the local number.
@@ -285,7 +286,7 @@ export default function CompleteProfileScreen() {
       isValid = false;
     }
 
-    if (!isPhoneSignUp) {
+    if (isDealer && !isPhoneSignUp) {
       if (!phone.trim()) {
         newErrors.phone = 'Phone number is required';
         isValid = false;
@@ -314,12 +315,12 @@ export default function CompleteProfileScreen() {
 
     setErrors(newErrors);
     return isValid;
-  }, [name, email, phone, isPhoneSignUp, profile?.role, logo, locationName, latitude, longitude]);
+  }, [name, email, phone, isPhoneSignUp, isDealer, profile?.role, logo, locationName, latitude, longitude]);
 
   const handleSubmit = useCallback(async () => {
     if (!validateInputs()) return;
 
-    if (!isInputVerified) {
+    if (isDealer && !isPhoneSignUp && !isInputVerified) {
       Alert.alert('Verification Required', 'Please verify your phone number to continue.');
       return;
     }
@@ -558,8 +559,8 @@ export default function CompleteProfileScreen() {
               ) : null}
             </View>
 
-            {/* Phone Input */}
-            {!isPhoneSignUp && (
+            {/* Phone Input — dealers only; regular users add phone from their profile */}
+            {isDealer && !isPhoneSignUp && (
               <View>
                 <CustomPhoneInput
                   label="Phone Number *"

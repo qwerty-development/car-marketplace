@@ -31,6 +31,7 @@ import { useGuestUser } from "@/utils/GuestUserContext";
 import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { SignOutOverlay } from "@/components/SignOutOverlay";
+import PhoneVerificationBottomSheet from "@/components/PhoneVerificationBottomSheet";
 import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 import { useNavigation } from "@react-navigation/native";
@@ -75,6 +76,7 @@ export default function UserProfileAndSupportPage() {
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
+  const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   /* CREDIT_DISABLED: const [showPurchaseModal, setShowPurchaseModal] = useState(false); */
 
   // CRITICAL FIX: Simplified state management without aggressive refresh mechanisms
@@ -732,6 +734,72 @@ export default function UserProfileAndSupportPage() {
           </View>
         )}
         */}
+
+        {/* Phone Verification Card — shown only for non-guest, non-dealer users */}
+        {!isGuest && profile?.role !== 'dealer' && (
+          <View className="px-6 mt-4">
+            <TouchableOpacity
+              onPress={() => setShowPhoneSheet(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: user?.phone_confirmed_at
+                  ? (isDarkMode ? '#1C2B1C' : '#F0FDF4')
+                  : '#D55004',
+              }}
+            >
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: user?.phone_confirmed_at
+                  ? (isDarkMode ? '#166534' : '#DCFCE7')
+                  : 'rgba(255,255,255,0.2)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 12,
+              }}>
+                <Ionicons
+                  name={user?.phone_confirmed_at ? 'checkmark-circle' : 'phone-portrait-outline'}
+                  size={22}
+                  color={user?.phone_confirmed_at ? '#22C55E' : 'white'}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontWeight: '700',
+                  fontSize: 15,
+                  color: user?.phone_confirmed_at
+                    ? (isDarkMode ? '#4ADE80' : '#166534')
+                    : 'white',
+                }}>
+                  {user?.phone_confirmed_at ? 'Phone Verified' : 'Add phone to unlock listings'}
+                </Text>
+                <Text style={{
+                  fontSize: 13,
+                  marginTop: 2,
+                  color: user?.phone_confirmed_at
+                    ? (isDarkMode ? '#86EFAC' : '#15803D')
+                    : 'rgba(255,255,255,0.8)',
+                }}>
+                  {user?.phone_confirmed_at && user.phone
+                    ? user.phone.replace(/(\+\d{1,4})(\d+)(\d{2})$/, (_, code, mid, last) =>
+                        `${code} ${'•'.repeat(mid.length)} ${last}`)
+                    : 'Required to post car listings'}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={user?.phone_confirmed_at
+                  ? (isDarkMode ? '#4ADE80' : '#166534')
+                  : 'rgba(255,255,255,0.8)'}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Quick Actions */}
         <View className={`space-y-4 px-6 ${isGuest ? '-mt-12' : ''}`}>
@@ -1570,6 +1638,12 @@ export default function UserProfileAndSupportPage() {
         />
         */}
       </ScrollView>
+
+      <PhoneVerificationBottomSheet
+        visible={showPhoneSheet}
+        onClose={() => setShowPhoneSheet(false)}
+        onSuccess={() => setShowPhoneSheet(false)}
+      />
     </View>
   );
 }
