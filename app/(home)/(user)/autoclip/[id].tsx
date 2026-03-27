@@ -363,9 +363,10 @@ export default function SingleAutoClipPage() {
             <Text style={[styles.dealershipName, { color: isDarkMode ? '#fff' : '#000' }]}>
               {clip.dealership?.name}
             </Text>
-            <Text style={[styles.postDate, { color: isDarkMode ? '#999' : '#666' }]}>
+            {/* Post date hidden for now, may re-enable later */}
+            {/* <Text style={[styles.postDate, { color: isDarkMode ? '#999' : '#666' }]}>
               {formatDistanceToNow(new Date(clip.created_at), { addSuffix: true })}
-            </Text>
+            </Text> */}
           </View>
         </View>
 

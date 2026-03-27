@@ -907,9 +907,10 @@ export default function AutoClips() {
                 <Text style={styles.dealershipName}>
                   {item.dealership?.name}
                 </Text>
-                <Text style={styles.postDate}>
+                {/* Post date hidden for now, may re-enable later */}
+                {/* <Text style={styles.postDate}>
                   {formattedPostDate}
-                </Text>
+                </Text> */}
               </View>
             </View>
           </View>

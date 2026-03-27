@@ -1963,7 +1963,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                     </Text>
                   )}
 
-                  {car.listed_at && (
+                  {/* Posted time hidden for now, may re-enable later */}
+                  {/* {car.listed_at && (
                     <Text
                       style={{
                         fontSize: 12,
@@ -1975,7 +1976,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                     >
                       {t('car.posted')} {getRelativeTime(car.listed_at, t)}
                     </Text>
-                  )}
+                  )} */}
                 </View>
               </View>
             </View>

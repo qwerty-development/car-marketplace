@@ -1164,8 +1164,8 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                 >
                   {car.year}
                 </Text>
-                {/* Dynamic relative time display using listed_at */}
-                {car.listed_at && (
+                {/* Dynamic relative time display using listed_at — hidden for now, may re-enable later */}
+                {/* {car.listed_at && (
                   <Text
                     style={{
                       fontSize: 12,
@@ -1175,7 +1175,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                   >
                     {t('car.posted')} {getRelativeTime(car.listed_at)}
                   </Text>
-                )}
+                )} */}
               </View>
             </View>
           </View>
