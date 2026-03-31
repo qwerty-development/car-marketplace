@@ -200,7 +200,7 @@ export default function PhoneVerificationBottomSheet({
             backgroundColor: bg,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
-            maxHeight: '80%',
+            flexGrow: 0,
           }}
           contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
         >
