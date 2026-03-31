@@ -735,68 +735,40 @@ export default function UserProfileAndSupportPage() {
         )}
         */}
 
-        {/* Phone Verification Card — shown only for non-guest, non-dealer users */}
-        {!isGuest && profile?.role !== 'dealer' && (
+        {/* Phone Verification CTA — only shown when phone is NOT yet verified */}
+        {!isGuest && profile?.role !== 'dealer' && !user?.phone_confirmed_at && (
           <View className="px-6 mt-4">
             <TouchableOpacity
               onPress={() => setShowPhoneSheet(true)}
+              activeOpacity={0.7}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: 16,
                 borderRadius: 16,
-                backgroundColor: user?.phone_confirmed_at
-                  ? (isDarkMode ? '#1C2B1C' : '#F0FDF4')
-                  : '#D55004',
+                backgroundColor: '#D55004',
               }}
             >
               <View style={{
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: user?.phone_confirmed_at
-                  ? (isDarkMode ? '#166534' : '#DCFCE7')
-                  : 'rgba(255,255,255,0.2)',
+                backgroundColor: 'rgba(255,255,255,0.2)',
                 justifyContent: 'center',
                 alignItems: 'center',
                 marginRight: 12,
               }}>
-                <Ionicons
-                  name={user?.phone_confirmed_at ? 'checkmark-circle' : 'phone-portrait-outline'}
-                  size={22}
-                  color={user?.phone_confirmed_at ? '#22C55E' : 'white'}
-                />
+                <Ionicons name="phone-portrait-outline" size={22} color="white" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontWeight: '700',
-                  fontSize: 15,
-                  color: user?.phone_confirmed_at
-                    ? (isDarkMode ? '#4ADE80' : '#166534')
-                    : 'white',
-                }}>
-                  {user?.phone_confirmed_at ? 'Phone Verified' : 'Add phone to unlock listings'}
+                <Text style={{ fontWeight: '700', fontSize: 15, color: 'white' }}>
+                  Add phone to unlock listings
                 </Text>
-                <Text style={{
-                  fontSize: 13,
-                  marginTop: 2,
-                  color: user?.phone_confirmed_at
-                    ? (isDarkMode ? '#86EFAC' : '#15803D')
-                    : 'rgba(255,255,255,0.8)',
-                }}>
-                  {user?.phone_confirmed_at && user.phone
-                    ? user.phone.replace(/(\+\d{1,4})(\d+)(\d{2})$/, (_, code, mid, last) =>
-                        `${code} ${'•'.repeat(mid.length)} ${last}`)
-                    : 'Required to post car listings'}
+                <Text style={{ fontSize: 13, marginTop: 2, color: 'rgba(255,255,255,0.8)' }}>
+                  Required to post car listings
                 </Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={user?.phone_confirmed_at
-                  ? (isDarkMode ? '#4ADE80' : '#166534')
-                  : 'rgba(255,255,255,0.8)'}
-              />
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
           </View>
         )}
@@ -1642,7 +1614,11 @@ export default function UserProfileAndSupportPage() {
       <PhoneVerificationBottomSheet
         visible={showPhoneSheet}
         onClose={() => setShowPhoneSheet(false)}
-        onSuccess={() => setShowPhoneSheet(false)}
+        onSuccess={async () => {
+          setShowPhoneSheet(false);
+          // Refresh auth state so phone_confirmed_at updates the card immediately
+          try { await forceProfileRefresh(); } catch {}
+        }}
       />
     </View>
   );

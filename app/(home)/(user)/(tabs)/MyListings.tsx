@@ -80,7 +80,7 @@ interface PlateListing {
 
 export default function MyListings() {
 	const { isDarkMode } = useTheme()
-	const { user } = useAuth()
+	const { user, forceProfileRefresh } = useAuth()
 	const { isGuest, clearGuestMode } = useGuestUser()
 	const { t } = useTranslation()
 	const [initialLoading, setInitialLoading] = useState(true)
@@ -935,8 +935,10 @@ export default function MyListings() {
 		<PhoneVerificationBottomSheet
 			visible={showPhoneSheet}
 			onClose={() => setShowPhoneSheet(false)}
-			onSuccess={() => {
+			onSuccess={async () => {
 				setShowPhoneSheet(false);
+				// Refresh auth state so phone_confirmed_at is set before opening listing modal
+				try { await forceProfileRefresh(); } catch {}
 				setShowAddModal(true);
 			}}
 		/>

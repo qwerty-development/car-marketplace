@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
@@ -58,9 +59,10 @@ export default function PhoneVerificationBottomSheet({
       setPhoneError('');
       setOtpError('');
       setResendTimer(0);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
     }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [visible]);
 
   const startResendTimer = useCallback(() => {
@@ -86,11 +88,9 @@ export default function PhoneVerificationBottomSheet({
     const callingCode = selectedCountry
       ? getCallingCode(selectedCountry).replace(/\D/g, '')
       : '961';
-    // Guard against double-prefix
-    const digits = cleaned.startsWith(callingCode)
-      ? cleaned.slice(callingCode.length)
-      : cleaned;
-    return `+${callingCode}${digits}`;
+    // The PhoneInput component returns local numbers only (no prefix),
+    // so we concatenate directly — no prefix stripping needed
+    return `+${callingCode}${cleaned}`;
   }, [phone, selectedCountry]);
 
   const handleSendCode = useCallback(async () => {
@@ -193,13 +193,17 @@ export default function PhoneVerificationBottomSheet({
         </TouchableWithoutFeedback>
 
         {/* Sheet */}
-        <View style={{
-          backgroundColor: bg,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          padding: 24,
-          paddingBottom: 40,
-        }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={false}
+          style={{
+            backgroundColor: bg,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            maxHeight: '80%',
+          }}
+          contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+        >
                 {/* Handle bar */}
                 <View style={{
                   width: 40,
@@ -353,7 +357,7 @@ export default function PhoneVerificationBottomSheet({
                     </TouchableOpacity>
                   </>
                 )}
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
