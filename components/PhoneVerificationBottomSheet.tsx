@@ -16,6 +16,8 @@ import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import CustomPhoneInput, { getCallingCode, ICountry } from '@/components/PhoneInput';
 
+const OTP_LENGTH = 6;
+
 interface PhoneVerificationBottomSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -43,13 +45,14 @@ export default function PhoneVerificationBottomSheet({
   const [otpError, setOtpError] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpInputRef = useRef<TextInput | null>(null);
 
-  // Reset state when sheet opens
+  // Reset state when sheet opens — intentionally do NOT reset selectedCountry
+  // so the library's defaultCountry="LB" initialization is not overwritten
   useEffect(() => {
     if (visible) {
       setStep('phone');
       setPhone('');
-      setSelectedCountry(null);
       setVerifyingPhone('');
       setOtp('');
       setPhoneError('');
@@ -74,16 +77,15 @@ export default function PhoneVerificationBottomSheet({
   }, []);
 
   const buildFullPhone = useCallback((): string | null => {
-    if (!selectedCountry) {
-      setPhoneError('Please select a country');
-      return null;
-    }
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length < 6) {
       setPhoneError('Please enter a valid phone number');
       return null;
     }
-    const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
+    // Fall back to Lebanon (+961) when the library hasn't fired onChangeSelectedCountry yet
+    const callingCode = selectedCountry
+      ? getCallingCode(selectedCountry).replace(/\D/g, '')
+      : '961';
     // Guard against double-prefix
     const digits = cleaned.startsWith(callingCode)
       ? cleaned.slice(callingCode.length)
@@ -116,6 +118,8 @@ export default function PhoneVerificationBottomSheet({
       setOtpError('');
       setStep('otp');
       startResendTimer();
+      // Manually focus after Modal has settled — autoFocus is unreliable inside Modals on Android
+      setTimeout(() => otpInputRef.current?.focus(), 300);
     } catch (err: any) {
       setPhoneError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
@@ -125,7 +129,7 @@ export default function PhoneVerificationBottomSheet({
 
   const handleVerifyOtp = useCallback(async () => {
     setOtpError('');
-    if (!otp || otp.length < 6) {
+    if (!otp || otp.length < OTP_LENGTH) {
       setOtpError('Please enter the 6-digit code sent to your phone.');
       return;
     }
@@ -142,6 +146,8 @@ export default function PhoneVerificationBottomSheet({
       onClose();
     } catch (err: any) {
       setOtpError(err.message || 'Invalid code. Please try again.');
+      setOtp('');
+      setTimeout(() => otpInputRef.current?.focus(), 100);
     } finally {
       setIsLoading(false);
     }
@@ -156,6 +162,7 @@ export default function PhoneVerificationBottomSheet({
       const { error } = await supabase.auth.updateUser({ phone: verifyingPhone });
       if (error) throw error;
       startResendTimer();
+      setTimeout(() => otpInputRef.current?.focus(), 100);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to resend code. Please try again.');
     } finally {
@@ -176,19 +183,23 @@ export default function PhoneVerificationBottomSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <TouchableWithoutFeedback>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            >
-              <View style={{
-                backgroundColor: bg,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-                padding: 24,
-                paddingBottom: 40,
-              }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Backdrop — tapping outside dismisses */}
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+        </TouchableWithoutFeedback>
+
+        {/* Sheet */}
+        <View style={{
+          backgroundColor: bg,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          padding: 24,
+          paddingBottom: 40,
+        }}>
                 {/* Handle bar */}
                 <View style={{
                   width: 40,
@@ -257,39 +268,43 @@ export default function PhoneVerificationBottomSheet({
                   </>
                 ) : (
                   <>
+                    {/* Single input — matches sign-in pattern with SMS autofill props */}
                     <TextInput
+                      ref={otpInputRef}
                       style={{
-                        height: 56,
-                        backgroundColor: inputBg,
-                        borderRadius: 14,
+                        height: 52,
                         paddingHorizontal: 16,
-                        fontSize: 22,
-                        textAlign: 'center',
-                        letterSpacing: 6,
+                        backgroundColor: inputBg,
                         color: textPrimary,
-                        borderWidth: otpError ? 1 : 0,
-                        borderColor: otpError ? '#EF4444' : 'transparent',
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: otpError ? '#EF4444' : borderColor,
+                        fontSize: 20,
+                        letterSpacing: 6,
+                        textAlign: 'center',
                       }}
                       value={otp}
+                      placeholder="• • • • • •"
+                      placeholderTextColor={textSecondary}
                       onChangeText={(text) => {
-                        setOtp(text);
+                        setOtp(text.replace(/[^0-9]/g, ''));
                         setOtpError('');
                       }}
-                      placeholder="000000"
-                      placeholderTextColor={textSecondary}
                       keyboardType="number-pad"
-                      maxLength={6}
-                      autoFocus
+                      maxLength={OTP_LENGTH}
+                      textContentType="oneTimeCode"
+                      autoComplete="sms-otp"
+                      editable={!isLoading}
                     />
                     {otpError ? (
-                      <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 6 }}>
+                      <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
                         {otpError}
                       </Text>
                     ) : null}
 
                     <TouchableOpacity
-                      onPress={handleVerifyOtp}
-                      disabled={isLoading}
+                      onPress={() => handleVerifyOtp()}
+                      disabled={isLoading || otp.length < OTP_LENGTH}
                       style={{
                         marginTop: 20,
                         height: 52,
@@ -297,7 +312,7 @@ export default function PhoneVerificationBottomSheet({
                         borderRadius: 14,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        opacity: isLoading ? 0.7 : 1,
+                        opacity: (isLoading || otp.length < OTP_LENGTH) ? 0.5 : 1,
                       }}
                     >
                       {isLoading ? (
@@ -338,11 +353,8 @@ export default function PhoneVerificationBottomSheet({
                     </TouchableOpacity>
                   </>
                 )}
-              </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
         </View>
-      </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
