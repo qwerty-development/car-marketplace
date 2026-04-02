@@ -13,6 +13,9 @@ import Constants from 'expo-constants';
 import { NotificationService } from '@/services/NotificationService';
 import { logAuthEvent } from './analytics';
 
+const SIGNUP_PLATFORM = Platform.OS as 'ios' | 'android';
+const SIGNUP_APP_VERSION = Constants.expoConfig?.version ?? null;
+
 // CRITICAL FIX 1: Enhanced timeout configurations
 const OPERATION_TIMEOUTS = {
   SIGN_IN: 10000, // 10 seconds
@@ -555,16 +558,16 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                         session.user.user_metadata.name ||
                         'User';
 
-        const newUser: Partial<UserProfile> & { signup_platform?: string; signup_app_version?: string } = {
+        const newUser = {
           id: session.user.id,
           name: userName,
           email: session.user.email || '',
-          favorite: [],
+          favorite: [] as number[],
           last_active: new Date().toISOString(),
           timezone: 'UTC',
           role: 'user',
-          signup_platform: Platform.OS,
-          signup_app_version: Constants.expoConfig?.version ?? undefined,
+          signup_platform: SIGNUP_PLATFORM,
+          signup_app_version: SIGNUP_APP_VERSION,
         };
 
         const upsertResult = await withTimeout(
@@ -619,6 +622,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await supabase.auth.updateUser({
           data: { role: existingUser?.role || 'user' }
         });
+      }
+
+      if (existingUser && !existingUser.signup_platform) {
+        supabase
+          .from('users')
+          .update({ signup_platform: SIGNUP_PLATFORM, signup_app_version: SIGNUP_APP_VERSION })
+          .eq('id', session.user.id)
+          .then(() => {}, () => {});
       }
 
       return existingUser as UserProfile;
@@ -1230,8 +1241,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             last_active: new Date().toISOString(),
             timezone: 'UTC',
             role: role,
-            signup_platform: Platform.OS,
-            signup_app_version: Constants.expoConfig?.version ?? undefined,
+            signup_platform: SIGNUP_PLATFORM,
+            signup_app_version: SIGNUP_APP_VERSION,
           }], {
             onConflict: 'id',
             ignoreDuplicates: false
