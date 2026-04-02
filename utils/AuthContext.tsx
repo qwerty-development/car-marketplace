@@ -8,6 +8,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { isSigningOut, setIsSigningOut } from './signOutState';
 import { router } from 'expo-router';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { NotificationService } from '@/services/NotificationService';
 import { logAuthEvent } from './analytics';
 
@@ -553,7 +555,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
                         session.user.user_metadata.name ||
                         'User';
 
-        const newUser: Partial<UserProfile> = {
+        const newUser: Partial<UserProfile> & { signup_platform?: string; signup_app_version?: string } = {
           id: session.user.id,
           name: userName,
           email: session.user.email || '',
@@ -561,6 +563,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           last_active: new Date().toISOString(),
           timezone: 'UTC',
           role: 'user',
+          signup_platform: Platform.OS,
+          signup_app_version: Constants.expoConfig?.version ?? undefined,
         };
 
         const upsertResult = await withTimeout(
@@ -1226,6 +1230,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             last_active: new Date().toISOString(),
             timezone: 'UTC',
             role: role,
+            signup_platform: Platform.OS,
+            signup_app_version: Constants.expoConfig?.version ?? undefined,
           }], {
             onConflict: 'id',
             ignoreDuplicates: false
