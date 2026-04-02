@@ -439,7 +439,7 @@ const ClipItem = React.memo<ClipItemProps>(({
           <VideoView
             player={player}
             style={{ flex: 1 }}
-            contentFit="cover"
+            contentFit="contain"
             nativeControls={false}
           />
         ) : (
@@ -448,7 +448,7 @@ const ClipItem = React.memo<ClipItemProps>(({
               <Image
                 source={{ uri: item.thumbnail_url }}
                 style={{ flex: 1 }}
-                contentFit="cover"
+                contentFit="contain"
               />
             )}
           </View>

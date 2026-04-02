@@ -478,7 +478,7 @@ const DealershipAutoClips = ({ dealershipId }: { dealershipId: number }) => {
 				<VideoView
 					player={player}
 					style={{ flex: 1 }}
-					contentFit="cover"
+					contentFit="contain"
 					nativeControls={false}
 				/>
 				{/* Play/Pause Icon Animation */}

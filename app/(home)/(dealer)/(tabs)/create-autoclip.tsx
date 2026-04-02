@@ -174,6 +174,7 @@ const useAutoClips = (dealershipId: number | null) => {
         .from('auto_clips')
         .select('status')
         .eq('dealership_id', dealershipId)
+        .neq('status', 'deleted')
 
       if (error) throw error
       
@@ -199,6 +200,7 @@ const useAutoClips = (dealershipId: number | null) => {
         .from('auto_clips')
         .select('id', { count: 'exact', head: true })
         .eq('dealership_id', dealershipId)
+        .neq('status', 'deleted')
 
       if (statusFilter !== 'all') {
         countQuery = countQuery.eq('status', statusFilter)
@@ -221,6 +223,7 @@ const useAutoClips = (dealershipId: number | null) => {
         .from('auto_clips')
         .select('*, car:cars(id, make, model, year, images)') // Added id and images to the select
         .eq('dealership_id', dealershipId)
+        .neq('status', 'deleted')
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
 
