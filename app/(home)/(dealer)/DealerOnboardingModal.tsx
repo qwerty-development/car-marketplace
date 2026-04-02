@@ -408,7 +408,7 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
       }}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
         <View className="flex-1 justify-center items-center">
@@ -449,8 +449,9 @@ const DealerOnboardingModal: React.FC<DealerOnboardingModalProps> = ({
             </View>
 
             {/* Form Fields */}
-            <ScrollView 
+            <ScrollView
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               className="mb-4"
             >
               {/* Dealership Logo */}

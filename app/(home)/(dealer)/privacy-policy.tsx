@@ -324,11 +324,11 @@ export default function PrivacyPolicyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0,
   },
   floatingHeader: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0,
     left: 0,
     right: 0,
     height: 30,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? StatusBar.currentHeight  : 10,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0)  : 10,
     left: 16,
     width: 30,
     height: 30,

@@ -1389,6 +1389,7 @@ const ListingModal = ({
       animationType="none"
       transparent
       statusBarTranslucent
+      onRequestClose={handleClose}
     >
       <View
         className="flex-1"

@@ -3,6 +3,8 @@ import React, {
     useState,
     useEffect,
     useContext,
+    useCallback,
+    useMemo,
     ReactNode
 } from 'react'
 // Remove this import
@@ -30,12 +32,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         setIsDarkMode(colorScheme === 'dark')
     }, [colorScheme])
 
-    const toggleTheme = () => {
+    const toggleTheme = useCallback(() => {
         setIsDarkMode(prev => !prev)
-    }
+    }, [])
+
+    const value = useMemo(() => ({ isDarkMode, toggleTheme }), [isDarkMode, toggleTheme])
 
     return (
-        <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+        <ThemeContext.Provider value={value}>
             {children}
         </ThemeContext.Provider>
     )

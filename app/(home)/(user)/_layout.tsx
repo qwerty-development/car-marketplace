@@ -2,13 +2,11 @@ import React from "react";
 import { Stack } from "expo-router";
 import { Easing, Platform, View } from "react-native";
 import { useTheme } from "@/utils/ThemeContext";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-export default function RootLayout() {
+export default function UserLayout() {
   const { isDarkMode } = useTheme();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
       <View
         style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
       >
@@ -163,6 +161,5 @@ export default function RootLayout() {
           />
         </Stack>
       </View>
-    </GestureHandlerRootView>
   );
 }

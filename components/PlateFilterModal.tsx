@@ -80,7 +80,7 @@ export default function PlateFilterModal({
   ];
 
   return (
-    <Modal visible={isVisible} animationType="slide" transparent={true}>
+    <Modal visible={isVisible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View
           style={[
@@ -109,7 +109,7 @@ export default function PlateFilterModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Sort By Section */}
             <View style={styles.filterSection}>
               <Text

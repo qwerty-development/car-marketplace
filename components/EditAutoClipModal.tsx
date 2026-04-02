@@ -269,7 +269,7 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 			transparent={true}
 			onRequestClose={onClose}>
 			<KeyboardAvoidingView
-				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+				behavior={Platform.OS === 'ios' ? 'padding' : undefined}
 				style={{ flex: 1 }}>
 				<BlurView
 					intensity={95}
@@ -308,7 +308,7 @@ const EditAutoClipModal: React.FC<EditAutoClipModalProps> = ({
 								</TouchableOpacity>
 							</View>
 
-							<ScrollView className='flex-1 p-4 mb-10'>
+							<ScrollView className='flex-1 p-4 mb-10' keyboardShouldPersistTaps="handled">
 								{/* Video Preview */}
 								{clip?.video_url && (
 									<View className='mb-6 rounded-xl overflow-hidden shadow-lg'>

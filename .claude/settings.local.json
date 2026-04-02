@@ -23,7 +23,12 @@
       "Bash(grep -r \"targetSdk\\\\|compileSdk\\\\|pageSize\\\\|expo-build-properties\" /Users/asif/Desktop/Work/car-marketplace --include=*.js --include=*.json --exclude-dir=node_modules)",
       "Bash(wc:*)",
       "Bash(grep -v \"^$\")",
-      "Bash(grep -r \"INSERT INTO.*users\\\\|SELECT.*users\" /home/charbel/Desktop/qwerty/car-marketplace --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\")"
+      "Bash(grep -r \"INSERT INTO.*users\\\\|SELECT.*users\" /home/charbel/Desktop/qwerty/car-marketplace --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\")",
+      "Bash(grep -r \"softwareKeyboardLayoutMode\\\\|windowSoftInputMode\\\\|android:windowSoftInputMode\" /Users/asif/Desktop/Work/car-marketplace --include=*.json --include=*.xml --include=*.gradle)",
+      "Bash(head:*)",
+      "Bash(grep:*)",
+      "Bash(head -15 __NEW_LINE_bb3b2b875b1894b1__ echo -e \"\\\\n2. DealerOnboardingModal.tsx\" grep -n \"<Modal\\\\|<ScrollView\\\\|<FlatList\\\\|<TextInput\" \"app/\\(home\\)/\\(dealer\\)/DealerOnboardingModal.tsx\")",
+      "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": []
   },

@@ -350,12 +350,21 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const cleanupLocalStorage = async (): Promise<void> => {
     try {
       console.log('[AUTH] Starting auth-related local storage cleanup');
-      
+
+      // Build the actual Supabase storage key from the project URL
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      let supabaseStorageKey = '';
+      try {
+        const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
+        supabaseStorageKey = `sb-${projectRef}-auth-token`;
+      } catch {}
+
       const authKeys = [
         'supabase-auth-token',
         'lastActiveSession',
         'authSessionExpiry',
-        'tempAuthData'
+        'tempAuthData',
+        ...(supabaseStorageKey ? [supabaseStorageKey] : []),
       ];
 
       // Add timeout to storage cleanup
@@ -431,6 +440,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         try {
           console.log('[AUTH] Auth state change event:', event);
 
+          // Skip state updates during sign-out to prevent re-authentication flicker
+          // Note: use module-level isGlobalSigningOut only — React state isSigningOutState
+          // would be stale in this closure since the effect doesn't re-run on sign-out
+          if (isGlobalSigningOut) {
+            console.log('[AUTH] Ignoring auth state change during sign-out');
+            if (event === 'SIGNED_OUT') {
+              setSession(null);
+              setUser(null);
+              setProfile(null);
+              setDealership(undefined);
+            }
+            cleanupOperation('sessionLoad');
+            setIsLoaded(true);
+            return;
+          }
+
           if (currentSession) {
             setSession(currentSession);
             setUser(currentSession.user);
@@ -461,6 +486,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
     // Check for existing session on startup with timeout
     const loadSession = async () => {
+      // Skip if sign-out is in progress to prevent re-authentication
+      if (isGlobalSigningOut) {
+        console.log('[AUTH] Skipping session load during sign-out');
+        setIsLoaded(true);
+        return;
+      }
+
       try {
         const sessionResult = await withTimeout(
           supabase.auth.getSession(),
@@ -844,60 +876,28 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   
       // Clean up local storage with timeout
       await cleanupLocalStorage();
-  
+
       // Reset auth context state
       setSession(null);
       setUser(null);
       setProfile(null);
-      
-      // UI stabilization delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-  
-      // Safe navigation with error recovery
-      requestAnimationFrame(() => {
-        try {
-          router.replace('/(auth)/sign-in');
-        } catch (navError) {
-          console.log('[AUTH] Primary navigation error, attempting fallback:', navError);
-          requestAnimationFrame(() => {
-            try {
-              router.replace('/(auth)/sign-in');
-            } catch (fallbackError) {
-              console.error('[AUTH] Fallback navigation also failed:', fallbackError);
-            }
-          });
-        }
-      });
-  
+      setDealership(undefined);
+
+      console.log('[AUTH] Sign out cleanup complete');
     } catch (error) {
       console.error('[AUTH] Sign out process error:', error);
-  
+
       // Force state cleanup even on error
       setSession(null);
       setUser(null);
       setProfile(null);
-      setDealership(null);
-  
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      requestAnimationFrame(() => {
-        try {
-          router.replace('/(auth)/sign-in');
-        } catch (navError) {
-          console.log('[AUTH] Error recovery navigation handled:', navError);
-          setTimeout(() => {
-            router.replace('/(auth)/sign-in');
-          }, 100);
-        }
-      });
+      setDealership(undefined);
     } finally {
-      // Reset signing out states with delay
-      setTimeout(() => {
-        setIsSigningOutState(false);
-        setIsSigningOut(false);
-        setGlobalSigningOut(false);
-        console.log('[AUTH] Sign out process completed');
-      }, 2000);
+      // Reset signing out flags after state is fully cleared
+      setIsSigningOutState(false);
+      setIsSigningOut(false);
+      setGlobalSigningOut(false);
+      console.log('[AUTH] Sign out process completed');
     }
   };
 

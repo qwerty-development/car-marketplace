@@ -1,15 +1,12 @@
 // (home)/(dealer)/_layout.tsx
 import { Tabs, Stack } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { useColorScheme } from 'react-native'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { useTheme } from '@/utils/ThemeContext'
 
 export default function DealerLayout() {
-	const colorScheme = useColorScheme()
-	const isDarkMode = colorScheme === 'dark'
+	const { isDarkMode } = useTheme()
 
 	return (
-		<GestureHandlerRootView style={{ flex: 1 }}>
 			<Stack>
 				<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
 				<Stack.Screen
@@ -116,7 +113,5 @@ export default function DealerLayout() {
 					}}
 				/>
 			</Stack>
-			
-		</GestureHandlerRootView>
 	)
 }

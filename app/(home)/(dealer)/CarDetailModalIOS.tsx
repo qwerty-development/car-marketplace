@@ -474,7 +474,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 						data={similarCars}
 						renderItem={renderCarItem}
 						keyExtractor={item =>
-							`${item.id}-${item.make}-${item.model}-${Math.random()}`
+							`${item.id}-${item.make}-${item.model}`
 						}
 						horizontal
 						showsHorizontalScrollIndicator={false}
@@ -490,7 +490,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate }: any) => {
 						data={dealerCars}
 						renderItem={renderCarItem}
 						keyExtractor={item =>
-							`${item.id}-${item.make}-${item.model}-${Math.random()}`
+							`${item.id}-${item.make}-${item.model}`
 						}
 						horizontal
 						showsHorizontalScrollIndicator={false}

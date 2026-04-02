@@ -918,7 +918,8 @@ const fetchCars = async () => {
 			visible={isVisible}
 			animationType='none'
 			transparent
-			statusBarTranslucent>
+			statusBarTranslucent
+			onRequestClose={handleClose}>
 			<View className='flex-1' style={{ zIndex: 99999 }}>
 				<Animated.View
 					entering={FadeIn}

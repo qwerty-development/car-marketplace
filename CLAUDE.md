@@ -55,7 +55,7 @@ app/                    # Expo Router v6 file-based routing
   car/[id].tsx          # Deep link routes
 components/             # Reusable UI (64 files — CarCard, ListingModal, etc.)
 utils/                  # Contexts + helpers (AuthContext, supabase, queryClient)
-hooks/                  # Custom hooks (useNotifications, useCachedCars, etc.)
+hooks/                  # Custom hooks (useNotifications, etc.)
 services/               # Business logic (NotificationService, ChatService)
 types/                  # TypeScript interfaces
 locales/                # en.json, ar.json translations

@@ -441,7 +441,7 @@ const BrandSelector = memo(
                   />
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {filteredBrands.map((brand, index) => (
                     <TouchableOpacity
                       key={index}
@@ -1243,7 +1243,7 @@ const DealershipSelector = memo(
                   />
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {filteredDealerships.map((dealer) => (
                     <TouchableOpacity
                       key={dealer.id}
@@ -1589,7 +1589,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
     </TouchableOpacity>
   </View>
 
-  <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+  <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} keyboardShouldPersistTaps="handled">
     <View style={{ paddingVertical: 16 }}>
       {/* Quick Filters Section */}
       <SectionHeader

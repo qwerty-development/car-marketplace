@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { useState, useMemo } from "react";
-import { TouchableOpacity, View, TextInput, ScrollView, Text, Image, StyleSheet } from "react-native";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { TouchableOpacity, View, TextInput, ScrollView, Text, Image, StyleSheet, BackHandler } from "react-native";
 import { SlideInDown, SlideOutDown, FadeIn, FadeOut } from "react-native-reanimated";
 import { Car } from "./types";
 import styles from "./styles";
@@ -76,7 +76,7 @@ export const CarPickerModal = ({
   
   
     return (
-      <Modal visible={visible} animationType="slide" transparent>
+      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
         <BlurView
           style={styles.modalBlurContainer}
           intensity={isDarkMode ? 30 : 20}
@@ -180,6 +180,7 @@ export const CarPickerModal = ({
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.sortOptionsContainer}
                 >
                   {sortOptions.map(option => (
@@ -237,6 +238,7 @@ export const CarPickerModal = ({
               <ScrollView
                 style={styles.carList}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
               >
                 {filteredAndSortedCars.map((car) => {
                   // Check if car is already selected in the other position
@@ -366,14 +368,28 @@ export const CarPickerModal = ({
     children,
     animationType = 'fade',
     transparent = true,
+    onRequestClose,
   }: {
     visible: boolean;
     children: React.ReactNode;
     animationType?: 'fade' | 'slide';
     transparent?: boolean;
+    onRequestClose?: () => void;
   }) => {
+    const onRequestCloseRef = useRef(onRequestClose);
+    useEffect(() => { onRequestCloseRef.current = onRequestClose; });
+
+    useEffect(() => {
+      if (!visible || !onRequestCloseRef.current) return;
+      const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+        onRequestCloseRef.current?.();
+        return true;
+      });
+      return () => handler.remove();
+    }, [visible]);
+
     if (!visible) return null;
-  
+
     return (
       <Animated.View
         style={[

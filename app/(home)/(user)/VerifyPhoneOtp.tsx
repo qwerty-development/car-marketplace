@@ -210,7 +210,7 @@ export default function VerifyPhoneOtpScreen() {
       className={`flex-1 ${isDarkMode ? "bg-black" : "bg-white"}`}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
         <ScrollView

@@ -185,7 +185,7 @@ export default function PhoneVerificationBottomSheet({
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Backdrop — tapping outside dismisses */}
         <TouchableWithoutFeedback onPress={onClose}>

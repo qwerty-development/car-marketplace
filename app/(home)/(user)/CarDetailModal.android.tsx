@@ -820,21 +820,16 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   useEffect(() => {
     if (car?.id && user?.id) {
       try {
-        // Use a timeout to prevent blocking the UI
         const timer = setTimeout(() => {
           trackCarView(car.id, user.id);
         }, 1000);
-
-        if (scrollViewRef.current) {
-          scrollViewRef.current.scrollTo({ y: 0, animated: false });
-        }
 
         return () => clearTimeout(timer);
       } catch (error) {
         console.error('Error in car view tracking effect:', error);
       }
     }
-  }, [car, user, trackCarView]);
+  }, [car?.id, user?.id]);
 
   const fetchSimilarCars = useCallback(async () => {
     if (!car?.id || !car?.make) return;

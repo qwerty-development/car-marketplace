@@ -732,7 +732,7 @@ const ModernFilterModal: React.FC<FilterModalProps> = ({
 						</TouchableOpacity>
 					</View>
 
-					<ScrollView className='p-4'>
+					<ScrollView className='p-4' keyboardShouldPersistTaps="handled">
 						<View className='space-y-6'>
 							{/* Status Filter */}
 							<ModernPicker

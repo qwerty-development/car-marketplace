@@ -30,20 +30,24 @@ export async function coordinateSignOut(
   setIsSigningOut(true);
 
   try {
-    console.log("[SignOutState] Navigating to sign-in screen");
-    router.replace("/(auth)/sign-in");
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
+    // Clean up auth state FIRST, then navigate
     console.log("[SignOutState] Executing auth sign out");
     await authSignOut();
+
+    console.log("[SignOutState] Navigating to sign-in screen");
+    setTimeout(() => {
+      router.replace("/(auth)/sign-in");
+    }, 0);
 
     console.log("[SignOutState] Sign out coordination completed successfully");
     return true;
   } catch (error) {
     console.error("[SignOutState] Error during coordinated sign out:", error);
-    router.replace("/(auth)/sign-in");
-    setIsSigningOut(false);
+    setTimeout(() => {
+      router.replace("/(auth)/sign-in");
+    }, 0);
     return false;
+  } finally {
+    setIsSigningOut(false);
   }
 }

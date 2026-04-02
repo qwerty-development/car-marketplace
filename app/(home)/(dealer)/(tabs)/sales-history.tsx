@@ -198,7 +198,7 @@ const SaleDetailsModal = ({ isVisible, onClose, sale, isDarkMode, t }: any) => {
   )
 
   return (
-    <Modal visible={isVisible} animationType='slide' transparent={true}>
+    <Modal visible={isVisible} animationType='slide' transparent={true} onRequestClose={onClose}>
       <BlurView
         intensity={100}
         tint={isDarkMode ? 'dark' : 'light'}

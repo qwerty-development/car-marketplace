@@ -554,7 +554,7 @@ const ExportSalesModal = ({
             ))}
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
             {/* Step 1: Select Date Range */}
             {step === 1 && (
               <View>

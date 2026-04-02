@@ -101,7 +101,7 @@ export default function SecuritySettingsScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1 }}
       className={isDarkMode ? 'bg-black' : 'bg-white'}
     >

@@ -371,6 +371,7 @@ export default function SearchModal({
                 </Text>
                 <FlatList
                   data={recentSearches}
+                  keyboardShouldPersistTaps="handled"
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={[styles.recentSearchItem, isDarkMode && styles.darkRecentSearchItem]}
@@ -466,7 +467,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    marginTop: Platform.OS === 'ios' ? 40 : StatusBar.currentHeight,
+    marginTop: Platform.OS === 'ios' ? 40 : (StatusBar.currentHeight ?? 0),
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     shadowColor: "#000",
