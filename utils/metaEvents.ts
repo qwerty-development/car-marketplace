@@ -11,6 +11,9 @@ export const META_EVENTS = {
   // Authentication events
   SIGN_IN: 'fb_mobile_sign_in',
   COMPLETE_REGISTRATION: 'fb_mobile_complete_registration',
+
+  // Guest events
+  GUEST_START: 'guest_start',
 } as const;
 
 /**

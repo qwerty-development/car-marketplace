@@ -131,7 +131,7 @@ export default function LandingPage() {
       await setGuestMode(true);
       router.replace("/(home)");
     } catch (error) {
-      console.error("Error setting guest mode:", error);
+      console.error("[GuestMode] Error setting guest mode:", error);
       Alert.alert("Error", "Failed to continue as guest");
     } finally {
       setIsLoading(false);

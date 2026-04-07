@@ -599,11 +599,10 @@ export default function SignInPage() {
     try {
       // Set guest mode which will be detected by auth context
       await setGuestMode(true);
-
       // Let the auth routing handle navigation instead of doing it here
       // The root layout will detect the guest mode and navigate appropriately
     } catch (err) {
-      console.error("Guest mode error:", err);
+      console.error("[GuestMode] Guest mode error:", err);
       Alert.alert("Error", "Failed to continue as guest. Please try again.");
     } finally {
       setIsGuestLoading(false);
@@ -965,6 +964,25 @@ export default function SignInPage() {
           >
             Forgot Password?
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleGuestSignIn}
+          disabled={isGuestLoading}
+          style={{ marginTop: 8, alignSelf: "center", paddingVertical: 10, paddingHorizontal: 20 }}
+        >
+          {isGuestLoading ? (
+            <ActivityIndicator size="small" color="#D55004" />
+          ) : (
+            <Text
+              style={{
+                color: isDark ? "#9CA3AF" : "#6B7280",
+                textAlign: "center",
+              }}
+            >
+              Continue as Guest
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 

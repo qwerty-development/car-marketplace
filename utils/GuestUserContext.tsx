@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback, use
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
+import { fireGuestStartOnce } from './safeMetaLogger';
 
 interface GuestUserContextType {
   isGuest: boolean;
@@ -27,9 +28,10 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (storedIsGuest === 'true' && storedGuestId) {
           setIsGuest(true);
           setGuestId(storedGuestId);
+          fireGuestStartOnce(storedGuestId);
         }
       } catch (error) {
-        console.error('Error loading guest state:', error);
+        console.error('[GuestContext] Error loading guest state:', error);
       }
     };
 
@@ -52,8 +54,13 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       setIsGuest(isActive);
       setGuestId(id);
+
+      // Only fire for a new guest session (id differs from existing guestId)
+      if (isActive && id && id !== guestId) {
+        fireGuestStartOnce(id);
+      }
     } catch (error) {
-      console.error('Error setting guest mode:', error);
+      console.error('[GuestContext] Error setting guest mode:', error);
     }
   }, [guestId]);
 
