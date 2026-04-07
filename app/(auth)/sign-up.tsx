@@ -530,12 +530,10 @@ export default function SignUpScreen() {
           },
         });
 
-        // Track registration event for Meta ad attribution
         safeLogEvent('fb_mobile_complete_registration', {
           fb_registration_method: 'phone',
         });
         logAuthEvent('sign_up', 'phone');
-        // Auth context handles navigation
       }
     } catch (err: any) {
       console.error('Phone OTP verification error:', err);

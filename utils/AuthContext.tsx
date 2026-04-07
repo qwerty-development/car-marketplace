@@ -624,14 +624,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         });
       }
 
-      if (existingUser && !existingUser.signup_platform) {
-        supabase
-          .from('users')
-          .update({ signup_platform: SIGNUP_PLATFORM, signup_app_version: SIGNUP_APP_VERSION })
-          .eq('id', session.user.id)
-          .then(() => {}, () => {});
-      }
-
       return existingUser as UserProfile;
     } catch (error: any) {
       if (error.message.includes('timed out')) {
@@ -695,12 +687,20 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         if (activeUserIdRef.current === userId && !isGlobalSigningOut && !isSigningOutState) {
           const userProfile = data as UserProfile;
           setProfile(userProfile);
-          
+
           if (userProfile.role === 'dealer') {
             await fetchDealershipProfile(userId);
           } else {
             setDealership(null);
           }
+        }
+
+        if (!(data as any).signup_platform) {
+          supabase
+            .from('users')
+            .update({ signup_platform: SIGNUP_PLATFORM, signup_app_version: SIGNUP_APP_VERSION })
+            .eq('id', userId)
+            .then(() => {}, () => {});
         }
       }
     } catch (error: any) {
