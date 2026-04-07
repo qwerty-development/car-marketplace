@@ -443,8 +443,8 @@ export default function CreateAutoClipModal({
 	useEffect(() => {
 		if (isVisible) {
 			slideAnim.value = withSpring(0, {
-				damping: 15,
-				stiffness: 90
+				damping: 25,
+				stiffness: 120
 			})
 		}
 	}, [isVisible])
@@ -505,8 +505,8 @@ const fetchCars = async () => {
 				return true // No autoclips, available
 			}
 
-			// Only allow if all existing autoclips are rejected
-			return autoClips.every(clip => clip && clip.status === 'rejected')
+			// Allow if all existing autoclips are rejected or deleted
+			return autoClips.every(clip => clip && (clip.status === 'rejected' || clip.status === 'deleted'))
 		}).map(({ auto_clips, ...car }) => car) || []
 
 		setCars(availableCars)
@@ -552,14 +552,12 @@ const fetchCars = async () => {
 				newState.descriptionError = ''
 			}
 	
-					// Car selection validation (TEMPORARILY DISABLED FOR TESTING)
-		// if (!formState.selectedCarId || formState.selectedCarId <= 0) {
-		// 	newState.carError = 'Please select a car'
-		// 	isValid = false
-		// } else {
-		// 	newState.carError = ''
-		// }
-		newState.carError = '' // Always valid for testing
+			if (!formState.selectedCarId || formState.selectedCarId <= 0) {
+				newState.carError = t('autoclips.please_select_car')
+				isValid = false
+			} else {
+				newState.carError = ''
+			}
 	
 			// Enhanced video validation
 			if (!formState.video) {
@@ -738,13 +736,13 @@ const fetchCars = async () => {
 		try {
 			if (!validateForm()) return
 
-			// RULE: Check if car already has a non-rejected autoclip (TEMPORARILY DISABLED FOR TESTING)
+			// Check if car already has an active autoclip
 			if (formState.selectedCarId) {
 				const { data: existingClip, error: checkError } = await supabase
 					.from('auto_clips')
 					.select('id, status')
 					.eq('car_id', formState.selectedCarId)
-					.neq('status', 'rejected') // Exclude rejected clips
+					.not('status', 'in', '("rejected","deleted")')
 					.single()
 
 				if (checkError && checkError.code !== 'PGRST116') {
@@ -849,25 +847,21 @@ const fetchCars = async () => {
 				data: { publicUrl }
 			} = supabase.storage.from('autoclips').getPublicUrl(filePath)
 
-			// CRITICAL UPDATE: Create database entry with 'under_review' status
+			// Create database entry with 'under_review' status
 			const insertData: any = {
 				dealership_id: dealership!.id,
+				car_id: formState.selectedCarId,
 				title: formState.title.trim(),
 				description: formState.description.trim(),
 				video_url: publicUrl,
 				thumbnail_url: publicUrl,
-				status: 'under_review', // CHANGED: Set to under_review instead of published
+				status: 'under_review',
 				views: 0,
 				likes: 0,
 				viewed_users: [],
 				liked_users: [],
-				submitted_at: new Date().toISOString(), // NEW: Track submission time
-				published_at: null // Will be set when approved
-			}
-
-			// Only add car_id if a car is selected (for testing purposes)
-			if (formState.selectedCarId) {
-				insertData.car_id = formState.selectedCarId
+				submitted_at: new Date().toISOString(),
+				published_at: null
 			}
 
 			const { error: dbError } = await supabase.from('auto_clips').insert(insertData)
@@ -957,9 +951,9 @@ const fetchCars = async () => {
 
 									<TouchableOpacity
 										onPress={handleSubmit}
-										disabled={isLoading || cars.length === 0}
+										disabled={isLoading || cars.length === 0 || !formState.selectedCarId}
 										className={`bg-red px-4 py-2 rounded-full ${
-											isLoading || cars.length === 0 ? 'opacity-50' : ''
+											isLoading || cars.length === 0 || !formState.selectedCarId ? 'opacity-50' : ''
 										}`}>
 										{isLoading ? (
 											<ActivityIndicator color='white' size='small' />
@@ -1065,7 +1059,7 @@ const fetchCars = async () => {
 								</View>
 
 								{/* Car Selection */}
-								{/* Car Selection - TEMPORARILY OPTIONAL FOR TESTING */}
+								{/* Car Selection */}
 								<View className='mb-8'>
 									<SectionHeader
 										title={t('autoclips.featured_vehicle')}
