@@ -971,20 +971,20 @@ const handleWhatsAppPress = useCallback(() => {
 
           {/* Car Info */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               {car.make && (
-                <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 8, width: 50 }}>
+                <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 8, width: 55 }}>
                   <OptimizedImage
                     source={getLogoSource(car.make, isDarkMode)}
-                    style={{ width: 60, height: 40 }}
+                    style={{ width: 55, height: 38 }}
                     fallbackColor="transparent"
                   />
                 </View>
               )}
-              <View style={{ marginLeft: 12 }}>
+              <View style={{ marginLeft: 8, flex: 1 }}>
 
                <Text
-  className={`text-xl mt-6 mr-12 font-bold ${
+  className={`text-lg mt-6 mr-12 font-bold ${
     isDarkMode ? "text-white" : "text-black"
   }`}
   numberOfLines={2}
