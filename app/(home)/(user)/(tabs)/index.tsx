@@ -1230,7 +1230,7 @@ export default function BrowseCarsPage() {
             <SortPicker
               onValueChange={(value: string | null) => {
                 setSortOption(value);
-                fetchCars(1, filters, value, searchQuery, carViewMode, false, vehicleCategory);
+                fetchCars(1, filters, value, searchQuery, carViewMode, true, vehicleCategory);
               }}
               initialValue={sortOption}
             />
