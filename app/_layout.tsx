@@ -1290,10 +1290,8 @@ function RootLayoutNav() {
       const isOnCompleteProfile = currentSegments[0] === 'complete-profile';
 
       if (isMissingFields) {
-        // If profile is still loading but we can already see user needs phone verification,
-        // redirect immediately (don't wait for profile to fully load)
         if (!isOnCompleteProfile) {
-          console.log('[RootLayout] Profile incomplete (missing name or unverified phone), redirecting to /complete-profile');
+          console.log('[RootLayout] Profile incomplete, redirecting to /complete-profile');
           safeReplace("/complete-profile");
         }
         return; // Stop other routing
