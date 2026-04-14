@@ -15,6 +15,7 @@ import {
   Dimensions,
   Modal,
   ActivityIndicator,
+  Keyboard,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import {
@@ -1227,12 +1228,21 @@ const RangeSelector = memo(({
   const [localMin, setLocalMin] = useState(value[0].toString());
   const [localMax, setLocalMax] = useState(value[1].toString());
   const isYearSelector = title.toLowerCase() === "year";
+  // Track what we last sent to parent to distinguish internal vs external value changes
+  const lastEmittedRef = React.useRef<[number, number]>([value[0], value[1]]);
 
-  // When the parent's value changes, update local state
+  // Only sync from parent when the change is EXTERNAL (e.g. quick filter, reset)
+  // Skip sync when we caused the change ourselves (prevents overwriting active typing)
   useEffect(() => {
-    setLocalMin(value[0].toString());
-    setLocalMax(value[1].toString());
-  }, [value]);
+    const isExternal =
+      value[0] !== lastEmittedRef.current[0] ||
+      value[1] !== lastEmittedRef.current[1];
+    if (isExternal) {
+      setLocalMin(value[0].toString());
+      setLocalMax(value[1].toString());
+      lastEmittedRef.current = [value[0], value[1]];
+    }
+  }, [value[0], value[1]]);
 
   // Validate and adjust min input on blur
   const handleMinBlur = () => {
@@ -1252,6 +1262,7 @@ const RangeSelector = memo(({
     }
     setLocalMin(newMin.toString());
     setLocalMax(newMax.toString());
+    lastEmittedRef.current = [newMin, newMax];
     onChange([newMin, newMax]);
   };
 
@@ -1273,6 +1284,7 @@ const RangeSelector = memo(({
     }
     setLocalMin(newMin.toString());
     setLocalMax(newMax.toString());
+    lastEmittedRef.current = [newMin, newMax];
     onChange([newMin, newMax]);
   };
 
@@ -1964,6 +1976,10 @@ console.error("Error parsing filters:", error);
 return defaultFilters;
 }
 });
+// Ref that always holds the latest filters — used by the Apply button's
+// setTimeout callback so it reads the post-blur value, not the stale closure.
+const filtersRef = React.useRef(filters);
+filtersRef.current = filters;
 
 useEffect(() => {
 const fetchDealerships = async () => {
@@ -2647,10 +2663,16 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
         disabled={!hasFiltersSelected}
         onPress={() => {
           if (!hasFiltersSelected) return;
-          router.replace({
-            pathname: "/(home)/(user)/(tabs)",
-            params: { filters: JSON.stringify(filters) },
-          });
+          // Dismiss keyboard so any focused TextInput blurs and commits its value
+          Keyboard.dismiss();
+          // Short delay to let blur handlers fire and update filters state.
+          // Use filtersRef so the callback reads the post-blur value, not the stale closure.
+          setTimeout(() => {
+            router.replace({
+              pathname: "/(home)/(user)/(tabs)",
+              params: { filters: JSON.stringify(filtersRef.current) },
+            });
+          }, 150);
         }}
         style={{
           flex: 1,

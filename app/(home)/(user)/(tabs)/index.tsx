@@ -459,6 +459,9 @@ export default function BrowseCarsPage() {
         // Sorting
         if (currentSortOption) {
           switch (currentSortOption) {
+            case "date_listed_desc":
+              queryBuilder = queryBuilder.order("listed_at", { ascending: false });
+              break;
             case "price_asc":
               queryBuilder = queryBuilder.order("price", { ascending: true });
               break;

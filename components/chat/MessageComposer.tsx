@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -29,11 +29,13 @@ export default function MessageComposer({
   const [message, setMessage] = useState('');
   const { bottom } = useSafeAreaInsets();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
     return () => {
       show.remove();
       hide.remove();
@@ -47,6 +49,8 @@ export default function MessageComposer({
     try {
       await onSend(trimmed);
       setMessage('');
+      // Re-focus input so keyboard stays open for rapid messaging
+      setTimeout(() => inputRef.current?.focus(), 50);
     } catch (error) {
       // Error handling delegated to caller (toast, etc.)
     }
@@ -78,7 +82,21 @@ export default function MessageComposer({
         </TouchableOpacity>
       ) : null}
 
+      {keyboardVisible && (
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => Keyboard.dismiss()}
+        >
+          <Ionicons
+            name="chevron-down"
+            size={22}
+            color={isDarkMode ? '#E5E7EB' : '#6B7280'}
+          />
+        </TouchableOpacity>
+      )}
+
       <TextInput
+        ref={inputRef}
         value={message}
         onChangeText={setMessage}
         placeholder={placeholder}
@@ -95,6 +113,7 @@ export default function MessageComposer({
           },
         ]}
         editable={!isSending}
+        blurOnSubmit={false}
         onSubmitEditing={handleSend}
         returnKeyType="send"
       />

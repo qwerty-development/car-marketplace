@@ -87,6 +87,9 @@ export default function ConversationDetailScreen() {
     navigation.setOptions({
       title: headerTitle,
       headerTitleAlign: 'center',
+      headerTitleStyle: {
+        maxWidth: 200,
+      },
       headerLeft: () => (
         <Pressable
           onPress={() => navigation.goBack()}
@@ -255,6 +258,7 @@ export default function ConversationDetailScreen() {
               ref={listRef}
               data={messages}
               keyExtractor={(item) => item.id.toString()}
+              keyboardShouldPersistTaps="handled"
               style={{
                 flex: 1,
               }}

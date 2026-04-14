@@ -83,6 +83,9 @@ export default function DealerConversationDetailScreen() {
 
     navigation.setOptions({
       title: customerLabel,
+      headerTitleStyle: {
+        maxWidth: 200,
+      },
       headerLeft: () => (
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -251,6 +254,7 @@ export default function DealerConversationDetailScreen() {
               ref={listRef}
               data={messages}
               keyExtractor={(item) => item.id.toString()}
+              keyboardShouldPersistTaps="handled"
               contentContainerStyle={{
                 paddingVertical: 16,
                 paddingHorizontal: 4,
