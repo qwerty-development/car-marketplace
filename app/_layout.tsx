@@ -1224,6 +1224,8 @@ function RootLayoutNav() {
   const userPhone = user?.phone ?? null;
   const userPhoneConfirmed = user?.phone_confirmed_at ?? null;
   const userMetaName = user?.user_metadata?.name ?? null;
+  const userSignupCompleted = user?.user_metadata?.signup_completed ?? null;
+  const userProvider = user?.app_metadata?.provider ?? null;
   const profileName = profile?.name ?? null;
   const profileRole = profile?.role ?? null;
   const profileIsNull = profile === null;
@@ -1265,9 +1267,14 @@ function RootLayoutNav() {
     if (isSignedIn && !isGuest && hasUser) {
       const hasName = !!(profileName || userMetaName);
 
-      // Phone is optional for all roles; only name is required
       const isDealer = profileRole === 'dealer';
+      const isOAuthUser = userProvider === 'google' || userProvider === 'apple';
       let isMissingFields = !hasName;
+
+      // RULE: OAuth users must complete onboarding (phone prompt + profile review)
+      if (isOAuthUser && userSignupCompleted !== true) {
+        isMissingFields = true;
+      }
 
       // RULE: For dealers, also require logo and location
       if (profileRole === 'dealer') {
@@ -1342,6 +1349,8 @@ function RootLayoutNav() {
     userPhone,
     userPhoneConfirmed,
     userMetaName,
+    userSignupCompleted,
+    userProvider,
     profileName,
     profileRole,
     profileIsNull,

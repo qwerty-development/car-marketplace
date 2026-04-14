@@ -288,7 +288,7 @@ export default function CompleteProfileScreen() {
     }
 
     // Phone is optional, but if provided it must be valid and verified
-    if (isDealer && !isPhoneSignUp && phone.trim()) {
+    if (!isPhoneSignUp && phone.trim()) {
       if (phone.length < 8) {
         newErrors.phone = 'Invalid phone number';
         isValid = false;
@@ -320,7 +320,7 @@ export default function CompleteProfileScreen() {
     if (!validateInputs()) return;
 
     // If phone was entered, it MUST be verified before submitting
-    if (isDealer && !isPhoneSignUp && phone.trim() && !isInputVerified) {
+    if (!isPhoneSignUp && phone.trim() && !isInputVerified) {
       Alert.alert('Verification Required', 'Please verify your phone number to continue.');
       return;
     }
@@ -342,11 +342,9 @@ export default function CompleteProfileScreen() {
         throw error;
       }
 
-      // For phone sign-up users, stamp signup_completed so the sign-in flow
-      // recognises them as legitimate accounts on future logins.
-      if (isPhoneSignUp) {
-        await supabase.auth.updateUser({ data: { signup_completed: true } });
-      }
+      // Stamp signup_completed so the routing logic in _layout.tsx knows
+      // onboarding is done and stops redirecting here.
+      await supabase.auth.updateUser({ data: { signup_completed: true } });
 
       // Update dealership data if dealer
       if (profile?.role === 'dealer') {
@@ -559,8 +557,8 @@ export default function CompleteProfileScreen() {
               ) : null}
             </View>
 
-            {/* Phone Input — dealers only; regular users add phone from their profile */}
-            {isDealer && !isPhoneSignUp && (
+            {/* Phone Input — shown for all non-phone-signup users */}
+            {!isPhoneSignUp && (
               <View>
                 <CustomPhoneInput
                   label="Phone Number (Optional)"
@@ -572,6 +570,14 @@ export default function CompleteProfileScreen() {
                   selectedCountry={selectedCountry}
                   onChangeSelectedCountry={setSelectedCountry}
                 />
+
+                <Text style={{
+                  color: isDark ? '#9CA3AF' : '#6B7280',
+                  fontSize: 13,
+                  marginTop: 4,
+                }}>
+                  A verified phone number is required to post car listings. You can skip this for now.
+                </Text>
 
                 {/* Only show verify/verified UI when phone is entered */}
                 {phone.trim() ? (

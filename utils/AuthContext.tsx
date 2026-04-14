@@ -605,11 +605,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           }
         }
 
-        if (!session.user.user_metadata.role) {
-          await supabase.auth.updateUser({
-            data: { role: 'user' }
-          });
-        }
+        // New OAuth user — set role but do NOT stamp signup_completed yet.
+        // They will be routed to /complete-profile to add phone number.
+        await supabase.auth.updateUser({
+          data: {
+            role: session.user.user_metadata.role || 'user',
+            signup_completed: false,
+          }
+        });
 
         return upsertedUser as UserProfile;
 
@@ -618,9 +621,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return null;
       }
 
-      if (!session.user.user_metadata.role) {
+      // Existing OAuth user — stamp signup_completed if not already set
+      // so they aren't retroactively forced into onboarding.
+      if (!session.user.user_metadata.role || !session.user.user_metadata.signup_completed) {
         await supabase.auth.updateUser({
-          data: { role: existingUser?.role || 'user' }
+          data: {
+            role: session.user.user_metadata.role || existingUser?.role || 'user',
+            signup_completed: true,
+          }
         });
       }
 
