@@ -29,7 +29,10 @@
       "Bash(grep:*)",
       "Bash(head -15 __NEW_LINE_bb3b2b875b1894b1__ echo -e \"\\\\n2. DealerOnboardingModal.tsx\" grep -n \"<Modal\\\\|<ScrollView\\\\|<FlatList\\\\|<TextInput\" \"app/\\(home\\)/\\(dealer\\)/DealerOnboardingModal.tsx\")",
       "mcp__sequential-thinking__sequentialthinking",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(f'{k}: {v}'\\) for k,v in sorted\\(d.get\\('dependencies',{}\\).items\\(\\)\\) if any\\(x in k for x in ['expo','react-native','sentry','metro']\\)]\")",
+      "Bash(xcodebuild -version)",
+      "mcp__plugin_supabase_supabase__list_projects"
     ],
     "deny": []
   },

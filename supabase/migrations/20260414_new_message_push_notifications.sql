@@ -73,7 +73,14 @@ BEGIN
     LEFT(NEW.body, 100),
     'Sent an attachment'
   );
-  v_screen := '/(home)/(user)/conversations/' || NEW.conversation_id;
+
+  -- Route to the correct screen based on recipient role
+  IF v_conversation.conversation_type = 'user_dealer' AND NEW.sender_role = 'user' THEN
+    -- Recipient is a dealer → use dealer conversation screen
+    v_screen := '/(home)/(dealer)/conversations/' || NEW.conversation_id;
+  ELSE
+    v_screen := '/(home)/(user)/conversations/' || NEW.conversation_id;
+  END IF;
 
   -- Insert into pending_notifications (triggers handle_notification_state_change → Edge Function)
   INSERT INTO pending_notifications (user_id, type, data)
