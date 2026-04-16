@@ -45,7 +45,7 @@ export default function VideoPickerButton({
 	onVideoSelect,
 	videoUri,
 	maxSize = 50 * 1024 * 1024, // 50MB
-	maxDuration = 25,
+	maxDuration = 30,
 	error,
 	disabled,
 	onCompressionProgress

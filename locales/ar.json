@@ -863,6 +863,7 @@
     "uploading_progress": "التقدم: {{progress}}٪",
     "video_less_than_50mb": "يجب أن يكون حجم الفيديو أقل من 50 ميجابايت",
     "max_duration_25_seconds": "الحد الأقصى للمدة: 25 ثانية",
+    "max_duration_30_seconds": "الحد الأقصى للمدة: 30 ثانية",
     "supported_formats": "الصيغ المدعومة: MP4، MOV",
     "title_min_3_chars": "يجب أن يكون العنوان 3 أحرف على الأقل",
     "description_min_10_chars": "يجب أن يكون الوصف 10 أحرف على الأقل",

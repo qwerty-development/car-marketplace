@@ -37,7 +37,7 @@ import Animated, {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024
 const ALLOWED_VIDEO_TYPES = ['mp4', 'mov', 'quicktime']
-const MAX_VIDEO_DURATION = 25 * 1000
+const MAX_VIDEO_DURATION = 30 * 1000
 
 // Utility function for haptic feedback
 const triggerHaptic = async (style = 'light') => {
@@ -368,7 +368,7 @@ const VideoPreview = React.memo(
 const Guidelines = React.memo(({ isDarkMode, t }: { isDarkMode: boolean; t: any }) => {
 	const guidelines = [
 		{ icon: 'file-video' as const, text: t('autoclips.video_less_than_50mb') },
-		{ icon: 'clock-outline' as const, text: t('autoclips.max_duration_25_seconds') },
+		{ icon: 'clock-outline' as const, text: t('autoclips.max_duration_30_seconds') },
 		{ icon: 'file-document' as const, text: t('autoclips.supported_formats') },
 		{ icon: 'text' as const, text: t('autoclips.title_min_3_chars') },
 		{ icon: 'text-box' as const, text: t('autoclips.description_min_10_chars') },
@@ -998,6 +998,7 @@ const fetchCars = async () => {
 										<VideoPickerButton
 											onVideoSelect={handleVideoSelect}
 											isDarkMode={isDarkMode}
+											maxDuration={MAX_VIDEO_DURATION / 1000}
 											onCompressionProgress={setCompressionProgress}
 										/>
 									)}

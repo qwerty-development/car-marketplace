@@ -937,6 +937,7 @@
     "uploading_progress": "Progress: {{progress}}%",
     "video_less_than_50mb": "Video must be less than 50MB",
     "max_duration_25_seconds": "Maximum duration: 25 seconds",
+    "max_duration_30_seconds": "Maximum duration: 30 seconds",
     "supported_formats": "Supported formats: MP4, MOV",
     "title_min_3_chars": "Title must be at least 3 characters",
     "description_min_10_chars": "Description must be at least 10 characters",
