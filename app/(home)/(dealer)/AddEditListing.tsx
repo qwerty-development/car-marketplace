@@ -1633,7 +1633,7 @@ features
       }
 
       // Step 2: Enforce maximum image limit
-      const MAX_IMAGES = 10;
+      const MAX_IMAGES = 15;
       if (modalImages.length >= MAX_IMAGES) {
         Alert.alert(
           "Maximum Images",
@@ -1645,8 +1645,7 @@ features
       // Step 3: Calculate available slots and platform-specific limits
       const remainingSlots = MAX_IMAGES - modalImages.length;
 
-      // Set limits for image selection - Android can now handle up to 10 images
-      const maxSelection = Math.min(remainingSlots, 10); // Max 10 at once for both platforms
+      const maxSelection = remainingSlots; // Picker is limited to remaining slots (max 15 total)
 
       console.log(
         `Image picker configured for ${maxSelection} images (${remainingSlots} slots available)`
@@ -1656,7 +1655,7 @@ features
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: maxSelection > 1,
-        // Android can now handle up to 10 images with proper memory management
+        // Android can now handle up to 15 images with proper memory management
         selectionLimit: maxSelection,
         quality: Platform.OS === "android" ? 0.7 : 0.8, // Lower initial quality on Android
         exif: false, // Skip EXIF data to reduce memory usage
@@ -1671,13 +1670,22 @@ features
         return;
       }
 
+      // Enforce hard limit in case the native picker didn't respect selectionLimit (e.g. Android legacy picker)
+      const selectedAssets = result.assets.slice(0, maxSelection);
+      if (result.assets.length > maxSelection) {
+        Alert.alert(
+          "Too Many Images",
+          `Only the first ${maxSelection} image${maxSelection === 1 ? '' : 's'} were selected. You can add up to ${MAX_IMAGES} total.`
+        );
+      }
+
       // Step 6: Show loader immediately when images are selected
       setIsUploading(true);
       
       // Initialize progress tracking immediately
       setUploadProgress({
         current: 0,
-        total: result.assets.length,
+        total: selectedAssets.length,
         currentImageName: 'Preparing images...',
         completedImages: []
       });
@@ -1687,7 +1695,7 @@ features
       let largeImageCount = 0;
       const LARGE_IMAGE_THRESHOLD = 5 * 1024 * 1024; // 5MB
 
-      for (const asset of result.assets) {
+      for (const asset of selectedAssets) {
         const fileInfo = await FileSystem.getInfoAsync(asset.uri);
         if (fileInfo.exists && fileInfo.size) {
           totalSize += fileInfo.size;
@@ -1698,7 +1706,7 @@ features
       }
 
       console.log(
-        `Selected ${result.assets.length} images, total size: ${(
+        `Selected ${selectedAssets.length} images, total size: ${(
           totalSize /
           (1024 * 1024)
         ).toFixed(2)}MB`
@@ -1722,7 +1730,7 @@ features
             {
               text: "Proceed Anyway",
               onPress: () => {
-                handleMultipleImageUpload(result.assets);
+                handleMultipleImageUpload(selectedAssets);
               },
             },
           ],
@@ -1733,7 +1741,7 @@ features
 
       // Step 9: Start upload process
       try {
-        await handleMultipleImageUpload(result.assets);
+        await handleMultipleImageUpload(selectedAssets);
       } catch (error) {
         console.error("Error uploading images:", error);
         Alert.alert(
@@ -2155,7 +2163,7 @@ features
         <View className="py-4">
           <SectionHeader
             title={ready ? t('car.vehicle_images') : 'Vehicle Images'}
-            subtitle={ready ? t('common.add_vehicle_photos_subtitle') : 'Add up to 10 high-quality photos of your vehicle'}
+            subtitle={ready ? t('common.add_vehicle_photos_subtitle') : 'Add up to 15 high-quality photos of your vehicle'}
             isDarkMode={isDarkMode}
           />
           
