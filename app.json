@@ -236,8 +236,7 @@
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
       "expo-web-browser",
-      "expo-video",
-      "expo-build-properties"
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
