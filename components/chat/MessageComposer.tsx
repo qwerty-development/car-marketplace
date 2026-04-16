@@ -42,18 +42,14 @@ export default function MessageComposer({
     };
   }, []);
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(() => {
     const trimmed = message.trim();
     if (!trimmed || isSending) return;
 
-    try {
-      await onSend(trimmed);
-      setMessage('');
-      // Re-focus input so keyboard stays open for rapid messaging
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } catch (error) {
-      // Error handling delegated to caller (toast, etc.)
-    }
+    // Clear text immediately for snappy WhatsApp-like feel
+    setMessage('');
+    // Fire and forget — errors are handled by the caller's try/catch
+    onSend(trimmed);
   }, [message, onSend, isSending]);
 
   return (
@@ -112,7 +108,6 @@ export default function MessageComposer({
             borderColor: isDarkMode ? '#334155' : '#E5E7EB',
           },
         ]}
-        editable={!isSending}
         blurOnSubmit={false}
         onSubmitEditing={handleSend}
         returnKeyType="send"

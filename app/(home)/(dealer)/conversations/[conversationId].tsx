@@ -63,6 +63,9 @@ export default function DealerConversationDetailScreen() {
 
   const sendMessageMutation = useSendMessage(conversationIdParam ?? '');
 
+  // Reverse messages for inverted FlatList (newest at index 0 = visual bottom)
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   // Fetch user name via RPC if not available directly (helps with RLS)
   const { data: fetchedUserName } = useUserName(
     conversation?.user_id,
@@ -135,14 +138,6 @@ export default function DealerConversationDetailScreen() {
     markReadMutation
   ]);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length === 0) return;
-    setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    }, 60);
-  }, [messages.length]);
-
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (!conversationIdParam || !user) {
@@ -162,9 +157,10 @@ export default function DealerConversationDetailScreen() {
           body: text,
         });
 
+        // In inverted list, offset 0 = visual bottom (newest messages)
         setTimeout(() => {
-          listRef.current?.scrollToEnd({ animated: true });
-        }, 80);
+          listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }, 100);
       } catch (error: any) {
         Toast.show({
           type: 'error',
@@ -252,7 +248,8 @@ export default function DealerConversationDetailScreen() {
             )}
             <FlatList
               ref={listRef}
-              data={messages}
+              data={invertedMessages}
+              inverted
               keyExtractor={(item) => item.id.toString()}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{

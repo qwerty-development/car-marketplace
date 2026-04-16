@@ -65,6 +65,9 @@ export default function ConversationDetailScreen() {
   const sendMessageMutation = useSendMessage(conversationIdParam ?? '');
   const markReadMutation = useMarkConversationRead();
 
+  // Reverse messages for inverted FlatList (newest at index 0 = visual bottom)
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   useEffect(() => {
     if (!conversation || !user) return;
 
@@ -150,13 +153,6 @@ export default function ConversationDetailScreen() {
     markReadMutation
   ]);
 
-  useEffect(() => {
-    if (messages.length === 0) return;
-    setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    }, 60);
-  }, [messages.length]);
-
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (!conversationIdParam || !user) {
@@ -176,9 +172,10 @@ export default function ConversationDetailScreen() {
           body: text,
         });
 
+        // In inverted list, offset 0 = visual bottom (newest messages)
         setTimeout(() => {
-          listRef.current?.scrollToEnd({ animated: true });
-        }, 80);
+          listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }, 100);
       } catch (error: any) {
         Toast.show({
           type: 'error',
@@ -256,7 +253,8 @@ export default function ConversationDetailScreen() {
             )}
             <FlatList
               ref={listRef}
-              data={messages}
+              data={invertedMessages}
+              inverted
               keyExtractor={(item) => item.id.toString()}
               keyboardShouldPersistTaps="handled"
               style={{
@@ -265,7 +263,6 @@ export default function ConversationDetailScreen() {
               contentContainerStyle={{
                 paddingVertical: 12,
                 paddingHorizontal: 12,
-                flexGrow: 1,
               }}
               renderItem={({ item }) => (
                 <MessageBubble
