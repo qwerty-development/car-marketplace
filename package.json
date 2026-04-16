@@ -12,6 +12,7 @@
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint",
+    "postinstall": "node scripts/fix-postcss.js",
     "eas-build-pre-install": "rm -rf ~/.cocoapods/repos/trunk || true"
   },
   "jest": {
