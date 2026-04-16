@@ -35,7 +35,9 @@
       "mcp__plugin_supabase_supabase__list_projects",
       "Bash(npm ls *)",
       "Bash(watchman version *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(xcrun simctl *)",
+      "Bash(curl *)"
     ],
     "deny": []
   },
