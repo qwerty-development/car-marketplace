@@ -25,6 +25,7 @@ interface Banner {
   created_at: string;
   image_url: string;
   redirect_to: string | null;
+  active: boolean;
 }
 
 const Banner: React.FC = () => {
@@ -51,6 +52,7 @@ const Banner: React.FC = () => {
       const { data, error } = await supabase
         .from('banners')
         .select('*')
+        .eq('active', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
