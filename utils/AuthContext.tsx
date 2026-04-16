@@ -621,15 +621,19 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return null;
       }
 
-      // Existing OAuth user — stamp signup_completed if not already set
-      // so they aren't retroactively forced into onboarding.
-      if (!session.user.user_metadata.role || !session.user.user_metadata.signup_completed) {
-        await supabase.auth.updateUser({
-          data: {
-            role: session.user.user_metadata.role || existingUser?.role || 'user',
-            signup_completed: true,
-          }
-        });
+      // Existing OAuth user — stamp missing metadata.
+      // Only set signup_completed: true for legacy users who never had the flag
+      // (undefined/null). Do NOT override signup_completed: false — that means
+      // the user still needs to complete onboarding.
+      const metaUpdates: Record<string, any> = {};
+      if (!session.user.user_metadata.role) {
+        metaUpdates.role = existingUser?.role || 'user';
+      }
+      if (session.user.user_metadata.signup_completed == null) {
+        metaUpdates.signup_completed = true;
+      }
+      if (Object.keys(metaUpdates).length > 0) {
+        await supabase.auth.updateUser({ data: metaUpdates });
       }
 
       return existingUser as UserProfile;
@@ -1207,6 +1211,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             data: {
               name: name,
               role: role,
+              signup_completed: false,
             },
             emailRedirectTo: redirectUri,
           },

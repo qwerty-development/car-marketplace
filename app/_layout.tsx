@@ -1225,6 +1225,7 @@ function RootLayoutNav() {
   const userPhoneConfirmed = user?.phone_confirmed_at ?? null;
   const userMetaName = user?.user_metadata?.name ?? null;
   const userSignupCompleted = user?.user_metadata?.signup_completed ?? null;
+  const userPhonePromptCompleted = user?.user_metadata?.phone_prompt_completed ?? null;
   const userProvider = user?.app_metadata?.provider ?? null;
   const profileName = profile?.name ?? null;
   const profileRole = profile?.role ?? null;
@@ -1273,6 +1274,21 @@ function RootLayoutNav() {
 
       // RULE: OAuth users must complete onboarding (phone prompt + profile review)
       if (isOAuthUser && userSignupCompleted !== true) {
+        isMissingFields = true;
+      }
+
+      // RULE: Email users who explicitly have signup_completed === false must
+      // complete onboarding. We check for === false (not !== true) to avoid
+      // retroactively forcing existing email users who never had this flag.
+      if (userProvider === 'email' && userSignupCompleted === false) {
+        isMissingFields = true;
+      }
+
+      // RULE: Show complete-profile to users without a phone number (once).
+      // Phone is optional on the form — once they've seen the prompt and
+      // saved (with or without adding a phone), phone_prompt_completed is
+      // stamped and they won't be redirected again.
+      if (!userPhone && userPhonePromptCompleted !== true) {
         isMissingFields = true;
       }
 
@@ -1348,6 +1364,7 @@ function RootLayoutNav() {
     userPhoneConfirmed,
     userMetaName,
     userSignupCompleted,
+    userPhonePromptCompleted,
     userProvider,
     profileName,
     profileRole,

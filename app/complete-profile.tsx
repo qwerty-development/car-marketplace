@@ -342,9 +342,13 @@ export default function CompleteProfileScreen() {
         throw error;
       }
 
-      // Stamp signup_completed so the routing logic in _layout.tsx knows
-      // onboarding is done and stops redirecting here.
-      await supabase.auth.updateUser({ data: { signup_completed: true } });
+      // Stamp signup_completed and phone_prompt_completed so the routing
+      // logic in _layout.tsx knows onboarding is done and stops redirecting
+      // here. phone_prompt_completed ensures users who skip the optional
+      // phone field aren't sent back to this screen on every launch.
+      await supabase.auth.updateUser({
+        data: { signup_completed: true, phone_prompt_completed: true },
+      });
 
       // Update dealership data if dealer
       if (profile?.role === 'dealer') {
