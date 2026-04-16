@@ -1,5 +1,6 @@
 // app/(auth)/_layout.tsx
 import { Stack } from 'expo-router'
+import { View, ActivityIndicator, Text, useColorScheme } from 'react-native'
 import { useAuth } from '@/utils/AuthContext'
 import { useGuestUser } from '@/utils/GuestUserContext'
 
@@ -16,6 +17,8 @@ import { useGuestUser } from '@/utils/GuestUserContext'
 export default function UnAuthenticatedLayout() {
   // Get authentication state from Supabase Auth context
   const { isSignedIn, isLoaded } = useAuth()
+  const colorScheme = useColorScheme()
+  const isDark = colorScheme === 'dark'
 
   // Get guest user state
   const { isGuest } = useGuestUser()
@@ -25,13 +28,28 @@ export default function UnAuthenticatedLayout() {
     return null
   }
 
-  // Signed-in / guest users: render nothing while RootLayoutNav
-  // navigates away via its deferred safeReplace(). Using <Redirect>
-  // here caused a synchronous navigator state update during the React
-  // commit phase, which cascaded into Maximum update depth and forced
-  // the entire tree to remount (double splash).
+  // Signed-in / guest users: show a branded loading spinner while
+  // RootLayoutNav navigates away via its deferred safeReplace().
+  // Previously this returned null which caused a blank white/black
+  // screen for 20-30 seconds during profile loading after OAuth.
   if (isSignedIn || isGuest) {
-    return null
+    return (
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: isDark ? '#0D0D0D' : '#FFFFFF',
+      }}>
+        <ActivityIndicator size="large" color="#D55004" />
+        <Text style={{
+          marginTop: 16,
+          fontSize: 16,
+          color: isDark ? '#9CA3AF' : '#6B7280',
+        }}>
+          Signing you in…
+        </Text>
+      </View>
+    )
   }
 
   return (

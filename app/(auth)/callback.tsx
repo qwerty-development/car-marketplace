@@ -1,6 +1,6 @@
 // app/(auth)/callback.tsx
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, useColorScheme } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/utils/AuthContext';
@@ -11,6 +11,8 @@ export default function OAuthCallback() {
   const { isSignedIn } = useAuth();
   const hasHandledCallbackRef = useRef(false);
   const hasRedirectedRef = useRef(false);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const safeRedirect = useCallback((target: '/(home)' | '/(auth)/sign-in') => {
     if (hasRedirectedRef.current) return;
@@ -83,16 +85,16 @@ export default function OAuthCallback() {
       flex: 1, 
       justifyContent: 'center', 
       alignItems: 'center',
-      backgroundColor: '#fff'
+      backgroundColor: isDark ? '#0D0D0D' : '#FFFFFF',
     }}>
       <ActivityIndicator size="large" color="#D55004" />
       <Text style={{ 
         marginTop: 16, 
         fontSize: 16, 
-        color: '#666',
+        color: isDark ? '#9CA3AF' : '#6B7280',
         textAlign: 'center'
       }}>
-        Completing sign in...
+        Completing sign in…
       </Text>
     </View>
   );

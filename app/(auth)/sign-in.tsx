@@ -140,15 +140,17 @@ const SignInWithOAuth = () => {
 
   const handleGoogleAuth = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setIsLoading(prev => ({ ...prev, google: true }));
       console.log("[GOOGLE] Opening Google auth sheet");
       await googleSignIn(); // <- returns when the sheet closes
       // DO NOT navigate here – wait for onAuthStateChange below.
+      // Keep loading spinner visible until session is ready and
+      // RootLayoutNav navigates away — the auth layout now shows
+      // a branded spinner instead of a blank screen.
     } catch (err: any) {
       console.error("[GOOGLE] OAuth error", err);
       Alert.alert("Google sign-in failed", err?.message ?? "Please try again.");
-    } finally {
-      setIsLoading(false);
+      setIsLoading(prev => ({ ...prev, google: false }));
     }
   }, [googleSignIn]);
 

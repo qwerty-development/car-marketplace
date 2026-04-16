@@ -163,14 +163,15 @@ const SignUpWithOAuth = () => {
         }
 
         router.replace('/(home)' as never);
+        // Keep loading spinner visible until navigation completes —
+        // the auth layout now shows a branded spinner instead of a blank screen.
         return;
       }
 
       console.warn('Google authentication completed but no active session was found yet');
+      // Keep loading state — auth layout shows spinner while session stabilises
     } catch (err) {
       console.error("Google OAuth error:", err);
-
-    } finally {
       setIsLoading(prev => ({ ...prev, google: false }));
     }
   };

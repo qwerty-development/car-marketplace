@@ -24,6 +24,7 @@ import {
   Dimensions,
   useColorScheme,
   AppState,
+  ActivityIndicator,
 } from "react-native";
 import "react-native-gesture-handler";
 import "react-native-get-random-values";
@@ -1215,6 +1216,15 @@ function RootLayoutNav() {
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0.01)).current;
 
+  // Track when we're in an auth transition (signing in/out) so we can show a
+  // branded loading overlay instead of a bare black/white background flash.
+  // This covers the gap between: auth completes → route changes → child layout
+  // mounts its own loader (e.g. LogoLoader in (home)/_layout).
+  const inAuthGroup = segments[0] === '(auth)';
+  const showAuthTransitionOverlay =
+    splashAnimationComplete &&
+    (isSigningIn || (isSignedIn && inAuthGroup && !isSigningOut));
+
   // Derive PRIMITIVE values from auth objects for the routing effect deps.
   // Using primitives instead of full objects prevents the effect from re-firing
   // when object references change but the actual data hasn't (which happens
@@ -1418,6 +1428,36 @@ function RootLayoutNav() {
       {!splashAnimationComplete ? (
         <View style={StyleSheet.absoluteFillObject}>
           <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+        </View>
+      ) : null}
+
+      {/* Auth transition overlay: covers the black/white background gap when
+          the user signs in via Google/Apple and the route is transitioning
+          from (auth) → (home). Without this the bare backgroundColor shows
+          through for several seconds before the home layout's LogoLoader
+          mounts. */}
+      {showAuthTransitionOverlay ? (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              backgroundColor: isDarkMode ? '#0D0D0D' : '#FFFFFF',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 10,
+            },
+          ]}
+        >
+          <ActivityIndicator size="large" color="#D55004" />
+          <Text
+            style={{
+              marginTop: 16,
+              fontSize: 16,
+              color: isDarkMode ? '#9CA3AF' : '#6B7280',
+            }}
+          >
+            Signing you in…
+          </Text>
         </View>
       ) : null}
     </View>
