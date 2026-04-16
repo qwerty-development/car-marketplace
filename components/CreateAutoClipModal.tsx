@@ -788,56 +788,45 @@ const fetchCars = async () => {
 			
 			console.log('Video file size:', fileInfo.size, 'bytes')
 
-			// React Native compatible upload using XMLHttpRequest
 			setUploadProgress(20)
-			console.log('Preparing file upload...')
+			console.log('Preparing native file upload...')
 
-			// Get auth session
+			// Get auth session for direct API upload
 			const { data: { session } } = await supabase.auth.getSession()
 			if (!session) {
 				throw new Error('No active session')
 			}
 
 			const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
+			const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
 			const uploadUrl = `${supabaseUrl}/storage/v1/object/autoclips/${filePath}`
+			const contentType = isMovFile ? 'video/quicktime' : 'video/mp4'
 
-			setUploadProgress(30)
-			console.log('Uploading to Supabase storage...')
+			setUploadProgress(40)
+			console.log('Uploading via FileSystem.uploadAsync (native binary)...')
 
-			// Read the file as base64 and convert to ArrayBuffer for binary upload
-			console.log('Reading file as base64...')
-			const base64Data = await FileSystem.readAsStringAsync(fileUri, {
-				encoding: FileSystem.EncodingType.Base64
+			// Use FileSystem.uploadAsync for native binary upload — bypasses JS entirely,
+			// avoiding React Native fetch polyfill corruption of video data
+			const uploadResult = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+				httpMethod: 'POST',
+				uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+				headers: {
+					'Authorization': `Bearer ${session.access_token}`,
+					'apikey': supabaseAnonKey!,
+					'Content-Type': contentType,
+					'x-upsert': 'false',
+				},
 			})
-			
-			setUploadProgress(50)
-			console.log('Converting base64 to binary ArrayBuffer...')
-			
-			// Convert base64 to ArrayBuffer (binary data)
-			const binaryString = atob(base64Data)
-			const bytes = new Uint8Array(binaryString.length)
-			for (let i = 0; i < binaryString.length; i++) {
-				bytes[i] = binaryString.charCodeAt(i)
-			}
-			const arrayBuffer = bytes.buffer
-			
-			console.log('ArrayBuffer size:', arrayBuffer.byteLength, 'bytes')
-			setUploadProgress(70)
 
-			// Upload binary data to Supabase
-			console.log('Uploading binary data to Supabase...')
-			const { data, error: uploadError } = await supabase.storage
-				.from('autoclips')
-				.upload(filePath, arrayBuffer, {
-					contentType: isMovFile ? 'video/quicktime' : 'video/mp4',
-					upsert: false
-				})
+			setUploadProgress(90)
+			console.log('Upload response status:', uploadResult.status)
 
-			if (uploadError) {
-				console.error('Upload error:', uploadError)
-				throw uploadError
+			if (uploadResult.status < 200 || uploadResult.status >= 300) {
+				const errorBody = uploadResult.body ? JSON.parse(uploadResult.body) : {}
+				console.error('Upload error:', errorBody)
+				throw new Error(errorBody.message || errorBody.error || 'Upload failed')
 			}
-			
+
 			console.log('Upload successful!')
 			setUploadProgress(100)
 			triggerHaptic('light')

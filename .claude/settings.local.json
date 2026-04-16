@@ -37,7 +37,8 @@
       "Bash(watchman version *)",
       "Bash(node *)",
       "Bash(xcrun simctl *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "WebFetch(domain:docs.expo.dev)"
     ],
     "deny": []
   },
