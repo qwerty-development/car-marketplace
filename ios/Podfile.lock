@@ -1695,7 +1695,7 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - react-native-compressor (1.13.0):
+  - react-native-compressor (1.16.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1742,8 +1742,28 @@ PODS:
     - React-Core
   - react-native-maps (1.20.1):
     - React-Core
-  - react-native-netinfo (11.4.1):
+  - react-native-netinfo (11.5.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
     - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-safe-area-context (5.6.2):
     - hermes-engine
     - RCTRequired
@@ -2300,7 +2320,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNDeviceInfo (14.0.4):
+  - RNDeviceInfo (14.1.1):
     - React-Core
   - RNFS (2.20.0):
     - React-Core
@@ -2326,7 +2346,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNReanimated (4.1.6):
+  - RNReanimated (4.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2348,10 +2368,10 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNReanimated/reanimated (= 4.1.6)
+    - RNReanimated/reanimated (= 4.1.7)
     - RNWorklets
     - Yoga
-  - RNReanimated/reanimated (4.1.6):
+  - RNReanimated/reanimated (4.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2373,10 +2393,10 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNReanimated/reanimated/apple (= 4.1.6)
+    - RNReanimated/reanimated/apple (= 4.1.7)
     - RNWorklets
     - Yoga
-  - RNReanimated/reanimated/apple (4.1.6):
+  - RNReanimated/reanimated/apple (4.1.7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2518,7 +2538,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNVectorIcons (10.1.0):
+  - RNVectorIcons (10.3.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3153,13 +3173,13 @@ SPEC CHECKSUMS:
   React-logger: 50fdb9a8236da90c0b1072da5c32ee03aeb5bf28
   React-Mapbuffer: 9050ee10c19f4f7fca8963d0211b2854d624973e
   React-microtasksnativemodule: f775db9e991c6f3b8ccbc02bfcde22770f96e23b
-  react-native-compressor: cdf74a7b46f288a2199a0d86d67b4d071b7adcce
+  react-native-compressor: dca167f2e6e48e5e9efa165e30ee0ae4c6445de8
   react-native-fbsdk-next: 325e4973a478f098bb9406fb2a13fa2e1f5dffeb
   react-native-get-random-values: d16467cf726c618e9c7a8c3c39c31faa2244bbba
   react-native-google-maps: c4f5c5b2dda17e7cb2cb2b37a81f140b039b3e7e
   react-native-html-to-pdf: 7a49e6c58ac5221bcc093027b195f4b214f27a9d
   react-native-maps: 9febd31278b35cd21e4fad2cf6fa708993be5dab
-  react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
+  react-native-netinfo: f852c868bf5175e46165c7e4db48a204a95c3800
   react-native-safe-area-context: 37e680fc4cace3c0030ee46e8987d24f5d3bdab2
   react-native-segmented-control: bf6e0032726727498e18dd437ae88afcdbc18e99
   react-native-slider: 8c562583722c396a3682f451f0b6e68e351ec3b9
@@ -3199,15 +3219,15 @@ SPEC CHECKSUMS:
   RNCMaskedView: d2578d41c59b936db122b2798ba37e4722d21035
   RNCPicker: a7170edbcbf8288de8edb2502e08e7fc757fa755
   RNDateTimePicker: be0e44bcb9ed0607c7c5f47dbedd88cf091f6791
-  RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
+  RNDeviceInfo: bcce8752b5043a623fe3c26789679b473f705d3c
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: 2914750df066d89bf9d8f48a10ad5f0051108ac3
-  RNReanimated: e5c702a3e24cc1c68b2de67671713f35461678f4
+  RNReanimated: 41f496c18437fd0aa841234917af84e98fd5b9a2
   RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
   RNSentry: 41979b419908128847ef662cc130a400b7576fa9
   RNShare: 128220f40b8d6bcd7217fa19ede9eeb273f1d5d8
   RNSVG: 31d6639663c249b7d5abc9728dde2041eb2a3c34
-  RNVectorIcons: 58f509d12a4832393fe7590cebb4716c73493df0
+  RNVectorIcons: 4351544f100d4f12cac156a7c13399e60bab3e26
   RNWorklets: 76fce72926e28e304afb44f0da23b2d24f2c1fa0
   SDWebImage: e9c98383c7572d713c1a0d7dd2783b10599b9838
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
