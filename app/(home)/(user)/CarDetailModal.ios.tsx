@@ -127,7 +127,7 @@ const OptimizedImage = memo(
           style={[
             style,
             {
-              opacity: loaded ? 1 : 0.3,
+              opacity: loaded ? 1 : 0,
             },
           ]}
           onLoad={handleLoad}

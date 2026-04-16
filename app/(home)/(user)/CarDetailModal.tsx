@@ -92,12 +92,11 @@ const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#33
           source={source}
           style={[
             style,
-            { opacity: loaded ? 1 : 0.5 }
+            { opacity: loaded ? 1 : 0 }
           ]}
           onLoad={handleLoad}
           onError={handleError}
           resizeMode="cover"
-          defaultSource={require('@/assets/placeholder.jpg')} // Make sure to add this placeholder
         />
       ) : (
         <View style={[style, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -351,11 +350,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       console.error("Error fetching autoclips:", error);
       setAutoclips([]);
     }
-  }, [car]);
+  }, [car?.id]);
 
   // Add to useEffect for initial fetch with error handling
   useEffect(() => {
-    if (car) {
+    if (car?.id) {
       const fetchData = async () => {
         try {
           await fetchAutoclips();
@@ -366,7 +365,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
 
       fetchData();
     }
-  }, [car, fetchAutoclips]);
+  }, [car?.id, fetchAutoclips]);
 
   const handleClipLike = useCallback(
     async (clipId: any) => {
@@ -430,21 +429,16 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   useEffect(() => {
     if (car?.id && user?.id) {
       try {
-        // Use a timeout to prevent blocking the UI
         const timer = setTimeout(() => {
           trackCarView(car.id, user.id);
         }, 1000);
-
-        if (scrollViewRef.current) {
-          scrollViewRef.current.scrollTo({ y: 0, animated: false });
-        }
 
         return () => clearTimeout(timer);
       } catch (error) {
         console.error('Error in car view tracking effect:', error);
       }
     }
-  }, [car, user, trackCarView]);
+  }, [car?.id, user?.id]);
 
   const fetchSimilarCars = useCallback(async () => {
     if (!car?.id || !car?.make) return;
@@ -608,7 +602,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     };
 
     loadData();
-  }, [car, fetchSimilarCars, fetchDealerCars]);
+  }, [car?.id, fetchSimilarCars, fetchDealerCars]);
 
   const handleDealershipPress = useCallback(() => {
     if (!car?.dealership_id) {
@@ -1303,30 +1297,36 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
           {/* Features Section */}
           {renderFeatures()}
 
-          {/* Location Section with Map - Enhanced for Android */}
-          {isMapSectionVisible && (
-            <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  color: isDarkMode ? "#fff" : "#000",
-                  marginBottom: 12
-                }}
-              >
-                {t('car.location')}
-              </Text>
+          {/* Location Section with Map - Reserved height to prevent layout shift */}
+          <View style={{ marginTop: 32, paddingHorizontal: 16 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: 'bold',
+                color: isDarkMode ? "#fff" : "#000",
+                marginBottom: 12
+              }}
+            >
+              {t('car.location')}
+            </Text>
 
-              <SafeMapView
-                latitude={car.dealership_latitude}
-                longitude={car.dealership_longitude}
-                dealershipName={car.dealership_name}
-                dealershipLocation={car.dealership_location}
-                onMapPress={handleOpenInMaps}
-                isDarkMode={isDarkMode}
-              />
+            <View style={{ height: 200, borderRadius: 10, overflow: 'hidden' }}>
+              {isMapSectionVisible ? (
+                <SafeMapView
+                  latitude={car.dealership_latitude}
+                  longitude={car.dealership_longitude}
+                  dealershipName={car.dealership_name}
+                  dealershipLocation={car.dealership_location}
+                  onMapPress={handleOpenInMaps}
+                  isDarkMode={isDarkMode}
+                />
+              ) : (
+                <View style={{ flex: 1, backgroundColor: isDarkMode ? '#1a1a1a' : '#e5e5e5', justifyContent: 'center', alignItems: 'center', borderRadius: 10 }}>
+                  <ActivityIndicator size="small" color="#D55004" />
+                </View>
+              )}
             </View>
-          )}
+          </View>
 
           {/* More from Dealership Section */}
           {dealerCars.length > 0 && (

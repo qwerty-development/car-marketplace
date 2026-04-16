@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Modal, Platform, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { Modal, Platform, TouchableOpacity, View, Text } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
@@ -7,11 +7,40 @@ import { usePathname, useSegments } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import EnhancedChatScreen from './ChatAssistantScreen';
 
+class ChatErrorBoundary extends React.Component<
+  { children: React.ReactNode; onReset: () => void; isDarkMode: boolean },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      const { isDarkMode } = this.props;
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#000' : '#fff' }}>
+          <Ionicons name="warning-outline" size={48} color="#D55004" />
+          <Text style={{ color: isDarkMode ? '#fff' : '#000', fontSize: 16, marginTop: 16, marginBottom: 12 }}>
+            Something went wrong
+          </Text>
+          <TouchableOpacity
+            onPress={() => { this.setState({ hasError: false }); this.props.onReset(); }}
+            style={{ backgroundColor: '#D55004', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function FloatingChatFab() {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [shouldHide, setShouldHide] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const lastOpenRef = useRef(0);
   const pathname = usePathname();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -46,6 +75,9 @@ export default function FloatingChatFab() {
   }
 
   const handleOpenModal = () => {
+    const now = Date.now();
+    if (now - lastOpenRef.current < 500) return;
+    lastOpenRef.current = now;
     setIsOpen(true);
     // Trigger a refresh of the conversation when opening
     setRefreshTrigger(prev => prev + 1);
@@ -85,7 +117,7 @@ export default function FloatingChatFab() {
         onRequestClose={() => setIsOpen(false)}
         presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#000' : '#fff' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#000' : '#fff' }} edges={['top']}>
           {/* Close Button */}
           <TouchableOpacity
             accessible={true}
@@ -106,10 +138,12 @@ export default function FloatingChatFab() {
           </TouchableOpacity>
 
           {/* Chat Screen */}
-          <EnhancedChatScreen 
-            onClose={() => setIsOpen(false)} 
-            refreshTrigger={refreshTrigger}
-          />
+          <ChatErrorBoundary onReset={() => setRefreshTrigger(prev => prev + 1)} isDarkMode={isDarkMode}>
+            <EnhancedChatScreen
+              onClose={() => setIsOpen(false)}
+              refreshTrigger={refreshTrigger}
+            />
+          </ChatErrorBoundary>
         </SafeAreaView>
       </Modal>
     </>

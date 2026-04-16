@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  SafeAreaView, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   Animated,
   FlatList,
@@ -16,6 +15,7 @@ import {
   AppStateStatus,
   LayoutAnimation,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { ChatbotService } from '@/services/ChatbotService';
@@ -44,6 +44,7 @@ interface ChatAssistantScreenProps {
 
 export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssistantScreenProps) {
   const { isDarkMode } = useTheme();
+  const { bottom: safeBottom } = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([
     {
       from: 'bot',
@@ -539,7 +540,7 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-neutral-50'}`}>
+    <SafeAreaView className={`flex-1 ${isDarkMode ? 'bg-black' : 'bg-neutral-50'}`} edges={['bottom']}>
       {/* Header */}
       <View className={`px-4 py-4 border-b ${isDarkMode ? 'border-neutral-800 bg-black' : 'border-neutral-200 bg-neutral-50'}`}>
         <View className="flex-row items-center pr-14">{/* pr-14 reserves space for external close X */}
@@ -584,8 +585,8 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -658,9 +659,10 @@ export default function EnhancedChatScreen({ onClose, refreshTrigger }: ChatAssi
           </View>
         )}
 
-        <Animated.View 
-          className={`px-4 pt-3 pb-4 ${isDarkMode ? 'bg-black' : 'bg-neutral-50'}`}
+        <Animated.View
+          className={`px-4 pt-3 ${isDarkMode ? 'bg-black' : 'bg-neutral-50'}`}
           style={{
+            paddingBottom: Platform.OS === 'android' ? Math.max(safeBottom, 8) : 16,
             transform: [{
               translateY: inputAnimation.interpolate({
                 inputRange: [0, 1],

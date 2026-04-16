@@ -64,7 +64,7 @@ export default function MessageComposer({
           backgroundColor: isDarkMode ? '#0F172A' : '#F9FAFB',
           paddingBottom: keyboardVisible
             ? styles.container.paddingVertical
-            : styles.container.paddingVertical + (Platform.OS === 'ios' ? bottom : 0),
+            : styles.container.paddingVertical + bottom,
         },
       ]}
     >

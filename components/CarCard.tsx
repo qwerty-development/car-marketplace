@@ -159,7 +159,7 @@ const ActionButton = ({ icon, text, onPress, isDarkMode, disabled = false, loadi
   </StyledPressable>
 );
 
-export default function CarCard({
+function CarCard({
   car,
   onFavoritePress,
   isFavorite,
@@ -219,6 +219,13 @@ export default function CarCard({
 
   // Much better entrance animation - smooth and responsive
   useEffect(() => {
+    // Skip animation for cards scrolled into view (index > 5) for performance
+    if (index > 5) {
+      fadeAnim.setValue(1);
+      scaleAnim.setValue(1);
+      translateY.setValue(0);
+      return;
+    }
     // Use spring animation for more natural feel
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -973,3 +980,14 @@ export default function CarCard({
   </>
   );
 }
+
+export default React.memo(CarCard, (prev, next) => {
+  return (
+    prev.car.id === next.car.id &&
+    prev.isFavorite === next.isFavorite &&
+    prev.isDealer === next.isDealer &&
+    prev.showSoldBanner === next.showSoldBanner &&
+    prev.index === next.index &&
+    prev.disableActions === next.disableActions
+  );
+});

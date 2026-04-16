@@ -38,6 +38,39 @@ export class ChatbotService {
     setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
     return controller;
   }
+
+  /**
+   * Fetch with retry for transient failures (Android path)
+   */
+  private static async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    maxRetries: number = 2
+  ): Promise<Response> {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = this.createTimeoutController();
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        if (response.ok || response.status < 500) return response;
+        // Retry on 5xx server errors
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        return response;
+      } catch (error) {
+        lastError = error as Error;
+        // Don't retry on user-initiated abort
+        if ((error as Error).name === 'AbortError' && attempt >= maxRetries) break;
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error('Request failed after retries');
+  }
   
   /**
    * Get the full conversation history
@@ -440,16 +473,14 @@ export class ChatbotService {
         };
 
       } else {
-        // Use fetch for Android
-        const controller = this.createTimeoutController();
-        response = await fetch(`${this.API_BASE_URL}/chat`, {
+        // Use fetch with retry for Android
+        response = await this.fetchWithRetry(`${this.API_BASE_URL}/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
           body: JSON.stringify({ message: contextualPrompt }),
-          signal: controller.signal,
         });
 
         if (!response.ok) {

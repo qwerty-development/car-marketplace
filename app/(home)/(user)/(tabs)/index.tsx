@@ -45,7 +45,7 @@ import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
 import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
 import { cacheLogger } from "@/utils/cacheLogger";
 import { cachedQuery, generateCacheKey } from "@/utils/supabaseCache";
-const ITEMS_PER_PAGE = 7;
+const ITEMS_PER_PAGE = 20;
 const PAGINATION_SKELETON_COUNT = 3;
 
 interface Car {
@@ -901,7 +901,7 @@ export default function BrowseCarsPage() {
           <RentalCarCard
             car={item}
             index={index}
-            onFavoritePress={() => handleFavoritePress(item.id)}
+            onFavoritePress={handleFavoritePress}
             isFavorite={isFavorite(Number(item.id))}
             isDealer={false}
           />
@@ -909,7 +909,7 @@ export default function BrowseCarsPage() {
           <CarCard
             car={item}
             index={index}
-            onFavoritePress={() => handleFavoritePress(item.id)}
+            onFavoritePress={handleFavoritePress}
             isFavorite={isFavorite(Number(item.id))}
             isDealer={false}
           />
@@ -1407,6 +1407,22 @@ export default function BrowseCarsPage() {
     [plateSortOption, searchQuery, fetchPlates]
   );
 
+  // Memoize FlatList data array to prevent re-creation on every render
+  const flatListData = useMemo(() => [
+    { id: 'header', type: 'header' },
+    { id: 'search', type: 'search' },
+    ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
+    { id: 'rest-header', type: 'rest-header' },
+    ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
+      ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
+      : (vehicleCategory !== 'plates' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item }))),
+    ...(loadingMore && !isInitialLoading
+      ? Array(PAGINATION_SKELETON_COUNT)
+          .fill(null)
+          .map((_, i) => ({ id: `loading-skeleton-${i}`, type: 'skeleton' }))
+      : [])
+  ], [vehicleCategory, isInitialLoading, cars, plates, loadingMore]);
+
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>
       <LinearGradient
@@ -1424,6 +1440,8 @@ export default function BrowseCarsPage() {
         >
           <FlatList
             {...LAZY_FLATLIST_PROPS}
+            windowSize={9}
+            maxToRenderPerBatch={8}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1445,22 +1463,7 @@ export default function BrowseCarsPage() {
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             scrollEventThrottle={16}
-            data={
-              [
-                { id: 'header', type: 'header' },
-                { id: 'search', type: 'search' },
-                ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
-                { id: 'rest-header', type: 'rest-header' },
-                ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
-                  ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
-                  : (vehicleCategory !== 'plates' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item }))),
-                ...(loadingMore && !isInitialLoading
-                  ? Array(PAGINATION_SKELETON_COUNT)
-                      .fill(null)
-                      .map((_, i) => ({ id: `loading-skeleton-${i}`, type: 'skeleton' }))
-                  : [])
-              ]
-            }
+            data={flatListData}
             renderItem={({ item, index }: any) => {
               if (item.type === 'header') return renderHeaderSection;
               if (item.type === 'search') return renderStickySearchBar;

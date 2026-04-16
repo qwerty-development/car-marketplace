@@ -1,5 +1,5 @@
 // utils/useFavorites.tsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
@@ -102,7 +102,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const isFavorite = (carId: number) => favorites.includes(carId);
+  const isFavorite = useCallback((carId: number) => favorites.includes(carId), [favorites]);
 
   return (
     <FavoritesContext.Provider

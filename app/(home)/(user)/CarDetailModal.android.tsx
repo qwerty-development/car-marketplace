@@ -180,12 +180,11 @@ const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#33
           source={source}
           style={[
             style,
-            { opacity: loaded ? 1 : 0.5 }
+            { opacity: loaded ? 1 : 0 }
           ]}
           onLoad={handleLoad}
           onError={handleError}
           resizeMode="cover"
-          defaultSource={require('@/assets/placeholder.jpg')} // Make sure to add this placeholder
         />
       ) : (
         <View style={[style, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -741,11 +740,11 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       console.error("Error fetching autoclips:", error);
       setAutoclips([]);
     }
-  }, [car]);
+  }, [car?.id]);
 
   // Add to useEffect for initial fetch with error handling
   useEffect(() => {
-    if (car) {
+    if (car?.id) {
       const fetchData = async () => {
         try {
           await fetchAutoclips();
@@ -756,7 +755,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
 
       fetchData();
     }
-  }, [car, fetchAutoclips]);
+  }, [car?.id, fetchAutoclips]);
 
   const handleClipLike = useCallback(
     async (clipId: any) => {
@@ -995,7 +994,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
     };
 
     loadData();
-  }, [car, fetchSimilarCars, fetchDealerCars]);
+  }, [car?.id, fetchSimilarCars, fetchDealerCars]);
 
   const handleDealershipPress = useCallback(() => {
     // Only allow navigation to dealership details for dealership cars
@@ -1711,14 +1710,12 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
           {/* Features Section */}
           {renderFeatures()}
 
-          {/* Location Section with Map - Enhanced for Android */}
-          {isMapSectionVisible && (() => {
-            // Get location based on seller type
+          {/* Location Section with Map - Reserved height to prevent layout shift */}
+          {(() => {
             const latitude = isDealershipCar ? car.dealership_latitude : car.latitude;
             const longitude = isDealershipCar ? car.dealership_longitude : car.longitude;
             const hasLocation = latitude && longitude;
 
-            // Only show map if we have valid location data
             if (!hasLocation) return null;
 
             return (
@@ -1734,14 +1731,22 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                   Location
                 </Text>
 
-                <SafeMapView
-                  latitude={latitude}
-                  longitude={longitude}
-                  dealershipName={sellerInfo.name}
-                  dealershipLocation={sellerInfo.location}
-                  onMapPress={handleOpenInMaps}
-                  isDarkMode={isDarkMode}
-                />
+                <View style={{ height: 200, borderRadius: 10, overflow: 'hidden' }}>
+                  {isMapSectionVisible ? (
+                    <SafeMapView
+                      latitude={latitude}
+                      longitude={longitude}
+                      dealershipName={sellerInfo.name}
+                      dealershipLocation={sellerInfo.location}
+                      onMapPress={handleOpenInMaps}
+                      isDarkMode={isDarkMode}
+                    />
+                  ) : (
+                    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#1a1a1a' : '#e5e5e5', justifyContent: 'center', alignItems: 'center', borderRadius: 10 }}>
+                      <ActivityIndicator size="small" color="#D55004" />
+                    </View>
+                  )}
+                </View>
               </View>
             );
           })()}

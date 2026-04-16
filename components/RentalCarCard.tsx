@@ -177,7 +177,7 @@ const formatRentalPeriod = (period: string | null | undefined) => {
   return periodMap[period.toLowerCase()] || period;
 };
 
-export default function RentalCarCard({
+function RentalCarCard({
   car,
   onFavoritePress,
   isFavorite,
@@ -800,3 +800,14 @@ export default function RentalCarCard({
   </>
   );
 }
+
+export default React.memo(RentalCarCard, (prev, next) => {
+  return (
+    prev.car.id === next.car.id &&
+    prev.isFavorite === next.isFavorite &&
+    prev.isDealer === next.isDealer &&
+    prev.showRentedBanner === next.showRentedBanner &&
+    prev.index === next.index &&
+    prev.disableActions === next.disableActions
+  );
+});

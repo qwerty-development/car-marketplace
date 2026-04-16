@@ -1,5 +1,5 @@
 // app/(home)/(user)/CarDetails.tsx
-import React, { useEffect, useState, useCallback, Suspense, useRef } from 'react'
+import React, { useEffect, useState, useCallback, Suspense, useRef, useMemo } from 'react'
 import { View, ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, AppState } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useCarDetails } from '@/hooks/useCarDetails'
@@ -253,6 +253,11 @@ export default function CarDetailsPage() {
     }
   }, [appState, car]);
 
+  const carWithDeepLink = useMemo(() => {
+    if (!car) return null;
+    return { ...car, fromDeepLink: params.fromDeepLink };
+  }, [car, params.fromDeepLink]);
+
   // Render with proper loading states and error handling
   return (
     <View
@@ -328,10 +333,7 @@ export default function CarDetailsPage() {
               { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }
             ]}>
               <CarDetailScreen
-                car={{
-                  ...car,
-                  fromDeepLink: params.fromDeepLink
-                }}
+                car={carWithDeepLink}
                 isDealer={isDealer}
                 isRental={isRental}
                 onFavoritePress={handleFavoritePress}
