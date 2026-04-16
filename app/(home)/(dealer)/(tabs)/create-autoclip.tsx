@@ -14,7 +14,7 @@ import { supabase } from '@/utils/supabase'
 import { useTheme } from '@/utils/ThemeContext'
 import { useTranslation } from 'react-i18next'
 import * as Sentry from '@sentry/react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FontAwesome, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { useScrollToTop } from '@react-navigation/native'
@@ -510,6 +510,11 @@ export default function AutoClipsScreen() {
   const { t } = useTranslation()
   const styles = getStyles(isDarkMode)
   const flatListRef = useRef<FlatList>(null)
+  const insets = useSafeAreaInsets()
+  // Match the tab bar height formula from _layout.tsx exactly, then add 16px margin
+  const fabBottom = Platform.OS === 'ios'
+    ? Math.max(100, 75 + insets.bottom) + 16
+    : 65 + insets.bottom + 16
   
   const { dealership, loadingDealership } = useDealership(user)
   const {
@@ -683,7 +688,7 @@ export default function AutoClipsScreen() {
         <ContentLoadingOverlay isVisible={filterLoading} />
       </View>
 
-      <TouchableOpacity style={styles.addButton} onPress={() => setCreateModalVisible(true)}>
+      <TouchableOpacity style={[styles.addButton, { bottom: fabBottom }]} onPress={() => setCreateModalVisible(true)}>
         <Ionicons name="add" size={32} color="#FFFFFF" />
       </TouchableOpacity>
       

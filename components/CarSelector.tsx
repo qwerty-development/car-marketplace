@@ -197,8 +197,9 @@ export default function CarSelector({
 	useEffect(() => {
 		if (isModalVisible) {
 			slideAnim.value = withSpring(0, {
-				damping: 15,
-				stiffness: 90
+				damping: 20,
+				stiffness: 90,
+				overshootClamping: true
 			})
 		} else {
 			slideAnim.value = withTiming(MODAL_HEIGHT, { duration: 300 })
