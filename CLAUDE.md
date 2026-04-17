@@ -141,3 +141,4 @@ eas build --profile release  # Production build
 ## Rules
 - ALWAYS before making any change, Search on the web for the newest documentation. And only implement if you are 100% sure it will work.
 - use subagents when you see fit. 
+- when commiting , do not add a co-author 
