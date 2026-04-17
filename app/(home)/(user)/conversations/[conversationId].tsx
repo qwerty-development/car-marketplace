@@ -237,7 +237,6 @@ export default function ConversationDetailScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
-        enabled={Platform.OS === 'ios'}
         keyboardVerticalOffset={headerHeight}
       >
         {isConversationLoading && isMessagesLoading ? (
