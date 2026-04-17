@@ -60,6 +60,7 @@ import * as Sentry from '@sentry/react-native';
 import { CreditProvider } from "@/utils/CreditContext";
 import { META_EVENTS } from "@/utils/metaEvents";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 // Lazy-load Facebook SDK to prevent NativeEventEmitter crash during import
 let FacebookSettings: any = null;
@@ -1606,7 +1607,9 @@ function RootLayout() {
                     <CreditProvider>
                       <FavoritesProvider>
                         <NotificationsProvider />
-                        <RootLayoutNav />
+                        <KeyboardProvider>
+                          <RootLayoutNav />
+                        </KeyboardProvider>
                         <Toast config={toastConfig} />
                       </FavoritesProvider>
                     </CreditProvider>
