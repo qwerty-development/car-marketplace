@@ -25,6 +25,7 @@ interface AdBannerData {
 const AdBanner: React.FC = () => {
   const [ad, setAd] = useState<AdBannerData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number>(2); // default 2:1
   const { isDarkMode } = useTheme();
   const router = useRouter();
   const { user } = useAuth();
@@ -33,12 +34,29 @@ const AdBanner: React.FC = () => {
   const { width: screenWidth } = Dimensions.get('window');
   // Account for horizontal margins (mx-3 => 12px left + 12px right)
   const contentWidth = screenWidth - 24;
-  // Maintain 2:1 aspect ratio like Banner component
-  const bannerHeight = contentWidth / 2;
+  // Use the image's real aspect ratio (falls back to 2:1)
+  const bannerHeight = contentWidth / imageAspectRatio;
 
   useEffect(() => {
     fetchRandomAd();
   }, []);
+
+  // Measure image dimensions to get the real aspect ratio
+  useEffect(() => {
+    if (ad?.image_url) {
+      Image.getSize(
+        ad.image_url,
+        (width, height) => {
+          if (width && height) {
+            setImageAspectRatio(width / height);
+          }
+        },
+        () => {
+          // On error, keep the default 2:1
+        },
+      );
+    }
+  }, [ad?.image_url]);
 
   // Track impression when an ad is displayed
   useEffect(() => {
@@ -177,8 +195,8 @@ const AdBanner: React.FC = () => {
       >
         <Image
           source={{ uri: ad.image_url }}
-          style={{ width: contentWidth, height: bannerHeight }}
-          resizeMode="contain"
+          style={{ width: '100%', height: bannerHeight }}
+          resizeMode="cover"
         />
       </TouchableOpacity>
     </View>
