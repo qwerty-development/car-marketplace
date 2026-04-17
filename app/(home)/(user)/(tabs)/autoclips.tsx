@@ -52,7 +52,7 @@ const DOUBLE_TAP_DELAY = 300;
 
 // Performance constants
 const CACHE_SIZE_LIMIT = 100 * 1024 * 1024; // 100MB cache limit
-const VIDEO_PRELOAD_BUFFER = 2; // Number of videos to preload
+const VIDEO_PRELOAD_BUFFER = 1; // Number of videos to preload
 
 // FIXED: Add debounce constants
 const VIDEO_STATE_DEBOUNCE = 100; // ms
@@ -451,6 +451,13 @@ const ClipItem = React.memo<ClipItemProps>(({
                 contentFit="contain"
               />
             )}
+          </View>
+        )}
+
+        {/* Loading indicator while video is not yet ready */}
+        {!hasLoaded && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#ffffff" />
           </View>
         )}
 
@@ -1164,9 +1171,9 @@ export default function AutoClips() {
           />
         }
         contentContainerStyle={{ paddingBottom: 0 }}
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={2}
-        windowSize={5}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={1}
+        windowSize={3}
         initialNumToRender={1}
         updateCellsBatchingPeriod={100}
         getItemLayout={(data, index) => ({
