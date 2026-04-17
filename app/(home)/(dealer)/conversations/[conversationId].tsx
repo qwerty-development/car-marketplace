@@ -219,7 +219,7 @@ export default function DealerConversationDetailScreen() {
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="padding"
+        behavior="translate-with-padding"
         keyboardVerticalOffset={headerHeight}
       >
         {isConversationLoading && isMessagesLoading ? (

@@ -1602,7 +1602,7 @@ function RootLayout() {
                     <CreditProvider>
                       <FavoritesProvider>
                         <NotificationsProvider />
-                        <KeyboardProvider>
+                        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
                           <RootLayoutNav />
                         </KeyboardProvider>
                         <Toast config={toastConfig} />
