@@ -82,7 +82,6 @@
         "foregroundImage": "./assets/images/logo-adaptive.png",
         "backgroundColor": "#ffffff"
       },
-      "softwareKeyboardLayoutMode": "resize",
       "allowBackup": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",

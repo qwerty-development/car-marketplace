@@ -3,12 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Platform,
   Pressable,
   Text,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -16,7 +15,6 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { HeaderHeightContext } from '@react-navigation/elements';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import { ChatService } from '@/services/ChatService';
@@ -41,7 +39,6 @@ export default function ConversationDetailScreen() {
   const listRef = useRef<FlatList>(null);
   const hasMarkedReadRef = useRef(false);
   const { t } = useTranslation();
-  const headerHeight = React.useContext(HeaderHeightContext) ?? 0;
 
   const {
     data: conversation,
@@ -232,80 +229,76 @@ export default function ConversationDetailScreen() {
         flex: 1,
         backgroundColor: isDarkMode ? '#0A0A0A' : '#FAFAFA',
       }}
-      edges={Platform.OS === 'android' ? ['bottom'] : []}
+      edges={['bottom']}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="translate-with-padding"
-        keyboardVerticalOffset={headerHeight}
-      >
-        {isConversationLoading && isMessagesLoading ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#D55004" />
-          </View>
-        ) : (
-          <>
-            {conversation && (conversation.car || conversation.carRent) && (
-              <ConversationCarHeader conversation={conversation} />
+      {isConversationLoading && isMessagesLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#D55004" />
+        </View>
+      ) : (
+        <>
+          {conversation && (conversation.car || conversation.carRent) && (
+            <ConversationCarHeader conversation={conversation} />
+          )}
+          {conversation && conversation.numberPlate && (
+            <ConversationPlateHeader conversation={conversation} />
+          )}
+          <FlatList
+            ref={listRef}
+            data={invertedMessages}
+            inverted
+            keyExtractor={(item) => item.id.toString()}
+            keyboardShouldPersistTaps="handled"
+            style={{
+              flex: 1,
+            }}
+            contentContainerStyle={{
+              paddingVertical: 12,
+              paddingHorizontal: 12,
+            }}
+            renderItem={({ item }) => (
+              <MessageBubble
+                message={item}
+                isOwn={item.sender_id === user?.id}
+                isDarkMode={isDarkMode}
+                onPressAttachment={(url) => {
+                  Alert.alert(
+                    t('chat.attachment', 'Attachment'),
+                    url,
+                    [
+                      {
+                        text: t('common.ok', 'OK'),
+                      },
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              />
             )}
-            {conversation && conversation.numberPlate && (
-              <ConversationPlateHeader conversation={conversation} />
-            )}
-            <FlatList
-              ref={listRef}
-              data={invertedMessages}
-              inverted
-              keyExtractor={(item) => item.id.toString()}
-              keyboardShouldPersistTaps="handled"
-              style={{
-                flex: 1,
-              }}
-              contentContainerStyle={{
-                paddingVertical: 12,
-                paddingHorizontal: 12,
-              }}
-              renderItem={({ item }) => (
-                <MessageBubble
-                  message={item}
-                  isOwn={item.sender_id === user?.id}
-                  isDarkMode={isDarkMode}
-                  onPressAttachment={(url) => {
-                    Alert.alert(
-                      t('chat.attachment', 'Attachment'),
-                      url,
-                      [
-                        {
-                          text: t('common.ok', 'OK'),
-                        },
-                      ],
-                      { cancelable: true }
-                    );
-                  }}
-                />
-              )}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage) {
-                  fetchNextPage();
-                }
-              }}
-              onEndReachedThreshold={0.2}
-              ListFooterComponent={
-                isFetchingNextPage ? (
-                  <View style={{ paddingVertical: 16 }}>
-                    <ActivityIndicator size="small" color="#D55004" />
-                  </View>
-                ) : null
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
               }
-            />
+            }}
+            onEndReachedThreshold={0.2}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <View style={{ paddingVertical: 16 }}>
+                  <ActivityIndicator size="small" color="#D55004" />
+                </View>
+              ) : null
+            }
+          />
+          <KeyboardStickyView>
             <MessageComposer
               onSend={handleSendMessage}
               isSending={sendMessageMutation.isPending}
               isDarkMode={isDarkMode}
               placeholder={t('chat.message_placeholder', 'Type a message…')}
             />
-          </>
-        )}
-      </KeyboardAvoidingView>
+          </KeyboardStickyView>
+        </>
+      )}
     </SafeAreaView>
   );
 }

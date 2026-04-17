@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MessageComposerProps {
   onSend: (message: string) => Promise<void> | void;
@@ -23,7 +22,6 @@ export default function MessageComposer({
   placeholder = 'Type a message…',
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
-  const { bottom } = useSafeAreaInsets();
 
   const handleSend = useCallback(() => {
     const trimmed = message.trim();
@@ -40,7 +38,6 @@ export default function MessageComposer({
         styles.container,
         {
           backgroundColor: isDarkMode ? '#111111' : '#FFFFFF',
-          paddingBottom: 10 + bottom,
         },
       ]}
     >
@@ -99,6 +96,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingTop: 10,
+    paddingBottom: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(148, 163, 184, 0.15)',
   },

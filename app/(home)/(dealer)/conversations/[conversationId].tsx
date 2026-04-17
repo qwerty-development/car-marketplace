@@ -3,12 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Platform,
   Text,
   View,
   TouchableOpacity,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -16,7 +15,6 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { HeaderHeightContext } from '@react-navigation/elements';
 import { useTheme } from '@/utils/ThemeContext';
 import { useAuth } from '@/utils/AuthContext';
 import { ChatService } from '@/services/ChatService';
@@ -41,7 +39,6 @@ export default function DealerConversationDetailScreen() {
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
   const { t } = useTranslation();
-  const headerHeight = React.useContext(HeaderHeightContext) ?? 0;
 
   const {
     data: conversation,
@@ -215,116 +212,113 @@ export default function DealerConversationDetailScreen() {
         flex: 1,
         backgroundColor: isDarkMode ? '#000000' : '#F8FAFC',
       }}
-      edges={Platform.OS === 'android' ? ['bottom'] : []}
+      edges={['bottom']}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="translate-with-padding"
-        keyboardVerticalOffset={headerHeight}
-      >
-        {isConversationLoading && isMessagesLoading ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#D55004" />
-            <Text
-              className={`mt-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
-            >
-              {t('chat.loading_messages', 'Loading messages...')}
-            </Text>
-          </View>
-        ) : (
-          <>
-            {conversation && (conversation.car || conversation.carRent) && (
-              <ConversationCarHeader
-                conversation={conversation}
-                dealershipId={conversation.dealership_id ?? undefined}
-                isDealer={true}
-              />
-            )}
-            {conversation && conversation.numberPlate && (
-              <ConversationPlateHeader
-                conversation={conversation}
-                isDealer={true}
-              />
-            )}
-            <FlatList
-              ref={listRef}
-              data={invertedMessages}
-              inverted
-              keyExtractor={(item) => item.id.toString()}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{
-                paddingVertical: 16,
-                paddingHorizontal: 4,
-              }}
-              renderItem={({ item }) => (
-                <MessageBubble
-                  message={item}
-                  isOwn={item.sender_id === user?.id}
-                  isDarkMode={isDarkMode}
-                  onPressAttachment={(url) => {
-                    Alert.alert(
-                      t('chat.attachment', 'Attachment'),
-                      url,
-                      [
-                        {
-                          text: t('common.ok', 'OK'),
-                        },
-                      ],
-                      { cancelable: true }
-                    );
-                  }}
-                />
-              )}
-              onEndReached={() => {
-                if (hasNextPage && !isFetchingNextPage) {
-                  fetchNextPage();
-                }
-              }}
-              onEndReachedThreshold={0.2}
-              ListFooterComponent={
-                isFetchingNextPage ? (
-                  <View style={{ paddingVertical: 16 }}>
-                    <ActivityIndicator size="small" color="#D55004" />
-                  </View>
-                ) : null
-              }
-              ListEmptyComponent={
-                !isMessagesLoading ? (
-                  <View
-                    style={{
-                      flex: 1,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      paddingVertical: 80,
-                    }}
-                  >
-                    <Text
-                      className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                        }`}
-                      style={{ textAlign: 'center' }}
-                    >
-                      {t('chat.no_messages_yet', 'No messages yet')}
-                    </Text>
-                    <Text
-                      className={`text-sm mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                        }`}
-                      style={{ textAlign: 'center' }}
-                    >
-                      {t('chat.start_conversation', 'Send a message to start the conversation')}
-                    </Text>
-                  </View>
-                ) : null
-              }
+      {isConversationLoading && isMessagesLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#D55004" />
+          <Text
+            className={`mt-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
+          >
+            {t('chat.loading_messages', 'Loading messages...')}
+          </Text>
+        </View>
+      ) : (
+        <>
+          {conversation && (conversation.car || conversation.carRent) && (
+            <ConversationCarHeader
+              conversation={conversation}
+              dealershipId={conversation.dealership_id ?? undefined}
+              isDealer={true}
             />
+          )}
+          {conversation && conversation.numberPlate && (
+            <ConversationPlateHeader
+              conversation={conversation}
+              isDealer={true}
+            />
+          )}
+          <FlatList
+            ref={listRef}
+            data={invertedMessages}
+            inverted
+            keyExtractor={(item) => item.id.toString()}
+            keyboardShouldPersistTaps="handled"
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingVertical: 16,
+              paddingHorizontal: 4,
+            }}
+            renderItem={({ item }) => (
+              <MessageBubble
+                message={item}
+                isOwn={item.sender_id === user?.id}
+                isDarkMode={isDarkMode}
+                onPressAttachment={(url) => {
+                  Alert.alert(
+                    t('chat.attachment', 'Attachment'),
+                    url,
+                    [
+                      {
+                        text: t('common.ok', 'OK'),
+                      },
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              />
+            )}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            onEndReachedThreshold={0.2}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <View style={{ paddingVertical: 16 }}>
+                  <ActivityIndicator size="small" color="#D55004" />
+                </View>
+              ) : null
+            }
+            ListEmptyComponent={
+              !isMessagesLoading ? (
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingVertical: 80,
+                  }}
+                >
+                  <Text
+                    className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}
+                    style={{ textAlign: 'center' }}
+                  >
+                    {t('chat.no_messages_yet', 'No messages yet')}
+                  </Text>
+                  <Text
+                    className={`text-sm mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                      }`}
+                    style={{ textAlign: 'center' }}
+                  >
+                    {t('chat.start_conversation', 'Send a message to start the conversation')}
+                  </Text>
+                </View>
+              ) : null
+            }
+          />
+          <KeyboardStickyView>
             <MessageComposer
               onSend={handleSendMessage}
               isSending={sendMessageMutation.isPending}
               isDarkMode={isDarkMode}
               placeholder={t('chat.message_placeholder', 'Type a message…')}
             />
-          </>
-        )}
-      </KeyboardAvoidingView>
+          </KeyboardStickyView>
+        </>
+      )}
     </SafeAreaView>
   );
 }
