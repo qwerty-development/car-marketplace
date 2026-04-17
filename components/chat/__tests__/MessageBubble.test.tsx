@@ -1,4 +1,12 @@
-import React from 'react';
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
+import React, { act } from 'react';
 import renderer from 'react-test-renderer';
 import MessageBubble from '../MessageBubble';
 import { ChatMessage } from '@/types/chat';
@@ -16,15 +24,21 @@ const baseMessage: ChatMessage = {
 };
 
 test('own message renders correctly', () => {
-  const tree = renderer
-    .create(<MessageBubble message={baseMessage} isOwn={true} isDarkMode={false} />)
-    .toJSON();
-  expect(tree).toMatchSnapshot();
+  let tree: renderer.ReactTestRenderer;
+  act(() => {
+    tree = renderer.create(
+      <MessageBubble message={baseMessage} isOwn={true} isDarkMode={false} />
+    );
+  });
+  expect(tree!.toJSON()).toMatchSnapshot();
 });
 
 test('received message renders correctly', () => {
-  const tree = renderer
-    .create(<MessageBubble message={baseMessage} isOwn={false} isDarkMode={true} />)
-    .toJSON();
-  expect(tree).toMatchSnapshot();
+  let tree: renderer.ReactTestRenderer;
+  act(() => {
+    tree = renderer.create(
+      <MessageBubble message={baseMessage} isOwn={false} isDarkMode={true} />
+    );
+  });
+  expect(tree!.toJSON()).toMatchSnapshot();
 });

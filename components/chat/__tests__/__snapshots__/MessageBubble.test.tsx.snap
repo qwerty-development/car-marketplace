@@ -1,5 +1,187 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`own message renders correctly 1`] = `null`;
+exports[`own message renders correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "flexDirection": "row",
+        "marginBottom": 4,
+        "paddingHorizontal": 16,
+      },
+      {
+        "justifyContent": "flex-end",
+      },
+    ]
+  }
+>
+  <View
+    style={
+      [
+        {
+          "borderRadius": 18,
+          "elevation": 1,
+          "maxWidth": "80%",
+          "paddingHorizontal": 10,
+          "paddingVertical": 7,
+          "shadowColor": "#000",
+          "shadowOffset": {
+            "height": 1,
+            "width": 0,
+          },
+          "shadowOpacity": 0.06,
+          "shadowRadius": 2,
+        },
+        {
+          "backgroundColor": "#D55004",
+          "borderBottomLeftRadius": 20,
+          "borderBottomRightRadius": 6,
+          "borderColor": "#E5E7EB",
+          "borderWidth": 0,
+        },
+      ]
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "fontSize": 14,
+            "fontWeight": "400",
+            "lineHeight": 20,
+          },
+          {
+            "color": "#fff",
+          },
+        ]
+      }
+    >
+      Is the car still available?
+    </Text>
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "justifyContent": "flex-end",
+          "marginTop": 3,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 11,
+              "fontWeight": "400",
+            },
+            {
+              "color": "rgba(255,255,255,0.7)",
+            },
+          ]
+        }
+      >
+        2:00 PM
+      </Text>
+      <Ionicons
+        color="rgba(255,255,255,0.7)"
+        name="checkmark-outline"
+        size={16}
+        style={
+          {
+            "marginLeft": 6,
+          }
+        }
+      />
+    </View>
+  </View>
+</View>
+`;
 
-exports[`received message renders correctly 1`] = `null`;
+exports[`received message renders correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "flexDirection": "row",
+        "marginBottom": 4,
+        "paddingHorizontal": 16,
+      },
+      {
+        "justifyContent": "flex-start",
+      },
+    ]
+  }
+>
+  <View
+    style={
+      [
+        {
+          "borderRadius": 18,
+          "elevation": 1,
+          "maxWidth": "80%",
+          "paddingHorizontal": 10,
+          "paddingVertical": 7,
+          "shadowColor": "#000",
+          "shadowOffset": {
+            "height": 1,
+            "width": 0,
+          },
+          "shadowOpacity": 0.06,
+          "shadowRadius": 2,
+        },
+        {
+          "backgroundColor": "#2A2A2A",
+          "borderBottomLeftRadius": 6,
+          "borderBottomRightRadius": 20,
+          "borderColor": "#3A3A3A",
+          "borderWidth": 1,
+        },
+      ]
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "fontSize": 14,
+            "fontWeight": "400",
+            "lineHeight": 20,
+          },
+          {
+            "color": "#E5E7EB",
+          },
+        ]
+      }
+    >
+      Is the car still available?
+    </Text>
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "justifyContent": "flex-end",
+          "marginTop": 3,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 11,
+              "fontWeight": "400",
+            },
+            {
+              "color": "#6B7280",
+            },
+          ]
+        }
+      >
+        2:00 PM
+      </Text>
+    </View>
+  </View>
+</View>
+`;
