@@ -2,8 +2,6 @@ import { ImageSourcePropType } from 'react-native';
 
 // Local logo assets for brands (used for all themes)
 const LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
-  'land-rover': require('@/assets/brands/land-rover-logo.png'),
-  'range-rover': require('@/assets/brands/land-rover-logo.png'),
   'dominar': require('@/assets/brands/Dominar.jpg'),
 };
 
