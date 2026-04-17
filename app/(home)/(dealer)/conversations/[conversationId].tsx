@@ -3,12 +3,12 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Text,
   View,
   TouchableOpacity,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -219,7 +219,7 @@ export default function DealerConversationDetailScreen() {
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="translate-with-padding"
         keyboardVerticalOffset={headerHeight}
       >
         {isConversationLoading && isMessagesLoading ? (
