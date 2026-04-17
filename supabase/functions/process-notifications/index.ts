@@ -221,7 +221,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Mark notification as processed
+    // Claim this notification atomically: only proceeds if processed=false.
+    // This is the idempotency gate — prevents concurrent duplicate delivery.
+    // IMPORTANT: We claim first (fast DB write), then send. If the push fails
+    // we roll back to processed=false so the notification can be retried.
     const { data: fetchedRecord, error } = await supabase
       .from('pending_notifications')
       .update({ processed: true })
@@ -400,6 +403,13 @@ console.log(`Marked invalid token as inactive: ${tokenData.token}`);
 
     // Check if there are any valid messages to send
     if (messages.length === 0) {
+      // Roll back the processed flag — no tokens means we can't deliver,
+      // but this might be a transient state (user just logged out), so
+      // keep it retryable.
+      await supabase
+        .from('pending_notifications')
+        .update({ processed: false })
+        .eq('id', record.id);
       return new Response(
         JSON.stringify({
           message: 'No valid push tokens found or unknown notification type',
@@ -506,12 +516,16 @@ console.log(`Marked invalid token as inactive: ${tokenData.token}`);
       }
     }
 
-    // Schedule receipt check
-    setTimeout(() => {
-      handlePushNotificationReceipts(tickets, record).catch((error) => {
-        console.error('Error in receipt handling:', error);
-      });
-    }, 5000);
+    // Check receipts inline (awaited before response) so stale/invalid
+    // tokens are cleaned up reliably. Previously used setTimeout which
+    // fired after the response was returned and could be terminated by
+    // the Deno serverless runtime before it ran.
+    try {
+      await handlePushNotificationReceipts(tickets, record);
+    } catch (receiptError) {
+      // Non-fatal: delivery already succeeded, just log
+      console.error('Error in receipt handling:', receiptError);
+    }
 
     // Log successful delivery
     try {
@@ -544,8 +558,16 @@ console.log(`Marked invalid token as inactive: ${tokenData.token}`);
   } catch (error) {
     console.error('Error processing notification:', error);
 
-    // Log the error
+    // Roll back processed=false so this notification can be retried.
+    // Only do this if we actually claimed it (record is set) and the
+    // error is not "already processed" (which means another invocation
+    // succeeded).
     if (record) {
+      await supabase
+        .from('pending_notifications')
+        .update({ processed: false })
+        .eq('id', record.id);
+
       await supabase.from('notification_errors').insert({
         error_details: {
           message: error.message,

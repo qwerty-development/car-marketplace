@@ -116,15 +116,10 @@ Sentry.init({
 
 const { width, height } = Dimensions.get("window");
 
-// CRITICAL SYSTEM: Notification handler configuration
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    priority: Notifications.AndroidNotificationPriority.MAX,
-  }),
-});
+// NOTE: Notification handler is set in services/NotificationService.ts
+// (shouldPlaySound: true, shouldSetBadge: true). Do NOT add a second
+// setNotificationHandler call here — the last one registered wins and
+// would override the sound/badge settings.
 
 // SYSTEM CONFIGURATION: Ignore warnings
 LogBox.ignoreLogs([

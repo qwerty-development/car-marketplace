@@ -22,12 +22,15 @@ interface SupabaseError {
   details?: string;
 }
 
-// Notification handler configuration
+// Notification handler configuration — single source of truth.
+// Do NOT add a second setNotificationHandler call elsewhere (e.g. in
+// _layout.tsx); the last registration wins and would override these settings.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 

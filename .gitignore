@@ -44,3 +44,5 @@ WEB_FEATURES_IMPLEMENTATION_GUIDE.md
 supabase/migrations/20260312_get_brands_by_vehicle_category.sql
 .claude/settings.local.json
 supabase/migrations/20260402_add_signup_platform_and_app_version.sql
+.claude
+.superpowers
