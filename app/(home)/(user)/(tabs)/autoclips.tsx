@@ -122,44 +122,10 @@ class VideoCacheManager {
     videoUrl: string,
     quality: 'high' | 'medium' | 'low' = 'high'
   ): Promise<string> {
-    if (!videoUrl) return '';
-    
-    const filename = this.generateCacheKey(videoUrl, quality);
-    const localUri = FileSystem.cacheDirectory + filename;
-    
-    try {
-      const fileInfo = await FileSystem.getInfoAsync(localUri);
-      
-      if (fileInfo.exists && 'size' in fileInfo) {
-        // Update last accessed time
-        this.cacheMap.set(filename, {
-          size: fileInfo.size,
-          lastAccessed: Date.now(),
-        });
-        return localUri;
-      }
-      
-      // Clean cache if needed before downloading
-      await this.cleanCacheIfNeeded();
-      
-      // Download the video
-      const { uri } = await FileSystem.downloadAsync(videoUrl, localUri);
-      
-      const newFileInfo = await FileSystem.getInfoAsync(uri);
-      
-      if ('size' in newFileInfo) {
-        this.cacheSize += newFileInfo.size;
-        this.cacheMap.set(filename, {
-          size: newFileInfo.size,
-          lastAccessed: Date.now(),
-        });
-      }
-      
-      return uri;
-    } catch (err) {
-      console.error("Error caching video:", err);
-      return videoUrl; // Fallback to streaming
-    }
+    // Stream directly — downloading entire videos to disk causes double memory
+    // pressure (download buffer + ExoPlayer buffer) which OOMs on low-end devices.
+    // ExoPlayer handles adaptive streaming efficiently on its own.
+    return videoUrl || '';
   }
 
   private generateCacheKey(url: string, quality: string): string {
