@@ -1,19 +1,16 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Keyboard,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MessageComposerProps {
   onSend: (message: string) => Promise<void> | void;
-  onAttachPress?: () => void;
   isSending?: boolean;
   isDarkMode?: boolean;
   placeholder?: string;
@@ -21,34 +18,17 @@ interface MessageComposerProps {
 
 export default function MessageComposer({
   onSend,
-  onAttachPress,
   isSending = false,
   isDarkMode = false,
   placeholder = 'Type a message…',
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
   const { bottom } = useSafeAreaInsets();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const inputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   const handleSend = useCallback(() => {
     const trimmed = message.trim();
     if (!trimmed || isSending) return;
-
-    // Clear text immediately for snappy WhatsApp-like feel
     setMessage('');
-    // Fire and forget — errors are handled by the caller's try/catch
     onSend(trimmed);
   }, [message, onSend, isSending]);
 
@@ -57,42 +37,12 @@ export default function MessageComposer({
       style={[
         styles.container,
         {
-          backgroundColor: isDarkMode ? '#0F172A' : '#F9FAFB',
-          paddingBottom: keyboardVisible
-            ? styles.container.paddingVertical
-            : styles.container.paddingVertical + bottom,
+          backgroundColor: isDarkMode ? '#111111' : '#FFFFFF',
+          paddingBottom: 10 + bottom,
         },
       ]}
     >
-      {onAttachPress ? (
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={onAttachPress}
-          disabled={isSending}
-        >
-          <Ionicons
-            name="attach-outline"
-            size={22}
-            color={isDarkMode ? '#E5E7EB' : '#6B7280'}
-          />
-        </TouchableOpacity>
-      ) : null}
-
-      {keyboardVisible && (
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => Keyboard.dismiss()}
-        >
-          <Ionicons
-            name="chevron-down"
-            size={22}
-            color={isDarkMode ? '#E5E7EB' : '#6B7280'}
-          />
-        </TouchableOpacity>
-      )}
-
       <TextInput
-        ref={inputRef}
         value={message}
         onChangeText={setMessage}
         placeholder={placeholder}
@@ -104,8 +54,7 @@ export default function MessageComposer({
           styles.input,
           {
             color: isDarkMode ? '#F8FAFC' : '#1F2937',
-            backgroundColor: isDarkMode ? '#1E293B' : '#F3F4F6',
-            borderColor: isDarkMode ? '#334155' : '#E5E7EB',
+            backgroundColor: isDarkMode ? '#1C1C1C' : '#F3F4F6',
           },
         ]}
         blurOnSubmit={false}
@@ -120,7 +69,7 @@ export default function MessageComposer({
             backgroundColor: message.trim()
               ? '#D55004'
               : isDarkMode
-              ? '#334155'
+              ? '#2A2A2A'
               : '#E2E8F0',
           },
         ]}
@@ -146,47 +95,26 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(148, 163, 184, 0.15)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  iconButton: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
   },
   input: {
     flex: 1,
     borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    fontSize: 16,
-    maxHeight: 140,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    maxHeight: 120,
     textAlignVertical: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   sendButton: {
-    marginLeft: 10,
-    height: 48,
-    width: 48,
-    borderRadius: 24,
+    marginLeft: 8,
+    height: 44,
+    width: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#D55004',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
 });
-
