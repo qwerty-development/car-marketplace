@@ -6,8 +6,8 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-import React, { act } from 'react';
-import renderer from 'react-test-renderer';
+import React from 'react';
+import { act, create } from 'react-test-renderer';
 import MessageBubble from '../MessageBubble';
 import { ChatMessage } from '@/types/chat';
 
@@ -24,20 +24,36 @@ const baseMessage: ChatMessage = {
 };
 
 test('own message renders correctly', () => {
-  let tree: renderer.ReactTestRenderer;
+  let tree: ReturnType<typeof create>;
   act(() => {
-    tree = renderer.create(
-      <MessageBubble message={baseMessage} isOwn={true} isDarkMode={false} />
-    );
+    tree = create(<MessageBubble message={baseMessage} isOwn={true} isDarkMode={false} />);
   });
   expect(tree!.toJSON()).toMatchSnapshot();
 });
 
 test('received message renders correctly', () => {
-  let tree: renderer.ReactTestRenderer;
+  let tree: ReturnType<typeof create>;
   act(() => {
-    tree = renderer.create(
-      <MessageBubble message={baseMessage} isOwn={false} isDarkMode={true} />
+    tree = create(<MessageBubble message={baseMessage} isOwn={false} isDarkMode={true} />);
+  });
+  expect(tree!.toJSON()).toMatchSnapshot();
+});
+
+const messageWithAttachment: ChatMessage = {
+  ...baseMessage,
+  media_url: 'https://example.com/uploads/photo.jpg',
+};
+
+test('message with attachment renders correctly', () => {
+  let tree: ReturnType<typeof create>;
+  act(() => {
+    tree = create(
+      <MessageBubble
+        message={messageWithAttachment}
+        isOwn={false}
+        isDarkMode={false}
+        onPressAttachment={jest.fn()}
+      />
     );
   });
   expect(tree!.toJSON()).toMatchSnapshot();

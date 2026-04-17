@@ -1,5 +1,162 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`message with attachment renders correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "flexDirection": "row",
+        "marginBottom": 4,
+        "paddingHorizontal": 16,
+      },
+      {
+        "justifyContent": "flex-start",
+      },
+    ]
+  }
+>
+  <View
+    style={
+      [
+        {
+          "borderRadius": 18,
+          "elevation": 1,
+          "maxWidth": "80%",
+          "paddingHorizontal": 10,
+          "paddingVertical": 7,
+          "shadowColor": "#000",
+          "shadowOffset": {
+            "height": 1,
+            "width": 0,
+          },
+          "shadowOpacity": 0.06,
+          "shadowRadius": 2,
+        },
+        {
+          "backgroundColor": "#FFFFFF",
+          "borderBottomLeftRadius": 6,
+          "borderBottomRightRadius": 20,
+          "borderColor": "#E5E7EB",
+          "borderWidth": 1,
+        },
+      ]
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "fontSize": 14,
+            "fontWeight": "400",
+            "lineHeight": 20,
+          },
+          {
+            "color": "#111827",
+          },
+        ]
+      }
+    >
+      Is the car still available?
+    </Text>
+    <View
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "rgba(30,64,175,0.12)",
+          "borderRadius": 12,
+          "flexDirection": "row",
+          "marginTop": 6,
+          "opacity": 1,
+          "paddingHorizontal": 10,
+          "paddingVertical": 8,
+        }
+      }
+    >
+      <Ionicons
+        color="#1D4ED8"
+        name="attach-outline"
+        size={18}
+        style={
+          {
+            "marginRight": 6,
+          }
+        }
+      />
+      <Text
+        numberOfLines={1}
+        style={
+          [
+            {
+              "flex": 1,
+              "fontSize": 13,
+              "fontWeight": "500",
+            },
+            {
+              "color": "#1D4ED8",
+            },
+          ]
+        }
+      >
+        photo.jpg
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "justifyContent": "flex-end",
+          "marginTop": 3,
+        }
+      }
+    >
+      <Text
+        style={
+          [
+            {
+              "fontSize": 11,
+              "fontWeight": "400",
+            },
+            {
+              "color": "#6B7280",
+            },
+          ]
+        }
+      >
+        2:00 PM
+      </Text>
+    </View>
+  </View>
+</View>
+`;
+
 exports[`own message renders correctly 1`] = `
 <View
   style={
