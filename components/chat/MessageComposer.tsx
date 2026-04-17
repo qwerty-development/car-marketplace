@@ -32,6 +32,8 @@ export default function MessageComposer({
     onSend(trimmed);
   }, [message, onSend, isSending]);
 
+  const hasText = message.trim().length > 0;
+
   return (
     <View
       style={[
@@ -66,7 +68,7 @@ export default function MessageComposer({
         style={[
           styles.sendButton,
           {
-            backgroundColor: message.trim()
+            backgroundColor: hasText
               ? '#D55004'
               : isDarkMode
               ? '#2A2A2A'
@@ -74,7 +76,7 @@ export default function MessageComposer({
           },
         ]}
         onPress={handleSend}
-        disabled={isSending || !message.trim()}
+        disabled={isSending || !hasText}
         activeOpacity={0.8}
       >
         {isSending ? (
@@ -83,7 +85,7 @@ export default function MessageComposer({
           <Ionicons
             name="paper-plane"
             size={18}
-            color={message.trim() ? '#fff' : '#9CA3AF'}
+            color={hasText ? '#fff' : '#9CA3AF'}
           />
         )}
       </TouchableOpacity>
