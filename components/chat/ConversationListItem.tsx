@@ -14,6 +14,7 @@ import { LicensePlateTemplate } from '@/components/NumberPlateCard';
 interface ConversationListItemProps {
   conversation: ConversationSummary;
   viewerRole: 'user' | 'dealer';
+  viewerUserId?: string | null;
   onPress?: (conversation: ConversationSummary) => void;
   isDarkMode?: boolean;
 }
@@ -176,6 +177,7 @@ function getDisplayInfo(
 export default function ConversationListItem({
   conversation,
   viewerRole,
+  viewerUserId,
   onPress,
   isDarkMode = false,
 }: ConversationListItemProps) {
@@ -198,12 +200,28 @@ export default function ConversationListItem({
 
   const hasUnread = unreadCount > 0;
 
-  const preview =
-    conversation.last_message_preview ||
-    t('chat.no_messages_yet', 'No messages yet');
+  const senderRole = conversation.last_message_sender_role;
+  const isMine = senderRole !== null && (() => {
+    if (viewerRole === 'dealer') return senderRole === 'dealer';
+    // user_dealer: viewer is always the buyer
+    if (conversation.conversation_type === 'user_dealer') return senderRole === 'user';
+    // user_user: viewer could be buyer or seller — use viewerUserId to decide
+    if (viewerUserId) {
+      const viewerIsBuyer = conversation.user_id === viewerUserId;
+      return viewerIsBuyer ? senderRole === 'user' : senderRole === 'seller_user';
+    }
+    return senderRole === 'user';
+  })();
+
+  const rawPreview = conversation.last_message_preview;
+  const preview = rawPreview
+    ? isMine
+      ? `You: ${rawPreview}`
+      : `${info.title}: ${rawPreview}`
+    : t('chat.no_messages_yet', 'No messages yet');
 
   const previewDisplay =
-    preview.length > 60 ? `${preview.slice(0, 57)}...` : preview;
+    preview.length > 70 ? `${preview.slice(0, 67)}...` : preview;
 
   const fallbackColor = useMemo(() => {
     const index = info.fallbackLetter.charCodeAt(0) % FALLBACK_COLORS.length;
@@ -306,7 +324,13 @@ export default function ConversationListItem({
           >
             {previewDisplay}
           </Text>
-          {hasUnread && <View style={styles.unreadDot} />}
+          {hasUnread && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -420,12 +444,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  unreadDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#D55004',
     marginLeft: 8,
-    marginTop: 4,
+    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

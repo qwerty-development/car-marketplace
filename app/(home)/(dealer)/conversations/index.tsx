@@ -350,6 +350,7 @@ export default function DealerConversationsScreen() {
             <ConversationListItem
               conversation={item}
               viewerRole="dealer"
+              viewerUserId={user?.id}
               isDarkMode={isDarkMode}
               onPress={(conversation) => handleOpenConversation(conversation.id)}
             />

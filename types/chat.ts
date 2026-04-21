@@ -11,6 +11,7 @@ export interface ConversationSummary {
   updated_at: string;
   last_message_at: string | null;
   last_message_preview: string | null;
+  last_message_sender_role: 'user' | 'dealer' | 'seller_user' | null;
   user_unread_count: number;
   seller_unread_count: number;
   user?: ChatUserParticipant | null;

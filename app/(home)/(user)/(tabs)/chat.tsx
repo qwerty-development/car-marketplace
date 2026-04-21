@@ -44,6 +44,11 @@ export default function ChatTabScreen() {
     enabled: !!user && !isGuest,
   });
 
+  const unreadConversationsCount = useMemo(() => {
+    if (!conversations) return 0;
+    return conversations.filter((c) => (c.user_unread_count ?? 0) > 0).length;
+  }, [conversations]);
+
   // Check if user has both sent and received messages
   const { hasSent, hasReceived } = useMemo(() => {
     if (!conversations) return { hasSent: false, hasReceived: false };
@@ -267,6 +272,18 @@ export default function ChatTabScreen() {
           </View>
         )}
 
+        {/* Unread indicator */}
+        {unreadConversationsCount > 0 && !isSearching && (
+          <View style={styles.unreadBanner}>
+            <View style={styles.unreadBannerIcon}>
+              <Ionicons name="notifications" size={14} color="#ef4444" />
+            </View>
+            <Text style={[styles.unreadBannerText, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>
+              {unreadConversationsCount} {t('chat.unread', 'unread')}
+            </Text>
+          </View>
+        )}
+
         {/* Filter Tabs - Only show if user has both sent and received messages */}
         {showFilters && (
           <View style={styles.filterContainer}>
@@ -333,6 +350,7 @@ export default function ChatTabScreen() {
             <ConversationListItem
               conversation={item}
               viewerRole="user"
+              viewerUserId={user.id}
               isDarkMode={isDarkMode}
               onPress={(conversation) => handleOpenConversation(conversation.id)}
             />
@@ -457,6 +475,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 3,
     elevation: 3,
+  },
+  unreadBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  unreadBannerIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  unreadBannerText: {
+    fontSize: 13,
   },
   filterContainer: {
     flexDirection: 'row',

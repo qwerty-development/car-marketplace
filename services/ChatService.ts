@@ -24,6 +24,7 @@ type RawConversationRow = {
   updated_at: string;
   last_message_at: string | null;
   last_message_preview: string | null;
+  last_message_sender_role: 'user' | 'dealer' | 'seller_user' | null;
   user_unread_count: number;
   seller_unread_count: number;
   dealership?: ChatDealershipParticipant | ChatDealershipParticipant[] | null;
@@ -65,6 +66,7 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
     updated_at: row.updated_at,
     last_message_at: row.last_message_at,
     last_message_preview: row.last_message_preview,
+    last_message_sender_role: row.last_message_sender_role ?? null,
     user_unread_count: row.user_unread_count ?? 0,
     seller_unread_count: row.seller_unread_count ?? 0,
     dealership,
@@ -89,6 +91,7 @@ const enrichConversationSelect = `
   updated_at,
   last_message_at,
   last_message_preview,
+  last_message_sender_role,
   user_unread_count,
   seller_unread_count,
   dealership:dealerships (
