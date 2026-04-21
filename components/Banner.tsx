@@ -93,7 +93,7 @@ const Banner: React.FC = () => {
           setCurrentIndex((prevIndex) => {
             const nextIndex = (prevIndex + 1) % banners.length;
             scrollViewRef.current?.scrollTo({
-              x: nextIndex * screenWidth,
+              x: nextIndex * contentWidth,
               animated: true,
             });
             // Track impression for auto-scrolled banner
@@ -117,7 +117,7 @@ const Banner: React.FC = () => {
 
   const handleScroll = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / screenWidth);
+    const index = Math.round(contentOffsetX / contentWidth);
     setCurrentIndex(index);
     // Track impression for the newly visible banner slide
     if (banners[index]) {
@@ -172,7 +172,7 @@ const Banner: React.FC = () => {
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
     scrollViewRef.current?.scrollTo({
-      x: index * screenWidth,
+      x: index * contentWidth,
       animated: true,
     });
   };
