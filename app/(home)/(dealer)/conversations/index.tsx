@@ -278,57 +278,72 @@ export default function DealerConversationsScreen() {
       }}
     >
       {/* Header Stats */}
-      <View
-        className={`mx-4 mt-2 mb-4 p-4 rounded-2xl ${
-          isDarkMode ? 'bg-neutral-900' : 'bg-white'
-        }`}
-        style={{
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3,
-        }}
-      >
-        <View className="flex-row justify-between items-center">
-          <View className="flex-1">
-            <Text
-              className={`text-sm ${
-                isDarkMode ? 'text-gray-400' : 'text-gray-600'
-              }`}
-            >
-              {t('chat.total_conversations', 'Total Conversations')}
-            </Text>
-            <Text
-              className={`text-3xl font-bold mt-1 ${
-                isDarkMode ? 'text-white' : 'text-black'
-              }`}
-            >
-              {conversations?.length ?? 0}
-            </Text>
-          </View>
-          <View className="w-16 h-16 rounded-full bg-orange-500/10 items-center justify-center">
-            <Ionicons name="chatbubbles" size={32} color="#D55004" />
-          </View>
-        </View>
-        
-        {/* Unread Count */}
-        {conversations && conversations.length > 0 && (
-          <View className="flex-row items-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
-            <View className="w-8 h-8 rounded-full bg-red-500/10 items-center justify-center mr-2">
-              <Ionicons name="notifications" size={16} color="#ef4444" />
+      {(() => {
+        const unreadCount = (conversations ?? []).filter(c => (c.seller_unread_count ?? 0) > 0).length;
+        const hasUnread = unreadCount > 0;
+        return (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginTop: 8,
+              marginBottom: 16,
+              borderRadius: 16,
+              backgroundColor: isDarkMode ? '#1A1A1A' : '#fff',
+shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: isDarkMode ? 0.4 : 0.08,
+              shadowRadius: 12,
+              elevation: 5,
+            }}
+          >
+            <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', color: isDarkMode ? '#6B7280' : '#9CA3AF' }}>
+                  {t('chat.total_conversations', 'Total Conversations')}
+                </Text>
+                <Text style={{ fontSize: 36, fontWeight: '800', marginTop: 2, color: isDarkMode ? '#F9FAFB' : '#111' }}>
+                  {conversations?.length ?? 0}
+                </Text>
+              </View>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: isDarkMode ? 'rgba(213,80,4,0.2)' : 'rgba(213,80,4,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="chatbubbles" size={28} color="#D55004" />
+              </View>
             </View>
-            <Text
-              className={`text-sm ${
-                isDarkMode ? 'text-gray-400' : 'text-gray-600'
-              }`}
-            >
-              {conversations.filter(c => (c.seller_unread_count ?? 0) > 0).length}{' '}
-              {t('chat.unread', 'unread')}
-            </Text>
+
+            {/* Unread row */}
+            {conversations && conversations.length > 0 && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderTopWidth: 1,
+                borderTopColor: isDarkMode ? '#2A2A2A' : '#F3F4F6',
+                backgroundColor: hasUnread
+                  ? isDarkMode ? 'rgba(213,80,4,0.08)' : 'rgba(213,80,4,0.04)'
+                  : 'transparent',
+              }}>
+                <View style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: hasUnread
+                    ? isDarkMode ? 'rgba(213,80,4,0.25)' : 'rgba(213,80,4,0.12)'
+                    : isDarkMode ? '#2A2A2A' : '#F3F4F6',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 8,
+                }}>
+                  <Ionicons name="notifications" size={14} color={hasUnread ? '#D55004' : isDarkMode ? '#6B7280' : '#9CA3AF'} />
+                </View>
+                <Text style={{ fontSize: 13, fontWeight: hasUnread ? '600' : '400', color: hasUnread ? '#D55004' : isDarkMode ? '#6B7280' : '#9CA3AF' }}>
+                  {unreadCount} {t('chat.unread', 'unread')}
+                </Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
+        );
+      })()}
 
       {isLoading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
