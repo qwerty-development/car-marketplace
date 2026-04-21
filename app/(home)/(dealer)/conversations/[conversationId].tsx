@@ -9,7 +9,7 @@ import {
   type ScrollViewProps,
 } from 'react-native';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChatScrollView from '@/components/chat/ChatScrollView';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -38,6 +38,7 @@ export default function DealerConversationDetailScreen() {
 
   const { user, profile } = useAuth();
   const { isDarkMode } = useTheme();
+  const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
   const { t } = useTranslation();
@@ -317,7 +318,7 @@ export default function DealerConversationDetailScreen() {
               ) : null
             }
           />
-          <KeyboardStickyView>
+          <KeyboardStickyView offset={{ opened: bottom }}>
             <MessageComposer
               onSend={handleSendMessage}
               isSending={sendMessageMutation.isPending}
