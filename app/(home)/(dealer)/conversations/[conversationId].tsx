@@ -6,9 +6,11 @@ import {
   Text,
   View,
   TouchableOpacity,
+  type ScrollViewProps,
 } from 'react-native';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ChatScrollView from '@/components/chat/ChatScrollView';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
@@ -39,6 +41,11 @@ export default function DealerConversationDetailScreen() {
   const navigation = useNavigation();
   const listRef = useRef<FlatList>(null);
   const { t } = useTranslation();
+
+  const renderScrollComponent = useCallback(
+    (props: ScrollViewProps) => <ChatScrollView {...props} />,
+    [],
+  );
 
   const {
     data: conversation,
@@ -244,6 +251,7 @@ export default function DealerConversationDetailScreen() {
             inverted
             keyExtractor={(item) => item.id.toString()}
             keyboardShouldPersistTaps="handled"
+            renderScrollComponent={renderScrollComponent}
             style={{ flex: 1 }}
             contentContainerStyle={{
               paddingVertical: 16,
