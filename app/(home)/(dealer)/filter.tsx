@@ -633,6 +633,7 @@ const RangeSelector = memo(({
   isDarkMode,
   step = 1,
 }: RangeSelectorProps) => {
+  const { t } = useTranslation();
   // Separate local state for each field
   const [localMin, setLocalMin] = useState(value[0].toString());
   const [localMax, setLocalMax] = useState(value[1].toString());
@@ -723,7 +724,7 @@ const RangeSelector = memo(({
                 color: isDarkMode ? "#aaa" : "#555",
               }}
             >
-              Min {title}
+              {t('filters.min_label', 'Min')} {title}
             </Text>
             <TextInput
               value={localMin}
@@ -768,7 +769,7 @@ const RangeSelector = memo(({
                 color: isDarkMode ? "#aaa" : "#555",
               }}
             >
-              Max {title}
+              {t('filters.max_label', 'Max')} {title}
             </Text>
             <TextInput
               value={localMax}
@@ -1926,7 +1927,7 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
             fontSize: 16,
           }}
         >
-          Apply Filters {hasFiltersSelected ? `(${filterCount})` : ''}
+          {hasFiltersSelected ? t('filters.dealer.apply_with_count', 'Apply Filters ({{count}})', { count: filterCount }) : t('filters.dealer.apply', 'Apply Filters')}
         </Text>
       </TouchableOpacity>
     </View>

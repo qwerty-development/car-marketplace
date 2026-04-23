@@ -448,8 +448,7 @@ export default function MyListings() {
 										className={`ml-2 text-sm ${
 											isDarkMode ? 'text-white/60' : 'text-gray-600'
 										}`}>
-										Number Plate • Added{' '}
-										{new Date(item.created_at).toLocaleDateString()}
+										{t('listings.number_plate')} • {t('listings.added')} {new Date(item.created_at).toLocaleDateString()}
 									</Text>
 								</View>
 							</View>
@@ -547,19 +546,19 @@ export default function MyListings() {
 							<View className='px-5 py-4'>
 								<View className='flex-row justify-between'>
 									<SpecItem
-										title='Year'
+										title={t('common.year')}
 										icon='calendar-outline'
 										value={item.year}
 										isDarkMode={isDarkMode}
 									/>
 									<SpecItem
-										title='KM'
+										title={t('profile.inventory.km')}
 										icon='speedometer-outline'
 										value={formatMileage(item.mileage)}
 										isDarkMode={isDarkMode}
 									/>
 									<SpecItem
-										title='Trans'
+										title={t('profile.inventory.transmission')}
 										icon='cog-outline'
 										value={
 											item.transmission === 'Automatic'
@@ -571,7 +570,7 @@ export default function MyListings() {
 										isDarkMode={isDarkMode}
 									/>
 									<SpecItem
-										title='Condition'
+										title={t('profile.inventory.condition')}
 										icon='car-sport-outline'
 										value={item.condition}
 										isDarkMode={isDarkMode}
@@ -649,7 +648,7 @@ export default function MyListings() {
 							fontWeight: 'bold',
 							color: isDarkMode ? 'white' : 'black'
 						}}>
-						My Listings
+						{t('listings.my_listings')}
 					</Text>
 					<TouchableOpacity
 						onPress={() => {
@@ -668,7 +667,7 @@ export default function MyListings() {
 							alignItems: 'center'
 						}}>
 						<Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>
-							Add new +
+							{t('listings.add_new')}
 						</Text>
 					</TouchableOpacity>
 				</View>
@@ -693,7 +692,7 @@ export default function MyListings() {
 							<TextInput
 								value={searchQuery}
 								onChangeText={setSearchQuery}
-								placeholder='Search'
+								placeholder={t('common.search')}
 								placeholderTextColor={isDarkMode ? '#666' : '#999'}
 								style={{
 									flex: 1,
@@ -800,7 +799,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										marginBottom: 8
 									}}>
-									{searchQuery ? 'No results found' : 'No listings yet'}
+									{searchQuery ? t('listings.no_results_found') : t('listings.no_listings_yet')}
 								</Text>
 								<Text
 									style={{
@@ -809,9 +808,7 @@ export default function MyListings() {
 										textAlign: 'center',
 										paddingHorizontal: 32
 									}}>
-									{searchQuery
-										? 'Try adjusting your search'
-										: 'Tap the "Add new +" button to create your first listing'}
+									{searchQuery ? t('listings.try_adjusting_search') : t('listings.tap_to_add_hint')}
 								</Text>
 							</View>
 						}
@@ -899,10 +896,10 @@ export default function MyListings() {
 						<Ionicons name="phone-portrait-outline" size={28} color="#D55004" />
 					</View>
 					<Text style={{ fontSize: 18, fontWeight: '700', color: isDarkMode ? '#FFFFFF' : '#111827', marginBottom: 8, textAlign: 'center' }}>
-						Phone Verification Required
+						{t('listings.phone_verification_required')}
 					</Text>
 					<Text style={{ fontSize: 14, color: isDarkMode ? '#9CA3AF' : '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
-						You need a verified phone number to post car listings. This helps keep the marketplace safe and trustworthy.
+						{t('listings.phone_verification_message')}
 					</Text>
 					<TouchableOpacity
 						onPress={() => {
@@ -919,13 +916,13 @@ export default function MyListings() {
 							marginBottom: 12,
 						}}
 					>
-						<Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>Verify Now</Text>
+						<Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>{t('listings.verify_now')}</Text>
 					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={() => setShowPhoneRequiredModal(false)}
 						style={{ paddingVertical: 8 }}
 					>
-						<Text style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 15 }}>Maybe Later</Text>
+						<Text style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 15 }}>{t('listings.maybe_later')}</Text>
 					</TouchableOpacity>
 				</View>
 			</View>
@@ -978,7 +975,7 @@ export default function MyListings() {
 									marginBottom: 16,
 									color: isDarkMode ? 'white' : 'black'
 								}}>
-								Sort By
+								{t('listings.sort_by')}
 							</Text>
 
 							<TouchableOpacity
@@ -1003,7 +1000,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: sortOption === 'newest' ? 'bold' : 'normal'
 									}}>
-									Newest First
+									{t('listings.newest_first')}
 								</Text>
 							</TouchableOpacity>
 
@@ -1029,7 +1026,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: sortOption === 'price_low' ? 'bold' : 'normal'
 									}}>
-									Price: Low to High
+									{t('listings.price_low_to_high')}
 								</Text>
 							</TouchableOpacity>
 
@@ -1054,7 +1051,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: sortOption === 'price_high' ? 'bold' : 'normal'
 									}}>
-									Price: High to Low
+									{t('listings.price_high_to_low')}
 								</Text>
 							</TouchableOpacity>
 						</TouchableOpacity>
@@ -1097,7 +1094,7 @@ export default function MyListings() {
 									marginBottom: 16,
 									color: isDarkMode ? 'white' : 'black'
 								}}>
-								Filter By Type
+								{t('listings.filter_by_type')}
 							</Text>
 
 							<TouchableOpacity
@@ -1130,7 +1127,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: filterType === 'all' ? 'bold' : 'normal'
 									}}>
-									All Listings
+									{t('listings.all_listings')}
 								</Text>
 							</TouchableOpacity>
 
@@ -1164,7 +1161,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: filterType === 'vehicle' ? 'bold' : 'normal'
 									}}>
-									Vehicles Only
+									{t('listings.vehicles_only')}
 								</Text>
 							</TouchableOpacity>
 
@@ -1197,7 +1194,7 @@ export default function MyListings() {
 										color: isDarkMode ? 'white' : 'black',
 										fontWeight: filterType === 'plate' ? 'bold' : 'normal'
 									}}>
-									Number Plates Only
+									{t('listings.number_plates_only')}
 								</Text>
 							</TouchableOpacity>
 						</TouchableOpacity>

@@ -8,6 +8,7 @@ import {
 import { ConversationSummary } from '@/types/chat';
 import { useUserName } from '@/hooks/useUserName';
 import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import CachedImage from '@/utils/CachedImage';
 import { LicensePlateTemplate } from '@/components/NumberPlateCard';
 
@@ -53,7 +54,7 @@ function formatTimestamp(timestamp?: string | null) {
     date.getFullYear() === yesterday.getFullYear();
 
   if (isYesterday) {
-    return 'Yesterday';
+    return i18next.t('chat.yesterday', 'Yesterday');
   }
 
   return date.toLocaleDateString(undefined, {
@@ -69,19 +70,19 @@ function getStatusLabel(conversation: ConversationSummary): { label: string; col
   // Default to Inquiry for active conversations
   if (carInfo) {
     const status = carInfo.status;
-    if (status === 'sold') return { label: 'Sold', color: STATUS_COLORS.sold };
-    if (status === 'deleted') return { label: 'Deleted', color: STATUS_COLORS.deleted };
-    return { label: 'Inquiry', color: STATUS_COLORS.inquiry };
+    if (status === 'sold') return { label: i18next.t('chat.sold_status', 'Sold'), color: STATUS_COLORS.sold };
+    if (status === 'deleted') return { label: i18next.t('chat.deleted', 'Deleted'), color: STATUS_COLORS.deleted };
+    return { label: i18next.t('chat.inquiry', 'Inquiry'), color: STATUS_COLORS.inquiry };
   }
 
   if (plateInfo) {
     const status = plateInfo.status;
-    if (status === 'sold') return { label: 'Sold', color: STATUS_COLORS.sold };
-    if (status === 'deleted') return { label: 'Deleted', color: STATUS_COLORS.deleted };
-    return { label: 'Inquiry', color: STATUS_COLORS.inquiry };
+    if (status === 'sold') return { label: i18next.t('chat.sold_status', 'Sold'), color: STATUS_COLORS.sold };
+    if (status === 'deleted') return { label: i18next.t('chat.deleted', 'Deleted'), color: STATUS_COLORS.deleted };
+    return { label: i18next.t('chat.inquiry', 'Inquiry'), color: STATUS_COLORS.inquiry };
   }
 
-  return { label: 'Inquiry', color: STATUS_COLORS.inquiry };
+  return { label: i18next.t('chat.inquiry', 'Inquiry'), color: STATUS_COLORS.inquiry };
 }
 
 function getProductImage(conversation: ConversationSummary): string | null {
@@ -113,10 +114,10 @@ function getDisplayInfo(
   // Determine listing label
   let listingLabel = '';
   if (carInfo) {
-    listingLabel = `${carInfo.make} ${carInfo.model} (${carInfo.year})${conversation.carRent ? ' • For Rent' : ''
-      }${isDeleted ? ' • (Deleted)' : ''}`;
+    listingLabel = `${carInfo.make} ${carInfo.model} (${carInfo.year})${conversation.carRent ? ' • ' + i18next.t('chat.for_rent', 'For Rent') : ''
+      }${isDeleted ? ' • (' + i18next.t('chat.deleted', 'Deleted') + ')' : ''}`;
   } else if (plateInfo) {
-    listingLabel = `Plate: ${plateInfo.letter} ${plateInfo.digits}${isDeleted ? ' • (Deleted)' : ''}`;
+    listingLabel = `${i18next.t('chat.plate_label', 'Plate')}: ${plateInfo.letter} ${plateInfo.digits}${isDeleted ? ' • (' + i18next.t('chat.deleted', 'Deleted') + ')' : ''}`;
   }
 
   if (viewerRole === 'user') {
@@ -125,7 +126,7 @@ function getDisplayInfo(
       const sellerUser = conversation.seller_user;
       const emailUsername = sellerUser?.email?.split('@')[0];
       const resolvedName = sellerUser?.name || emailUsername;
-      const fallbackLabel = resolvedName ?? 'Seller';
+      const fallbackLabel = resolvedName ?? i18next.t('chat.seller', 'Seller');
 
       return {
         title: fallbackLabel,
@@ -142,7 +143,7 @@ function getDisplayInfo(
     // For user_dealer conversations, show the dealer
     const dealer = conversation.dealership;
     return {
-      title: dealer?.name ?? 'Dealer',
+      title: dealer?.name ?? i18next.t('chat.dealer', 'Dealer'),
       subtitle: listingLabel || dealer?.location || dealer?.phone || '',
       avatarUrl: dealer?.logo ?? null,
       fallbackLetter: dealer?.name?.[0]?.toUpperCase() ?? 'D',
@@ -160,7 +161,7 @@ function getDisplayInfo(
   const idSnippet = conversation.user_id
     ? conversation.user_id.slice(0, 8)
     : 'Customer';
-  const fallbackLabel = resolvedName ?? idSnippet ?? 'Customer';
+  const fallbackLabel = resolvedName ?? idSnippet ?? i18next.t('chat.customer', 'Customer');
 
   return {
     title: fallbackLabel,
@@ -216,7 +217,7 @@ export default function ConversationListItem({
   const rawPreview = conversation.last_message_preview;
   const preview = rawPreview
     ? isMine
-      ? `You: ${rawPreview}`
+      ? `${t('chat.you', 'You')}: ${rawPreview}`
       : `${info.title}: ${rawPreview}`
     : t('chat.no_messages_yet', 'No messages yet');
 
@@ -259,7 +260,7 @@ export default function ConversationListItem({
           </View>
         ) : (
           <View style={[styles.productImage, styles.productImagePlaceholder]}>
-            <Text style={styles.placeholderText}>No Image</Text>
+            <Text style={styles.placeholderText}>{t('chat.no_image', 'No Image')}</Text>
           </View>
         )}
 

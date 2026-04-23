@@ -3,6 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ConversationSummary } from '@/types/chat';
 import { useTheme } from '@/utils/ThemeContext';
 import CachedImage from '@/utils/CachedImage';
@@ -25,6 +26,7 @@ export default function ConversationCarHeader({
 }: ConversationCarHeaderProps) {
   const { isDarkMode } = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const carData = conversation.car || conversation.carRent;
   const isRental = !!conversation.carRent;
@@ -67,7 +69,7 @@ export default function ConversationCarHeader({
   const price = isRental
     ? (carData as any).price
     : (carData as any).price;
-  const priceLabel = isRental ? 'per day' : '';
+  const priceLabel = isRental ? t('chat.per_day', '/ day') : '';
 
   return (
     <StyledPressable
@@ -123,7 +125,7 @@ export default function ConversationCarHeader({
             {isRental && (
               <StyledView className="bg-orange-500 px-2 py-1 rounded ml-2">
                 <StyledText className="text-xs font-semibold text-white">
-                  For Rent
+                  {t('chat.for_rent', 'For Rent')}
                 </StyledText>
               </StyledView>
             )}
@@ -165,8 +167,13 @@ export default function ConversationCarHeader({
                     : 'text-orange-600'
                 }`}
               >
-                {(carData as any).status.charAt(0).toUpperCase() +
-                  (carData as any).status.slice(1)}
+                {(carData as any).status === 'available'
+                  ? t('chat.available', 'Available')
+                  : (carData as any).status === 'sold'
+                  ? t('chat.sold_status', 'Sold')
+                  : (carData as any).status === 'rented'
+                  ? t('chat.status_rented', 'Rented')
+                  : t('chat.status_pending', 'Pending')}
               </StyledText>
             </StyledView>
           )}
@@ -183,7 +190,7 @@ export default function ConversationCarHeader({
                   (carData as any).status === 'available' ? 'text-green-600' : 'text-red-600'
                 }`}
               >
-                {(carData as any).status === 'available' ? 'Available' : 'Unavailable'}
+                {(carData as any).status === 'available' ? t('chat.available', 'Available') : t('chat.unavailable', 'Unavailable')}
               </StyledText>
             </StyledView>
           )}

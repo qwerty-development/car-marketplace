@@ -70,6 +70,7 @@ export const LicensePlateTemplate = ({ letter, digits, width }: { letter: string
         backgroundColor: '#FFFFFF',
         borderRadius: 12,
         flexDirection: 'row',
+        direction: 'ltr',
         overflow: 'hidden',
         borderWidth: 3,
         borderColor: '#1a1a1a',

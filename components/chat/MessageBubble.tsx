@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { ChatMessage } from '@/types/chat';
 
 interface MessageBubbleProps {
@@ -24,6 +25,7 @@ export default function MessageBubble({
   isDarkMode = false,
   onPressAttachment,
 }: MessageBubbleProps) {
+  const { t } = useTranslation();
   const hasAttachment = !!message.media_url;
 
   return (
@@ -85,7 +87,7 @@ export default function MessageBubble({
               ]}
               numberOfLines={1}
             >
-              {message.media_url?.split('/').pop() ?? 'Attachment'}
+              {message.media_url?.split('/').pop() ?? t('chat.attachment', 'Attachment')}
             </Text>
           </TouchableOpacity>
         ) : null}

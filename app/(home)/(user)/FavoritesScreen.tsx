@@ -246,7 +246,7 @@ export default function Favorite() {
 
     } catch (error) {
       console.error('Error fetching favorite cars:', error)
-      setError(t('favorites.failed_fetch_favorites'))
+      setError(t('autoclips.favorites.failed_fetch_favorites'))
       setCanCompare(false)
     } finally {
       if (firstLoad) setIsLoading(false)
@@ -427,14 +427,14 @@ export default function Favorite() {
           {searchQuery
             ? t('search.no_results', 'No results found')
             : favorites.length > 0
-            ? t('favorites.all_favorite_cars_sold', 'All your favorite cars have been sold')
-            : t('favorites.no_cars_added_favorite', 'No cars added as favorite')}
+            ? t('autoclips.favorites.all_favorite_cars_sold', 'All your favorite cars have been sold')
+            : t('autoclips.favorites.no_cars_added_favorite', 'No cars added as favorite')}
         </Text>
         {!searchQuery && (
           <Text style={styles.emptySubText}>
             {favorites.length > 0
-              ? t('favorites.sold_favorites_removed', 'Sold favorites are automatically removed after 15 days')
-              : t('favorites.favorite_cars_will_appear', 'Your favorite cars will appear here')}
+              ? t('autoclips.favorites.sold_favorites_removed', 'Sold favorites are automatically removed after 15 days')
+              : t('autoclips.favorites.favorite_cars_will_appear', 'Your favorite cars will appear here')}
           </Text>
         )}
       </View>
@@ -447,7 +447,7 @@ export default function Favorite() {
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
         <Text style={styles.errorSubText}>
-          {t('favorites.pull_down_refresh')}
+          {t('autoclips.favorites.pull_down_refresh')}
         </Text>
       </View>
     ),
@@ -578,12 +578,12 @@ export default function Favorite() {
               color="#ffffff"
               style={guestStyles.icon}
             />
-            <Text style={guestStyles.title}>{t('favorites.browsing_as_guest')}</Text>
+            <Text style={guestStyles.title}>{t('autoclips.favorites.browsing_as_guest')}</Text>
             <Text style={guestStyles.subtitle}>
-              {t('favorites.sign_in_access_feature')}
+              {t('autoclips.favorites.sign_in_access_feature')}
             </Text>
             <TouchableOpacity style={guestStyles.signInButton} onPress={handleSignIn}>
-              <Text style={guestStyles.signInButtonText}>{t('favorites.sign_in')}</Text>
+              <Text style={guestStyles.signInButtonText}>{t('autoclips.favorites.sign_in')}</Text>
             </TouchableOpacity>
           </View>
         </View>

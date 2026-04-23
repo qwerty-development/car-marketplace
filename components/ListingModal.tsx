@@ -278,7 +278,7 @@ export const BrandSelector = memo(
               isDarkMode ? "text-white" : "text-black"
             }`}
           >
-            {brands.length} Brands Available
+            {t('listings.brands_available', { count: brands.length })}
           </Text>
           <TouchableOpacity
             onPress={() => {

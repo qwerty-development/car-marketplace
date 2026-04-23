@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styled } from 'nativewind';
+import { useTranslation } from 'react-i18next';
 import { ConversationSummary } from '@/types/chat';
 import { useTheme } from '@/utils/ThemeContext';
 import { LicensePlateTemplate } from '@/components/NumberPlateCard';
@@ -20,6 +21,7 @@ export default function ConversationPlateHeader({
   isDealer = false,
 }: ConversationPlateHeaderProps) {
   const { isDarkMode } = useTheme();
+  const { t } = useTranslation();
 
   const plateData = conversation.numberPlate;
 
@@ -27,7 +29,11 @@ export default function ConversationPlateHeader({
 
 
   const statusColor = plateData.status === 'available' ? '#16A34A' : '#DC2626';
-  const statusText = plateData.status === 'available' ? 'Available' : plateData.status === 'sold' ? 'Sold' : plateData.status;
+  const statusText = plateData.status === 'available'
+    ? t('chat.available', 'Available')
+    : plateData.status === 'sold'
+    ? t('chat.sold_status', 'Sold')
+    : plateData.status;
 
   return (
     <StyledView
@@ -64,7 +70,7 @@ export default function ConversationPlateHeader({
               className="text-sm ml-1 font-medium"
               style={{ color: statusColor }}
             >
-              {statusText.charAt(0).toUpperCase() + statusText.slice(1)}
+              {statusText}
             </StyledText>
           </StyledView>
         </StyledView>

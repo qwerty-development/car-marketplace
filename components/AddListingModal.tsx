@@ -12,6 +12,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 export type ListingType = 'vehicle' | 'plate';
 export type VehicleSubcategory = 'car' | 'bike' | 'truck';
@@ -29,6 +30,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
 }) => {
   const { isDarkMode } = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const [selectedTab, setSelectedTab] = useState<ListingType>('vehicle');
   const [selectedSubcategory, setSelectedSubcategory] = useState<VehicleSubcategory>('car');
 
@@ -90,7 +92,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                   isDarkMode ? styles.titleDark : styles.titleLight
                 ]}
               >
-                Add New Listing
+                {t('add_listing.title')}
               </Text>
               <TouchableOpacity
                 style={styles.closeButton}
@@ -129,7 +131,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                     isDarkMode && selectedTab !== 'vehicle' && styles.tabTextDark
                   ]}
                 >
-                  Vehicle
+                  {t('add_listing.vehicle')}
                 </Text>
               </TouchableOpacity>
 
@@ -155,7 +157,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                     isDarkMode && selectedTab !== 'plate' && styles.tabTextDark
                   ]}
                 >
-                  License Plate
+                  {t('add_listing.license_plate')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -188,7 +190,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                           selectedSubcategory === 'car' && styles.pillTextActive
                         ]}
                       >
-                        Car
+                        {t('add_listing.car')}
                       </Text>
                     </TouchableOpacity>
 
@@ -212,7 +214,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                           selectedSubcategory === 'bike' && styles.pillTextActive
                         ]}
                       >
-                        Bike
+                        {t('add_listing.bike')}
                       </Text>
                     </TouchableOpacity>
 
@@ -236,7 +238,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                           selectedSubcategory === 'truck' && styles.pillTextActive
                         ]}
                       >
-                        Truck
+                        {t('add_listing.truck')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -250,7 +252,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                       color={isDarkMode ? '#666' : '#999'} 
                     />
                     <Text style={[styles.uploadText, isDarkMode && styles.uploadTextDark]}>
-                      Create your license plate listing
+                      {t('add_listing.create_plate_listing')}
                     </Text>
                   </View>
                 </View>
@@ -265,7 +267,7 @@ const AddListingModal: React.FC<AddListingModalProps> = ({
                 activeOpacity={0.8}
               >
                 <Text style={styles.publishButtonText}>
-                  {selectedTab === 'vehicle' ? 'Continue to Add Vehicle' : 'Continue to Add Plate'}
+                  {selectedTab === 'vehicle' ? t('add_listing.continue_vehicle') : t('add_listing.continue_plate')}
                 </Text>
               </TouchableOpacity>
             </View>

@@ -79,7 +79,7 @@ export default function NumberPlatesManager() {
       }
     } catch (error) {
       console.error('Error loading plate:', error)
-      Alert.alert('Error', 'Failed to load plate data')
+      Alert.alert(t('common.error'), t('plates.error_load_plate'))
     } finally {
       setIsLoading(false)
     }
@@ -101,7 +101,7 @@ export default function NumberPlatesManager() {
       setNumberPlates(data || [])
     } catch (error) {
       console.error('Error fetching number plates:', error)
-      Alert.alert('Error', 'Failed to load number plates')
+      Alert.alert(t('common.error'), t('plates.error_load'))
     } finally {
       setIsLoading(false)
     }
@@ -112,8 +112,8 @@ export default function NumberPlatesManager() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (status !== 'granted') {
         Alert.alert(
-          'Permission Denied',
-          'Sorry, we need camera roll permissions to upload plate pictures!'
+          t('permissions.denied'),
+          t('plates.permission_camera_roll')
         )
         return
       }
@@ -141,7 +141,7 @@ export default function NumberPlatesManager() {
       }
     } catch (error) {
       console.error('Error picking image:', error)
-      Alert.alert('Error', 'Failed to pick image. Please try again.')
+      Alert.alert(t('common.error'), t('plates.error_pick_image'))
     } finally {
       setIsUploading(false)
     }
@@ -149,7 +149,7 @@ export default function NumberPlatesManager() {
 
   const uploadImageToStorage = async (imageUri: string): Promise<string | null> => {
     if (!user?.id) {
-      Alert.alert('Error', 'User ID not found')
+      Alert.alert(t('common.error'), t('plates.error_user_id'))
       return null
     }
 
@@ -208,7 +208,7 @@ export default function NumberPlatesManager() {
       return publicURLData.publicUrl
     } catch (error) {
       console.error('Error uploading image:', error)
-      Alert.alert('Error', 'Failed to upload image. Please try again.')
+      Alert.alert(t('common.error'), t('plates.error_upload'))
       return null
     }
   }
@@ -216,15 +216,15 @@ export default function NumberPlatesManager() {
   const handleSave = async () => {
     // Validation
     if (!formData.letter.trim()) {
-      Alert.alert('Validation Error', 'Please enter the letter part of the plate')
+      Alert.alert(t('car.validation_error'), t('plates.validation_letter'))
       return
     }
     if (!formData.digits.trim()) {
-      Alert.alert('Validation Error', 'Please enter the digits part of the plate')
+      Alert.alert(t('car.validation_error'), t('plates.validation_digits'))
       return
     }
     if (!formData.price || parseFloat(formData.price) <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid price')
+      Alert.alert(t('car.validation_error'), t('plates.validation_price'))
       return
     }
     // Picture is now optional - plate template will always be shown
@@ -245,11 +245,10 @@ export default function NumberPlatesManager() {
 
         if (error) throw error
 
-        Alert.alert('Success', 'Number plate updated successfully!', [
+        Alert.alert(t('common.success'), t('plates.success_updated'), [
           {
-            text: 'OK',
+            text: t('common.ok'),
             onPress: () => {
-              // Navigate back to MyListings
               router.back()
             }
           }
@@ -269,11 +268,10 @@ export default function NumberPlatesManager() {
 
         if (error) throw error
 
-        Alert.alert('Success', 'Number plate added successfully!', [
+        Alert.alert(t('common.success'), t('plates.success_added'), [
           {
-            text: 'OK',
+            text: t('common.ok'),
             onPress: () => {
-              // Navigate back to MyListings
               router.back()
             }
           }
@@ -292,7 +290,7 @@ export default function NumberPlatesManager() {
       }
     } catch (error) {
       console.error('Error saving number plate:', error)
-      Alert.alert('Error', 'Failed to save number plate. Please try again.')
+      Alert.alert(t('common.error'), t('plates.error_save'))
     } finally {
       setIsSaving(false)
     }
@@ -316,16 +314,15 @@ export default function NumberPlatesManager() {
 
   const handleDelete = async (plateId: number, pictureUrl: string) => {
     Alert.alert(
-      'Delete Plate',
-      'Are you sure you want to delete this number plate? It will be hidden from all users but conversations will be preserved.',
+      t('plates.delete_plate'),
+      t('plates.delete_confirmation'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
-              // Soft delete: update status to 'deleted' instead of hard delete
               const { error: dbError } = await supabase
                 .from('number_plates')
                 .update({ status: 'deleted' })
@@ -333,11 +330,11 @@ export default function NumberPlatesManager() {
 
               if (dbError) throw dbError
 
-              Alert.alert('Success', 'Number plate deleted successfully')
+              Alert.alert(t('common.success'), t('plates.success_deleted'))
               fetchNumberPlates()
             } catch (error) {
               console.error('Error deleting plate:', error)
-              Alert.alert('Error', 'Failed to delete number plate')
+              Alert.alert(t('common.error'), t('plates.error_delete'))
             }
           }
         }
@@ -364,7 +361,7 @@ export default function NumberPlatesManager() {
             />
           </TouchableOpacity>
           <Text className="text-white text-2xl font-bold flex-1">
-            {isEditMode ? 'Edit Number Plate' : 'Number Plates Manager'}
+            {isEditMode ? t('plates.edit_title') : t('plates.manager_title')}
           </Text>
         </View>
       </LinearGradient>
@@ -373,7 +370,7 @@ export default function NumberPlatesManager() {
         {/* Add/Edit Plate Section */}
         <View className={`${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} p-4 rounded-2xl mb-6`}>
           <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'} mb-4`}>
-            {isEditMode ? 'Edit Plate Details' : 'Add New Plate'}
+            {isEditMode ? t('plates.edit_details') : t('plates.add_new_plate')}
           </Text>
 
           {/* Live Plate Preview */}
@@ -389,7 +386,7 @@ export default function NumberPlatesManager() {
             }}
           >
             <Text className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-              Plate Preview
+              {t('plates.plate_preview')}
             </Text>
             <LicensePlateTemplate
               letter={formData.letter || 'B'}
@@ -401,59 +398,57 @@ export default function NumberPlatesManager() {
           {/* Letter Input */}
           <View className="mb-4">
             <Text className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
-              Letter
+              {t('plates.letter')}
             </Text>
             <TextInput
               value={formData.letter}
               onChangeText={(text) => {
-                // Only allow valid Lebanese plate letters: A, B, G, S, T, Z, M, Y, O, N, P
                 const validLetters = ['A', 'B', 'G', 'S', 'T', 'Z', 'M', 'Y', 'O', 'N', 'P']
                 const filtered = text.toUpperCase().split('').filter(char => validLetters.includes(char)).join('')
                 setFormData(prev => ({ ...prev, letter: filtered }))
               }}
-              placeholder="A, B, G, S, T, Z, M, Y, O, N, P"
+              placeholder={t('plates.letter_placeholder')}
               placeholderTextColor={isDarkMode ? '#666' : '#999'}
               className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-white text-black'} p-4 rounded-xl`}
               maxLength={1}
               autoCapitalize="characters"
             />
             <Text className={`text-xs mt-1 ${isDarkMode ? 'text-white/40' : 'text-gray-400'}`}>
-              Valid letters: A, B, G, S, T, Z, M, Y, O, N, P (P = Public/Red)
+              {t('plates.valid_letters')}
             </Text>
           </View>
 
           {/* Digits Input */}
           <View className="mb-4">
             <Text className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
-              Digits
+              {t('plates.digits')}
             </Text>
             <TextInput
               value={formData.digits}
               onChangeText={(text) => {
-                // Only allow numbers, max 7 digits
                 const filtered = text.replace(/[^0-9]/g, '')
                 setFormData(prev => ({ ...prev, digits: filtered }))
               }}
-              placeholder="e.g. 12345"
+              placeholder={t('plates.digits_placeholder')}
               placeholderTextColor={isDarkMode ? '#666' : '#999'}
               className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-white text-black'} p-4 rounded-xl`}
               keyboardType="numeric"
               maxLength={7}
             />
             <Text className={`text-xs mt-1 ${isDarkMode ? 'text-white/40' : 'text-gray-400'}`}>
-              Maximum 7 digits
+              {t('plates.max_digits')}
             </Text>
           </View>
 
           {/* Price Input */}
           <View className="mb-4">
             <Text className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
-              Price (USD)
+              {t('plates.price_usd')}
             </Text>
             <TextInput
               value={formData.price}
               onChangeText={(text) => setFormData(prev => ({ ...prev, price: text }))}
-              placeholder="Enter price"
+              placeholder={t('plates.enter_price')}
               placeholderTextColor={isDarkMode ? '#666' : '#999'}
               className={`${isDarkMode ? 'bg-neutral-800 text-white' : 'bg-white text-black'} p-4 rounded-xl`}
               keyboardType="decimal-pad"
@@ -471,7 +466,7 @@ export default function NumberPlatesManager() {
               <ActivityIndicator color="white" />
             ) : (
               <Text className="text-white font-bold text-lg">
-                {isEditMode ? 'Update Plate' : 'Add Plate'}
+                {isEditMode ? t('plates.update_plate') : t('plates.add_plate')}
               </Text>
             )}
           </TouchableOpacity>
@@ -486,7 +481,7 @@ export default function NumberPlatesManager() {
             >
               <Ionicons name="trash-outline" size={20} color="#EF4444" />
               <Text className="ml-2 font-bold text-lg" style={{ color: '#EF4444' }}>
-                Delete Plate
+                {t('plates.delete_plate')}
               </Text>
             </TouchableOpacity>
           )}
@@ -496,7 +491,7 @@ export default function NumberPlatesManager() {
         {!isEditMode && (
           <View className="mb-6">
           <Text className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-black'} mb-4`}>
-            Your Number Plates
+            {t('plates.your_plates')}
           </Text>
 
           {isLoading ? (
@@ -505,7 +500,7 @@ export default function NumberPlatesManager() {
             <View className={`${isDarkMode ? 'bg-neutral-900' : 'bg-gray-50'} p-8 rounded-2xl items-center`}>
               <Ionicons name="document-text-outline" size={64} color={isDarkMode ? '#666' : '#999'} />
               <Text className={`mt-4 ${isDarkMode ? 'text-white/60' : 'text-gray-600'} text-center`}>
-                No number plates added yet
+                {t('plates.no_plates_yet')}
               </Text>
             </View>
           ) : (
@@ -542,7 +537,7 @@ export default function NumberPlatesManager() {
                         ${parseFloat(plate.price).toLocaleString()}
                       </Text>
                       <Text className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-400'} mt-2`}>
-                        Added {new Date(plate.created_at).toLocaleDateString()}
+                        {t('plates.added_date')} {new Date(plate.created_at).toLocaleDateString()}
                       </Text>
                     </View>
                     <TouchableOpacity

@@ -68,11 +68,12 @@ const CategorySelector: React.FC<CategoryProps & { mode: ViewMode }> = ({
 	isDarkMode,
 	mode
 }) => {
+	const { t } = useTranslation()
 	const allCategories: { id: Category; label: string; icon: any }[] = [
-		{ id: 'cars', label: 'Cars', icon: 'car-sport' },
-		{ id: 'bikes', label: 'Bikes', icon: 'bicycle' },
-		{ id: 'trucks', label: 'Trucks', icon: 'bus' },
-		{ id: 'plates', label: 'Number Plates', icon: 'card' },
+		{ id: 'cars', label: t('home.categories.cars'), icon: 'car-sport' },
+		{ id: 'bikes', label: t('home.categories.bikes'), icon: 'bicycle' },
+		{ id: 'trucks', label: t('home.categories.trucks'), icon: 'bus' },
+		{ id: 'plates', label: t('home.categories.plates'), icon: 'card' },
 	]
 
 	// Do not show the 'plates' category when in rent mode (can't rent number plates)
@@ -1534,8 +1535,10 @@ export default function DealerListings() {
 const ListingCard = useMemo(
   () =>
     React.memo(({ item }: { item: CarListing }) => {
+      const { t: tCard } = useTranslation();
       const subscriptionValid = isSubscriptionValid();
       const statusConfig = getStatusConfig(item.status);
+      const statusLabel = tCard(`profile.inventory.${item.status}`, item.status);
 
       // Direct navigation handler with subscription validation
       const handleCardPress = () => {
@@ -1601,7 +1604,7 @@ const ListingCard = useMemo(
                       className='w-1.5 h-1.5 rounded-full mr-2'
                     />
                     <Text className='text-white text-[10px] font-bold uppercase tracking-wider'>
-                      {item.status.toUpperCase()}
+                      {statusLabel.toUpperCase()}
                     </Text>
                   </View>
                 </View>
@@ -1855,12 +1858,12 @@ const ListingCard = useMemo(
 					}
 					
 					Alert.alert(
-						'Mark as Sold',
-						'Are you sure you want to mark this number plate as sold?',
+						t('profile.inventory.mark_as_sold'),
+						t('plates.mark_sold_confirmation'),
 						[
-							{ text: 'Cancel', style: 'cancel' },
+							{ text: t('common.cancel'), style: 'cancel' },
 							{
-								text: 'Mark as Sold',
+								text: t('profile.inventory.mark_as_sold'),
 								onPress: async () => {
 									try {
 										const { error } = await supabase
@@ -1874,10 +1877,10 @@ const ListingCard = useMemo(
 										setPlates(prev => prev.map(p => 
 											p.id === item.id ? { ...p, status: 'sold' } : p
 										));
-										Alert.alert('Success', 'Number plate marked as sold');
+										Alert.alert(t('common.success'), t('plates.success_marked_sold'));
 									} catch (error) {
 										console.error('Error marking plate as sold:', error);
-										Alert.alert('Error', 'Failed to update plate status');
+										Alert.alert(t('common.error'), t('plates.error_update_status'));
 									}
 								}
 							}
@@ -1895,12 +1898,12 @@ const ListingCard = useMemo(
 					}
 					
 					Alert.alert(
-						'Mark as Available',
-						'Are you sure you want to mark this number plate as available again?',
+						t('car.mark_as_available'),
+						t('plates.mark_available_confirmation'),
 						[
-							{ text: 'Cancel', style: 'cancel' },
+							{ text: t('common.cancel'), style: 'cancel' },
 							{
-								text: 'Mark as Available',
+								text: t('car.mark_as_available'),
 								onPress: async () => {
 									try {
 										const { error } = await supabase
@@ -1914,10 +1917,10 @@ const ListingCard = useMemo(
 										setPlates(prev => prev.map(p => 
 											p.id === item.id ? { ...p, status: 'available' } : p
 										));
-										Alert.alert('Success', 'Number plate marked as available');
+										Alert.alert(t('common.success'), t('plates.success_marked_available'));
 									} catch (error) {
 										console.error('Error marking plate as available:', error);
-										Alert.alert('Error', 'Failed to update plate status');
+										Alert.alert(t('common.error'), t('plates.error_update_status'));
 									}
 								}
 							}
@@ -1953,7 +1956,7 @@ const ListingCard = useMemo(
 										className='w-1.5 h-1.5 rounded-full mr-2'
 									/>
 									<Text className='text-white text-[10px] font-bold uppercase tracking-wider'>
-										{(item.status || 'available').toUpperCase()}
+										{t(`profile.inventory.${item.status || 'available'}`, item.status || 'available').toUpperCase()}
 									</Text>
 								</View>
 							</View>
@@ -2005,7 +2008,7 @@ const ListingCard = useMemo(
 									>
 										<Ionicons name="refresh-outline" size={20} color={isDarkMode ? '#4ade80' : '#16a34a'} />
 										<Text className={`font-bold ml-2 text-base ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}>
-											Relist
+											{t('plates.relist')}
 										</Text>
 									</TouchableOpacity>
 								) : (
@@ -2017,7 +2020,7 @@ const ListingCard = useMemo(
 									>
 										<Ionicons name="checkmark-circle-outline" size={20} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
 										<Text className={`font-bold ml-2 text-base ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
-											Mark Sold
+											{t('plates.mark_sold')}
 										</Text>
 									</TouchableOpacity>
 								)}

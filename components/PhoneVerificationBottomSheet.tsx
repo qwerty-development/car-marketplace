@@ -180,39 +180,37 @@ export default function PhoneVerificationBottomSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', direction: 'ltr' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Backdrop — tapping outside dismisses */}
         <TouchableWithoutFeedback onPress={onClose}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+          <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} />
         </TouchableWithoutFeedback>
 
-        {/* Sheet */}
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          scrollEnabled={false}
+        {/* Popup */}
+        <View
           style={{
             backgroundColor: bg,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            flexGrow: 0,
+            borderRadius: 24,
+            marginHorizontal: 16,
+            maxHeight: '80%',
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 10,
+            elevation: 5,
           }}
-          contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
         >
-                {/* Handle bar */}
-                <View style={{
-                  width: 40,
-                  height: 4,
-                  backgroundColor: borderColor,
-                  borderRadius: 2,
-                  alignSelf: 'center',
-                  marginBottom: 20,
-                }} />
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            scrollEnabled={true}
+            contentContainerStyle={{ padding: 24, paddingBottom: 24 }}
+          >
 
                 {/* Header */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -357,8 +355,7 @@ export default function PhoneVerificationBottomSheet({
                     </TouchableOpacity>
                   </>
                 )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </ScrollView>        </View>      </KeyboardAvoidingView>
     </Modal>
   );
 }

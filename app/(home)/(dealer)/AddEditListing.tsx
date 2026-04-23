@@ -202,8 +202,8 @@ const SoldModal = memo(({
     if (viewMode !== 'rent') {
       if (!localPrice || !localBuyerName || !localDate) {
         Alert.alert(
-          "Validation Error",
-          "Please fill in all the required fields."
+          t('car.validation_error'),
+          t('car.fill_all_required_fields')
         );
         return;
       }
@@ -1916,13 +1916,13 @@ features
       if (!isUserMode) {
         if (!dealership || !isSubscriptionValid()) {
           setShowSoldModal(false);
-          Alert.alert("Subscription Error", "Your subscription is not valid.");
+          Alert.alert(t('car.subscription_error'), t('car.subscription_not_valid'));
           return;
         }
       } else {
         if (!params.userId) {
           setShowSoldModal(false);
-          Alert.alert("Error", "User authentication required");
+          Alert.alert(t('common.error'), t('car.user_auth_required'));
           return;
         }
       }
@@ -1932,8 +1932,8 @@ features
       if (viewMode !== 'rent') {
         if (!soldData.price || !soldData.date || !soldData.buyer_name) {
           Alert.alert(
-            "Validation Error",
-            "Please fill in all the required fields."
+            t('car.validation_error'),
+            t('car.fill_all_required_fields')
           );
           return;
         }
@@ -1972,11 +1972,11 @@ features
         if (error) throw error;
 
         setShowSoldModal(false);
-        const successMessage = viewMode === 'rent' 
-          ? 'Listing marked as rented successfully' 
-          : 'Listing marked as sold successfully';
-        Alert.alert("Success", successMessage, [
-          { text: "OK", onPress: () => router.back() },
+        const successMessage = viewMode === 'rent'
+          ? t('car.listing_marked_rented_successfully')
+          : t('car.listing_marked_sold_successfully');
+        Alert.alert(t('common.success'), successMessage, [
+          { text: t('common.ok', 'OK'), onPress: () => router.back() },
         ]);
       } catch (error) {
         console.error("Error marking as sold:", error);
@@ -2005,8 +2005,8 @@ features
         });
         
         Alert.alert(
-          "Error",
-          "Failed to mark listing as sold. Please try again."
+          t('common.error'),
+          t('car.failed_to_mark_sold')
         );
       } finally {
         setIsLoading(false);
@@ -2784,8 +2784,8 @@ features
             >
               <Text className="text-white font-medium">
                 {viewMode === 'rent'
-                  ? (initialData?.status === "rented" ? "Mark as Available" : "Mark as Rented")
-                  : (initialData?.status === "sold" ? "Sold" : "Mark as Sold")
+                  ? (initialData?.status === "rented" ? t('car.mark_as_available', 'Mark as Available') : t('car.mark_as_rented', 'Mark as Rented'))
+                  : (initialData?.status === "sold" ? t('profile.inventory.sold') : t('car.mark_as_sold'))
                 }
               </Text>
             </TouchableOpacity>
