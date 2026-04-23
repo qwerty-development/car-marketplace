@@ -34,7 +34,6 @@ import { I18nManager } from 'react-native'
 
 // **CONFIGURATION CONSTANTS**
 const ITEMS_PER_PAGE = 10
-const SEARCH_DEBOUNCE_MS = 500
 const MIN_SEARCH_LENGTH = 2
 
 // **TYPE DEFINITIONS**
@@ -263,16 +262,17 @@ const SearchBar = React.memo(({
 	onSearch, 
 	onClear, 
 	isSearching,
-	isDarkMode 
+	isDarkMode,
+	onFocus
 }: {
 	onSearch: (query: string) => void
 	onClear: () => void
 	isSearching: boolean
 	isDarkMode: boolean
+	onFocus?: () => void
 }) => {
 	const { t } = useTranslation()
 	const [localSearchQuery, setLocalSearchQuery] = useState('')
-	const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
 	const handleSearch = useCallback(() => {
 		if (localSearchQuery.trim().length >= MIN_SEARCH_LENGTH) {
@@ -289,31 +289,10 @@ const SearchBar = React.memo(({
 		Keyboard.dismiss()
 	}, [onClear])
 
-	// **DEBOUNCED SEARCH ON ENTER**
+	// **SEARCH ON ENTER**
 	const handleSubmitEditing = useCallback(() => {
 		handleSearch()
 	}, [handleSearch])
-
-	// **AUTO-SEARCH AFTER DEBOUNCE**
-	useEffect(() => {
-		if (searchTimeoutRef.current) {
-			clearTimeout(searchTimeoutRef.current)
-		}
-
-		searchTimeoutRef.current = setTimeout(() => {
-			if (localSearchQuery.trim().length >= MIN_SEARCH_LENGTH) {
-				onSearch(localSearchQuery.trim())
-			} else if (localSearchQuery.trim().length === 0) {
-				onClear()
-			}
-		}, SEARCH_DEBOUNCE_MS)
-
-		return () => {
-			if (searchTimeoutRef.current) {
-				clearTimeout(searchTimeoutRef.current)
-			}
-		}
-	}, [localSearchQuery, onSearch, onClear])
 
 	return (
 		<View className='flex-row items-center space-x-2 mb-4'>
@@ -330,10 +309,10 @@ const SearchBar = React.memo(({
 					textAlignVertical="center"
 					value={localSearchQuery}
 					onChangeText={setLocalSearchQuery}
+					onFocus={onFocus}
 					onSubmitEditing={handleSubmitEditing}
 					returnKeyType="search"
 					style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-					editable={!isSearching}
 				/>
 				{localSearchQuery.length > 0 && (
 					<TouchableOpacity
@@ -537,6 +516,18 @@ export default function DealershipDetails() {
 	
 	const { toggleFavorite, isFavorite } = useFavorites()
 	const scrollY = new Animated.Value(0)
+	const flatListRef = useRef<any>(null)
+	const searchOffsetRef = useRef<number>(0)
+
+	const handleSearchFocus = useCallback(() => {
+		if (searchOffsetRef.current > 0) {
+			flatListRef.current?.scrollToOffset({ offset: searchOffsetRef.current - 12, animated: true })
+		}
+	}, [])
+
+	const handleSearchSectionLayout = useCallback((e: any) => {
+		searchOffsetRef.current = e.nativeEvent.layout.y
+	}, [])
 
 	// **MEMOIZED VALUES**
 	const bgGradient: [string, string] = useMemo(() => 
@@ -1270,12 +1261,13 @@ export default function DealershipDetails() {
 			/>
 
 			{/* **SEARCH AND FILTER SECTION** */}
-			<View className='px-5 mb-4'>
+			<View className='px-5 mb-4' onLayout={handleSearchSectionLayout}>
 				<SearchBar
 					onSearch={performSearch}
 					onClear={clearSearch}
 					isSearching={loadingState.search}
 					isDarkMode={isDarkMode}
+					onFocus={handleSearchFocus}
 				/>
 				
 				<View className='flex-row items-center justify-between mb-4'>
@@ -1402,6 +1394,7 @@ export default function DealershipDetails() {
 				</View>
 
 				<Animated.FlatList
+					ref={flatListRef}
 					data={
 						selectedCategory === 'cars' ? filteredCars :
 						selectedCategory === 'rentals' ? filteredRentals :

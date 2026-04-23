@@ -38,7 +38,6 @@ import { I18nManager } from 'react-native'
 
 // **ANDROID OPTIMIZATION CONSTANTS**
 const ITEMS_PER_PAGE = 10
-const SEARCH_DEBOUNCE_MS = 400
 const MIN_SEARCH_LENGTH = 2
 const MAP_LOAD_DELAY = 1200
 const AUTOCLIPS_LOAD_DELAY = 2000
@@ -320,38 +319,20 @@ const AdvancedSearchBar = React.memo(({
   onSearch,
   onClear,
   isSearching,
-  isDarkMode
+  isDarkMode,
+  onFocus
 }: {
   onSearch: (query: string) => void
   onClear: () => void
   isSearching: boolean
   isDarkMode: boolean
+  onFocus?: () => void
 }) => {
   const [localQuery, setLocalQuery] = useState('')
   const [isInputFocused, setIsInputFocused] = useState(false)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
   const inputRef = useRef<TextInput>(null)
 
-  // **DEBOUNCED AUTO-SEARCH**
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
 
-    searchTimeoutRef.current = setTimeout(() => {
-      if (localQuery.trim().length >= MIN_SEARCH_LENGTH) {
-        onSearch(localQuery.trim())
-      } else if (localQuery.trim().length === 0) {
-        onClear()
-      }
-    }, SEARCH_DEBOUNCE_MS)
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [localQuery, onSearch, onClear])
 
   const handleManualSearch = useCallback(() => {
     Keyboard.dismiss()
@@ -372,7 +353,8 @@ const AdvancedSearchBar = React.memo(({
 
   const handleFocus = useCallback(() => {
     setIsInputFocused(true)
-  }, [])
+    onFocus?.()
+  }, [onFocus])
 
   const handleBlur = useCallback(() => {
     setIsInputFocused(false)
@@ -422,11 +404,10 @@ const AdvancedSearchBar = React.memo(({
           returnKeyType="search"
           autoCorrect={false}
           autoCapitalize="none"
-          editable={!isSearching}
           textAlignVertical="center"
           // Android-specific optimizations
           underlineColorAndroid="transparent"
-          selectTextOnFocus={true}
+          selectTextOnFocus={false}
           blurOnSubmit={false}
         />
 
@@ -1001,6 +982,18 @@ const DealershipDetails = () => {
 
   const { toggleFavorite, isFavorite } = useFavorites()
   const scrollY = new Animated.Value(0)
+  const flatListRef = useRef<any>(null)
+  const searchOffsetRef = useRef<number>(0)
+
+  const handleSearchFocus = useCallback(() => {
+    if (searchOffsetRef.current > 0) {
+      flatListRef.current?.scrollToOffset({ offset: searchOffsetRef.current - 12, animated: true })
+    }
+  }, [])
+
+  const handleSearchSectionLayout = useCallback((e: any) => {
+    searchOffsetRef.current = e.nativeEvent.layout.y
+  }, [])
 
   // **MEMOIZED VALUES**
   const bgGradient: [string, string] = useMemo(() =>
@@ -1901,12 +1894,13 @@ const DealershipDetails = () => {
         />
 
         {/* **SEARCH AND SORT SECTION** */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 20 }} onLayout={handleSearchSectionLayout}>
           <AdvancedSearchBar
             onSearch={performSearch}
             onClear={clearSearch}
             isSearching={loadingState.search}
             isDarkMode={isDarkMode}
+            onFocus={handleSearchFocus}
           />
 
           <View style={{
@@ -2084,6 +2078,7 @@ const DealershipDetails = () => {
         />
 
         <Animated.FlatList
+          ref={flatListRef}
           data={
             selectedCategory === 'cars' ? filteredCars :
             selectedCategory === 'rentals' ? filteredRentals :
