@@ -622,6 +622,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
   }, [router, car?.dealership_id]);
 
   const handleCall = useCallback(() => {
+    if (isGuest) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!car?.dealership_phone) {
       Alert.alert("Phone number not available");
       return;
@@ -639,7 +643,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       console.error('Error making call:', error);
       Alert.alert('Error', 'Could not initiate call');
     }
-  }, [car?.dealership_phone, car?.id, trackCallClick]);
+  }, [isGuest, car?.dealership_phone, car?.id, trackCallClick]);
 
   const handleShare = useCallback(async () => {
     if (!car) return;
@@ -757,6 +761,10 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
 
   // Enhanced WhatsApp handling for Android
   const handleWhatsAppPress = useCallback(() => {
+    if (isGuest) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!car?.dealership_phone) {
       Alert.alert('Phone number not available');
       return;
@@ -786,7 +794,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       console.error('Error opening WhatsApp:', error);
       Alert.alert('Error', 'Could not open WhatsApp');
     }
-  }, [car, trackWhatsAppClick]);
+  }, [isGuest, car, trackWhatsAppClick]);
 
   // Handle chat button press - works for both dealer and user-listed cars
   const handleChatPress = useCallback(async () => {

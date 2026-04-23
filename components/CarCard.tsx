@@ -430,13 +430,17 @@ function CarCard({
   ]);
 
   const handleCall = useCallback(() => {
+    if (isGuest) {
+      setShowAuthModal(true);
+      return;
+    }
     if (sellerInfo.phone) {
       trackCallClick(car.id);
       Linking.openURL(`tel:${sellerInfo.phone}`);
     } else {
       Alert.alert(t('common.phone_not_available'));
     }
-  }, [sellerInfo.phone, car.id, trackCallClick, t]);
+  }, [isGuest, sellerInfo.phone, car.id, trackCallClick, t]);
 
   const handleShare = useCallback(async () => {
     if (!car) return;
@@ -594,6 +598,10 @@ function CarCard({
   );
 
   const handleWhatsAppPress = useCallback(() => {
+    if (isGuest) {
+      setShowAuthModal(true);
+      return;
+    }
     if (sellerInfo.phone) {
       if (trackWhatsAppClick) {
         trackWhatsAppClick(car.id);
@@ -624,7 +632,7 @@ function CarCard({
     } else {
       Alert.alert(t('common.error'), t('common.phone_not_available'));
     }
-  }, [sellerInfo.phone, car, trackWhatsAppClick, t]);
+  }, [isGuest, sellerInfo.phone, car, trackWhatsAppClick, t]);
 
   return (
     <>

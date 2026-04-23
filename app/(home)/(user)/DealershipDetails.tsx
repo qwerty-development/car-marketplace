@@ -31,6 +31,8 @@ import SortPicker from '@/components/SortPicker'
 import { ChevronLeft } from 'lucide-react-native'
 import { useTranslation } from 'react-i18next'
 import { I18nManager } from 'react-native'
+import { useGuestUser } from '@/utils/GuestUserContext'
+import AuthRequiredModal from '@/components/AuthRequiredModal'
 
 // **CONFIGURATION CONSTANTS**
 const ITEMS_PER_PAGE = 10
@@ -509,6 +511,8 @@ export default function DealershipDetails() {
 	})
 	const [selectedCar, setSelectedCar] = useState<Car | null>(null)
 	const [isModalVisible, setIsModalVisible] = useState(false)
+	const [showAuthModal, setShowAuthModal] = useState(false)
+	const { isGuest } = useGuestUser()
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(1)
 	const [activeSearchQuery, setActiveSearchQuery] = useState('')
@@ -1012,12 +1016,20 @@ export default function DealershipDetails() {
 	}, [fetchDealershipDetails, fetchCategoryCounts, fetchAllCars, fetchAllRentals, fetchAllPlates, selectedCategory])
 
 	const handleCall = useCallback(() => {
+		if (isGuest) {
+			setShowAuthModal(true)
+			return
+		}
 		if (dealership?.phone) {
 			Linking.openURL(`tel:${dealership.phone}`)
 		}
-	}, [dealership])
+	}, [isGuest, dealership])
 
 	const handleWhatsApp = useCallback(() => {
+		if (isGuest) {
+			setShowAuthModal(true)
+			return
+		}
 		if (dealership?.phone) {
 			const cleanedPhoneNumber = dealership.phone.toString().replace(/\D/g, '')
 			const webURL = `https://wa.me/961${cleanedPhoneNumber}`
@@ -1031,7 +1043,7 @@ export default function DealershipDetails() {
 		} else {
 			Alert.alert('Contact', 'Phone number not available')
 		}
-	}, [dealership])
+	}, [isGuest, dealership])
 
 	// **RENDER FUNCTIONS - MEMOIZED**
 	const renderCarItem = useCallback(({ item }: { item: Car }) => (
@@ -1449,6 +1461,10 @@ export default function DealershipDetails() {
 					)}
 				/>
 				{renderModal}
+				<AuthRequiredModal
+					isVisible={showAuthModal}
+					onClose={() => setShowAuthModal(false)}
+				/>
 			</SafeAreaView>
 		</LinearGradient>
 	)
