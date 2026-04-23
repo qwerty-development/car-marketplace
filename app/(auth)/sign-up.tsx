@@ -418,6 +418,9 @@ export default function SignUpScreen() {
     if (!name.trim()) {
       newErrors.name = 'Name is required';
       isValid = false;
+    } else if (/\d/.test(name)) {
+      newErrors.name = 'Name must contain letters only';
+      isValid = false;
     }
 
     if (!emailAddress.trim()) {
@@ -446,6 +449,9 @@ export default function SignUpScreen() {
 
     if (!phoneName.trim() || phoneName.trim().length < 2) {
       setErrors(prev => ({ ...prev, phoneName: 'Full name must be at least 2 characters' }));
+      hasError = true;
+    } else if (/\d/.test(phoneName)) {
+      setErrors(prev => ({ ...prev, phoneName: 'Name must contain letters only' }));
       hasError = true;
     } else {
       setErrors(prev => ({ ...prev, phoneName: '' }));
@@ -644,6 +650,7 @@ export default function SignUpScreen() {
       style={{
         flex: 1,
         backgroundColor: isDark ? '#000' : '#fff',
+        direction: 'ltr'
       }}
     >
       <ScrollView
@@ -734,7 +741,7 @@ export default function SignUpScreen() {
                       value={name}
                       placeholder="Full Name"
                       placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                      onChangeText={setName}
+                      onChangeText={(text) => setName(text.replace(/\d/g, ''))}
                       autoCapitalize="words"
                       autoComplete="name"
                       editable={!isLoading}
@@ -879,7 +886,7 @@ export default function SignUpScreen() {
                       placeholder="Full Name"
                       placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                       onChangeText={(text) => {
-                        setPhoneName(text);
+                        setPhoneName(text.replace(/\d/g, ''));
                         if (errors.phoneName) setErrors(prev => ({ ...prev, phoneName: '' }));
                       }}
                       autoCapitalize="words"

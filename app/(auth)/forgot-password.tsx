@@ -644,7 +644,7 @@ export default function ForgotPasswordPage() {
   ))
 
   return (
-    <View className="flex-1" style={{ backgroundColor: isDarkMode ? '#010101' : '#f5f5f7' }}>
+    <View className="flex-1" style={{ backgroundColor: isDarkMode ? '#010101' : '#f5f5f7', direction: 'ltr' }}>
       {/* Background effects */}
       <View className="absolute inset-0 overflow-hidden">
         {/* Grid lines */}

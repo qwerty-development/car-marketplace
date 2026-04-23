@@ -616,6 +616,7 @@ export default function SignInPage() {
       style={{
         flex: 1,
         backgroundColor: isDark ? "#000" : "#fff",
+        direction: 'ltr'
       }}
     >
       <AnimatedBlob
