@@ -1657,11 +1657,10 @@ features
         allowsMultipleSelection: maxSelection > 1,
         // Android can now handle up to 15 images with proper memory management
         selectionLimit: maxSelection,
-        quality: Platform.OS === "android" ? 0.7 : 0.8, // Lower initial quality on Android
-        exif: false, // Skip EXIF data to reduce memory usage
-        base64: false, // Skip base64 encoding in picker
-        allowsEditing: false, // Disable editing to prevent memory issues
-        legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
+        quality: Platform.OS === "android" ? 0.7 : 0.8,
+        exif: false,
+        base64: false,
+        allowsEditing: false,
       });
 
       // Step 5: Handle selection result

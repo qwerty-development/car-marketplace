@@ -291,12 +291,11 @@ export default function VideoPickerButton({
 				mediaTypes: ['videos'],
 				allowsEditing: false, // Disabled to prevent crashes
 				allowsMultipleSelection: false,
-				quality: 0.8, // Increased quality slightly
+				quality: 0.8,
 				videoMaxDuration: maxDuration,
 				base64: false,
 				exif: false,
 				selectionLimit: 1,
-				legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
 			}
 
 			// Add platform-specific options carefully

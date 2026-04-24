@@ -1202,7 +1202,6 @@ const ListingModal = ({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.8,
-      legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {

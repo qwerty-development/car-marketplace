@@ -32,7 +32,6 @@ export const useImageUpload = (
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
-        legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
       })
 
       if (!result.canceled && result.assets?.[0]) {

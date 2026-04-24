@@ -90,7 +90,6 @@ export default function NumberPlatesManager() {
         aspect: [16, 9],
         quality: 0.8,
         base64: false,
-        legacy: true, // Allow browsing files outside photo library (includes file managers, cloud storage, etc.)
       })
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
