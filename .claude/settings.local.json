@@ -40,7 +40,11 @@
       "Bash(curl *)",
       "WebFetch(domain:docs.expo.dev)",
       "mcp__plugin_context7_context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs"
+      "mcp__plugin_context7_context7__query-docs",
+      "mcp__plugin_claude-mem_mcp-search__search",
+      "mcp__plugin_claude-mem_mcp-search__get_observations",
+      "WebFetch(domain:surajmdurgad.medium.com)",
+      "WebFetch(domain:mvnrepository.com)"
     ],
     "deny": []
   },
