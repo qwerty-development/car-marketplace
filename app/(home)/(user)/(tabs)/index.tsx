@@ -101,6 +101,7 @@ interface Filters {
   sortBy?: string;
   source?: string | string[];
   fuelType?: string | string[];
+  sellerType?: 'all' | 'dealership' | 'private';
 }
 
 export default function BrowseCarsPage() {
@@ -388,6 +389,19 @@ export default function BrowseCarsPage() {
           currentFilters.fuelType
         ) {
           queryBuilder = queryBuilder.eq("type", currentFilters.fuelType);
+        }
+
+        // Seller Type filter (sale mode only — cars_rent has no user_id column,
+        // every rental is a dealership listing). Stacks AND-style with FTS, so
+        // it composes cleanly with the search query above.
+        if (currentCarViewMode === 'sale' && currentFilters.sellerType && currentFilters.sellerType !== 'all') {
+          if (currentFilters.sellerType === 'dealership') {
+            queryBuilder = queryBuilder.not('dealership_id', 'is', null);
+          } else if (currentFilters.sellerType === 'private') {
+            queryBuilder = queryBuilder
+              .is('dealership_id', null)
+              .not('user_id', 'is', null);
+          }
         }
 
         // Price Range

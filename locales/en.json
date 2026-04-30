@@ -849,6 +849,11 @@
   "filters.source_values.us": "US",
   "filters.source_values.canada": "Canada",
   "filters.source_values.europe": "Europe",
+  "filters.seller_type": "Seller Type",
+  "filters.seller_type_subtitle": "Choose who is selling the car",
+  "filters.seller_type_all": "All Sellers",
+  "filters.seller_type_dealership": "Dealerships",
+  "filters.seller_type_private": "Private Sellers",
   "dealership": {
     "browse_as_customer": "Browse as Customer",
     "dealerships": "Dealerships",

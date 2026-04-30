@@ -60,6 +60,14 @@ const FUEL_TYPE_OPTIONS = [
   { labelKey: "filters.fuel.hybrid", value: "Hybrid", icon: "leaf" },
 ];
 
+// Seller Type Options — single-select. 'all' is the default (no filter applied).
+const SELLER_TYPE_OPTIONS = [
+  { labelKey: "filters.seller_type_all", value: "all", icon: "account-group" },
+  { labelKey: "filters.seller_type_dealership", value: "dealership", icon: "office-building" },
+  { labelKey: "filters.seller_type_private", value: "private", icon: "account" },
+] as const;
+type SellerType = typeof SELLER_TYPE_OPTIONS[number]["value"];
+
 // Quick Filters Configuration
 const QUICK_FILTERS = [
   {
@@ -1935,6 +1943,7 @@ interface FilterProps {
   quickFilter: any;
   specialFilter?: string;
   sortBy?: string;
+  sellerType: SellerType; // 'all' | 'dealership' | 'private'
 }
 
 const defaultFilters: FilterProps = {
@@ -1953,6 +1962,7 @@ const defaultFilters: FilterProps = {
   drivetrain: [],
   categories: [],
   quickFilter: null,
+  sellerType: "all",
 };
 
 const FilterPage = () => {
@@ -1997,6 +2007,7 @@ const handleQuickFilterSelect = useCallback((quickFilter: any) => {
     setFilters((prev: FilterProps) => ({
       ...defaultFilters,
       categories: prev.categories, // Preserve categories
+      sellerType: prev.sellerType, // Preserve seller-type intent
     }));
   } else {
     setFilters((prev: FilterProps) => ({
@@ -2004,6 +2015,7 @@ const handleQuickFilterSelect = useCallback((quickFilter: any) => {
       ...quickFilter.filter,
       quickFilter,
       categories: prev.categories, // Preserve categories
+      sellerType: prev.sellerType, // Preserve seller-type intent
     }));
   }
 }, [filters.quickFilter?.id]);
@@ -2068,6 +2080,9 @@ if (filters.yearRange && filters.yearRange.length === 2) {
     if (filters.sortBy) {
       supabaseFilter.sortBy = filters.sortBy;
   }
+    if (filters.sellerType && filters.sellerType !== "all") {
+      supabaseFilter.sellerType = filters.sellerType;
+    }
 
 return supabaseFilter;
 }, []);
@@ -2123,6 +2138,12 @@ if (supabaseFilter.dealership) {
     if (supabaseFilter.fuelType) {
       query = query.in('type', supabaseFilter.fuelType); // Assuming 'type' is the field name for fuel type
     }
+    if (supabaseFilter.sellerType === "dealership") {
+      query = query.not('dealership_id', 'is', null);
+    } else if (supabaseFilter.sellerType === "private") {
+      // Private listings are owned by a user and have no dealership
+      query = query.is('dealership_id', null).not('user_id', 'is', null);
+    }
 
 
   const { count, error } = await query;
@@ -2159,6 +2180,7 @@ if (filters.quickFilter !== null) count++;
   if (filters.condition.length > 0) count++;
   if (filters.source.length > 0) count++;
   if (filters.fuelType.length > 0) count++;
+  if (filters.sellerType && filters.sellerType !== "all") count++;
 
 return count > 0;
 }, [filters]);
@@ -2604,6 +2626,42 @@ style={{ flex: 1, backgroundColor: isDarkMode ? "black" : "white" }}
     />
   ))}
 </ScrollView>
+
+      <LinearGradient
+        colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{ width: 48, height: 4, borderRadius: 2, marginBottom: 8 }}
+      />
+
+      {/* Seller Type Selection — single-select. 'all' clears the filter. */}
+      <SectionHeader
+        title={t('filters.seller_type')}
+        subtitle={t('filters.seller_type_subtitle')}
+        isDarkMode={isDarkMode}
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ marginBottom: 24 }}
+      >
+        {SELLER_TYPE_OPTIONS.map((option) => (
+          <SelectionCard
+            key={option.value}
+            label={t(option.labelKey)}
+            icon={option.icon}
+            isSelected={(filters.sellerType ?? "all") === option.value}
+            onSelect={() =>
+              setFilters((prev: FilterProps) => ({
+                ...prev,
+                sellerType: option.value,
+              }))
+            }
+            isDarkMode={isDarkMode}
+          />
+        ))}
+      </ScrollView>
 
       <LinearGradient
         colors={isDarkMode ? ["#D55004", "#FF6B00"] : ["#000", "#333"]}

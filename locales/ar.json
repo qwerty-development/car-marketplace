@@ -824,6 +824,11 @@
   "filters.source_values.us": "أمريكي",
   "filters.source_values.canada": "كندي",
   "filters.source_values.europe": "أوروبي",
+  "filters.seller_type": "نوع البائع",
+  "filters.seller_type_subtitle": "اختر من يبيع السيارة",
+  "filters.seller_type_all": "كل البائعين",
+  "filters.seller_type_dealership": "المعارض",
+  "filters.seller_type_private": "بائعون أفراد",
   "dealership": {
     "browse_as_customer": "تصفح كعميل",
     "dealerships": "وكلاء السيارات",
