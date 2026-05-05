@@ -1295,6 +1295,16 @@ function RootLayoutNav() {
       // saved (with or without adding a phone), phone_prompt_completed is
       // stamped and they won't be redirected again.
       if (!userPhone && userPhonePromptCompleted !== true) {
+        // Guard: if signup was previously completed, the phone_prompt flag
+        // might be absent only because the INITIAL_SESSION fired with a stale
+        // cached JWT before TOKEN_REFRESHED delivered the fresh one.
+        // Wait for profile to load (which forces the routing effect to re-run
+        // with the refreshed token) before concluding the user needs to revisit
+        // complete-profile. Without this guard a stale JWT on app-restart after
+        // a couple of days causes a false redirect for returning users.
+        if (userSignupCompleted === true && profileIsUndefined) {
+          return;
+        }
         isMissingFields = true;
       }
 

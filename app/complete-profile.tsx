@@ -346,9 +346,18 @@ export default function CompleteProfileScreen() {
       // logic in _layout.tsx knows onboarding is done and stops redirecting
       // here. phone_prompt_completed ensures users who skip the optional
       // phone field aren't sent back to this screen on every launch.
-      await supabase.auth.updateUser({
+      const { error: metaError } = await supabase.auth.updateUser({
         data: { signup_completed: true, phone_prompt_completed: true },
       });
+      if (metaError) {
+        console.error('[CompleteProfile] Failed to stamp completion metadata:', metaError);
+        // Retry once — if this also fails we proceed anyway so the user
+        // isn't blocked, but the routing repair in AuthContext will fix it
+        // on the next profile fetch.
+        await supabase.auth.updateUser({
+          data: { signup_completed: true, phone_prompt_completed: true },
+        });
+      }
 
       // Update dealership data if dealer
       if (profile?.role === 'dealer') {
@@ -561,8 +570,8 @@ export default function CompleteProfileScreen() {
               ) : null}
             </View>
 
-            {/* Phone Input — shown for all non-phone-signup users */}
-            {!isPhoneSignUp && (
+            {/* Phone Input — shown for non-phone-signup users who are not dealers */}
+            {!isPhoneSignUp && !isDealer && (
               <View>
                 <CustomPhoneInput
                   label="Phone Number (Optional)"

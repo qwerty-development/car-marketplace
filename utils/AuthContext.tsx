@@ -714,6 +714,24 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             .eq('id', userId)
             .then(() => {}, () => {});
         }
+
+        // Repair: a user who has signup_completed=true (completed onboarding)
+        // but is missing phone_prompt_completed may have had a network failure
+        // during complete-profile submission, or may be a legacy OAuth user who
+        // was stamped via processOAuthUser (which only sets signup_completed).
+        // Without phone_prompt_completed, _layout routing keeps redirecting them
+        // to /complete-profile on every cold start. Fix it silently here.
+        if (!isGlobalSigningOut && !isSigningOutState) {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const meta = sessionData?.session?.user?.user_metadata;
+            if (meta?.signup_completed === true && meta?.phone_prompt_completed !== true) {
+              console.log('[AUTH] Repairing missing phone_prompt_completed for user:', userId);
+              supabase.auth.updateUser({ data: { phone_prompt_completed: true } })
+                .then(() => {}, () => {});
+            }
+          } catch {}
+        }
       }
     } catch (error: any) {
       const isTimeout = error?.message?.includes('timed out');
