@@ -51,9 +51,10 @@ export default function CompleteProfileScreen() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [dealerPhone, setDealerPhone] = useState('');
   
   const { handleImageUpload, isUploading: isUploadingLogo } = useImageUpload(
-    dealership?.id?.toString(),
+    dealership?.id?.toString() ?? user?.id ?? undefined,
     {
       onUploadComplete: (url) => {
         setLogo(url);
@@ -65,6 +66,19 @@ export default function CompleteProfileScreen() {
   const onPickLogo = useCallback(async () => {
     await handleImageUpload();
   }, [handleImageUpload]);
+
+  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+    try {
+      const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (results?.[0]) {
+        const { name, street, city, region } = results[0];
+        const parts = [name || street, city, region].filter(Boolean);
+        if (parts.length > 0) setLocationName(parts.join(', '));
+      }
+    } catch {
+      // silently ignore — user can type manually
+    }
+  }, []);
 
   const isPhoneSignUp = user?.app_metadata?.provider === 'phone';
   const isDealer = profile?.role === 'dealer';
@@ -123,6 +137,7 @@ export default function CompleteProfileScreen() {
     name: '',
     email: '',
     phone: '',
+    dealerPhone: '',
     logo: '',
     location: '',
     general: '',
@@ -164,6 +179,7 @@ export default function CompleteProfileScreen() {
 
       setLatitude(lat && lat !== 0 ? lat : null);
       setLongitude(lng && lng !== 0 ? lng : null);
+      setDealerPhone(dealership.phone || '');
     }
   }, [user, profile, dealership]);
 
@@ -312,6 +328,7 @@ export default function CompleteProfileScreen() {
       name: '',
       email: '',
       phone: '',
+      dealerPhone: '',
       logo: '',
       location: '',
       general: '',
@@ -341,12 +358,20 @@ export default function CompleteProfileScreen() {
         newErrors.logo = 'Logo is required';
         isValid = false;
       }
-      
+
+      if (!dealerPhone.trim()) {
+        newErrors.dealerPhone = 'Phone number is required';
+        isValid = false;
+      } else if (!/^\d{7,8}$/.test(dealerPhone.replace(/\D/g, ''))) {
+        newErrors.dealerPhone = 'Enter a valid Lebanese phone number';
+        isValid = false;
+      }
+
       // Strict check for non-zero coordinates
-      const isLocationValid = locationName && 
-                             latitude && latitude !== 0 && 
+      const isLocationValid = locationName &&
+                             latitude && latitude !== 0 &&
                              longitude && longitude !== 0;
-                             
+
       if (!isLocationValid) {
         newErrors.location = 'Location is required';
         isValid = false;
@@ -355,13 +380,13 @@ export default function CompleteProfileScreen() {
 
     setErrors(newErrors);
     return isValid;
-  }, [name, email, phone, isPhoneSignUp, isDealer, profile?.role, logo, locationName, latitude, longitude]);
+  }, [name, email, phone, isPhoneSignUp, isDealer, profile?.role, logo, locationName, latitude, longitude, dealerPhone]);
 
   const handleSubmit = useCallback(async () => {
     if (!validateInputs()) return;
 
-    // If phone was entered, it MUST be verified before submitting
-    if (!isPhoneSignUp && phone.trim() && !isInputVerified) {
+    // If phone was entered by a non-dealer, it MUST be verified before submitting
+    if (!isPhoneSignUp && !isDealer && phone.trim() && !isInputVerified) {
       Alert.alert('Verification Required', 'Please verify your phone number to continue.');
       return;
     }
@@ -407,7 +432,8 @@ export default function CompleteProfileScreen() {
           location: locationName,
           latitude,
           longitude,
-          first_login: false, // Mark onboarding as complete
+          first_login: false,
+          phone: dealerPhone.replace(/\D/g, ''),
         });
 
         if (dealerError) {
@@ -476,7 +502,7 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [validateInputs, isInputVerified, email, originalEmail, updateUserProfile, name, phone, profile?.role, updateDealershipProfile, logo, locationName, latitude, longitude, router]);
+  }, [validateInputs, isInputVerified, email, originalEmail, updateUserProfile, name, phone, profile?.role, updateDealershipProfile, logo, locationName, latitude, longitude, router, dealerPhone]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -703,6 +729,61 @@ export default function CompleteProfileScreen() {
                   {errors.logo ? (
                     <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4, alignSelf: 'flex-start' }}>
                       {errors.logo}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <View>
+                  <Text style={{
+                    color: isDark ? '#E5E7EB' : '#374151',
+                    marginBottom: 8,
+                    fontWeight: '600'
+                  }}>
+                    Dealership Phone *
+                  </Text>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    height: 50,
+                    backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: errors.dealerPhone ? '#EF4444' : (isDark ? '#374151' : '#E5E7EB'),
+                    overflow: 'hidden',
+                  }}>
+                    <View style={{
+                      paddingHorizontal: 14,
+                      height: '100%',
+                      justifyContent: 'center',
+                      borderRightWidth: 1,
+                      borderRightColor: isDark ? '#374151' : '#E5E7EB',
+                    }}>
+                      <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: '600' }}>
+                        +961
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        paddingHorizontal: 14,
+                        color: isDark ? '#fff' : '#000',
+                        fontSize: 15,
+                      }}
+                      value={dealerPhone}
+                      onChangeText={(text) => {
+                        setDealerPhone(text.replace(/\D/g, ''));
+                        if (errors.dealerPhone) setErrors(prev => ({ ...prev, dealerPhone: '' }));
+                      }}
+                      placeholder="e.g. 71234567"
+                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                      keyboardType="phone-pad"
+                      maxLength={8}
+                      editable={!isLoading}
+                    />
+                  </View>
+                  {errors.dealerPhone ? (
+                    <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 4 }}>
+                      {errors.dealerPhone}
                     </Text>
                   ) : null}
                 </View>
@@ -979,16 +1060,17 @@ export default function CompleteProfileScreen() {
               <MapView
                 style={{ flex: 1 }}
                 region={{
-                  latitude: latitude || 25.2048,
-                  longitude: longitude || 55.2708,
-                  latitudeDelta: 0.1,
-                  longitudeDelta: 0.1,
+                  latitude: latitude || 33.8886,
+                  longitude: longitude || 35.4955,
+                  latitudeDelta: 0.5,
+                  longitudeDelta: 0.5,
                 }}
                 onPress={(e) => {
                   const { latitude: lat, longitude: lng } = e.nativeEvent.coordinate;
                   setLatitude(lat);
                   setLongitude(lng);
                   if (errors.location) setErrors(prev => ({ ...prev, location: '' }));
+                  reverseGeocode(lat, lng);
                 }}
               >
                 {latitude && longitude && (
@@ -1022,6 +1104,7 @@ export default function CompleteProfileScreen() {
                   const loc = await Location.getCurrentPositionAsync({});
                   setLatitude(loc.coords.latitude);
                   setLongitude(loc.coords.longitude);
+                  reverseGeocode(loc.coords.latitude, loc.coords.longitude);
                 }}
               >
                 <Ionicons name="locate" size={24} color="white" />
