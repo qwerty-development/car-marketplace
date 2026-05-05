@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/utils/ThemeContext';
+import { useAuth } from '@/utils/AuthContext';
 import { supabase } from '@/utils/supabase';
+import { samePhoneNumber } from '@/utils/phoneFormat';
 import CustomPhoneInput, { getCallingCode, ICountry } from '@/components/PhoneInput';
 
 const OTP_LENGTH = 6;
@@ -35,6 +37,7 @@ export default function PhoneVerificationBottomSheet({
   onSuccess,
 }: PhoneVerificationBottomSheetProps) {
   const { isDarkMode } = useTheme();
+  const { user } = useAuth();
 
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -100,6 +103,40 @@ export default function PhoneVerificationBottomSheet({
 
     setIsLoading(true);
     try {
+      const phoneAlreadyOnAccount = samePhoneNumber(user?.phone, fullPhone);
+
+      // FAST PATH — already verified for this user; treat the form as
+      // complete without calling Supabase.
+      if (phoneAlreadyOnAccount && user?.phone_confirmed_at) {
+        console.log('[PhoneVerify] Phone already verified, skipping OTP');
+        onSuccess();
+        onClose();
+        return;
+      }
+
+      // RESEND PATH — phone is set but unconfirmed (e.g. previous attempt
+      // never finished). updateUser({phone}) with the same value can
+      // silently no-op at the gotrue session level, leaving the user with
+      // a "no SMS arrived" UI. Use resend to retry the in-flight challenge.
+      if (phoneAlreadyOnAccount) {
+        console.log('[PhoneVerify] Phone pending verification, using resend');
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'phone_change',
+          phone: fullPhone,
+        });
+        if (!resendError) {
+          setVerifyingPhone(fullPhone);
+          setOtp('');
+          setOtpError('');
+          setStep('otp');
+          startResendTimer();
+          setTimeout(() => otpInputRef.current?.focus(), 300);
+          return;
+        }
+        // Fall through to updateUser if resend wasn't applicable.
+        console.warn('[PhoneVerify] resend failed, falling back to updateUser:', resendError);
+      }
+
       const { error } = await supabase.auth.updateUser({ phone: fullPhone });
       if (error) {
         if (
@@ -125,7 +162,7 @@ export default function PhoneVerificationBottomSheet({
     } finally {
       setIsLoading(false);
     }
-  }, [buildFullPhone, startResendTimer]);
+  }, [buildFullPhone, startResendTimer, user?.phone, user?.phone_confirmed_at, onSuccess, onClose]);
 
   const handleVerifyOtp = useCallback(async () => {
     setOtpError('');
@@ -159,8 +196,19 @@ export default function PhoneVerificationBottomSheet({
     setOtpError('');
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ phone: verifyingPhone });
-      if (error) throw error;
+      // Use the canonical resend endpoint for the pending phone-change
+      // challenge. updateUser({phone}) with an unchanged value can be
+      // silently dropped at the gotrue session layer.
+      const { error } = await supabase.auth.resend({
+        type: 'phone_change',
+        phone: verifyingPhone,
+      });
+      if (error) {
+        if (error.message.includes('rate limit')) {
+          throw new Error('Too many requests. Please wait a moment and try again.');
+        }
+        throw error;
+      }
       startResendTimer();
       setTimeout(() => otpInputRef.current?.focus(), 100);
     } catch (err: any) {
