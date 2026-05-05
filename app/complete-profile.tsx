@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneInput';
 import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { samePhoneNumber } from '@/utils/phoneFormat';
 import { DealerLogoPicker } from '@/components/DealerLogoPicker';
 import { useImageUpload } from './(home)/(dealer)/_hooks/useImageUpload';
 import MapView, { Marker } from 'react-native-maps';
@@ -122,10 +123,13 @@ export default function CompleteProfileScreen() {
     // If fullInputPhone is just empty or just +, ignore
     if (fullInputPhone.length < 5) return false;
 
-    if (verifiedPhone === fullInputPhone) return true;
+    // Digits-only comparison: auth.users.phone is sometimes stored without
+    // the "+" prefix, which would defeat strict-equal even when the numbers
+    // refer to the same phone. See utils/phoneFormat.ts for the rationale.
+    if (samePhoneNumber(verifiedPhone, fullInputPhone)) return true;
 
-    // Check if user already has this phone confirmed
-    if (user?.phone_confirmed_at && user.phone === fullInputPhone) return true;
+    // User already has this phone confirmed
+    if (user?.phone_confirmed_at && samePhoneNumber(user.phone, fullInputPhone)) return true;
 
     return false;
   }, [user, phone, verifiedPhone, selectedCountry, isPhoneSignUp]);
@@ -219,7 +223,44 @@ export default function CompleteProfileScreen() {
       }
       const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
 
-      console.log('[CompleteProfile] Sending OTP to:', fullPhoneNumber);
+      const phoneAlreadyOnAccount = samePhoneNumber(user?.phone, fullPhoneNumber);
+
+      // FAST PATH — phone is already confirmed for this user. Don't burn
+      // an OTP send; just mark it verified locally so the form unlocks.
+      if (phoneAlreadyOnAccount && user?.phone_confirmed_at) {
+        console.log('[CompleteProfile] Phone already verified for this user, skipping OTP');
+        setVerifiedPhone(fullPhoneNumber);
+        return;
+      }
+
+      // RESEND PATH — phone is set on auth.users but unconfirmed (typical
+      // when a previous OTP was requested but never verified). Calling
+      // updateUser({phone}) again with the same value lands on gotrue's
+      // "phone unchanged" branch which can drop the SMS at the session
+      // level. The supported way to retry an in-flight phone change is
+      // auth.resend({type:'phone_change'}).
+      if (phoneAlreadyOnAccount) {
+        console.log('[CompleteProfile] Phone pending verification, using resend');
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'phone_change',
+          phone: fullPhoneNumber,
+        });
+
+        if (resendError) {
+          // If gotrue reports no pending change (e.g. challenge already
+          // expired) fall back to updateUser, which will start a fresh
+          // phone-change flow.
+          console.warn('[CompleteProfile] resend failed, falling back to updateUser:', resendError);
+        } else {
+          setVerifyingPhone(fullPhoneNumber);
+          setShowOtpModal(true);
+          setOtp('');
+          return;
+        }
+      }
+
+      // STANDARD PATH — new phone, or resend wasn't applicable.
+      console.log('[CompleteProfile] Sending OTP via updateUser to:', fullPhoneNumber);
       const { error } = await supabase.auth.updateUser({
         phone: fullPhoneNumber,
       });
@@ -244,7 +285,7 @@ export default function CompleteProfileScreen() {
     } finally {
       setIsVerifying(false);
     }
-  }, [phone, selectedCountry]);
+  }, [phone, selectedCountry, user?.phone, user?.phone_confirmed_at]);
 
   const handleVerifyOtp = useCallback(async () => {
     if (!otp || otp.length < 6) {
