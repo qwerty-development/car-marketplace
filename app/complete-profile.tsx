@@ -596,8 +596,8 @@ export default function CompleteProfileScreen() {
               ) : null}
             </View>
 
-            {/* Phone Input — shown for non-phone-signup users who are not dealers */}
-            {!isPhoneSignUp && !isDealer && (
+            {/* Phone Input — shown only when user hasn't completed the phone step yet */}
+            {!isPhoneSignUp && !isDealer && !user?.phone_confirmed_at && !user?.user_metadata?.phone_prompt_completed && (
               <View>
                 <CustomPhoneInput
                   label="Phone Number (Optional)"
