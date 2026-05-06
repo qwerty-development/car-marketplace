@@ -159,7 +159,7 @@ export default function AllBrandsPage() {
   const textColor = isDarkMode ? "text-white" : "text-black";
   const bgColor = isDarkMode ? "bg-black" : "bg-white";
   const borderColor = isDarkMode ? "border-red" : "border-red";
-  const sectionHeaderBgColor = isDarkMode ? "bg-gray" : "bg-white";
+  const sectionHeaderBgColor = isDarkMode ? "bg-black" : "bg-white";
 
   const fetchBrands = useCallback(async () => {
     if (!refreshing) setIsLoading(true);
