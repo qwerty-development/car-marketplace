@@ -3,6 +3,14 @@ import { ImageSourcePropType } from 'react-native';
 // Local logo assets for brands (used for all themes)
 const LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
   'dominar': require('@/assets/brands/Dominar.jpg'),
+  'land-rover': require('@/assets/brands/land-rover-logo.png'),
+  'range-rover': require('@/assets/brands/land-rover-logo.png'),
+  'avatr': require('@/assets/brands/avatr-logo.png'),
+  'vmoto': require('@/assets/brands/vmoto-logo.png'),
+  'm-hero': require('@/assets/brands/m-hero-logo.png'),
+  'piaggio': require('@/assets/brands/piaggio-logo.png'),
+  'eveasy': require('@/assets/brands/eveasy-logo.png'),
+  'xiaomi': require('@/assets/brands/xiaomi-logo.png'),
 };
 
 // Local dark mode logo assets for brands with black logos that disappear in dark mode

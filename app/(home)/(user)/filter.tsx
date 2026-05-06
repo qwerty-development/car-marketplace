@@ -31,7 +31,8 @@ import { Image } from "expo-image";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { supabase } from "@/utils/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
+import type { ImageSourcePropType } from "react-native";
 import { useTranslation } from 'react-i18next';
 import { I18nManager } from 'react-native';
 
@@ -248,7 +249,7 @@ const SectionHeader = memo(({ title, subtitle, isDarkMode }: SectionHeaderProps)
 // --------------------
 interface Brand {
   name: string;
-  logoUrl: string | null;
+  logoSource: { uri: string } | ImageSourcePropType | null;
 }
 
 interface BrandSelectorProps {
@@ -257,7 +258,7 @@ interface BrandSelectorProps {
   isDarkMode: boolean;
 }
 
-const BRANDS_CACHE_KEY = "cachedBrandsSelector";
+const BRANDS_CACHE_KEY = "cachedBrandsSelectorV2";
 const CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
 
 
@@ -299,7 +300,7 @@ const BrandSelector = memo(
         );
         const brandsData = uniqueBrands.map((make: string) => ({
           name: make,
-          logoUrl: getLogoUrl(make, !isDarkMode),
+          logoSource: getLogoSource(make, isDarkMode),
         }));
 
         setBrands(brandsData);
@@ -402,7 +403,7 @@ const BrandSelector = memo(
                 }}
               >
                 <Image
-                  source={{ uri: brand.logoUrl ?? undefined }}
+                  source={brand.logoSource ?? undefined}
                   style={{ width: 80, height: 80 }}
                   resizeMode="contain"
                 />
@@ -554,7 +555,7 @@ const BrandSelector = memo(
                         }}
                       >
                         <Image
-                          source={{ uri: brand.logoUrl ?? undefined }}
+                          source={brand.logoSource ?? undefined}
                           style={{ width: 40, height: 40 }}
                           resizeMode="contain"
                         />

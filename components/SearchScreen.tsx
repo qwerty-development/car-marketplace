@@ -25,7 +25,7 @@ import Animated, {
   withSpring,
   Easing
 } from 'react-native-reanimated';
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SPRING_CONFIG = {
@@ -410,7 +410,7 @@ export default function SearchModal({
                         onPress={() => handleSuggestionPress(make)}
                       >
                         <Image
-                          source={{ uri: getLogoUrl(make, !isDarkMode) }}
+                          source={getLogoSource(make, isDarkMode) ?? undefined}
                           style={styles.brandLogo}
                           resizeMode="contain"
                         />

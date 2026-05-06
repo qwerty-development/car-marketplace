@@ -42,7 +42,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import * as Haptics from "expo-haptics";
 
 import { format } from "date-fns";
-import { getLogoUrl } from "@/hooks/getLogoUrl";
+import { getLogoSource } from "@/hooks/getLogoUrl";
 
 const { width } = Dimensions.get("window");
 
@@ -109,7 +109,7 @@ const BrandItem = memo(({ brand, isSelected, onPress, isDarkMode, size = "normal
         } justify-center items-center`}
       >
         <Image
-          source={{ uri: brand.logoUrl }}
+          source={brand.logoSource ?? undefined}
           style={{
             width: size === "normal" ? 60 : 40,
             height: size === "normal" ? 60 : 40,
@@ -198,7 +198,7 @@ export const BrandSelector = memo(
 
           const brandsData = uniqueBrands.map((make) => ({
             name: make,
-            logoUrl: getLogoUrl(make, !isDarkMode),
+            logoSource: getLogoSource(make, isDarkMode),
           }));
 
           setBrands(brandsData);
@@ -213,7 +213,7 @@ export const BrandSelector = memo(
       };
 
       fetchAllBrands();
-    }, [isDarkMode, getLogoUrl]);
+    }, [isDarkMode]);
 
     // Filter brands based on search query
     const filteredBrands = useMemo(

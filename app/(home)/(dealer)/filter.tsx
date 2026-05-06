@@ -168,7 +168,7 @@ const SectionHeader = memo(({ title, subtitle, isDarkMode }: SectionHeaderProps)
 // --------------------
 interface Brand {
   name: string;
-  logoUrl: string;
+  logoSource: { uri: string } | ImageSourcePropType | null;
 }
 
 interface BrandSelectorProps {
@@ -177,7 +177,7 @@ interface BrandSelectorProps {
   isDarkMode: boolean;
 }
 
-const BRANDS_CACHE_KEY = "cachedBrandsSelector";
+const BRANDS_CACHE_KEY = "cachedBrandsSelectorV2";
 const CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
 
 
@@ -473,7 +473,7 @@ const BrandSelector = memo(
                         }}
                       >
                         <Image
-                          source={{ uri: brand.logoUrl }}
+                          source={brand.logoSource ?? undefined}
                           style={{ width: 40, height: 40 }}
                           resizeMode="contain"
                         />
