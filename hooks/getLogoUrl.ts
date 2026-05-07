@@ -12,6 +12,7 @@ const LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
   'eveasy': require('@/assets/brands/eveasy-logo.png'),
   'xiaomi': require('@/assets/brands/xiaomi-logo.png'),
   'nissan': require('@/assets/brands/nissan-logo.png'),
+  'lindy': require('@/assets/brands/lindy-logo.png'),
 };
 
 // Local dark mode logo assets for brands with black logos that disappear in dark mode
