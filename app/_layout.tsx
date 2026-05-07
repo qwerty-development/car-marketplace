@@ -61,6 +61,7 @@ import { CreditProvider } from "@/utils/CreditContext";
 import { META_EVENTS } from "@/utils/metaEvents";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { preloadLogoCache } from '@/hooks/getLogoUrl';
 
 // Lazy-load Facebook SDK to prevent NativeEventEmitter crash during import
 let FacebookSettings: any = null;
@@ -1502,6 +1503,8 @@ function RootLayout() {
   // EFFECT: Initialize app systems - OPTIMIZED
   useEffect(() => {
     const initializeApp = async () => {
+      preloadLogoCache();
+
       try {
         await SplashScreen.preventAutoHideAsync();
 

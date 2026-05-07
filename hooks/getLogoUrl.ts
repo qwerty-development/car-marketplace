@@ -1,4 +1,34 @@
 import { ImageSourcePropType } from 'react-native';
+import { supabase } from '@/utils/supabase';
+
+type LogoEntry = { dark: string | null; light: string | null };
+
+const logoCache = new Map<string, LogoEntry>();
+let cacheLoaded = false;
+let cacheLoading = false;
+
+export async function preloadLogoCache(): Promise<void> {
+  if (cacheLoaded || cacheLoading) return;
+  cacheLoading = true;
+  try {
+    const { data, error } = await supabase
+      .from('car_make_logos')
+      .select('make, logo_url_dark, logo_url_light');
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (!row.make) continue;
+      logoCache.set(row.make.toLowerCase(), {
+        dark: row.logo_url_dark ?? null,
+        light: row.logo_url_light ?? null,
+      });
+    }
+    cacheLoaded = true;
+  } catch (err) {
+    console.error('[getLogoUrl] Failed to preload logo cache:', err);
+  } finally {
+    cacheLoading = false;
+  }
+}
 
 // Local logo assets for brands (used for all themes)
 const LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
@@ -193,17 +223,26 @@ export const getLogoSource = (
 
   const formattedMake = make.toLowerCase().trim().replace(/\s+/g, "-");
 
-  // Check for a local asset first (takes priority over remote URLs)
+  // DB cache (populated by preloadLogoCache on app startup)
+  if (cacheLoaded) {
+    const entry = logoCache.get(formattedMake);
+    if (entry) {
+      const url = isDarkMode ? entry.dark : entry.light;
+      if (url) return { uri: url };
+    }
+  }
+
+  // Local bundled asset fallback (works offline, no DB entry)
   if (formattedMake in LOCAL_LOGOS) {
     return LOCAL_LOGOS[formattedMake];
   }
 
-  // In dark mode, check if we have a local dark mode logo
+  // Local dark mode asset fallback
   if (isDarkMode && hasLocalDarkModeLogo(make)) {
     return getDarkModeLogo(make);
   }
 
-  // Otherwise return the URL
+  // Hardcoded URL fallback
   const url = getLogoUrl(make, !isDarkMode);
   return url ? { uri: url } : null;
 };
