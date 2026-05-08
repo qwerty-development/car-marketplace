@@ -26,6 +26,7 @@ interface Banner {
   image_url: string;
   redirect_to: string | null;
   active: boolean;
+  display_order: number | null;
 }
 
 const Banner: React.FC = () => {
@@ -53,6 +54,7 @@ const Banner: React.FC = () => {
         .from('banners')
         .select('*')
         .eq('active', true)
+        .order('display_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
