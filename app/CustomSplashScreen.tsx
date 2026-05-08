@@ -1,107 +1,88 @@
-// components/CustomSplashScreen.tsx - UPDATED WITH FADE-IN
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Animated, Image, Platform } from 'react-native';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { StyleSheet, Animated, Platform } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
 }
 
-const CustomSplashScreen: React.FC<SplashScreenProps> = ({ 
-  onAnimationComplete,
-}) => {
-  // 1. Opacity now starts at 0 (transparent) for the fade-in effect.
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+const CustomSplashScreen: React.FC<SplashScreenProps> = ({ onAnimationComplete }) => {
+  // Android: native splash hides to reveal this at full opacity — no gap.
+  // iOS: fades in from 0 before the video starts.
+  const fadeAnim = useRef(new Animated.Value(Platform.OS === 'android' ? 1 : 0)).current;
   const hasCompletedRef = useRef(false);
-  
-  // 2. Use state to control when the video should start playing.
-  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
 
-  const player = useVideoPlayer(require('../assets/splash.mp4'), player => {
-    player.muted = true;
-    player.loop = false;
+  // Two conditions must both be true before we call player.play():
+  //   1. Player has reported readyToPlay (isPlayerReadyRef)
+  //   2. Component is fully visible — instant on Android, after fade on iOS (isVisibleRef)
+  // Whichever arrives second calls tryPlay() and starts the video.
+  // This prevents the premature playToEnd that happened when play() was called
+  // before the player had loaded the asset.
+  const isPlayerReadyRef = useRef(false);
+  const isVisibleRef = useRef(Platform.OS === 'android');
+
+  const player = useVideoPlayer(require('../assets/splash.mp4'), p => {
+    p.muted = true;
+    p.loop = false;
   });
 
-  // Ensure we complete at most once (handles errors/timeouts)
   const completeOnce = useCallback(() => {
     if (hasCompletedRef.current) return;
     hasCompletedRef.current = true;
-
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
-    }).start(() => {
-      onAnimationComplete();
-    });
+    }).start(() => onAnimationComplete());
   }, [fadeAnim, onAnimationComplete]);
 
-  // Listen for video end to trigger completion
-  useEffect(() => {
-    const subscription = player.addListener('playToEnd', () => {
-      console.log('[CustomSplashScreen] Video finished, completing splash screen');
-      completeOnce();
-    });
-    return () => subscription.remove();
-  }, [player, completeOnce]);
-
-  // Play/pause based on shouldPlayVideo state
-  useEffect(() => {
-    if (shouldPlayVideo) {
+  const tryPlay = useCallback(() => {
+    if (isPlayerReadyRef.current && isVisibleRef.current && !hasCompletedRef.current) {
       player.play();
     }
-  }, [shouldPlayVideo, player]);
+  }, [player]);
 
-  // 3. This useEffect handles the initial fade-in animation.
+  // Condition 1: wait for the player to be ready
   useEffect(() => {
-    console.log('[CustomSplashScreen] Component mounted, starting fade-in');
-    // Fade in the component when it mounts.
+    const sub = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') {
+        isPlayerReadyRef.current = true;
+        tryPlay();
+      }
+    });
+    return () => sub.remove();
+  }, [player, tryPlay]);
+
+  // Complete when video finishes naturally
+  useEffect(() => {
+    const sub = player.addListener('playToEnd', () => completeOnce());
+    return () => sub.remove();
+  }, [player, completeOnce]);
+
+  // Condition 2: become visible
+  // Android — already at opacity 1, just call tryPlay in case player is already ready
+  // iOS — fade in over 500ms, then call tryPlay
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      tryPlay();
+      return;
+    }
     Animated.timing(fadeAnim, {
-      toValue: 1, // Animate to fully visible
-      duration: 500, // Duration of the fade-in
+      toValue: 1,
+      duration: 500,
       useNativeDriver: true,
     }).start(() => {
-      // After the fade-in is complete, set the state to allow video playback.
-      console.log('[CustomSplashScreen] Fade-in complete, starting video playback');
-      setShouldPlayVideo(true);
+      isVisibleRef.current = true;
+      tryPlay();
     });
-  }, []); // The empty array ensures this effect runs only once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // 3.1 Failsafe: if video cannot play on some devices, auto-complete after timeout
+  // Fallback: complete if the video never loads or playToEnd never fires
   useEffect(() => {
-    // Shorter timeout for Android since we're using image fallback
-    const timeoutDuration = Platform.OS === 'android' ? 2500 : 4000;
-    const timeoutId = setTimeout(() => {
-      console.log(`[CustomSplashScreen] Timeout reached (${timeoutDuration}ms), completing splash screen`);
-      completeOnce();
-    }, timeoutDuration);
-
-    return () => clearTimeout(timeoutId);
+    const id = setTimeout(completeOnce, 4500);
+    return () => clearTimeout(id);
   }, [completeOnce]);
-
-  // For Android, use a more reliable approach with image fallback
-  if (Platform.OS === 'android') {
-    return (
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        {/* Always show the logo as primary content on Android */}
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={styles.fallbackImage}
-          resizeMode="contain"
-        />
-        
-        {/* Optional: Try to play video in background, but don't rely on it */}
-        {shouldPlayVideo && (
-          <VideoView
-            player={player}
-            style={[StyleSheet.absoluteFill, { opacity: 0.3 }]}
-            contentFit="cover"
-            nativeControls={false}
-          />
-        )}
-      </Animated.View>
-    );
-  }
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -118,28 +99,10 @@ const CustomSplashScreen: React.FC<SplashScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000', 
+    backgroundColor: '#000000',
     zIndex: 1000,
-    // Android-specific optimizations
-    ...(Platform.OS === 'android' && {
-      elevation: 1000,
-      backgroundColor: '#000000',
-    }),
-  },
-  fallbackImage: {
-    width: 200,
-    height: 200,
-    alignSelf: 'center',
-    position: 'absolute',
-    top: '50%',
-    marginTop: -100,
-    // Android-specific optimizations
-    ...(Platform.OS === 'android' && {
-      elevation: 1001,
-    }),
+    elevation: 1000,
   },
 });
 
-// SDK 54 FIX: Memoize to prevent re-renders from parent (RootLayoutNav) cascade.
-// The only prop is onAnimationComplete which is already stable via useCallback.
 export default React.memo(CustomSplashScreen);

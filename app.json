@@ -67,9 +67,9 @@
     },
     "android": {
       "splash": {
-        "image": "./assets/background-white.png",
+        "image": "./assets/background-black.png",
         "resizeMode": "cover",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
       "config": {
         "googleMaps": {
@@ -79,8 +79,8 @@
       "googleServicesFile": "./google-services.json",
       "package": "com.qwertyapp.clerkexpoquickstart",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo-adaptive.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "backgroundColor": "#000000"
       },
       "allowBackup": true,
       "permissions": [
