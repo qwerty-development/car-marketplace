@@ -60,12 +60,14 @@
       <intent-filter data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
         <data android:scheme="fleet"/>
+        <data android:scheme="exp+clerk-expo-quickstart"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
       <intent-filter data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
         <data android:scheme="com.qwertyapp.clerkexpoquickstart"/>
+        <data android:scheme="exp+clerk-expo-quickstart"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
