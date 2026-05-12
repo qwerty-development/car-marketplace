@@ -137,6 +137,8 @@ export default function BrowseCarsPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<Car>>(null);
+  const fetchRequestIdRef = useRef(0);
+  const fetchCarsRef = useRef<typeof fetchCars | null>(null);
   useScrollToTop(flatListRef);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
@@ -265,6 +267,8 @@ export default function BrowseCarsPage() {
       forceRefresh: boolean = false,
       currentVehicleCategory: VehicleCategory = vehicleCategory
     ) => {
+      const requestId = ++fetchRequestIdRef.current;
+
       if (page === 1) {
         if (!hasFetched) {
           setIsInitialLoading(true);
@@ -535,6 +539,7 @@ export default function BrowseCarsPage() {
 
         // Get count first for pagination
         const { count } = await queryBuilder;
+        if (requestId !== fetchRequestIdRef.current) return;
         if (!count) {
           setCars([]);
           setTotalPages(0);
@@ -596,6 +601,8 @@ export default function BrowseCarsPage() {
 
         const { data, error, fromCache } = result;
         const dataSize = data ? JSON.stringify(data).length : 0;
+
+        if (requestId !== fetchRequestIdRef.current) return;
 
         if (error) {
           console.error(`[FetchCars] ❌ Error: ${error.message}`);
@@ -780,6 +787,9 @@ export default function BrowseCarsPage() {
     },
     [filters, sortOption, searchQuery, hasFetched, carViewMode, vehicleCategory]
   );
+
+  // Keep ref in sync so stable tab handlers always call the latest fetchCars
+  fetchCarsRef.current = fetchCars;
 
   const fetchPlates = useCallback(
     async (
@@ -1124,6 +1134,29 @@ export default function BrowseCarsPage() {
     [vehicleCategory, isDarkMode, language, router, isDealer]
   );
 
+  // Stable tab switch handlers — use fetchCarsRef so renderTabsSection doesn't need fetchCars in deps
+  const handleSwitchToSale = useCallback(() => {
+    if (carViewMode !== 'sale') {
+      setCarViewMode('sale');
+      setCurrentPage(1);
+      setSearchQuery('');
+      setFilters({});
+      setCars([]);
+      fetchCarsRef.current?.(1, {}, sortOption, '', 'sale', false, vehicleCategory);
+    }
+  }, [carViewMode, sortOption, vehicleCategory]);
+
+  const handleSwitchToRent = useCallback(() => {
+    if (carViewMode !== 'rent') {
+      setCarViewMode('rent');
+      setCurrentPage(1);
+      setSearchQuery('');
+      setFilters({});
+      setCars([]);
+      fetchCarsRef.current?.(1, {}, sortOption, '', 'rent', false, vehicleCategory);
+    }
+  }, [carViewMode, sortOption, vehicleCategory]);
+
   // Buy/Rent tabs section - only shown for vehicles (not plates)
   const renderTabsSection = useMemo(
     () => {
@@ -1141,15 +1174,7 @@ export default function BrowseCarsPage() {
                 styles.tabButton,
                 carViewMode === 'sale' && styles.tabButtonSelected
               ]}
-              onPress={() => {
-                if (carViewMode !== 'sale') {
-                  setCarViewMode('sale');
-                  setCurrentPage(1);
-                  setSearchQuery('');
-                  setFilters({});
-                  fetchCars(1, {}, sortOption, '', 'sale', false, vehicleCategory);
-                }
-              }}
+              onPress={handleSwitchToSale}
               activeOpacity={0.7}
             >
               <Text style={[
@@ -1166,15 +1191,7 @@ export default function BrowseCarsPage() {
                 styles.tabButton,
                 carViewMode === 'rent' && styles.tabButtonSelected
               ]}
-              onPress={() => {
-                if (carViewMode !== 'rent') {
-                  setCarViewMode('rent');
-                  setCurrentPage(1);
-                  setSearchQuery('');
-                  setFilters({});
-                  fetchCars(1, {}, sortOption, '', 'rent', false, vehicleCategory);
-                }
-              }}
+              onPress={handleSwitchToRent}
               activeOpacity={0.7}
             >
               <Text style={[
@@ -1228,7 +1245,7 @@ export default function BrowseCarsPage() {
         </>
       );
     },
-    [vehicleCategory, carViewMode, isDarkMode, sortOption, fetchCars, showGiveawayBanner, handleGiveawayDismiss, t]
+    [vehicleCategory, carViewMode, isDarkMode, handleSwitchToSale, handleSwitchToRent, showGiveawayBanner, handleGiveawayDismiss, t]
   );
 
   // Render sticky search bar
