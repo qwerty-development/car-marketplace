@@ -19,12 +19,13 @@ export const LAZY_FLATLIST_PROPS: Partial<FlatListProps<any>> = {
   initialNumToRender: 5,
   // Render 5 items per batch
   maxToRenderPerBatch: 5,
-  // Update cells every 50ms (balance between smoothness and performance)
+  // 50ms batching avoids per-frame content-size changes that cause Android scroll snap
   updateCellsBatchingPeriod: 50,
   // Keep 5 windows worth of items rendered (reduces memory)
   windowSize: 5,
-  // Remove off-screen views from native view hierarchy (saves memory)
-  removeClippedSubviews: true,
+  // false on Android: removeClippedSubviews causes height re-measurement on upward scroll,
+  // changing contentSize and triggering a native scroll position correction (snap-back)
+  removeClippedSubviews: false,
   // Optimize scrolling performance
   scrollEventThrottle: 16,
   // Disable scroll indicators for better performance

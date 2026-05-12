@@ -138,14 +138,6 @@ export default function BrowseCarsPage() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<Car>>(null);
   useScrollToTop(flatListRef);
-  const [searchBarHeight, setSearchBarHeight] = useState(0);
-
-  // Calculate sticky search bar position
-  const stickySearchTranslateY = scrollY.interpolate({
-    inputRange: [0, 200],
-    outputRange: [0, 0],
-    extrapolate: 'clamp',
-  });
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isPlateFilterVisible, setIsPlateFilterVisible] = useState(false);
@@ -1499,10 +1491,9 @@ export default function BrowseCarsPage() {
     [plateSortOption, searchQuery, fetchPlates]
   );
 
-  // Memoize FlatList data array to prevent re-creation on every render
+  // Memoize FlatList data array — search bar is rendered outside FlatList (no stickyHeaderIndices needed)
   const flatListData = useMemo(() => [
     { id: 'header', type: 'header' },
-    { id: 'search', type: 'search' },
     ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
     { id: 'rest-header', type: 'rest-header' },
     ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
@@ -1530,6 +1521,8 @@ export default function BrowseCarsPage() {
             { backgroundColor: "transparent" },
           ]}
         >
+          {/* Search bar rendered outside FlatList — avoids stickyHeaderIndices Android jank */}
+          {renderStickySearchBar}
           <FlatList
             {...LAZY_FLATLIST_PROPS}
             windowSize={9}
@@ -1554,16 +1547,17 @@ export default function BrowseCarsPage() {
             )}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            scrollEventThrottle={16}
+            scrollEventThrottle={64}
             data={flatListData}
             renderItem={({ item, index }: any) => {
               if (item.type === 'header') return renderHeaderSection;
-              if (item.type === 'search') return renderStickySearchBar;
               if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'rest-header') return renderRestOfHeader;
               if (item.type === 'skeleton') return renderSkeletonItem();
 
-              const dataIndex = index - 4; // Subtract header items (now 4 instead of 3)
+              // Non-plates: [header, tabs, rest-header, ...data] = offset 3
+              // Plates: [header, rest-header, ...data] = offset 2
+              const dataIndex = index - (vehicleCategory !== 'plates' ? 3 : 2);
               if (vehicleCategory !== 'plates') {
                 return renderCarItem({ item: item.data, index: dataIndex });
               } else {
@@ -1571,7 +1565,6 @@ export default function BrowseCarsPage() {
               }
             }}
             keyExtractor={(item: any) => item.id.toString()}
-            stickyHeaderIndices={[1]} // Search bar is at index 1 (after header, before tabs)
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} items in state)`);
@@ -1585,9 +1578,7 @@ export default function BrowseCarsPage() {
             onEndReachedThreshold={0.5}
             ListEmptyComponent={renderListEmpty}
             ListFooterComponent={<View style={{ paddingBottom: 50 }} />}
-            // Aggressive lazy loading for minimal egress and memory usage
-            removeClippedSubviews={true}
-            getItemLayout={undefined} // Let FlatList handle this automatically
+            removeClippedSubviews={false}
           />
         </SafeAreaView>
       </LinearGradient>
