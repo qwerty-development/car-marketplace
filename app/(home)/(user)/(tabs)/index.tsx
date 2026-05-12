@@ -41,6 +41,9 @@ import SkeletonCarCard from "@/components/SkeletonCarCard";
 import PlateFilterModal from "@/components/PlateFilterModal";
 import CategorySelectorModal, { VehicleCategory } from "@/components/CategorySelectorModal";
 import * as Sentry from '@sentry/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import GiveawayModal from '@/components/GiveawayModal';
+import { useTranslation } from 'react-i18next';
 import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
 import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
 import { cacheLogger } from "@/utils/cacheLogger";
@@ -109,6 +112,7 @@ export default function BrowseCarsPage() {
   const { user, profile } = useAuth();
   const { toggleFavorite, isFavorite } = useFavorites();
   const { language } = useLanguage();
+  const { t } = useTranslation();
 
   const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const [cars, setCars] = useState<Car[]>([]);
@@ -148,6 +152,41 @@ export default function BrowseCarsPage() {
   
   // Simplified loading states - removed progressive loading that was causing issues
   const [componentsLoaded, setComponentsLoaded] = useState(false);
+
+  // Giveaway
+  const [showGiveawayBanner, setShowGiveawayBanner] = useState(false);
+  const [showGiveawayModal, setShowGiveawayModal] = useState(false);
+
+  // Check if the user should see the giveaway banner
+  useEffect(() => {
+    if (!user?.id || profile?.role === 'dealer') return;
+    const checkGiveaway = async () => {
+      try {
+        const dismissed = await AsyncStorage.getItem('giveaway_banner_dismissed');
+        if (dismissed === 'true') return;
+        const { data } = await supabase
+          .from('giveaway_entries')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!data) setShowGiveawayBanner(true);
+      } catch {
+        // silently fail — non-critical
+      }
+    };
+    checkGiveaway();
+  }, [user?.id, profile?.role]);
+
+  const handleGiveawayDismiss = useCallback(async () => {
+    setShowGiveawayBanner(false);
+    setShowGiveawayModal(false);
+    await AsyncStorage.setItem('giveaway_banner_dismissed', 'true');
+  }, []);
+
+  const handleGiveawaySuccess = useCallback(() => {
+    setShowGiveawayBanner(false);
+    setShowGiveawayModal(false);
+  }, []);
 
   const [suggestions, setSuggestions] = useState<any>({
     makes: [],
@@ -1102,6 +1141,7 @@ export default function BrowseCarsPage() {
       }
 
       return (
+        <>
         <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
           <View style={styles.unifiedTabContainer}>
             <TouchableOpacity
@@ -1156,9 +1196,47 @@ export default function BrowseCarsPage() {
             </TouchableOpacity>
           </View>
         </View>
+        {showGiveawayBanner && (
+          <TouchableOpacity
+            onPress={() => setShowGiveawayModal(true)}
+            activeOpacity={0.85}
+            style={{
+              marginHorizontal: 16,
+              marginTop: 10,
+              marginBottom: 2,
+              borderRadius: 16,
+              backgroundColor: '#D55004',
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 14,
+              shadowColor: '#D55004',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <Ionicons name="gift" size={32} color="#fff" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                {t('giveaway.banner_title')}
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>
+                {t('giveaway.banner_subtitle')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleGiveawayDismiss}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        )}
+        </>
       );
     },
-    [vehicleCategory, carViewMode, isDarkMode, sortOption, fetchCars]
+    [vehicleCategory, carViewMode, isDarkMode, sortOption, fetchCars, showGiveawayBanner, handleGiveawayDismiss, t]
   );
 
   // Render sticky search bar
@@ -1528,6 +1606,13 @@ export default function BrowseCarsPage() {
         plateFilters={plateFilters}
         onApply={handleApplyPlateFilters}
         onClose={() => setIsPlateFilterVisible(false)}
+      />
+
+      {/* Giveaway Modal */}
+      <GiveawayModal
+        isVisible={showGiveawayModal}
+        onClose={handleGiveawayDismiss}
+        onSuccess={handleGiveawaySuccess}
       />
     </View>
   );

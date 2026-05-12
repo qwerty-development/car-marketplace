@@ -1361,5 +1361,22 @@
   "permissions": {
     "denied": "Permission Denied",
     "photo_access_required": "Please allow photo access."
+  },
+  "giveaway": {
+    "title": "🎁 Fleet Giveaway!",
+    "subtitle": "Enter for a chance to win. Add your Instagram or TikTok handle — you only need one!",
+    "instagram_placeholder": "Instagram handle (e.g. @fleetapp)",
+    "tiktok_placeholder": "TikTok handle (e.g. @fleetapp)",
+    "at_least_one_hint": "At least one handle is required to enter.",
+    "enter_button": "Enter Giveaway",
+    "skip": "Maybe later",
+    "error_submit": "Something went wrong. Please try again.",
+    "banner_title": "🎁 Win Big — Enter Our Giveaway!",
+    "banner_subtitle": "Tap to enter with your Instagram or TikTok",
+    "profile_title": "Giveaway",
+    "profile_entered": "You're entered! Good luck 🎉",
+    "profile_your_handles": "Your handles",
+    "profile_not_entered": "Enter for a chance to win!",
+    "profile_cta": "Enter Now"
   }
 }
