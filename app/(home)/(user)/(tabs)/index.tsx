@@ -1510,7 +1510,6 @@ export default function BrowseCarsPage() {
 
   // Memoize FlatList data array — search bar is rendered outside FlatList (no stickyHeaderIndices needed)
   const flatListData = useMemo(() => [
-    { id: 'header', type: 'header' },
     ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
     { id: 'rest-header', type: 'rest-header' },
     ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
@@ -1538,6 +1537,8 @@ export default function BrowseCarsPage() {
             { backgroundColor: "transparent" },
           ]}
         >
+          {/* Category row + profile icon — stable above search bar */}
+          {renderHeaderSection}
           {/* Search bar rendered outside FlatList — avoids stickyHeaderIndices Android jank */}
           {renderStickySearchBar}
           <FlatList
@@ -1567,14 +1568,13 @@ export default function BrowseCarsPage() {
             scrollEventThrottle={64}
             data={flatListData}
             renderItem={({ item, index }: any) => {
-              if (item.type === 'header') return renderHeaderSection;
               if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'rest-header') return renderRestOfHeader;
               if (item.type === 'skeleton') return renderSkeletonItem();
 
-              // Non-plates: [header, tabs, rest-header, ...data] = offset 3
-              // Plates: [header, rest-header, ...data] = offset 2
-              const dataIndex = index - (vehicleCategory !== 'plates' ? 3 : 2);
+              // Non-plates: [tabs, rest-header, ...data] = offset 2
+              // Plates: [rest-header, ...data] = offset 1
+              const dataIndex = index - (vehicleCategory !== 'plates' ? 2 : 1);
               if (vehicleCategory !== 'plates') {
                 return renderCarItem({ item: item.data, index: dataIndex });
               } else {
@@ -1636,8 +1636,8 @@ const styles = StyleSheet.create({
   // Header Section Styles
   headerSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
     backgroundColor: 'transparent',
   },
   darkHeaderSection: {
