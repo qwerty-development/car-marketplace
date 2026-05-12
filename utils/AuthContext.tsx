@@ -611,6 +611,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           data: {
             role: session.user.user_metadata.role || 'user',
             signup_completed: false,
+            signup_platform: SIGNUP_PLATFORM,
+            signup_app_version: SIGNUP_APP_VERSION,
           }
         });
 
@@ -708,11 +710,17 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
 
         if (!(data as any).signup_platform) {
-          supabase
-            .from('users')
-            .update({ signup_platform: SIGNUP_PLATFORM, signup_app_version: SIGNUP_APP_VERSION })
-            .eq('id', userId)
-            .then(() => {}, () => {});
+          supabase.auth.getSession().then(({ data: sessionData }) => {
+            const meta = sessionData?.session?.user?.user_metadata;
+            supabase
+              .from('users')
+              .update({
+                signup_platform: meta?.signup_platform ?? SIGNUP_PLATFORM,
+                signup_app_version: meta?.signup_app_version ?? SIGNUP_APP_VERSION,
+              })
+              .eq('id', userId)
+              .then(() => {}, () => {});
+          });
         }
       }
     } catch (error: any) {
@@ -1212,6 +1220,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
               name: name,
               role: role,
               signup_completed: false,
+              signup_platform: SIGNUP_PLATFORM,
+              signup_app_version: SIGNUP_APP_VERSION,
             },
             emailRedirectTo: redirectUri,
           },
