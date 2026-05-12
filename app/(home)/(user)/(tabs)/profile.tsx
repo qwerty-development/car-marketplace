@@ -798,6 +798,70 @@ export default function UserProfileAndSupportPage() {
           </View>
         )}
 
+        {/* Giveaway Section */}
+        {!isGuest && profile?.role !== 'dealer' && giveawayEntry !== 'loading' && (
+          <View className="px-6 mb-4">
+            {giveawayEntry ? (
+              <View
+                style={{
+                  backgroundColor: '#D55004',
+                  borderRadius: 16,
+                  padding: 16,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Ionicons name="gift" size={28} color="#fff" style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                    {t('giveaway.profile_entered')}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 }}>
+                    {t('giveaway.profile_your_handles')}:
+                    {giveawayEntry.instagram_handle ? ` @${giveawayEntry.instagram_handle}` : ''}
+                    {giveawayEntry.instagram_handle && giveawayEntry.tiktok_handle ? ' ·' : ''}
+                    {giveawayEntry.tiktok_handle ? ` @${giveawayEntry.tiktok_handle}` : ''}
+                  </Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={22} color="rgba(255,255,255,0.9)" />
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setShowGiveawayModal(true)}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: isDarkMode ? '#1a1a1a' : '#fff5f0',
+                  borderRadius: 16,
+                  padding: 16,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#D55004',
+                }}
+              >
+                <Ionicons name="gift-outline" size={28} color="#D55004" style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#D55004', fontWeight: '700', fontSize: 15 }}>
+                    {t('giveaway.profile_title')}
+                  </Text>
+                  <Text style={{ color: isDarkMode ? '#aaa' : '#555', fontSize: 12, marginTop: 2 }}>
+                    {t('giveaway.profile_not_entered')}
+                  </Text>
+                </View>
+                <Text style={{ color: '#D55004', fontWeight: '600', fontSize: 13 }}>
+                  {t('giveaway.profile_cta')}
+                </Text>
+                <Ionicons
+                  name={isRTL ? 'chevron-back' : 'chevron-forward'}
+                  size={18}
+                  color="#D55004"
+                  style={{ marginLeft: 4 }}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Quick Actions */}
         <View className={`space-y-4 px-6 ${isGuest ? '-mt-12' : ''}`}>
           <TouchableOpacity
@@ -1519,70 +1583,6 @@ export default function UserProfileAndSupportPage() {
             </View>
           </View>
         </Modal>
-
-        {/* Giveaway Section */}
-        {!isGuest && profile?.role !== 'dealer' && giveawayEntry !== 'loading' && (
-          <View className="px-6 mb-2">
-            {giveawayEntry ? (
-              <View
-                style={{
-                  backgroundColor: '#D55004',
-                  borderRadius: 16,
-                  padding: 16,
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
-                  alignItems: 'center',
-                }}
-              >
-                <Ionicons name="gift" size={28} color="#fff" style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
-                    {t('giveaway.profile_entered')}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 }}>
-                    {t('giveaway.profile_your_handles')}:
-                    {giveawayEntry.instagram_handle ? ` @${giveawayEntry.instagram_handle}` : ''}
-                    {giveawayEntry.instagram_handle && giveawayEntry.tiktok_handle ? ' ·' : ''}
-                    {giveawayEntry.tiktok_handle ? ` @${giveawayEntry.tiktok_handle}` : ''}
-                  </Text>
-                </View>
-                <Ionicons name="checkmark-circle" size={22} color="rgba(255,255,255,0.9)" />
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={() => setShowGiveawayModal(true)}
-                activeOpacity={0.85}
-                style={{
-                  backgroundColor: isDarkMode ? '#1a1a1a' : '#fff5f0',
-                  borderRadius: 16,
-                  padding: 16,
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
-                  alignItems: 'center',
-                  borderWidth: 1.5,
-                  borderColor: '#D55004',
-                }}
-              >
-                <Ionicons name="gift-outline" size={28} color="#D55004" style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#D55004', fontWeight: '700', fontSize: 15 }}>
-                    {t('giveaway.profile_title')}
-                  </Text>
-                  <Text style={{ color: isDarkMode ? '#aaa' : '#555', fontSize: 12, marginTop: 2 }}>
-                    {t('giveaway.profile_not_entered')}
-                  </Text>
-                </View>
-                <Text style={{ color: '#D55004', fontWeight: '600', fontSize: 13 }}>
-                  {t('giveaway.profile_cta')}
-                </Text>
-                <Ionicons
-                  name={isRTL ? 'chevron-back' : 'chevron-forward'}
-                  size={18}
-                  color="#D55004"
-                  style={{ marginLeft: 4 }}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
 
         {/* Support Section */}
         <View className="mt-2 p-8 space-y-4">
