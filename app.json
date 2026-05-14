@@ -11,7 +11,7 @@
     ],
     "userInterfaceStyle": "automatic",
     "notification": {
-      "icon": "./assets/images/app-icon.png",
+      "icon": "./assets/images/notification-icon.png",
       "color": "#D55004",
       "iosDisplayInForeground": true,
       "androidMode": "default",
@@ -201,7 +201,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.png",
+          "icon": "./assets/images/notification-icon.png",
           "color": "#D55004",
           "sounds": [
             "./assets/sounds/notification.wav"
