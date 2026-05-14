@@ -41,6 +41,9 @@ import SkeletonCarCard from "@/components/SkeletonCarCard";
 import PlateFilterModal from "@/components/PlateFilterModal";
 import CategorySelectorModal, { VehicleCategory } from "@/components/CategorySelectorModal";
 import * as Sentry from '@sentry/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import GiveawayModal from '@/components/GiveawayModal';
+import { useTranslation } from 'react-i18next';
 import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
 import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
 import { cacheLogger } from "@/utils/cacheLogger";
@@ -109,6 +112,7 @@ export default function BrowseCarsPage() {
   const { user, profile } = useAuth();
   const { toggleFavorite, isFavorite } = useFavorites();
   const { language } = useLanguage();
+  const { t } = useTranslation();
 
   const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const [cars, setCars] = useState<Car[]>([]);
@@ -133,21 +137,50 @@ export default function BrowseCarsPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<Car>>(null);
+  const fetchRequestIdRef = useRef(0);
+  const fetchCarsRef = useRef<typeof fetchCars | null>(null);
   useScrollToTop(flatListRef);
-  const [searchBarHeight, setSearchBarHeight] = useState(0);
-
-  // Calculate sticky search bar position
-  const stickySearchTranslateY = scrollY.interpolate({
-    inputRange: [0, 200],
-    outputRange: [0, 0],
-    extrapolate: 'clamp',
-  });
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isPlateFilterVisible, setIsPlateFilterVisible] = useState(false);
   
   // Simplified loading states - removed progressive loading that was causing issues
   const [componentsLoaded, setComponentsLoaded] = useState(false);
+
+  // Giveaway
+  const [showGiveawayBanner, setShowGiveawayBanner] = useState(false);
+  const [showGiveawayModal, setShowGiveawayModal] = useState(false);
+
+  // Check if the user should see the giveaway banner
+  useEffect(() => {
+    if (!user?.id || profile?.role === 'dealer') return;
+    const checkGiveaway = async () => {
+      try {
+        const dismissed = await AsyncStorage.getItem('giveaway_banner_dismissed');
+        if (dismissed === 'true') return;
+        const { data } = await supabase
+          .from('giveaway_entries')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!data) setShowGiveawayBanner(true);
+      } catch {
+        // silently fail — non-critical
+      }
+    };
+    checkGiveaway();
+  }, [user?.id, profile?.role]);
+
+  const handleGiveawayDismiss = useCallback(async () => {
+    setShowGiveawayBanner(false);
+    setShowGiveawayModal(false);
+    await AsyncStorage.setItem('giveaway_banner_dismissed', 'true');
+  }, []);
+
+  const handleGiveawaySuccess = useCallback(() => {
+    setShowGiveawayBanner(false);
+    setShowGiveawayModal(false);
+  }, []);
 
   const [suggestions, setSuggestions] = useState<any>({
     makes: [],
@@ -234,6 +267,8 @@ export default function BrowseCarsPage() {
       forceRefresh: boolean = false,
       currentVehicleCategory: VehicleCategory = vehicleCategory
     ) => {
+      const requestId = ++fetchRequestIdRef.current;
+
       if (page === 1) {
         if (!hasFetched) {
           setIsInitialLoading(true);
@@ -504,6 +539,7 @@ export default function BrowseCarsPage() {
 
         // Get count first for pagination
         const { count } = await queryBuilder;
+        if (requestId !== fetchRequestIdRef.current) return;
         if (!count) {
           setCars([]);
           setTotalPages(0);
@@ -565,6 +601,8 @@ export default function BrowseCarsPage() {
 
         const { data, error, fromCache } = result;
         const dataSize = data ? JSON.stringify(data).length : 0;
+
+        if (requestId !== fetchRequestIdRef.current) return;
 
         if (error) {
           console.error(`[FetchCars] ❌ Error: ${error.message}`);
@@ -749,6 +787,9 @@ export default function BrowseCarsPage() {
     },
     [filters, sortOption, searchQuery, hasFetched, carViewMode, vehicleCategory]
   );
+
+  // Keep ref in sync so stable tab handlers always call the latest fetchCars
+  fetchCarsRef.current = fetchCars;
 
   const fetchPlates = useCallback(
     async (
@@ -1093,6 +1134,29 @@ export default function BrowseCarsPage() {
     [vehicleCategory, isDarkMode, language, router, isDealer]
   );
 
+  // Stable tab switch handlers — use fetchCarsRef so renderTabsSection doesn't need fetchCars in deps
+  const handleSwitchToSale = useCallback(() => {
+    if (carViewMode !== 'sale') {
+      setCarViewMode('sale');
+      setCurrentPage(1);
+      setSearchQuery('');
+      setFilters({});
+      setCars([]);
+      fetchCarsRef.current?.(1, {}, sortOption, '', 'sale', false, vehicleCategory);
+    }
+  }, [carViewMode, sortOption, vehicleCategory]);
+
+  const handleSwitchToRent = useCallback(() => {
+    if (carViewMode !== 'rent') {
+      setCarViewMode('rent');
+      setCurrentPage(1);
+      setSearchQuery('');
+      setFilters({});
+      setCars([]);
+      fetchCarsRef.current?.(1, {}, sortOption, '', 'rent', false, vehicleCategory);
+    }
+  }, [carViewMode, sortOption, vehicleCategory]);
+
   // Buy/Rent tabs section - only shown for vehicles (not plates)
   const renderTabsSection = useMemo(
     () => {
@@ -1102,6 +1166,7 @@ export default function BrowseCarsPage() {
       }
 
       return (
+        <>
         <View style={[styles.tabsSection, isDarkMode && styles.darkTabsSection]}>
           <View style={styles.unifiedTabContainer}>
             <TouchableOpacity
@@ -1109,15 +1174,7 @@ export default function BrowseCarsPage() {
                 styles.tabButton,
                 carViewMode === 'sale' && styles.tabButtonSelected
               ]}
-              onPress={() => {
-                if (carViewMode !== 'sale') {
-                  setCarViewMode('sale');
-                  setCurrentPage(1);
-                  setSearchQuery('');
-                  setFilters({});
-                  fetchCars(1, {}, sortOption, '', 'sale', false, vehicleCategory);
-                }
-              }}
+              onPress={handleSwitchToSale}
               activeOpacity={0.7}
             >
               <Text style={[
@@ -1134,15 +1191,7 @@ export default function BrowseCarsPage() {
                 styles.tabButton,
                 carViewMode === 'rent' && styles.tabButtonSelected
               ]}
-              onPress={() => {
-                if (carViewMode !== 'rent') {
-                  setCarViewMode('rent');
-                  setCurrentPage(1);
-                  setSearchQuery('');
-                  setFilters({});
-                  fetchCars(1, {}, sortOption, '', 'rent', false, vehicleCategory);
-                }
-              }}
+              onPress={handleSwitchToRent}
               activeOpacity={0.7}
             >
               <Text style={[
@@ -1156,9 +1205,47 @@ export default function BrowseCarsPage() {
             </TouchableOpacity>
           </View>
         </View>
+        {showGiveawayBanner && (
+          <TouchableOpacity
+            onPress={() => setShowGiveawayModal(true)}
+            activeOpacity={0.85}
+            style={{
+              marginHorizontal: 16,
+              marginTop: 10,
+              marginBottom: 2,
+              borderRadius: 16,
+              backgroundColor: '#D55004',
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 14,
+              shadowColor: '#D55004',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <Ionicons name="gift" size={32} color="#fff" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                {t('giveaway.banner_title')}
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>
+                {t('giveaway.banner_subtitle')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleGiveawayDismiss}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        )}
+        </>
       );
     },
-    [vehicleCategory, carViewMode, isDarkMode, sortOption, fetchCars]
+    [vehicleCategory, carViewMode, isDarkMode, handleSwitchToSale, handleSwitchToRent, showGiveawayBanner, handleGiveawayDismiss, t]
   );
 
   // Render sticky search bar
@@ -1421,10 +1508,8 @@ export default function BrowseCarsPage() {
     [plateSortOption, searchQuery, fetchPlates]
   );
 
-  // Memoize FlatList data array to prevent re-creation on every render
+  // Memoize FlatList data array — search bar is rendered outside FlatList (no stickyHeaderIndices needed)
   const flatListData = useMemo(() => [
-    { id: 'header', type: 'header' },
-    { id: 'search', type: 'search' },
     ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
     { id: 'rest-header', type: 'rest-header' },
     ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
@@ -1452,6 +1537,10 @@ export default function BrowseCarsPage() {
             { backgroundColor: "transparent" },
           ]}
         >
+          {/* Category row + profile icon — stable above search bar */}
+          {renderHeaderSection}
+          {/* Search bar rendered outside FlatList — avoids stickyHeaderIndices Android jank */}
+          {renderStickySearchBar}
           <FlatList
             {...LAZY_FLATLIST_PROPS}
             windowSize={9}
@@ -1476,16 +1565,16 @@ export default function BrowseCarsPage() {
             )}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            scrollEventThrottle={16}
+            scrollEventThrottle={64}
             data={flatListData}
             renderItem={({ item, index }: any) => {
-              if (item.type === 'header') return renderHeaderSection;
-              if (item.type === 'search') return renderStickySearchBar;
               if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'rest-header') return renderRestOfHeader;
               if (item.type === 'skeleton') return renderSkeletonItem();
 
-              const dataIndex = index - 4; // Subtract header items (now 4 instead of 3)
+              // Non-plates: [tabs, rest-header, ...data] = offset 2
+              // Plates: [rest-header, ...data] = offset 1
+              const dataIndex = index - (vehicleCategory !== 'plates' ? 2 : 1);
               if (vehicleCategory !== 'plates') {
                 return renderCarItem({ item: item.data, index: dataIndex });
               } else {
@@ -1493,7 +1582,6 @@ export default function BrowseCarsPage() {
               }
             }}
             keyExtractor={(item: any) => item.id.toString()}
-            stickyHeaderIndices={[1]} // Search bar is at index 1 (after header, before tabs)
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} items in state)`);
@@ -1507,9 +1595,7 @@ export default function BrowseCarsPage() {
             onEndReachedThreshold={0.5}
             ListEmptyComponent={renderListEmpty}
             ListFooterComponent={<View style={{ paddingBottom: 50 }} />}
-            // Aggressive lazy loading for minimal egress and memory usage
-            removeClippedSubviews={true}
-            getItemLayout={undefined} // Let FlatList handle this automatically
+            removeClippedSubviews={false}
           />
         </SafeAreaView>
       </LinearGradient>
@@ -1529,6 +1615,13 @@ export default function BrowseCarsPage() {
         onApply={handleApplyPlateFilters}
         onClose={() => setIsPlateFilterVisible(false)}
       />
+
+      {/* Giveaway Modal */}
+      <GiveawayModal
+        isVisible={showGiveawayModal}
+        onClose={handleGiveawayDismiss}
+        onSuccess={handleGiveawaySuccess}
+      />
     </View>
   );
 }
@@ -1543,8 +1636,8 @@ const styles = StyleSheet.create({
   // Header Section Styles
   headerSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
     backgroundColor: 'transparent',
   },
   darkHeaderSection: {

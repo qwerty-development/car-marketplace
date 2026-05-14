@@ -32,6 +32,7 @@ import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { SignOutOverlay } from "@/components/SignOutOverlay";
 import PhoneVerificationBottomSheet from "@/components/PhoneVerificationBottomSheet";
+import GiveawayModal from "@/components/GiveawayModal";
 import * as SecureStore from "expo-secure-store";
 import { NotificationService } from "@/services/NotificationService";
 import { useNavigation } from "@react-navigation/native";
@@ -73,11 +74,35 @@ export default function UserProfileAndSupportPage() {
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
   /* CREDIT_DISABLED: const { refreshBalance } = useCredits(); */
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id || isGuest || profile?.role === 'dealer') {
+        setGiveawayEntry(null);
+        return;
+      }
+      supabase
+        .from('giveaway_entries')
+        .select('instagram_handle, tiktok_handle')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          setGiveawayEntry(data ?? null);
+        });
+    }, [user?.id, isGuest, profile?.role])
+  );
+
   const bannerAnimation = useRef(new Animated.Value(0)).current;
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   /* CREDIT_DISABLED: const [showPurchaseModal, setShowPurchaseModal] = useState(false); */
+
+  // Giveaway
+  const [showGiveawayModal, setShowGiveawayModal] = useState(false);
+  const [giveawayEntry, setGiveawayEntry] = useState<{
+    instagram_handle: string | null;
+    tiktok_handle: string | null;
+  } | null | 'loading'>('loading');
 
   // CRITICAL FIX: Simplified state management without aggressive refresh mechanisms
   const [firstName, setFirstName] = useState("");
@@ -770,6 +795,70 @@ export default function UserProfileAndSupportPage() {
               </View>
               <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Giveaway Section */}
+        {!isGuest && profile?.role !== 'dealer' && giveawayEntry !== 'loading' && (
+          <View className="px-6 mb-4">
+            {giveawayEntry ? (
+              <View
+                style={{
+                  backgroundColor: '#D55004',
+                  borderRadius: 16,
+                  padding: 16,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Ionicons name="gift" size={28} color="#fff" style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                    {t('giveaway.profile_entered')}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 }}>
+                    {t('giveaway.profile_your_handles')}:
+                    {giveawayEntry.instagram_handle ? ` @${giveawayEntry.instagram_handle}` : ''}
+                    {giveawayEntry.instagram_handle && giveawayEntry.tiktok_handle ? ' ·' : ''}
+                    {giveawayEntry.tiktok_handle ? ` @${giveawayEntry.tiktok_handle}` : ''}
+                  </Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={22} color="rgba(255,255,255,0.9)" />
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setShowGiveawayModal(true)}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: isDarkMode ? '#1a1a1a' : '#fff5f0',
+                  borderRadius: 16,
+                  padding: 16,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#D55004',
+                }}
+              >
+                <Ionicons name="gift-outline" size={28} color="#D55004" style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#D55004', fontWeight: '700', fontSize: 15 }}>
+                    {t('giveaway.profile_title')}
+                  </Text>
+                  <Text style={{ color: isDarkMode ? '#aaa' : '#555', fontSize: 12, marginTop: 2 }}>
+                    {t('giveaway.profile_not_entered')}
+                  </Text>
+                </View>
+                <Text style={{ color: '#D55004', fontWeight: '600', fontSize: 13 }}>
+                  {t('giveaway.profile_cta')}
+                </Text>
+                <Ionicons
+                  name={isRTL ? 'chevron-back' : 'chevron-forward'}
+                  size={18}
+                  color="#D55004"
+                  style={{ marginLeft: 4 }}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -1618,6 +1707,14 @@ export default function UserProfileAndSupportPage() {
           setShowPhoneSheet(false);
           // Refresh auth state so phone_confirmed_at updates the card immediately
           try { await forceProfileRefresh(); } catch {}
+        }}
+      />
+      <GiveawayModal
+        isVisible={showGiveawayModal}
+        onClose={() => setShowGiveawayModal(false)}
+        onSuccess={(entry) => {
+          setGiveawayEntry(entry);
+          setShowGiveawayModal(false);
         }}
       />
     </View>

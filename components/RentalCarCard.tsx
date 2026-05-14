@@ -11,7 +11,7 @@ import {
   Dimensions,
   Linking,
   Alert,
-  FlatList,
+  ScrollView,
   Image,
   ActivityIndicator,
   Pressable,
@@ -191,8 +191,6 @@ function RentalCarCard({
   const { t } = useTranslation();
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
   
   const { user } = useAuth();
   const { isGuest } = useGuestUser();
@@ -217,27 +215,16 @@ function RentalCarCard({
   }, [windowWidth, cardWidth]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        delay: Math.min(index * 50, 200),
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        delay: Math.min(index * 50, 200),
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 400,
-        delay: Math.min(index * 50, 200),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (index > 5) {
+      fadeAnim.setValue(1);
+      return;
+    }
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      delay: Math.min(index * 50, 150),
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   const trackCallClick = useCallback(
@@ -287,19 +274,6 @@ function RentalCarCard({
       isNavigatingRef.current = true;
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 0.98,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      
       const prefetchedData = await prefetchCarDetails(car.id, true); // Pass true for isRental
 
       router.push({
@@ -331,7 +305,7 @@ function RentalCarCard({
         isNavigatingRef.current = false;
       }, 1000);
     }
-  }, [router, car, isDealer, prefetchCarDetails, scaleAnim]);
+  }, [router, car, isDealer, prefetchCarDetails]);
 
   const handleChat = useCallback(async () => {
     if (disableActions) return;
@@ -466,13 +440,10 @@ function RentalCarCard({
     return car.images ? car.images.slice(0, MAX_IMAGES) : [];
   }, [car.images]);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      setCurrentImageIndex(viewableItems[0].index);
-    }
-  }, []);
-
-  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
+  const onImageScroll = useCallback((e: any) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+    setCurrentImageIndex(idx);
+  }, [cardWidth]);
 
   const renderPaginationDots = useMemo(() => {
     if (displayImages.length <= 1) return null;
@@ -507,10 +478,6 @@ function RentalCarCard({
     <Animated.View
       style={{
         opacity: fadeAnim,
-        transform: [
-          { translateY },
-          { scale: scaleAnim }
-        ],
       }}
     >
       <StyledView
@@ -520,26 +487,19 @@ function RentalCarCard({
       >
         {/* Image carousel with overlay elements */}
         <View>
-          <FlatList
+          <ScrollView
             ref={flatListRef}
-            data={displayImages}
-            renderItem={renderImageItem}
-            keyExtractor={(_, index) => `image-${index}`}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewConfigRef.current}
-            scrollEventThrottle={16}
             decelerationRate="fast"
-            snapToInterval={cardWidth}
-            snapToAlignment="center"
             bounces={false}
-            initialNumToRender={3}
-            maxToRenderPerBatch={3}
-            windowSize={3}
-            removeClippedSubviews={true}
-          />
+            scrollEventThrottle={32}
+            onScroll={onImageScroll}
+            nestedScrollEnabled={true}
+          >
+            {displayImages.map((item: any, idx: number) => renderImageItem({ item, index: idx }))}
+          </ScrollView>
 
           {/* Rented Banner */}
           {showRentedBanner && (

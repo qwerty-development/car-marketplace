@@ -45,7 +45,9 @@
       "mcp__plugin_claude-mem_mcp-search__get_observations",
       "WebFetch(domain:surajmdurgad.medium.com)",
       "WebFetch(domain:mvnrepository.com)",
-      "mcp__plugin_supabase_supabase__search_docs"
+      "mcp__plugin_supabase_supabase__search_docs",
+      "mcp__plugin_supabase_supabase__get_edge_function",
+      "mcp__plugin_supabase_supabase__get_logs"
     ],
     "deny": []
   },

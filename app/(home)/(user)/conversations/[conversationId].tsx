@@ -160,7 +160,7 @@ export default function ConversationDetailScreen() {
 
   const handleSendMessage = useCallback(
     async (text: string) => {
-      if (!conversationIdParam || !user) {
+      if (!conversationIdParam || !user || !conversation) {
         Toast.show({
           type: 'error',
           text1: t('chat.message_send_failed', 'Unable to send message'),
@@ -169,11 +169,21 @@ export default function ConversationDetailScreen() {
         return;
       }
 
+      // The DB notification trigger picks the recipient from sender_role.
+      // For user_user conversations the seller must send as 'seller_user',
+      // otherwise the trigger treats them as the buyer and tries to notify
+      // the seller (themselves), silently dropping the push to the buyer.
+      const senderRole: 'user' | 'seller_user' =
+        conversation.conversation_type === 'user_user' &&
+        conversation.seller_user_id === user.id
+          ? 'seller_user'
+          : 'user';
+
       try {
         await sendMessageMutation.mutateAsync({
           conversationId: conversationIdParam,
           senderId: user.id,
-          senderRole: 'user',
+          senderRole,
           body: text,
         });
 
@@ -189,7 +199,7 @@ export default function ConversationDetailScreen() {
         });
       }
     },
-    [conversationIdParam, sendMessageMutation, t, user]
+    [conversationIdParam, conversation, sendMessageMutation, t, user]
   );
 
   if (!conversationIdParam || conversationError) {

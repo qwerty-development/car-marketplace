@@ -11,7 +11,7 @@ import {
   Dimensions,
   Linking,
   Alert,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   Pressable,
   Share,
@@ -178,10 +178,7 @@ function CarCard({
   const bannerTitle = isDeleted ? t('car.deleted', 'Deleted') : i18n.t('car.sold');
   const bannerSubtitle = i18n.t('car.no_longer_available');
   
-  // Improved animation values with better spring physics
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
   
   const { user } = useAuth();
   const { isGuest } = useGuestUser();
@@ -217,37 +214,17 @@ function CarCard({
     return baseHeight;
   }, [windowWidth, cardWidth]);
 
-  // Much better entrance animation - smooth and responsive
   useEffect(() => {
-    // Skip animation for cards scrolled into view (index > 5) for performance
     if (index > 5) {
       fadeAnim.setValue(1);
-      scaleAnim.setValue(1);
-      translateY.setValue(0);
       return;
     }
-    // Use spring animation for more natural feel
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        delay: Math.min(index * 50, 200), // Reduced delay and capped max delay
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        delay: Math.min(index * 50, 200),
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 400,
-        delay: Math.min(index * 50, 200),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      delay: Math.min(index * 50, 150),
+      useNativeDriver: true,
+    }).start();
 
     // Track boost impression when card becomes visible
     if (car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date()) {
@@ -338,20 +315,6 @@ function CarCard({
         })();
       }
 
-      // Add subtle press animation
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 0.98,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
       const prefetchedData = await prefetchCarDetails(car.id);
 
       router.push({
@@ -381,7 +344,7 @@ function CarCard({
         isNavigatingRef.current = false;
       }, 1000);
     }
-  }, [router, car, isDealer, prefetchCarDetails, scaleAnim, user]);
+  }, [router, car, isDealer, prefetchCarDetails, user]);
 
   const handleChat = useCallback(async () => {
     if (disableActions) return;
@@ -503,15 +466,10 @@ function CarCard({
     return location;
   }, [sellerInfo.location]);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      setCurrentImageIndex(viewableItems[0].index);
-    }
-  }, []);
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
+  const onImageScroll = useCallback((e: any) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+    setCurrentImageIndex(index);
+  }, [cardWidth]);
 
   const displayedImages = useMemo(
     () => car.images.slice(0, MAX_IMAGES),
@@ -519,8 +477,8 @@ function CarCard({
   );
 
   const renderImage = useCallback(
-    ({ item, index }: any) => (
-      <Pressable onPress={handleCardPress} className="bg-neutral-800">
+    (item: string, index: number) => (
+      <Pressable key={index} onPress={handleCardPress} className="bg-neutral-800">
         <View className="relative bg-neutral-800">
           <OptimizedImage
             source={{ uri: item }}
@@ -638,11 +596,7 @@ function CarCard({
     <>
     <Animated.View
       style={{
-        opacity: showSoldBanner ? Animated.multiply(fadeAnim, 0.7) : fadeAnim, // Reduce opacity for sold cars
-        transform: [
-          { translateY },
-          { scale: scaleAnim }
-        ],
+        opacity: showSoldBanner ? Animated.multiply(fadeAnim, 0.7) : fadeAnim,
       }}
     >
       <StyledView
@@ -650,24 +604,19 @@ function CarCard({
           isDarkMode ? "bg-[#242424]" : "bg-[#e1e1e1]"
         } rounded-3xl overflow-hidden shadow-xl`}
       >
-        <FlatList
+        <ScrollView
           ref={flatListRef}
-          data={displayedImages}
-          renderItem={renderImage}
-          keyExtractor={(item, index) => index.toString()}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
-          windowSize={3}
           decelerationRate="fast"
-          snapToInterval={cardWidth}
-          snapToAlignment="center"
           bounces={false}
-        />
+          scrollEventThrottle={32}
+          onScroll={onImageScroll}
+          nestedScrollEnabled={true}
+        >
+          {displayedImages.map((item: string, index: number) => renderImage(item, index))}
+        </ScrollView>
 
         {/* Boost Indicator Badge - Premium Design */}
         {car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date() && (

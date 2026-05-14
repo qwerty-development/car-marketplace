@@ -1334,5 +1334,22 @@
   "permissions": {
     "denied": "تم رفض الإذن",
     "photo_access_required": "يرجى السماح بالوصول إلى الصور."
+  },
+  "giveaway": {
+    "title": "🎁 مسابقة فليت!",
+    "subtitle": "أدخل للفوز بجائزة. أضف حساب إنستغرام أو تيك توك — يكفي واحد منهما!",
+    "instagram_placeholder": "حساب إنستغرام (مثال: @fleetapp)",
+    "tiktok_placeholder": "حساب تيك توك (مثال: @fleetapp)",
+    "at_least_one_hint": "يجب إدخال حساب واحد على الأقل للمشاركة.",
+    "enter_button": "شارك في المسابقة",
+    "skip": "ربما لاحقاً",
+    "error_submit": "حدث خطأ ما. يرجى المحاولة مجدداً.",
+    "banner_title": "🎁 فز بجوائز — شارك في مسابقتنا!",
+    "banner_subtitle": "اضغط للمشاركة بحساب إنستغرام أو تيك توك",
+    "profile_title": "المسابقة",
+    "profile_entered": "تم تسجيلك! بالتوفيق 🎉",
+    "profile_your_handles": "حساباتك",
+    "profile_not_entered": "شارك للفوز بجائزة!",
+    "profile_cta": "شارك الآن"
   }
 }
