@@ -419,7 +419,6 @@ const DealershipDetails = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const { toggleFavorite, isFavorite } = useFavorites();
-  const scrollY = new Animated.Value(0);
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     sortOption: ''
@@ -1299,10 +1298,6 @@ const DealershipDetails = () => {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={{ paddingBottom: 20 }}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
-          )}
           scrollEventThrottle={16}
           windowSize={5} // Optimize memory usage
           maxToRenderPerBatch={5}

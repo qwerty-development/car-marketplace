@@ -58,7 +58,8 @@
       "WebFetch(domain:expo.dev)",
       "WebFetch(domain:reactnative.directory)",
       "WebFetch(domain:kirillzyusko.github.io)",
-      "Bash(npm view *)"
+      "Bash(npm view *)",
+      "Bash(npm uninstall *)"
     ],
     "deny": []
   },

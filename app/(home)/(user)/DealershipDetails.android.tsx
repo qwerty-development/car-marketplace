@@ -981,7 +981,6 @@ const DealershipDetails = () => {
   })
 
   const { toggleFavorite, isFavorite } = useFavorites()
-  const scrollY = new Animated.Value(0)
   const flatListRef = useRef<any>(null)
   const searchOffsetRef = useRef<number>(0)
 
@@ -2092,10 +2091,6 @@ const DealershipDetails = () => {
           keyExtractor={(item) => `${selectedCategory}-${item.id}`}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={{ paddingBottom: 24 }}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
-          )}
           scrollEventThrottle={16}
           refreshing={loadingState.refresh}
           onRefresh={handleRefresh}
