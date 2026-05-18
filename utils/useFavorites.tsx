@@ -1,5 +1,13 @@
 // utils/useFavorites.tsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/utils/AuthContext';
 import { useGuestUser } from '@/utils/GuestUserContext';
@@ -8,6 +16,7 @@ import AuthRequiredModal from '@/components/AuthRequiredModal';
 
 interface FavoritesContextType {
   favorites: number[];
+  favoritesSet: Set<number>;
   toggleFavorite: (carId: number) => Promise<number>;
   isFavorite: (carId: number) => boolean;
 }
@@ -23,14 +32,18 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  useEffect(() => {
-    // Fetch favorites only for authenticated users
-    if (user && !isGuest) {
-      fetchFavorites();
-    }
-  }, [user, isGuest]);
+  // Identity-stable Set for O(1) membership checks. Recreated only when the
+  // favorites array changes. Consumers use `favoritesSet.has(id)` to keep
+  // React.memo(CarCard) equal across renders.
+  const favoritesSet = useMemo(() => new Set(favorites), [favorites]);
 
-  const fetchFavorites = async () => {
+  // Keep the latest favorites in a ref so callbacks below stay reference-stable.
+  const favoritesRef = useRef(favorites);
+  useEffect(() => {
+    favoritesRef.current = favorites;
+  }, [favorites]);
+
+  const fetchFavorites = useCallback(async () => {
     if (!user || isGuest) return;
 
     try {
@@ -42,7 +55,6 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // User doesn't exist yet, initialize with empty favorites
           setFavorites([]);
         } else {
           console.error('Error fetching favorites:', error);
@@ -53,60 +65,72 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error('Error fetching favorites:', error);
     }
-  };
+  }, [user, isGuest]);
 
-  const toggleFavorite = async (carId: number): Promise<number> => {
-    // Check if user is a guest, and show auth prompt if they are
-    if (isGuest) {
-      setShowAuthModal(true);
-      return 0;
+  useEffect(() => {
+    if (user && !isGuest) {
+      fetchFavorites();
     }
+  }, [user, isGuest, fetchFavorites]);
 
-    // Proceed with favorite toggle for authenticated users
-    if (!user) return 0;
+  const isFavorite = useCallback(
+    (carId: number) => favoritesRef.current.includes(carId),
+    []
+  );
 
-    // Determine whether this action is an unlike (currently favorite) or like
-    const actionIsUnlike = isFavorite(carId);
-
-    try {
-      const { data, error } = await supabase.rpc('toggle_car_like', {
-        car_id: carId,
-        p_user_id: user.id
-      });
-
-      if (error) {
-        console.error('Error toggling favorite:', error);
+  const toggleFavorite = useCallback(
+    async (carId: number): Promise<number> => {
+      if (isGuest) {
+        setShowAuthModal(true);
         return 0;
       }
 
-      // Update local favorites
-      const newFavorites = actionIsUnlike
-        ? favorites.filter(id => id !== carId)
-        : [...favorites, carId];
-      setFavorites(newFavorites);
+      if (!user) return 0;
 
-      // Update user's favorites in the database
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ favorite: newFavorites })
-        .eq('id', user.id);
+      const current = favoritesRef.current;
+      const actionIsUnlike = current.includes(carId);
 
-      if (updateError) {
-        console.error('Error updating user favorites:', updateError);
+      try {
+        const { data, error } = await supabase.rpc('toggle_car_like', {
+          car_id: carId,
+          p_user_id: user.id,
+        });
+
+        if (error) {
+          console.error('Error toggling favorite:', error);
+          return 0;
+        }
+
+        const newFavorites = actionIsUnlike
+          ? current.filter((id) => id !== carId)
+          : [...current, carId];
+        setFavorites(newFavorites);
+
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ favorite: newFavorites })
+          .eq('id', user.id);
+
+        if (updateError) {
+          console.error('Error updating user favorites:', updateError);
+        }
+
+        return data as number;
+      } catch (error) {
+        console.error('Unexpected error in toggleFavorite:', error);
+        return 0;
       }
+    },
+    [user, isGuest]
+  );
 
-      return data as number;
-    } catch (error) {
-      console.error('Unexpected error in toggleFavorite:', error);
-      return 0;
-    }
-  };
-
-  const isFavorite = (carId: number) => favorites.includes(carId);
+  const value = useMemo(
+    () => ({ favorites, favoritesSet, toggleFavorite, isFavorite }),
+    [favorites, favoritesSet, toggleFavorite, isFavorite]
+  );
 
   return (
-    <FavoritesContext.Provider
-      value={{ favorites, toggleFavorite, isFavorite }}>
+    <FavoritesContext.Provider value={value}>
       {children}
       <AuthRequiredModal
         isVisible={showAuthModal}

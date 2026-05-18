@@ -25,6 +25,7 @@ import {
   useColorScheme,
   AppState,
   ActivityIndicator,
+  InteractionManager,
 } from "react-native";
 import "react-native-gesture-handler";
 import "react-native-get-random-values";
@@ -74,26 +75,22 @@ try {
   console.warn('[Facebook SDK] Module load failed:', e);
 }
 
-// Initialize Facebook SDK for Meta ad tracking with diagnostics
+// Initialize Facebook SDK for Meta ad tracking.
+// Diagnostics console.logs removed: each console call crossed the JS bridge during cold start
+// on Android. Use Sentry breadcrumbs (auto-captured) if telemetry is needed.
 try {
   if (FacebookSettings) {
     FacebookSettings.initializeSDK();
-    console.log('[Facebook SDK] initializeSDK() called successfully');
-
     FacebookSettings.setAdvertiserTrackingEnabled(true);
     FacebookSettings.setAdvertiserIDCollectionEnabled(true);
-    console.log('[Facebook SDK] Advertiser tracking and ID collection enabled');
-
-    FacebookSettings.getAdvertiserTrackingEnabled().then((enabled: boolean) => {
-      console.log('[Facebook SDK] Advertiser Tracking Enabled:', enabled);
-    }).catch((e: any) => console.warn('[Facebook SDK] Could not get tracking status:', e));
+    FacebookSettings.getAdvertiserTrackingEnabled().catch((e: any) =>
+      console.warn('[Facebook SDK] tracking status:', e)
+    );
   }
 
   if (AppEventsLogger) {
     AppEventsLogger.logEvent(META_EVENTS.APP_ACTIVATE);
-    console.log('[Facebook SDK] Test event', META_EVENTS.APP_ACTIVATE, 'fired');
     AppEventsLogger.flush();
-    console.log('[Facebook SDK] Events flushed');
   }
 } catch (e) {
   console.warn('[Facebook SDK] Initialization error:', e);
@@ -106,10 +103,15 @@ Sentry.init({
   // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
 
-  // Configure Session Replay
-  replaysSessionSampleRate: 0.1,
+  // Session Replay: keep error replays only — session replay native init costs 80-150ms on cold start.
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+  integrations: [Sentry.feedbackIntegration()],
+
+  // RUM: low sample rates so production has data without bridge overhead.
+  tracesSampleRate: 0.1,
+  profilesSampleRate: 0.1,
+  enableNativeFramesTracking: true,
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
@@ -150,6 +152,15 @@ LogBox.ignoreAllLogs();
 
 // CRITICAL SYSTEM: Prevent auto-hiding splash screen
 SplashScreen.preventAutoHideAsync();
+
+// PERF: Module-load timestamp for cold-start TTI measurement.
+// Exposed via globalThis so other screens can compute elapsed time.
+// Phase A measurement scaffold — used by the home feed to send a Sentry
+// custom measurement when first cars render.
+(globalThis as any).__APP_START_TS__ = Date.now();
+if (__DEV__) {
+  console.time('cold-start');
+}
 
 // PERSISTENT CONFIGURATION: QueryClient setup - AGGRESSIVE CACHING
 // Using optimized queryClient from utils/queryClient.ts with 24h staleTime
@@ -1503,7 +1514,11 @@ function RootLayout() {
   // EFFECT: Initialize app systems - OPTIMIZED
   useEffect(() => {
     const initializeApp = async () => {
-      preloadLogoCache();
+      // Defer brand-logo prefetch until after first interaction so it doesn't
+      // contend with auth/splash work during cold start.
+      InteractionManager.runAfterInteractions(() => {
+        preloadLogoCache();
+      });
 
       try {
         await SplashScreen.preventAutoHideAsync();
@@ -1589,14 +1604,17 @@ function RootLayout() {
     };
   }, []);
 
-  const toastConfig = {
-    info: ({ text1, text2 }: any) => (
-      <View className="bg-orange-500 mx-4 my-2 p-4 rounded-2xl shadow-lg">
-        <Text className="text-white font-semibold">{text1}</Text>
-        {text2 ? <Text className="text-white mt-1">{text2}</Text> : null}
-      </View>
-    ),
-  };
+  const toastConfig = useMemo(
+    () => ({
+      info: ({ text1, text2 }: any) => (
+        <View className="bg-orange-500 mx-4 my-2 p-4 rounded-2xl shadow-lg">
+          <Text className="text-white font-semibold">{text1}</Text>
+          {text2 ? <Text className="text-white mt-1">{text2}</Text> : null}
+        </View>
+      ),
+    }),
+    []
+  );
 
   useSlowConnectionToast();
 

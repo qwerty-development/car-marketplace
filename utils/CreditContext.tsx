@@ -1,7 +1,7 @@
 // utils/CreditContext.tsx
 // Credit system context provider with batch-based expiring credits
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from './supabase';
 import { useAuth } from './AuthContext';
 
@@ -145,17 +145,20 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [user?.id, isSignedIn, fetchBatches]);
 
+  const value = useMemo(
+    () => ({
+      creditBalance,
+      creditBatches,
+      isLoading,
+      refreshBalance,
+      fetchBatches,
+      deductCredits,
+    }),
+    [creditBalance, creditBatches, isLoading, refreshBalance, fetchBatches, deductCredits]
+  );
+
   return (
-    <CreditContext.Provider
-      value={{
-        creditBalance,
-        creditBatches,
-        isLoading,
-        refreshBalance,
-        fetchBatches,
-        deductCredits
-      }}
-    >
+    <CreditContext.Provider value={value}>
       {children}
     </CreditContext.Provider>
   );

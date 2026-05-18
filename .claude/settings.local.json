@@ -48,7 +48,16 @@
       "mcp__plugin_supabase_supabase__search_docs",
       "mcp__plugin_supabase_supabase__get_edge_function",
       "mcp__plugin_supabase_supabase__get_logs",
-      "Skill(superpowers:systematic-debugging)"
+      "Skill(superpowers:systematic-debugging)",
+      "Bash(npm list *)",
+      "WebFetch(domain:docs.swmansion.com)",
+      "WebFetch(domain:shopify.github.io)",
+      "WebFetch(domain:blog.sentry.io)",
+      "WebFetch(domain:docs.sentry.io)",
+      "WebFetch(domain:www.nativewind.dev)",
+      "WebFetch(domain:expo.dev)",
+      "WebFetch(domain:reactnative.directory)",
+      "WebFetch(domain:kirillzyusko.github.io)"
     ],
     "deny": []
   },

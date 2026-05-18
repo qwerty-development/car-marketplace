@@ -48,6 +48,11 @@ import { prefetchNextPage, prefetchCarImages } from "@/utils/smartPrefetch";
 import { LAZY_FLATLIST_PROPS } from "@/utils/lazyLoading";
 import { cacheLogger } from "@/utils/cacheLogger";
 import { cachedQuery, generateCacheKey } from "@/utils/supabaseCache";
+import Reanimated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 const ITEMS_PER_PAGE = 20;
 const PAGINATION_SKELETON_COUNT = 3;
 
@@ -110,7 +115,7 @@ interface Filters {
 export default function BrowseCarsPage() {
   const { isDarkMode } = useTheme();
   const { user, profile } = useAuth();
-  const { toggleFavorite, isFavorite } = useFavorites();
+  const { toggleFavorite, favoritesSet } = useFavorites();
   const { language } = useLanguage();
   const { t } = useTranslation();
 
@@ -135,7 +140,20 @@ export default function BrowseCarsPage() {
   const [plateSortOption, setPlateSortOption] = useState<string | null>(null);
   const [showScrollTopButton, setShowScrollTopButton] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  // Worklet-driven scroll position. Avoids bridge crossings per scroll event;
+  // setShowScrollTopButton fires only when the >200px threshold is crossed.
+  const scrollYShared = useSharedValue(0);
+  const scrollShowingShared = useSharedValue(false);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollYShared.value = event.contentOffset.y;
+      const shouldShow = event.contentOffset.y > 200;
+      if (shouldShow !== scrollShowingShared.value) {
+        scrollShowingShared.value = shouldShow;
+        scheduleOnRN(setShowScrollTopButton, shouldShow);
+      }
+    },
+  });
   const flatListRef = useRef<FlatList<Car>>(null);
   const fetchRequestIdRef = useRef(0);
   const fetchCarsRef = useRef<typeof fetchCars | null>(null);
@@ -251,6 +269,25 @@ export default function BrowseCarsPage() {
           await fetchPlates(1, plateFilters, sortOption, initialQuery);
         }
         setIsInitialLoadDone(true);
+
+        // PERF: Cold-start TTI measurement (Phase 0 scaffold).
+        // Fires once when the home feed has data ready to render.
+        const appStart = (globalThis as any).__APP_START_TS__;
+        if (appStart && !(globalThis as any).__TTI_REPORTED__) {
+          (globalThis as any).__TTI_REPORTED__ = true;
+          const ttiMs = Date.now() - appStart;
+          if (__DEV__) {
+            console.timeEnd('cold-start');
+          }
+          try {
+            Sentry.setMeasurement('tti.feed_ready', ttiMs, 'millisecond');
+            Sentry.addBreadcrumb({
+              category: 'perf',
+              message: `TTI feed_ready ${ttiMs}ms`,
+              level: 'info',
+            });
+          } catch {}
+        }
       }
     };
 
@@ -950,30 +987,33 @@ export default function BrowseCarsPage() {
   );
 
   const renderCarItem = useCallback(
-    ({ item, index }: { item: Car; index: number }) => (
-      <>
-        {carViewMode === 'rent' ? (
-          <RentalCarCard
-            car={item}
-            index={index}
-            onFavoritePress={handleFavoritePress}
-            isFavorite={isFavorite(Number(item.id))}
-            isDealer={false}
-          />
-        ) : (
-          <CarCard
-            car={item}
-            index={index}
-            onFavoritePress={handleFavoritePress}
-            isFavorite={isFavorite(Number(item.id))}
-            isDealer={false}
-          />
-        )}
-        {/* Show random ad banner after every 10 cars */}
-        {(index + 1) % 10 === 0 && <AdBanner key={`ad-${index}`} />}
-      </>
-    ),
-    [handleFavoritePress, isFavorite, carViewMode]
+    ({ item, index }: { item: Car; index: number }) => {
+      const fav = favoritesSet.has(Number(item.id));
+      return (
+        <>
+          {carViewMode === 'rent' ? (
+            <RentalCarCard
+              car={item}
+              index={index}
+              onFavoritePress={handleFavoritePress}
+              isFavorite={fav}
+              isDealer={false}
+            />
+          ) : (
+            <CarCard
+              car={item}
+              index={index}
+              onFavoritePress={handleFavoritePress}
+              isFavorite={fav}
+              isDealer={false}
+            />
+          )}
+          {/* Show random ad banner after every 10 cars */}
+          {(index + 1) % 10 === 0 && <AdBanner key={`ad-${index}`} />}
+        </>
+      );
+    },
+    [handleFavoritePress, favoritesSet, carViewMode]
   );
 
   const renderPlateItem = useCallback(
@@ -1541,10 +1581,8 @@ export default function BrowseCarsPage() {
           {renderHeaderSection}
           {/* Search bar rendered outside FlatList — avoids stickyHeaderIndices Android jank */}
           {renderStickySearchBar}
-          <FlatList
-            {...LAZY_FLATLIST_PROPS}
-            windowSize={9}
-            maxToRenderPerBatch={8}
+          <Reanimated.FlatList
+            {...(LAZY_FLATLIST_PROPS as any)}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1553,19 +1591,11 @@ export default function BrowseCarsPage() {
                 tintColor={isDarkMode ? "#FFFFFF" : "#000000"}
               />
             }
-            ref={flatListRef}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              {
-                useNativeDriver: false,
-                listener: ({ nativeEvent }: any) => {
-                  setShowScrollTopButton(nativeEvent.contentOffset.y > 200);
-                },
-              }
-            )}
+            ref={flatListRef as any}
+            onScroll={scrollHandler}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            scrollEventThrottle={64}
+            scrollEventThrottle={16}
             data={flatListData}
             renderItem={({ item, index }: any) => {
               if (item.type === 'tabs') return renderTabsSection;
@@ -1600,28 +1630,34 @@ export default function BrowseCarsPage() {
         </SafeAreaView>
       </LinearGradient>
 
-      {/* Category Selector Modal */}
-      <CategorySelectorModal
-        visible={isCategoryModalVisible}
-        onClose={() => setIsCategoryModalVisible(false)}
-        selectedCategory={vehicleCategory}
-        onSelectCategory={handleCategoryChange}
-      />
+      {/* Category Selector Modal — mount only when visible to avoid idle render cost */}
+      {isCategoryModalVisible && (
+        <CategorySelectorModal
+          visible={isCategoryModalVisible}
+          onClose={() => setIsCategoryModalVisible(false)}
+          selectedCategory={vehicleCategory}
+          onSelectCategory={handleCategoryChange}
+        />
+      )}
 
       {/* Plate Filter Modal */}
-      <PlateFilterModal
-        isVisible={isPlateFilterVisible}
-        plateFilters={plateFilters}
-        onApply={handleApplyPlateFilters}
-        onClose={() => setIsPlateFilterVisible(false)}
-      />
+      {isPlateFilterVisible && (
+        <PlateFilterModal
+          isVisible={isPlateFilterVisible}
+          plateFilters={plateFilters}
+          onApply={handleApplyPlateFilters}
+          onClose={() => setIsPlateFilterVisible(false)}
+        />
+      )}
 
       {/* Giveaway Modal */}
-      <GiveawayModal
-        isVisible={showGiveawayModal}
-        onClose={handleGiveawayDismiss}
-        onSuccess={handleGiveawaySuccess}
-      />
+      {showGiveawayModal && (
+        <GiveawayModal
+          isVisible={showGiveawayModal}
+          onClose={handleGiveawayDismiss}
+          onSuccess={handleGiveawaySuccess}
+        />
+      )}
     </View>
   );
 }

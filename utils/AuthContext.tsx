@@ -1,5 +1,5 @@
 // utils/AuthContext.tsx - FIXED VERSION
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import * as SecureStore from 'expo-secure-store';
@@ -1735,32 +1735,90 @@ const forceProfileRefresh = async () => {
     };
   }, []);
 
+  // SDK 54 re-render-cascade fix (see MAXIMUM_UPDATE_DEPTH_FIX.md):
+  // Functions are recreated on every render; using them directly in `value`
+  // would force every `useAuth()` consumer to re-render every time AuthProvider
+  // re-renders. Keep latest impls in a ref and expose identity-stable wrappers.
+  const fnsRef = useRef({
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    updatePassword,
+    verifyOtp,
+    googleSignIn,
+    appleSignIn,
+    refreshSession,
+    updateUserProfile,
+    updateDealershipProfile,
+    forceProfileRefresh,
+    updateUserRole,
+  });
+  fnsRef.current = {
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    updatePassword,
+    verifyOtp,
+    googleSignIn,
+    appleSignIn,
+    refreshSession,
+    updateUserProfile,
+    updateDealershipProfile,
+    forceProfileRefresh,
+    updateUserRole,
+  };
+
+  const isSignedInComputed = !!user || !!session;
+
+  const contextValue = useMemo<AuthContextProps>(
+    () => ({
+      session,
+      user,
+      profile,
+      dealership,
+      isLoaded,
+      isSignedIn: isSignedInComputed,
+      isSigningOut: isSigningOutState,
+      isSigningIn,
+      // Stable wrappers — identity never changes; latest impl via fnsRef.current.
+      signIn: ((...args: Parameters<typeof signIn>) =>
+        fnsRef.current.signIn(...args)) as typeof signIn,
+      signUp: ((...args: Parameters<typeof signUp>) =>
+        fnsRef.current.signUp(...args)) as typeof signUp,
+      signOut: (() => fnsRef.current.signOut()) as typeof signOut,
+      resetPassword: ((...args: Parameters<typeof resetPassword>) =>
+        fnsRef.current.resetPassword(...args)) as typeof resetPassword,
+      updatePassword: ((...args: Parameters<typeof updatePassword>) =>
+        fnsRef.current.updatePassword(...args)) as typeof updatePassword,
+      verifyOtp: ((...args: Parameters<typeof verifyOtp>) =>
+        fnsRef.current.verifyOtp(...args)) as typeof verifyOtp,
+      googleSignIn: (() => fnsRef.current.googleSignIn()) as typeof googleSignIn,
+      appleSignIn: (() => fnsRef.current.appleSignIn()) as typeof appleSignIn,
+      refreshSession: (() => fnsRef.current.refreshSession()) as typeof refreshSession,
+      updateUserProfile: ((...args: Parameters<typeof updateUserProfile>) =>
+        fnsRef.current.updateUserProfile(...args)) as typeof updateUserProfile,
+      updateDealershipProfile: ((...args: Parameters<typeof updateDealershipProfile>) =>
+        fnsRef.current.updateDealershipProfile(...args)) as typeof updateDealershipProfile,
+      forceProfileRefresh: (() => fnsRef.current.forceProfileRefresh()) as typeof forceProfileRefresh,
+      updateUserRole: ((...args: Parameters<typeof updateUserRole>) =>
+        fnsRef.current.updateUserRole(...args)) as typeof updateUserRole,
+    }),
+    [
+      session,
+      user,
+      profile,
+      dealership,
+      isLoaded,
+      isSignedInComputed,
+      isSigningOutState,
+      isSigningIn,
+    ]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user,
-        profile,
-        dealership,
-        isLoaded,
-        isSignedIn: !!user || !!session,
-        isSigningOut: isSigningOutState,
-        isSigningIn,
-        signIn,
-        signUp,
-        signOut,
-        resetPassword,
-        updatePassword,
-        verifyOtp,
-        googleSignIn,
-        appleSignIn,
-        refreshSession,
-        updateUserProfile,
-        updateDealershipProfile,
-        forceProfileRefresh,
-        updateUserRole
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

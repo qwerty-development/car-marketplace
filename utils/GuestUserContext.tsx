@@ -22,8 +22,12 @@ export const GuestUserProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     const initializeGuestState = async () => {
       try {
-        const storedIsGuest = await AsyncStorage.getItem('isGuestUser');
-        const storedGuestId = await AsyncStorage.getItem('guestUserId');
+        // Parallel reads: AsyncStorage on Android is SQLite-backed; sequential
+        // gets sum their latencies on cold start.
+        const [storedIsGuest, storedGuestId] = await Promise.all([
+          AsyncStorage.getItem('isGuestUser'),
+          AsyncStorage.getItem('guestUserId'),
+        ]);
 
         if (storedIsGuest === 'true' && storedGuestId) {
           setIsGuest(true);
