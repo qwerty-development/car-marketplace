@@ -59,7 +59,8 @@
       "WebFetch(domain:reactnative.directory)",
       "WebFetch(domain:kirillzyusko.github.io)",
       "Bash(npm view *)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(npx --yes react-compiler-healthcheck@latest)"
     ],
     "deny": []
   },
