@@ -327,19 +327,21 @@ const ClipItem = React.memo<ClipItemProps>(({
     return () => { delete playerActionsRef.current[item.id]; };
   }, [player, item.id]);
 
-  // Control play/pause based on shouldPlay
+  // Pause immediately when shouldPlay becomes false — no debounce so audio stops instantly
   useEffect(() => {
-    if (!player) return;
+    if (!player || shouldPlay) return;
+    try { player.pause(); } catch (_) {}
+  }, [shouldPlay, player]);
+
+  // Play with debounce — guards against mid-scroll accidental playback starts
+  useEffect(() => {
+    if (!player || !debouncedShouldPlay) return;
     try {
-      if (debouncedShouldPlay) {
-        if (!initialPositionSet.current && savedPosition > 0) {
-          player.currentTime = savedPosition;
-          initialPositionSet.current = true;
-        }
-        player.play();
-      } else {
-        player.pause();
+      if (!initialPositionSet.current && savedPosition > 0) {
+        player.currentTime = savedPosition;
+        initialPositionSet.current = true;
       }
+      player.play();
     } catch (err) {
       console.error('Error controlling playback:', err);
     }
@@ -985,48 +987,37 @@ export default function AutoClips() {
     );
   }, [expandedDescriptions, t]);
 
-  // FIXED: Heavily optimized viewability handler with debouncing
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (isNavigatingToDeepLink || viewableItems.length === 0) return;
-    
-    // Clear existing timeout
-    if (viewabilityTimeoutRef.current) {
-      clearTimeout(viewabilityTimeoutRef.current);
-    }
-    
-    // Debounce viewability changes
-    viewabilityTimeoutRef.current = setTimeout(() => {
-      const visibleClip = viewableItems[0].item;
-      const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id);
-      
-      if (newIndex !== currentVideoIndex && newIndex !== -1) {
-        // Clear existing view timer
-        if (viewTimers.current[currentVideoIndex]) {
-          clearTimeout(viewTimers.current[currentVideoIndex]);
-        }
-        
-        setCurrentVideoIndex(newIndex);
-        
-        // Start new view timer
-        viewTimers.current[newIndex] = setTimeout(() => {
-          trackClipView(visibleClip.id);
-        }, 5000);
-        
-        // FIXED: Simplified state update - only change playing state
-        setIsPlaying(prev => {
-          const newState: VideoState = {};
-          // Only the visible video should be playing
-          newState[visibleClip.id] = allowVideoPlayback;
-          return newState;
-        });
+
+    const visibleClip = viewableItems[0].item;
+    const newIndex = autoClips.findIndex(clip => clip.id === visibleClip.id);
+
+    if (newIndex !== currentVideoIndex && newIndex !== -1) {
+      if (viewTimers.current[currentVideoIndex]) {
+        clearTimeout(viewTimers.current[currentVideoIndex]);
       }
-    }, 150); // Debounce viewability changes
+
+      setCurrentVideoIndex(newIndex);
+
+      viewTimers.current[newIndex] = setTimeout(() => {
+        trackClipView(visibleClip.id);
+      }, 5000);
+
+      // Synchronous state update — old video's shouldPlay becomes false immediately,
+      // triggering the instant-pause effect in ClipItem without any debounce lag
+      setIsPlaying(prev => {
+        const newState: VideoState = {};
+        newState[visibleClip.id] = allowVideoPlayback;
+        return newState;
+      });
+    }
   }, [autoClips, currentVideoIndex, trackClipView, allowVideoPlayback, isNavigatingToDeepLink]);
 
   const viewabilityConfig = useMemo(() => ({
     itemVisiblePercentThreshold: 50,
     waitForInteraction: false,
-    minimumViewTime: 300,
+    minimumViewTime: 50, // was 300 — reduced so old video pauses within ~66ms of scroll settling
   }), []);
 
   // FIXED: Cleanup on unmount
