@@ -9,9 +9,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
-  SafeAreaView
+  Dimensions
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '@/utils/ThemeContext'
 import { useLanguage } from '@/utils/LanguageContext'
 import { useTranslation } from 'react-i18next'

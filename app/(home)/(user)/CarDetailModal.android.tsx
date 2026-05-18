@@ -23,7 +23,7 @@ import { debounce } from "@/utils/debounce";
 import { useFavorites } from "@/utils/useFavorites";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/utils/ThemeContext";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import AutoclipModal from "@/components/AutoclipModal";
 import { useAuth } from "@/utils/AuthContext";
 import { useGuestUser } from "@/utils/GuestUserContext";
@@ -184,7 +184,8 @@ const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#33
           ]}
           onLoad={handleLoad}
           onError={handleError}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
         />
       ) : (
         <View style={[style, { justifyContent: 'center', alignItems: 'center' }]}>

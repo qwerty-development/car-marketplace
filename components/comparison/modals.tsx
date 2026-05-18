@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { TouchableOpacity, View, TextInput, ScrollView, Text, Image, StyleSheet, BackHandler } from "react-native";
+import { TouchableOpacity, View, TextInput, ScrollView, Text, StyleSheet, BackHandler } from "react-native";
+import { Image } from "expo-image";
 import { SlideInDown, SlideOutDown, FadeIn, FadeOut } from "react-native-reanimated";
 import { Car } from "./types";
 import styles from "./styles";
@@ -270,6 +271,9 @@ export const CarPickerModal = ({
                       <Image
                         source={{ uri: car.images[0] }}
                         style={styles.carThumbnail}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        recyclingKey={car.id}
                       />
                       <View style={[
                         styles.carInfo,

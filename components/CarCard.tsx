@@ -46,8 +46,16 @@ const StyledPressable = styled(Pressable);
 
 const MAX_IMAGES = 3;
 
-// Simplified Image component with proper caching and transition
-const OptimizedImage = ({ source, style, fallbackColor = 'transparent' }: any) => {
+// Simplified Image component with proper caching and transition.
+// `recyclingKey` ties the underlying expo-image cache slot to the car id so
+// when a FlashList cell recycles into a different car, the previous image
+// doesn't flash through before the new one decodes.
+const OptimizedImage = ({
+  source,
+  style,
+  fallbackColor = 'transparent',
+  recyclingKey,
+}: any) => {
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
       <CachedImage
@@ -57,6 +65,7 @@ const OptimizedImage = ({ source, style, fallbackColor = 'transparent' }: any) =
         cachePolicy="disk"
         transition={200}
         priority="normal"
+        recyclingKey={recyclingKey}
       />
     </View>
   );
@@ -483,6 +492,7 @@ function CarCard({
           <OptimizedImage
             source={{ uri: item }}
             style={{ width: cardWidth, height: imageHeight }}
+            recyclingKey={`car-${car.id}-${index}`}
           />
 
 

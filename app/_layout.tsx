@@ -64,7 +64,8 @@ import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { preloadLogoCache } from '@/hooks/getLogoUrl';
 
-// Lazy-load Facebook SDK to prevent NativeEventEmitter crash during import
+// Lazy-load Facebook SDK to prevent NativeEventEmitter crash during import.
+// Actual SDK init is deferred to runAfterInteractions to keep cold-start light.
 let FacebookSettings: any = null;
 let AppEventsLogger: any = null;
 try {
@@ -75,25 +76,27 @@ try {
   console.warn('[Facebook SDK] Module load failed:', e);
 }
 
-// Initialize Facebook SDK for Meta ad tracking.
-// Diagnostics console.logs removed: each console call crossed the JS bridge during cold start
-// on Android. Use Sentry breadcrumbs (auto-captured) if telemetry is needed.
-try {
-  if (FacebookSettings) {
-    FacebookSettings.initializeSDK();
-    FacebookSettings.setAdvertiserTrackingEnabled(true);
-    FacebookSettings.setAdvertiserIDCollectionEnabled(true);
-    FacebookSettings.getAdvertiserTrackingEnabled().catch((e: any) =>
-      console.warn('[Facebook SDK] tracking status:', e)
-    );
-  }
+let __fbSdkInitialized = false;
+function initializeFacebookSDK() {
+  if (__fbSdkInitialized) return;
+  __fbSdkInitialized = true;
+  try {
+    if (FacebookSettings) {
+      FacebookSettings.initializeSDK();
+      FacebookSettings.setAdvertiserTrackingEnabled(true);
+      FacebookSettings.setAdvertiserIDCollectionEnabled(true);
+      FacebookSettings.getAdvertiserTrackingEnabled().catch((e: any) =>
+        console.warn('[Facebook SDK] tracking status:', e)
+      );
+    }
 
-  if (AppEventsLogger) {
-    AppEventsLogger.logEvent(META_EVENTS.APP_ACTIVATE);
-    AppEventsLogger.flush();
+    if (AppEventsLogger) {
+      AppEventsLogger.logEvent(META_EVENTS.APP_ACTIVATE);
+      AppEventsLogger.flush();
+    }
+  } catch (e) {
+    console.warn('[Facebook SDK] Initialization error:', e);
   }
-} catch (e) {
-  console.warn('[Facebook SDK] Initialization error:', e);
 }
 
 Sentry.init({
@@ -1150,9 +1153,16 @@ function NotificationsProvider() {
       }
     };
 
-    initializeNotifications();
+    // Defer the 3 concurrent async ops (channel setup, permission check,
+    // token registration) until after first interaction so they don't compete
+    // with auth/splash work during cold start. Push token may register a few
+    // seconds later — acceptable for a brand-new install.
+    const handle = InteractionManager.runAfterInteractions(() => {
+      initializeNotifications();
+    });
 
     return () => {
+      handle.cancel?.();
       if (initTimeoutRef.current) {
         clearTimeout(initTimeoutRef.current);
       }
@@ -1514,10 +1524,13 @@ function RootLayout() {
   // EFFECT: Initialize app systems - OPTIMIZED
   useEffect(() => {
     const initializeApp = async () => {
-      // Defer brand-logo prefetch until after first interaction so it doesn't
-      // contend with auth/splash work during cold start.
+      // Defer brand-logo prefetch + Facebook SDK init until after first
+      // interaction so they don't contend with auth/splash work during cold
+      // start. APP_ACTIVATE will fire ~300ms later, still well within Meta's
+      // attribution window.
       InteractionManager.runAfterInteractions(() => {
         preloadLogoCache();
+        initializeFacebookSDK();
       });
 
       try {

@@ -53,6 +53,12 @@ import Reanimated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { FlashList } from "@shopify/flash-list";
+
+// Reanimated-aware FlashList so the worklet onScroll handler runs on the UI
+// thread. FlashList ships AnimatedFlashList wrapped with react-native's
+// Animated, which isn't compatible with Reanimated's useAnimatedScrollHandler.
+const AnimatedFlashList: any = Reanimated.createAnimatedComponent(FlashList);
 const ITEMS_PER_PAGE = 20;
 const PAGINATION_SKELETON_COUNT = 3;
 
@@ -1581,7 +1587,10 @@ export default function BrowseCarsPage() {
           {renderHeaderSection}
           {/* Search bar rendered outside FlatList — avoids stickyHeaderIndices Android jank */}
           {renderStickySearchBar}
-          <Reanimated.FlatList
+          <AnimatedFlashList
+            // FlashList v2 ignores legacy FlatList virtualization props; spread
+            // is harmless. scrollEventThrottle / showsVerticalScrollIndicator
+            // from LAZY_FLATLIST_PROPS are honored.
             {...(LAZY_FLATLIST_PROPS as any)}
             refreshControl={
               <RefreshControl
@@ -1597,6 +1606,11 @@ export default function BrowseCarsPage() {
             keyboardShouldPersistTaps="handled"
             scrollEventThrottle={16}
             data={flatListData}
+            // Heterogeneous-item recycling: FlashList recycles each type
+            // independently, so a 'data' cell never tries to mount over a
+            // 'tabs' cell. Big win on this screen because the data structure
+            // mixes tabs / header / skeleton / data / loading-skeleton.
+            getItemType={(item: any) => item.type}
             renderItem={({ item, index }: any) => {
               if (item.type === 'tabs') return renderTabsSection;
               if (item.type === 'rest-header') return renderRestOfHeader;
@@ -1611,7 +1625,7 @@ export default function BrowseCarsPage() {
                 return renderPlateItem({ item: item.data, index: dataIndex });
               }
             }}
-            keyExtractor={(item: any) => item.id.toString()}
+            keyExtractor={(item: any) => `${item.type}-${item.id}`}
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} items in state)`);
@@ -1625,7 +1639,6 @@ export default function BrowseCarsPage() {
             onEndReachedThreshold={0.5}
             ListEmptyComponent={renderListEmpty}
             ListFooterComponent={<View style={{ paddingBottom: 50 }} />}
-            removeClippedSubviews={false}
           />
         </SafeAreaView>
       </LinearGradient>
