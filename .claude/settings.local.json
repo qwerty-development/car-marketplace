@@ -57,7 +57,8 @@
       "WebFetch(domain:www.nativewind.dev)",
       "WebFetch(domain:expo.dev)",
       "WebFetch(domain:reactnative.directory)",
-      "WebFetch(domain:kirillzyusko.github.io)"
+      "WebFetch(domain:kirillzyusko.github.io)",
+      "Bash(npm view *)"
     ],
     "deny": []
   },

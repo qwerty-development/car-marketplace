@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fleet",
     "slug": "clerk-expo-quickstart",
-    "version": "2.3.15",
+    "version": "2.3.16",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "fleet",
@@ -84,7 +84,6 @@
       },
       "allowBackup": true,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
@@ -173,7 +172,9 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "buildToolsVersion": "36.0.0",
-            "useLegacyPackaging": false
+            "useLegacyPackaging": false,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
@@ -246,7 +247,7 @@
         "projectId": "aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
       }
     },
-    "runtimeVersion": "2.3.3",
+    "runtimeVersion": "2.3.4",
     "updates": {
       "url": "https://u.expo.dev/aaf80aae-b9fd-4c39-a48a-79f2eac06e68"
     },
