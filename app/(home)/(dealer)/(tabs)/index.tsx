@@ -949,6 +949,7 @@ export default function DealerListings() {
 		transmission: ''
 	})
 	const scrollRef = useRef(null)
+	const isNavigatingRef = useRef(false)
 
 	useScrollToTop(scrollRef)
 
@@ -1213,10 +1214,9 @@ export default function DealerListings() {
 
   useFocusEffect(
     React.useCallback(() => {
+      isNavigatingRef.current = false;
       handleRefresh();
-      return () => {
-
-      };
+      return () => {};
     }, [handleRefresh])
   );
 
@@ -1542,6 +1542,8 @@ const ListingCard = useMemo(
 
       // Direct navigation handler with subscription validation
       const handleCardPress = () => {
+        if (isNavigatingRef.current) return;
+
         if (!subscriptionValid) {
           Alert.alert(
             'Subscription Expired',
@@ -1550,7 +1552,7 @@ const ListingCard = useMemo(
           return;
         }
 
-        // Navigate directly to edit page with viewMode
+        isNavigatingRef.current = true;
         router.push({
           pathname: '/(home)/(dealer)/AddEditListing',
           params: {
