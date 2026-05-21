@@ -19,7 +19,7 @@ const KilometrageWithConverter: React.FC<KilometrageWithConverterProps> = ({
   value,
   onChangeText,
   isDarkMode,
-  placeholder = "Enter vehicle kilometrage",
+  placeholder = "Enter vehicle mileage",
 }) => {
   const [showMilesConverter, setShowMilesConverter] = useState(false);
   const [milesValue, setMilesValue] = useState("");
@@ -69,7 +69,7 @@ const KilometrageWithConverter: React.FC<KilometrageWithConverterProps> = ({
             isDarkMode ? "text-neutral-300" : "text-neutral-700"
           }`}
         >
-          Kilometrage *
+          Mileage *
         </Text>
         <TouchableOpacity
           onPress={toggleMilesConverter}

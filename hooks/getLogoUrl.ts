@@ -17,7 +17,7 @@ export async function preloadLogoCache(): Promise<void> {
     if (error) throw error;
     for (const row of data ?? []) {
       if (!row.make) continue;
-      logoCache.set(row.make.toLowerCase(), {
+      logoCache.set(row.make.toLowerCase().trim().replace(/\s+/g, '-'), {
         dark: row.logo_url_dark ?? null,
         light: row.logo_url_light ?? null,
       });
@@ -106,7 +106,7 @@ export const hasLocalDarkModeLogo = (make: string | null | undefined): boolean =
 
 export const getLogoUrl = (
   make: string | null | undefined,
-  isLightMode: boolean,
+  _isLightMode?: boolean,
 ) => {
   if (!make) return null;
 

@@ -2490,7 +2490,7 @@ features
               value={formData.mileage}
               onChangeText={(text) => handleInputChange("mileage", text)}
               isDarkMode={isDarkMode}
-              placeholder="Enter vehicle kilometrage"
+              placeholder="Enter vehicle mileage"
             />
           )}
 
