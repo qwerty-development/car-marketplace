@@ -104,7 +104,6 @@ export default function ForgotPasswordPage() {
   const onReset = async () => {
     let hasError = false;
     if (!code.trim() || code.length < 6) {
-      setCodeError('Enter the 6-digit code');
       hasError = true;
     } else {
       setCodeError('');
@@ -167,7 +166,7 @@ export default function ForgotPasswordPage() {
       : `Enter the code we sent to ${emailAddress.trim()} and choose a new password.`;
 
   return (
-    <AuthScaffold showBack onBack={() => router.back()}>
+    <AuthScaffold showBack={router.canGoBack()} onBack={() => router.canGoBack() && router.back()}>
       <Animated.View
         style={{
           opacity: stageOpacity,
@@ -217,7 +216,7 @@ export default function ForgotPasswordPage() {
               error={codeError || undefined}
               autoFocus
             />
-            {codeError ? (
+            {codeError && code.length !== 6 ? (
               <Caption tone="error" align="center" style={{ marginTop: spacing.sm }}>
                 {codeError}
               </Caption>

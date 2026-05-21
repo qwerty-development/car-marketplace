@@ -1,10 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  NativeSyntheticEvent,
   Platform,
   StyleSheet,
+  Text,
   TextInput,
-  TextInputKeyPressEventData,
   View,
 } from 'react-native';
 import { useTheme } from '@/utils/ThemeContext';
@@ -31,66 +30,48 @@ const OtpInput: React.FC<Props> = ({
 }) => {
   const { isDarkMode } = useTheme();
   const colors = getAuthColors(isDarkMode);
-  const inputsRef = useRef<(TextInput | null)[]>([]);
+  const hiddenInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (autoFocus) {
       const t = setTimeout(() => {
-        inputsRef.current[0]?.focus();
+        hiddenInputRef.current?.focus();
       }, 200);
       return () => clearTimeout(t);
     }
   }, [autoFocus]);
 
-  const setDigit = (index: number, digit: string) => {
-    const clean = digit.replace(/\D/g, '');
-    let next = value;
-    if (clean.length > 1) {
-      // pasted multi-digit value — fill from this index
-      const chars = clean.split('').slice(0, length - index);
-      next = (value.substring(0, index) + chars.join('') + value.substring(index + chars.length)).substring(0, length);
-      const newCursor = Math.min(index + chars.length, length - 1);
-      inputsRef.current[newCursor]?.focus();
-    } else if (clean.length === 1) {
-      next = (value.substring(0, index) + clean + value.substring(index + 1)).substring(0, length);
-      if (index < length - 1) {
-        inputsRef.current[index + 1]?.focus();
-      } else {
-        inputsRef.current[index]?.blur();
-      }
-    } else {
-      // empty/non-digit — keep value
+  // Re-focus whenever value is cleared (e.g. after resend code)
+  useEffect(() => {
+    if (value === '' && editable) {
+      const t = setTimeout(() => {
+        hiddenInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(t);
     }
-    onChange(next);
-    if (next.length === length && next.replace(/\D/g, '').length === length) {
-      onComplete?.(next);
-    }
-  };
+  }, [value, editable]);
 
-  const handleKeyPress = (
-    index: number,
-    e: NativeSyntheticEvent<TextInputKeyPressEventData>,
-  ) => {
-    if (e.nativeEvent.key === 'Backspace') {
-      if (!value[index] && index > 0) {
-        inputsRef.current[index - 1]?.focus();
-        const trimmed = (value.substring(0, index - 1) + '' + value.substring(index)).substring(0, length);
-        onChange(trimmed);
-      } else if (value[index]) {
-        const cleared = (value.substring(0, index) + '' + value.substring(index + 1)).substring(0, length);
-        onChange(cleared);
-      }
+  const handleChange = (text: string) => {
+    const clean = text.replace(/\D/g, '').substring(0, length);
+    onChange(clean);
+    if (clean.length === length) {
+      onComplete?.(clean);
+      hiddenInputRef.current?.blur();
     }
   };
 
   const cells = Array.from({ length }, (_, i) => i);
+  const cursorIndex = value.length < length ? value.length : length - 1;
+  // Don't show error once all digits are filled
+  const isComplete = value.replace(/\D/g, '').length === length;
 
   return (
     <View style={styles.row}>
+      {/* Visual cells — rendered underneath */}
       {cells.map((i) => {
         const ch = value[i] || '';
-        const isActive = (value.length === i && editable) || (i === 0 && value.length === 0 && editable);
-        const showError = !!error;
+        const isActive = i === cursorIndex && editable;
+        const showError = !!error && !isComplete;
         return (
           <View
             key={i}
@@ -107,31 +88,31 @@ const OtpInput: React.FC<Props> = ({
               },
             ]}
           >
-            <TextInput
-              ref={(el) => {
-                inputsRef.current[i] = el;
-              }}
-              value={ch}
-              onChangeText={(t) => setDigit(i, t)}
-              onKeyPress={(e) => handleKeyPress(i, e)}
-              keyboardType="number-pad"
-              maxLength={length}
-              textContentType={Platform.OS === 'ios' ? 'oneTimeCode' : 'none'}
-              autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
-              editable={editable}
-              selectTextOnFocus
-              style={[
-                styles.input,
-                {
-                  color: colors.textPrimary,
-                },
-                Platform.OS === 'android' ? { includeFontPadding: false } : null,
-              ]}
-              caretHidden
-            />
+            <Text style={[styles.cellText, { color: colors.textPrimary }]}>
+              {ch}
+            </Text>
           </View>
         );
       })}
+
+      {/*
+       * Transparent TextInput covering the full row — sits ON TOP so Android's
+       * autofill framework sees a real, "visible" input. opacity:0 makes Android
+       * consider the view gone; color/bg transparent keeps it visible to the OS.
+       */}
+      <TextInput
+        ref={hiddenInputRef}
+        value={value}
+        onChangeText={handleChange}
+        keyboardType="number-pad"
+        maxLength={length}
+        textContentType="oneTimeCode"
+        autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
+        importantForAutofill="yes"
+        editable={editable}
+        caretHidden
+        style={styles.transparentInput}
+      />
     </View>
   );
 };
@@ -152,13 +133,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  input: {
-    width: '100%',
-    height: '100%',
-    textAlign: 'center',
+  cellText: {
     fontSize: 24,
     fontWeight: '600',
-    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  transparentInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    // opacity:0.01 keeps the view "alive" in Android's view hierarchy (opacity:0
+    // would make Android ignore it for autofill), but is imperceptible to the user
+    opacity: 0.01,
+    fontSize: 18,
+    zIndex: 10,
   },
 });
 

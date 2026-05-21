@@ -202,9 +202,9 @@ export default function SignInPage() {
   };
 
   // Verify phone OTP
-  const handlePhoneOtpVerify = async () => {
-    if (!otpCode || otpCode.length < 6) {
-      setOtpError('Enter the 6-digit code we sent you');
+  const handlePhoneOtpVerify = async (codeOverride?: string) => {
+    const codeToUse = codeOverride ?? otpCode;
+    if (!codeToUse || codeToUse.length < 6) {
       return;
     }
 
@@ -218,7 +218,7 @@ export default function SignInPage() {
 
       const { data, error } = await supabase.auth.verifyOtp({
         phone: fullPhoneNumber,
-        token: otpCode,
+        token: codeToUse,
         type: 'sms',
       });
 
@@ -339,7 +339,7 @@ export default function SignInPage() {
     : 'Sign in to continue.';
 
   return (
-    <AuthScaffold showBack onBack={() => router.back()}>
+    <AuthScaffold showBack={router.canGoBack()} onBack={() => router.canGoBack() && router.back()}>
       <Animated.View
         style={{
           opacity: contentOpacity,
@@ -359,7 +359,7 @@ export default function SignInPage() {
                 setOtpCode(v);
                 if (otpError) setOtpError('');
               }}
-              onComplete={() => handlePhoneOtpVerify()}
+              onComplete={(v) => handlePhoneOtpVerify(v)}
               error={otpError || undefined}
               autoFocus
             />

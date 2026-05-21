@@ -197,16 +197,16 @@ export default function SignUpScreen() {
     }
   };
 
-  const onPressVerify = async () => {
+  const onPressVerify = async (codeOverride?: string) => {
     if (!isLoaded) return;
-    if (!code.trim() || code.length < 6) {
-      setErrors((prev) => ({ ...prev, code: 'Enter the 6-digit code' }));
+    const codeToUse = codeOverride ?? code;
+    if (!codeToUse.trim() || codeToUse.length < 6) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await verifyOtp(verificationEmail, code);
+      const { error } = await verifyOtp(verificationEmail, codeToUse);
       if (error) throw error;
 
       Alert.alert('Success', 'Your account has been verified successfully.', [
@@ -285,9 +285,9 @@ export default function SignUpScreen() {
   };
 
   // Phone OTP verify
-  const handlePhoneOtpVerify = async () => {
-    if (!code.trim() || code.length < 6) {
-      setErrors((prev) => ({ ...prev, code: 'Enter the 6-digit code' }));
+  const handlePhoneOtpVerify = async (codeOverride?: string) => {
+    const codeToUse = codeOverride ?? code;
+    if (!codeToUse.trim() || codeToUse.length < 6) {
       return;
     }
 
@@ -300,7 +300,7 @@ export default function SignUpScreen() {
 
       const { data, error } = await supabase.auth.verifyOtp({
         phone: fullPhoneNumber,
-        token: code,
+        token: codeToUse,
         type: 'sms',
       });
 
@@ -423,7 +423,7 @@ export default function SignUpScreen() {
       : 'It only takes a minute.';
 
   return (
-    <AuthScaffold showBack onBack={() => router.back()}>
+    <AuthScaffold showBack={router.canGoBack()} onBack={() => router.canGoBack() && router.back()}>
       <Animated.View
         style={{
           opacity: contentOpacity,
@@ -443,13 +443,14 @@ export default function SignUpScreen() {
                 setCode(v);
                 if (errors.code) setErrors((prev) => ({ ...prev, code: '' }));
               }}
-              onComplete={() =>
-                pendingPhoneVerification ? handlePhoneOtpVerify() : onPressVerify()
-              }
+              onComplete={(v) => {
+                setErrors((prev) => ({ ...prev, code: '' }));
+                pendingPhoneVerification ? handlePhoneOtpVerify(v) : onPressVerify(v);
+              }}
               error={errors.code || undefined}
               autoFocus
             />
-            {errors.code ? (
+            {errors.code && code.length !== 6 ? (
               <Caption tone="error" align="center" style={{ marginTop: spacing.sm }}>
                 {errors.code}
               </Caption>
