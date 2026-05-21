@@ -503,21 +503,6 @@ export default function MyListings() {
 											</Text>
 										</View>
 
-<View className='flex-row space-x-2'>
-											<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
-												<FontAwesome name='eye' size={12} color='#FFFFFF' />
-												<Text className='text-white text-xs font-medium ml-1.5'>
-													{item.views || 0}
-												</Text>
-											</View>
-
-											<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
-												<FontAwesome name='heart' size={12} color='#FFFFFF' />
-												<Text className='text-white text-xs font-medium ml-1.5'>
-													{item.likes || 0}
-												</Text>
-											</View>
-										</View>
 									</View>
 								</View>
 
