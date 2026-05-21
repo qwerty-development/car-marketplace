@@ -520,6 +520,41 @@ export default function MyListings() {
 								</View>
 							</View>
 
+							{/* Stats Banner */}
+							<View
+								style={{
+									flexDirection: 'row',
+									backgroundColor: 'rgba(213, 80, 4, 0.12)',
+									borderTopWidth: 1,
+									borderTopColor: 'rgba(213, 80, 4, 0.25)',
+									paddingVertical: 14,
+									paddingHorizontal: 20,
+								}}>
+								<View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+									<Text style={{ color: '#D55004', fontSize: 26, fontWeight: '800', lineHeight: 28 }}>
+										{(item.views || 0).toLocaleString()}
+									</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+										<FontAwesome name='eye' size={12} color='#888888' />
+										<Text style={{ color: '#888888', fontSize: 11, fontWeight: '500' }}>
+											Views
+										</Text>
+									</View>
+								</View>
+								<View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 4 }} />
+								<View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+									<Text style={{ color: '#D55004', fontSize: 26, fontWeight: '800', lineHeight: 28 }}>
+										{(item.likes || 0).toLocaleString()}
+									</Text>
+									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+										<FontAwesome name='heart' size={12} color='#888888' />
+										<Text style={{ color: '#888888', fontSize: 11, fontWeight: '500' }}>
+											Likes
+										</Text>
+									</View>
+								</View>
+							</View>
+
 							<View className='px-5 py-4'>
 								<View className='flex-row justify-between'>
 									<SpecItem
