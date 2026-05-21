@@ -503,15 +503,7 @@ export default function MyListings() {
 											</Text>
 										</View>
 
-										{/* User Listing Badge */}
-										<View className='bg-blue-500/90 backdrop-blur-lg rounded-full px-3 py-1.5 mr-2 flex-row items-center'>
-											<Ionicons name='person' size={12} color='#FFFFFF' />
-											<Text className='text-white text-xs font-bold ml-1.5'>
-												Private
-											</Text>
-										</View>
-
-										<View className='flex-row space-x-2'>
+<View className='flex-row space-x-2'>
 											<View className='flex-row items-center bg-black/60 backdrop-blur-lg rounded-full px-3 py-1.5'>
 												<FontAwesome name='eye' size={12} color='#FFFFFF' />
 												<Text className='text-white text-xs font-medium ml-1.5'>
