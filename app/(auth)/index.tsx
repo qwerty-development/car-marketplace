@@ -1,486 +1,250 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  Dimensions,
-  StatusBar,
-  TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   Easing,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import Constants from "expo-constants";
-import { useColorScheme } from "react-native";
-import { useGuestUser } from "@/utils/GuestUserContext";
+  StatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import { useTheme } from '@/utils/ThemeContext';
+import { useGuestUser } from '@/utils/GuestUserContext';
+import HeroBackdrop from './_components/HeroBackdrop';
+import AuthButton from './_components/AuthButton';
+import {
+  Brand,
+  Caption,
+  Display,
+  Mono,
+  Subtitle,
+} from './_components/Display';
+import { getAuthColors, motion, spacing } from './_components/tokens';
 
-const { width, height } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = Math.min(Math.max(SCREEN_HEIGHT * 0.56, 360), 620);
 
-// Use high quality, horizontal car images
-const carImages = [
-  require("@/assets/cars/car1.jpg"),
-  require("@/assets/cars/car2.jpg"),
-  require("@/assets/cars/car3.jpg"),
-  require("@/assets/cars/car4.jpg"),
-  require("@/assets/cars/car5.jpg"),
-  require("@/assets/cars/car6.jpg"),
-  require("@/assets/cars/car7.jpg"),
-  require("@/assets/cars/car8.jpg"),
-  require("@/assets/cars/car9.jpg"),
-  require("@/assets/cars/car10.jpg"),
-  require("@/assets/cars/car11.jpg"),
-  require("@/assets/cars/car12.jpg"),
-  require("@/assets/cars/car13.jpg"),
-];
-
-export default function LandingPage() {
+export default function WelcomeScreen() {
   const router = useRouter();
+  const { isDarkMode } = useTheme();
   const { setGuestMode } = useGuestUser();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const [isLoading, setIsLoading] = useState(false);
+  const colors = getAuthColors(isDarkMode);
+  const insets = useSafeAreaInsets();
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
 
-  // Animation values
-  const panelTranslateY = useRef(new Animated.Value(300)).current; // Start further down
-  const panelOpacity = useRef(new Animated.Value(0)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current; // For logo fade-in
-  const scrollX1 = useRef(new Animated.Value(0)).current;
-  const scrollX2 = useRef(new Animated.Value(-width)).current; // Start off-screen to the left
-
-  // Split images into two rows
-  const carRow1 = carImages.slice(0, 7); // car1 to car7
-  const carRow2 = carImages.slice(7); // car8 to car13
-
-  // Calculate total width of a single set of images
-  const row1Width = (width / 2) * carRow1.length;
-  const row2Width = (width / 2) * carRow2.length;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headlineOpacity = useRef(new Animated.Value(0)).current;
+  const headlineTranslate = useRef(new Animated.Value(16)).current;
+  const subtitleOpacity = useRef(new Animated.Value(0)).current;
+  const subtitleTranslate = useRef(new Animated.Value(16)).current;
+  const buttonsOpacity = useRef(new Animated.Value(0)).current;
+  const buttonsTranslate = useRef(new Animated.Value(24)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Create our animation sequence
-    const startAnimationSequence = () => {
-      // 1. Start car animations first
-      const row1Animation = Animated.loop(
-        Animated.timing(scrollX1, {
-          toValue: -row1Width,
-          duration: 30000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      );
-
-      const row2Animation = Animated.loop(
-        Animated.timing(scrollX2, {
-          toValue: 0,
-          duration: 30000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      );
-
-      // Start car animations immediately
-      row1Animation.start();
-      row2Animation.start();
-
-      // 2. After a delay, animate the panel
-      setTimeout(() => {
-        Animated.timing(panelTranslateY, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.back(1.5)), // Slight bounce effect
-        }).start();
-
-        Animated.timing(panelOpacity, {
+    const stagger = (
+      opacity: Animated.Value,
+      translate: Animated.Value | null,
+      delay: number,
+      duration = motion.med,
+    ): Animated.CompositeAnimation => {
+      const animations: Animated.CompositeAnimation[] = [
+        Animated.timing(opacity, {
           toValue: 1,
-          duration: 700,
+          duration,
+          delay,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start();
-      }, 500); // Start panel animation after 500ms
-
-      // 3. Finally, fade in the logo
-      setTimeout(() => {
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 1000, 
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.ease),
-        }).start();
-      }, 1300); // Start logo animation after panel is almost done
+        }),
+      ];
+      if (translate) {
+        animations.push(
+          Animated.timing(translate, {
+            toValue: 0,
+            duration,
+            delay,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        );
+      }
+      return Animated.parallel(animations);
     };
 
-    // Start the animation sequence
-    startAnimationSequence();
-
-    // Clean up animations on unmount
-    return () => {
-      scrollX1.stopAnimation();
-      scrollX2.stopAnimation();
-      panelTranslateY.stopAnimation();
-      panelOpacity.stopAnimation();
-      logoOpacity.stopAnimation();
-    };
-  }, []);
+    Animated.parallel([
+      stagger(headerOpacity, null, 200, motion.med),
+      stagger(headlineOpacity, headlineTranslate, 350),
+      stagger(subtitleOpacity, subtitleTranslate, 450),
+      stagger(buttonsOpacity, buttonsTranslate, 600),
+      stagger(footerOpacity, null, 800),
+    ]).start();
+  }, [
+    headerOpacity,
+    headlineOpacity,
+    headlineTranslate,
+    subtitleOpacity,
+    subtitleTranslate,
+    buttonsOpacity,
+    buttonsTranslate,
+    footerOpacity,
+  ]);
 
   const handleGuestMode = async () => {
     try {
-      setIsLoading(true);
+      setIsGuestLoading(true);
       await setGuestMode(true);
-      router.replace("/(home)");
+      router.replace('/(home)' as never);
     } catch (error) {
-      console.error("[GuestMode] Error setting guest mode:", error);
-      Alert.alert("Error", "Failed to continue as guest");
+      console.error('[GuestMode] Error setting guest mode:', error);
+      Alert.alert('Error', 'Failed to continue as guest');
     } finally {
-      setIsLoading(false);
+      setIsGuestLoading(false);
     }
   };
 
-  // Get the appropriate logo based on theme
-  const getLogoSource = () => {
-    // Use white logo for dark mode, black logo for light mode
-    return isDark
-      ? require("../../assets/images/light-logo.png")
-      : require("../../assets/images/dark-logo.png"); // Black logo for light mode
-  };
-
   return (
-    <SafeAreaView style={[styles.container, isDark ? styles.darkContainer : styles.lightContainer, { direction: 'ltr' }]}>
-  
-
-      {/* Fullscreen Car Background */}
-      <View style={styles.wallWrapper}>
-        {/* Row 1: Left to Right - Top Row */}
-        <View style={[styles.wallRow, { top: 0 }]}>
-          <Animated.View
-            style={[
-              styles.row,
-              {
-                transform: [{ translateX: scrollX1 }],
-              },
-            ]}
-          >
-            {/* First set of images */}
-            {carRow1.map((img, i) => (
-              <Image
-                key={`row1-first-${i}`}
-                source={img}
-                style={styles.car}
-                resizeMode="cover"
-              />
-            ))}
-            {/* Duplicate set for seamless loop */}
-            {carRow1.map((img, i) => (
-              <Image
-                key={`row1-second-${i}`}
-                source={img}
-                style={styles.car}
-                resizeMode="cover"
-              />
-            ))}
-          </Animated.View>
-        </View>
-
-        {/* Row 2: Right to Left - Second Row (below the first) */}
-        <View style={[styles.wallRow, { top: height / 3 }]}>
-          <Animated.View
-            style={[
-              styles.row,
-              {
-                transform: [{ translateX: scrollX2 }],
-              },
-            ]}
-          >
-            {/* First set of images */}
-            {carRow2.map((img, i) => (
-              <Image
-                key={`row2-first-${i}`}
-                source={img}
-                style={styles.car}
-                resizeMode="cover"
-              />
-            ))}
-            {/* Duplicate set for seamless loop */}
-            {carRow2.map((img, i) => (
-              <Image
-                key={`row2-second-${i}`}
-                source={img}
-                style={styles.car}
-                resizeMode="cover"
-              />
-            ))}
-            {/* Triple the images to ensure no blank spaces */}
-            {carRow2.map((img, i) => (
-              <Image
-                key={`row2-third-${i}`}
-                source={img}
-                style={styles.car}
-                resizeMode="cover"
-              />
-            ))}
-          </Animated.View>
-        </View>
-      </View>
-
-      {/* Overlay to darken or lighten based on theme */}
-      <View 
-        style={[
-          styles.overlay, 
-          isDark ? styles.darkOverlay : styles.lightOverlay
-        ]} 
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isDarkMode ? 'light-content' : 'light-content'}
       />
 
-      {/* Large Static Logo in Center - Now animated */}
-      <Animated.View 
-        style={[
-          styles.logoCenter,
-          { opacity: logoOpacity }
-        ]}
-      >
-        <Image source={getLogoSource()} style={styles.logoImage} />
-      </Animated.View>
+      <HeroBackdrop height={HERO_HEIGHT} />
 
-      {/* Bottom Panel */}
-      <Animated.View
-        style={[
-          styles.bottomPanelContainer,
-          {
-            opacity: panelOpacity,
-            transform: [{ translateY: panelTranslateY }],
-          },
-        ]}
-      >
-        <View style={[
-          styles.bottomPanel,
-          isDark ? styles.darkBottomPanel : styles.lightBottomPanel
-        ]}>
-          <Text style={[
-            styles.bottomSubtitle,
-            isDark ? styles.darkText : styles.lightText
-          ]}>Your journey begins here</Text>
+      <SafeAreaView edges={['top']} style={styles.headerSafe} pointerEvents="box-none">
+        <Animated.View
+          style={[styles.header, { opacity: headerOpacity }]}
+          pointerEvents="box-none"
+        >
+          <Brand tone="onAccent" style={styles.brandShadow}>
+            Fleet
+          </Brand>
+          <Mono tone="onAccent" style={styles.brandShadow}>
+            v{Constants.expoConfig?.version || '1.0.0'}
+          </Mono>
+        </Animated.View>
+      </SafeAreaView>
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => router.push("/sign-in")}
-          >
-            <Text style={styles.primaryButtonText}>Sign In</Text>
-          </TouchableOpacity>
+      <View style={[styles.panel, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <Animated.View
+          style={{
+            opacity: headlineOpacity,
+            transform: [{ translateY: headlineTranslate }],
+          }}
+        >
+          <Display tone="primary">Drive what{'\n'}moves you.</Display>
+        </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: "#D55004" }]}
-            onPress={() => router.push("/sign-up")}
-          >
-            <Text style={styles.secondaryButtonText}>Create Account</Text>
-          </TouchableOpacity>
+        <Animated.View
+          style={{
+            opacity: subtitleOpacity,
+            transform: [{ translateY: subtitleTranslate }],
+            marginTop: spacing.base,
+          }}
+        >
+          <Subtitle tone="secondary">
+            Buy, sell, and explore Lebanon's most trusted car marketplace.
+          </Subtitle>
+        </Animated.View>
 
-          <TouchableOpacity
-            style={styles.guestButton}
+        <Animated.View
+          style={[
+            styles.actions,
+            {
+              opacity: buttonsOpacity,
+              transform: [{ translateY: buttonsTranslate }],
+            },
+          ]}
+        >
+          <AuthButton
+            title="Sign in"
+            variant="primary"
+            onPress={() => router.push('/sign-in')}
+          />
+          <View style={{ height: spacing.md }} />
+          <AuthButton
+            title="Create account"
+            variant="secondary"
+            trailingIcon={null}
+            onPress={() => router.push('/sign-up')}
+          />
+          <View style={{ height: spacing.sm }} />
+          <AuthButton
+            title="Continue as guest"
+            variant="ghost"
+            trailingIcon={null}
             onPress={handleGuestMode}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#D55004" />
-            ) : (
-              <Text style={styles.guestButtonText}>Continue as Guest</Text>
-            )}
-          </TouchableOpacity>
+            loading={isGuestLoading}
+            fullWidth
+          />
+        </Animated.View>
 
-          <Text style={[
-            styles.termsText,
-            isDark ? styles.darkLightText : styles.lightDarkText
-          ]}>
-            By continuing, you agree to our{" "}
-            <Text
-              style={styles.link}
-              onPress={() => router.push("/terms-of-service")}
+        <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
+          <Caption tone="tertiary" align="center">
+            By continuing you agree to our{' '}
+            <Caption
+              tone="accent"
+              onPress={() => router.push('/terms-of-service')}
+              style={{ textDecorationLine: 'underline' }}
             >
               Terms
-            </Text>{" "}
-            and{" "}
-            <Text
-              style={styles.link}
-              onPress={() => router.push("/privacy-policy")}
+            </Caption>
+            {' and '}
+            <Caption
+              tone="accent"
+              onPress={() => router.push('/privacy-policy')}
+              style={{ textDecorationLine: 'underline' }}
             >
               Privacy Policy
-            </Text>
-          </Text>
-
-          <Text style={[
-            styles.version,
-            isDark ? styles.darkLightText : styles.lightDarkText
-          ]}>
-            Version {Constants.expoConfig?.version || "1.0.0"}
-          </Text>
-        </View>
-      </Animated.View>
-    </SafeAreaView>
+            </Caption>
+            .
+          </Caption>
+        </Animated.View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  root: {
     flex: 1,
   },
-  darkContainer: {
-    backgroundColor: "#000"
+  headerSafe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
   },
-  lightContainer: {
-    backgroundColor: "#fff"
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    height: 56,
   },
-
-  // Car Wall
-  wallWrapper: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-    overflow: "hidden",
+  brandShadow: {
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
-  wallRow: {
-    position: "absolute",
-    width: "100%",
-    height: height / 3,
-    overflow: "hidden",
-  },
-  row: {
-    flexDirection: "row",
-  },
-  car: {
-    width: width/2,
-    height: height / 3,
-  },
-
-  // Overlay + Center Logo
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  darkOverlay: {
-    backgroundColor: "#000",
-    opacity: 0.7,
-  },
-  lightOverlay: {
-    backgroundColor: "#fff", // White overlay for light mode
-    opacity: 0.5, // Semi-transparent white overlay
-  },
-  logoCenter: {
-    position: "absolute",
-    zIndex: 2,
-    top: height / 3 - 80,
-    left: width / 2 - 150,
-    width: 300,
-    height: 300,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoImage: {
-    width: 280,
-    height: 300,
-  },
-
-  // Bottom Panel
-  bottomPanelContainer: {
-    position: "absolute",
+  panel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     bottom: 0,
-    width: "100%",
-    zIndex: 3,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing['2xl'],
   },
-  bottomPanel: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    alignItems: "center",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+  actions: {
+    marginTop: spacing['2xl'],
   },
-  lightBottomPanel: {
-    backgroundColor: "rgba(255,255,255,0.95)",
-    shadowColor: "#000",
-  },
-  darkBottomPanel: {
-    backgroundColor: "rgba(30,30,30,0.95)", // Dark gray with opacity
-    shadowColor: "#000",
-  },
-
-  // Text styles
-  darkText: {
-    color: "#fff",
-  },
-  lightText: {
-    color: "#333",
-  },
-  darkLightText: {
-    color: "rgba(255,255,255,0.7)", // Light text in dark mode with some opacity
-  },
-  lightDarkText: {
-    color: "#555", // Dark text in light mode
-  },
-  
-  bottomTitle: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#D55004",
-    marginBottom: 4,
-  },
-  bottomSubtitle: {
-    fontSize: 16,
-    marginBottom: 16,
-  },
-
-  // Buttons
-  primaryButton: {
-    backgroundColor: "#D55004",
-    borderRadius: 25,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 12,
-    width: "100%",
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  secondaryButton: {
-    borderWidth: 2,
-    borderRadius: 25,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 12,
-    width: "100%",
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#D55004",
-  },
-  guestButton: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginBottom: 12,
-  },
-  guestButtonText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#D55004",
-  },
-
-  // Terms + Version
-  termsText: {
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 18,
-    marginTop: 8,
-  },
-  link: {
-    textDecorationLine: "underline",
-    color: "#D55004",
-  },
-  version: {
-    fontSize: 10,
-    textAlign: "center",
-    marginTop: 6,
+  footer: {
+    marginTop: spacing.lg,
   },
 });

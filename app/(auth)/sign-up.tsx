@@ -1,394 +1,64 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  Easing,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { maybeCompleteAuthSession } from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
+
 import { safeLogEvent } from '@/utils/safeMetaLogger';
 import { META_EVENTS } from '@/utils/metaEvents';
 import { useAuth } from '@/utils/AuthContext';
-import { useRouter } from 'expo-router';
-import {
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  Dimensions,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  useColorScheme,
-  Easing,
-} from 'react-native';
+import { useTheme } from '@/utils/ThemeContext';
 import { supabase } from '@/utils/supabase';
-import { Ionicons } from '@expo/vector-icons';
-import { maybeCompleteAuthSession } from 'expo-web-browser';
-import * as AppleAuthentication from 'expo-apple-authentication';
-import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
-import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneInput';
 import { logAuthEvent } from '@/utils/analytics';
+import CustomPhoneInput, { ICountry, getCallingCode } from '@/components/PhoneInput';
+
+import AuthScaffold from './_components/AuthScaffold';
+import AuthInput from './_components/AuthInput';
+import AuthButton from './_components/AuthButton';
+import AuthDivider from './_components/AuthDivider';
+import OAuthRow from './_components/OAuthRow';
+import OtpInput from './_components/OtpInput';
+import SegmentedToggle from './_components/SegmentedToggle';
+import { Body, Caption, Subtitle, Title } from './_components/Display';
+import { getAuthColors, motion, spacing, typography } from './_components/tokens';
+import { registerPushTokenForUser } from './_lib/pushToken';
 
 maybeCompleteAuthSession();
 
-const { width, height } = Dimensions.get('window');
+type AuthMethod = 'phone' | 'email';
 
-// Animated background blob component
-interface BlobProps {
-  position: { x: number; y: number };
-  size: number;
-  delay: number;
-  duration: number;
-}
-
-const AnimatedBlob: React.FC<BlobProps> = ({ position, size, delay, duration }) => {
-  const translateY = new Animated.Value(0);
-  const scale = new Animated.Value(1);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(translateY, {
-              toValue: 20,
-              duration: duration,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-              toValue: 0,
-              duration: duration,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(scale, {
-              toValue: 1.1,
-              duration: duration * 1.2,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-            Animated.timing(scale, {
-              toValue: 1,
-              duration: duration * 1.2,
-              easing: Easing.inOut(Easing.sin),
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: position.x,
-        top: position.y,
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: isDark ? 'rgba(213, 80, 4, 0.08)' : 'rgba(213, 80, 4, 0.05)',
-        transform: [
-          { translateY },
-          { scale },
-        ],
-      }}
-    />
-  );
-};
-
-const SignUpWithOAuth = () => {
-  const [isLoading, setIsLoading] = useState<{
-    google: boolean;
-    apple: boolean;
-  }>({ google: false, apple: false });
-  const { googleSignIn } = useAuth();
-  const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
-
-  const waitForSession = async (attempts = 6, delayMs = 500) => {
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session?.user) {
-        return data.session;
-      }
-
-      if (attempt < attempts - 1) {
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-    }
-
-    return null;
-  };
-
-  // Check if Apple Authentication is available
-  useEffect(() => {
-    const checkAppleAuthAvailability = async () => {
-      try {
-        const isAvailable = await AppleAuthentication.isAvailableAsync();
-        setAppleAuthAvailable(isAvailable);
-      } catch (error) {
-        console.log('Apple Authentication not available on this device');
-        setAppleAuthAvailable(false);
-      }
-    };
-
-    checkAppleAuthAvailability();
-  }, []);
-
-  const handleGoogleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, google: true }));
-
-      await googleSignIn();
-
-      const session = await waitForSession();
-      if (session?.user) {
-        // Only fire COMPLETE_REGISTRATION for genuinely new accounts (created in the last 30s).
-        // signInWithOAuth is used for both sign-in and sign-up so we use created_at proximity.
-        const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
-        const isNewUser = (Date.now() - new Date(session.user.created_at).getTime()) < NEW_ACCOUNT_THRESHOLD_MS;
-        if (isNewUser) {
-          safeLogEvent('fb_mobile_complete_registration', {
-            fb_registration_method: 'google',
-          });
-        }
-
-        router.replace('/(home)' as never);
-        // Keep loading spinner visible until navigation completes —
-        // the auth layout now shows a branded spinner instead of a blank screen.
-        return;
-      }
-
-      console.warn('Google authentication completed but no active session was found yet');
-      // Keep loading state — auth layout shows spinner while session stabilises
-    } catch (err) {
-      console.error("Google OAuth error:", err);
-      setIsLoading(prev => ({ ...prev, google: false }));
-    }
-  };
-  const handleAppleAuth = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, apple: true }));
-
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-
-      // Sign in via Supabase Auth
-      if (credential.identityToken) {
-        const { error, data } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: credential.identityToken,
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        // CRITICAL: Force token registration AFTER successful sign-in
-        if (data?.user) {
-          // Only fire COMPLETE_REGISTRATION for genuinely new accounts (created in the last 30s).
-          // signInWithIdToken is used for both sign-in and sign-up so we use created_at proximity.
-          const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
-          const isNewUser = (Date.now() - new Date(data.user.created_at).getTime()) < NEW_ACCOUNT_THRESHOLD_MS;
-          if (isNewUser) {
-            safeLogEvent(META_EVENTS.COMPLETE_REGISTRATION, {
-              fb_registration_method: 'apple',
-            });
-          }
-          console.log("[APPLE-AUTH] Sign-in successful, registering push token");
-
-          const session = data.session ?? (await waitForSession());
-          if (session?.user) {
-            router.replace('/(home)' as never);
-          }
-
-          // Wait briefly for auth session to stabilize (important)
-          setTimeout(async () => {
-            try {
-              // THIS IS THE CRITICAL PART - Direct database operation
-              const projectId = Constants.expoConfig?.extra?.projectId || 'aaf80aae-b9fd-4c39-a48a-79f2eac06e68';
-              const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-              const token = tokenResponse.data;
-
-              // 1. Save to storage
-              await SecureStore.setItemAsync('expoPushToken', token);
-
-              // 2. Check if token exists for this user
-              const { data: existingToken } = await supabase
-                .from('user_push_tokens')
-                .select('id')
-                .eq('user_id', data.user.id)
-                .eq('token', token)
-                .maybeSingle();
-
-              if (existingToken) {
-                // 3a. Update if exists
-                await supabase
-                  .from('user_push_tokens')
-                  .update({
-                    signed_in: true,
-                    active: true,
-                    last_updated: new Date().toISOString()
-                  })
-                  .eq('id', existingToken.id);
-
-                console.log("[APPLE-AUTH] Updated existing token");
-              } else {
-                // 3b. Insert if doesn't exist
-                const { error: insertError } = await supabase
-                  .from('user_push_tokens')
-                  .insert({
-                    user_id: data.user.id,
-                    token: token,
-                    device_type: Platform.OS,
-                    signed_in: true,
-                    active: true,
-                    last_updated: new Date().toISOString()
-                  });
-
-                if (insertError) {
-                  console.error("[APPLE-AUTH] Token insert error:", insertError);
-                } else {
-                  console.log("[APPLE-AUTH] Inserted new token");
-                }
-              }
-            } catch (tokenError) {
-              console.error("[APPLE-AUTH] Token registration error:", tokenError);
-            }
-          }, 1000);
-        }
-      } else {
-        throw new Error('No identity token received from Apple');
-      }
-    } catch (err: any) {
-      if (err.code === 'ERR_REQUEST_CANCELED') {
-        console.log('User canceled Apple sign-in');
-      } else {
-        console.error("Apple OAuth error:", err);
-      }
-    } finally {
-      setIsLoading(prev => ({ ...prev, apple: false }));
-    }
-  };
-
-  return (
-    <View style={{ width: '100%', marginTop: 32, alignItems: 'center' }}>
-      <View style={{ flexDirection: 'row', gap: 16 }}>
-        {/* Google Authentication Button */}
-        <TouchableOpacity
-          onPress={handleGoogleAuth}
-          disabled={isLoading.google}
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-            borderWidth: 1,
-            borderColor: isDark ? '#374151' : '#E5E7EB',
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-          }}
-        >
-          {isLoading.google ? (
-            <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
-          ) : (
-            <Ionicons name="logo-google" size={24} color={isDark ? '#fff' : '#000'} />
-          )}
-        </TouchableOpacity>
-
-        {/* Apple Authentication Button */}
-        {Platform.OS === 'ios' && appleAuthAvailable ? (
-          // On iOS, use native Apple Authentication button if available
-          <View style={{ width: 56, height: 56, overflow: 'hidden', borderRadius: 28 }}>
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
-              buttonStyle={isDark
-                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={28}
-              style={{
-                width: 56,
-                height: 56,
-                borderWidth: 1,
-                borderColor: isDark ? '#374151' : '#E5E7EB',
-              }}
-              onPress={handleAppleAuth}
-            />
-            {isLoading.apple && (
-              <View style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.4)',
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderRadius: 28,
-              }}>
-                <ActivityIndicator size="small" color="#fff" />
-              </View>
-            )}
-          </View>
-        ) : (
-          // On Android or if Apple Authentication is not available, show a custom button
-          <TouchableOpacity
-            onPress={handleAppleAuth}
-            disabled={isLoading.apple || !appleAuthAvailable}
-            style={{
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-              borderWidth: 1,
-              borderColor: isDark ? '#374151' : '#E5E7EB',
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              opacity: appleAuthAvailable ? 1 : 0.5,
-            }}
-          >
-            {isLoading.apple ? (
-              <ActivityIndicator size="small" color={isDark ? '#fff' : '#000'} />
-            ) : (
-              <Ionicons name="logo-apple" size={24} color={isDark ? '#fff' : '#000'} />
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-};
+const NEW_ACCOUNT_THRESHOLD_MS = 30_000;
 
 export default function SignUpScreen() {
-  const { signUp, verifyOtp, isLoaded } = useAuth();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { signUp, verifyOtp, googleSignIn, isLoaded } = useAuth();
+  const { isDarkMode } = useTheme();
+  const colors = getAuthColors(isDarkMode);
 
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
+
+  // Email signup fields
   const [name, setName] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
   const [password, setPassword] = useState('');
-  const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [code, setCode] = useState('');
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('phone');
+  const [pendingVerification, setPendingVerification] = useState(false);
+
+  // Phone signup fields
+  const [phoneName, setPhoneName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<ICountry | null>(null);
   const [pendingPhoneVerification, setPendingPhoneVerification] = useState(false);
-  const [phoneName, setPhoneName] = useState('');
+
   const [errors, setErrors] = useState({
     name: '',
     email: '',
@@ -398,81 +68,192 @@ export default function SignUpScreen() {
     phone: '',
     phoneName: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const contentOpacity = React.useRef(new Animated.Value(0)).current;
+  const contentTranslate = React.useRef(new Animated.Value(12)).current;
 
-  const validateInputs = () => {
-    let isValid = true;
-    const newErrors = {
-      name: '',
-      email: '',
-      password: '',
-      code: '',
-      general: '',
-      phone: '',
-      phoneName: '',
-    };
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: motion.med,
+        delay: 80,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentTranslate, {
+        toValue: 0,
+        duration: motion.med,
+        delay: 80,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [contentOpacity, contentTranslate]);
+
+  const waitForSession = async (attempts = 6, delayMs = 500) => {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user) {
+        return data.session;
+      }
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return null;
+  };
+
+  const validateEmailInputs = () => {
+    let valid = true;
+    const next = { name: '', email: '', password: '', code: '', general: '', phone: '', phoneName: '' };
 
     if (!name.trim()) {
-      newErrors.name = 'Name is required';
-      isValid = false;
+      next.name = 'Name is required';
+      valid = false;
     } else if (/\d/.test(name)) {
-      newErrors.name = 'Name must contain letters only';
-      isValid = false;
+      next.name = 'Name must contain letters only';
+      valid = false;
     }
 
     if (!emailAddress.trim()) {
-      newErrors.email = 'Email is required';
-      isValid = false;
+      next.email = 'Email is required';
+      valid = false;
     } else if (!/\S+@\S+\.\S+/.test(emailAddress)) {
-      newErrors.email = 'Invalid email format';
-      isValid = false;
+      next.email = 'Invalid email format';
+      valid = false;
     }
 
     if (!password) {
-      newErrors.password = 'Password is required';
-      isValid = false;
+      next.password = 'Password is required';
+      valid = false;
     } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters long';
-      isValid = false;
+      next.password = 'Password must be at least 8 characters';
+      valid = false;
     }
 
-    setErrors(newErrors);
-    return isValid;
+    setErrors(next);
+    return valid;
   };
 
-  // Phone OTP send handler
+  const onSignUpPress = async () => {
+    if (!isLoaded) return;
+    if (!validateEmailInputs()) return;
+
+    setIsLoading(true);
+    try {
+      const { error, needsEmailVerification } = await signUp({
+        email: emailAddress,
+        password,
+        name,
+      });
+
+      if (error) {
+        const msg = error.message || '';
+        if (
+          msg.includes('already exists') ||
+          msg.includes('already registered') ||
+          msg.includes('already in use')
+        ) {
+          setErrors((prev) => ({
+            ...prev,
+            email: msg || 'This email is already registered. Please try signing in.',
+            general: '',
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            general: msg || 'Sign up failed. Please try again.',
+          }));
+        }
+        return;
+      }
+
+      if (needsEmailVerification) {
+        safeLogEvent('fb_mobile_complete_registration', {
+          fb_registration_method: 'email',
+        });
+        setVerificationEmail(emailAddress);
+        setPendingVerification(true);
+        Alert.alert(
+          'Verification code sent',
+          'Please check your email for a verification code to complete your registration.',
+          [{ text: 'OK' }],
+        );
+      } else {
+        router.replace('/(home)' as never);
+      }
+    } catch (err) {
+      console.error(JSON.stringify(err, null, 2));
+      setErrors((prev) => ({
+        ...prev,
+        general: (err as Error)?.message || 'Sign up failed. Please try again.',
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onPressVerify = async () => {
+    if (!isLoaded) return;
+    if (!code.trim() || code.length < 6) {
+      setErrors((prev) => ({ ...prev, code: 'Enter the 6-digit code' }));
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await verifyOtp(verificationEmail, code);
+      if (error) throw error;
+
+      Alert.alert('Success', 'Your account has been verified successfully.', [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(home)' as never),
+        },
+      ]);
+    } catch (err) {
+      const error = err as Error;
+      console.error(JSON.stringify(error, null, 2));
+      setErrors((prev) => ({
+        ...prev,
+        code: error?.message || 'Verification failed. Please try again.',
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Phone OTP send
   const handlePhoneSignUp = async () => {
     let hasError = false;
+    const nextErrors = { ...errors, phoneName: '', phone: '' };
 
     if (!phoneName.trim() || phoneName.trim().length < 2) {
-      setErrors(prev => ({ ...prev, phoneName: 'Full name must be at least 2 characters' }));
+      nextErrors.phoneName = 'Full name must be at least 2 characters';
       hasError = true;
     } else if (/\d/.test(phoneName)) {
-      setErrors(prev => ({ ...prev, phoneName: 'Name must contain letters only' }));
+      nextErrors.phoneName = 'Name must contain letters only';
       hasError = true;
-    } else {
-      setErrors(prev => ({ ...prev, phoneName: '' }));
     }
 
     if (!phoneNumber) {
-      setErrors(prev => ({ ...prev, phone: 'Phone number is required' }));
+      nextErrors.phone = 'Phone number is required';
       hasError = true;
-    } else {
-      setErrors(prev => ({ ...prev, phone: '' }));
     }
-
     if (!selectedCountry) {
-      setErrors(prev => ({ ...prev, phone: 'Please select a country' }));
+      nextErrors.phone = 'Please select a country';
       hasError = true;
     }
 
+    setErrors(nextErrors);
     if (hasError) return;
 
     const cleanedPhone = phoneNumber.replace(/\D/g, '');
-    const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '');
+    const callingCode = getCallingCode(selectedCountry!).replace(/\D/g, '');
     const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
 
     setIsLoading(true);
@@ -489,29 +270,31 @@ export default function SignUpScreen() {
       });
 
       if (error) {
-        setErrors(prev => ({ ...prev, phone: error.message || 'Failed to send OTP' }));
+        setErrors((prev) => ({ ...prev, phone: error.message || 'Failed to send code' }));
         return;
       }
 
       setPendingPhoneVerification(true);
-    } catch (err: any) {
-      console.error('Phone OTP error:', err);
-      setErrors(prev => ({ ...prev, phone: err.message || 'Failed to send OTP' }));
+    } catch (err) {
+      const error = err as Error;
+      console.error('Phone OTP error:', error);
+      setErrors((prev) => ({ ...prev, phone: error?.message || 'Failed to send code' }));
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Phone OTP verify handler
+  // Phone OTP verify
   const handlePhoneOtpVerify = async () => {
-    if (!code.trim()) {
-      setErrors(prev => ({ ...prev, code: 'Verification code is required' }));
+    if (!code.trim() || code.length < 6) {
+      setErrors((prev) => ({ ...prev, code: 'Enter the 6-digit code' }));
       return;
     }
 
     setIsLoading(true);
     try {
-      const callingCode = getCallingCode(selectedCountry).replace(/\D/g, '') || '';
+      const callingCode =
+        (selectedCountry ? getCallingCode(selectedCountry).replace(/\D/g, '') : '') || '';
       const cleanedPhone = phoneNumber.replace(/\D/g, '');
       const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
 
@@ -522,13 +305,12 @@ export default function SignUpScreen() {
       });
 
       if (error) {
-        setErrors(prev => ({ ...prev, code: error.message || 'Invalid verification code' }));
+        setErrors((prev) => ({ ...prev, code: error.message || 'Invalid code' }));
         return;
       }
 
       const verifiedUser = data.user ?? data.session?.user;
       if (verifiedUser) {
-        // Stamp name and signup_completed so sign-in flow can identify this as a legitimate account
         await supabase.auth.updateUser({
           data: {
             full_name: phoneName.trim(),
@@ -542,564 +324,339 @@ export default function SignUpScreen() {
         });
         logAuthEvent('sign_up', 'phone');
       }
-    } catch (err: any) {
-      console.error('Phone OTP verification error:', err);
-      setErrors(prev => ({ ...prev, code: err.message || 'Verification failed' }));
+    } catch (err) {
+      const error = err as Error;
+      console.error('Phone OTP verification error:', error);
+      setErrors((prev) => ({ ...prev, code: error?.message || 'Verification failed' }));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const onSignUpPress = async () => {
-    if (!isLoaded) return;
-    if (!validateInputs()) return;
-
-    setIsLoading(true);
+  // OAuth
+  const handleGoogleAuth = async () => {
     try {
-      const { error, needsEmailVerification, email } = await signUp({
-        email: emailAddress,
-        password,
-        name,
+      setGoogleLoading(true);
+      await googleSignIn();
+
+      const session = await waitForSession();
+      if (session?.user) {
+        const isNewUser =
+          Date.now() - new Date(session.user.created_at).getTime() < NEW_ACCOUNT_THRESHOLD_MS;
+        if (isNewUser) {
+          safeLogEvent('fb_mobile_complete_registration', {
+            fb_registration_method: 'google',
+          });
+        }
+        router.replace('/(home)' as never);
+        return;
+      }
+      console.warn('Google authentication completed but no active session was found yet');
+    } catch (err) {
+      console.error('Google OAuth error:', err);
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleAuth = async () => {
+    try {
+      setAppleLoading(true);
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
       });
 
-      if (error) {
-        // Check for specific email-exists errors and display them in the email field
-        if (error.message.includes('already exists') ||
-          error.message.includes('already registered') ||
-          error.message.includes('already in use')) {
-          setErrors(prev => ({
-            ...prev,
-            email: error.message || 'This email is already registered. Please try signing in.',
-            general: '', // Clear general error since we're showing it in the email field
-          }));
-        } else {
-          // Other errors go to the general error field
-          setErrors(prev => ({
-            ...prev,
-            general: error.message || 'Sign up failed. Please try again.',
-          }));
-        }
-        return; // Exit early - don't proceed with the rest of the function
-      }
-
-      if (needsEmailVerification) {
-        // Track registration event for Meta ad attribution
-        safeLogEvent('fb_mobile_complete_registration', {
-          fb_registration_method: 'email',
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
         });
-        setVerificationEmail(email || emailAddress);
-        setPendingVerification(true);
-        Alert.alert(
-          'Verification Code Sent',
-          'Please check your email for a verification code to complete your registration.',
-          [{ text: 'OK' }]
-        );
+
+        if (error) throw error;
+
+        if (data?.user) {
+          const isNewUser =
+            Date.now() - new Date(data.user.created_at).getTime() < NEW_ACCOUNT_THRESHOLD_MS;
+          if (isNewUser) {
+            safeLogEvent(META_EVENTS.COMPLETE_REGISTRATION, {
+              fb_registration_method: 'apple',
+            });
+          }
+          console.log('[APPLE-AUTH] Sign-in successful, registering push token');
+
+          const session = data.session ?? (await waitForSession());
+          if (session?.user) {
+            router.replace('/(home)' as never);
+          }
+
+          setTimeout(() => {
+            registerPushTokenForUser(data.user!.id);
+          }, 1000);
+        }
       } else {
-        // If email verification not required, registration is complete
-        router.replace('/(home)' as never);
+        throw new Error('No identity token received from Apple');
       }
-    } catch (error: any) {
-      console.error(JSON.stringify(error, null, 2));
-      setErrors(prev => ({
-        ...prev,
-        general: error.message || 'Sign up failed. Please try again.',
-      }));
+    } catch (err) {
+      const error = err as { code?: string; message?: string };
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        console.log('User canceled Apple sign-in');
+      } else {
+        console.error('Apple OAuth error:', error);
+      }
     } finally {
-      setIsLoading(false);
+      setAppleLoading(false);
     }
   };
 
-  const onPressVerify = async () => {
-    if (!isLoaded) return;
-    if (!code.trim()) {
-      setErrors(prev => ({ ...prev, code: 'Verification code is required' }));
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { error, data } = await verifyOtp(verificationEmail, code);
-
-      if (error) {
-        throw error;
-      }
-
-      Alert.alert(
-        'Success',
-        'Your account has been verified successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(home)' as never),
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error(JSON.stringify(error, null, 2));
-      setErrors(prev => ({
-        ...prev,
-        code: error.message || 'Verification failed. Please try again.',
-      }));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const headerTitle = pendingVerification
+    ? 'Verify your email.'
+    : pendingPhoneVerification
+      ? 'Verify your phone.'
+      : 'Create your account.';
+  const headerSubtitle = pendingVerification
+    ? `Enter the code we sent to ${verificationEmail}.`
+    : pendingPhoneVerification
+      ? `Enter the 6-digit code we sent to ${phoneNumber}.`
+      : 'It only takes a minute.';
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: isDark ? '#000' : '#fff',
-        direction: 'ltr'
-      }}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: 24
+    <AuthScaffold showBack onBack={() => router.back()}>
+      <Animated.View
+        style={{
+          opacity: contentOpacity,
+          transform: [{ translateY: contentTranslate }],
         }}
       >
-
-        <AnimatedBlob
-          position={{ x: width * 0.1, y: height * 0.1 }}
-          size={200}
-          delay={0}
-          duration={4000}
-        />
-        <AnimatedBlob
-          position={{ x: width * 0.6, y: height * 0.2 }}
-          size={300}
-          delay={1000}
-          duration={5000}
-        />
-        <AnimatedBlob
-          position={{ x: width * 0.2, y: height * 0.7 }}
-          size={250}
-          delay={2000}
-          duration={4500}
-        />
-
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32, gap: 24 }}>
-          <Text
-            style={{
-              fontSize: 32,
-              fontWeight: 'bold',
-              color: '#D55004',
-              textAlign: 'center',
-              marginBottom: 8,
-            }}
-          >
-            {pendingVerification ? 'Verify Email' : pendingPhoneVerification ? 'Verify Phone' : 'Create Account'}
-          </Text>
-
-          {!pendingVerification && !pendingPhoneVerification && (
-            <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1F2937' : '#F3F4F6', borderRadius: 12, padding: 4 }}>
-              <TouchableOpacity
-                onPress={() => setAuthMethod('phone')}
-                style={{
-                  flex: 1,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  backgroundColor: authMethod === 'phone' ? '#D55004' : 'transparent',
-                }}
-              >
-                <Text style={{ color: authMethod === 'phone' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
-                  Phone
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setAuthMethod('email')}
-                style={{
-                  flex: 1,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  backgroundColor: authMethod === 'email' ? '#D55004' : 'transparent',
-                }}
-              >
-                <Text style={{ color: authMethod === 'email' ? 'white' : (isDark ? '#9CA3AF' : '#6B7280'), textAlign: 'center', fontWeight: '600' }}>
-                  Email
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {!pendingVerification && !pendingPhoneVerification ? (
-            authMethod === 'email' ? (
-              <>
-                <View style={{ gap: 16 }}>
-                  <View>
-                    <TextInput
-                      style={{
-                        height: 48,
-                        paddingHorizontal: 16,
-                        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                        color: isDark ? '#fff' : '#000',
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: isDark ? '#374151' : '#E5E7EB',
-                      }}
-                      value={name}
-                      placeholder="Full Name"
-                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                      onChangeText={(text) => setName(text.replace(/\d/g, ''))}
-                      autoCapitalize="words"
-                      autoComplete="name"
-                      editable={!isLoading}
-                    />
-                    {errors.name && (
-                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                        {errors.name}
-                      </Text>
-                    )}
-                  </View>
-
-                  <View>
-                    <TextInput
-                      style={{
-                        height: 48,
-                        paddingHorizontal: 16,
-                        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                        color: isDark ? '#fff' : '#000',
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: isDark ? '#374151' : '#E5E7EB',
-                      }}
-                      autoCapitalize="none"
-                      value={emailAddress}
-                      placeholder="Email"
-                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                      onChangeText={setEmailAddress}
-                      keyboardType="email-address"
-                      autoComplete="email"
-                      editable={!isLoading}
-                    />
-                    {errors.email && (
-                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                        {errors.email}
-                      </Text>
-                    )}
-                  </View>
-
-                  <View>
-                    <View style={{ position: 'relative' }}>
-                      <TextInput
-                        style={{
-                          height: 48,
-                          paddingHorizontal: 16,
-                          paddingRight: 48,
-                          backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                          color: isDark ? '#fff' : '#000',
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: isDark ? '#374151' : '#E5E7EB',
-                        }}
-                        value={password}
-                        placeholder="Password"
-                        placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                        secureTextEntry={!showPassword}
-                        onChangeText={setPassword}
-                        autoComplete="password"
-                        editable={!isLoading}
-                      />
-                      <TouchableOpacity
-                        style={{
-                          position: 'absolute',
-                          right: 16,
-                          top: 12,
-                        }}
-                        onPress={togglePasswordVisibility}
-                        disabled={isLoading}
-                      >
-                        <Ionicons
-                          name={showPassword ? 'eye-off' : 'eye'}
-                          size={24}
-                          color={isDark ? '#6B7280' : '#9CA3AF'}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {errors.password && (
-                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                        {errors.password}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                {errors.general && (
-                  <Text style={{ color: '#D55004', textAlign: 'center' }}>
-                    {errors.general}
-                  </Text>
-                )}
-
-                <View style={{ gap: 16 }}>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#D55004',
-                      paddingVertical: 12,
-                      borderRadius: 24,
-                      opacity: isLoading ? 0.7 : 1,
-                      marginTop: 8,
-                    }}
-                    onPress={onSignUpPress}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="white" />
-                    ) : (
-                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
-                        Sign Up
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <SignUpWithOAuth />
-                </View>
-
-                <View style={{ alignItems: 'center', marginTop: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                      Already have an account?{' '}
-                    </Text>
-                    <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                      <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
-                        Sign in
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={{ gap: 16 }}>
-                  <View>
-                    <TextInput
-                      style={{
-                        height: 48,
-                        paddingHorizontal: 16,
-                        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                        color: isDark ? '#fff' : '#000',
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: isDark ? '#374151' : '#E5E7EB',
-                      }}
-                      value={phoneName}
-                      placeholder="Full Name"
-                      placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                      onChangeText={(text) => {
-                        setPhoneName(text.replace(/\d/g, ''));
-                        if (errors.phoneName) setErrors(prev => ({ ...prev, phoneName: '' }));
-                      }}
-                      autoCapitalize="words"
-                      autoComplete="name"
-                      editable={!isLoading}
-                    />
-                    {errors.phoneName && (
-                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                        {errors.phoneName}
-                      </Text>
-                    )}
-                  </View>
-                  <View>
-                    <CustomPhoneInput
-                      value={phoneNumber}
-                      onChangePhoneNumber={(text) => {
-                        setPhoneNumber(text);
-                        if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
-                      }}
-                      selectedCountry={selectedCountry}
-                      onChangeSelectedCountry={setSelectedCountry}
-                    />
-                    {errors.phone && (
-                      <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                        {errors.phone}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: '#D55004',
-                    paddingVertical: 12,
-                    borderRadius: 24,
-                    opacity: isLoading ? 0.7 : 1,
-                    marginTop: 8,
-                  }}
-                  onPress={handlePhoneSignUp}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
-                      Send Code
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                <View style={{ alignItems: 'center', marginTop: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                      Already have an account?{' '}
-                    </Text>
-                    <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                      <Text style={{ color: '#D55004', fontWeight: 'bold' }}>
-                        Sign in
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
-            )
-          ) : pendingPhoneVerification ? (
-            <View style={{ gap: 16 }}>
-              <Text style={{
-                color: isDark ? '#E5E7EB' : '#4B5563',
-                textAlign: 'center',
-                marginBottom: 8
-              }}>
-                Enter the verification code sent to {phoneNumber}
-              </Text>
-
-              <View>
-                <TextInput
-                  style={{
-                    height: 48,
-                    paddingHorizontal: 16,
-                    backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                    color: isDark ? '#fff' : '#000',
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: isDark ? '#374151' : '#E5E7EB',
-                    fontSize: 16,
-                    letterSpacing: 2,
-                    textAlign: 'center',
-                  }}
-                  value={code}
-                  placeholder="Enter 6-digit code"
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, ''))}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  editable={!isLoading}
-                />
-                {errors.code && (
-                  <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4, textAlign: 'center' }}>
-                    {errors.code}
-                  </Text>
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#D55004',
-                  paddingVertical: 12,
-                  borderRadius: 24,
-                  opacity: isLoading ? 0.7 : 1,
-                  marginTop: 8,
-                }}
-                onPress={handlePhoneOtpVerify}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
-                    Verify Phone
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setPendingPhoneVerification(false);
-                  setCode('');
-                  setErrors(prev => ({ ...prev, code: '' }));
-                }}
-                style={{ alignSelf: 'center', marginTop: 8 }}
-              >
-                <Text style={{ color: '#D55004', fontWeight: '500' }}>
-                  Go Back
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ gap: 16 }}>
-              <Text style={{
-                color: isDark ? '#E5E7EB' : '#4B5563',
-                textAlign: 'center',
-                marginBottom: 8
-              }}>
-                We've sent a verification code to {verificationEmail}.
-                Please enter it below to complete your registration.
-              </Text>
-
-              <View>
-                <TextInput
-                  style={{
-                    height: 48,
-                    paddingHorizontal: 16,
-                    backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                    color: isDark ? '#fff' : '#000',
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: isDark ? '#374151' : '#E5E7EB',
-                    fontSize: 16,
-                    letterSpacing: 1
-                  }}
-                  value={code}
-                  placeholder="Verification Code"
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, ''))}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  editable={!isLoading}
-                />
-                {errors.code && (
-                  <Text style={{ color: '#D55004', fontSize: 14, marginTop: 4 }}>
-                    {errors.code}
-                  </Text>
-                )}
-              </View>
-
-              {errors.general && (
-                <Text style={{ color: '#D55004', textAlign: 'center' }}>
-                  {errors.general}
-                </Text>
-              )}
-
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#D55004',
-                  paddingVertical: 12,
-                  borderRadius: 24,
-                  opacity: isLoading ? 0.7 : 1,
-                  marginTop: 8,
-                }}
-                onPress={onPressVerify}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center' }}>
-                    Verify Email
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setPendingVerification(false)}
-                style={{ alignSelf: 'center', marginTop: 8 }}
-              >
-                <Text style={{ color: '#D55004', fontWeight: '500' }}>
-                  Go Back
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        <View style={styles.titleBlock}>
+          <Title>{headerTitle}</Title>
+          <Subtitle style={{ marginTop: spacing.xs }}>{headerSubtitle}</Subtitle>
         </View>
-      </ScrollView>
-    </View>
+
+        {pendingPhoneVerification || pendingVerification ? (
+          <View>
+            <OtpInput
+              value={code}
+              onChange={(v) => {
+                setCode(v);
+                if (errors.code) setErrors((prev) => ({ ...prev, code: '' }));
+              }}
+              onComplete={() =>
+                pendingPhoneVerification ? handlePhoneOtpVerify() : onPressVerify()
+              }
+              error={errors.code || undefined}
+              autoFocus
+            />
+            {errors.code ? (
+              <Caption tone="error" align="center" style={{ marginTop: spacing.sm }}>
+                {errors.code}
+              </Caption>
+            ) : null}
+
+            <View style={{ height: spacing.xl }} />
+
+            <AuthButton
+              title={pendingPhoneVerification ? 'Verify phone' : 'Verify email'}
+              variant="primary"
+              loading={isLoading}
+              onPress={pendingPhoneVerification ? handlePhoneOtpVerify : onPressVerify}
+            />
+
+            <View style={{ height: spacing.base }} />
+
+            <AuthButton
+              title="Go back"
+              variant="ghost"
+              trailingIcon={null}
+              onPress={() => {
+                if (pendingPhoneVerification) {
+                  setPendingPhoneVerification(false);
+                } else {
+                  setPendingVerification(false);
+                }
+                setCode('');
+                setErrors((prev) => ({ ...prev, code: '', general: '' }));
+              }}
+            />
+          </View>
+        ) : (
+          <>
+            <SegmentedToggle
+              value={authMethod}
+              onChange={(v) => {
+                setAuthMethod(v);
+                setErrors((prev) => ({ ...prev, general: '' }));
+              }}
+              options={[
+                { value: 'phone', label: 'Phone' },
+                { value: 'email', label: 'Email' },
+              ]}
+            />
+
+            <View style={{ height: spacing.lg }} />
+
+            {authMethod === 'email' ? (
+              <View>
+                <AuthInput
+                  label="Full name"
+                  value={name}
+                  onChangeText={(t) => {
+                    setName(t.replace(/\d/g, ''));
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
+                  }}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  editable={!isLoading}
+                  error={errors.name || undefined}
+                  returnKeyType="next"
+                />
+
+                <View style={{ height: spacing.md }} />
+
+                <AuthInput
+                  label="Email address"
+                  value={emailAddress}
+                  onChangeText={(t) => {
+                    setEmailAddress(t);
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  editable={!isLoading}
+                  error={errors.email || undefined}
+                  returnKeyType="next"
+                />
+
+                <View style={{ height: spacing.md }} />
+
+                <AuthInput
+                  label="Password"
+                  value={password}
+                  onChangeText={(t) => {
+                    setPassword(t);
+                    if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  secureTextEntry
+                  showPasswordToggle
+                  autoComplete="new-password"
+                  editable={!isLoading}
+                  error={errors.password || undefined}
+                  hint={!errors.password && password.length > 0 && password.length < 8 ? 'Use at least 8 characters' : undefined}
+                  returnKeyType="done"
+                  onSubmitEditing={onSignUpPress}
+                />
+
+                {errors.general ? (
+                  <Caption tone="error" align="center" style={{ marginTop: spacing.md }}>
+                    {errors.general}
+                  </Caption>
+                ) : null}
+
+                <View style={{ height: spacing.xl }} />
+
+                <AuthButton
+                  title="Create account"
+                  variant="primary"
+                  loading={isLoading}
+                  onPress={onSignUpPress}
+                />
+              </View>
+            ) : (
+              <View>
+                <AuthInput
+                  label="Full name"
+                  value={phoneName}
+                  onChangeText={(t) => {
+                    setPhoneName(t.replace(/\d/g, ''));
+                    if (errors.phoneName) setErrors((prev) => ({ ...prev, phoneName: '' }));
+                  }}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  editable={!isLoading}
+                  error={errors.phoneName || undefined}
+                  returnKeyType="next"
+                />
+
+                <View style={{ height: spacing.lg }} />
+
+                <Caption
+                  tone="tertiary"
+                  style={{
+                    ...(typography.label as object),
+                    color: colors.textTertiary,
+                    marginBottom: spacing.xs,
+                  }}
+                >
+                  Phone number
+                </Caption>
+                <CustomPhoneInput
+                  value={phoneNumber}
+                  onChangePhoneNumber={(t) => {
+                    setPhoneNumber(t);
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+                  }}
+                  selectedCountry={selectedCountry}
+                  onChangeSelectedCountry={setSelectedCountry}
+                />
+                {errors.phone ? (
+                  <Caption tone="error" style={{ marginTop: 6 }}>
+                    {errors.phone}
+                  </Caption>
+                ) : null}
+
+                <View style={{ height: spacing.xl }} />
+
+                <AuthButton
+                  title="Send code"
+                  variant="primary"
+                  loading={isLoading}
+                  onPress={handlePhoneSignUp}
+                />
+              </View>
+            )}
+
+            <View style={{ height: spacing['2xl'] }} />
+
+            <AuthDivider label="Or sign up with" />
+
+            <View style={{ height: spacing.lg }} />
+
+            <OAuthRow
+              mode="sign_up"
+              onApple={Platform.OS === 'ios' ? handleAppleAuth : undefined}
+              onGoogle={handleGoogleAuth}
+              appleLoading={appleLoading}
+              googleLoading={googleLoading}
+            />
+
+            <View style={{ height: spacing['2xl'] }} />
+
+            <View style={styles.bottomLinkRow}>
+              <Body tone="secondary">Already have an account? </Body>
+              <Pressable hitSlop={6} onPress={() => router.push('/sign-in')}>
+                <Body tone="accent" style={{ fontWeight: '700' }}>
+                  Sign in
+                </Body>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </Animated.View>
+    </AuthScaffold>
   );
 }
+
+const styles = StyleSheet.create({
+  titleBlock: {
+    marginTop: spacing.lg,
+    marginBottom: spacing['2xl'],
+  },
+  bottomLinkRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
