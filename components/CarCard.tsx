@@ -189,7 +189,19 @@ function CarCard({
   const bannerSubtitle = i18n.t('car.no_longer_available');
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
+
+  // Stable interpolation — dims sold cards to 0.7 while still riding the
+  // native-driver mount fade. Recomputed only when showSoldBanner changes
+  // (almost never), so onScroll the identity is constant.
+  const cardOpacityAnim = useMemo(
+    () =>
+      fadeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, showSoldBanner ? 0.7 : 1],
+      }),
+    [showSoldBanner, fadeAnim]
+  );
+
   const { user } = useAuth();
   const { isGuest } = useGuestUser();
   const router = useRouter();
@@ -486,84 +498,25 @@ function CarCard({
     [car.images]
   );
 
+  // Image-only render. Overlays (sold banner, dots, favorite) hoisted to a
+  // single card-level layer below the ScrollView so they render once per card
+  // instead of once per carousel image (saves ~2/3 of overlay native views).
+  // Narrow dep array — renderImage identity stays stable across most renders.
   const renderImage = useCallback(
     (item: string, index: number) => (
-      <Pressable key={index} onPress={handleCardPress} className="bg-neutral-800">
-        <View className="relative bg-neutral-800">
-          <OptimizedImage
-            source={{ uri: item }}
-            style={{ width: cardWidth, height: imageHeight }}
-            recyclingKey={`car-${car.id}-${index}`}
-          />
-
-
-
-          {/* Sold/Deleted Banner */}
-          {showSoldBanner && (
-            <View className="absolute top-1/2 left-1/2 z-20" style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}>
-              <View className={`px-6 py-3 rounded-xl border-2 ${isDeleted ? 'bg-red-900/90 border-red-400' : 'bg-gray-900/90 border-gray-400'}`}>
-                <StyledText className="text-white text-lg font-bold text-center">
-{bannerTitle}
-                </StyledText>
-                <StyledText className="text-gray-300 text-sm text-center mt-1">
-{bannerSubtitle}
-                </StyledText>
-              </View>
-            </View>
-          )}
-
-
-          {/* Image Counter Dots - Bottom Center */}
-          {displayedImages.length > 1 && (
-            <View className="absolute bottom-4 left-0 right-0 flex-row justify-center items-center z-10">
-              {displayedImages.map((_: any, index: number) => (
-                <View
-                  key={index}
-                  className={`mx-1 rounded-full ${
-                    index === currentImageIndex
-                      ? "bg-white"
-                      : "bg-white/50"
-                  }`}
-                  style={{
-                    width: index === currentImageIndex ? 8 : 6,
-                    height: index === currentImageIndex ? 8 : 6,
-                  }}
-                />
-              ))}
-            </View>
-          )}
-
-          {/* Favorite Button - Top Right */}
-          {!isDealer && (
-            <StyledPressable
-              onPress={handleFavoritePress}
-              className="absolute top-4 active:opacity-70"
-              style={isRTL ? { left: 16 } : { right: 16 }}
-            >
-              <Ionicons
-                name={isFavorite ? "heart-sharp" : "heart-outline"}
-                size={30}
-                color={
-                  isFavorite ? "#D55004" : isDarkMode ? "#9d174d" : "#f43f5e"
-                }
-              />
-            </StyledPressable>
-          )}
-        </View>
+      <Pressable
+        key={index}
+        onPress={handleCardPress}
+        className="bg-neutral-800"
+      >
+        <OptimizedImage
+          source={{ uri: item }}
+          style={{ width: cardWidth, height: imageHeight }}
+          recyclingKey={`car-${car.id}-${index}`}
+        />
       </Pressable>
     ),
-    [
-      car,
-      isFavorite,
-      isDealer,
-      handleFavoritePress,
-      isDarkMode,
-      handleCardPress,
-      displayedImages.length,
-      currentImageIndex,
-      cardWidth,
-      imageHeight,
-    ]
+    [car.id, cardWidth, imageHeight, handleCardPress]
   );
 
   const handleWhatsAppPress = useCallback(() => {
@@ -606,28 +559,90 @@ function CarCard({
   return (
     <>
     <Animated.View
-      style={{
-        opacity: showSoldBanner ? Animated.multiply(fadeAnim, 0.7) : fadeAnim,
-      }}
+      // fadeAnim runs once on mount (useNativeDriver: true). The previous
+      // Animated.multiply(fadeAnim, 0.7) allocated a derived Animated.Value
+      // on every render of every visible card; doing it once via interpolate
+      // keeps it a stable identity and stays on the native driver.
+      style={{ opacity: cardOpacityAnim }}
     >
       <StyledView
         className={`mx-4 my-3 ${
           isDarkMode ? "bg-[#242424]" : "bg-[#e1e1e1]"
         } rounded-3xl overflow-hidden shadow-xl`}
       >
-        <ScrollView
-          ref={flatListRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          bounces={false}
-          scrollEventThrottle={32}
-          onScroll={onImageScroll}
-          nestedScrollEnabled={true}
-        >
-          {displayedImages.map((item: string, index: number) => renderImage(item, index))}
-        </ScrollView>
+        <View style={{ position: 'relative', width: cardWidth, height: imageHeight }}>
+          <ScrollView
+            ref={flatListRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            bounces={false}
+            scrollEventThrottle={32}
+            onScroll={onImageScroll}
+            // nestedScrollEnabled removed: parent FlashList is vertical, this
+            // is horizontal. They never conflict on the same axis. Setting it
+            // true forces Android to do an extra round of gesture arbitration
+            // between this child, the parent list, and (Android 15+) the
+            // system predictive-back gate. Removing it cuts a measurable
+            // amount of per-touch CPU.
+          >
+            {displayedImages.map((item: string, index: number) => renderImage(item, index))}
+          </ScrollView>
+
+          {/* Card-level overlays — rendered once per card (was 3× per card
+              when nested inside renderImage). Positioned absolutely over the
+              image area, so they appear stationary as the carousel pages. */}
+          {showSoldBanner && (
+            <View
+              pointerEvents="none"
+              className="absolute top-1/2 left-1/2 z-20"
+              style={{ transform: [{ translateX: -75 }, { translateY: -20 }] }}
+            >
+              <View className={`px-6 py-3 rounded-xl border-2 ${isDeleted ? 'bg-red-900/90 border-red-400' : 'bg-gray-900/90 border-gray-400'}`}>
+                <StyledText className="text-white text-lg font-bold text-center">
+                  {bannerTitle}
+                </StyledText>
+                <StyledText className="text-gray-300 text-sm text-center mt-1">
+                  {bannerSubtitle}
+                </StyledText>
+              </View>
+            </View>
+          )}
+
+          {displayedImages.length > 1 && (
+            <View
+              pointerEvents="none"
+              className="absolute bottom-4 left-0 right-0 flex-row justify-center items-center z-10"
+            >
+              {displayedImages.map((_: any, idx: number) => (
+                <View
+                  key={idx}
+                  className={`mx-1 rounded-full ${idx === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
+                  style={{
+                    width: idx === currentImageIndex ? 8 : 6,
+                    height: idx === currentImageIndex ? 8 : 6,
+                  }}
+                />
+              ))}
+            </View>
+          )}
+
+          {!isDealer && (
+            <StyledPressable
+              onPress={handleFavoritePress}
+              className="absolute top-4 z-30 active:opacity-70"
+              style={isRTL ? { left: 16 } : { right: 16 }}
+              hitSlop={10}
+            >
+              <Ionicons
+                name={isFavorite ? 'heart-sharp' : 'heart-outline'}
+                size={30}
+                color={isFavorite ? '#D55004' : isDarkMode ? '#9d174d' : '#f43f5e'}
+              />
+            </StyledPressable>
+          )}
+        </View>
 
         {/* Boost Indicator Badge - Premium Design */}
         {car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date() && (

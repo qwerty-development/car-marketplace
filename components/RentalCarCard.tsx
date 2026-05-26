@@ -496,7 +496,9 @@ function RentalCarCard({
             bounces={false}
             scrollEventThrottle={32}
             onScroll={onImageScroll}
-            nestedScrollEnabled={true}
+            // nestedScrollEnabled removed: see same change in CarCard.tsx.
+            // Vertical-parent / horizontal-child don't conflict; this prop
+            // forces extra gesture arbitration on Android 15+.
           >
             {displayImages.map((item: any, idx: number) => renderImageItem({ item, index: idx }))}
           </ScrollView>
