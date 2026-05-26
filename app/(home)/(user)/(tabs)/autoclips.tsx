@@ -21,6 +21,7 @@ import {
   AppStateStatus,
   useWindowDimensions,
   Platform,
+  StatusBar,
 } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import * as FileSystem from "expo-file-system/legacy";
@@ -407,7 +408,7 @@ const ClipItem = React.memo<ClipItemProps>(({
           <VideoView
             player={player}
             style={{ flex: 1 }}
-            contentFit="contain"
+            contentFit="cover"
             nativeControls={false}
           />
         ) : (
@@ -416,7 +417,7 @@ const ClipItem = React.memo<ClipItemProps>(({
               <Image
                 source={{ uri: item.thumbnail_url }}
                 style={{ flex: 1 }}
-                contentFit="contain"
+                contentFit="cover"
               />
             )}
           </View>
@@ -1064,8 +1065,8 @@ export default function AutoClips() {
   }
 
   return (
-    <View 
-      style={[styles.container, { backgroundColor: isDarkMode ? "black" : "white" }]}
+    <View
+      style={[styles.container, { backgroundColor: "black" }]}
       onLayout={(e) => {
         const { height } = e.nativeEvent.layout;
         if (height > 0) {
@@ -1073,8 +1074,11 @@ export default function AutoClips() {
         }
       }}
     >
-      <TouchableOpacity 
-        style={[styles.homeButton, { top: Math.max(insets.top, 20) }]} 
+      {isFocused && (
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      )}
+      <TouchableOpacity
+        style={[styles.homeButton, { top: Math.max(insets.top, 20) }]}
         onPress={() => router.back()}
       >
         <Ionicons name="home" size={24} color="white" />
