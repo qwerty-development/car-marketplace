@@ -159,7 +159,7 @@ const FeatureCategory = memo(({ title, features, isDarkMode }: any) => {
   );
 });
 // Improved image component with error handling
-const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#333' }: any) => {
+const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#333', contentFit = 'cover' }: any) => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
@@ -184,7 +184,7 @@ const OptimizedImage = React.memo(({ source, style, onLoad, fallbackColor = '#33
           ]}
           onLoad={handleLoad}
           onError={handleError}
-          contentFit="cover"
+          contentFit={contentFit}
           cachePolicy="memory-disk"
         />
       ) : (
@@ -1467,6 +1467,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                       <OptimizedImage
                         source={{ uri: item }}
                         style={{ width, height: 350 }}
+                        contentFit="contain"
                         fallbackColor={isDarkMode ? '#222' : '#e0e0e0'}
                       />
                     </Pressable>

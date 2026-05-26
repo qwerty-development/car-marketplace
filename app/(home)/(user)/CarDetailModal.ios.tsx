@@ -1299,6 +1299,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
                   <OptimizedImage
                     source={{ uri: item }}
                     style={{ width, height: 350 }}
+                    contentFit="contain"
                     onLoad={index === 0 ? handleFirstImageLoaded : undefined}
                   />
                 </Pressable>
@@ -2222,69 +2223,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         </React.Suspense>
       )}
 
-      {/* Image Modal (Optimized) */}
-      {selectedImageIndex !== null && car.images && (
-        <Modal
-          visible={true}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setSelectedImageIndex(null)}
-        >
-          <View style={styles.modalBackground}>
-            {/* Close button with improved positioning */}
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setSelectedImageIndex(null)}
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-            >
-              <Ionicons name="close" size={32} color="white" />
-            </TouchableOpacity>
-
-            {/* Gallery with proper centering */}
-            <FlatList
-              data={car.images}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              initialScrollIndex={selectedImageIndex}
-              onMomentumScrollEnd={(e) => {
-                const newIndex = Math.round(
-                  e.nativeEvent.contentOffset.x / width
-                );
-                setSelectedImageIndex(newIndex);
-              }}
-              keyExtractor={(_, index) => `fullscreen-${index}`}
-              getItemLayout={(_, index) => ({
-                length: width,
-                offset: width * index,
-                index,
-              })}
-              renderItem={({ item, index }) => (
-                <View style={styles.imageContainer}>
-                  <Image
-                    source={{ uri: item }}
-                    style={styles.fullscreenImage}
-                    contentFit="contain"
-                  />
-                </View>
-              )}
-              initialNumToRender={1}
-              maxToRenderPerBatch={2}
-              windowSize={3}
-              removeClippedSubviews={true}
-            />
-
-            {/* Image counter indicator with improved styling */}
-            <View style={styles.imageCounter}>
-              <Text style={styles.imageCounterText}>
-                {selectedImageIndex + 1} / {car.images.length}
-              </Text>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* Image Viewer */}
+      {/* Image Viewer with pinch-to-zoom and double-tap-to-zoom */}
       <ImageViewing
         images={car.images.map((uri: string) => ({ uri }))}
         imageIndex={selectedImageIndex || 0}
@@ -2294,6 +2233,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
         animationType="fade"
         swipeToCloseEnabled={true}
         doubleTapToZoomEnabled={true}
+        enableSwipeDown={false}
       />
 
       {/* Auth Required Modal */}

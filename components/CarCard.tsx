@@ -55,13 +55,14 @@ const OptimizedImage = ({
   style,
   fallbackColor = 'transparent',
   recyclingKey,
+  contentFit = 'cover',
 }: any) => {
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: fallbackColor }]}>
       <CachedImage
         source={source}
         style={{ width: '100%', height: '100%' }}
-        contentFit="cover"
+        contentFit={contentFit}
         cachePolicy="disk"
         transition={200}
         priority="normal"
