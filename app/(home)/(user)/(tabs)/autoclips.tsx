@@ -666,8 +666,7 @@ export default function AutoClips() {
       const { data: clipsData, error: clipsError } = await supabase
         .from("auto_clips")
         .select("*,liked_users")
-        .eq("status", "published")
-        .order("created_at", { ascending: false });
+        .eq("status", "published");
 
       if (clipsError) throw clipsError;
 
@@ -695,6 +694,12 @@ export default function AutoClips() {
         dealership: dealershipsById[clip.dealership_id],
         liked_users: clip.liked_users || [],
       }));
+
+      // Shuffle clips (Fisher-Yates) so feed is randomized on every load/refresh
+      for (let i = mergedClips.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [mergedClips[i], mergedClips[j]] = [mergedClips[j], mergedClips[i]];
+      }
 
       setAutoClips(mergedClips);
       
