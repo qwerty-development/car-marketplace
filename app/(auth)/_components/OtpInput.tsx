@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -60,13 +61,27 @@ const OtpInput: React.FC<Props> = ({
     }
   };
 
+  // iOS: a low-opacity, caretHidden, absolute-positioned TextInput does not
+  // reliably re-present the keyboard when tapped after the keyboard was
+  // dismissed by an outside tap (JS focus state desyncs from native first-
+  // responder). Funnel all taps through a Pressable that calls .focus()
+  // explicitly so the keyboard always reopens.
+  const focusInput = () => {
+    if (!editable) return;
+    hiddenInputRef.current?.focus();
+  };
+
   const cells = Array.from({ length }, (_, i) => i);
   const cursorIndex = value.length < length ? value.length : length - 1;
   // Don't show error once all digits are filled
   const isComplete = value.replace(/\D/g, '').length === length;
 
   return (
-    <View style={styles.row}>
+    <Pressable
+      style={styles.row}
+      onPress={focusInput}
+      accessibilityRole="none"
+    >
       {/* Visual cells — rendered underneath */}
       {cells.map((i) => {
         const ch = value[i] || '';
@@ -99,6 +114,10 @@ const OtpInput: React.FC<Props> = ({
        * Transparent TextInput covering the full row — sits ON TOP so Android's
        * autofill framework sees a real, "visible" input. opacity:0 makes Android
        * consider the view gone; color/bg transparent keeps it visible to the OS.
+       *
+       * pointerEvents="none" routes all taps to the Pressable parent so focus
+       * is handled by JS instead of by iOS's native hit-testing, which is the
+       * fix for the iOS keyboard-not-reopening bug.
        */}
       <TextInput
         ref={hiddenInputRef}
@@ -112,8 +131,9 @@ const OtpInput: React.FC<Props> = ({
         editable={editable}
         caretHidden
         style={styles.transparentInput}
+        pointerEvents="none"
       />
-    </View>
+    </Pressable>
   );
 };
 
