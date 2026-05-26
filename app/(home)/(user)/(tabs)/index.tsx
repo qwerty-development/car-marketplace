@@ -170,6 +170,7 @@ export default function BrowseCarsPage() {
   
   // Simplified loading states - removed progressive loading that was causing issues
   const [componentsLoaded, setComponentsLoaded] = useState(false);
+  const [hasResultsInOtherCategories, setHasResultsInOtherCategories] = useState(false);
 
   // Giveaway
   const [showGiveawayBanner, setShowGiveawayBanner] = useState(false);
@@ -218,6 +219,7 @@ export default function BrowseCarsPage() {
     filters?: string;
     searchQuery?: string;
     timestamp?: string;
+    vehicleCategory?: string;
   }>();
 
   // Simplified component loading
@@ -261,6 +263,14 @@ export default function BrowseCarsPage() {
         shouldFetch = true;
       }
 
+      // Restore vehicleCategory if passed back from search screen
+      const paramCategory = params.vehicleCategory as VehicleCategory | undefined;
+      if (paramCategory) {
+        setVehicleCategory(paramCategory);
+      }
+      // Use the category from params if available, otherwise keep current state
+      const effectiveCategory = paramCategory || vehicleCategory;
+
       if (Object.keys(initialFilters).length > 0) {
         setFilters(initialFilters);
       }
@@ -269,8 +279,8 @@ export default function BrowseCarsPage() {
       }
 
       if (shouldFetch || !isInitialLoadDone) {
-        if (vehicleCategory !== 'plates') {
-          await fetchCars(1, initialFilters, sortOption, initialQuery, carViewMode, false, vehicleCategory);
+        if (effectiveCategory !== 'plates') {
+          await fetchCars(1, initialFilters, sortOption, initialQuery, carViewMode, false, effectiveCategory);
         } else {
           await fetchPlates(1, plateFilters, sortOption, initialQuery);
         }
@@ -298,7 +308,10 @@ export default function BrowseCarsPage() {
     };
 
     initializePage();
-  }, [params.searchQuery, params.filters, params.timestamp, vehicleCategory, carViewMode]);
+  // Only re-run when navigation params change, not on local state changes
+  // (vehicleCategory/carViewMode changes are handled by their own handlers)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.searchQuery, params.filters, params.timestamp, params.vehicleCategory]);
 
   const fetchCars = useCallback(
     async (
@@ -339,18 +352,16 @@ export default function BrowseCarsPage() {
           .eq("status", "available");
 
         // Vehicle category filter (all = no filter, bikes = Motorcycle, trucks = Truck, cars = exclude Motorcycle/Truck)
-        // Bypass this filter when a search query is present to allow global search across all types
-        if (!query) {
-          if (currentVehicleCategory === 'bikes') {
-            queryBuilder = queryBuilder.eq("category", "Motorcycle");
-          } else if (currentVehicleCategory === 'trucks') {
-            queryBuilder = queryBuilder.eq("category", "Truck");
-          } else if (currentVehicleCategory === 'cars') {
-            // For cars, exclude motorcycles and trucks
-            queryBuilder = queryBuilder.not("category", "in", "(Motorcycle,Truck)");
-          }
-          // 'all' applies no category filter — all vehicle types are shown
+        // Always apply category filter, even during search — users stay in the category they selected
+        if (currentVehicleCategory === 'bikes') {
+          queryBuilder = queryBuilder.eq("category", "Motorcycle");
+        } else if (currentVehicleCategory === 'trucks') {
+          queryBuilder = queryBuilder.eq("category", "Truck");
+        } else if (currentVehicleCategory === 'cars') {
+          // For cars, exclude motorcycles and trucks
+          queryBuilder = queryBuilder.not("category", "in", "(Motorcycle,Truck)");
         }
+        // 'all' applies no category filter — all vehicle types are shown
 
         // Special Filters
         if (currentFilters.specialFilter) {
@@ -587,8 +598,25 @@ export default function BrowseCarsPage() {
           setCars([]);
           setTotalPages(0);
           setCurrentPage(1);
+          // If searching in a specific category (not 'all'), check if results exist elsewhere
+          if (query && currentVehicleCategory !== 'all') {
+            try {
+              const cleanQuery = query.trim().toLowerCase();
+              const { count: otherCount } = await supabase
+                .from(tableName)
+                .select('id', { count: 'exact', head: true })
+                .eq('status', 'available')
+                .or(`make.ilike.%${cleanQuery}%,model.ilike.%${cleanQuery}%,category.ilike.%${cleanQuery}%`);
+              setHasResultsInOtherCategories((otherCount ?? 0) > 0);
+            } catch {
+              setHasResultsInOtherCategories(false);
+            }
+          } else {
+            setHasResultsInOtherCategories(false);
+          }
           return;
         }
+        setHasResultsInOtherCategories(false);
 
         const totalItems = count;
         const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -1090,11 +1118,13 @@ export default function BrowseCarsPage() {
       setFilters({});
       setSearchQuery("");
       setSortOption(null);
+      setHasResultsInOtherCategories(false);
       fetchCars(1, {}, null, "", carViewMode, false, vehicleCategory);
     } else {
       setPlateFilters({});
       setSearchQuery("");
       setSortOption(null);
+      setHasResultsInOtherCategories(false);
       fetchPlates(1, {}, null, "");
     }
   }, [fetchCars, fetchPlates, vehicleCategory, carViewMode]);
@@ -1123,6 +1153,7 @@ export default function BrowseCarsPage() {
       setSearchQuery('');
       setFilters({});
       setPlateFilters({});
+      setHasResultsInOtherCategories(false);
       
       if (newCategory === 'plates') {
         fetchPlates(1, {}, null, '');
@@ -1315,6 +1346,7 @@ export default function BrowseCarsPage() {
                   pathname: "/(home)/(user)/search",
                   params: {
                     currentQuery: searchQuery,
+                    vehicleCategory: vehicleCategory,
                     timestamp: Date.now().toString(),
                   },
                 });
@@ -1505,16 +1537,34 @@ export default function BrowseCarsPage() {
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, isDarkMode && styles.darkEmptyText]}>
             {vehicleCategory !== 'plates'
-              ? (filters.categories && filters.categories.length > 0
-                  ? `No vehicles available for the selected ${
-                      filters.categories.length === 1 ? 'category' : 'categories'
-                    }:\n${filters.categories.join(', ')}`
-                  : vehicleCategory === 'all'
-                    ? 'No vehicles available.'
-                    : `No ${vehicleCategory} available.`)
+              ? (searchQuery && vehicleCategory !== 'all'
+                  ? `No listings available in this category.`
+                  : filters.categories && filters.categories.length > 0
+                    ? `No vehicles available for the selected ${
+                        filters.categories.length === 1 ? 'category' : 'categories'
+                      }:\n${filters.categories.join(', ')}`
+                    : vehicleCategory === 'all'
+                      ? 'No vehicles available.'
+                      : `No ${vehicleCategory} available.`)
               : 'No number plates available.'}
           </Text>
-          {((vehicleCategory !== 'plates' && Object.keys(filters).length > 0) || 
+          {searchQuery && vehicleCategory !== 'all' && hasResultsInOtherCategories && (
+            <TouchableOpacity
+              onPress={() => {
+                // Switch to 'all' while keeping the current search query
+                setVehicleCategory('all');
+                setCurrentPage(1);
+                setFilters({});
+                setCarViewMode('sale');
+                fetchCarsRef.current?.(1, {}, sortOption, searchQuery, 'sale', false, 'all');
+              }}
+              style={[styles.resetButton, { backgroundColor: '#D55004' }]}
+            >
+              <Text style={[styles.resetButtonText, { color: '#fff' }]}>Check other categories</Text>
+            </TouchableOpacity>
+          )}
+          {(!searchQuery || vehicleCategory === 'all') &&
+            ((vehicleCategory !== 'plates' && Object.keys(filters).length > 0) || 
             (vehicleCategory === 'plates' && Object.keys(plateFilters).length > 0) || 
             searchQuery) && (
             <TouchableOpacity
@@ -1536,6 +1586,8 @@ export default function BrowseCarsPage() {
       cars,
       plates,
       vehicleCategory,
+      hasResultsInOtherCategories,
+      sortOption,
     ]
   );
 

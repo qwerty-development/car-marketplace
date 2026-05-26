@@ -37,7 +37,7 @@ export default function SearchScreen() {
       combos: [],
     });
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const params = useLocalSearchParams<{ currentQuery?: string }>();
+    const params = useLocalSearchParams<{ currentQuery?: string; vehicleCategory?: string }>();
 
     // Fetch recent searches when component mounts and when user changes
     useEffect(() => {
@@ -291,11 +291,12 @@ export default function SearchScreen() {
             pathname: "/(home)/(user)/(tabs)",
             params: {
               searchQuery: trimmedQuery,
+              vehicleCategory: params.vehicleCategory || 'all',
               timestamp: Date.now() // Add timestamp to force refresh
             }
           });
         }
-      }, [searchQuery, storeSearchQuery, router]);
+      }, [searchQuery, storeSearchQuery, router, params.vehicleCategory]);
 
       const handleSuggestionPress = useCallback(async (suggestion: string) => {
         const trimmedQuery = suggestion.trim();
@@ -305,11 +306,12 @@ export default function SearchScreen() {
             pathname: "/(home)/(user)/(tabs)",
             params: {
               searchQuery: trimmedQuery,
+              vehicleCategory: params.vehicleCategory || 'all',
               timestamp: Date.now() // Add timestamp to force refresh
             }
           });
         }
-      }, [storeSearchQuery, router]);
+      }, [storeSearchQuery, router, params.vehicleCategory]);
 
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
