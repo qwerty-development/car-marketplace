@@ -931,6 +931,12 @@ export default function AddEditListing() {
     return null;
   };
 
+  const toIntOrNull = (value: any): number | null => {
+    if (value === null || value === undefined || value === "") return null;
+    const n = typeof value === "number" ? value : parseInt(String(value), 10);
+    return isNaN(n) ? null : n;
+  };
+
   const handleSubmit = useCallback(() => {
     if (!validateFormData(formData)) return;
 
@@ -1003,8 +1009,8 @@ export default function AddEditListing() {
             make: allowedData.make,
             model: allowedData.model,
             trim: allowedData.trim,
-            price: allowedData.price,
-            year: allowedData.year,
+            price: toIntOrNull(allowedData.price),
+            year: toIntOrNull(allowedData.year),
             description: allowedData.description,
             images: modalImages,
             transmission: allowedData.transmission,
@@ -1034,7 +1040,7 @@ export default function AddEditListing() {
                 ...baseData,
                 condition: allowedData.condition,
                 mileage: allowedData.mileage,
-                bought_price: allowedData.bought_price ? allowedData.bought_price : 0,
+                bought_price: toIntOrNull(allowedData.bought_price) ?? 0,
                 date_bought: allowedData.date_bought ? new Date(allowedData.date_bought).toISOString() : null,
                 seller_name: allowedData.seller_name ? allowedData.seller_name : "NA",
                 source: allowedData.source,
@@ -1113,8 +1119,8 @@ features
             make: allowedData.make,
             model: allowedData.model,
             trim: allowedData.trim,
-            price: allowedData.price,
-            year: allowedData.year,
+            price: toIntOrNull(allowedData.price),
+            year: toIntOrNull(allowedData.year),
             description: allowedData.description,
             images: modalImages,
             transmission: allowedData.transmission,
@@ -1149,7 +1155,7 @@ features
                 ...baseListingData,
                 condition: allowedData.condition,
                 mileage: allowedData.mileage,
-                bought_price: allowedData.bought_price,
+                bought_price: toIntOrNull(allowedData.bought_price),
                 date_bought: allowedData.date_bought
                   ? new Date(allowedData.date_bought).toISOString()
                   : new Date().toISOString(),
@@ -1208,10 +1214,15 @@ features
         }
       } catch (error: any) {
         console.error("Error submitting listing:", error);
-        Alert.alert(
-          "Error",
-          error?.message || "Failed to submit listing. Please try again."
-        );
+        const rawMessage: string = error?.message || "";
+        const friendlyMessage = rawMessage.includes("invalid input syntax")
+          ? "Please check that price, year, and mileage contain valid numbers."
+          : rawMessage.includes("duplicate key") || rawMessage.includes("unique")
+          ? "A listing with this information already exists."
+          : rawMessage.includes("violates") || rawMessage.includes("constraint")
+          ? "Some fields contain invalid values. Please review your listing."
+          : rawMessage || "Failed to submit listing. Please try again.";
+        Alert.alert("Error", friendlyMessage);
       } finally {
         setIsLoading(false);
         setHasChanges(false);
