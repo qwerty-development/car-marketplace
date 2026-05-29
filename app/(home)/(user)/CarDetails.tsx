@@ -324,7 +324,7 @@ export default function CarDetailsPage() {
             <View style={[styles.loadingContainer, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
               <ActivityIndicator size="large" color="#D55004" />
               <Text style={{ marginTop: 16, color: isDarkMode ? '#CCCCCC' : '#666666' }}>
-                Preparing car details...
+                Preparing details...
               </Text>
             </View>
           }>
