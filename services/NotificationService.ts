@@ -47,6 +47,7 @@ export enum NotificationType {
 }
 
 interface NotificationData {
+  url?: string;
   screen?: string;
   params?: Record<string, any>;
   type?: NotificationType;
@@ -825,14 +826,17 @@ export class NotificationService {
 
   // Enhanced handleNotificationResponse with better type safety
   static async handleNotificationResponse(response: Notifications.NotificationResponse): Promise<{
+    url?: string;
     screen?: string;
     params?: Record<string, any>;
   } | null> {
     try {
       const data = response.notification.request.content.data as NotificationData;
 
-      if (data?.screen) {
+      // Prefer a deep-link `url`; fall back to the legacy `screen`+`params`.
+      if (data?.url || data?.screen) {
         return {
+          url: data.url,
           screen: data.screen,
           params: data.params || {}
         };

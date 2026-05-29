@@ -53,6 +53,7 @@ import {
   NotificationCacheManager,
 } from "@/utils/NotificationCacheManager";
 import { notificationCoordinator } from "@/utils/NotificationOperationCoordinator";
+import { deepLinkQueue } from "@/utils/deepLinkQueue";
 
 import { useSlowConnectionToast } from "@/utils/useSlowConnectionToast";
 import { LanguageProvider } from "@/utils/LanguageContext";
@@ -263,74 +264,10 @@ class InitializationManager {
 // GLOBAL INSTANCE: Initialization manager
 const initManager = new InitializationManager();
 
-// CRITICAL CLASS: DeepLinkQueue with timeout protection
-class DeepLinkQueue {
-  private queue: string[] = [];
-  private processing = false;
-  private readyToProcess = false;
-  private processTimeout: NodeJS.Timeout | null = null;
-
-  // METHOD: Add URL to queue
-  enqueue(url: string) {
-    this.queue.push(url);
-    this.processNextIfReady();
-  }
-
-  // METHOD: Mark queue as ready
-  setReady() {
-    this.readyToProcess = true;
-    initManager.setReady("deepLinks");
-    this.processNextIfReady();
-  }
-
-  // PRIVATE METHOD: Process next URL if ready
-  private async processNextIfReady() {
-    if (!this.readyToProcess || this.processing || this.queue.length === 0) {
-      return;
-    }
-
-    this.processing = true;
-    const url = this.queue.shift();
-
-    if (url && this.processUrlCallback) {
-      try {
-        this.processTimeout = setTimeout(() => {
-          console.warn(
-            "[DeepLinkQueue] TIMEOUT: Processing timeout, skipping URL:",
-            url
-          );
-          this.processing = false;
-          this.processNextIfReady();
-        }, 5000);
-
-        await this.processUrlCallback(url);
-
-        if (this.processTimeout) {
-          clearTimeout(this.processTimeout);
-          this.processTimeout = null;
-        }
-      } catch (error) {
-        console.error("Error processing queued deep link:", error);
-      }
-    }
-
-    this.processing = false;
-
-    if (this.queue.length > 0) {
-      setTimeout(() => this.processNextIfReady(), 100);
-    }
-  }
-
-  private processUrlCallback: ((url: string) => Promise<void>) | null = null;
-
-  // METHOD: Set URL processing callback
-  setProcessUrlCallback(callback: (url: string) => Promise<void>) {
-    this.processUrlCallback = callback;
-  }
-}
-
-// GLOBAL INSTANCE: Deep link queue
-const deepLinkQueue = new DeepLinkQueue();
+// Deep link queue now lives in utils/deepLinkQueue.ts so notification tap
+// handlers can enqueue into the same pipeline. Wire its ready signal back to
+// the init manager (preserves the previous setReady -> deepLinks behavior).
+deepLinkQueue.setOnReadyCallback(() => initManager.setReady("deepLinks"));
 
 const NAV_COMMAND_COOLDOWN_MS = 800;
 
@@ -1031,6 +968,8 @@ const DeepLinkHandler = () => {
           navigateToDeepLink("car", id, false);
         } else if (type === "autoclip" && id) {
           navigateToDeepLink("clip", id, false);
+        } else if (type === "conversation" && id) {
+          navigateToDeepLink("conversation", id, false);
         }
 
         global.pendingDeepLink = null;

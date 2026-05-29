@@ -12,6 +12,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { isGlobalSigningOut } from '../utils/AuthContext';
 import { notificationCache, NotificationCacheManager } from '@/utils/NotificationCacheManager';
 import { notificationCoordinator } from '@/utils/NotificationOperationCoordinator';
+import { enqueueDeepLink } from '@/utils/deepLinkQueue';
 
 // CRITICAL FIX 1: Enhanced timeout configurations
 const OPERATION_TIMEOUTS = {
@@ -267,7 +268,11 @@ export function useNotifications(): UseNotificationsReturn {
         'notification response handling'
       );
       
-      if (navigationData?.screen) {
+      // Deep link takes precedence over legacy screen routing. A `url` is fed
+      // into the same pipeline real deep links use (auth-gating, canonical
+      // routing, ready-queue); a legacy `screen` keeps the previous behavior;
+      // neither => the app just opens normally.
+      if (navigationData?.url || navigationData?.screen) {
         const notificationId = response.notification.request.content.data?.notificationId;
         if (notificationId) {
           await NotificationService.markAsRead(notificationId);
@@ -275,23 +280,27 @@ export function useNotifications(): UseNotificationsReturn {
           setUnreadCount(newUnreadCount);
         }
 
-        // Navigation with timeout protection
-        const navigate = () => {
-          if (navigationData.params) {
-            router.push({
-              pathname: navigationData.screen as any,
-              params: navigationData.params
-            });
-          } else {
-            router.push(navigationData.screen as any);
-          }
-        };
+        if (navigationData.url) {
+          enqueueDeepLink(navigationData.url);
+        } else {
+          // Legacy screen-based navigation with timeout protection
+          const navigate = () => {
+            if (navigationData.params) {
+              router.push({
+                pathname: navigationData.screen as any,
+                params: navigationData.params
+              });
+            } else {
+              router.push(navigationData.screen as any);
+            }
+          };
 
-        try {
-          navigate();
-        } catch (navError) {
-          debugLog('Navigation error, retrying once');
-          setTimeout(navigate, CONFIG.NAVIGATION_RETRY_DELAY);
+          try {
+            navigate();
+          } catch (navError) {
+            debugLog('Navigation error, retrying once');
+            setTimeout(navigate, CONFIG.NAVIGATION_RETRY_DELAY);
+          }
         }
       }
     } catch (error: any) {
@@ -302,6 +311,56 @@ export function useNotifications(): UseNotificationsReturn {
       }
     }
   }, [user, debugLog]);
+
+  // COLD START: when the app is launched from a KILLED state by tapping a
+  // notification, addNotificationResponseReceivedListener never fires. Read the
+  // last response once on mount and feed any deep-link `url` into the same
+  // pipeline (it auth-gates, queues until ready, and routes canonically — so no
+  // dependency on `user` being loaded yet). Duplicate enqueues are de-duped by
+  // processDeepLink's URL cooldown, so this is safe even if the listener also fires.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const lastResponse = await Notifications.getLastNotificationResponseAsync();
+        if (cancelled || !lastResponse) return;
+        const data = lastResponse.notification.request.content.data as
+          | { url?: string; screen?: string; params?: Record<string, any>; notificationId?: string }
+          | undefined;
+        if (!data?.url && !data?.screen) return;
+
+        if (data.notificationId) {
+          NotificationService.markAsRead(data.notificationId).catch(() => {});
+        }
+
+        if (typeof data.url === 'string') {
+          // Deep-link URL: the queue waits until the app is ready, then routes
+          // canonically (auth-gated). Safe even if the listener also fires.
+          enqueueDeepLink(data.url);
+        } else if (data.screen) {
+          // Legacy screen target (e.g. role-specific conversation from
+          // new_message): replay once navigation has had time to mount.
+          const target = { pathname: data.screen as any, params: data.params };
+          const navigate = () => {
+            try {
+              router.push(target);
+            } catch (navError) {
+              debugLog('Cold-start legacy navigation error, retrying once');
+              setTimeout(() => {
+                try { router.push(target); } catch {}
+              }, CONFIG.NAVIGATION_RETRY_DELAY);
+            }
+          };
+          setTimeout(navigate, 1500);
+        }
+      } catch {
+        // non-fatal: cold-start deep link is best-effort
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debugLog]);
 
   /**
    * CRITICAL FIX 10: Enhanced registration state management with timeout
