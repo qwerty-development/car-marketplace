@@ -327,6 +327,14 @@ export function useNotifications(): UseNotificationsReturn {
         const data = lastResponse.notification.request.content.data as
           | { url?: string; screen?: string; params?: Record<string, any>; notificationId?: string }
           | undefined;
+
+        // IMPORTANT: getLastNotificationResponseAsync persists across launches,
+        // so clear it once consumed — otherwise every subsequent NORMAL app
+        // launch would re-trigger this deep link (and it can fire twice when the
+        // app was killed). Expo recommends clearLastNotificationResponseAsync for
+        // exactly this route-selection case.
+        Notifications.clearLastNotificationResponseAsync?.().catch(() => {});
+
         if (!data?.url && !data?.screen) return;
 
         if (data.notificationId) {
