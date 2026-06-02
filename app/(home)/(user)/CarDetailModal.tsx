@@ -515,7 +515,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       if (!user?.id || !carId) return;
 
       try {
-        const { data, error } = await supabase.rpc("track_car_call", {
+        const { data, error } = await supabase.rpc(isRental ? "track_rent_call" : "track_car_call", {
           car_id: carId,
           user_id: user.id,
         });
@@ -535,7 +535,7 @@ const CarDetailScreen = ({ car, onFavoritePress, onViewUpdate, isRental = false 
       if (!user?.id || !carId) return;
 
       try {
-        const { data, error } = await supabase.rpc("track_car_whatsapp", {
+        const { data, error } = await supabase.rpc(isRental ? "track_rent_whatsapp" : "track_car_whatsapp", {
           car_id: carId,
           user_id: user.id,
         });

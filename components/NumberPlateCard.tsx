@@ -306,16 +306,40 @@ export default function NumberPlateCard({
     }
   }, [onPress, scaleAnim, trackPlateView]);
 
+  // Track plate contact events (call / whatsapp / chat) for analytics.
+  // Plates have no contact counter columns, so these live only in the event log.
+  const trackPlateContact = useCallback(
+    async (method: "call" | "whatsapp" | "chat") => {
+      if (!user?.id || isGuest) return;
+      if (user.id === plate.user_id) return; // ignore owner's own taps
+      try {
+        const plateId = typeof plate.id === "string" ? parseInt(plate.id, 10) : plate.id;
+        const rpcName =
+          method === "call"
+            ? "track_plate_call"
+            : method === "whatsapp"
+            ? "track_plate_whatsapp"
+            : "track_plate_chat";
+        await supabase.rpc(rpcName, { plate_id: plateId, user_id: user.id });
+      } catch (error) {
+        console.error("Error tracking plate contact:", error);
+      }
+    },
+    [plate.id, plate.user_id, user?.id, isGuest]
+  );
+
   const handleCall = useCallback(() => {
     if (plate.seller_phone) {
+      trackPlateContact("call");
       Linking.openURL(`tel:${plate.seller_phone}`);
     } else {
       Alert.alert(t('common.phone_not_available'));
     }
-  }, [plate.seller_phone, t]);
+  }, [plate.seller_phone, t, trackPlateContact]);
 
   const handleWhatsAppPress = useCallback(() => {
     if (plate?.seller_phone) {
+      trackPlateContact("whatsapp");
       const cleanedPhoneNumber = plate.seller_phone
         .toString()
         .replace(/\D/g, "");
@@ -334,11 +358,12 @@ export default function NumberPlateCard({
     } else {
       Alert.alert(t('common.error'), t('common.phone_not_available'));
     }
-  }, [plate, t]);
+  }, [plate, t, trackPlateContact]);
 
   const handleChatPress = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+    trackPlateContact("chat");
+
     const plateIdNum = typeof plate.id === 'string' ? parseInt(plate.id, 10) : plate.id;
     
     if (isDealer && plate.dealership_id) {
@@ -368,7 +393,7 @@ export default function NumberPlateCard({
     } else {
       Alert.alert(t('common.error'), t('chat.seller_not_found', 'Seller unavailable'));
     }
-  }, [plate, isDealer, user?.id, isGuest, router, t]);
+  }, [plate, isDealer, user?.id, isGuest, router, t, trackPlateContact]);
 
   const plateDisplay = useMemo(() => {
     return `${plate.letter} ${plate.digits}`;
