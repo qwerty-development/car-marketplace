@@ -232,8 +232,7 @@ function RentalCarCard({
       if (!user) return;
 
       try {
-        // Note: You might want to create a separate RPC for rental cars
-        const { data, error } = await supabase.rpc("track_car_call", {
+        const { data, error } = await supabase.rpc("track_rent_call", {
           car_id: carId,
           user_id: user.id,
         });
@@ -251,7 +250,7 @@ function RentalCarCard({
       if (!user) return;
 
       try {
-        const { data, error } = await supabase.rpc("track_car_whatsapp", {
+        const { data, error } = await supabase.rpc("track_rent_whatsapp", {
           car_id: carId,
           user_id: user.id,
         });
