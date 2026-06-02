@@ -38,6 +38,7 @@ import { useRouter, useNavigation } from 'expo-router'
 import { useAuth } from '@/utils/AuthContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { NotificationService } from '@/services/NotificationService'
+import { enqueueDeepLink } from '@/utils/deepLinkQueue'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Disable all text-related warnings
@@ -52,6 +53,7 @@ interface Notification {
   created_at: string
   type?: string // Added type field for categorization
   data?: {
+    url?: string
     screen?: string
     params?: Record<string, any>
   }
@@ -446,8 +448,12 @@ export default function NotificationsScreen() {
         handleMarkAsRead(notification.id)
       }
 
-      // Navigate if there's a destination
-      if (notification.data?.screen) {
+      // Navigate if there's a destination. Prefer a deep-link `url` (routed
+      // through the shared pipeline so it lands on the canonical screen with
+      // auth-gating); otherwise fall back to the legacy `screen`+`params`.
+      if (notification.data?.url) {
+        enqueueDeepLink(notification.data.url)
+      } else if (notification.data?.screen) {
         router.replace({
           pathname: notification.data.screen as any,
           params: notification.data.params
