@@ -309,6 +309,10 @@ function RentalCarCard({
   const handleChat = useCallback(async () => {
     if (disableActions) return;
 
+    if (user?.id && car?.id) {
+      void supabase.rpc('track_rent_chat', { car_id: car.id, user_id: user.id });
+    }
+
     const isDealershipCar = !!car?.dealership_id;
 
     // Support chat for both user and dealership cars

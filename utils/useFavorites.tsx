@@ -101,6 +101,10 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
           return 0;
         }
 
+        if (!actionIsUnlike) {
+          void supabase.rpc('track_car_like', { car_id: carId, user_id: user.id });
+        }
+
         const newFavorites = actionIsUnlike
           ? current.filter((id) => id !== carId)
           : [...current, carId];

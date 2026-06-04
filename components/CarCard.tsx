@@ -371,6 +371,10 @@ function CarCard({
   const handleChat = useCallback(async () => {
     if (disableActions) return;
 
+    if (user?.id && car?.id) {
+      void supabase.rpc('track_car_chat', { car_id: car.id, user_id: user.id });
+    }
+
     // Support chat for both user and dealership cars
     if (isDealershipCar) {
       // Chat with dealership
