@@ -310,7 +310,7 @@ function RentalCarCard({
     if (disableActions) return;
 
     if (user?.id && car?.id) {
-      void supabase.rpc('track_rent_chat', { car_id: car.id, user_id: user.id });
+      supabase.rpc('track_rent_chat', { car_id: car.id, user_id: user.id }).then(() => {});
     }
 
     const isDealershipCar = !!car?.dealership_id;

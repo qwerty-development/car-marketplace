@@ -372,7 +372,7 @@ function CarCard({
     if (disableActions) return;
 
     if (user?.id && car?.id) {
-      void supabase.rpc('track_car_chat', { car_id: car.id, user_id: user.id });
+      supabase.rpc('track_car_chat', { car_id: car.id, user_id: user.id }).then(() => {});
     }
 
     // Support chat for both user and dealership cars

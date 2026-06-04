@@ -100,9 +100,10 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({
           console.error('Error toggling favorite:', error);
           return 0;
         }
-
+        console.log('Toggled favorite for car', carId, 'is now liked:', !actionIsUnlike);
         if (!actionIsUnlike) {
-          void supabase.rpc('track_car_like', { car_id: carId, user_id: user.id });
+          console.log('Liking car in the if', carId);
+          supabase.rpc('track_car_like', { car_id: carId, user_id: user.id }).then(() => {});
         }
 
         const newFavorites = actionIsUnlike

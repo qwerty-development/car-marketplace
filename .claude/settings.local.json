@@ -60,7 +60,8 @@
       "WebFetch(domain:kirillzyusko.github.io)",
       "Bash(npm view *)",
       "Bash(npm uninstall *)",
-      "Bash(npx --yes react-compiler-healthcheck@latest)"
+      "Bash(npx --yes react-compiler-healthcheck@latest)",
+      "mcp__supabase__get_logs"
     ],
     "deny": []
   },
