@@ -75,82 +75,6 @@ export async function prefetchCarImages(
     }, PREFETCH_CONFIG.DELAY_MS);
   }
 }
-
-/**
- * Prefetch dealership data
- */
-export async function prefetchDealership(dealershipId: number): Promise<void> {
-  if (!(await canPrefetch())) {
-    return;
-  }
-
-  setTimeout(() => {
-    prefetchSupabaseQuery(
-      async () => {
-        const { data, error } = await supabase
-          .from('dealerships')
-          .select('*')
-          .eq('id', dealershipId)
-          .single();
-        return { data, error };
-      },
-      `dealership:${dealershipId}`,
-      { ttl: 24 * 60 * 60 * 1000 } // 24 hours
-    );
-  }, PREFETCH_CONFIG.DELAY_MS);
-}
-
-/**
- * Prefetch car details
- */
-export async function prefetchCarDetails(carId: number, table: 'cars' | 'cars_rent' = 'cars'): Promise<void> {
-  if (!(await canPrefetch())) {
-    return;
-  }
-
-  setTimeout(() => {
-    prefetchSupabaseQuery(
-      async () => {
-        const selectString = table === 'cars_rent'
-          ? `*, dealerships (name,logo,phone,location,latitude,longitude)`
-          : `*, dealerships (name,logo,phone,location,latitude,longitude), users!cars_user_id_fkey (name, id, phone_number)`;
-        
-        const { data, error } = await supabase
-          .from(table)
-          .select(selectString)
-          .eq('id', carId)
-          .single();
-        return { data, error };
-      },
-      `car:${table}:${carId}`,
-      { ttl: 24 * 60 * 60 * 1000 } // 24 hours
-    );
-  }, PREFETCH_CONFIG.DELAY_MS);
-}
-
-/**
- * Prefetch brands list (static data, long cache)
- */
-export async function prefetchBrands(): Promise<void> {
-  if (!(await canPrefetch())) {
-    return;
-  }
-
-  setTimeout(() => {
-    prefetchSupabaseQuery(
-      async () => {
-        const { data, error } = await supabase
-          .from('cars')
-          .select('make')
-          .order('make');
-        return { data, error };
-      },
-      'brands:list',
-      { ttl: 7 * 24 * 60 * 60 * 1000 } // 7 days
-    );
-  }, PREFETCH_CONFIG.DELAY_MS);
-}
-
 /**
  * Prefetch next page of cars for infinite scroll
  */
@@ -199,36 +123,5 @@ export async function prefetchNextPage(
     );
   }, PREFETCH_CONFIG.DELAY_MS);
 }
-
-/**
- * Prefetch images for carousel/gallery
- */
-export async function prefetchCarouselImages(imageUrls: string[]): Promise<void> {
-  if (!(await canPrefetch()) || imageUrls.length === 0) {
-    return;
-  }
-
-  setTimeout(() => {
-    // Prefetch first 3 images immediately, rest lazily
-    prefetchImages(imageUrls.slice(0, 3));
-    
-    // Prefetch remaining images with delay
-    if (imageUrls.length > 3) {
-      setTimeout(() => {
-        prefetchImages(imageUrls.slice(3, 6));
-      }, 1000);
-    }
-  }, PREFETCH_CONFIG.DELAY_MS);
-}
-
-/**
- * Cancel all pending prefetches (useful when navigating away)
- */
-export function cancelPrefetches(): void {
-  // Note: This is a placeholder. In a real implementation, you'd track
-  // pending prefetch promises and cancel them.
-  // For now, the delay-based approach naturally prevents excessive prefetching.
-}
-
 export { PREFETCH_CONFIG };
 

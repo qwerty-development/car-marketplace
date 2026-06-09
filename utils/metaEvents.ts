@@ -15,24 +15,3 @@ export const META_EVENTS = {
   // Guest events
   GUEST_START: 'guest_start',
 } as const;
-
-/**
- * Helper function to log Meta events with optional parameters
- * @param event - Event key from META_EVENTS
- * @param parameters - Optional event parameters for Meta
- */
-export function logMetaEvent(
-  event: (typeof META_EVENTS)[keyof typeof META_EVENTS],
-  parameters?: Record<string, any>
-): void {
-  try {
-    const { AppEventsLogger } = require('react-native-fbsdk-next');
-    if (parameters) {
-      AppEventsLogger.logEvent(event, undefined, parameters);
-    } else {
-      AppEventsLogger.logEvent(event);
-    }
-  } catch (error) {
-    console.error('[Meta Events] Failed to log event:', event, error);
-  }
-}

@@ -8,21 +8,6 @@ interface FeatureMetadata {
     };
   }
 
-  export const CAR_CATEGORIES = {
-    SUPERCAR: 'Supercar',
-    HIGH_PERFORMANCE: 'High-Performance',
-    LUXURY: 'Luxury',
-    MASS_MARKET: 'Mass-Market',
-    ELECTRIC: 'Electric',
-    SUV: 'SUV',
-    TRUCK: 'Truck',
-    SEDAN: 'Sedan',
-    HATCHBACK: 'Hatchback',
-    COUPE: 'Coupe',
-    MOTORCYCLE: 'Motorcycle'
-    // Add any other categories from your database
-  };
-
   export const CATEGORY_RETENTION_RATES = {
     'Supercar': { min: 0.75, max: 0.90, avg: 0.825 },
     'High-Performance': { min: 0.60, max: 0.75, avg: 0.675 },
@@ -215,47 +200,6 @@ export const FEATURE_METADATA: FeatureMetadata = {
       category: "comfort"
     }
   };
-  
-  // Market segment data for comparisons
-  export const MARKET_SEGMENT_AVERAGES:any = {
-    "Sedan": {
-      price: 32000,
-      mileage: 35000,
-      features: 8,
-      yearModel: 2020,
-    },
-    "SUV": {
-      price: 39000,
-      mileage: 30000,
-      features: 10,
-      yearModel: 2021,
-    },
-    "Coupe": {
-      price: 42000,
-      mileage: 25000,
-      features: 9,
-      yearModel: 2020,
-    },
-    "Hatchback": {
-      price: 28000,
-      mileage: 32000,
-      features: 7,
-      yearModel: 2020,
-    },
-    "Truck": {
-      price: 45000,
-      mileage: 28000,
-      features: 8,
-      yearModel: 2021,
-    },
-    "Motorcycle": {
-      price: 15000,
-      mileage: 20000,
-      features: 5,
-      yearModel: 2021,
-    },
-  };
-  
   // Annual cost estimates
   export const ANNUAL_COST_ESTIMATES:any = {
     "maintenance": {

@@ -99,8 +99,6 @@ export interface CreateConversationParams {
   numberPlateId?: number | null;
 }
 
-export type CarContext = CarListingContext | RentalCarContext | null;
-
 /**
  * Validates that exactly one listing type is provided (XOR constraint)
  * @param carId - Car listing ID
@@ -137,18 +135,4 @@ export function validateListingContext(
   }
 
   return { isValid: true };
-}
-
-/**
- * @deprecated Use validateListingContext instead
- * Validates that exactly one car type is provided (XOR constraint)
- * @param carId - Car listing ID
- * @param carRentId - Rental car ID
- * @throws Error if both or neither car types are provided
- */
-export function validateCarContext(carId?: number | null, carRentId?: number | null): {
-  isValid: boolean;
-  error?: string;
-} {
-  return validateListingContext(carId, carRentId, null);
 }

@@ -72,23 +72,3 @@ export function endSession() {
       console.warn(`[Analytics] Failed to end session: ${error?.message}`)
     })
 }
-
-/**
- * Log a screen view / page navigation.
- * Rate limited server-side to 30 per minute per user.
- * 
- * @param screenName - The name of the screen being viewed
- */
-export function logScreenView(screenName: string) {
-  supabase
-    .rpc('log_page_view', {
-      p_path: screenName,
-      p_platform: PLATFORM,
-    })
-    .then(() => {
-      console.log(`[Analytics] Screen view logged: ${screenName}`)
-    })
-    .catch((error) => {
-      console.warn(`[Analytics] Failed to log screen view: ${error?.message}`)
-    })
-}

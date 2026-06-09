@@ -53,38 +53,6 @@ const DARK_MODE_LOCAL_LOGOS: Record<string, ImageSourcePropType> = {
   'mclaren': require('@/assets/brands/dark-mode/mclaren-logo.png'),
 };
 
-// Brands with dark/black logos that need special handling in dark mode
-const DARK_LOGO_BRANDS = [
-  'hummer',
-  'cadillac', 
-  'maserati',
-  'mclaren',
-  'lincoln',
-  'genesis',
-  'peugeot',
-  'ds',
-  'ds-automobiles',
-  'citroen',
-  'bentley',
-  'bugatti',
-  'pagani',
-  'koenigsegg',
-  'rimac',
-  'lucid',
-  'rivian',
-  'karma',
-  'fisker',
-];
-
-/**
- * Check if a brand has a dark logo that needs contrast styling in dark mode
- */
-export const isDarkLogoBrand = (make: string | null | undefined): boolean => {
-  if (!make) return false;
-  const formattedMake = make.toLowerCase().trim().replace(/\s+/g, "-");
-  return DARK_LOGO_BRANDS.includes(formattedMake);
-};
-
 /**
  * Get the local dark mode logo asset for a brand (if available)
  * Returns null if no local asset exists for this brand

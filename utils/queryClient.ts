@@ -55,20 +55,6 @@ export const queryClient = new QueryClient({
 });
 
 /**
- * Invalidate all queries (use sparingly)
- */
-export function invalidateAllQueries() {
-  queryClient.invalidateQueries();
-}
-
-/**
- * Clear all cached queries
- */
-export function clearAllQueries() {
-  queryClient.clear();
-}
-
-/**
  * Prefetch query data
  */
 export async function prefetchQuery<T>(
@@ -83,12 +69,5 @@ export async function prefetchQuery<T>(
     queryFn,
     staleTime: options?.staleTime || CACHE_TIMES.STALE_TIME,
   });
-}
-
-/**
- * Get query data from cache without fetching
- */
-export function getCachedQueryData<T>(queryKey: readonly unknown[]): T | undefined {
-  return queryClient.getQueryData<T>(queryKey);
 }
 

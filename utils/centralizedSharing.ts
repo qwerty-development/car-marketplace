@@ -79,17 +79,3 @@ export const shareAutoclip = async (autoclip: any): Promise<void> => {
     message: message
   });
 };
-
-/**
- * Share dealership content with pre-formatted message
- */
-export const shareDealership = async (dealership: any): Promise<void> => {
-  const message = `Check out ${dealership.name} on Fleet! Located in ${dealership.location || 'Location'}`;
-
-  await shareContent({
-    id: dealership.id,
-    type: 'dealership',
-    title: dealership.name,
-    message: message
-  });
-};

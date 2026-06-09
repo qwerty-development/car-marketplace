@@ -156,25 +156,6 @@ async function setCached<T>(key: string, data: T, ttl: number = CACHE_CONFIG.DEF
 }
 
 /**
- * Clear cache for a specific key or pattern
- */
-export async function clearCache(pattern?: string): Promise<void> {
-  if (pattern) {
-    // Clear matching keys
-    const keys = await AsyncStorage.getAllKeys();
-    const matchingKeys = keys.filter(key => key.includes(pattern));
-    await AsyncStorage.multiRemove(matchingKeys);
-    matchingKeys.forEach(key => memoryCache.delete(key));
-  } else {
-    // Clear all cache
-    const keys = await AsyncStorage.getAllKeys();
-    const cacheKeys = keys.filter(key => key.startsWith(CACHE_CONFIG.CACHE_PREFIX));
-    await AsyncStorage.multiRemove(cacheKeys);
-    memoryCache.clear();
-  }
-}
-
-/**
  * Cached Supabase query with deduplication
  */
 export async function cachedQuery<T>(
@@ -247,87 +228,6 @@ export async function cachedQuery<T>(
 }
 
 /**
- * Cached select query wrapper
- */
-export async function cachedSelect<T>(
-  table: string,
-  select: string = '*',
-  filters?: (builder: PostgrestFilterBuilder<any, any, any>) => PostgrestFilterBuilder<any, any, any>,
-  options: {
-    ttl?: number;
-    skipCache?: boolean;
-    forceRefresh?: boolean;
-  } = {}
-): Promise<{ data: T[] | null; error: any; fromCache: boolean }> {
-  const cacheKey = generateCacheKey(table, { select, filters: filters?.toString() || '' });
-
-  return cachedQuery(
-    async () => {
-      let query = supabase.from(table).select(select);
-      if (filters) {
-        query = filters(query);
-      }
-      const result = await query;
-      return { data: result.data as T[] | null, error: result.error };
-    },
-    cacheKey,
-    options
-  );
-}
-
-/**
- * Cached single row query
- */
-export async function cachedSingle<T>(
-  table: string,
-  select: string = '*',
-  filters?: (builder: PostgrestFilterBuilder<any, any, any>) => PostgrestFilterBuilder<any, any, any>,
-  options: {
-    ttl?: number;
-    skipCache?: boolean;
-    forceRefresh?: boolean;
-  } = {}
-): Promise<{ data: T | null; error: any; fromCache: boolean }> {
-  const result = await cachedSelect<T>(table, select, filters, options);
-  return {
-    data: result.data?.[0] || null,
-    error: result.error,
-    fromCache: result.fromCache,
-  };
-}
-
-/**
- * Cached RPC call
- */
-export async function cachedRpc<T>(
-  functionName: string,
-  params: Record<string, any> = {},
-  options: {
-    ttl?: number;
-    skipCache?: boolean;
-    forceRefresh?: boolean;
-  } = {}
-): Promise<{ data: T | null; error: any; fromCache: boolean }> {
-  const cacheKey = generateCacheKey(`rpc:${functionName}`, params);
-
-  return cachedQuery(
-    async () => {
-      const result = await supabase.rpc(functionName, params);
-      return { data: result.data as T | null, error: result.error };
-    },
-    cacheKey,
-    options
-  );
-}
-
-/**
- * Invalidate cache for a table
- */
-export async function invalidateTable(table: string): Promise<void> {
-  await clearCache(table);
-}
-
-/**
  * Prefetch data into cache
  */
 export async function prefetchQuery<T>(
@@ -344,25 +244,6 @@ export async function prefetchQuery<T>(
     console.warn('[SupabaseCache] Prefetch failed:', error);
   }
 }
-
-/**
- * Get cache statistics
- */
-export async function getCacheStats(): Promise<{
-  memoryEntries: number;
-  persistentEntries: number;
-  memorySize: number;
-}> {
-  const keys = await AsyncStorage.getAllKeys();
-  const cacheKeys = keys.filter(key => key.startsWith(CACHE_CONFIG.CACHE_PREFIX));
-
-  return {
-    memoryEntries: memoryCache.size,
-    persistentEntries: cacheKeys.length,
-    memorySize: memoryCache.size,
-  };
-}
-
 // Export cache config for use in other modules
 export { CACHE_CONFIG };
 

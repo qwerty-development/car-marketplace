@@ -16,8 +16,6 @@ export const NetworkContext = createContext<NetworkContextType>({
   isConnecting: false
 });
 
-export const useNetwork = () => useContext(NetworkContext);
-
 interface NetworkProviderProps {
   children: ReactNode;
 }

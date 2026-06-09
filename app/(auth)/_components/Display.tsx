@@ -73,12 +73,6 @@ export const Body: React.FC<Omit<TypographyProps, 'variant'>> = (props) => (
   <TypographyBase variant="body" {...props} />
 );
 
-export const Label: React.FC<Omit<TypographyProps, 'variant'>> = (props) => (
-  <TypographyBase variant="label" tone="tertiary" {...props}>
-    {typeof props.children === 'string' ? props.children.toUpperCase() : props.children}
-  </TypographyBase>
-);
-
 export const Caption: React.FC<Omit<TypographyProps, 'variant'>> = (props) => (
   <TypographyBase variant="caption" tone="tertiary" {...props} />
 );
