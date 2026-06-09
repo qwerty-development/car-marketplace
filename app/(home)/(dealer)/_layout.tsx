@@ -26,14 +26,6 @@ export default function DealerLayout() {
 					}}
 				/>
 				<Stack.Screen
-					name='CarDetailModalIOS'
-					options={{
-						presentation: 'modal',
-						animation: 'slide_from_bottom',
-						headerShown: false
-					}}
-				/>
-				<Stack.Screen
 					name='DealershipDetails'
 					options={{
 						animation: 'slide_from_right',
