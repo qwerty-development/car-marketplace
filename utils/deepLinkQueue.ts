@@ -1,7 +1,7 @@
 // Shared deep-link queue.
 //
 // Extracted from app/_layout.tsx so that notification handlers
-// (hooks/useNotifications.ts, app/(home)/(user)/notifications.tsx) can feed
+// (hooks/useNotifications.ts) can feed
 // URLs into the SAME battle-tested deep-link pipeline used for real links —
 // without creating an import cycle (useNotifications is imported by _layout).
 //

@@ -10,14 +10,6 @@ export default function DealerLayout() {
 			<Stack>
 				<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
 				<Stack.Screen
-					name='filter'
-					options={{
-						presentation: 'modal',
-						animation: 'slide_from_bottom',
-						headerShown: false
-					}}
-				/>
-				<Stack.Screen
 					name='CarDetailModal'
 					options={{
 						presentation: 'modal',

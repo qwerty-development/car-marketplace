@@ -151,14 +151,6 @@ export default function UserLayout() {
             }}
           />
 
-          <Stack.Screen
-            name="notifications"
-            options={{
-              presentation: "modal",
-              animation: "slide_from_bottom",
-              headerShown: false,
-            }}
-          />
         </Stack>
       </View>
   );
