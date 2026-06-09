@@ -38,10 +38,6 @@ import { ListingSkeletonLoader } from '../_Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
-/* CREDIT_DISABLED: Boost system temporarily disabled
-import { BoostListingModal } from '@/components/BoostListingModal'
-import { BoostInsightsWidget } from '@/components/BoostInsightsWidget'
-*/
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
@@ -894,9 +890,6 @@ interface CarListing {
 	mileage?: number // Optional - not present in cars_rent
 	transmission: 'Manual' | 'Automatic'
 	rental_period?: string // Optional - for rent listings (daily, weekly, monthly, hourly)
-	is_boosted?: boolean // Optional - boost status
-	boost_priority?: number // Optional - boost priority level
-	boost_end_date?: string // Optional - boost end date
 }
 
 interface Dealership {
@@ -935,10 +928,6 @@ export default function DealerListings() {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [totalListings, setTotalListings] = useState(0)
 	const [showOnboardingModal, setShowOnboardingModal] = useState(false)
-	/* CREDIT_DISABLED: Boost state disabled
-	const [showBoostModal, setShowBoostModal] = useState(false)
-	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
-	*/
 	const [filters, setFilters] = useState({
 		status: '',
 		condition: '',
@@ -1518,20 +1507,6 @@ export default function DealerListings() {
 		}
 	}
 
-	/* CREDIT_DISABLED: Boost handler disabled
-	const handleBoostPress = useCallback((carId: number) => {
-		if (!isSubscriptionValid()) {
-			Alert.alert(
-				'Subscription Expired',
-				'Please renew your subscription to boost listings.'
-			);
-			return;
-		}
-		setSelectedCarForBoost(carId);
-		setShowBoostModal(true);
-	}, [isSubscriptionValid]);
-	*/
-
 const ListingCard = useMemo(
   () =>
     React.memo(({ item }: { item: CarListing }) => {
@@ -1695,48 +1670,6 @@ const ListingCard = useMemo(
                 )}
               </View>
             </View>
-
-            {/* CREDIT_DISABLED: Boost Button Section - Only for available listings in sale mode
-            {item.status === 'available' && viewMode === 'sale' && (
-              <View className='px-5 pb-4'>
-                {item.is_boosted && item.boost_end_date && new Date(item.boost_end_date) > new Date() ? (
-                  <View className={`flex-row items-center justify-between p-3 rounded-xl ${isDarkMode ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}>
-                    <View className='flex-row items-center flex-1'>
-                      <Ionicons name="rocket" size={20} color="#D55004" />
-                      <View className='ml-2 flex-1'>
-                        <Text className={`font-semibold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-                          Boosted - Priority {item.boost_priority}
-                        </Text>
-                        <Text className={`text-xs ${isDarkMode ? 'text-orange-300/70' : 'text-orange-500'}`}>
-                          Until {new Date(item.boost_end_date).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleBoostPress(item.id);
-                      }}
-                      className='bg-orange-500 px-3 py-2 rounded-lg'
-                    >
-                      <Text className='text-white font-semibold text-xs'>Extend</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleBoostPress(item.id);
-                    }}
-                    className='bg-orange-500 p-3 rounded-xl flex-row items-center justify-center'
-                  >
-                    <Ionicons name="rocket-outline" size={20} color="white" />
-                    <Text className='text-white font-bold ml-2'>Boost Listing</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            */}
           </Animated.View>
         </TouchableOpacity>
       );
@@ -1747,7 +1680,6 @@ const ListingCard = useMemo(
     dealership,
     isSubscriptionValid,
     viewMode
-    /* CREDIT_DISABLED: , handleBoostPress */
   ]
 );
 
@@ -2122,26 +2054,6 @@ const ListingCard = useMemo(
 					onComplete={handleOnboardingComplete}
 				/>
 			)}
-
-			{/* CREDIT_DISABLED: Boost Listing Modal
-			{selectedCarForBoost && (
-				<BoostListingModal
-					visible={showBoostModal}
-					onClose={() => {
-						setShowBoostModal(false);
-						setSelectedCarForBoost(null);
-					}}
-					carId={selectedCarForBoost}
-					isDarkMode={isDarkMode}
-					onSuccess={() => {
-						setShowBoostModal(false);
-						setSelectedCarForBoost(null);
-						// Refresh listings to show updated boost status
-						fetchListings();
-					}}
-				/>
-			)}
-			*/}
 		</LinearGradient>
 	)
 }

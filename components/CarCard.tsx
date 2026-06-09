@@ -247,28 +247,6 @@ function CarCard({
       delay: Math.min(index * 50, 150),
       useNativeDriver: true,
     }).start();
-
-    // Track boost impression when card becomes visible
-    if (car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date()) {
-      // Debounce impression tracking to avoid spam
-      const trackImpression = async () => {
-        try {
-          await supabase.rpc('track_boost_impression', {
-            p_car_id: car.id,
-            p_dealership_id: car.dealership_id || null,
-            p_user_id: user?.id || null,
-            p_boost_priority: car.boost_priority
-          });
-        } catch (error) {
-          // Silently fail - analytics shouldn't break user experience
-          console.debug('Boost impression tracking failed:', error);
-        }
-      };
-
-      // Track after a short delay to ensure it's actually viewed
-      const impressionTimer = setTimeout(trackImpression, 500);
-      return () => clearTimeout(impressionTimer);
-    }
   }, []);
 
   // Track call button clicks
@@ -320,22 +298,6 @@ function CarCard({
     try {
       isNavigatingRef.current = true;
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      // Track boost click analytics (fire and forget)
-      if (car.is_boosted && car.boost_end_date && new Date(car.boost_end_date) > new Date()) {
-        (async () => {
-          try {
-            await supabase.rpc('track_boost_click', {
-              p_car_id: car.id,
-              p_dealership_id: car.dealership_id || null,
-              p_user_id: user?.id || null,
-              p_boost_priority: car.boost_priority || 1
-            });
-          } catch {
-            // Silently fail - don't block navigation
-          }
-        })();
-      }
 
       const prefetchedData = await prefetchCarDetails(car.id);
 

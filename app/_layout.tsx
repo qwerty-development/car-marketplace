@@ -59,7 +59,6 @@ import { useSlowConnectionToast } from "@/utils/useSlowConnectionToast";
 import { LanguageProvider } from "@/utils/LanguageContext";
 import { configureI18n } from "@/utils/i18n";
 import * as Sentry from '@sentry/react-native';
-import { CreditProvider } from "@/utils/CreditContext";
 import { META_EVENTS } from "@/utils/metaEvents";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -1582,15 +1581,13 @@ function RootLayout() {
                 <ThemeProvider>
                   <StatusBarManager />
                   <LanguageProvider>
-                    <CreditProvider>
-                      <FavoritesProvider>
-                        <NotificationsProvider />
-                        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-                          <RootLayoutNav />
-                        </KeyboardProvider>
-                        <Toast config={toastConfig} />
-                      </FavoritesProvider>
-                    </CreditProvider>
+                    <FavoritesProvider>
+                      <NotificationsProvider />
+                      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+                        <RootLayoutNav />
+                      </KeyboardProvider>
+                      <Toast config={toastConfig} />
+                    </FavoritesProvider>
                   </LanguageProvider>
                 </ThemeProvider>
               </QueryClientProvider>

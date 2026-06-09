@@ -39,11 +39,6 @@ import { useNavigation } from "@react-navigation/native";
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '@/utils/LanguageContext';
 import { I18nManager } from 'react-native';
-/* CREDIT_DISABLED: Credit system temporarily disabled
-import { CreditBalance } from "@/components/CreditBalance";
-import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
-import { useCredits } from "@/utils/CreditContext";
-*/
 
 const WHATSAPP_NUMBER = "70786818";
 const SUPPORT_EMAIL = "info@fleetapp.com";
@@ -73,7 +68,6 @@ export default function UserProfileAndSupportPage() {
   const scrollRef = useRef<ScrollView>(null);
   const { cleanupPushToken } = useNotifications();
   const { isGuest, clearGuestMode } = useGuestUser();
-  /* CREDIT_DISABLED: const { refreshBalance } = useCredits(); */
   useFocusEffect(
     useCallback(() => {
       if (!user?.id || isGuest || profile?.role === 'dealer') {
@@ -95,7 +89,6 @@ export default function UserProfileAndSupportPage() {
   const [showSignOutOverlay, setShowSignOutOverlay] = useState(false);
   const [isLegalVisible, setIsLegalVisible] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
-  /* CREDIT_DISABLED: const [showPurchaseModal, setShowPurchaseModal] = useState(false); */
 
   // Giveaway
   const [showGiveawayModal, setShowGiveawayModal] = useState(false);
@@ -149,33 +142,25 @@ export default function UserProfileAndSupportPage() {
         clearTimeout(refreshTimeoutRef.current);
       }
 
-      // Refresh both profile and credit balance
-      await Promise.all([
-        (async () => {
-          if (forceProfileRefresh) {
-            await forceProfileRefresh();
-          } else {
-            // Direct database fetch as fallback
-            const { data, error } = await supabase
-              .from("users")
-              .select("*")
-              .eq("id", user.id)
-              .single();
+      if (forceProfileRefresh) {
+        await forceProfileRefresh();
+      } else {
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", user.id)
+          .single();
 
-            if (data && !error) {
-              console.log("[Profile] Manual refresh successful");
-              // The profile will be updated through normal AuthContext flow
-            }
-          }
-        })()
-        /* CREDIT_DISABLED: , refreshBalance() // Refresh credit balance */
-      ]);
+        if (data && !error) {
+          console.log("[Profile] Manual refresh successful");
+        }
+      }
     } catch (error) {
       console.error("[Profile] Refresh error:", error);
     } finally {
       setRefreshing(false);
     }
-  }, [user?.id, isGuest, refreshing, forceProfileRefresh]); /* CREDIT_DISABLED: removed refreshBalance from deps */
+  }, [user?.id, isGuest, refreshing, forceProfileRefresh]);
 
   // CRITICAL FIX: Optimized profile state synchronization with change detection
   const syncProfileState = useCallback(() => {
@@ -748,18 +733,6 @@ export default function UserProfileAndSupportPage() {
           </LinearGradient>
         </View>
 
-        {/* CREDIT_DISABLED: Credit Balance Widget
-        {!isGuest && (
-          <View className="px-6 -mt-12 mb-4">
-            <CreditBalance
-              isDarkMode={isDarkMode}
-              onPurchasePress={() => setShowPurchaseModal(true)}
-              isRTL={isRTL}
-            />
-          </View>
-        )}
-        */}
-
         {/* Phone Verification CTA — only shown when phone is NOT yet verified */}
         {!isGuest && profile?.role !== 'dealer' && !user?.phone_confirmed_at && (
           <View className="px-6 mt-4">
@@ -957,55 +930,6 @@ export default function UserProfileAndSupportPage() {
               color={isDarkMode ? "#fff" : "#000"}
             />
           </TouchableOpacity>
-
-          {/* Transaction History Button
-          <TouchableOpacity
-            onPress={() => {
-              if (isGuest) {
-                Alert.alert(
-                  t('profile.feature_not_available'),
-                  t('profile.please_sign_in_view_transaction_history'),
-                  [
-                    { text: t('common.cancel'), style: "cancel" },
-                    { text: t('profile.sign_in'), onPress: handleSignIn },
-                  ]
-                );
-              } else {
-                router.push("/(home)/(user)/TransactionHistory");
-              }
-            }}
-            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
-            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
-          >
-            <View className="bg-green-500/10 p-3 rounded-xl">
-              <Ionicons name="receipt-outline" size={24} color="#10b981" />
-            </View>
-            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
-              <Text
-                className={`${
-                  isDarkMode ? "text-white" : "text-black"
-                } font-semibold`}
-                style={{ textAlign: isRTL ? 'right' : 'left' }}
-              >
-                {t('profile.transaction_history')}
-              </Text>
-              <Text
-                className={`${
-                  isDarkMode ? "text-white/60" : "text-gray-500"
-                } text-sm mt-1`}
-                style={{ textAlign: isRTL ? 'right' : 'left' }}
-              >
-                {isGuest
-                  ? t('profile.sign_in_to_view_transactions')
-                  : t('profile.view_credit_transactions')}
-              </Text>
-            </View>
-            <Ionicons
-              name={isRTL ? "chevron-back" : "chevron-forward"}
-              size={24}
-              color={isDarkMode ? "#fff" : "#000"}
-            />
-          </TouchableOpacity> */}
 
           {/* <TouchableOpacity
             onPress={() => {
@@ -1687,17 +1611,6 @@ export default function UserProfileAndSupportPage() {
           </TouchableOpacity>
         )}
 
-        {/* CREDIT_DISABLED: Purchase Credits Modal
-        <PurchaseCreditsModal
-          visible={showPurchaseModal}
-          onClose={() => setShowPurchaseModal(false)}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onSuccess={() => {
-            setShowPurchaseModal(false);
-          }}
-        />
-        */}
       </ScrollView>
 
       <PhoneVerificationBottomSheet

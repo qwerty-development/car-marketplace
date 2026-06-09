@@ -32,9 +32,6 @@ import AddListingModal from '@/components/AddListingModal'
 import PhoneVerificationBottomSheet from '@/components/PhoneVerificationBottomSheet'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
-/* CREDIT_DISABLED: Boost system temporarily disabled
-import { BoostListingModal } from '@/components/BoostListingModal'
-*/
 
 const ITEMS_PER_PAGE = 10
 
@@ -54,9 +51,6 @@ interface CarListing {
 	condition: 'New' | 'Used'
 	mileage: number
 	transmission: 'Manual' | 'Automatic'
-	is_boosted?: boolean
-	boost_priority?: number
-	boost_end_date?: string
 	user_id?: string
 	dealership_id?: number
 	seller_type?: 'user' | 'dealer'
@@ -98,10 +92,6 @@ export default function MyListings() {
 	const [showPhoneSheet, setShowPhoneSheet] = useState(false)
 	const [showFilterModal, setShowFilterModal] = useState(false)
 	const [showSortModal, setShowSortModal] = useState(false)
-	/* CREDIT_DISABLED: Boost state disabled
-	const [showBoostModal, setShowBoostModal] = useState(false)
-	const [selectedCarForBoost, setSelectedCarForBoost] = useState<number | null>(null)
-	*/
 	const scrollRef = useRef(null)
 	const router = useRouter()
 	const { width: windowWidth } = useWindowDimensions()
@@ -249,13 +239,6 @@ export default function MyListings() {
 			fetchListings(nextPage, false)
 		}
 	}, [currentPage, isLoading, hasMoreListings, isRefreshing, fetchListings])
-
-	/* CREDIT_DISABLED: Boost handler disabled
-	const handleBoostPress = useCallback((carId: number) => {
-		setSelectedCarForBoost(carId);
-		setShowBoostModal(true);
-	}, []);
-	*/
 
 	useEffect(() => {
 		if (user?.id) {
@@ -590,47 +573,6 @@ export default function MyListings() {
 							</View>
 						</View>
 
-						{/* CREDIT_DISABLED: Boost Button Section - Only for available listings
-						{item.status === 'available' && (
-							<View className='px-5 pb-4'>
-								{item.is_boosted && item.boost_end_date && new Date(item.boost_end_date) > new Date() ? (
-									<View className={`flex-row items-center justify-between p-3 rounded-xl ${isDarkMode ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}>
-										<View className='flex-row items-center flex-1'>
-											<Ionicons name="rocket" size={20} color="#D55004" />
-											<View className='ml-2 flex-1'>
-												<Text className={`font-semibold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-													Boosted{item.boost_priority ? ` - Priority ${item.boost_priority}` : ''}
-												</Text>
-												<Text className={`text-xs ${isDarkMode ? 'text-orange-300/70' : 'text-orange-500'}`}>
-													Until {new Date(item.boost_end_date).toLocaleDateString()}
-												</Text>
-											</View>
-										</View>
-										<TouchableOpacity
-											onPress={(e) => {
-												e.stopPropagation();
-												handleBoostPress(item.id);
-											}}
-											className='bg-orange-500 px-3 py-2 rounded-lg'
-										>
-											<Text className='text-white font-semibold text-xs'>Extend</Text>
-										</TouchableOpacity>
-									</View>
-								) : (
-									<TouchableOpacity
-										onPress={(e) => {
-											e.stopPropagation();
-											handleBoostPress(item.id);
-										}}
-										className='bg-orange-500 p-3 rounded-xl flex-row items-center justify-center'
-									>
-										<Ionicons name="rocket-outline" size={20} color="white" />
-										<Text className='text-white font-bold ml-2'>Boost Listing</Text>
-									</TouchableOpacity>
-								)}
-							</View>
-						)}
-						*/}
 					</Animated.View>
 				</TouchableOpacity>
 			)
@@ -1213,26 +1155,6 @@ export default function MyListings() {
 					</TouchableOpacity>
 				</BlurView>
 			</Modal>
-
-			{/* CREDIT_DISABLED: Boost Listing Modal
-			{selectedCarForBoost && (
-				<BoostListingModal
-					visible={showBoostModal}
-					onClose={() => {
-						setShowBoostModal(false);
-						setSelectedCarForBoost(null);
-					}}
-					carId={selectedCarForBoost}
-					isDarkMode={isDarkMode}
-					onSuccess={() => {
-						setShowBoostModal(false);
-						setSelectedCarForBoost(null);
-						// Refresh listings to show updated boost status
-						fetchListings(1, true);
-					}}
-				/>
-			)}
-			*/}
 		</LinearGradient>
 	)
 }

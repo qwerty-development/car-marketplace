@@ -55,8 +55,6 @@ import {
 import { ModelDropdown } from "@/components/ModelDropdown";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-// CREDIT_DISABLED: import { useCredits } from "@/utils/CreditContext";
-// CREDIT_DISABLED: import { PurchaseCreditsModal } from "@/components/PurchaseCreditsModal";
 
 export const SOURCE_OPTIONS = [
   { value: "Company", label: "Company Source", icon: "🏢" }, // office
@@ -781,10 +779,6 @@ export default function AddEditListing() {
   const viewMode = params.mode || 'sale'; // Default to 'sale' if not specified
   const [initialData, setInitialData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // CREDIT_DISABLED: Credit system
-  // const { creditBalance, deductCredits } = useCredits();
-  // const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [formData, setFormData] = useState<any>({
     // Common fields
     features: [],
@@ -956,26 +950,6 @@ export default function AddEditListing() {
         return;
       }
 
-      /* CREDIT_DISABLED: Credit check for new listings
-      // Only check for sale mode (not rent mode)
-      if (!initialData && viewMode === 'sale') {
-        const POST_LISTING_COST = 10;
-        if (creditBalance < POST_LISTING_COST) {
-          Alert.alert(
-            "Insufficient Credits",
-            `You need ${POST_LISTING_COST} credits to post a listing, but you only have ${creditBalance}. Would you like to purchase more credits?`,
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Buy Credits",
-                onPress: () => setShowPurchaseModal(true),
-              },
-            ]
-          );
-          return;
-        }
-      }
-      */
     }
 
     const submitListing = async () => {
@@ -1174,39 +1148,6 @@ features
             .single();
 
           if (error) throw error;
-
-          /* CREDIT_DISABLED: Deduct credits for user mode posts
-          if (isUserMode && viewMode === 'sale' && data?.id) {
-            try {
-              const response = await fetch(
-                'https://auth.fleetapp.me/functions/v1/credit-operations',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-                    Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!}`,
-                  },
-                  body: JSON.stringify({
-                    operation: 'post_listing',
-                    userId: params.userId,
-                    carId: data.id,
-                  }),
-                }
-              );
-
-              const creditData = await response.json();
-
-              if (!response.ok) {
-                console.error('Credit deduction failed:', creditData.error);
-                // Don't throw - listing is already created, just log the error
-              }
-            } catch (creditError) {
-              console.error('Error deducting credits:', creditError);
-              // Don't throw - listing is already created
-            }
-          }
-          */
 
           Alert.alert(ready ? t('common.success') : 'Success', ready ? t('car.listing_created_successfully') : 'New listing created successfully', [
             { text: ready ? t('common.ok') : 'OK', onPress: () => router.back() },
@@ -2845,18 +2786,6 @@ features
         soldInfo={soldInfo}
         onConfirm={handleMarkAsSold}
       />
-
-      {/* CREDIT_DISABLED: Purchase Credits Modal
-      <PurchaseCreditsModal
-        visible={showPurchaseModal}
-        onClose={() => setShowPurchaseModal(false)}
-        isDarkMode={isDarkMode}
-        onSuccess={() => {
-          setShowPurchaseModal(false);
-          // Optionally refresh balance or show a message
-        }}
-      />
-      */}
     </SafeAreaView>
   );
 }

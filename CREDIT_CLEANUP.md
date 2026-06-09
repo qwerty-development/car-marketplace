@@ -1,55 +1,64 @@
-# Credit System Cleanup — Branch Notes
+# Credit System Cleanup — Complete
 
-## Columns: keep for now (production + possible reuse)
+## Status: Removed from app (2026-06-09)
 
-These columns stay on production for two reasons:
+The legacy credit purchase/boost UI, edge functions, and database tables have been removed from this branch.
 
-1. **Current store builds** still depend on them (home feed, browse, profile).
-2. **A future credit system** may reuse the same fields — we may **never** drop them.
+## Columns kept (production + possible reuse)
 
-| Table | Columns | Current use | Future |
-|-------|---------|-------------|--------|
-| `cars` | `is_boosted`, `boost_priority`, `boost_end_date` | Home feed `ORDER BY boost_priority`; client-side boost sort | May power listing boost in new credit system |
-| `cars_rent` | same | Rent browse boost sort | Same |
-| `users` | `credit_balance` | `CreditContext` / profile on older builds | Likely kept for new credit wallet |
+These columns remain on production — **do not drop** without an explicit decision and a shipped app build:
 
-**Do not drop these columns** while production app versions still query them.  
-**Also avoid dropping preemptively** — only remove if the new design explicitly replaces them with something else.
+| Table | Columns | Current use |
+|-------|---------|-------------|
+| `cars` | `is_boosted`, `boost_priority`, `boost_end_date` | Home feed `ORDER BY boost_priority`; client-side boost sort |
+| `cars_rent` | same | Rent browse boost sort |
+| `users` | `credit_balance` | Reserved for a future credit wallet |
 
-**Applied on production:** `supabase/migrations/20260610_restore_boost_columns.sql`  
-Run this (or leave columns in place) if a partial teardown removed them.
+**Incident (2026-06):** Dropping `boost_priority` while production still ordered by it broke the home feed (HTTP 400). Data was fine; only the query failed. `20260610_restore_boost_columns.sql` ensures these columns exist if they were removed.
 
-### Incident (2026-06)
+## Migrations
 
-`remove_credit_system` dropped `boost_priority` while production app still ordered by it → home feed returned HTTP 400 and showed zero cars. Data was fine (~2950 listings); only the query broke.
+| File | Purpose |
+|------|---------|
+| `20260609_remove_credit_system.sql` | **Canonical cleanup** — drops credit/boost tables & RPCs, rewrites `search_cars`, `search_cars_rent`, `get_listings_by_chat_count` |
+| `20260610_restore_boost_columns.sql` | Idempotent safety net — re-adds boost columns if missing |
 
----
+Run `20260609` first, then `20260610` only if columns were previously dropped.
 
-## Cleanup branch strategy
+### What `20260609` removes
 
-1. **App** — Remove old credit UI / dead code paths; wire new system when ready (can keep using same columns).
-2. **Ship** — Release when client no longer depends on removed tables/RPCs/edge functions.
-3. **DB** — Drop **only what is truly obsolete** (old tables, crons, edge functions). Column drops are **optional**, not required.
+**Tables:** `credit_batches`, `credit_transactions`, `boosted_listings`, `boost_history`, `boost_analytics`, `boost_analytics_history`
 
-### What to remove vs keep
+**RPCs:** `sync_credit_balance`, `deduct_credits_fifo`, `get_credit_batches_summary`, `expire_credit_batches`, `get_user_credit_balance`, `get_available_boost_slots`, `is_user_dealer`, `get_dealership_boost_summary`, `get_boost_performance`, `track_boost_impression`, `track_boost_click`
 
-| Remove when safe | Keep (likely permanent) |
-|------------------|-------------------------|
-| `credit_batches`, `credit_transactions` (if replaced) | `cars.is_boosted`, `boost_priority`, `boost_end_date` |
-| Old credit RPCs / crons / edge functions | `cars_rent` boost columns |
-| Dead client components (`PurchaseCreditsModal`, etc.) | `users.credit_balance` |
+**Crons:** `expire-credit-batches`, `expire-boosted-listings`
 
-### Migrations on this branch
+### What `20260609` intentionally keeps
 
-| File | Notes |
-|------|--------|
-| `20260610_restore_boost_columns.sql` | Ensures columns exist on production; idempotent |
-| `20260609_remove_credit_system.sql` (when added) | **Skip §7–9 (column drops)** unless we explicitly decide not to reuse these fields |
+- `users.credit_balance` column
+- `cars` / `cars_rent` boost columns
+- `payment_logs` table and `cleanup_pending_payment_logs` (subscription Whish payments — **not** credit)
 
----
+## What was removed from the app
 
-## When the new credit system ships
+- `CreditContext`, `CreditBalance`, `PurchaseCreditsModal`, `BoostListingModal`, `BoostInsightsWidget`
+- `TransactionHistory` screen
+- `CreditProvider` from provider chain
+- Edge functions: `credit-purchase`, `credit-purchase-callback`, `credit-operations`, `expire-boosts`
 
-1. Confirm production builds no longer 400 on missing columns (or all users updated).
-2. Remove obsolete tables, RPCs, and edge functions — **not necessarily the columns above**.
-3. If a column is genuinely unused and replaced, drop it in a dedicated migration with an explicit decision — not as part of bulk cleanup by default.
+## What remains in the app
+
+- Boost column sorting in browse/search (`index.tsx`, `CarsByBrand.tsx`, `DealershipDetails.tsx`)
+- FEATURED badge on `CarCard` for active boosted listings
+
+## Deploy checklist
+
+1. Ship app build (no credit UI / no calls to removed RPCs).
+2. Run `20260609_remove_credit_system.sql` on Supabase.
+3. Run `20260610_restore_boost_columns.sql` if boost columns may be missing.
+4. Delete credit edge functions from Supabase dashboard (already removed from repo).
+5. Confirm home feed loads (boost columns must exist).
+
+## Admin note
+
+`get_listings_by_chat_count` signature changed — `p_boost_filter` param removed. Update any external admin tool that called the old signature.

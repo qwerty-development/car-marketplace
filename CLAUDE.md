@@ -1,7 +1,7 @@
 # Fleet (Car Marketplace) — Claude Code Instructions
 
 ## Project Overview
-Mobile-first car marketplace app ("Fleet") for buying, selling, and renting vehicles in Lebanon. Users browse/favorite cars, dealers manage listings with analytics, credits, and AutoClips. Supports guest browsing, AI chat assistant, and number plate trading.
+Mobile-first car marketplace app ("Fleet") for buying, selling, and renting vehicles in Lebanon. Users browse/favorite cars, dealers manage listings with analytics and AutoClips. Supports guest browsing, AI chat assistant, and number plate trading.
 
 ## Tech Stack
 - **Framework:** React Native 0.81 + Expo SDK 54 (Expo Router v6, file-based routing)
@@ -17,7 +17,6 @@ Mobile-first car marketplace app ("Fleet") for buying, selling, and renting vehi
 
 ## Critical Business Rules
 - **Roles:** `user` (browse/buy) vs `dealer` (manage listings/analytics) — determined by `profile.role`
-- **Credits:** Dealers spend credits to boost listings, create AutoClips, export data
 - **Guest mode:** Users can browse without auth; protected actions show AuthRequiredModal
 - **Subscriptions:** Dealers have `subscription_end_date`; expired dealers lose premium features
 - **Deep links:** `fleet://cars/[id]`, `fleet://clips/[id]`, `fleet://messages/[id]`
@@ -33,7 +32,7 @@ Mobile-first car marketplace app ("Fleet") for buying, selling, and renting vehi
 ### Provider Chain (app/_layout.tsx)
 ```
 ErrorBoundary > GestureHandler > SafeArea > GuestUser > Auth > DeepLink
-> QueryClient > Theme > StatusBar > Language > Credit > Favorites
+> QueryClient > Theme > StatusBar > Language > Favorites
 > Notifications > RootLayoutNav > Slot
 ```
 
@@ -59,7 +58,7 @@ hooks/                  # Custom hooks (useNotifications, etc.)
 services/               # Business logic (NotificationService, ChatService)
 types/                  # TypeScript interfaces
 locales/                # en.json, ar.json translations
-supabase/functions/     # Deno Edge Functions (credits, payments, notifications)
+supabase/functions/     # Deno Edge Functions (payments, notifications)
 plugins/                # Expo config plugins (splash, proguard)
 assets/                 # Images, sounds, brand logos
 ```
