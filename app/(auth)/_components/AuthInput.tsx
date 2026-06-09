@@ -30,6 +30,23 @@ type Props = Omit<TextInputProps, 'style'> & {
   showPasswordToggle?: boolean;
   secureTextEntry?: boolean;
   onSubmitEditing?: TextInputProps['onSubmitEditing'];
+  /** `filled` matches the phone tab rounded box; `underline` is the editorial style */
+  variant?: 'filled' | 'underline';
+};
+
+const getFilledInputColors = (isDark: boolean) => ({
+  background: isDark ? '#1f2937' : '#f3f4f6',
+  border: isDark ? '#374151' : '#E5E7EB',
+  text: isDark ? '#F9FAFB' : '#111827',
+  placeholder: isDark ? '#6B7280' : '#9CA3AF',
+});
+
+const getFilledPlaceholder = (label: string): string => {
+  const key = label.toLowerCase();
+  if (key.includes('email')) return 'you@example.com';
+  if (key.includes('password')) return 'Enter your password';
+  if (key.includes('name')) return 'Your full name';
+  return `Enter ${label.toLowerCase()}`;
 };
 
 const FLOAT_LABEL_FONT_SIZE_REST = 17;
@@ -47,6 +64,8 @@ const AuthInput = forwardRef<AuthInputHandle, Props>(
       showPasswordToggle = false,
       secureTextEntry,
       value,
+      variant = 'underline',
+      placeholder,
       onFocus,
       onBlur,
       ...rest
@@ -55,6 +74,7 @@ const AuthInput = forwardRef<AuthInputHandle, Props>(
   ) => {
     const { isDarkMode } = useTheme();
     const colors = getAuthColors(isDarkMode);
+    const filledColors = getFilledInputColors(isDarkMode);
     const inputRef = useRef<TextInput>(null);
     const [isFocused, setIsFocused] = useState(false);
     const [showSecret, setShowSecret] = useState(!secureTextEntry);
@@ -113,6 +133,91 @@ const AuthInput = forwardRef<AuthInputHandle, Props>(
 
     const isSecureField = !!secureTextEntry;
     const effectiveSecure = isSecureField && !showSecret;
+
+    const filledBorderColor = error
+      ? colors.error
+      : isFocused
+        ? colors.accent
+        : filledColors.border;
+
+    if (variant === 'filled') {
+      return (
+        <View style={[styles.wrapper, containerStyle]}>
+          <Text
+            style={[
+              typography.label,
+              styles.filledLabel,
+              { color: colors.textTertiary },
+              Platform.OS === 'android' ? { includeFontPadding: false } : null,
+            ]}
+          >
+            {label}
+          </Text>
+
+          <Pressable
+            onPress={() => inputRef.current?.focus()}
+            accessibilityRole="none"
+            style={[
+              styles.filledBox,
+              {
+                backgroundColor: filledColors.background,
+                borderColor: filledBorderColor,
+                opacity: rest.editable === false ? 0.6 : 1,
+              },
+            ]}
+          >
+            {leftSlot ? <View style={styles.leftSlot}>{leftSlot}</View> : null}
+
+            <TextInput
+              ref={inputRef}
+              {...rest}
+              value={value}
+              placeholder={placeholder ?? getFilledPlaceholder(label)}
+              secureTextEntry={effectiveSecure}
+              onFocus={(e) => {
+                setIsFocused(true);
+                onFocus?.(e);
+              }}
+              onBlur={(e) => {
+                setIsFocused(false);
+                onBlur?.(e);
+              }}
+              placeholderTextColor={filledColors.placeholder}
+              style={[
+                styles.filledInput,
+                { color: filledColors.text },
+                Platform.OS === 'android' ? { includeFontPadding: false } : null,
+              ]}
+              selectionColor={colors.accent}
+            />
+
+            {showPasswordToggle && isSecureField ? (
+              <Pressable
+                onPress={() => setShowSecret((v) => !v)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={showSecret ? 'Hide password' : 'Show password'}
+                style={styles.rightSlot}
+              >
+                <Ionicons
+                  name={showSecret ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            ) : null}
+
+            {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
+          </Pressable>
+
+          {error ? (
+            <Text style={[typography.caption, { color: colors.error, marginTop: 6 }]}>{error}</Text>
+          ) : hint ? (
+            <Text style={[typography.caption, { color: colors.textTertiary, marginTop: 6 }]}>{hint}</Text>
+          ) : null}
+        </View>
+      );
+    }
 
     return (
       <View style={[styles.wrapper, containerStyle]}>
@@ -238,6 +343,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  filledLabel: {
+    marginBottom: spacing.xs,
+  },
+  filledBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: spacing.base,
+    height: 50,
+  },
+  filledInput: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: Platform.OS === 'ios' ? 20 : 22,
+    paddingVertical: 0,
   },
 });
 

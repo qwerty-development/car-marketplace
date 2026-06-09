@@ -273,7 +273,7 @@ export const CarPickerModal = ({
                         style={styles.carThumbnail}
                         contentFit="cover"
                         cachePolicy="memory-disk"
-                        recyclingKey={car.id}
+                        recyclingKey={String(car.id)}
                       />
                       <View style={[
                         styles.carInfo,

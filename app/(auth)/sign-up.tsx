@@ -501,6 +501,7 @@ export default function SignUpScreen() {
             {authMethod === 'email' ? (
               <View>
                 <AuthInput
+                  variant="filled"
                   label="Full name"
                   value={name}
                   onChangeText={(t) => {
@@ -517,6 +518,7 @@ export default function SignUpScreen() {
                 <View style={{ height: spacing.md }} />
 
                 <AuthInput
+                  variant="filled"
                   label="Email address"
                   value={emailAddress}
                   onChangeText={(t) => {
@@ -534,6 +536,7 @@ export default function SignUpScreen() {
                 <View style={{ height: spacing.md }} />
 
                 <AuthInput
+                  variant="filled"
                   label="Password"
                   value={password}
                   onChangeText={(t) => {
@@ -568,6 +571,7 @@ export default function SignUpScreen() {
             ) : (
               <View>
                 <AuthInput
+                  variant="filled"
                   label="Full name"
                   value={phoneName}
                   onChangeText={(t) => {

@@ -410,6 +410,7 @@ export default function SignInPage() {
             {authMethod === 'email' ? (
               <View>
                 <AuthInput
+                  variant="filled"
                   label="Email address"
                   value={emailAddress}
                   onChangeText={(t) => {
@@ -427,6 +428,7 @@ export default function SignInPage() {
                 <View style={{ height: spacing.md }} />
 
                 <AuthInput
+                  variant="filled"
                   label="Password"
                   value={password}
                   onChangeText={(t) => {
