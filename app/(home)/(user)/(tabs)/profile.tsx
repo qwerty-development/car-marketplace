@@ -900,7 +900,7 @@ export default function UserProfileAndSupportPage() {
                 } text-sm mt-1`}
                 style={{ textAlign: isRTL ? 'right' : 'left' }}
               >
-{t(isGuest ? 'profile.sign_in_to_edit' : 'profile.update_your_infos')}
+{t(isGuest ? 'profile.sign_in_to_edit' : 'profile.update_your_info')}
               </Text>
             </View>
             <Ionicons
