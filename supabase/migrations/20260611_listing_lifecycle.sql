@@ -48,16 +48,19 @@ CREATE INDEX IF NOT EXISTS idx_cars_rent_boosted ON public.cars_rent(boost_end_d
 CREATE INDEX IF NOT EXISTS idx_plates_boosted ON public.number_plates(boost_end_date) WHERE is_boosted;
 
 -- ----------------------------------------------------------------------------
--- 2. Backfill: GRANDFATHER existing live listings with a fresh 2-month window.
+-- 2. Backfill: GRANDFATHER existing live listings with a fresh window.
 --    Deliberately NOT listed_at + 60d — that would instantly mass-expire
 --    thousands of older live listings the moment the cron first runs.
+--    STAGGERED 45–75 days (avg = the 60-day rule): a single shared date would
+--    expire the entire current inventory in the same hour two months from now
+--    and blast every seller with notifications at once.
 -- ----------------------------------------------------------------------------
 UPDATE public.cars
-   SET expire_at = now() + (public.app_config_numeric('listing_duration_days', 60) || ' days')::interval
+   SET expire_at = now() + interval '45 days' + (random() * interval '30 days')
  WHERE status = 'available' AND expire_at IS NULL;
 
 UPDATE public.cars_rent
-   SET expire_at = now() + (public.app_config_numeric('listing_duration_days', 60) || ' days')::interval
+   SET expire_at = now() + interval '45 days' + (random() * interval '30 days')
  WHERE status = 'available' AND expire_at IS NULL;
 
 -- ----------------------------------------------------------------------------
@@ -391,7 +394,26 @@ $$;
 REVOKE ALL ON FUNCTION public.send_expiry_warnings() FROM PUBLIC, anon, authenticated;
 
 -- ----------------------------------------------------------------------------
--- 8. Cron schedules (hourly, staggered)
+-- 8. One-time cleanup BEFORE scheduling: silently clear boosts left over from
+--    the old credit system that are already past their end date (or have no
+--    end date at all). Without this, the first expire_featured_listings run
+--    would push "featured ad expired — renew!" notifications to live users for
+--    boosts that were never bought under the new wallet.
+-- ----------------------------------------------------------------------------
+UPDATE public.cars
+   SET is_boosted = false, boost_priority = NULL
+ WHERE is_boosted AND (boost_end_date IS NULL OR boost_end_date <= now());
+
+UPDATE public.cars_rent
+   SET is_boosted = false, boost_priority = NULL
+ WHERE is_boosted AND (boost_end_date IS NULL OR boost_end_date <= now());
+
+UPDATE public.number_plates
+   SET is_boosted = false, boost_priority = NULL
+ WHERE is_boosted AND (boost_end_date IS NULL OR boost_end_date <= now());
+
+-- ----------------------------------------------------------------------------
+-- 9. Cron schedules (hourly, staggered)
 -- ----------------------------------------------------------------------------
 SELECT cron.schedule('expire-featured-listings', '5 * * * *',  'SELECT public.expire_featured_listings()');
 SELECT cron.schedule('expire-listings',          '10 * * * *', 'SELECT public.expire_listings()');
