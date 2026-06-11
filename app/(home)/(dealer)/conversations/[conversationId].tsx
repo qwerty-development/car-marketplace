@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,10 @@ import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
 import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
 import ConversationPlateHeader from '@/components/chat/ConversationPlateHeader';
+import OfferBubble from '@/components/chat/OfferBubble';
+import OfferSheet from '@/components/chat/OfferSheet';
+import { useConversationOffers } from '@/hooks/useConversationOffers';
+import type { ConversationOffer } from '@/types/chat';
 
 export default function DealerConversationDetailScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId?: string | string[] }>();
@@ -70,6 +74,73 @@ export default function DealerConversationDetailScreen() {
 
   // Reverse messages for inverted FlatList (newest at index 0 = visual bottom)
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
+  // MARK: - Offers (US-13): the dealer is always the seller side here.
+  const { offersById, respondOffer } = useConversationOffers(
+    conversationIdParam,
+    messages.length
+  );
+  const [counterTarget, setCounterTarget] = useState<ConversationOffer | null>(null);
+  const [offerBusy, setOfferBusy] = useState(false);
+
+  const showOfferError = useCallback(
+    (result: any) => {
+      if (result?.reason === 'below_minimum') {
+        Toast.show({
+          type: 'error',
+          text1: t('offers.belowMinimum', {
+            amount: `$${Number(result?.min_amount ?? 0).toLocaleString()}`,
+          }),
+        });
+      } else if (result?.reason?.startsWith?.('already_')) {
+        Toast.show({ type: 'error', text1: t('offers.alreadyResponded') });
+      } else {
+        Toast.show({ type: 'error', text1: t('offers.failed') });
+      }
+    },
+    [t]
+  );
+
+  const handleOfferRespond = useCallback(
+    async (offer: ConversationOffer, action: 'accept' | 'decline') => {
+      if (offerBusy) return;
+      setOfferBusy(true);
+      try {
+        const result = await respondOffer(offer.id, action);
+        if (!result?.success) showOfferError(result);
+      } catch (error) {
+        console.error('offer respond failed:', error);
+        Toast.show({ type: 'error', text1: t('offers.failed') });
+      } finally {
+        setOfferBusy(false);
+      }
+    },
+    [offerBusy, respondOffer, showOfferError, t]
+  );
+
+  const handleCounterSubmit = useCallback(
+    async (amount: number) => {
+      if (!counterTarget || offerBusy) return;
+      setOfferBusy(true);
+      try {
+        const result = await respondOffer(counterTarget.id, 'counter', amount);
+        if (result?.success) {
+          setCounterTarget(null);
+          setTimeout(() => {
+            listRef.current?.scrollToOffset({ offset: 0, animated: true });
+          }, 150);
+        } else {
+          showOfferError(result);
+        }
+      } catch (error) {
+        console.error('counter offer failed:', error);
+        Toast.show({ type: 'error', text1: t('offers.failed') });
+      } finally {
+        setOfferBusy(false);
+      }
+    },
+    [counterTarget, offerBusy, respondOffer, showOfferError, t]
+  );
 
   // Fetch user name via RPC if not available directly (helps with RLS)
   const { data: fetchedUserName } = useUserName(
@@ -258,7 +329,20 @@ export default function DealerConversationDetailScreen() {
               paddingVertical: 16,
               paddingHorizontal: 4,
             }}
-            renderItem={({ item }) => (
+            renderItem={({ item }) =>
+              item.type === 'offer' && item.offer_id ? (
+                <OfferBubble
+                  message={item}
+                  offer={offersById.get(item.offer_id) ?? null}
+                  mySide="seller"
+                  isOwn={item.sender_id === user?.id}
+                  isDarkMode={isDarkMode}
+                  busy={offerBusy}
+                  onAccept={(offer) => handleOfferRespond(offer, 'accept')}
+                  onDecline={(offer) => handleOfferRespond(offer, 'decline')}
+                  onCounter={(offer) => setCounterTarget(offer)}
+                />
+              ) : (
               <MessageBubble
                 message={item}
                 isOwn={item.sender_id === user?.id}
@@ -326,6 +410,14 @@ export default function DealerConversationDetailScreen() {
               placeholder={t('chat.message_placeholder', 'Type a message…')}
             />
           </KeyboardStickyView>
+          <OfferSheet
+            visible={counterTarget !== null}
+            onClose={() => setCounterTarget(null)}
+            onSubmit={handleCounterSubmit}
+            listingPrice={counterTarget ? Number(counterTarget.listing_price_snapshot) : null}
+            isCounter
+            busy={offerBusy}
+          />
         </>
       )}
     </SafeAreaView>

@@ -1324,7 +1324,13 @@
     "number_plate": "Number Plate",
     "added": "Added",
     "brands_available": "{{count}} Brands Available",
-    "expiresOn": "Expires {{date}}"
+    "expiresOn": "Expires {{date}}",
+    "markSold": "Mark sold",
+    "markSoldTitle": "Mark as sold",
+    "markSoldMessage": "Where was this car sold? This helps Fleet keep accurate stats.",
+    "soldViaFleet": "Sold through Fleet",
+    "soldViaOther": "Sold elsewhere",
+    "markSoldFailed": "Could not mark the listing as sold"
   },
   "add_listing": {
     "title": "Add New Listing",
@@ -1514,5 +1520,31 @@
     "paymentFailed": "Payment failed",
     "noListingSlotTitle": "No listings left",
     "noListingSlotMessage": "You have used your available listings. Buy extra listings from your wallet to continue."
+  },
+  "offers": {
+    "offer": "Offer",
+    "counterOffer": "Counter-offer",
+    "makeOffer": "Make an offer",
+    "sendOffer": "Send offer",
+    "sendCounter": "Send counter-offer",
+    "amountPlaceholder": "Enter amount in USD",
+    "invalidAmount": "Please enter a valid amount",
+    "listedAt": "Listed at {{price}}",
+    "minOffer": "minimum offer {{amount}}",
+    "belowMinimum": "Offer too low — minimum is {{amount}}",
+    "pendingExists": "There is already a pending offer in this chat",
+    "notAllowed": "You can't make an offer in this chat",
+    "noListing": "This chat has no priced listing to make an offer on",
+    "alreadyResponded": "This offer was already responded to",
+    "failed": "Could not process the offer",
+    "accept": "Accept",
+    "decline": "Decline",
+    "counter": "Counter",
+    "statuses": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "superseded": "Countered"
+    }
   }
 }

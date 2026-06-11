@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,11 @@ import MessageBubble from '@/components/chat/MessageBubble';
 import MessageComposer from '@/components/chat/MessageComposer';
 import ConversationCarHeader from '@/components/chat/ConversationCarHeader';
 import ConversationPlateHeader from '@/components/chat/ConversationPlateHeader';
+import OfferBubble from '@/components/chat/OfferBubble';
+import OfferSheet from '@/components/chat/OfferSheet';
+import { useConversationOffers } from '@/hooks/useConversationOffers';
+import type { ConversationOffer } from '@/types/chat';
+import { TouchableOpacity } from 'react-native';
 
 export default function ConversationDetailScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId?: string | string[] }>();
@@ -72,6 +77,121 @@ export default function ConversationDetailScreen() {
 
   // Reverse messages for inverted FlatList (newest at index 0 = visual bottom)
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
+  // MARK: - Offers (US-12 / US-13)
+  const { offersById, pendingOffer, createOffer, respondOffer } = useConversationOffers(
+    conversationIdParam,
+    messages.length
+  );
+  const [offerSheet, setOfferSheet] = useState<
+    { mode: 'create' } | { mode: 'counter'; offer: ConversationOffer } | null
+  >(null);
+  const [offerBusy, setOfferBusy] = useState(false);
+
+  // Which side of a negotiation is the viewer on?
+  const mySide: 'buyer' | 'seller' | null = useMemo(() => {
+    if (!conversation || !user) return null;
+    if (conversation.user_id === user.id) return 'buyer';
+    if (
+      conversation.conversation_type === 'user_user' &&
+      conversation.seller_user_id === user.id
+    ) {
+      return 'seller';
+    }
+    return null;
+  }, [conversation, user]);
+
+  const listingPrice = useMemo(() => {
+    if (!conversation) return null;
+    return (
+      conversation.car?.price ??
+      conversation.carRent?.price ??
+      conversation.numberPlate?.price ??
+      null
+    );
+  }, [conversation]);
+
+  const canMakeOffer =
+    mySide === 'buyer' && listingPrice != null && Number(listingPrice) > 0 && !pendingOffer;
+
+  const showOfferError = useCallback(
+    (result: any) => {
+      switch (result?.reason) {
+        case 'below_minimum':
+          Toast.show({
+            type: 'error',
+            text1: t('offers.belowMinimum', {
+              amount: `$${Number(result?.min_amount ?? 0).toLocaleString()}`,
+            }),
+          });
+          break;
+        case 'pending_offer_exists':
+          Toast.show({ type: 'error', text1: t('offers.pendingExists') });
+          break;
+        case 'not_buyer':
+        case 'not_participant':
+          Toast.show({ type: 'error', text1: t('offers.notAllowed') });
+          break;
+        case 'no_listing_price':
+        case 'no_listing':
+          Toast.show({ type: 'error', text1: t('offers.noListing') });
+          break;
+        default:
+          if (result?.reason?.startsWith?.('already_')) {
+            Toast.show({ type: 'error', text1: t('offers.alreadyResponded') });
+          } else {
+            Toast.show({ type: 'error', text1: t('offers.failed') });
+          }
+      }
+    },
+    [t]
+  );
+
+  const handleOfferSubmit = useCallback(
+    async (amount: number) => {
+      if (offerBusy) return;
+      setOfferBusy(true);
+      try {
+        const result =
+          offerSheet?.mode === 'counter'
+            ? await respondOffer(offerSheet.offer.id, 'counter', amount)
+            : await createOffer(amount);
+        if (result?.success) {
+          setOfferSheet(null);
+          setTimeout(() => {
+            listRef.current?.scrollToOffset({ offset: 0, animated: true });
+          }, 150);
+        } else {
+          showOfferError(result);
+        }
+      } catch (error) {
+        console.error('offer submit failed:', error);
+        Toast.show({ type: 'error', text1: t('offers.failed') });
+      } finally {
+        setOfferBusy(false);
+      }
+    },
+    [offerBusy, offerSheet, respondOffer, createOffer, showOfferError, t]
+  );
+
+  const handleOfferRespond = useCallback(
+    async (offer: ConversationOffer, action: 'accept' | 'decline') => {
+      if (offerBusy) return;
+      setOfferBusy(true);
+      try {
+        const result = await respondOffer(offer.id, action);
+        if (!result?.success) {
+          showOfferError(result);
+        }
+      } catch (error) {
+        console.error('offer respond failed:', error);
+        Toast.show({ type: 'error', text1: t('offers.failed') });
+      } finally {
+        setOfferBusy(false);
+      }
+    },
+    [offerBusy, respondOffer, showOfferError, t]
+  );
 
   useEffect(() => {
     if (!conversation || !user) return;
@@ -275,7 +395,20 @@ export default function ConversationDetailScreen() {
               paddingVertical: 12,
               paddingHorizontal: 12,
             }}
-            renderItem={({ item }) => (
+            renderItem={({ item }) =>
+              item.type === 'offer' && item.offer_id ? (
+                <OfferBubble
+                  message={item}
+                  offer={offersById.get(item.offer_id) ?? null}
+                  mySide={mySide}
+                  isOwn={item.sender_id === user?.id}
+                  isDarkMode={isDarkMode}
+                  busy={offerBusy}
+                  onAccept={(offer) => handleOfferRespond(offer, 'accept')}
+                  onDecline={(offer) => handleOfferRespond(offer, 'decline')}
+                  onCounter={(offer) => setOfferSheet({ mode: 'counter', offer })}
+                />
+              ) : (
               <MessageBubble
                 message={item}
                 isOwn={item.sender_id === user?.id}
@@ -309,6 +442,28 @@ export default function ConversationDetailScreen() {
             }
           />
           <KeyboardStickyView offset={{ opened: bottom }}>
+            {canMakeOffer && (
+              <View style={{ alignItems: 'flex-start', paddingHorizontal: 12, paddingBottom: 6 }}>
+                <TouchableOpacity
+                  onPress={() => setOfferSheet({ mode: 'create' })}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(213, 80, 4, 0.12)',
+                    borderColor: 'rgba(213, 80, 4, 0.4)',
+                    borderWidth: 1,
+                    borderRadius: 999,
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
+                  }}
+                >
+                  <Ionicons name="pricetags" size={15} color="#D55004" style={{ marginRight: 6 }} />
+                  <Text style={{ color: '#D55004', fontWeight: '700', fontSize: 13 }}>
+                    {t('offers.makeOffer')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <MessageComposer
               onSend={handleSendMessage}
               isSending={sendMessageMutation.isPending}
@@ -316,6 +471,14 @@ export default function ConversationDetailScreen() {
               placeholder={t('chat.message_placeholder', 'Type a message…')}
             />
           </KeyboardStickyView>
+          <OfferSheet
+            visible={offerSheet !== null}
+            onClose={() => setOfferSheet(null)}
+            onSubmit={handleOfferSubmit}
+            listingPrice={listingPrice != null ? Number(listingPrice) : null}
+            isCounter={offerSheet?.mode === 'counter'}
+            busy={offerBusy}
+          />
         </>
       )}
     </SafeAreaView>

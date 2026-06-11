@@ -253,6 +253,35 @@ export default function MyListings() {
 		fetchListings(1, true)
 	}, [fetchListings])
 
+	// US-14: mark a car listing as sold with required fleet/other attribution
+	const handleMarkSold = useCallback(
+		(carId: number) => {
+			const doMark = async (soldVia: 'fleet' | 'other') => {
+				try {
+					const { data, error } = await supabase.rpc('mark_listing_sold', {
+						p_car_id: carId,
+						p_sold_via: soldVia
+					})
+					if (error) throw error
+					if (data?.success) {
+						fetchListings(1, true)
+					} else {
+						Alert.alert(t('common.error', 'Error'), t('listings.markSoldFailed'))
+					}
+				} catch (error) {
+					console.error('mark_listing_sold failed:', error)
+					Alert.alert(t('common.error', 'Error'), t('listings.markSoldFailed'))
+				}
+			}
+			Alert.alert(t('listings.markSoldTitle'), t('listings.markSoldMessage'), [
+				{ text: t('common.cancel'), style: 'cancel' },
+				{ text: t('listings.soldViaFleet'), onPress: () => doMark('fleet') },
+				{ text: t('listings.soldViaOther'), onPress: () => doMark('other') }
+			])
+		},
+		[fetchListings, t]
+	)
+
 	useFocusEffect(
 		React.useCallback(() => {
 			handleRefresh()
@@ -643,6 +672,20 @@ export default function MyListings() {
 											</Text>
 										) : null}
 									</View>
+									<TouchableOpacity
+										onPress={() => handleMarkSold(item.id)}
+										className='flex-row items-center rounded-full px-3 py-1.5'
+										style={{
+											backgroundColor: 'rgba(34, 197, 94, 0.12)',
+											borderWidth: 1,
+											borderColor: 'rgba(34, 197, 94, 0.35)',
+											marginRight: 8
+										}}>
+										<Ionicons name='checkmark-done' size={14} color='#22C55E' style={{ marginRight: 5 }} />
+										<Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 12 }}>
+											{t('listings.markSold')}
+										</Text>
+									</TouchableOpacity>
 									{boostDaysLeft !== null ? (
 										<TouchableOpacity
 											onPress={() => openFeatureSheet('sale', item.id)}
@@ -676,7 +719,7 @@ export default function MyListings() {
 				</TouchableOpacity>
 			)
 		}),
-		[isDarkMode, router, user?.id, openFeatureSheet, t]
+		[isDarkMode, router, user?.id, openFeatureSheet, handleMarkSold, t]
 	)
 
 	return (

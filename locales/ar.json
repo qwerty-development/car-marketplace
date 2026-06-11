@@ -1297,7 +1297,13 @@
     "number_plate": "لوحة أرقام",
     "added": "أُضيف",
     "brands_available": "{{count}} علامة متاحة",
-    "expiresOn": "ينتهي في {{date}}"
+    "expiresOn": "ينتهي في {{date}}",
+    "markSold": "تم البيع",
+    "markSoldTitle": "تحديد كمباع",
+    "markSoldMessage": "أين تم بيع هذه السيارة؟ يساعدنا ذلك في دقة الإحصاءات.",
+    "soldViaFleet": "بيعت عبر فليت",
+    "soldViaOther": "بيعت خارج فليت",
+    "markSoldFailed": "تعذّر تحديد الإعلان كمباع"
   },
   "add_listing": {
     "title": "إضافة إعلان جديد",
@@ -1487,5 +1493,31 @@
     "paymentFailed": "فشلت عملية الدفع",
     "noListingSlotTitle": "لا إعلانات متبقية",
     "noListingSlotMessage": "لقد استخدمت إعلاناتك المتاحة. اشترِ إعلانات إضافية من محفظتك للمتابعة."
+  },
+  "offers": {
+    "offer": "عرض سعر",
+    "counterOffer": "عرض مقابل",
+    "makeOffer": "قدّم عرضاً",
+    "sendOffer": "إرسال العرض",
+    "sendCounter": "إرسال العرض المقابل",
+    "amountPlaceholder": "أدخل المبلغ بالدولار",
+    "invalidAmount": "يرجى إدخال مبلغ صحيح",
+    "listedAt": "السعر المعلن {{price}}",
+    "minOffer": "الحد الأدنى للعرض {{amount}}",
+    "belowMinimum": "العرض منخفض جداً — الحد الأدنى {{amount}}",
+    "pendingExists": "يوجد عرض معلّق بالفعل في هذه المحادثة",
+    "notAllowed": "لا يمكنك تقديم عرض في هذه المحادثة",
+    "noListing": "لا يوجد إعلان بسعر في هذه المحادثة لتقديم عرض عليه",
+    "alreadyResponded": "تم الرد على هذا العرض مسبقاً",
+    "failed": "تعذّرت معالجة العرض",
+    "accept": "قبول",
+    "decline": "رفض",
+    "counter": "عرض مقابل",
+    "statuses": {
+      "pending": "معلّق",
+      "accepted": "مقبول",
+      "declined": "مرفوض",
+      "superseded": "تم تجاوزه"
+    }
   }
 }

@@ -48,6 +48,26 @@ export interface ChatMessage {
   is_read: boolean;
   read_at: string | null;
   created_at: string;
+  /** 'offer' messages render as offer bubbles joined via offer_id (US-12/13). */
+  type?: 'text' | 'offer';
+  offer_id?: number | null;
+}
+
+export interface ConversationOffer {
+  id: number;
+  conversation_id: number;
+  listing_type: 'sale' | 'rent' | 'plate';
+  listing_id: number;
+  amount: number;
+  listing_price_snapshot: number;
+  made_by: string;
+  made_by_side: 'buyer' | 'seller';
+  parent_offer_id: number | null;
+  status: 'pending' | 'accepted' | 'declined' | 'superseded';
+  responded_at: string | null;
+  responded_by: string | null;
+  message_id: number | null;
+  created_at: string;
 }
 
 export interface SendMessagePayload {
