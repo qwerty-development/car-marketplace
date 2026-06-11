@@ -109,9 +109,18 @@ ALTER TABLE public.conversations
   ADD COLUMN IF NOT EXISTS car_request_id BIGINT REFERENCES public.car_requests(id);
 
 -- The conversations table requires a listing context (car/rent/plate). Request
--- chats have none of those — rebuild any such CHECK to accept car_request_id
--- as a fourth valid context. NOT VALID: applies to new rows only, so legacy
--- rows are untouched.
+-- chats have none of those — drop any such CHECK so request conversations can
+-- be inserted.
+--
+-- PRODUCTION SAFETY: we deliberately do NOT add an "exactly one context"
+-- constraint here. Even with NOT VALID, Postgres enforces CHECKs on every
+-- subsequent UPDATE — and conversations rows are updated on EVERY message
+-- (update_conversation_metadata trigger). A single legacy row with an
+-- unexpected shape would break chat for its participants. Instead we add only
+-- a constraint that every legacy row trivially satisfies (car_request_id is
+-- NULL on all of them): a request conversation must not carry another
+-- listing context. Shape of regular conversations stays guarded by the app
+-- and the SECURITY DEFINER RPC.
 DO $$
 DECLARE
   c RECORD;
@@ -128,12 +137,10 @@ BEGIN
 END $$;
 
 ALTER TABLE public.conversations
-  ADD CONSTRAINT conversations_one_listing_context CHECK (
-    (car_id IS NOT NULL)::int
-    + (car_rent_id IS NOT NULL)::int
-    + (number_plate_id IS NOT NULL)::int
-    + (car_request_id IS NOT NULL)::int = 1
-  ) NOT VALID;
+  ADD CONSTRAINT conversations_request_context_exclusive CHECK (
+    car_request_id IS NULL
+    OR (car_id IS NULL AND car_rent_id IS NULL AND number_plate_id IS NULL)
+  );
 
 -- ----------------------------------------------------------------------------
 -- 3. RLS — reads direct, writes through RPCs (quota enforcement)
