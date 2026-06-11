@@ -425,7 +425,7 @@
     "view_saved_favorites": "عرض سياراتك المفضلة المحفوظة",
     "sign_in_to_view_legal": "سجل الدخول لعرض الوثائق القانونية",
     "view_privacy_terms": "عرض الخصوصية والشروط",
-    "dealership_interface": "واجهة الوكيل",
+    "dealership_interface": "أنت وكيل سيارات، انتقل إلى واجهة الوكيل",
     "feature_not_available": "الميزة غير متاحة",
     "please_sign_in_manage_number_plates": "يرجى تسجيل الدخول لإدارة لوحات الأرقام",
     "please_sign_in_view_favorites": "يرجى تسجيل الدخول لعرض مفضلاتك",
@@ -550,7 +550,6 @@
     "available_24_7": "متاح 24/7",
     "email_support": "دعم البريد الإلكتروني",
     "detailed_inquiries": "استفسارات مفصلة",
-    "dealership_interface": "أنت وكيل سيارات، انتقل إلى واجهة الوكيل",
     "first_name": "الاسم الأول",
     "last_name": "الاسم الأخير",
     "email": "البريد الإلكتروني",
@@ -917,7 +916,8 @@
     "maintenance": "الصيانة",
     "parts": "القطع",
     "service": "الخدمة",
-    "items": "عناصر"
+    "items": "عناصر",
+    "featured": "مميز"
   },
   "autoclips": {
     "auto_clips": "مقاطع السيارات",

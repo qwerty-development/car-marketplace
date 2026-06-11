@@ -425,7 +425,7 @@
     "view_saved_favorites": "View your saved favorite cars",
     "sign_in_to_view_legal": "Sign in to view legal documents",
     "view_privacy_terms": "View privacy and terms",
-    "dealership_interface": "Dealership Interface",
+    "dealership_interface": "Go back to Dealership Interface",
     "feature_not_available": "Feature Not Available",
     "please_sign_in_manage_number_plates": "Please sign in to manage number plates",
     "please_sign_in_view_favorites": "Please sign in to view your favorites",
@@ -558,7 +558,6 @@
     "available_24_7": "Available 24/7",
     "email_support": "Email Support",
     "detailed_inquiries": "Detailed inquiries",
-    "dealership_interface": "Go back to Dealership Interface",
     "first_name": "First Name",
     "last_name": "Last Name",
     "email": "Email",
@@ -943,7 +942,8 @@
     "warranty": "Warranty",
     "maintenance": "Maintenance",
     "parts": "Parts",
-    "service": "Service"
+    "service": "Service",
+    "featured": "Featured"
   },
   "autoclips": {
     "auto_clips": "Auto Clips",

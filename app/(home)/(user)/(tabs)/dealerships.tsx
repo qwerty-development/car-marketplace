@@ -47,6 +47,7 @@ interface Dealership {
   total_cars_rent?: number;
   total_number_plates?: number;
   location?: string | null;
+  is_featured?: boolean;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -234,14 +235,25 @@ const DealershipCard = React.memo(
               <View style={cardStyles.row}>
               <Image source={logo} style={cardStyles.logo} />
               <View style={cardStyles.content}>
-                <Text
-                  style={[
-                    cardStyles.name,
-                    { color: isDarkMode ? "white" : "black" },
-                  ]}
-                >
-                  {name}
-                </Text>
+                <View style={cardStyles.nameRow}>
+                  <Text
+                    style={[
+                      cardStyles.name,
+                      { color: isDarkMode ? "white" : "black" },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {name}
+                  </Text>
+                  {item.is_featured && (
+                    <View style={cardStyles.featuredBadge}>
+                      <Ionicons name="star" size={11} color="#fff" />
+                      <Text style={cardStyles.featuredBadgeText}>
+                        {i18n.t('dealership.featured')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
 
                 {/* Location */}
                 <View style={cardStyles.infoRow}>
@@ -354,6 +366,26 @@ const cardStyles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: "bold",
+    flexShrink: 1,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  featuredBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#D55004",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 3,
+  },
+  featuredBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
   infoRow: {
     flexDirection: "row",
@@ -415,7 +447,7 @@ export default function DealershipListPage() {
       // Step 1: Fetch all dealerships with active subscriptions
       const { data: dealershipsData, error: dealershipsError } = await supabase
         .from("dealerships")
-        .select("id, name, logo, location")
+        .select("id, name, logo, location, is_featured")
         .gte("subscription_end_date", new Date().toISOString())
         .order("name");
 
@@ -479,7 +511,7 @@ export default function DealershipListPage() {
       });
 
       // Combine all data
-      const formattedData: Dealership[] = dealershipsData.map((dealer) => ({
+      const formattedData: Dealership[] = dealershipsData.map((dealer: any) => ({
         id: dealer.id,
         name: dealer.name ?? null,
         logo: dealer.logo ?? null,
@@ -487,6 +519,7 @@ export default function DealershipListPage() {
         total_cars_sale: carsCounts[dealer.id] || 0,
         total_cars_rent: rentCounts[dealer.id] || 0,
         total_number_plates: platesCounts[dealer.id] || 0,
+        is_featured: dealer.is_featured ?? false,
       }));
 
       // Filter to only include dealerships with at least one listing
@@ -521,25 +554,33 @@ export default function DealershipListPage() {
       return dealerName.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
-    // Sort
+    // Sort (within each group; featured businesses always stay on top — US-07)
+    let sorted: Dealership[];
     switch (sortBy) {
       case SORT_OPTIONS.ATOZ:
-        return filtered.sort((a, b) => {
+        sorted = filtered.sort((a, b) => {
           const nameA = a.name || "";
           const nameB = b.name || "";
           return nameA.localeCompare(nameB);
         });
+        break;
       case SORT_OPTIONS.ZTOA:
-        return filtered.sort((a, b) => {
+        sorted = filtered.sort((a, b) => {
           const nameA = a.name || "";
           const nameB = b.name || "";
           return nameB.localeCompare(nameA);
         });
+        break;
       case SORT_OPTIONS.RANDOMIZED:
-        return filtered.sort(() => Math.random() - 0.5);
+        sorted = filtered.sort(() => Math.random() - 0.5);
+        break;
       default:
-        return filtered;
+        sorted = filtered;
     }
+    return [
+      ...sorted.filter((d) => d.is_featured),
+      ...sorted.filter((d) => !d.is_featured),
+    ];
   }, [dealerships, searchQuery, sortBy]);
 
   // -------------------
