@@ -1140,6 +1140,30 @@ features
 
           // Determine table name based on mode
           const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
+          const slotListingType = viewMode === 'rent' ? 'rent' : 'sale';
+
+          // Wallet listing slots: reserve before insert, bind after, release on
+          // failure. No-op while app_config.enforce_listing_slots is false.
+          let slotItemId: number | null = null;
+          const { data: slot, error: slotError } = await supabase.rpc(
+            'request_listing_slot',
+            { p_listing_type: slotListingType }
+          );
+          if (slotError) {
+            // Backend without the wallet migration yet — don't block posting.
+            console.warn('request_listing_slot failed (ignored):', slotError);
+          } else if (slot && slot.allowed === false) {
+            Alert.alert(
+              ready ? t('wallet.noListingSlotTitle') : 'No listings left',
+              ready
+                ? t('wallet.noListingSlotMessage')
+                : 'You have used your available listings. Buy extra listings from your wallet to continue.'
+            );
+            setIsLoading(false);
+            return;
+          } else if (slot?.wallet_item_id) {
+            slotItemId = Number(slot.wallet_item_id);
+          }
 
           const { data, error } = await supabase
             .from(tableName)
@@ -1147,7 +1171,29 @@ features
             .select()
             .single();
 
-          if (error) throw error;
+          if (error) {
+            if (slotItemId) {
+              const { error: releaseError } = await supabase.rpc(
+                'release_listing_slot',
+                { p_wallet_item_id: slotItemId }
+              );
+              if (releaseError) {
+                console.error('release_listing_slot failed:', releaseError);
+              }
+            }
+            throw error;
+          }
+
+          if (slotItemId && data?.id) {
+            const { error: bindError } = await supabase.rpc('bind_listing_slot', {
+              p_wallet_item_id: slotItemId,
+              p_listing_type: slotListingType,
+              p_listing_id: data.id,
+            });
+            if (bindError) {
+              console.error('bind_listing_slot failed:', bindError);
+            }
+          }
 
           Alert.alert(ready ? t('common.success') : 'Success', ready ? t('car.listing_created_successfully') : 'New listing created successfully', [
             { text: ready ? t('common.ok') : 'OK', onPress: () => router.back() },

@@ -46,8 +46,10 @@ BEGIN
 
   IF v_role = 'user' THEN
     v_free := public.app_config_numeric('free_active_listings_user', 1)::int;
-    SELECT (SELECT COUNT(*) FROM cars WHERE user_id = v_uid AND status = 'available')
-         + (SELECT COUNT(*) FROM number_plates WHERE user_id = v_uid AND status::text = 'available' AND deleted_at IS NULL)
+    -- 'pending' counts too: new listings await admin approval and would
+    -- otherwise let a user queue unlimited free posts.
+    SELECT (SELECT COUNT(*) FROM cars WHERE user_id = v_uid AND status IN ('available', 'pending'))
+         + (SELECT COUNT(*) FROM number_plates WHERE user_id = v_uid AND status::text IN ('available', 'pending') AND deleted_at IS NULL)
       INTO v_active;
     IF v_active < v_free THEN
       RETURN jsonb_build_object('allowed', true, 'free', true, 'enforced', true,

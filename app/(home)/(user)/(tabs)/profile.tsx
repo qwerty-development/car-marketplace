@@ -977,6 +977,53 @@ export default function UserProfileAndSupportPage() {
             />
           </TouchableOpacity> */}
 
+          {/* My Wallet */}
+          <TouchableOpacity
+            onPress={() => {
+              if (isGuest) {
+                Alert.alert(
+                  t('profile.feature_not_available'),
+                  t('wallet.signInToWallet'),
+                  [
+                    { text: t('common.cancel'), style: "cancel" },
+                    { text: t('profile.sign_in'), onPress: handleSignIn },
+                  ]
+                );
+              } else {
+                router.push('/(home)/(user)/Wallet' as any);
+              }
+            }}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+            p-4 rounded-xl shadow-sm ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-center`}
+          >
+            <View className="bg-orange-500/10 p-3 rounded-xl">
+              <Ionicons name="wallet-outline" size={24} color="#D55004" />
+            </View>
+            <View className={isRTL ? "mr-4 flex-1" : "ml-4 flex-1"}>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white" : "text-black"
+                } font-semibold`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {t('wallet.title')}
+              </Text>
+              <Text
+                className={`${
+                  isDarkMode ? "text-white/60" : "text-gray-500"
+                } text-sm mt-1`}
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {isGuest ? t('wallet.signInToWallet') : t('wallet.subtitle')}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
           {/* My Car Requests */}
           <TouchableOpacity
             onPress={() => {

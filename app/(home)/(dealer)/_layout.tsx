@@ -48,6 +48,13 @@ export default function DealerLayout() {
 					}}
 				/>
 				<Stack.Screen
+					name='Wallet'
+					options={{
+						animation: 'slide_from_right',
+						headerShown: false
+					}}
+				/>
+				<Stack.Screen
 					name='car-analytics/[id]'
 					options={{
 						animation: 'slide_from_right',

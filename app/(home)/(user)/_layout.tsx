@@ -57,6 +57,13 @@ export default function UserLayout() {
             }}
           />
           <Stack.Screen
+            name="Wallet"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="ChangePassword"
             options={{
               animation: "slide_from_right",

@@ -1445,5 +1445,47 @@
       "south_lebanon": "الجنوب",
       "nabatieh": "النبطية"
     }
+  },
+  "wallet": {
+    "title": "محفظتي",
+    "subtitle": "تابع إعلاناتك وإعلاناتك المميزة وطلباتك",
+    "dealerSubtitle": "الاشتراك، الإعلانات المتبقية والإعلانات المميزة",
+    "signInToWallet": "سجّل الدخول لعرض محفظتك",
+    "remaining": "المتبقي في المحفظة",
+    "itemTypes": {
+      "listing": "إعلانات",
+      "featured_ad": "إعلانات مميزة",
+      "car_request": "طلبات سيارات"
+    },
+    "nextExpiry": "أقرب انتهاء {{date}}",
+    "activeListings": "إعلاناتك الفعّالة",
+    "activeFeatured": "مميزة حالياً",
+    "subscription": "الاشتراك",
+    "subscriptionUntil": "فعّال حتى {{date}}",
+    "noSubscription": "لا يوجد اشتراك فعّال",
+    "buyMore": "شراء المزيد",
+    "buy": "شراء",
+    "validityDays": "صالح {{count}} يوماً",
+    "noPackages": "لا توجد باقات متاحة حالياً",
+    "items": "سجل العناصر",
+    "noItems": "لا توجد عناصر في المحفظة بعد",
+    "expiresOn": "ينتهي {{date}}",
+    "statuses": {
+      "active": "فعّال",
+      "consumed": "مستخدم",
+      "expired": "منتهي",
+      "revoked": "ملغى",
+      "refunded": "مسترد"
+    },
+    "sources": {
+      "online_purchase": "شراء أونلاين",
+      "admin_grant": "أضافته فليت",
+      "admin_refund": "استرداد"
+    },
+    "purchaseSuccess": "تمت عملية الشراء! تم تحديث المحفظة.",
+    "paymentPending": "بانتظار تأكيد الدفع…",
+    "paymentFailed": "فشلت عملية الدفع",
+    "noListingSlotTitle": "لا إعلانات متبقية",
+    "noListingSlotMessage": "لقد استخدمت إعلاناتك المتاحة. اشترِ إعلانات إضافية من محفظتك للمتابعة."
   }
 }

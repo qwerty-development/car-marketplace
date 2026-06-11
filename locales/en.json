@@ -1472,5 +1472,47 @@
       "south_lebanon": "South Lebanon",
       "nabatieh": "Nabatieh"
     }
+  },
+  "wallet": {
+    "title": "My Wallet",
+    "subtitle": "Track your listings, featured ads and requests",
+    "dealerSubtitle": "Subscription, remaining listings & featured ads",
+    "signInToWallet": "Sign in to view your wallet",
+    "remaining": "Remaining in wallet",
+    "itemTypes": {
+      "listing": "Listings",
+      "featured_ad": "Featured Ads",
+      "car_request": "Car Requests"
+    },
+    "nextExpiry": "Next expiry {{date}}",
+    "activeListings": "Active listings owned",
+    "activeFeatured": "Currently featured",
+    "subscription": "Subscription",
+    "subscriptionUntil": "Active until {{date}}",
+    "noSubscription": "No active subscription",
+    "buyMore": "Buy more",
+    "buy": "Buy",
+    "validityDays": "valid {{count}} days",
+    "noPackages": "No packages available right now",
+    "items": "Item history",
+    "noItems": "No wallet items yet",
+    "expiresOn": "Expires {{date}}",
+    "statuses": {
+      "active": "Active",
+      "consumed": "Used",
+      "expired": "Expired",
+      "revoked": "Revoked",
+      "refunded": "Refunded"
+    },
+    "sources": {
+      "online_purchase": "Bought online",
+      "admin_grant": "Added by Fleet",
+      "admin_refund": "Refund"
+    },
+    "purchaseSuccess": "Purchase complete! Wallet updated.",
+    "paymentPending": "Waiting for payment confirmation…",
+    "paymentFailed": "Payment failed",
+    "noListingSlotTitle": "No listings left",
+    "noListingSlotMessage": "You have used your available listings. Buy extra listings from your wallet to continue."
   }
 }
