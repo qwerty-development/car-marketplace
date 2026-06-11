@@ -1477,7 +1477,8 @@
       "baalbek_hermel": "Baalbek-Hermel",
       "south_lebanon": "South Lebanon",
       "nabatieh": "Nabatieh"
-    }
+    },
+    "allLebanon": "All of Lebanon"
   },
   "wallet": {
     "title": "My Wallet",

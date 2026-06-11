@@ -198,9 +198,16 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'reason', 'pending_offer_exists');
   END IF;
 
-  INSERT INTO offers (conversation_id, listing_type, listing_id, amount, listing_price_snapshot, made_by, made_by_side)
-  VALUES (p_conversation_id, v_ctx.listing_type, v_ctx.listing_id, p_amount, v_ctx.listing_price, v_uid, 'buyer')
-  RETURNING * INTO v_offer;
+  -- The partial unique index (one pending offer per conversation) is the real
+  -- guard — two concurrent calls can both pass the EXISTS check above, so the
+  -- loser's INSERT must degrade to the same graceful reason, not a 500.
+  BEGIN
+    INSERT INTO offers (conversation_id, listing_type, listing_id, amount, listing_price_snapshot, made_by, made_by_side)
+    VALUES (p_conversation_id, v_ctx.listing_type, v_ctx.listing_id, p_amount, v_ctx.listing_price, v_uid, 'buyer')
+    RETURNING * INTO v_offer;
+  EXCEPTION WHEN unique_violation THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'pending_offer_exists');
+  END;
 
   v_msg_id := public._insert_offer_message(
     p_conversation_id, v_uid, 'user',

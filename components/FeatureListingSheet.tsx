@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -105,7 +105,7 @@ export default function FeatureListingSheet({
     };
   }, []);
 
-  const walletKey = ['wallet', user?.id];
+  const walletKey = useMemo(() => ['wallet', user?.id], [user?.id]);
 
   const { data: wallet, isLoading: walletLoading } = useQuery<WalletSummary>({
     queryKey: walletKey,
