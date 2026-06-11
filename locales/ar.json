@@ -57,7 +57,8 @@
     "failed_share_car": "فشل في مشاركة تفاصيل السيارة",
     "whatsapp_install_required": "غير قادر على فتح واتساب. يرجى التأكد من تثبيته على جهازك.",
     "phone_not_available": "رقم الهاتف غير متوفر لهذه السيارة.",
-    "whatsapp_open_failed": "غير قادر على فتح واتساب"
+    "whatsapp_open_failed": "غير قادر على فتح واتساب",
+    "retry": "إعادة المحاولة"
   },
   "navbar": {
     "home": "الرئيسية",
@@ -85,6 +86,30 @@
     "buy": "شراء",
     "rent": "إيجار",
     "select_category": "اختر الفئة"
+  },
+  "featured": {
+    "title": "مميز",
+    "viewAll": "عرض الكل",
+    "allFeatured": "الإعلانات المميزة",
+    "empty": "لا توجد إعلانات مميزة حالياً",
+    "daysLeft": "باقي {{count}} يوم",
+    "feature": "تمييز",
+    "featureListing": "ميّز إعلانك",
+    "duration8Days": "سيظهر إعلانك كإعلان مميز لمدة 8 أيام — مثبتاً في أعلى الصفحة الرئيسية وضمن قسم الإعلانات المميزة.",
+    "availableInWallet": "لديك {{count}} إعلان مميز في محفظتك",
+    "useFromWallet": "ميّز الآن",
+    "choosePackage": "لا توجد إعلانات مميزة في محفظتك — اختر باقة:",
+    "buyPackage": "شراء",
+    "noPackages": "لا توجد باقات متاحة حالياً",
+    "applied": "أصبح إعلانك مميزاً!",
+    "applyFailed": "تعذّر تمييز الإعلان",
+    "notOwner": "يمكنك تمييز إعلاناتك فقط",
+    "listingNotActive": "يمكن تمييز الإعلانات النشطة فقط",
+    "notFound": "الإعلان غير موجود",
+    "purchaseSuccess": "تمت عملية الشراء",
+    "purchaseFailed": "تعذّر بدء عملية الشراء",
+    "paymentPending": "بانتظار تأكيد الدفع...",
+    "paymentFailed": "فشل الدفع أو تم إلغاؤه"
   },
   "chat": {
     "messages": "الرسائل",
@@ -1271,7 +1296,8 @@
     "maybe_later": "ربما لاحقاً",
     "number_plate": "لوحة أرقام",
     "added": "أُضيف",
-    "brands_available": "{{count}} علامة متاحة"
+    "brands_available": "{{count}} علامة متاحة",
+    "expiresOn": "ينتهي في {{date}}"
   },
   "add_listing": {
     "title": "إضافة إعلان جديد",

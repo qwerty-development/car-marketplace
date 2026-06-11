@@ -37,10 +37,26 @@ import { formatMileage } from '@/utils/formatMileage';
 import { ListingSkeletonLoader } from '../_Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
+import FeatureListingSheet, { FeatureListingType } from '@/components/FeatureListingSheet'
 import { useWindowDimensions } from 'react-native'
 
 const ITEMS_PER_PAGE = 10
 const SUBSCRIPTION_WARNING_DAYS = 7
+
+// Days remaining on an active boost; null when not boosted / expired
+const getBoostDaysLeft = (boostEndDate?: string | null): number | null => {
+	if (!boostEndDate) return null
+	const diffMs = new Date(boostEndDate).getTime() - Date.now()
+	if (Number.isNaN(diffMs) || diffMs <= 0) return null
+	return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+}
+
+// "Jun 15" style short date for listing expiry (US-06)
+const formatShortDate = (iso: string): string => {
+	const date = new Date(iso)
+	if (Number.isNaN(date.getTime())) return ''
+	return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 
 type ViewMode = 'sale' | 'rent'
 type Category = 'cars' | 'plates' | 'bikes' | 'trucks'
@@ -890,6 +906,9 @@ interface CarListing {
 	mileage?: number // Optional - not present in cars_rent
 	transmission: 'Manual' | 'Automatic'
 	rental_period?: string // Optional - for rent listings (daily, weekly, monthly, hourly)
+	is_boosted?: boolean
+	boost_end_date?: string | null
+	expire_at?: string | null
 }
 
 interface Dealership {
@@ -925,6 +944,7 @@ export default function DealerListings() {
 	const [hasMoreListings, setHasMoreListings] = useState(true)
 	const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
 	const [isSoldModalVisible, setIsSoldModalVisible] = useState(false)
+	const [featureTarget, setFeatureTarget] = useState<{ type: FeatureListingType; id: number } | null>(null)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [totalListings, setTotalListings] = useState(0)
 	const [showOnboardingModal, setShowOnboardingModal] = useState(false)
@@ -1492,6 +1512,11 @@ export default function DealerListings() {
         setFetchTrigger(prev => prev + 1)
     }, [])
 
+	// Stable opener for the Feature sheet (used inside the memoized ListingCard)
+	const openFeatureSheet = useCallback((type: FeatureListingType, id: number) => {
+		setFeatureTarget({ type, id })
+	}, [])
+
 	const getStatusConfig = (status: string) => {
 		switch (status.toLowerCase()) {
 			case 'available':
@@ -1669,6 +1694,64 @@ const ListingCard = useMemo(
                   />
                 )}
               </View>
+
+              {/* Listing expiry (US-06) + Feature button / boost countdown */}
+              {(() => {
+                const boostDaysLeft = getBoostDaysLeft(item.is_boosted ? item.boost_end_date : null);
+                const canFeature = item.status === 'available' && subscriptionValid;
+                if (!item.expire_at && !canFeature) return null;
+                return (
+                  <View
+                    className='flex-row items-center justify-between mt-3 pt-3'
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+                    }}>
+                    <View style={{ flex: 1 }}>
+                      {item.expire_at ? (
+                        <View className='flex-row items-center'>
+                          <Ionicons
+                            name='time-outline'
+                            size={13}
+                            color={isDarkMode ? '#737373' : '#9CA3AF'}
+                            style={{ marginRight: 4 }}
+                          />
+                          <Text className={`text-xs ${isDarkMode ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                            {tCard('listings.expiresOn', { date: formatShortDate(item.expire_at) })}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    {canFeature && (
+                      boostDaysLeft !== null ? (
+                        <TouchableOpacity
+                          onPress={() => openFeatureSheet(viewMode === 'sale' ? 'sale' : 'rent', item.id)}
+                          className='flex-row items-center rounded-full px-3 py-1.5'
+                          style={{
+                            backgroundColor: 'rgba(213, 80, 4, 0.12)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(213, 80, 4, 0.35)'
+                          }}>
+                          <Ionicons name='trophy' size={13} color='#D55004' style={{ marginRight: 5 }} />
+                          <Text style={{ color: '#D55004', fontWeight: '700', fontSize: 11 }}>
+                            {tCard('featured.title')} · {tCard('featured.daysLeft', { count: boostDaysLeft })}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => openFeatureSheet(viewMode === 'sale' ? 'sale' : 'rent', item.id)}
+                          className='flex-row items-center rounded-full px-3.5 py-2'
+                          style={{ backgroundColor: '#D55004' }}>
+                          <Ionicons name='trophy' size={13} color='#FFFFFF' style={{ marginRight: 5 }} />
+                          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 11 }}>
+                            {tCard('featured.feature')}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                );
+              })()}
             </View>
           </Animated.View>
         </TouchableOpacity>
@@ -1679,7 +1762,8 @@ const ListingCard = useMemo(
     router,
     dealership,
     isSubscriptionValid,
-    viewMode
+    viewMode,
+    openFeatureSheet
   ]
 );
 
@@ -2044,6 +2128,17 @@ const ListingCard = useMemo(
 						t={t}
 					/>
 				</>
+			)}
+
+			{/* Feature Listing Sheet (apply / renew a featured ad) */}
+			{featureTarget && (
+				<FeatureListingSheet
+					visible={!!featureTarget}
+					onClose={() => setFeatureTarget(null)}
+					listingType={featureTarget.type}
+					listingId={featureTarget.id}
+					onSuccess={handleRefresh}
+				/>
 			)}
 
 			{/* Onboarding Modal - Always rendered, shown based on first_login */}

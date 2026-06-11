@@ -20,6 +20,8 @@ import { supabase } from "@/utils/supabase";
 import CarCard from "@/components/CarCard";
 import RentalCarCard from "@/components/RentalCarCard";
 import NumberPlateCard from "@/components/NumberPlateCard";
+import FeaturedCarousel from "@/components/FeaturedCarousel";
+import { useFeaturedListings } from "@/hooks/useFeaturedListings";
 import { useFavorites } from "@/utils/useFavorites";
 import { FontAwesome, Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -124,6 +126,9 @@ export default function BrowseCarsPage() {
   const { toggleFavorite, favoritesSet } = useFavorites();
   const { language } = useLanguage();
   const { t } = useTranslation();
+  // Same 5 featured cars per app entry — shared by the banner carousel and
+  // the top-of-feed pinning below (single cached query).
+  const { data: featuredEntry } = useFeaturedListings();
 
   const isDealer = (profile?.role ?? user?.user_metadata?.role) === 'dealer';
   const [cars, setCars] = useState<Car[]>([]);
@@ -1502,6 +1507,10 @@ export default function BrowseCarsPage() {
       <>
         {vehicleCategory !== 'plates' && (
           <>
+            {/* Featured carousel — sale mode only; hides itself when empty */}
+            {carViewMode === 'sale' && componentsLoaded && !isInitialLoading && (
+              <FeaturedCarousel />
+            )}
             {!componentsLoaded || isInitialLoading ? (
               <SkeletonByBrands />
             ) : (
@@ -1606,19 +1615,58 @@ export default function BrowseCarsPage() {
     [plateSortOption, searchQuery, fetchPlates]
   );
 
+  // Featured pinning (Phase 1): the SAME 5 featured cars fetched once per app
+  // entry are pinned at the top of the default browse feed. Only applies to
+  // the unfiltered sale feed — search/sort/filters show organic results.
+  const hasActiveFilters = useMemo(
+    () =>
+      Object.values(filters).some((value) =>
+        Array.isArray(value)
+          ? value.length > 0
+          : value !== undefined && value !== null && value !== ''
+      ),
+    [filters]
+  );
+
+  const pinnedFeaturedCars = useMemo(() => {
+    if (carViewMode !== 'sale' || vehicleCategory === 'plates') return [];
+    if (searchQuery || sortOption || hasActiveFilters) return [];
+    const items = featuredEntry?.items ?? [];
+    if (items.length === 0) return [];
+    // Match the active vehicle category so e.g. a featured sedan never pins
+    // on top of the bikes feed.
+    return items.filter((item: any) => {
+      if (vehicleCategory === 'bikes') return item.category === 'Motorcycle';
+      if (vehicleCategory === 'trucks') return item.category === 'Truck';
+      if (vehicleCategory === 'cars')
+        return item.category !== 'Motorcycle' && item.category !== 'Truck';
+      return true;
+    });
+  }, [featuredEntry, carViewMode, vehicleCategory, searchQuery, sortOption, hasActiveFilters]);
+
+  // Prepend pinned featured cars + dedupe by id so regular pages never show
+  // them twice. Pagination is untouched — duplicates from any page are
+  // filtered out here.
+  const displayCars = useMemo(() => {
+    if (pinnedFeaturedCars.length === 0) return cars;
+    const featuredIds = new Set(pinnedFeaturedCars.map((item: any) => String(item.id)));
+    const rest = cars.filter((car) => !featuredIds.has(String(car.id)));
+    return [...(pinnedFeaturedCars as unknown as Car[]), ...rest];
+  }, [cars, pinnedFeaturedCars]);
+
   // Memoize FlatList data array — search bar is rendered outside FlatList (no stickyHeaderIndices needed)
   const flatListData = useMemo(() => [
     ...(vehicleCategory !== 'plates' ? [{ id: 'tabs', type: 'tabs' }] : []),
     { id: 'rest-header', type: 'rest-header' },
     ...(isInitialLoading && ((vehicleCategory !== 'plates' && cars.length === 0) || (vehicleCategory === 'plates' && plates.length === 0))
       ? Array(3).fill({}).map((_, i) => ({ id: `skeleton-${i}`, type: 'skeleton' }))
-      : (vehicleCategory !== 'plates' ? cars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item }))),
+      : (vehicleCategory !== 'plates' ? displayCars : plates).map((item: any) => ({ id: item.id, type: 'data', data: item }))),
     ...(loadingMore && !isInitialLoading
       ? Array(PAGINATION_SKELETON_COUNT)
           .fill(null)
           .map((_, i) => ({ id: `loading-skeleton-${i}`, type: 'skeleton' }))
       : [])
-  ], [vehicleCategory, isInitialLoading, cars, plates, loadingMore]);
+  ], [vehicleCategory, isInitialLoading, cars, displayCars, plates, loadingMore]);
 
   return (
     <View style={{ flex: 1, backgroundColor: isDarkMode ? "#000000" : "#FFFFFF" }}>

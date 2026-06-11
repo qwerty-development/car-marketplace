@@ -43,7 +43,14 @@ export enum NotificationType {
   CAR_SOLD = 'car_sold',
   VIEW_MILESTONE = 'view_milestone',
   AUTOCLIP_LIKE = 'autoclip_like',
-  DAILY_REMINDER = 'daily_reminder'
+  DAILY_REMINDER = 'daily_reminder',
+  // Featured Ads / listing lifecycle (Phase 1) — payload data carries
+  // { title, message, screen, listingType, listingId }; taps deep-link via
+  // the existing generic data.screen routing in handleNotificationResponse.
+  FEATURE_EXPIRED = 'feature_expired',
+  FEATURE_EXPIRING = 'feature_expiring',
+  LISTING_EXPIRED = 'listing_expired',
+  LISTING_EXPIRING = 'listing_expiring'
 }
 
 interface NotificationData {

@@ -30,8 +30,24 @@ import { formatMileage } from '@/utils/formatMileage';
 import { BlurView } from 'expo-blur'
 import AddListingModal from '@/components/AddListingModal'
 import PhoneVerificationBottomSheet from '@/components/PhoneVerificationBottomSheet'
+import FeatureListingSheet, { FeatureListingType } from '@/components/FeatureListingSheet'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import { useWindowDimensions } from 'react-native'
+
+// Days remaining on an active boost; null when not boosted / expired
+const getBoostDaysLeft = (boostEndDate?: string | null): number | null => {
+	if (!boostEndDate) return null
+	const diffMs = new Date(boostEndDate).getTime() - Date.now()
+	if (Number.isNaN(diffMs) || diffMs <= 0) return null
+	return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+}
+
+// "Jun 15" style short date for listing expiry
+const formatShortDate = (iso: string): string => {
+	const date = new Date(iso)
+	if (Number.isNaN(date.getTime())) return ''
+	return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 
 const ITEMS_PER_PAGE = 10
 
@@ -56,6 +72,9 @@ interface CarListing {
 	seller_type?: 'user' | 'dealer'
 	seller_name?: string
 	seller_phone?: string
+	is_boosted?: boolean
+	boost_end_date?: string | null
+	expire_at?: string | null
 	listingType: 'vehicle'
 }
 
@@ -69,6 +88,8 @@ interface PlateListing {
 	created_at: string
 	user_id?: string
 	dealership_id?: number
+	is_boosted?: boolean
+	boost_end_date?: string | null
 	listingType: 'plate'
 }
 
@@ -92,6 +113,7 @@ export default function MyListings() {
 	const [showPhoneSheet, setShowPhoneSheet] = useState(false)
 	const [showFilterModal, setShowFilterModal] = useState(false)
 	const [showSortModal, setShowSortModal] = useState(false)
+	const [featureTarget, setFeatureTarget] = useState<{ type: FeatureListingType; id: number } | null>(null)
 	const scrollRef = useRef(null)
 	const router = useRouter()
 	const { width: windowWidth } = useWindowDimensions()
@@ -104,6 +126,11 @@ export default function MyListings() {
 		await clearGuestMode()
 		router.replace('/(auth)/sign-in')
 	}
+
+	// Stable opener for the Feature sheet (used inside memoized cards)
+	const openFeatureSheet = useCallback((type: FeatureListingType, id: number) => {
+		setFeatureTarget({ type, id })
+	}, [])
 
 	const fetchListings = useCallback(
 		async (page = 1, refresh = false) => {
@@ -421,25 +448,56 @@ export default function MyListings() {
 								className={`px-5 py-4 ${isDarkMode ? 'bg-[#2b2b2b]' : 'bg-[#d1d1d1]'} rounded-t-3xl`}
 								style={{ marginTop: 4 }}
 							>
-								<View className='flex-row items-center'>
-									<MaterialCommunityIcons
-										name='card-text-outline'
-										size={20}
-										color={isDarkMode ? '#FFFFFF' : '#000000'}
-									/>
-									<Text
-										className={`ml-2 text-sm ${
-											isDarkMode ? 'text-white/60' : 'text-gray-600'
-										}`}>
-										{t('listings.number_plate')} • {t('listings.added')} {new Date(item.created_at).toLocaleDateString()}
-									</Text>
+								<View className='flex-row items-center justify-between'>
+									<View className='flex-row items-center flex-1'>
+										<MaterialCommunityIcons
+											name='card-text-outline'
+											size={20}
+											color={isDarkMode ? '#FFFFFF' : '#000000'}
+										/>
+										<Text
+											className={`ml-2 text-sm flex-1 ${
+												isDarkMode ? 'text-white/60' : 'text-gray-600'
+											}`}
+											numberOfLines={1}>
+											{t('listings.number_plate')} • {t('listings.added')} {new Date(item.created_at).toLocaleDateString()}
+										</Text>
+									</View>
+									{item.status === 'available' && (() => {
+										const boostDaysLeft = getBoostDaysLeft(item.is_boosted ? item.boost_end_date : null)
+										return boostDaysLeft !== null ? (
+											<TouchableOpacity
+												onPress={() => openFeatureSheet('plate', item.id)}
+												className='flex-row items-center rounded-full px-3 py-1.5'
+												style={{
+													backgroundColor: 'rgba(213, 80, 4, 0.12)',
+													borderWidth: 1,
+													borderColor: 'rgba(213, 80, 4, 0.35)'
+												}}>
+												<Ionicons name='trophy' size={13} color='#D55004' style={{ marginRight: 5 }} />
+												<Text style={{ color: '#D55004', fontWeight: '700', fontSize: 11 }}>
+													{t('featured.daysLeft', { count: boostDaysLeft })}
+												</Text>
+											</TouchableOpacity>
+										) : (
+											<TouchableOpacity
+												onPress={() => openFeatureSheet('plate', item.id)}
+												className='flex-row items-center rounded-full px-3 py-1.5'
+												style={{ backgroundColor: '#D55004' }}>
+												<Ionicons name='trophy' size={13} color='#FFFFFF' style={{ marginRight: 5 }} />
+												<Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 11 }}>
+													{t('featured.feature')}
+												</Text>
+											</TouchableOpacity>
+										)
+									})()}
 								</View>
 							</View>
 						</Animated.View>
 					</TouchableOpacity>
 				)
 			}),
-		[isDarkMode, router, plateCardWidth]
+		[isDarkMode, router, plateCardWidth, openFeatureSheet, t]
 	)
 
 	const ListingCard = useMemo(
@@ -573,11 +631,52 @@ export default function MyListings() {
 							</View>
 						</View>
 
+						{/* Feature button / countdown + listing expiry */}
+						{item.status === 'available' && (() => {
+							const boostDaysLeft = getBoostDaysLeft(item.is_boosted ? item.boost_end_date : null)
+							return (
+								<View className='px-5 pb-4 flex-row items-center justify-between'>
+									<View style={{ flex: 1 }}>
+										{item.expire_at ? (
+											<Text className={`text-xs ${isDarkMode ? 'text-neutral-500' : 'text-neutral-400'}`}>
+												{t('listings.expiresOn', { date: formatShortDate(item.expire_at) })}
+											</Text>
+										) : null}
+									</View>
+									{boostDaysLeft !== null ? (
+										<TouchableOpacity
+											onPress={() => openFeatureSheet('sale', item.id)}
+											className='flex-row items-center rounded-full px-3 py-1.5'
+											style={{
+												backgroundColor: 'rgba(213, 80, 4, 0.12)',
+												borderWidth: 1,
+												borderColor: 'rgba(213, 80, 4, 0.35)'
+											}}>
+											<Ionicons name='trophy' size={14} color='#D55004' style={{ marginRight: 6 }} />
+											<Text style={{ color: '#D55004', fontWeight: '700', fontSize: 12 }}>
+												{t('featured.title')} · {t('featured.daysLeft', { count: boostDaysLeft })}
+											</Text>
+										</TouchableOpacity>
+									) : (
+										<TouchableOpacity
+											onPress={() => openFeatureSheet('sale', item.id)}
+											className='flex-row items-center rounded-full px-4 py-2'
+											style={{ backgroundColor: '#D55004' }}>
+											<Ionicons name='trophy' size={14} color='#FFFFFF' style={{ marginRight: 6 }} />
+											<Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+												{t('featured.feature')}
+											</Text>
+										</TouchableOpacity>
+									)}
+								</View>
+							)
+						})()}
+
 					</Animated.View>
 				</TouchableOpacity>
 			)
 		}),
-		[isDarkMode, router, user?.id]
+		[isDarkMode, router, user?.id, openFeatureSheet, t]
 	)
 
 	return (
@@ -822,6 +921,17 @@ export default function MyListings() {
 				onClose={() => setShowAddModal(false)}
 				userId={user?.id}
 			/>
+
+			{/* Feature Listing Sheet */}
+			{featureTarget && (
+				<FeatureListingSheet
+					visible={!!featureTarget}
+					onClose={() => setFeatureTarget(null)}
+					listingType={featureTarget.type}
+					listingId={featureTarget.id}
+					onSuccess={handleRefresh}
+				/>
+			)}
 
 			{/* Phone Required Modal */}
 		<Modal

@@ -637,7 +637,7 @@ function CarCard({
           >
             <Ionicons name="trophy" size={18} color="white" style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }} />
             <Text style={{ color: 'white', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>
-              FEATURED
+              {t('featured.title').toUpperCase()}
             </Text>
           </LinearGradient>
         )}

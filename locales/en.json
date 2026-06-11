@@ -57,7 +57,8 @@
     "failed_share_car": "Failed to share car details",
     "whatsapp_install_required": "Unable to open WhatsApp. Please make sure it is installed on your device.",
     "phone_not_available": "Phone number not available for this car.",
-    "whatsapp_open_failed": "Unable to open WhatsApp"
+    "whatsapp_open_failed": "Unable to open WhatsApp",
+    "retry": "Retry"
   },
   "navbar": {
     "home": "Home",
@@ -85,6 +86,30 @@
     "buy": "Buy",
     "rent": "Rent",
     "select_category": "Select Category"
+  },
+  "featured": {
+    "title": "Featured",
+    "viewAll": "View all",
+    "allFeatured": "Featured Listings",
+    "empty": "No featured listings right now",
+    "daysLeft": "{{count}} days left",
+    "feature": "Feature",
+    "featureListing": "Feature this listing",
+    "duration8Days": "Your listing will be featured for 8 days — pinned at the top of the feed and shown in the Featured section.",
+    "availableInWallet": "You have {{count}} featured ad(s) in your wallet",
+    "useFromWallet": "Feature now",
+    "choosePackage": "No featured ads in your wallet — choose a package:",
+    "buyPackage": "Buy",
+    "noPackages": "No packages available right now",
+    "applied": "Your listing is now featured!",
+    "applyFailed": "Could not feature the listing",
+    "notOwner": "You can only feature your own listings",
+    "listingNotActive": "Only active listings can be featured",
+    "notFound": "Listing not found",
+    "purchaseSuccess": "Purchase complete",
+    "purchaseFailed": "Purchase could not be started",
+    "paymentPending": "Waiting for payment confirmation...",
+    "paymentFailed": "Payment failed or was cancelled"
   },
   "chat": {
     "messages": "Messages",
@@ -1298,7 +1323,8 @@
     "maybe_later": "Maybe Later",
     "number_plate": "Number Plate",
     "added": "Added",
-    "brands_available": "{{count}} Brands Available"
+    "brands_available": "{{count}} Brands Available",
+    "expiresOn": "Expires {{date}}"
   },
   "add_listing": {
     "title": "Add New Listing",
