@@ -1519,5 +1519,10 @@
       "declined": "مرفوض",
       "superseded": "تم تجاوزه"
     }
+  },
+  "stats": {
+    "impressions": "ظهور",
+    "views": "مشاهدات",
+    "offers": "عروض"
   }
 }

@@ -22,6 +22,7 @@ import RentalCarCard from "@/components/RentalCarCard";
 import NumberPlateCard from "@/components/NumberPlateCard";
 import FeaturedCarousel from "@/components/FeaturedCarousel";
 import { useFeaturedListings } from "@/hooks/useFeaturedListings";
+import { useImpressionTracker } from "@/hooks/useImpressionTracker";
 import { useFavorites } from "@/utils/useFavorites";
 import { FontAwesome, Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -136,6 +137,10 @@ export default function BrowseCarsPage() {
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('all');
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [carViewMode, setCarViewMode] = useState<'sale' | 'rent'>('sale');
+  // Impressions (US-15): cards visible >=500ms, batched + per-session dedupe
+  const { viewabilityConfigCallbackPairs } = useImpressionTracker(
+    vehicleCategory === 'plates' ? 'plate' : carViewMode === 'rent' ? 'rent' : 'sale'
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -1726,6 +1731,7 @@ export default function BrowseCarsPage() {
               }
             }}
             keyExtractor={(item: any) => `${item.type}-${item.id}`}
+            viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs as any}
             onEndReached={() => {
               if (currentPage < totalPages && !loadingMore && !isInitialLoading) {
                 console.log(`\n[Pagination] 📄 Loading page ${currentPage + 1} of ${totalPages} (currently have ${cars.length} items in state)`);

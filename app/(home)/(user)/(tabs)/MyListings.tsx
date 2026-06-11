@@ -247,11 +247,38 @@ export default function MyListings() {
 		[user?.id, searchQuery, sortOption]
 	)
 
+	// US-15/16: per-listing impressions/views/offers + totals
+	const [listingStats, setListingStats] = useState<{
+		totals: { impressions: number; views: number; offers: number } | null
+		byKey: Map<string, { impressions: number; views: number; offers: number }>
+	} | null>(null)
+
+	const fetchStats = useCallback(async () => {
+		if (!user?.id) return
+		try {
+			const { data, error } = await supabase.rpc('get_my_listing_stats')
+			if (error) throw error
+			const byKey = new Map<string, { impressions: number; views: number; offers: number }>()
+			;(data?.listings ?? []).forEach((s: any) => {
+				byKey.set(`${s.listing_type}:${s.listing_id}`, {
+					impressions: Number(s.impressions) || 0,
+					views: Number(s.views) || 0,
+					offers: Number(s.offers) || 0
+				})
+			})
+			setListingStats({ totals: data?.totals ?? null, byKey })
+		} catch (error) {
+			// Backend not migrated yet — stats are additive UI, never block the list
+			console.warn('get_my_listing_stats failed:', error)
+		}
+	}, [user?.id])
+
 	const handleRefresh = useCallback(() => {
 		setIsRefreshing(true)
 		setCurrentPage(1)
 		fetchListings(1, true)
-	}, [fetchListings])
+		fetchStats()
+	}, [fetchListings, fetchStats])
 
 	// US-14: mark a car listing as sold with required fleet/other attribution
 	const handleMarkSold = useCallback(
@@ -660,6 +687,34 @@ export default function MyListings() {
 							</View>
 						</View>
 
+						{/* US-15: per-listing impressions / views / offers */}
+						{(() => {
+							const stats = listingStats?.byKey.get(`sale:${item.id}`)
+							if (!stats) return null
+							return (
+								<View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 10, gap: 16 }}>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Ionicons name='eye-outline' size={13} color={isDarkMode ? '#999' : '#666'} />
+										<Text style={{ marginLeft: 4, fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
+											{stats.impressions.toLocaleString()} {t('stats.impressions')}
+										</Text>
+									</View>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Ionicons name='bar-chart-outline' size={13} color={isDarkMode ? '#999' : '#666'} />
+										<Text style={{ marginLeft: 4, fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
+											{stats.views.toLocaleString()} {t('stats.views')}
+										</Text>
+									</View>
+									<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+										<Ionicons name='pricetags-outline' size={13} color={isDarkMode ? '#999' : '#666'} />
+										<Text style={{ marginLeft: 4, fontSize: 12, color: isDarkMode ? '#999' : '#666' }}>
+											{stats.offers.toLocaleString()} {t('stats.offers')}
+										</Text>
+									</View>
+								</View>
+							)
+						})()}
+
 						{/* Feature button / countdown + listing expiry */}
 						{item.status === 'available' && (() => {
 							const boostDaysLeft = getBoostDaysLeft(item.is_boosted ? item.boost_end_date : null)
@@ -719,7 +774,7 @@ export default function MyListings() {
 				</TouchableOpacity>
 			)
 		}),
-		[isDarkMode, router, user?.id, openFeatureSheet, handleMarkSold, t]
+		[isDarkMode, router, user?.id, openFeatureSheet, handleMarkSold, listingStats, t]
 	)
 
 	return (
@@ -767,6 +822,43 @@ export default function MyListings() {
 						</Text>
 					</TouchableOpacity>
 				</View>
+
+				{/* US-16: totals across all listings */}
+				{listingStats?.totals && (
+					<View
+						style={{
+							flexDirection: 'row',
+							marginHorizontal: 24,
+							marginBottom: 10,
+							borderRadius: 14,
+							backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
+							paddingVertical: 10
+						}}>
+						{([
+							['eye-outline', listingStats.totals.impressions, t('stats.impressions')],
+							['bar-chart-outline', listingStats.totals.views, t('stats.views')],
+							['pricetags-outline', listingStats.totals.offers, t('stats.offers')]
+						] as const).map(([icon, value, label]) => (
+							<View key={label} style={{ flex: 1, alignItems: 'center' }}>
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									<Ionicons name={icon as any} size={14} color='#D55004' />
+									<Text
+										style={{
+											marginLeft: 4,
+											fontSize: 16,
+											fontWeight: 'bold',
+											color: isDarkMode ? 'white' : 'black'
+										}}>
+										{Number(value).toLocaleString()}
+									</Text>
+								</View>
+								<Text style={{ fontSize: 11, marginTop: 2, color: isDarkMode ? '#999' : '#666' }}>
+									{label}
+								</Text>
+							</View>
+						))}
+					</View>
+				)}
 
 				{/* Search Bar with Filter and Sort Icons */}
 				<View style={{ paddingHorizontal: 24, paddingBottom: 8 }}>
