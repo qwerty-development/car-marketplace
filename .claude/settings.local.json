@@ -61,7 +61,12 @@
       "Bash(npm view *)",
       "Bash(npm uninstall *)",
       "Bash(npx --yes react-compiler-healthcheck@latest)",
-      "mcp__supabase__get_logs"
+      "mcp__supabase__get_logs",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -)",
+      "Bash(tee /tmp/tsc_p2.txt)",
+      "Bash(tee /tmp/tsc_p3.txt)",
+      "Bash(tee /tmp/tsc_p3b.txt)"
     ],
     "deny": []
   },

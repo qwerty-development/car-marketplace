@@ -8,6 +8,7 @@ import {
   CarListingContext,
   RentalCarContext,
   NumberPlateContext,
+  CarRequestContext,
   validateListingContext,
 } from '@/types/chat';
 
@@ -20,6 +21,7 @@ type RawConversationRow = {
   car_id: number | null;
   car_rent_id: number | null;
   number_plate_id: number | null;
+  car_request_id: number | null;
   created_at: string;
   updated_at: string;
   last_message_at: string | null;
@@ -38,6 +40,8 @@ type RawConversationRow = {
   cars_rent?: RentalCarContext | RentalCarContext[] | null;
   numberPlate?: NumberPlateContext | NumberPlateContext[] | null;
   number_plates?: NumberPlateContext | NumberPlateContext[] | null;
+  carRequest?: CarRequestContext | CarRequestContext[] | null;
+  car_requests?: CarRequestContext | CarRequestContext[] | null;
 };
 
 const extractSingleOrNull = <T>(data: T | T[] | null | undefined): T | null => {
@@ -52,6 +56,7 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
   const car = extractSingleOrNull(row.car ?? row.cars);
   const carRent = extractSingleOrNull(row.carRent ?? row.cars_rent);
   const numberPlate = extractSingleOrNull(row.numberPlate ?? row.number_plates);
+  const carRequest = extractSingleOrNull(row.carRequest ?? row.car_requests);
 
   return {
     id: row.id,
@@ -62,6 +67,7 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
     car_id: row.car_id,
     car_rent_id: row.car_rent_id,
     number_plate_id: row.number_plate_id,
+    car_request_id: row.car_request_id ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     last_message_at: row.last_message_at,
@@ -75,6 +81,7 @@ const mapConversationRow = (row: RawConversationRow): ConversationSummary => {
     car: car as CarListingContext | null,
     carRent: carRent as RentalCarContext | null,
     numberPlate: numberPlate as NumberPlateContext | null,
+    carRequest: carRequest as CarRequestContext | null,
   };
 };
 
@@ -87,6 +94,7 @@ const enrichConversationSelect = `
   car_id,
   car_rent_id,
   number_plate_id,
+  car_request_id,
   created_at,
   updated_at,
   last_message_at,
@@ -140,6 +148,16 @@ const enrichConversationSelect = `
     status,
     user_id,
     dealership_id
+  ),
+  carRequest:car_requests (
+    id,
+    make,
+    model,
+    year_min,
+    year_max,
+    budget_min,
+    budget_max,
+    status
   )
 `;
 
@@ -168,11 +186,16 @@ export class ChatService {
     carId,
     carRentId,
     numberPlateId,
+    carRequestId,
   }: CreateConversationParams): Promise<ConversationSummary> {
     // Validate listing context (XOR: exactly one listing type required)
-    const hasAnyListing = carId !== undefined || carRentId !== undefined || numberPlateId !== undefined;
+    const hasAnyListing =
+      carId !== undefined ||
+      carRentId !== undefined ||
+      numberPlateId !== undefined ||
+      carRequestId !== undefined;
     if (hasAnyListing) {
-      const validation = validateListingContext(carId, carRentId, numberPlateId);
+      const validation = validateListingContext(carId, carRentId, numberPlateId, carRequestId);
       if (!validation.isValid) {
         throw new Error(validation.error);
       }
@@ -202,13 +225,19 @@ export class ChatService {
       query = query.eq('seller_user_id', sellerUserId);
     }
 
-    // Add listing-specific filters (car, car_rent, or number_plate)
+    // Add listing-specific filters (car, car_rent, number_plate, or car_request)
     if (carId !== undefined && carId !== null) {
       query = query.eq('car_id', carId).is('car_rent_id', null).is('number_plate_id', null);
     } else if (carRentId !== undefined && carRentId !== null) {
       query = query.eq('car_rent_id', carRentId).is('car_id', null).is('number_plate_id', null);
     } else if (numberPlateId !== undefined && numberPlateId !== null) {
       query = query.eq('number_plate_id', numberPlateId).is('car_id', null).is('car_rent_id', null);
+    } else if (carRequestId !== undefined && carRequestId !== null) {
+      query = query
+        .eq('car_request_id', carRequestId)
+        .is('car_id', null)
+        .is('car_rent_id', null)
+        .is('number_plate_id', null);
     } else {
       // Generic conversation (no specific listing) - not allowed by DB constraint
       query = query.is('car_id', null).is('car_rent_id', null).is('number_plate_id', null);
@@ -242,6 +271,9 @@ export class ChatService {
       }
       if (numberPlateId !== undefined && numberPlateId !== null) {
         insertPayload.number_plate_id = numberPlateId;
+      }
+      if (carRequestId !== undefined && carRequestId !== null) {
+        insertPayload.car_request_id = carRequestId;
       }
 
       const { data: inserted, error: insertError } = await supabase

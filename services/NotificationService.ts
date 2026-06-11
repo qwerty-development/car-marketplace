@@ -50,7 +50,10 @@ export enum NotificationType {
   FEATURE_EXPIRED = 'feature_expired',
   FEATURE_EXPIRING = 'feature_expiring',
   LISTING_EXPIRED = 'listing_expired',
-  LISTING_EXPIRING = 'listing_expiring'
+  LISTING_EXPIRING = 'listing_expiring',
+  // Car requests (Phase 3) — sent when a dealership contacts the requester;
+  // data.screen deep-links to the conversation (chat) or profile (call/whatsapp).
+  CAR_REQUEST_CONTACT = 'car_request_contact'
 }
 
 interface NotificationData {

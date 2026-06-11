@@ -108,6 +108,33 @@ CREATE INDEX IF NOT EXISTS idx_car_request_contacts_dealership ON public.car_req
 ALTER TABLE public.conversations
   ADD COLUMN IF NOT EXISTS car_request_id BIGINT REFERENCES public.car_requests(id);
 
+-- The conversations table requires a listing context (car/rent/plate). Request
+-- chats have none of those — rebuild any such CHECK to accept car_request_id
+-- as a fourth valid context. NOT VALID: applies to new rows only, so legacy
+-- rows are untouched.
+DO $$
+DECLARE
+  c RECORD;
+BEGIN
+  FOR c IN
+    SELECT conname
+      FROM pg_constraint
+     WHERE conrelid = 'public.conversations'::regclass
+       AND contype = 'c'
+       AND pg_get_constraintdef(oid) ~ '(car_id|car_rent_id|number_plate_id)'
+  LOOP
+    EXECUTE format('ALTER TABLE public.conversations DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+END $$;
+
+ALTER TABLE public.conversations
+  ADD CONSTRAINT conversations_one_listing_context CHECK (
+    (car_id IS NOT NULL)::int
+    + (car_rent_id IS NOT NULL)::int
+    + (number_plate_id IS NOT NULL)::int
+    + (car_request_id IS NOT NULL)::int = 1
+  ) NOT VALID;
+
 -- ----------------------------------------------------------------------------
 -- 3. RLS — reads direct, writes through RPCs (quota enforcement)
 -- ----------------------------------------------------------------------------
@@ -351,24 +378,27 @@ GRANT EXECUTE ON FUNCTION public.dismiss_car_request(BIGINT) TO authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 8. log_request_contact — records a dealership contacting the requester and
---    notifies the user (US-03). For 'chat', pass the conversation id so the
---    notification deep-links into the thread.
+--    notifies the user (US-03). For channel 'chat' it finds-or-creates the
+--    conversation linked to the request SERVER-SIDE (dealer-initiated
+--    conversation inserts would otherwise depend on client RLS) and returns
+--    its id so the app can navigate straight into the thread.
+--    Returns jsonb: { success, conversation_id? }
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.log_request_contact(
-  p_request_id      BIGINT,
-  p_channel         TEXT,
-  p_conversation_id BIGINT DEFAULT NULL
+  p_request_id BIGINT,
+  p_channel    TEXT
 )
-RETURNS BOOLEAN
+RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid           TEXT := auth.uid()::text;
-  v_dealership    RECORD;
-  v_request       RECORD;
-  v_screen        TEXT;
+  v_uid             TEXT := auth.uid()::text;
+  v_dealership      RECORD;
+  v_request         RECORD;
+  v_conversation_id BIGINT;
+  v_screen          TEXT;
 BEGIN
   IF p_channel NOT IN ('call', 'whatsapp', 'chat') THEN
     RAISE EXCEPTION 'Invalid channel: %', p_channel;
@@ -385,16 +415,27 @@ BEGIN
     RAISE EXCEPTION 'Request not found or inactive';
   END IF;
 
-  INSERT INTO car_request_contacts (request_id, dealership_id, contact_user_id, channel, conversation_id)
-  VALUES (p_request_id, v_dealership.id, v_uid, p_channel, p_conversation_id);
+  IF p_channel = 'chat' THEN
+    SELECT id INTO v_conversation_id
+      FROM conversations
+     WHERE car_request_id = p_request_id
+       AND dealership_id = v_dealership.id
+       AND user_id = v_request.user_id
+     LIMIT 1;
 
-  IF p_channel = 'chat' AND p_conversation_id IS NOT NULL THEN
-    v_screen := '/(home)/(user)/conversations/' || p_conversation_id;
-    UPDATE conversations SET car_request_id = p_request_id
-     WHERE id = p_conversation_id AND car_request_id IS NULL;
+    IF v_conversation_id IS NULL THEN
+      INSERT INTO conversations (user_id, dealership_id, conversation_type, car_request_id)
+      VALUES (v_request.user_id, v_dealership.id, 'user_dealer', p_request_id)
+      RETURNING id INTO v_conversation_id;
+    END IF;
+
+    v_screen := '/(home)/(user)/conversations/' || v_conversation_id;
   ELSE
     v_screen := '/(home)/(user)/(tabs)/profile';
   END IF;
+
+  INSERT INTO car_request_contacts (request_id, dealership_id, contact_user_id, channel, conversation_id)
+  VALUES (p_request_id, v_dealership.id, v_uid, p_channel, v_conversation_id);
 
   INSERT INTO pending_notifications (user_id, type, data)
   VALUES (
@@ -406,17 +447,17 @@ BEGIN
                  v_request.make || COALESCE(' ' || v_request.model, '') || ' request.',
       'screen', v_screen,
       'requestId', p_request_id,
-      'conversationId', p_conversation_id,
+      'conversationId', v_conversation_id,
       'channel', p_channel
     )
   );
 
-  RETURN true;
+  RETURN jsonb_build_object('success', true, 'conversation_id', v_conversation_id);
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.log_request_contact(BIGINT, TEXT, BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.log_request_contact(BIGINT, TEXT, BIGINT) TO authenticated;
+REVOKE ALL ON FUNCTION public.log_request_contact(BIGINT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.log_request_contact(BIGINT, TEXT) TO authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 9. expire_car_requests — hourly cron

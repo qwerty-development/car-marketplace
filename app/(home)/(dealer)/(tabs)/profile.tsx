@@ -759,6 +759,36 @@ export default function DealershipProfilePage() {
             />
           </TouchableOpacity>
 
+          {/* Car Requests Button */}
+          <TouchableOpacity
+            onPress={() => router.push('/(home)/(dealer)/CarRequests' as any)}
+            className={`${isDarkMode ? "bg-neutral-800" : "bg-neutral-200"}
+              p-4 rounded-xl shadow-sm flex-row items-center ${
+                isRTL ? 'flex-row-reverse' : ''
+              }`}
+          >
+            <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center">
+              <Ionicons name="search-outline" size={24} color="#3B82F6" />
+            </View>
+            <View className={`flex-1 ${isRTL ? 'mr-3' : 'ml-3'}`}>
+              <Text className={`font-semibold ${isDarkMode ? "text-white" : "text-black"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                {t('requests.feedTitle')}
+              </Text>
+              <Text className={`text-xs mt-1 ${isDarkMode ? "text-white/60" : "text-gray-500"} ${
+                isRTL ? 'text-right' : 'text-left'
+              }`}>
+                {t('requests.feedSubtitle')}
+              </Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={24}
+              color={isDarkMode ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
+
           {/* Analytics Button */}
           <TouchableOpacity
             onPress={() => router.push('/(home)/(dealer)/analytics')}

@@ -7,6 +7,7 @@ export interface ConversationSummary {
   car_id: number | null;
   car_rent_id: number | null;
   number_plate_id: number | null;
+  car_request_id: number | null;
   created_at: string;
   updated_at: string;
   last_message_at: string | null;
@@ -20,6 +21,7 @@ export interface ConversationSummary {
   car?: CarListingContext | null;
   carRent?: RentalCarContext | null;
   numberPlate?: NumberPlateContext | null;
+  carRequest?: CarRequestContext | null;
 }
 
 export interface ChatUserParticipant {
@@ -89,6 +91,17 @@ export interface NumberPlateContext {
   dealership_id?: number | null;
 }
 
+export interface CarRequestContext {
+  id: number;
+  make: string;
+  model: string | null;
+  year_min: number | null;
+  year_max: number | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  status: string;
+}
+
 export interface CreateConversationParams {
   userId: string;
   dealershipId?: number | null;
@@ -97,6 +110,7 @@ export interface CreateConversationParams {
   carId?: number | null;
   carRentId?: number | null;
   numberPlateId?: number | null;
+  carRequestId?: number | null;
 }
 
 /**
@@ -107,9 +121,10 @@ export interface CreateConversationParams {
  * @throws Error if multiple or no listing types are provided
  */
 export function validateListingContext(
-  carId?: number | null, 
+  carId?: number | null,
   carRentId?: number | null,
-  numberPlateId?: number | null
+  numberPlateId?: number | null,
+  carRequestId?: number | null
 ): {
   isValid: boolean;
   error?: string;
@@ -117,20 +132,21 @@ export function validateListingContext(
   const hasCarId = carId !== null && carId !== undefined;
   const hasCarRentId = carRentId !== null && carRentId !== undefined;
   const hasNumberPlateId = numberPlateId !== null && numberPlateId !== undefined;
+  const hasCarRequestId = carRequestId !== null && carRequestId !== undefined;
 
-  const count = [hasCarId, hasCarRentId, hasNumberPlateId].filter(Boolean).length;
+  const count = [hasCarId, hasCarRentId, hasNumberPlateId, hasCarRequestId].filter(Boolean).length;
 
   if (count > 1) {
     return {
       isValid: false,
-      error: 'Cannot specify multiple listing types. Provide only one of car_id, car_rent_id, or number_plate_id.',
+      error: 'Cannot specify multiple listing types. Provide only one of car_id, car_rent_id, number_plate_id, or car_request_id.',
     };
   }
 
   if (count === 0) {
     return {
       isValid: false,
-      error: 'Must specify exactly one listing type: car_id, car_rent_id, or number_plate_id.',
+      error: 'Must specify exactly one listing type: car_id, car_rent_id, number_plate_id, or car_request_id.',
     };
   }
 
