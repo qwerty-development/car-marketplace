@@ -386,8 +386,25 @@ console.log(`Marked invalid token as inactive: ${tokenData.token}`);
             badge: 1,
             channelId: 'default',
           };
+        } else if (record.data && (record.data.title || record.data.message)) {
+          // Generic handler: any newer type whose trigger provides title/message
+          // in data (feature_expired, feature_expiring, listing_expired,
+          // listing_expiring, car_request_contact, offer_received,
+          // offer_response, ...). Keeps this function forward-compatible.
+          message = {
+            to: tokenData.token,
+            sound: 'default',
+            title: record.data.title || 'Fleet',
+            body: record.data.message || '',
+            data: {
+              ...record.data,
+              notificationId,
+            },
+            badge: 1,
+            channelId: 'default',
+          };
         } else {
-          // Handle unknown notification type
+          // Handle unknown notification type with no displayable payload
           console.error('Unknown notification type:', record.type);
           continue; // Skip to the next token
         }
