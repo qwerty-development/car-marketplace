@@ -66,7 +66,8 @@
       "Bash(python3 -)",
       "Bash(tee /tmp/tsc_p2.txt)",
       "Bash(tee /tmp/tsc_p3.txt)",
-      "Bash(tee /tmp/tsc_p3b.txt)"
+      "Bash(tee /tmp/tsc_p3b.txt)",
+      "Bash(awk 'NR>=1980 && NR<=2080 && \\(/keyExtractor|ListHeader|ListEmpty|refreshControl|onEndReached|contentContainer/\\)' app/\\\\\\(home\\\\\\)/\\\\\\(dealer\\\\\\)/\\\\\\(tabs\\\\\\)/index.tsx)"
     ],
     "deny": []
   },

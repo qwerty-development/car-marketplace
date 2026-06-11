@@ -1551,5 +1551,9 @@
     "impressions": "Impressions",
     "views": "Views",
     "offers": "Offers"
+  },
+  "trending": {
+    "title": "Trending this week",
+    "views": "{{count}} views"
   }
 }

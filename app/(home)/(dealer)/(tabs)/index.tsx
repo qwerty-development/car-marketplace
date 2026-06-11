@@ -38,6 +38,7 @@ import { ListingSkeletonLoader } from '../_Skeleton'
 import DealerOnboardingModal from '../DealerOnboardingModal'
 import { LicensePlateTemplate } from '@/components/NumberPlateCard'
 import FeatureListingSheet, { FeatureListingType } from '@/components/FeatureListingSheet'
+import TrendingSection from '@/components/dealer/TrendingSection'
 import { useWindowDimensions } from 'react-native'
 
 const ITEMS_PER_PAGE = 10
@@ -1708,19 +1709,31 @@ const ListingCard = useMemo(
                       borderTopColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
                     }}>
                     <View style={{ flex: 1 }}>
-                      {item.expire_at ? (
-                        <View className='flex-row items-center'>
-                          <Ionicons
-                            name='time-outline'
-                            size={13}
-                            color={isDarkMode ? '#737373' : '#9CA3AF'}
-                            style={{ marginRight: 4 }}
-                          />
-                          <Text className={`text-xs ${isDarkMode ? 'text-neutral-500' : 'text-neutral-400'}`}>
-                            {tCard('listings.expiresOn', { date: formatShortDate(item.expire_at) })}
-                          </Text>
-                        </View>
-                      ) : null}
+                      {item.expire_at ? (() => {
+                        // US-18: visually distinct when under 7 days
+                        const daysToExpiry = Math.ceil(
+                          (new Date(item.expire_at).getTime() - Date.now()) / 86400000
+                        );
+                        const urgent = Number.isFinite(daysToExpiry) && daysToExpiry < 7;
+                        const expiryColor = urgent
+                          ? '#EF4444'
+                          : isDarkMode ? '#737373' : '#9CA3AF';
+                        return (
+                          <View className='flex-row items-center'>
+                            <Ionicons
+                              name={urgent ? 'warning-outline' : 'time-outline'}
+                              size={13}
+                              color={expiryColor}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text
+                              className='text-xs'
+                              style={{ color: expiryColor, fontWeight: urgent ? '700' : '400' }}>
+                              {tCard('listings.expiresOn', { date: formatShortDate(item.expire_at) })}
+                            </Text>
+                          </View>
+                        );
+                      })() : null}
                     </View>
                     {canFeature && (
                       boostDaysLeft !== null ? (
@@ -2060,6 +2073,11 @@ const ListingCard = useMemo(
 			return <ListingCard item={item} />
 		}}
 		keyExtractor={item => item.id.toString()}
+		ListHeaderComponent={
+			category !== 'plates' && viewMode === 'sale' ? (
+				<TrendingSection dealershipId={dealership?.id} />
+			) : null
+		}
 		showsVerticalScrollIndicator={false}
 		onEndReached={handleLoadMore}
 		onEndReachedThreshold={0.3}
