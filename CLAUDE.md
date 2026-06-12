@@ -132,6 +132,7 @@ eas build --profile release  # Production build
 - **superpowers skills:** brainstorming before features, systematic-debugging before fixing bugs, verification-before-completion before claiming done
    
 ## External Docs
+- `FLEET_V3_CONTEXT.md` — v3.0 wallet/credit release: full context, live DB state, design decisions, rollout TODO (replaces HANDOFF.md)
 - `MAXIMUM_UPDATE_DEPTH_FIX.md` — SDK 54 re-render cascade fix report
 - `STARTUP_FIXES.md` — Startup issue solutions
 - `SUPABASE_ENV_VARIABLES.md` — Backend env var setup
