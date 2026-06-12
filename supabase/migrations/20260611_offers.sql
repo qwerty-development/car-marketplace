@@ -24,13 +24,16 @@ CREATE TABLE IF NOT EXISTS public.offers (
   listing_id              BIGINT NOT NULL,
   amount                  NUMERIC(12,2) NOT NULL CHECK (amount > 0),
   listing_price_snapshot  NUMERIC(12,2) NOT NULL,
-  made_by                 TEXT NOT NULL REFERENCES public.users(id),
+  -- CASCADE/SET NULL throughout: offer rows must never block deleting a user
+  -- account, a message, or a conversation (account-deletion flows cascade
+  -- through these in arbitrary order).
+  made_by                 TEXT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   made_by_side            TEXT NOT NULL CHECK (made_by_side IN ('buyer', 'seller')),
-  parent_offer_id         BIGINT REFERENCES public.offers(id),
+  parent_offer_id         BIGINT REFERENCES public.offers(id) ON DELETE SET NULL,
   status                  TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'superseded')),
   responded_at            TIMESTAMPTZ,
   responded_by            TEXT,
-  message_id              BIGINT REFERENCES public.messages(id),
+  message_id              BIGINT REFERENCES public.messages(id) ON DELETE SET NULL,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -68,7 +71,9 @@ CREATE POLICY "Service role manages offers"
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.messages
   ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'text' CHECK (type IN ('text', 'offer')),
-  ADD COLUMN IF NOT EXISTS offer_id BIGINT REFERENCES public.offers(id);
+  -- SET NULL: if an offer row is removed (e.g. maker's account deleted), the
+  -- chat bubble degrades to its plain-text body instead of blocking the delete
+  ADD COLUMN IF NOT EXISTS offer_id BIGINT REFERENCES public.offers(id) ON DELETE SET NULL;
 
 -- ----------------------------------------------------------------------------
 -- 3. analytics event types: 'offer' (this migration) + 'impression' (used by

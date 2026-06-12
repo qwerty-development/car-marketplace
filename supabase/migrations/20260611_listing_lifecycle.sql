@@ -17,17 +17,19 @@
 -- ----------------------------------------------------------------------------
 -- 1. Columns
 -- ----------------------------------------------------------------------------
+-- featured_wallet_item_id is an audit pointer: SET NULL so wallet rows (and
+-- their owner's account) can always be deleted without listings blocking it.
 ALTER TABLE public.cars
   ADD COLUMN IF NOT EXISTS expire_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS expiry_warning_sent_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS boost_expiry_warning_sent_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id);
+  ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id) ON DELETE SET NULL;
 
 ALTER TABLE public.cars_rent
   ADD COLUMN IF NOT EXISTS expire_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS expiry_warning_sent_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS boost_expiry_warning_sent_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id);
+  ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id) ON DELETE SET NULL;
 
 -- Plates: boost columns (same names as cars/cars_rent so one expiry pass covers
 -- all three tables; boost_priority stays populated for old production builds).
@@ -36,7 +38,7 @@ ALTER TABLE public.number_plates
   ADD COLUMN IF NOT EXISTS boost_priority INTEGER,
   ADD COLUMN IF NOT EXISTS boost_end_date TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS boost_expiry_warning_sent_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id);
+  ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id) ON DELETE SET NULL;
 
 COMMENT ON COLUMN public.cars.expire_at IS 'Listing removal date (~2 months from posting; app_config.listing_duration_days). Cron flips status to expired.';
 

@@ -28,7 +28,8 @@ CREATE SEQUENCE IF NOT EXISTS public.wallet_whish_external_id_seq
 CREATE TABLE IF NOT EXISTS public.wallet_acquisitions (
   id                  BIGSERIAL PRIMARY KEY,
   owner_user_id       TEXT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  dealership_id       BIGINT REFERENCES public.dealerships(id),
+  -- SET NULL: wallet history must never block deleting a dealership
+  dealership_id       BIGINT REFERENCES public.dealerships(id) ON DELETE SET NULL,
   kind                TEXT NOT NULL CHECK (kind IN ('online_purchase', 'admin_grant', 'admin_refund')),
   status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'void')),
   package_id          BIGINT,
@@ -81,7 +82,7 @@ CREATE TABLE IF NOT EXISTS public.wallet_items (
   id                    BIGSERIAL PRIMARY KEY,
   acquisition_id        BIGINT NOT NULL REFERENCES public.wallet_acquisitions(id) ON DELETE CASCADE,
   owner_user_id         TEXT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  dealership_id         BIGINT REFERENCES public.dealerships(id),
+  dealership_id         BIGINT REFERENCES public.dealerships(id) ON DELETE SET NULL,
   item_type             TEXT NOT NULL CHECK (item_type IN ('listing', 'featured_ad', 'car_request')),
   status                TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'consumed', 'expired', 'revoked', 'refunded')),
   unit_price_usd        NUMERIC(10,2) NOT NULL DEFAULT 0,

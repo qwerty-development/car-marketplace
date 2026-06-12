@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS public.car_requests (
   region      TEXT NOT NULL DEFAULT 'all_lebanon' REFERENCES public.regions(code),
   status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'removed')),
   paid        BOOLEAN NOT NULL DEFAULT false,
-  wallet_item_id BIGINT REFERENCES public.wallet_items(id),
+  wallet_item_id BIGINT REFERENCES public.wallet_items(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at  TIMESTAMPTZ NOT NULL DEFAULT now() + interval '7 days',
   CONSTRAINT car_requests_year_range CHECK (year_min IS NULL OR year_max IS NULL OR year_min <= year_max),
@@ -97,16 +97,18 @@ CREATE TABLE IF NOT EXISTS public.car_request_contacts (
   dealership_id   BIGINT NOT NULL REFERENCES public.dealerships(id) ON DELETE CASCADE,
   contact_user_id TEXT,
   channel         TEXT NOT NULL CHECK (channel IN ('call', 'whatsapp', 'chat')),
-  conversation_id BIGINT REFERENCES public.conversations(id),
+  conversation_id BIGINT REFERENCES public.conversations(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_car_request_contacts_request ON public.car_request_contacts(request_id);
 CREATE INDEX IF NOT EXISTS idx_car_request_contacts_dealership ON public.car_request_contacts(dealership_id);
 
--- Chat threads can be linked to a request (extends the polymorphic pattern)
+-- Chat threads can be linked to a request (extends the polymorphic pattern).
+-- SET NULL: deleting a request (or cascading a user delete) must never block
+-- on, or delete, the conversation itself.
 ALTER TABLE public.conversations
-  ADD COLUMN IF NOT EXISTS car_request_id BIGINT REFERENCES public.car_requests(id);
+  ADD COLUMN IF NOT EXISTS car_request_id BIGINT REFERENCES public.car_requests(id) ON DELETE SET NULL;
 
 -- The conversations table requires a listing context (car/rent/plate). Request
 -- chats have none of those — drop any such CHECK so request conversations can
