@@ -2075,7 +2075,7 @@ const ListingCard = useMemo(
 		keyExtractor={item => item.id.toString()}
 		ListHeaderComponent={
 			category !== 'plates' && viewMode === 'sale' ? (
-				<TrendingSection dealershipId={dealership?.id} />
+				<TrendingSection />
 			) : null
 		}
 		showsVerticalScrollIndicator={false}

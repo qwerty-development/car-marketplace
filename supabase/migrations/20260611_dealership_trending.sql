@@ -1,44 +1,48 @@
 -- ============================================================================
--- Migration: Dealership Inventory Insights — trending (US-17)
--- Date: 2026-06-11
--- Description: "Trending this week" — top 2 most-viewed cars per dealership
---   over the trailing 7 days, rebuilt weekly from listing_analytics_events.
+-- Migration: Market Trending — dealer insight (US-17)
+-- Date: 2026-06-11 (reworked 2026-06-12: app-wide, not per-dealership)
+-- Description: "Trending this week" — the top 2 most-viewed MAKE+MODEL
+--   combinations across the WHOLE app over the trailing 7 days, rebuilt weekly
+--   from listing_analytics_events. Shown on the dealer dashboard so dealers
+--   know what the market is looking at. Aggregated by make+model on purpose:
+--   no specific listing (or its owner's numbers) is ever exposed.
 --   Plain truncate+rebuild table (tiny data) beats a materialized view here:
 --   simple RLS, no concurrent-refresh unique-index requirements.
 --   Per client note: early weeks may shift daily until enough click data
 --   accumulates; the weekly refresh is the steady state.
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.dealership_trending (
-  dealership_id BIGINT NOT NULL REFERENCES public.dealerships(id) ON DELETE CASCADE,
-  listing_type  TEXT NOT NULL DEFAULT 'sale',
-  listing_id    BIGINT NOT NULL,
-  make          TEXT,
-  model         TEXT,
-  event_count   INTEGER NOT NULL,
-  rank          INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS public.market_trending (
   week_start    DATE NOT NULL,
+  rank          INTEGER NOT NULL,
+  make          TEXT NOT NULL,
+  model         TEXT NOT NULL,
+  event_count   INTEGER NOT NULL,
   refreshed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (dealership_id, listing_type, rank, week_start)
+  PRIMARY KEY (week_start, rank)
 );
 
-ALTER TABLE public.dealership_trending ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.market_trending ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Dealers can view own trending" ON public.dealership_trending;
-CREATE POLICY "Dealers can view own trending"
-  ON public.dealership_trending FOR SELECT
+-- Dealer-only insight (owner decision 2026-06-12): role verified against the
+-- users profile, not the client. Non-dealers simply get 0 rows (no error), so
+-- the brief (dealer)-route mount for non-dealers during routing stays safe.
+DROP POLICY IF EXISTS "Dealers can view market trending" ON public.market_trending;
+CREATE POLICY "Dealers can view market trending"
+  ON public.market_trending FOR SELECT
+  TO authenticated
   USING (EXISTS (
-    SELECT 1 FROM public.dealerships d
-    WHERE d.id = dealership_id AND d.user_id = auth.uid()::text
+    SELECT 1 FROM public.users u
+    WHERE u.id = auth.uid()::text AND u.role = 'dealer'
   ));
 
-DROP POLICY IF EXISTS "Service role manages trending" ON public.dealership_trending;
-CREATE POLICY "Service role manages trending"
-  ON public.dealership_trending FOR ALL
+DROP POLICY IF EXISTS "Service role manages market trending" ON public.market_trending;
+CREATE POLICY "Service role manages market trending"
+  ON public.market_trending FOR ALL
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
 
-CREATE OR REPLACE FUNCTION public.refresh_dealership_trending()
+CREATE OR REPLACE FUNCTION public.refresh_market_trending()
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -47,37 +51,39 @@ AS $$
 DECLARE
   v_count INTEGER;
 BEGIN
-  DELETE FROM dealership_trending;
+  DELETE FROM market_trending;
 
-  INSERT INTO dealership_trending (dealership_id, listing_type, listing_id, make, model, event_count, rank, week_start)
-  SELECT ranked.dealership_id, 'sale', ranked.listing_id, c.make, c.model,
-         ranked.event_count, ranked.rank, date_trunc('week', now())::date
+  -- Views on sold/expired cars still count: the demand signal is the point.
+  -- Cars deleted since the view happened drop out via the JOIN (no make/model
+  -- left to attribute them to).
+  INSERT INTO market_trending (week_start, rank, make, model, event_count)
+  SELECT date_trunc('week', now())::date, ranked.rank, ranked.make, ranked.model, ranked.event_count
     FROM (
-      SELECT e.dealership_id, e.listing_id,
+      SELECT c.make, c.model,
              COUNT(*)::int AS event_count,
-             row_number() OVER (PARTITION BY e.dealership_id ORDER BY COUNT(*) DESC, e.listing_id) AS rank
+             row_number() OVER (ORDER BY COUNT(*) DESC, c.make, c.model) AS rank
         FROM listing_analytics_events e
+        JOIN cars c ON c.id = e.listing_id
        WHERE e.event_type = 'view'
          AND e.listing_type = 'sale'
-         AND e.dealership_id IS NOT NULL
          AND e.created_at >= now() - interval '7 days'
-       GROUP BY e.dealership_id, e.listing_id
+         AND c.make IS NOT NULL AND c.make <> ''
+         AND c.model IS NOT NULL AND c.model <> ''
+       GROUP BY c.make, c.model
     ) ranked
-    JOIN cars c ON c.id = ranked.listing_id
-   WHERE ranked.rank <= 2
-     AND c.status = 'available';
+   WHERE ranked.rank <= 2;
   GET DIAGNOSTICS v_count = ROW_COUNT;
 
-  RAISE LOG 'refresh_dealership_trending: % rows', v_count;
+  RAISE LOG 'refresh_market_trending: % rows', v_count;
   RETURN v_count;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.refresh_dealership_trending() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.refresh_market_trending() FROM PUBLIC, anon, authenticated;
 
 -- Weekly: Sunday 21:00 UTC = Monday 00:00 Asia/Beirut (EEST). The data is
 -- defined by created_at >= now()-7d, so DST drift only shifts the refresh hour.
-SELECT cron.schedule('refresh-dealership-trending', '0 21 * * 0', 'SELECT public.refresh_dealership_trending()');
+SELECT cron.schedule('refresh-market-trending', '0 21 * * 0', 'SELECT public.refresh_market_trending()');
 
 -- Initial populate so the section isn't empty until next Monday
-SELECT public.refresh_dealership_trending();
+SELECT public.refresh_market_trending();

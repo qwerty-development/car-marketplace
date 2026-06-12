@@ -1943,30 +1943,49 @@ features
         const tableName = viewMode === 'rent' ? 'cars_rent' : 'cars';
         const statusValue = viewMode === 'rent' ? 'rented' : 'sold';
 
-        // Build update data based on mode
-        // cars_rent table doesn't have sold_price, date_sold, or buyer_name columns
-        const updateData = viewMode === 'rent'
-          ? { status: statusValue }
-          : {
-              status: statusValue,
-              sold_price: parseInt(soldData.price),
-              date_sold: soldData.date,
-              buyer_name: soldData.buyer_name,
-            };
+        if (viewMode !== 'rent' && isUserMode) {
+          // US-14: user P2P sales go through mark_listing_sold (server-side
+          // ownership + sold_via attribution), same as the MyListings flow.
+          const soldVia = await new Promise<'fleet' | 'other' | null>((resolve) => {
+            Alert.alert(t('listings.markSoldTitle'), t('listings.markSoldMessage'), [
+              { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(null) },
+              { text: t('listings.soldViaFleet'), onPress: () => resolve('fleet') },
+              { text: t('listings.soldViaOther'), onPress: () => resolve('other') },
+            ]);
+          });
+          if (!soldVia) return;
 
-        const updateQuery = supabase
-          .from(tableName)
-          .update(updateData)
-          .eq("id", initialData.id);
+          const { data: soldResult, error: soldError } = await supabase.rpc('mark_listing_sold', {
+            p_car_id: initialData.id,
+            p_sold_via: soldVia,
+            p_sold_price: parseInt(soldData.price),
+            p_buyer_name: soldData.buyer_name,
+            p_date_sold: soldData.date,
+          });
+          if (soldError) throw soldError;
+          if (!soldResult?.success) {
+            throw new Error(`mark_listing_sold rejected: ${soldResult?.reason ?? 'unknown'}`);
+          }
+        } else {
+          // Dealer flow (and rentals): direct update scoped to the dealership
+          // cars_rent table doesn't have sold_price, date_sold, or buyer_name columns
+          const updateData = viewMode === 'rent'
+            ? { status: statusValue }
+            : {
+                status: statusValue,
+                sold_price: parseInt(soldData.price),
+                date_sold: soldData.date,
+                buyer_name: soldData.buyer_name,
+              };
 
-        // For cars_rent, always use dealership_id (no user_id column)
-        const finalQuery = (viewMode === 'rent' || !isUserMode)
-          ? updateQuery.eq("dealership_id", dealership.id)
-          : updateQuery.eq("user_id", params.userId);
+          const { error } = await supabase
+            .from(tableName)
+            .update(updateData)
+            .eq("id", initialData.id)
+            .eq("dealership_id", dealership.id);
 
-        const { error } = await finalQuery;
-
-        if (error) throw error;
+          if (error) throw error;
+        }
 
         setShowSoldModal(false);
         const successMessage = viewMode === 'rent'

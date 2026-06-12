@@ -253,8 +253,25 @@ export default function NumberPlatesManager() {
           }
         ])
       } else {
+        // Wallet listing slots: reserve before insert, bind after, release on
+        // failure. No-op while app_config.enforce_listing_slots is false.
+        let slotItemId: number | null = null
+        const { data: slot, error: slotError } = await supabase.rpc(
+          'request_listing_slot',
+          { p_listing_type: 'plate' }
+        )
+        if (slotError) {
+          // Backend without the wallet migration yet — don't block posting.
+          console.warn('request_listing_slot failed (ignored):', slotError)
+        } else if (slot && slot.allowed === false) {
+          Alert.alert(t('wallet.noListingSlotTitle'), t('wallet.noListingSlotMessage'))
+          return
+        } else if (slot?.wallet_item_id) {
+          slotItemId = Number(slot.wallet_item_id)
+        }
+
         // Insert new plate
-        const { error } = await supabase
+        const { data: insertedPlate, error } = await supabase
           .from('number_plates')
           .insert({
             letter: formData.letter.trim(),
@@ -264,8 +281,28 @@ export default function NumberPlatesManager() {
             user_id: user?.id,
             dealership_id: null // Set to null for user-owned plates
           })
+          .select('id')
+          .single()
 
-        if (error) throw error
+        if (error) {
+          if (slotItemId) {
+            const { error: releaseError } = await supabase.rpc(
+              'release_listing_slot',
+              { p_wallet_item_id: slotItemId }
+            )
+            if (releaseError) console.error('release_listing_slot failed:', releaseError)
+          }
+          throw error
+        }
+
+        if (slotItemId && insertedPlate?.id) {
+          const { error: bindError } = await supabase.rpc('bind_listing_slot', {
+            p_wallet_item_id: slotItemId,
+            p_listing_type: 'plate',
+            p_listing_id: insertedPlate.id,
+          })
+          if (bindError) console.error('bind_listing_slot failed:', bindError)
+        }
 
         Alert.alert(t('common.success'), t('plates.success_added'), [
           {

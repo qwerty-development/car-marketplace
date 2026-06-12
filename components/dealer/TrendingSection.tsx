@@ -7,43 +7,36 @@ import { supabase } from '@/utils/supabase';
 import { useTheme } from '@/utils/ThemeContext';
 
 interface TrendingRow {
-  dealership_id: number;
-  listing_type: string;
-  listing_id: number;
-  make: string | null;
-  model: string | null;
-  event_count: number;
-  rank: number;
   week_start: string;
+  rank: number;
+  make: string;
+  model: string;
+  event_count: number;
 }
 
 /**
- * "Trending this week" (US-17): the dealership's top 2 most-viewed cars over
- * the trailing 7 days, rebuilt weekly by the refresh_dealership_trending cron.
- * Renders nothing until data exists (early weeks can be sparse per client note).
+ * "Trending this week" (US-17): the top 2 most-viewed make+model combinations
+ * across the whole app over the trailing 7 days, rebuilt weekly by the
+ * refresh_market_trending cron — market insight for dealers, no specific
+ * listing exposed. Renders nothing until data exists (early weeks can be
+ * sparse per client note).
  */
-export default function TrendingSection({
-  dealershipId,
-}: {
-  dealershipId: number | null | undefined;
-}) {
+export default function TrendingSection() {
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
   const isRTL = I18nManager.isRTL;
 
   const { data: rows } = useQuery<TrendingRow[]>({
-    queryKey: ['dealership_trending', dealershipId],
+    queryKey: ['market_trending'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('dealership_trending')
+        .from('market_trending')
         .select('*')
-        .eq('dealership_id', dealershipId!)
         .order('rank', { ascending: true })
         .limit(2);
       if (error) throw error;
       return (data ?? []) as TrendingRow[];
     },
-    enabled: !!dealershipId,
   });
 
   if (!rows || rows.length === 0) return null;
@@ -72,7 +65,7 @@ export default function TrendingSection({
       </View>
       {rows.map((row) => (
         <View
-          key={`${row.listing_type}-${row.listing_id}`}
+          key={`${row.week_start}-${row.rank}`}
           className="items-center py-1.5"
           style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}
         >

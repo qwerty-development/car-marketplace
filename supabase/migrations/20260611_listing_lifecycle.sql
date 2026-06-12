@@ -3,8 +3,10 @@
 -- Date: 2026-06-11
 -- Description:
 --   - Listings expire 2 months (app_config.listing_duration_days) after posting
---     (US-06, US-18): stored expire_at column on cars + cars_rent, set on insert,
---     hourly cron flips status to 'expired' and notifies the owner.
+--     (US-06, US-18): stored expire_at column on cars + cars_rent + number_plates,
+--     set on insert, hourly cron flips status to 'expired' and notifies the owner.
+--     number_plates.status is an ENUM — the migration adds the 'expired' label
+--     to it if missing (cars/cars_rent use plain text status).
 --   - 24h-before warnings for BOTH listing expiry and feature expiry, idempotent
 --     via *_warning_sent_at stamp columns (client PDF: "1 day left or same day").
 --   - number_plates gains the same boost columns as cars/cars_rent so featured
@@ -31,9 +33,11 @@ ALTER TABLE public.cars_rent
   ADD COLUMN IF NOT EXISTS boost_expiry_warning_sent_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS featured_wallet_item_id BIGINT REFERENCES public.wallet_items(id) ON DELETE SET NULL;
 
--- Plates: boost columns (same names as cars/cars_rent so one expiry pass covers
+-- Plates: expiry + boost columns (same names as cars/cars_rent so one expiry pass covers
 -- all three tables; boost_priority stays populated for old production builds).
 ALTER TABLE public.number_plates
+  ADD COLUMN IF NOT EXISTS expire_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS expiry_warning_sent_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS is_boosted BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS boost_priority INTEGER,
   ADD COLUMN IF NOT EXISTS boost_end_date TIMESTAMPTZ,
@@ -47,23 +51,47 @@ CREATE INDEX IF NOT EXISTS idx_cars_expire_at ON public.cars(expire_at) WHERE st
 CREATE INDEX IF NOT EXISTS idx_cars_rent_expire_at ON public.cars_rent(expire_at) WHERE status = 'available';
 CREATE INDEX IF NOT EXISTS idx_cars_boosted ON public.cars(boost_end_date) WHERE is_boosted;
 CREATE INDEX IF NOT EXISTS idx_cars_rent_boosted ON public.cars_rent(boost_end_date) WHERE is_boosted;
+CREATE INDEX IF NOT EXISTS idx_plates_expire_at ON public.number_plates(expire_at) WHERE status = 'available';
 CREATE INDEX IF NOT EXISTS idx_plates_boosted ON public.number_plates(boost_end_date) WHERE is_boosted;
 
 -- ----------------------------------------------------------------------------
--- 2. Backfill: GRANDFATHER existing live listings with a fresh window.
+-- 2. Backfill: GRANDFATHER existing live listings with a fresh 75-day window.
 --    Deliberately NOT listed_at + 60d — that would instantly mass-expire
 --    thousands of older live listings the moment the cron first runs.
---    STAGGERED 45–75 days (avg = the 60-day rule): a single shared date would
---    expire the entire current inventory in the same hour two months from now
---    and blast every seller with notifications at once.
 -- ----------------------------------------------------------------------------
 UPDATE public.cars
-   SET expire_at = now() + interval '45 days' + (random() * interval '30 days')
+   SET expire_at = now() + interval '75 days'
  WHERE status = 'available' AND expire_at IS NULL;
 
 UPDATE public.cars_rent
-   SET expire_at = now() + interval '45 days' + (random() * interval '30 days')
+   SET expire_at = now() + interval '75 days'
  WHERE status = 'available' AND expire_at IS NULL;
+
+UPDATE public.number_plates
+   SET expire_at = now() + interval '75 days'
+ WHERE status = 'available' AND expire_at IS NULL;
+
+-- number_plates.status is an ENUM (cars/cars_rent use text) — the expiry cron
+-- assigns 'expired', so make sure the enum has that label before the function
+-- ever runs. No-op if status is text or the label already exists.
+DO $$
+DECLARE
+  v_type   pg_type%ROWTYPE;
+BEGIN
+  SELECT t.* INTO v_type
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_type t ON t.oid = a.atttypid
+   WHERE n.nspname = 'public' AND c.relname = 'number_plates' AND a.attname = 'status';
+
+  IF v_type.typtype = 'e' AND NOT EXISTS (
+    SELECT 1 FROM pg_enum WHERE enumtypid = v_type.oid AND enumlabel = 'expired'
+  ) THEN
+    EXECUTE format('ALTER TYPE %I.%I ADD VALUE %L',
+                   v_type.typnamespace::regnamespace::text, v_type.typname, 'expired');
+  END IF;
+END $$;
 
 -- ----------------------------------------------------------------------------
 -- 3. Set expire_at on insert (trigger, so client inserts keep working as-is)
@@ -90,6 +118,11 @@ CREATE TRIGGER trg_cars_set_expire_at
 DROP TRIGGER IF EXISTS trg_cars_rent_set_expire_at ON public.cars_rent;
 CREATE TRIGGER trg_cars_rent_set_expire_at
   BEFORE INSERT ON public.cars_rent
+  FOR EACH ROW EXECUTE FUNCTION public.set_listing_expire_at();
+
+DROP TRIGGER IF EXISTS trg_number_plates_set_expire_at ON public.number_plates;
+CREATE TRIGGER trg_number_plates_set_expire_at
+  BEFORE INSERT ON public.number_plates
   FOR EACH ROW EXECUTE FUNCTION public.set_listing_expire_at();
 
 -- ----------------------------------------------------------------------------
@@ -282,6 +315,33 @@ BEGIN
     v_count := v_count + 1;
   END LOOP;
 
+  -- number_plates: no date_modified column on this table; status is an enum
+  -- (the 'expired' label is ensured by the DO block in section 2).
+  FOR rec IN
+    WITH expired AS (
+      UPDATE number_plates
+         SET status = 'expired'
+       WHERE status = 'available' AND expire_at <= now()
+      RETURNING id, letter, digits, user_id, dealership_id
+    )
+    SELECT e.id, COALESCE(e.letter, '') || ' ' || COALESCE(e.digits, '') AS label,
+           COALESCE(e.user_id, d.user_id) AS owner_id,
+           (e.dealership_id IS NOT NULL) AS is_dealer
+      FROM expired e
+      LEFT JOIN dealerships d ON d.id = e.dealership_id
+  LOOP
+    IF rec.owner_id IS NOT NULL THEN
+      PERFORM _queue_listing_notification(
+        rec.owner_id, 'listing_expired',
+        'Listing expired',
+        'Your plate listing for ' || rec.label || ' has expired and is no longer visible on Fleet.',
+        CASE WHEN rec.is_dealer THEN '/(home)/(dealer)/(tabs)/' ELSE '/(home)/(user)/(tabs)/MyListings' END,
+        'plate', rec.id
+      );
+    END IF;
+    v_count := v_count + 1;
+  END LOOP;
+
   RAISE LOG 'expire_listings: expired % listings', v_count;
   RETURN v_count;
 END;
@@ -336,6 +396,34 @@ BEGIN
         'Your listing for ' || rec.label || ' expires within 24 hours.',
         CASE WHEN rec.is_dealer THEN '/(home)/(dealer)/(tabs)/' ELSE '/(home)/(user)/(tabs)/MyListings' END,
         rec.ltype, rec.id
+      );
+      v_count := v_count + 1;
+    END IF;
+  END LOOP;
+
+  -- Plate listing expiry warnings
+  FOR rec IN
+    WITH w_plates AS (
+      UPDATE number_plates
+         SET expiry_warning_sent_at = now()
+       WHERE status = 'available'
+         AND expire_at > now() AND expire_at <= now() + interval '24 hours'
+         AND expiry_warning_sent_at IS NULL
+      RETURNING id, letter, digits, user_id, dealership_id
+    )
+    SELECT wp.id, COALESCE(wp.letter, '') || ' ' || COALESCE(wp.digits, '') AS label,
+           COALESCE(wp.user_id, d.user_id) AS owner_id,
+           (wp.dealership_id IS NOT NULL) AS is_dealer
+      FROM w_plates wp
+      LEFT JOIN dealerships d ON d.id = wp.dealership_id
+  LOOP
+    IF rec.owner_id IS NOT NULL THEN
+      PERFORM _queue_listing_notification(
+        rec.owner_id, 'listing_expiring',
+        'Listing expires tomorrow',
+        'Your plate listing for ' || rec.label || ' expires within 24 hours.',
+        CASE WHEN rec.is_dealer THEN '/(home)/(dealer)/(tabs)/' ELSE '/(home)/(user)/(tabs)/MyListings' END,
+        'plate', rec.id
       );
       v_count := v_count + 1;
     END IF;

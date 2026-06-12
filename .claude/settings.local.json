@@ -67,7 +67,14 @@
       "Bash(tee /tmp/tsc_p2.txt)",
       "Bash(tee /tmp/tsc_p3.txt)",
       "Bash(tee /tmp/tsc_p3b.txt)",
-      "Bash(awk 'NR>=1980 && NR<=2080 && \\(/keyExtractor|ListHeader|ListEmpty|refreshControl|onEndReached|contentContainer/\\)' app/\\\\\\(home\\\\\\)/\\\\\\(dealer\\\\\\)/\\\\\\(tabs\\\\\\)/index.tsx)"
+      "Bash(awk 'NR>=1980 && NR<=2080 && \\(/keyExtractor|ListHeader|ListEmpty|refreshControl|onEndReached|contentContainer/\\)' app/\\\\\\(home\\\\\\)/\\\\\\(dealer\\\\\\)/\\\\\\(tabs\\\\\\)/index.tsx)",
+      "Bash(git -C /home/charbel/Desktop/qwerty/fleet-webapp status --short)",
+      "Bash(echo \"exit: $?\")",
+      "Read(//home/charbel/Desktop/qwerty/**)",
+      "Read(//home/charbel/Desktop/qwerty/fleet-webapp/**)",
+      "Bash(git show *)",
+      "Read(//tmp/**)",
+      "Bash(tee /tmp/wtsc.txt)"
     ],
     "deny": []
   },
