@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS public.wallet_acquisitions (
   kind                TEXT NOT NULL CHECK (kind IN ('online_purchase', 'admin_grant', 'admin_refund')),
   status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'void')),
   package_id          BIGINT,
+  -- Payment-provider abstraction: Whish (today) anchors idempotency on
+  -- whish_external_id (numeric, sequence-backed). Future providers (Stripe,
+  -- Apple IAP, ...) set payment_provider + provider_ref (their string id)
+  -- and reuse the exact same pending→paid crediting flow.
+  payment_provider    TEXT NOT NULL DEFAULT 'whish',
+  provider_ref        TEXT,
   whish_external_id   BIGINT UNIQUE DEFAULT nextval('public.wallet_whish_external_id_seq'),
   total_price_usd     NUMERIC(10,2) NOT NULL DEFAULT 0,
   item_counts         JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -50,6 +56,10 @@ COMMENT ON COLUMN public.wallet_acquisitions.whish_external_id IS 'Whish externa
 CREATE INDEX IF NOT EXISTS idx_wallet_acq_owner ON public.wallet_acquisitions(owner_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_acq_dealership ON public.wallet_acquisitions(dealership_id) WHERE dealership_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_wallet_acq_status_pending ON public.wallet_acquisitions(created_at) WHERE status = 'pending';
+-- Idempotency anchor for future non-Whish providers (one ref per provider)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_acq_provider_ref
+  ON public.wallet_acquisitions(payment_provider, provider_ref)
+  WHERE provider_ref IS NOT NULL;
 
 ALTER TABLE public.wallet_acquisitions ENABLE ROW LEVEL SECURITY;
 
