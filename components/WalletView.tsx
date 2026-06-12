@@ -331,18 +331,30 @@ export default function WalletView({ role }: { role: 'user' | 'dealer' }) {
           {t('wallet.noPackages')}
         </Text>
       ) : (
-        rolePackages.map((pkg) => (
+        rolePackages.map((pkg) => {
+          // One expiry date per credit type: a package is locked while the
+          // wallet still holds active credits of any type it contains. All
+          // credits from one bundle share a single expiry, so this guarantees
+          // the user never juggles two expiry dates for the same type.
+          const heldTypes = Object.keys(pkg.contents ?? {}).filter(
+            (type) =>
+              Number((pkg.contents as any)[type]) > 0 &&
+              ((summary as any)[type]?.active ?? 0) > 0
+          ) as ItemType[];
+          const locked = heldTypes.length > 0;
+          const lockedExpiry = locked ? summary[heldTypes[0]]?.next_expiry : null;
+          return (
           <TouchableOpacity
             key={pkg.id}
             onPress={() => handleBuy(pkg)}
-            disabled={busy}
+            disabled={busy || locked}
             className={`mx-4 rounded-2xl border p-4 mb-3 ${
               isDarkMode ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-200 bg-neutral-50'
             }`}
             style={{
               flexDirection: isRTL ? 'row-reverse' : 'row',
               alignItems: 'center',
-              opacity: busy && purchasingPkgId !== pkg.id ? 0.5 : 1,
+              opacity: locked ? 0.55 : busy && purchasingPkgId !== pkg.id ? 0.5 : 1,
             }}
           >
             <View className="flex-1">
@@ -369,16 +381,34 @@ export default function WalletView({ role }: { role: 'user' | 'dealer' }) {
                   · {t('wallet.validityDays', { count: pkg.item_validity_days })}
                 </Text>
               </View>
+              {locked && (
+                <Text
+                  className="text-xs mt-1.5"
+                  style={{ color: '#D55004', textAlign }}
+                >
+                  {t('wallet.useRemainingFirst', {
+                    type: t(`wallet.itemTypes.${heldTypes[0]}`),
+                    date: formatDate(lockedExpiry),
+                  })}
+                </Text>
+              )}
             </View>
             {purchasingPkgId === pkg.id ? (
               <ActivityIndicator size="small" color="#D55004" />
+            ) : locked ? (
+              <Ionicons
+                name="lock-closed"
+                size={18}
+                color={isDarkMode ? '#737373' : '#9CA3AF'}
+              />
             ) : (
               <View className="bg-red rounded-full px-4 py-2">
                 <Text className="text-white text-sm font-bold">{t('wallet.buy')}</Text>
               </View>
             )}
           </TouchableOpacity>
-        ))
+          );
+        })
       )}
 
       {/* Item history */}

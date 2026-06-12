@@ -1520,7 +1520,8 @@
     "paymentPending": "Waiting for payment confirmation…",
     "paymentFailed": "Payment failed",
     "noListingSlotTitle": "No listings left",
-    "noListingSlotMessage": "You have used your available listings. Buy extra listings from your wallet to continue."
+    "noListingSlotMessage": "You have used your available listings. Buy extra listings from your wallet to continue.",
+    "useRemainingFirst": "Use your remaining {{type}} first (expires {{date}})"
   },
   "offers": {
     "offer": "Offer",
